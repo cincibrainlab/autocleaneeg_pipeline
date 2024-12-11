@@ -1,0 +1,161 @@
+# Default autoclean configuration
+
+# Task Configuration
+# -----------------
+
+# Available Tasks
+tasks:
+  rest_eyesopen:
+    mne_task: "rest"
+    description: "Resting state with eyes open"
+    lossless_config: lossless_config.yaml
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      eog_step:
+        enabled: false
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
+      trim_step:
+        enabled: true
+        value: 4
+      crop_step:
+        enabled: true
+        value:
+          start: 0
+          end: null  # null uses full duration
+      reference_step:
+        enabled: false
+        value: "average"
+      filter_step:
+        enabled: false
+        value:
+          l_freq: .1
+          h_freq: 100.0
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]
+      ch_cleaning_mode: "interpolate"
+      interpolate_bads_kwargs:
+        method: "MNE"
+      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
+      ic_rejection_threshold: 0.3
+      remove_flagged_ics: true
+  
+  chirp_default:
+    mne_task: "chirp"
+    description: "Chirp auditory stimulus task" 
+    lossless_config: lossless_config.yaml
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      eog_step:
+        enabled: true
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
+      trim_step:
+        enabled: true
+        value: 4
+      crop_step:
+        enabled: true
+        value:
+          start: 0
+          end: null  # null uses full duration
+      reference_step:
+        enabled: false
+        value: "average"
+      filter_step:
+        enabled: false
+        value:
+          l_freq: .1
+          h_freq: 100.0
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]
+      ch_cleaning_mode: "interpolate"
+      interpolate_bads_kwargs:
+        method: "MNE"
+      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
+      ic_rejection_threshold: 0.3
+      remove_flagged_ics: true
+  
+
+  assr_default:
+    mne_task: "assr"
+    description: "Auditory steady state response task"
+    lossless_config: lossless_config.yaml
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      eog_step:
+        enabled: true
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
+      trim_step:
+        enabled: true
+        value: 4
+      crop_step:
+        enabled: true
+        value:
+          start: 0
+          end: null  # null uses full duration
+      reference_step:
+        enabled: false
+        value: "average"
+      filter_step:
+        enabled: false
+        value:
+          l_freq: .1
+          h_freq: 100.0
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]
+      ch_cleaning_mode: "interpolate"
+      interpolate_bads_kwargs:
+        method: "MNE"
+      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
+      ic_rejection_threshold: 0.3
+      remove_flagged_ics: true
+  
+
+stage_files:
+  post_import:
+    enabled: true
+    suffix: "_postimport"
+  post_prepipeline:
+    enabled: true
+    suffix: "_postprepipeline"
+  post_resample:
+    enabled: false
+    suffix: "_postresample"
+  post_reference:
+    enabled: false
+    suffix: "_postreference"
+  post_trim:
+    enabled: false
+    suffix: "_posttrim"
+  post_crop:
+    enabled: false
+    suffix: "_postcrop"
+  post_prefilter:
+    enabled: false
+    suffix: "_postprefilter"
+  post_pylossless:
+    enabled: true
+    suffix: "_postpylossless"
+  post_rejection_policy:
+    enabled: true
+    suffix: "_postrejection"
+  post_clean_epochs:
+    enabled: true
+    suffix: "_postcleaneeg"
+  post_autoreject:
+    enabled: false
+    suffix: "_postautoreject"
+
