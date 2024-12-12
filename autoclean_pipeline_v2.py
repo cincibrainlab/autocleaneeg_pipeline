@@ -66,6 +66,8 @@ from unqlite import UnQLite
 from ulid import ULID
 
 import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
 
 import mne
 from mne_bids import BIDSPath, read_raw_bids, write_raw_bids, update_sidecar_json
@@ -564,7 +566,9 @@ def step_import_raw(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
     
     try:
         # Import based on EEG system type
+
         if eeg_system == "GSN-HydroCel-129":
+            breakpoint()
             raw = mne.io.read_raw_egi(input_fname=unprocessed_file, preload=preload, events_as_annotations=False)
             montage = mne.channels.make_standard_montage(eeg_system)
             montage.ch_names[128] = "E129"
@@ -1088,8 +1092,176 @@ def clean_artifacts_continuous(pipeline, autoclean_dict):
 
     bids_path = autoclean_dict["bids_path"]
 
+    rejection_policy = step_get_rejection_policy(autoclean_dict)
+    cleaned_raw = rejection_policy.apply(pipeline)
+
+    #playraw = cleaned_raw.copy()
+
+    step_plot_band_topos(cleaned_raw, pipeline,autoclean_dict)
+
+
+    breakpoint()
+
+    #bad_epochs = mne.preprocessing.find_bad_epochs(pipeline.raw)
+
     return pipeline, autoclean_dict
+
+def step_get_rejection_policy(autoclean_dict: dict) -> dict:
+
+    task = autoclean_dict["task"]
+    # Create a new rejection policy for cleaning channels and removing ICs
+    rejection_policy = ll.RejectionPolicy()
+
+    #breakpoint()
+
+    # Set parameters for channel rejection
+    rejection_policy["ch_flags_to_reject"] = autoclean_dict['tasks'][task]['rejection_policy']['ch_flags_to_reject']
+    rejection_policy["ch_cleaning_mode"] = autoclean_dict['tasks'][task]['rejection_policy']['ch_cleaning_mode']
+    rejection_policy["interpolate_bads_kwargs"] = {"method": autoclean_dict['tasks'][task]['rejection_policy']['interpolate_bads_kwargs']['method']}
+
+    # Set parameters for IC rejection
+    rejection_policy["ic_flags_to_reject"] = autoclean_dict['tasks'][task]['rejection_policy']['ic_flags_to_reject']
+    rejection_policy["ic_rejection_threshold"] = autoclean_dict['tasks'][task]['rejection_policy']['ic_rejection_threshold']
+    rejection_policy["remove_flagged_ics"] = autoclean_dict['tasks'][task]['rejection_policy']['remove_flagged_ics']
+
+    # Add metadata about rejection policy
+    metadata = {
+        "rejection_policy": {
+            "creationDateTime": datetime.now().isoformat(),
+            "task": task,
+            "ch_flags_to_reject": rejection_policy["ch_flags_to_reject"],
+            "ch_cleaning_mode": rejection_policy["ch_cleaning_mode"],
+            "interpolate_method": rejection_policy["interpolate_bads_kwargs"]["method"],
+            "ic_flags_to_reject": rejection_policy["ic_flags_to_reject"],
+            "ic_rejection_threshold": rejection_policy["ic_rejection_threshold"],
+            "remove_flagged_ics": rejection_policy["remove_flagged_ics"]
+        }
+    }
+
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    # Log rejection policy details using messaging function
+    message("info", "[bold blue]Rejection Policy Settings:[/bold blue]")
+    message("info", f"Channel flags to reject: {rejection_policy['ch_flags_to_reject']}")
+    message("info", f"Channel cleaning mode: {rejection_policy['ch_cleaning_mode']}")
+    message("info", f"Interpolation method: {rejection_policy['interpolate_bads_kwargs']['method']}")
+    message("info", f"IC flags to reject: {rejection_policy['ic_flags_to_reject']}")
+    message("info", f"IC rejection threshold: {rejection_policy['ic_rejection_threshold']}")
+    message("info", f"Remove flagged ICs: {rejection_policy['remove_flagged_ics']}")
+
+    return rejection_policy
+
+def step_plot_band_topos(raw, pipeline, autoclean_dict, bands=None, metadata=None):
+    """
+    Generate and save a single high-resolution topographical map image 
+    for multiple EEG frequency bands arranged horizontally, showing both pre and post cleaning.
+    Also creates a JSON sidecar with metadata for database ingestion.
+
+    Parameters:
+    -----------
+    raw : mne.io.Raw
+        The cleaned EEG data.
+    pipeline : Pipeline object
+        Contains the original raw data as pipeline.raw
+    output_dir : str
+        Directory where the topoplot image and JSON sidecar will be saved.
+    bands : list of tuple, optional
+        List of frequency bands to plot. Each tuple should contain 
+        (band_name, lower_freq, upper_freq).
+    metadata : dict, optional
+        Additional metadata to include in the JSON sidecar.
+
+    Returns:
+    --------
+    image_path : str
+        Path to the saved topoplot image.
+    """
+
+    # Create Artifact Report
+    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+
+    # Independent Components
+    target_figure = str(derivatives_path.copy().update(
+        suffix='topoplot',
+        extension='.png',
+        datatype='eeg'
+    ))
+
+    # Define default frequency bands if none provided
+    if bands is None:
+        bands = [
+            ("Delta", 1, 4),
+            ("Theta", 4, 8),
+            ("Alpha", 8, 12),
+            ("Beta", 12, 30),
+            ("Gamma1", 30, 60),
+            ("Gamma2", 60, 80)
+        ]
     
+    # Initialize dictionary to store band powers for metadata
+    band_powers_metadata = {}
+    
+    # Compute PSD for both original and cleaned data
+    spectrum_orig = pipeline.raw.compute_psd(method='welch', fmin=1, fmax=80, picks='eeg')
+    spectrum_clean = raw.compute_psd(method='welch', fmin=1, fmax=80, picks='eeg')
+    
+    # Compute band power for each frequency band
+    band_powers_orig = []
+    band_powers_clean = []
+    for band_name, l_freq, h_freq in bands:
+        # Get band power for original data
+        band_power_orig = spectrum_orig.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1)
+        band_powers_orig.append(band_power_orig)
+        
+        # Get band power for cleaned data
+        band_power_clean = spectrum_clean.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1)
+        band_powers_clean.append(band_power_clean)
+        
+        # Store in metadata
+        band_powers_metadata[band_name] = {
+            "frequency_band": f"{l_freq}-{h_freq} Hz",
+            "band_power_mean_original": float(np.mean(band_power_orig)),
+            "band_power_std_original": float(np.std(band_power_orig)),
+            "band_power_mean_cleaned": float(np.mean(band_power_clean)),
+            "band_power_std_cleaned": float(np.std(band_power_clean))
+        }
+
+    # Create a figure with subplots arranged in 2 rows
+    num_bands = len(bands)
+    fig, axes = plt.subplots(2, num_bands, figsize=(5*num_bands, 10))  # Increased height for 2 rows
+    
+    # Add a title to the entire figure with the filename
+    fig.suptitle(os.path.basename(raw.filenames[0]), fontsize=16)
+    
+    # Plot original data on top row
+    for ax, (band, power) in zip(axes[0], zip(bands, band_powers_orig)):
+        band_name, l_freq, h_freq = band
+        mne.viz.plot_topomap(
+            power, pipeline.raw.info, axes=ax, show=False, contours=0, cmap='jet'
+        )
+        ax.set_title(f"Original: {band_name}\n({l_freq}-{h_freq} Hz)", fontsize=12)
+    
+    # Plot cleaned data on bottom row
+    for ax, (band, power) in zip(axes[1], zip(bands, band_powers_clean)):
+        band_name, l_freq, h_freq = band
+        mne.viz.plot_topomap(
+            power, raw.info, axes=ax, show=False, contours=0, cmap='jet'
+        )
+        ax.set_title(f"Cleaned: {band_name}\n({l_freq}-{h_freq} Hz)", fontsize=12)
+    
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout to accommodate suptitle
+    
+    # Save the figure in high resolution
+    fig.savefig(target_figure, dpi=300)
+    plt.close(fig)
+    
+    return target_figure
+
+
 def process_resting_eyesopen(autoclean_dict: dict) -> None:
     message("info", "Processing resting_eyesopen data...")
 

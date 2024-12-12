@@ -23,7 +23,7 @@ tasks:
         enabled: true
         value:
           start: 0
-          end: 30.0  # null uses full duration
+          end: null  # null uses full duration
       reference_step:
         enabled: false
         value: "average"
