@@ -65,7 +65,15 @@ from dotenv import load_dotenv
 from unqlite import UnQLite
 from ulid import ULID
 
+import pandas as pd
+
 import mne
+from mne_bids import BIDSPath, read_raw_bids, write_raw_bids, update_sidecar_json
+from mne.io.constants import FIFF
+
+from pyprep.find_noisy_channels import NoisyChannels
+import pylossless as ll
+
 
 logger = logging.getLogger('autoclean')
 console = Console()
@@ -75,10 +83,12 @@ load_dotenv()
 # Single global database connection
 db = UnQLite('autoclean.db')
 
+# Configure logging to only write to file, not console
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[logging.FileHandler('autoclean.log')]
+    handlers=[logging.FileHandler('autoclean.log')],
+    force=True
 )
 
 def message(msg_type: str, text: str) -> None:
@@ -165,44 +175,6 @@ def validate_environment_variables() -> tuple[str, str]:
     message("success", "Environment variables validated")
     return autoclean_dir, autoclean_config
 
-def step_load_config(config_file: Union[str, Path]) -> dict:
-    message("info", f"Loading config: {config_file}")
-
-    config_schema = Schema({
-        'tasks': {
-            str: {
-                'mne_task': str,
-                'description': str,
-                'lossless_config': str,
-                'settings': {
-                    'resample_step': {'enabled': bool, 'value': int},
-                    'eog_step': {'enabled': bool, 'value': list},
-                    'trim_step': {'enabled': bool, 'value': int},
-                    'crop_step': {'enabled': bool, 'value': {'start': int, 'end': Or(float, None)}},
-                    'reference_step': {'enabled': bool, 'value': str},
-                    'filter_step': {'enabled': bool, 'value': {'l_freq': Or(float, None), 'h_freq': Or(float, None)}},
-                    'montage': {'enabled': bool, 'value': str}
-                },
-                'rejection_policy': {
-                    'ch_flags_to_reject': list,
-                    'ch_cleaning_mode': str,
-                    'interpolate_bads_kwargs': {'method': str},
-                    'ic_flags_to_reject': list,
-                    'ic_rejection_threshold': float,
-                    'remove_flagged_ics': bool
-                }
-            }
-        },
-        'stage_files': {
-            str: {'enabled': bool, 'suffix': str}
-        }
-    })
-
-    with open(config_file) as f:
-        config = yaml.safe_load(f)
-    autoclean_dict = config_schema.validate(config)
-    return autoclean_dict
-
 def validate_autoclean_config(config_file: Union[str, Path]) -> dict:
     message("header", f"Validating configuration: [dim cyan]{config_file}[/dim cyan]")
     
@@ -279,6 +251,44 @@ def validate_input_file(unprocessed_file: Union[str, Path]) -> None:
 
     message("success", "Input file validated")
 
+def step_load_config(config_file: Union[str, Path]) -> dict:
+    message("info", f"Loading config: {config_file}")
+
+    config_schema = Schema({
+        'tasks': {
+            str: {
+                'mne_task': str,
+                'description': str,
+                'lossless_config': str,
+                'settings': {
+                    'resample_step': {'enabled': bool, 'value': int},
+                    'eog_step': {'enabled': bool, 'value': list},
+                    'trim_step': {'enabled': bool, 'value': int},
+                    'crop_step': {'enabled': bool, 'value': {'start': int, 'end': Or(float, None)}},
+                    'reference_step': {'enabled': bool, 'value': str},
+                    'filter_step': {'enabled': bool, 'value': {'l_freq': Or(float, None), 'h_freq': Or(float, None)}},
+                    'montage': {'enabled': bool, 'value': str}
+                },
+                'rejection_policy': {
+                    'ch_flags_to_reject': list,
+                    'ch_cleaning_mode': str,
+                    'interpolate_bads_kwargs': {'method': str},
+                    'ic_flags_to_reject': list,
+                    'ic_rejection_threshold': float,
+                    'remove_flagged_ics': bool
+                }
+            }
+        },
+        'stage_files': {
+            str: {'enabled': bool, 'suffix': str}
+        }
+    })
+
+    with open(config_file) as f:
+        config = yaml.safe_load(f)
+    autoclean_dict = config_schema.validate(config)
+    return autoclean_dict
+
 def step_list_tasks(autoclean_dict: dict) -> list[str]:
     return list(autoclean_dict['tasks'].keys())
 
@@ -320,6 +330,57 @@ def step_prepare_directories(task: str) -> tuple[Path, Path, Path, Path, Path]:
     
     message("success", "Directories ready")
     return autoclean_dir, dirs["bids"], dirs["metadata"], dirs["clean"], dirs["stage"], dirs["debug"]
+
+def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
+    """Save raw EEG data to SET format with descriptive filename.
+    
+    Args:
+        raw: MNE Raw object containing EEG data
+        output_path: Path object specifying output directory
+        autoclean_dict: Dictionary containing configuration and paths
+        stage: Processing stage to get suffix from stage_files config
+        
+    Returns:
+        Path: Path to the saved SET file
+    """
+    #Only save if enabled for this stage in stage_files config
+    if not autoclean_dict['stage_files'][stage]['enabled']:
+        return None
+        
+    # Get suffix from stage_files config
+    suffix = autoclean_dict['stage_files'][stage]['suffix']
+
+    # Create subfolder using suffix name
+    if output_path is None:
+        output_path = autoclean_dict["stage_dir"]
+
+    subfolder = output_path / suffix
+    subfolder.mkdir(exist_ok=True)
+
+    basename = Path(autoclean_dict["unprocessed_file"]).stem
+    set_path = subfolder / f"{basename}{suffix}_raw.set"
+    
+    raw.export(set_path, fmt='eeglab', overwrite=True)
+    message("success", f"Saved stage file for {stage} to: {basename}")
+
+    metadata = {
+        "save_raw_to_set": {
+            "creationDateTime": datetime.now().isoformat(),
+            "stage": stage,
+            "outputPath": str(set_path),
+            "suffix": suffix,
+            "basename": basename,
+            "format": "eeglab"
+        }
+    }
+
+    run_id = autoclean_dict['run_id']
+    manage_database(operation='update', update_record={
+        'run_id': run_id,
+        'metadata': metadata
+    })
+
+    return set_path
 
 def manage_database(operation: str = 'connect', run_record: dict = None, update_record: dict = None) -> None:
     try:
@@ -397,7 +458,6 @@ def manage_database(operation: str = 'connect', run_record: dict = None, update_
                     message("error", error_msg)
                     raise ValueError(error_msg)
 
-
         elif operation == 'get_record':
             collection = manage_database(operation='get_collection')
             if run_record and 'run_id' in run_record:
@@ -452,8 +512,8 @@ def step_import_raw(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
     unprocessed_file = autoclean_dict["unprocessed_file"]
     eeg_system = autoclean_dict["eeg_system"]
     
-    logger.info(f"Importing raw EEG data from {unprocessed_file} using {eeg_system} system")
-    console.print("[cyan]Importing raw EEG data...[/cyan]")
+    message("info", f"Importing raw EEG data from {unprocessed_file} using {eeg_system} system")
+    message("header", "Importing raw EEG data...")
     
     try:
         # Import based on EEG system type
@@ -466,8 +526,8 @@ def step_import_raw(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
         else:
             raise ValueError(f"Unsupported EEG system: {eeg_system}")
             
-        logger.info("Raw EEG data imported successfully")
-        console.print("[green]✓ Raw EEG data imported successfully[/green]")
+        message("info", "Raw EEG data imported successfully")
+        message("success", "Raw EEG data imported successfully")
 
         metadata = {
             "step_import_raw": {
@@ -489,16 +549,515 @@ def step_import_raw(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
         return raw
         
     except Exception as e:
-        logger.error(f"Failed to import raw EEG data: {str(e)}")
-        console.print("[red]Error importing raw EEG data[/red]")
+        message("error", f"Failed to import raw EEG data: {str(e)}")
         raise
+
+def pre_pipeline_processing(raw, autoclean_dict):
+    message("header", "\nPre-pipeline Processing Steps")
+
+    task = autoclean_dict["task"]
+    
+    # Get enabled/disabled status for each step
+    apply_resample_toggle = autoclean_dict["tasks"][task]["settings"]["resample_step"]["enabled"]
+    apply_eog_toggle = autoclean_dict["tasks"][task]["settings"]["eog_step"]["enabled"]
+    apply_average_reference_toggle = autoclean_dict["tasks"][task]["settings"]["reference_step"]["enabled"]
+    apply_trim_toggle = autoclean_dict["tasks"][task]["settings"]["trim_step"]["enabled"]
+    apply_crop_toggle = autoclean_dict["tasks"][task]["settings"]["crop_step"]["enabled"]    
+    apply_filter_toggle = autoclean_dict["tasks"][task]["settings"]["filter_step"]["enabled"]
+
+    # Print status of each step
+    message("info", f"{'✓' if apply_resample_toggle else '✗'} Resample: {apply_resample_toggle}")
+    message("info", f"{'✓' if apply_eog_toggle else '✗'} EOG Assignment: {apply_eog_toggle}")
+    message("info", f"{'✓' if apply_average_reference_toggle else '✗'} Average Reference: {apply_average_reference_toggle}")
+    message("info", f"{'✓' if apply_trim_toggle else '✗'} Edge Trimming: {apply_trim_toggle}")
+    message("info", f"{'✓' if apply_crop_toggle else '✗'} Duration Cropping: {apply_crop_toggle}")
+    message("info", f"{'✓' if apply_filter_toggle else '✗'} Filtering: {apply_filter_toggle}\n")
+
+    # Initialize metadata
+    metadata = {
+        "pre_pipeline_processing": {
+            "creationDateTime": datetime.now().isoformat(),
+            "ResampleHz": None,
+            "TrimSec": None,
+            "LowPassHz1": None, 
+            "HighPassHz1": None,
+            "CropDurationSec": None,
+            "AverageReference": apply_average_reference_toggle,
+            "EOGChannels": None
+        }
+    }
+
+    # Resample
+    if apply_resample_toggle:
+        message("header", "Resampling data...")
+        target_sfreq = autoclean_dict["tasks"][task]["settings"]["resample_step"]["value"]
+        raw = step_resample_data(raw, target_sfreq)
+        message("success", f"Data resampled to {target_sfreq} Hz")
+        metadata["pre_pipeline_processing"]["ResampleHz"] = target_sfreq
+        save_raw_to_set(raw, autoclean_dict, 'post_resample')
+    
+    # EOG Assignment
+    if apply_eog_toggle:
+        message("header", "Setting EOG channels...")
+        eog_channels = autoclean_dict["tasks"][task]["settings"]["eog_step"]["value"]
+        raw = step_mark_eog_channels(raw, eog_channels)
+        message("success", "EOG channels assigned")
+        metadata["pre_pipeline_processing"]["EOGChannels"] = eog_channels
+    
+    # Average Reference
+    if apply_average_reference_toggle:
+        message("header", "Applying average reference...")
+        ref_type = autoclean_dict["tasks"][task]["settings"]["reference_step"]["value"]
+        raw = step_set_reference(raw, ref_type)
+        message("success", "Average reference applied")
+        save_raw_to_set(raw, autoclean_dict, 'post_reference')
+    
+    # Trim Edges
+    if apply_trim_toggle:
+        message("header", "Trimming data edges...")
+        trim = autoclean_dict["tasks"][task]["settings"]["trim_step"]["value"]
+        start_time = raw.times[0]
+        end_time = raw.times[-1]
+        raw.crop(tmin=start_time + trim, tmax=end_time - trim)   
+        message("success", f"Data trimmed by {trim}s from each end")
+        metadata["pre_pipeline_processing"]["TrimSec"] = trim
+        save_raw_to_set(raw, autoclean_dict, 'post_trim')
+
+    # Crop Duration
+    if apply_crop_toggle:
+        message("header", "Cropping data duration...")
+        start_time = autoclean_dict["tasks"][task]["settings"]["crop_step"]["value"]['start']
+        end_time = autoclean_dict["tasks"][task]["settings"]["crop_step"]["value"]['end']
+        if end_time is None:
+            end_time = raw.times[-1]  # Use full duration if end is null
+        raw.crop(tmin=start_time, tmax=end_time)
+        target_crop_duration = raw.times[-1] - raw.times[0]
+        message("success", f"Data cropped to {target_crop_duration:.1f}s")
+        metadata["pre_pipeline_processing"]["CropDurationSec"] = target_crop_duration
+        metadata["pre_pipeline_processing"]["CropStartSec"] = start_time
+        metadata["pre_pipeline_processing"]["CropEndSec"] = end_time
+        save_raw_to_set(raw, autoclean_dict, 'post_crop')
+
+    # Pre-Filter    
+    if apply_filter_toggle:
+        message("header", "Applying frequency filters...")
+        target_lfreq = float(autoclean_dict["tasks"][task]["settings"]["filter_step"]["value"]["l_freq"])
+        target_hfreq = float(autoclean_dict["tasks"][task]["settings"]["filter_step"]["value"]["h_freq"])
+        raw.filter(l_freq=target_lfreq, h_freq=target_hfreq)
+        message("success", f"Applied bandpass filter: {target_lfreq}-{target_hfreq} Hz")
+        metadata["pre_pipeline_processing"]["LowPassHz1"] = target_lfreq
+        metadata["pre_pipeline_processing"]["HighPassHz1"] = target_hfreq
+        save_raw_to_set(raw, autoclean_dict, 'post_filter')
+    
+    run_id = autoclean_dict['run_id']
+    manage_database(operation='update', update_record={
+        'run_id': run_id,
+        'metadata': metadata
+    })
+
+    return raw
+
+def step_resample_data(raw, resample_freq):
+    """Resample data using frequency from config."""
+    return raw.resample(resample_freq)
+
+def step_mark_eog_channels(raw, eog_channels):
+    """Set EOG channels based on config."""
+    eog_channels = [
+        f"E{ch}" for ch in sorted(eog_channels)
+    ]
+    raw.set_channel_types({ch: "eog" for ch in raw.ch_names if ch in eog_channels})
+    return raw
+
+def step_crop_data(raw, crop_start, crop_end):
+    """Crop data based on config settings."""
+    if crop_end is None:
+        tmax = raw.times[-1]  # Use the maximum time available
+    return raw.load_data().crop(tmin=crop_start, tmax=crop_end)
+
+def step_set_reference(raw, ref_type):
+    """Set EEG reference based on config."""
+    return raw.step_set_reference(ref_type, projection=True)
+
+
+def create_bids_path(raw, autoclean_dict):
+
+    unprocessed_file        = autoclean_dict["unprocessed_file"]
+    task                    = autoclean_dict["task"]
+    mne_task                = autoclean_dict["tasks"][task]["mne_task"]
+    bids_dir                = autoclean_dict["bids_dir"]
+    eeg_system              = autoclean_dict["eeg_system"]
+    config_file             = autoclean_dict["config_file"]
+
+    try:
+        bids_path = step_convert_to_bids(
+            raw,
+            output_dir=str(bids_dir),
+            task=mne_task,
+            participant_id=None,
+            line_freq=60.0,
+            overwrite=True,
+            study_name=unprocessed_file.stem
+        )
+
+        autoclean_dict["bids_path"] = bids_path
+        autoclean_dict["bids_basename"] = bids_path.basename
+
+        metadata = {
+            "step_convert_to_bids": {
+                "creationDateTime": datetime.now().isoformat(),
+                "bids_output_dir": str(bids_dir),
+                "bids_path": str(bids_path),
+                "bids_basename": bids_path.basename,
+                "study_name": unprocessed_file.stem,
+                "task": mne_task,
+                "participant_id": None,
+                "line_freq": 60.0,
+                "eegSystem": eeg_system,
+                "configFile": str(config_file)
+            }
+        }
+
+        manage_database(operation='update', update_record={
+            'run_id': autoclean_dict['run_id'],
+            'metadata': metadata
+        })
+
+        return raw, autoclean_dict
+    
+    except Exception as e:
+        message("error", f"Error converting raw to bids: {e}")
+        raise e 
+
+
+def step_convert_to_bids(
+    raw,
+    output_dir,
+    task="rest", 
+    participant_id=None,
+    line_freq=60.0,
+    overwrite=False,
+    events=None,
+    event_id=None,
+    study_name="EEG Study"):
+    """
+    Converts a single EEG data file into BIDS format with default/dummy metadata.
+
+    Parameters:
+    - file_path (str or Path): Path to the EEG data file.
+    - output_dir (str or Path): Directory where the BIDS dataset will be created.
+    - task (str, optional): Task name. Defaults to 'resting'.
+    - participant_id (str, optional): Participant ID. Defaults to sanitized basename of the file.
+    - line_freq (float, optional): Power line frequency in Hz. Defaults to 60.0.
+    - overwrite (bool, optional): Whether to overwrite existing files. Defaults to False.
+    - study_name (str, optional): Name of the study. Defaults to "EEG Study".
+
+    Dependent Functions:
+    - step_sanitize_id(): Sanitizes and formats participant ID from filename
+    - step_create_dataset_desc(): Creates BIDS dataset description JSON file
+    - step_create_participants_json(): Creates participants.json metadata file
+    - update_sidecar_json(): Updates sidecar JSON files with additional metadata
+    """
+    import hashlib
+
+
+    file_path = raw.filenames[0]
+
+    bids_root = Path(output_dir)
+    bids_root.mkdir(parents=True, exist_ok=True)
+
+    # Sanitize and set participant ID
+    if participant_id is None:
+        participant_id = step_sanitize_id(file_path)
+    # subject_id = participant_id.zfill(5)
+    subject_id = str(participant_id)
+
+    # Default metadata
+    session = None
+    run = None
+    age = "n/a"
+    sex = "n/a"
+    group = "n/a"
+
+    bids_path = BIDSPath(
+        subject=subject_id,
+        session=session,
+        task=task,
+        run=run,
+        datatype="eeg",
+        root=bids_root,
+        suffix="eeg",
+    )
+
+    fif_file = Path(file_path)
+
+    # Read the raw data
+    try:
+        file_hash = hashlib.sha256(fif_file.read_bytes()).hexdigest()
+        file_name = fif_file.name
+    except Exception as e:
+        message("error", f"Failed to read {fif_file}: {e}")
+        sys.exit(1)
+
+    # Prepare additional metadata
+    raw.info["subject_info"] = {"id": int(subject_id), "age": None, "sex": sex}
+
+    raw.info["line_freq"] = line_freq
+
+    # Prepare unit for BIDS
+    for ch in raw.info["chs"]:
+        ch["unit"] = FIFF.FIFF_UNIT_V  # Assuming units are in Volts
+
+    # Additional BIDS parameters
+    bids_kwargs = {
+        "raw": raw,
+        "bids_path": bids_path,
+        "overwrite": overwrite,
+        "verbose": False,
+        "format": "BrainVision",
+        "events": events,
+        "event_id": event_id,
+        "allow_preload": True
+    }
+
+    # Write BIDS data
+    try:
+        write_raw_bids(**bids_kwargs)
+        message("success", f"Converted {fif_file.name} to BIDS format.")
+        entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
+        sidecar_path = bids_path.copy().update(extension=".json")
+        update_sidecar_json(bids_path=sidecar_path, entries=entries)
+    except Exception as e:
+        message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
+        sys.exit(1)
+
+    # Update participants.tsv
+    participants_file = bids_root / "participants.tsv"
+    if not participants_file.exists():
+        participants_df = pd.DataFrame(
+            columns=["participant_id", "age", "sex", "group"]
+        )
+    else:
+        participants_df = pd.read_csv(participants_file, sep="\t")
+
+    new_entry = {
+        "participant_id": f"sub-{subject_id}",
+        "bids_path": bids_path,
+        "age": age,
+        "sex": sex,
+        "group": group,
+        "eegid": fif_file.stem,
+        "file_name": file_name,
+        "file_hash": file_hash,
+    }
+
+    participants_df = participants_df._append(new_entry, ignore_index=True)
+    participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
+    participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
+
+    # Create dataset_description.json if it doesn't exist
+    dataset_description_file = bids_root / "dataset_description.json"
+    if not dataset_description_file.exists():
+        step_create_dataset_desc(bids_root, study_name=study_name)
+
+    # Create participants.json if it doesn't exist
+    participants_json_file = bids_root / "participants.json"
+    if not participants_json_file.exists():
+        step_create_participants_json(bids_root)
+
+    return bids_path
+
+def step_sanitize_id(filename):
+    """
+    Sanitizes the participant ID extracted from the filename to comply with BIDS conventions.
+
+    Parameters:
+    - filename (str): The filename to sanitize.
+
+    Returns:
+    - str: A sanitized participant ID.
+    """
+    import hashlib
+
+    def filename_to_number(filename, max_value=1000000):
+        # Create a hash of the filename
+        hash_object = hashlib.md5(filename.encode())
+        # Get the first 8 bytes of the hash as an integer
+        hash_int = int.from_bytes(hash_object.digest()[:8], "big")
+        # Use modulo to get a number within the desired range
+        return hash_int % max_value
+
+    basename = Path(filename).stem
+    participant_id = filename_to_number(basename)
+    message("info", f"Unique Number for {basename}: {participant_id}")
+
+    return participant_id
+
+def step_create_dataset_desc(output_path, study_name):
+    """
+    Creates BIDS dataset description JSON file.
+
+    Parameters:
+    - output_path (Path): Directory where the file will be created
+    - study_name (str): Name of the study
+    """
+    dataset_description = {
+        "Name": study_name,
+        "BIDSVersion": "1.6.0",
+        "DatasetType": "raw",
+    }
+    with open(output_path / "dataset_description.json", "w") as f:
+        json.dump(dataset_description, f, indent=4)
+    message("success", "Created dataset_description.json")
+
+def step_create_participants_json(output_path):
+    """
+    Creates participants.json metadata file.
+
+    Parameters:
+    - output_path (Path): Directory where the file will be created
+    """
+    participants_json = {
+        "participant_id": {"Description": "Unique participant identifier"},
+        "bids_path": {"Description": "Path to the BIDS file"},
+        "file_hash": {"Description": "Hash of the original file"},
+        "file_name": {"Description": "Name of the original file"},
+        "eegid": {"Description": "Original participant identifier"},
+        "age": {"Description": "Age of the participant", "Units": "years"},
+        "sex": {
+            "Description": "Biological sex of the participant",
+            "Levels": {
+                "M": "Male",
+                "F": "Female", 
+                "O": "Other",
+                "n/a": "Not available",
+            },
+        },
+        "group": {"Description": "Participant group", "Levels": {}},
+    }
+    with open(output_path / "participants.json", "w") as f:
+        json.dump(participants_json, f, indent=4)
+    message("success", "Created participants.json")
+
+def step_clean_bad_channels(raw, autoclean_dict):
+    # Setup options
+    options = {
+        "random_state": 1337,
+        "ransac": True,
+        "channel_wise": False,
+        "max_chunk_size": None,
+        "threshold": 3.0
+    }
+
+    # Temporarily switch EOG channels to EEG type
+    eog_picks = mne.pick_types(raw.info, eog=True, exclude=[])
+    eog_ch_names = [raw.ch_names[idx] for idx in eog_picks]
+    raw.set_channel_types({ch: 'eeg' for ch in eog_ch_names})
+
+    eeg_picks = mne.pick_types(raw.info, eeg=True, exclude=[])
+
+    # Run noisy channels detection
+    cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
+    cleaned_raw.find_all_bads(
+        ransac=options["ransac"], 
+        channel_wise=options["channel_wise"],
+        max_chunk_size=options["max_chunk_size"]
+    )
+
+    picks = mne.pick_types(raw.info, eeg=True, exclude=[])
+
+    print(raw.info["bads"])
+    raw.info["bads"].extend(cleaned_raw.get_bads())
+
+    # Record metadata with options
+    metadata = {
+        "step_clean_bad_channels": {
+            "creationDateTime": datetime.now().isoformat(),
+            "method": "NoisyChannels",
+            "options": options,
+            "bads": raw.info["bads"]
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return raw
+
+def step_run_pylossless(autoclean_dict):
+
+    task                    = autoclean_dict["task"]
+    bids_path               = autoclean_dict["bids_path"]
+    config_path             = autoclean_dict["tasks"][task]["lossless_config"] 
+    derivative_name         = "pylossless"
+    raw = read_raw_bids(
+        bids_path, verbose="ERROR", extra_params={"preload": True}
+    )
+
+    try:
+        pipeline = ll.LosslessPipeline(config_path)
+        pipeline.run_with_raw(raw)
+        
+        derivatives_path = pipeline.get_derivative_path(
+            bids_path, derivative_name
+        )
+        pipeline.save(
+            derivatives_path, overwrite=True, format="BrainVision")
+
+    except Exception as e:
+        message("error", f"Failed to run pylossless: {str(e)}")
+        raise e
+
+    try:
+        pylossless_config = yaml.safe_load(open(config_path))
+        metadata = {
+            "step_run_pylossless": {
+                "creationDateTime": datetime.now().isoformat(),
+                "derivativeName": derivative_name,
+                "configFile": str(config_path),
+                "pylossless_config": pylossless_config
+            }
+        }
+
+        manage_database(operation='update', update_record={
+            'run_id': autoclean_dict['run_id'],
+            'metadata': metadata
+        })
+
+    except Exception as e:
+        message("error", f"Failed to load pylossless config: {str(e)}")
+        raise e
+
+    return pipeline
+
 
 def process_resting_eyesopen(autoclean_dict: dict) -> None:
     message("info", "Processing resting_eyesopen data...")
 
     # Import and save raw EEG data
     raw = step_import_raw(autoclean_dict)
-    # save_raw_to_set(raw, autoclean_dict, 'post_import')
+    save_raw_to_set(raw, autoclean_dict, 'post_import')
+
+    # Run preprocessing pipeline and save intermediate result
+    raw = pre_pipeline_processing(raw, autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_prepipeline')
+
+    # Create BIDS-compliant paths and filenames
+    raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
+
+    raw = step_clean_bad_channels(raw, autoclean_dict)
+
+    # Run PyLossless pipeline and save result
+    pipeline = step_run_pylossless(autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
+
+        # Artifact Rejection
+    pipeline, autoclean_dict = clean_artifacts_continuous(pipeline, autoclean_dict)
+
+    console.print("[green]✓ Completed[/green]")
+
 
 def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
 

@@ -1632,6 +1632,7 @@ def create_bids_path(raw, autoclean_dict):
     except Exception as e:
         console.print(f"[red]Error converting raw to bids: {e}[/red]")
         raise e 
+
 def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
     """Save raw EEG data to SET format with descriptive filename.
     
