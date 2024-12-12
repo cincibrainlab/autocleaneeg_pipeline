@@ -65,10 +65,15 @@ from dotenv import load_dotenv
 from unqlite import UnQLite
 from ulid import ULID
 
+import mne
+
 logger = logging.getLogger('autoclean')
 console = Console()
 
 load_dotenv()
+
+# Single global database connection
+db = UnQLite('autoclean.db')
 
 logging.basicConfig(
     level=logging.INFO,
@@ -225,9 +230,6 @@ def validate_task(task: str, available_tasks: list[str]) -> str:
         message("error", error_msg)
         raise ValueError(error_msg)
 
-def step_list_tasks(autoclean_dict: dict) -> list[str]:
-    return list(autoclean_dict['tasks'].keys())
-
 def validate_eeg_system(eeg_system: str) -> str:
     VALID_MONTAGES = {
         'standard_1005': '10-05 system',
@@ -277,6 +279,9 @@ def validate_input_file(unprocessed_file: Union[str, Path]) -> None:
 
     message("success", "Input file validated")
 
+def step_list_tasks(autoclean_dict: dict) -> list[str]:
+    return list(autoclean_dict['tasks'].keys())
+
 def step_log_start(unprocessed_file: Union[str, Path], eeg_system: str, task: str, autoclean_config_file: Union[str, Path]) -> dict:
     console.print(
         Panel(
@@ -288,78 +293,7 @@ def step_log_start(unprocessed_file: Union[str, Path], eeg_system: str, task: st
             title="Pipeline Start"
         )
     )
-
     return
-
-def step_handle_metadata(autoclean_dict, metadata=None, mode='load'):
-    metadata_dir = autoclean_dict["metadata_dir"]
-    unprocessed_file = Path(autoclean_dict["unprocessed_file"]) 
-    json_file = metadata_dir / f"{unprocessed_file.stem}_autoclean_metadata.json"
-    autoclean_dict["metadata_file"] = json_file
-
-    if mode == 'load':
-        try:
-            with open(json_file, "r") as f:
-                metadata = json.load(f)
-            if "step_handle_metadata" not in metadata:
-                metadata["step_handle_metadata"] = {
-                    "creationDateTime": datetime.now().isoformat(),
-                    "unprocessedFile": str(autoclean_dict["unprocessed_file"].name),
-                    "unprocessedPath": str(autoclean_dict["unprocessed_file"].parent),
-                    "task": autoclean_dict["task"],
-                    "eegSystem": autoclean_dict["eeg_system"], 
-                    "configFile": str(autoclean_dict["config_file"])
-                }
-                with open(json_file, "w") as f:
-                    json.dump(metadata, f, indent=4)
-            return metadata
-        except FileNotFoundError:
-            metadata = {
-                "step_handle_metadata": {
-                    "creationDateTime": datetime.now().isoformat(),
-                    "unprocessedFile": str(autoclean_dict["unprocessed_file"].name),
-                    "unprocessedPath": str(autoclean_dict["unprocessed_file"].parent),
-                    "task": autoclean_dict["task"],
-                    "eegSystem": autoclean_dict["eeg_system"],
-                    "configFile": str(autoclean_dict["config_file"])
-                }
-            }
-            with open(json_file, "w") as f:
-                json.dump(metadata, f, indent=4)
-            return metadata
-            
-    elif mode == 'save':
-        existing_metadata = {}
-        if json_file.exists():
-            with open(json_file, "r") as f:
-                existing_metadata = json.load(f)
-                
-            if "step_handle_metadata" not in existing_metadata:
-                existing_metadata["step_handle_metadata"] = {
-                    "creationDateTime": datetime.now().isoformat(),
-                    "unprocessedFile": str(autoclean_dict["unprocessed_file"].name),
-                    "unprocessedPath": str(autoclean_dict["unprocessed_file"].parent),
-                    "task": autoclean_dict["task"],
-                    "eegSystem": autoclean_dict["eeg_system"],
-                    "configFile": str(autoclean_dict["config_file"])
-                }
-        
-        if metadata is not None:
-            if "save_raw_to_set" in metadata:
-                if "save_raw_to_set" not in existing_metadata:
-                    existing_metadata["save_raw_to_set"] = [metadata["save_raw_to_set"]]
-                else:
-                    if not isinstance(existing_metadata["save_raw_to_set"], list):
-                        existing_metadata["save_raw_to_set"] = [existing_metadata["save_raw_to_set"]]
-                    existing_metadata["save_raw_to_set"].append(metadata["save_raw_to_set"])
-                del metadata["save_raw_to_set"]
-            existing_metadata.update(metadata)
-
-        with open(json_file, "w") as f:
-            json.dump(existing_metadata, f, indent=4)
-        message("success", "Metadata updated")
-            
-        return existing_metadata
 
 def step_prepare_directories(task: str) -> tuple[Path, Path, Path, Path, Path]:
     message("header", f"Setting up directories for task: {task}")
@@ -387,29 +321,22 @@ def step_prepare_directories(task: str) -> tuple[Path, Path, Path, Path, Path]:
     message("success", "Directories ready")
     return autoclean_dir, dirs["bids"], dirs["metadata"], dirs["clean"], dirs["stage"], dirs["debug"]
 
-def process_resting_eyesopen(autoclean_dict: dict) -> None:
-    step_handle_metadata(autoclean_dict, mode='save')
-    message("info", "Processing resting_eyesopen data...")
-
-def manage_database(operation: str = 'connect', db: UnQLite = None, run_record: dict = None, update_record: dict = None) -> UnQLite:
+def manage_database(operation: str = 'connect', run_record: dict = None, update_record: dict = None) -> None:
     try:
-        if operation == 'connect':
-            message("info", "Connecting to database...")
-            return UnQLite('autoclean.db')
-
-        collection = db.collection('pipeline_runs')
-
         if operation == 'create_collection':
+            collection = db.collection('pipeline_runs')
             if not collection.exists():
                 collection.create()
                 message("success", "Created 'pipeline_runs' collection")
 
         elif operation == 'drop_collection':
+            collection = db.collection('pipeline_runs')
             if collection.exists():
                 collection.drop()
                 message("warning", "'pipeline_runs' collection dropped")
 
         elif operation == 'get_collection':
+            collection = db.collection('pipeline_runs')
             if collection.exists():
                 return collection
             else:
@@ -418,11 +345,11 @@ def manage_database(operation: str = 'connect', db: UnQLite = None, run_record: 
                 raise ValueError(error_msg)
 
         elif operation == 'store':
-            collection = manage_database(operation='get_collection', db=db)
+            collection = manage_database(operation='get_collection')
             return collection.store(run_record, return_id=True)
 
         elif operation == 'update':
-            collection = manage_database(operation='get_collection', db=db)
+            collection = manage_database(operation='get_collection')
             if update_record and 'run_id' in update_record:
                 run_id = update_record['run_id']
                 existing_record = collection.filter(lambda x: x['run_id'] == run_id)
@@ -472,7 +399,7 @@ def manage_database(operation: str = 'connect', db: UnQLite = None, run_record: 
 
 
         elif operation == 'get_record':
-            collection = manage_database(operation='get_collection', db=db)
+            collection = manage_database(operation='get_collection')
             if run_record and 'run_id' in run_record:
                 run_id = run_record['run_id']
                 record = collection.filter(lambda x: x['run_id'] == run_id)
@@ -484,7 +411,7 @@ def manage_database(operation: str = 'connect', db: UnQLite = None, run_record: 
                     raise ValueError(error_msg)
 
         elif operation == 'print_record':
-            collection = manage_database(operation='get_collection', db=db)
+            collection = manage_database(operation='get_collection')
             if run_record and 'run_id' in run_record:
                 run_id = run_record['run_id']
                 record = collection.filter(lambda x: x['run_id'] == run_id)
@@ -504,19 +431,93 @@ def manage_database(operation: str = 'connect', db: UnQLite = None, run_record: 
         message("error", f"Database operation '{operation}' failed: {e}")
         raise
 
+def step_import_raw(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
+    """Import and configure raw EEG data.
+    
+    Args:
+        autoclean_dict: Dictionary containing pipeline configuration including:
+                       - unprocessed_file: Path to raw EEG data file
+                       - eeg_system: Name of the EEG system montage
+        preload: If True, data will be loaded into memory at initialization.
+                If False, data will not be loaded until explicitly called.
+        
+    Returns:
+        mne.io.Raw: Imported and configured raw EEG data with appropriate montage set
+        
+    Raises:
+        ValueError: If the specified EEG system is not supported
+        FileNotFoundError: If the input file does not exist
+        RuntimeError: If there is an error importing or configuring the data
+    """
+    unprocessed_file = autoclean_dict["unprocessed_file"]
+    eeg_system = autoclean_dict["eeg_system"]
+    
+    logger.info(f"Importing raw EEG data from {unprocessed_file} using {eeg_system} system")
+    console.print("[cyan]Importing raw EEG data...[/cyan]")
+    
+    try:
+        # Import based on EEG system type
+        if eeg_system == "GSN-HydroCel-129":
+            raw = mne.io.read_raw_egi(input_fname=unprocessed_file, preload=preload, events_as_annotations=False)
+            montage = mne.channels.make_standard_montage(eeg_system)
+            montage.ch_names[128] = "E129"
+            raw.set_montage(montage, match_case=False)
+            raw.pick('eeg')
+        else:
+            raise ValueError(f"Unsupported EEG system: {eeg_system}")
+            
+        logger.info("Raw EEG data imported successfully")
+        console.print("[green]✓ Raw EEG data imported successfully[/green]")
+
+        metadata = {
+            "step_import_raw": {
+                "creationDateTime": datetime.now().isoformat(),
+                "unprocessedFile": str(autoclean_dict["unprocessed_file"].name),
+                "eegSystem": autoclean_dict["eeg_system"],
+                "sampleRate": raw.info["sfreq"],
+                "channelCount": len(raw.ch_names),
+                "durationSec": int(raw.n_times) / raw.info["sfreq"],
+                "numberSamples": int(raw.n_times)
+            }
+        }
+
+        run_id = autoclean_dict['run_id']
+        manage_database(operation='update', update_record={
+            'run_id': run_id,
+            'metadata': metadata
+        })
+        return raw
+        
+    except Exception as e:
+        logger.error(f"Failed to import raw EEG data: {str(e)}")
+        console.print("[red]Error importing raw EEG data[/red]")
+        raise
+
+def process_resting_eyesopen(autoclean_dict: dict) -> None:
+    message("info", "Processing resting_eyesopen data...")
+
+    # Import and save raw EEG data
+    raw = step_import_raw(autoclean_dict)
+    # save_raw_to_set(raw, autoclean_dict, 'post_import')
+
 def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
-    db = manage_database(operation='connect')
-    manage_database(operation='create_collection', db=db)
+
+    manage_database(operation='create_collection')
+
+    run_id = str(ULID())
 
     run_record = {
-        'run_id': str(ULID()),
+        'run_id': run_id,
         'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
         'task': task,
         'unprocessed_file': str(unprocessed_file),
-        'status': 'started',
+        'status': 'unprocessed',
+        'success': False,
+        'json_file': f"{unprocessed_file.stem}_autoclean_metadata.json",
         'metadata': {}
     }
-    run_record['record_id'] = manage_database(operation='store', db=db, run_record=run_record)
+
+    run_record['record_id'] = manage_database(operation='store', run_record=run_record)
 
     try:
         autoclean_dir, autoclean_config_file = validate_environment_variables()
@@ -550,7 +551,7 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
             'stage_dir': stage_dir
         }
 
-        manage_database(operation='update', db=db, update_record={
+        manage_database(operation='update', update_record={
             'run_id': run_record['run_id'],
             'metadata': {'entrypoint': autoclean_dict}
         })
@@ -562,7 +563,14 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
             
         run_record['status'] = 'completed'
 
-        manage_database(operation='print_record', db=db, run_record=run_record)
+        # Print record to console
+        manage_database(operation='print_record', run_record=run_record)
+        
+        # Export run record to JSON file
+        json_file = metadata_dir / run_record['json_file']
+        with open(json_file, "w") as f:
+            json.dump(run_record, f, indent=4)
+        message("success", f"Run record exported to {json_file}")
 
     except Exception as e:
         run_record['status'] = 'failed'
@@ -570,8 +578,7 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
         message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
         raise
     finally:
-        manage_database(operation='update', db=db, update_record=run_record)
-        db.close()
+        manage_database(operation='update', update_record=run_record)
         message("header", f"Run {run_record['run_id']} completed")
 
 def main() -> None:
