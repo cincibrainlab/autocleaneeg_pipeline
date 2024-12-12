@@ -311,7 +311,7 @@ def step_log_start(unprocessed_file: Union[str, Path], eeg_system: str, task: st
     )
     return
 
-def step_prepare_directories(task: str) -> tuple[Path, Path, Path, Path, Path]:
+def step_prepare_directories(task: str, run_id: str) -> tuple[Path, Path, Path, Path, Path]:
     message("header", f"Setting up directories for task: {task}")
 
     autoclean_dir = Path(os.getenv("AUTOCLEAN_DIR"))
@@ -333,9 +333,16 @@ def step_prepare_directories(task: str) -> tuple[Path, Path, Path, Path, Path]:
     for row in table_data:
         table.add_row(*row)
     console.print(Panel.fit(table))
-    
+
+    # Update directories in database
+    manage_database(operation='update', update_record={
+        'run_id': run_id,
+        'metadata': {'step_prepare_directories': {key: str(path) for key, path in dirs.items()}}
+    })
+
     message("success", "Directories ready")
     return autoclean_dir, dirs["bids"], dirs["metadata"], dirs["clean"], dirs["stage"], dirs["debug"]
+
 def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
     """Save raw EEG data to SET format with descriptive filename.
     
@@ -435,7 +442,11 @@ def manage_database(operation: str = 'connect', run_record: dict = None, update_
                     record_id = existing_record[0]['__id']
                     message("success", f"Found record with ID: {record_id}")
                     current_record = collection.fetch(record_id)
-                    current_record['status'] = update_record['status']
+                    
+                    # Append timestamped status
+                    timestamp = datetime.now().isoformat()
+                    current_record['status'] = f"{update_record['status']} at {timestamp}"
+                    
                     collection.update(record_id=record_id, record=current_record)
                     message("success", f"Status updated for run_id: {run_id}")
                 else:
@@ -757,6 +768,11 @@ def create_bids_path(raw, autoclean_dict):
         manage_database(operation='update', update_record={
             'run_id': autoclean_dict['run_id'],
             'metadata': metadata
+        })
+
+        manage_database(operation='update_status', update_record={
+            'run_id': autoclean_dict['run_id'],
+            'status': 'bids_path_created'
         })
 
         return raw, autoclean_dict
@@ -1081,7 +1097,7 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
     save_raw_to_set(raw, autoclean_dict, 'post_prepipeline')
 
     # Create BIDS-compliant paths and filenames
-    #raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
+    raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
 
     #raw = step_clean_bad_channels(raw, autoclean_dict)
 
@@ -1126,7 +1142,7 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
 
         step_log_start(unprocessed_file, eeg_system, task, autoclean_config_file)
         
-        autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, debug_dir = step_prepare_directories(task)
+        autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, debug_dir = step_prepare_directories(task, run_id)
 
         autoclean_dict = {
             'run_id': run_record['run_id'],
