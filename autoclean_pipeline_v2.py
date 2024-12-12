@@ -129,7 +129,7 @@ def message(msg_type: str, text: str) -> None:
     else:
         logger.info(clean_text)
 
-def validate_environment_variables() -> tuple[str, str]:
+def validate_environment_variables(run_id: str) -> tuple[str, str]:
     message("header", "Validating environment variables")
     
     status = {
@@ -147,8 +147,10 @@ def validate_environment_variables() -> tuple[str, str]:
         message("warning", "Set AUTOCLEAN_DIR in your .env file.")
         status["validate_environment_variables"]["status"] = "failed"
         status["validate_environment_variables"]["error"] = error_msg
-        with open("validation_status.json", "w") as f:
-            json.dump(status, f, indent=2)
+        manage_database(operation='update', update_record={
+            'run_id': run_id,
+            'metadata': status
+        })
         raise ValueError(error_msg)
     else:
         message("success", f"AUTOCLEAN_DIR: [dim cyan]{autoclean_dir}[/dim cyan]")
@@ -161,17 +163,21 @@ def validate_environment_variables() -> tuple[str, str]:
         message("warning", "Set AUTOCLEAN_CONFIG in your .env file.")
         status["validate_environment_variables"]["status"] = "failed"
         status["validate_environment_variables"]["error"] = error_msg
-        with open("validation_status.json", "w") as f:
-            json.dump(status, f, indent=2)
+        manage_database(operation='update', update_record={
+            'run_id': run_id,
+            'metadata': status
+        })
         raise ValueError(error_msg)
     else:
         message("success", f"AUTOCLEAN_CONFIG: [dim cyan]{autoclean_config}[/dim cyan]")
         status["validate_environment_variables"]["variables"]["AUTOCLEAN_CONFIG"] = autoclean_config
 
     status["validate_environment_variables"]["status"] = "completed"
-    with open("validation_status.json", "w") as f:
-        json.dump(status, f, indent=2)
-        
+    manage_database(operation='update', update_record={
+        'run_id': run_id,
+        'metadata': status
+    })
+    
     message("success", "Environment variables validated")
     return autoclean_dir, autoclean_config
 
@@ -330,7 +336,6 @@ def step_prepare_directories(task: str) -> tuple[Path, Path, Path, Path, Path]:
     
     message("success", "Directories ready")
     return autoclean_dir, dirs["bids"], dirs["metadata"], dirs["clean"], dirs["stage"], dirs["debug"]
-
 def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
     """Save raw EEG data to SET format with descriptive filename.
     
@@ -343,7 +348,7 @@ def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
     Returns:
         Path: Path to the saved SET file
     """
-    #Only save if enabled for this stage in stage_files config
+    # Only save if enabled for this stage in stage_files config
     if not autoclean_dict['stage_files'][stage]['enabled']:
         return None
         
@@ -380,6 +385,12 @@ def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
         'metadata': metadata
     })
 
+    # Update the main database record status to reflect the stage completed
+    manage_database(operation='update_status', update_record={
+        'run_id': run_id,
+        'status': f'{stage} completed'
+    })
+
     return set_path
 
 def manage_database(operation: str = 'connect', run_record: dict = None, update_record: dict = None) -> None:
@@ -408,6 +419,31 @@ def manage_database(operation: str = 'connect', run_record: dict = None, update_
         elif operation == 'store':
             collection = manage_database(operation='get_collection')
             return collection.store(run_record, return_id=True)
+
+        elif operation == 'update_status':
+            collection = manage_database(operation='get_collection')
+            if update_record and 'run_id' in update_record:
+                run_id = update_record['run_id']
+                
+                # Debug prints
+                message("info", f"Attempting to update status for run_id: {run_id}")
+
+                # Find matching record
+                existing_record = collection.filter(lambda x: x['run_id'] == run_id)
+                
+                if existing_record:
+                    record_id = existing_record[0]['__id']
+                    message("success", f"Found record with ID: {record_id}")
+                    current_record = collection.fetch(record_id)
+                    current_record['status'] = update_record['status']
+                    collection.update(record_id=record_id, record=current_record)
+                    message("success", f"Status updated for run_id: {run_id}")
+                else:
+                    error_msg = f"No record found for run_id: {run_id}"
+                    message("error", error_msg)
+                    message("info", "Available run_ids: " + 
+                           ", ".join([str(r.get('run_id')) for r in collection.all()]))
+                    raise ValueError(error_msg)
 
         elif operation == 'update':
             collection = manage_database(operation='get_collection')
@@ -1045,16 +1081,16 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
     save_raw_to_set(raw, autoclean_dict, 'post_prepipeline')
 
     # Create BIDS-compliant paths and filenames
-    raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
+    #raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
 
-    raw = step_clean_bad_channels(raw, autoclean_dict)
+    #raw = step_clean_bad_channels(raw, autoclean_dict)
 
     # Run PyLossless pipeline and save result
-    pipeline = step_run_pylossless(autoclean_dict)
-    save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
+    #pipeline = step_run_pylossless(autoclean_dict)
+    #save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
 
-        # Artifact Rejection
-    pipeline, autoclean_dict = clean_artifacts_continuous(pipeline, autoclean_dict)
+    # Artifact Rejection
+    #pipeline, autoclean_dict = clean_artifacts_continuous(pipeline, autoclean_dict)
 
     console.print("[green]✓ Completed[/green]")
 
@@ -1079,7 +1115,7 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
     run_record['record_id'] = manage_database(operation='store', run_record=run_record)
 
     try:
-        autoclean_dir, autoclean_config_file = validate_environment_variables()
+        autoclean_dir, autoclean_config_file = validate_environment_variables(run_id)
 
         autoclean_dict = validate_autoclean_config(autoclean_config_file)
 
@@ -1124,7 +1160,7 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
 
         # Print record to console
         manage_database(operation='print_record', run_record=run_record)
-        
+        breakpoint()
         # Export run record to JSON file
         json_file = metadata_dir / run_record['json_file']
         with open(json_file, "w") as f:
