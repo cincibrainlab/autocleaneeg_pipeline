@@ -23,7 +23,7 @@ tasks:
         enabled: true
         value:
           start: 0
-          end: null  # null uses full duration
+          end: 30.0  # null uses full duration
       reference_step:
         enabled: false
         value: "average"
@@ -146,6 +146,9 @@ stage_files:
   post_prefilter:
     enabled: false
     suffix: "_postprefilter"
+  post_bad_channels:
+    enabled: true
+    suffix: "_postbadchannels"
   post_pylossless:
     enabled: true
     suffix: "_postpylossless"

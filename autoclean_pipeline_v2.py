@@ -1084,7 +1084,12 @@ def step_run_pylossless(autoclean_dict):
 
     return pipeline
 
+def clean_artifacts_continuous(pipeline, autoclean_dict):
 
+    bids_path = autoclean_dict["bids_path"]
+
+    return pipeline, autoclean_dict
+    
 def process_resting_eyesopen(autoclean_dict: dict) -> None:
     message("info", "Processing resting_eyesopen data...")
 
@@ -1099,14 +1104,15 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
     # Create BIDS-compliant paths and filenames
     raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
 
-    #raw = step_clean_bad_channels(raw, autoclean_dict)
+    raw = step_clean_bad_channels(raw, autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_bad_channels')
 
     # Run PyLossless pipeline and save result
-    #pipeline = step_run_pylossless(autoclean_dict)
-    #save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
+    pipeline = step_run_pylossless(autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
 
     # Artifact Rejection
-    #pipeline, autoclean_dict = clean_artifacts_continuous(pipeline, autoclean_dict)
+    pipeline, autoclean_dict = clean_artifacts_continuous(pipeline, autoclean_dict)
 
     console.print("[green]✓ Completed[/green]")
 
@@ -1176,7 +1182,7 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
 
         # Print record to console
         manage_database(operation='print_record', run_record=run_record)
-        breakpoint()
+
         # Export run record to JSON file
         json_file = metadata_dir / run_record['json_file']
         with open(json_file, "w") as f:
