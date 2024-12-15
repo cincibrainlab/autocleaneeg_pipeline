@@ -568,7 +568,6 @@ def step_import_raw(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
         # Import based on EEG system type
 
         if eeg_system == "GSN-HydroCel-129":
-            breakpoint()
             raw = mne.io.read_raw_egi(input_fname=unprocessed_file, preload=preload, events_as_annotations=False)
             montage = mne.channels.make_standard_montage(eeg_system)
             montage.ch_names[128] = "E129"
@@ -1093,14 +1092,16 @@ def clean_artifacts_continuous(pipeline, autoclean_dict):
     bids_path = autoclean_dict["bids_path"]
 
     rejection_policy = step_get_rejection_policy(autoclean_dict)
-    cleaned_raw = rejection_policy.apply(pipeline)
+    cleaned_raw      = rejection_policy.apply(pipeline)
 
     #playraw = cleaned_raw.copy()
 
-    step_plot_band_topos(cleaned_raw, pipeline,autoclean_dict)
-
-
     breakpoint()
+
+    step_plot_combined_figure(pipeline.raw, cleaned_raw, pipeline, autoclean_dict)
+    step_plot_band_topos(cleaned_raw, pipeline, autoclean_dict)
+
+
 
     #bad_epochs = mne.preprocessing.find_bad_epochs(pipeline.raw)
 
@@ -1155,20 +1156,103 @@ def step_get_rejection_policy(autoclean_dict: dict) -> dict:
 
     return rejection_policy
 
-def step_plot_band_topos(raw, pipeline, autoclean_dict, bands=None, metadata=None):
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import mne
+from matplotlib.gridspec import GridSpec
+
+def _plot_psd(fig, gs, freqs, psd_original_mean_mV2, psd_cleaned_mean_mV2, psd_original_rel, psd_cleaned_rel, num_bands):
+    """Helper function to create PSD plots"""
+    # First row: Two PSD plots side by side
+    ax_abs_psd = fig.add_subplot(gs[0, :num_bands//2])
+    ax_rel_psd = fig.add_subplot(gs[0, num_bands//2:])
+
+    # Plot Absolute PSD with log scale
+    ax_abs_psd.plot(freqs, psd_original_mean_mV2, color='red', label='Original')
+    ax_abs_psd.plot(freqs, psd_cleaned_mean_mV2, color='black', label='Cleaned')
+    ax_abs_psd.set_yscale('log')  # Set y-axis to log scale
+    ax_abs_psd.set_xlabel('Frequency (Hz)')
+    ax_abs_psd.set_ylabel('Power Spectral Density (mV²/Hz)')
+    ax_abs_psd.set_title('Absolute Power Spectral Density (mV²/Hz)')
+    ax_abs_psd.legend()
+    ax_abs_psd.grid(True, which="both")  # Grid lines for both major and minor ticks
+
+    # Add vertical lines and annotations for power bands on both PSDs
+    for ax in [ax_abs_psd, ax_rel_psd]:
+        for band_name, (f_start, f_end) in {
+            'Delta': (0.5, 4),
+            'Theta': (4, 8),
+            'Alpha': (8, 12),
+            'Beta': (12, 30),
+            'Gamma': (30, 80)
+        }.items():
+            ax.axvline(f_start, color='grey', linestyle='--', linewidth=1)
+            ax.axvline(f_end, color='grey', linestyle='--', linewidth=1)
+            ax.fill_betweenx(ax.get_ylim(), f_start, f_end, color='grey', alpha=0.1)
+            ax.text((f_start + f_end) / 2, ax.get_ylim()[1]*0.95, band_name,
+                   horizontalalignment='center', verticalalignment='top', fontsize=9, color='grey')
+
+    # Plot Relative PSD with log scale
+    ax_rel_psd.plot(freqs, psd_original_rel, color='red', label='Original')
+    ax_rel_psd.plot(freqs, psd_cleaned_rel, color='black', label='Cleaned')
+    ax_rel_psd.set_yscale('log')  # Set y-axis to log scale
+    ax_rel_psd.set_xlabel('Frequency (Hz)')
+    ax_rel_psd.set_ylabel('Relative Power (%)')
+    ax_rel_psd.set_title('Relative Power Spectral Density (%)')
+    ax_rel_psd.legend()
+    ax_rel_psd.grid(True, which="both")  # Grid lines for both major and minor ticks
+
+def _plot_topomaps(fig, gs, bands, band_powers_orig, band_powers_clean, raw_original, raw_cleaned, outlier_channels_orig, outlier_channels_clean):
+    """Helper function to create topographical maps"""
+    # Second row: Topomaps for original data
+    for i, (band, power) in enumerate(zip(bands, band_powers_orig)):
+        band_name, l_freq, h_freq = band
+        ax = fig.add_subplot(gs[1, i])
+        mne.viz.plot_topomap(
+            power, raw_original.info, axes=ax, show=False, contours=0, cmap='jet'
+        )
+        mean_power = np.mean(power)
+        ax.set_title(f"Original: {band_name}\n({l_freq}-{h_freq} Hz)\nMean Power: {mean_power:.2e} mV²", fontsize=10)
+        # Annotate outlier channels
+        outliers = outlier_channels_orig[band_name]
+        if outliers:
+            ax.annotate(f"Outliers:\n{', '.join(outliers)}", xy=(0.5, -0.15), xycoords='axes fraction',
+                       ha='center', va='top', fontsize=8, color='red')
+
+    # Third row: Topomaps for cleaned data
+    for i, (band, power) in enumerate(zip(bands, band_powers_clean)):
+        band_name, l_freq, h_freq = band
+        ax = fig.add_subplot(gs[2, i])
+        mne.viz.plot_topomap(
+            power, raw_cleaned.info, axes=ax, show=False, contours=0, cmap='jet'
+        )
+        mean_power = np.mean(power)
+        ax.set_title(f"Cleaned: {band_name}\n({l_freq}-{h_freq} Hz)\nMean Power: {mean_power:.2e} mV²", fontsize=10)
+        # Annotate outlier channels
+        outliers = outlier_channels_clean[band_name]
+        if outliers:
+            ax.annotate(f"Outliers:\n{', '.join(outliers)}", xy=(0.5, -0.15), xycoords='axes fraction',
+                       ha='center', va='top', fontsize=8, color='red')
+
+def step_plot_combined_figure(raw_original, raw_cleaned, pipeline, autoclean_dict, bands=None, metadata=None):
     """
-    Generate and save a single high-resolution topographical map image 
-    for multiple EEG frequency bands arranged horizontally, showing both pre and post cleaning.
-    Also creates a JSON sidecar with metadata for database ingestion.
+    Generate and save a single high-resolution image that includes:
+    - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
+    - Topographical maps for multiple EEG frequency bands arranged horizontally,
+      showing both pre and post cleaning.
+    - Annotations for average power and outlier channels.
 
     Parameters:
     -----------
-    raw : mne.io.Raw
-        The cleaned EEG data.
-    pipeline : Pipeline object
-        Contains the original raw data as pipeline.raw
-    output_dir : str
-        Directory where the topoplot image and JSON sidecar will be saved.
+    raw_original : mne.io.Raw
+        Original raw EEG data before cleaning.
+    raw_cleaned : mne.io.Raw
+        Cleaned EEG data after preprocessing.
+    pipeline : pylossless.Pipeline
+        Pipeline object.
+    autoclean_dict : dict
+        Dictionary containing autoclean parameters and paths.
     bands : list of tuple, optional
         List of frequency bands to plot. Each tuple should contain 
         (band_name, lower_freq, upper_freq).
@@ -1178,18 +1262,8 @@ def step_plot_band_topos(raw, pipeline, autoclean_dict, bands=None, metadata=Non
     Returns:
     --------
     image_path : str
-        Path to the saved topoplot image.
+        Path to the saved combined figure.
     """
-
-    # Create Artifact Report
-    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-
-    # Independent Components
-    target_figure = str(derivatives_path.copy().update(
-        suffix='topoplot',
-        extension='.png',
-        datatype='eeg'
-    ))
 
     # Define default frequency bands if none provided
     if bands is None:
@@ -1202,63 +1276,114 @@ def step_plot_band_topos(raw, pipeline, autoclean_dict, bands=None, metadata=Non
             ("Gamma2", 60, 80)
         ]
     
-    # Initialize dictionary to store band powers for metadata
-    band_powers_metadata = {}
-    
-    # Compute PSD for both original and cleaned data
-    spectrum_orig = pipeline.raw.compute_psd(method='welch', fmin=1, fmax=80, picks='eeg')
-    spectrum_clean = raw.compute_psd(method='welch', fmin=1, fmax=80, picks='eeg')
-    
-    # Compute band power for each frequency band
+    # Create Artifact Report
+    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+
+    # Output figure path
+    target_figure = str(derivatives_path.copy().update(
+        suffix='combined_plot',
+        extension='.png',
+        datatype='eeg'
+    ))
+
+    # Select all EEG channels
+    picks = mne.pick_types(raw_original.info, eeg=True)
+    if len(picks) == 0:
+        raise ValueError("No EEG channels found in raw data.")
+
+    # Parameters for PSD
+    fmin = 0.5
+    fmax = 80
+    n_fft = int(raw_original.info['sfreq'] * 2)  # Window length of 2 seconds
+
+    # Compute PSD for original and cleaned data
+    psd_original = raw_original.compute_psd(
+        method='welch', fmin=fmin, fmax=fmax, n_fft=n_fft,
+        picks=picks, average='mean', verbose=False
+    )
+    psd_cleaned = raw_cleaned.compute_psd(
+        method='welch', fmin=fmin, fmax=fmax, n_fft=n_fft,
+        picks=picks, average='mean', verbose=False
+    )
+
+    freqs = psd_original.freqs
+    df = freqs[1] - freqs[0]  # Frequency resolution
+
+    # Convert PSDs to mV^2/Hz
+    psd_original_mV2 = psd_original.get_data() * 1e6
+    psd_cleaned_mV2 = psd_cleaned.get_data() * 1e6
+
+    # Compute mean PSDs
+    psd_original_mean_mV2 = np.mean(psd_original_mV2, axis=0)
+    psd_cleaned_mean_mV2 = np.mean(psd_cleaned_mV2, axis=0)
+
+    # Compute relative PSDs
+    total_power_orig = np.sum(psd_original_mean_mV2 * df)
+    total_power_clean = np.sum(psd_cleaned_mean_mV2 * df)
+    psd_original_rel = (psd_original_mean_mV2 * df) / total_power_orig * 100
+    psd_cleaned_rel = (psd_cleaned_mean_mV2 * df) / total_power_clean * 100
+
+    # Compute band powers and identify outliers
     band_powers_orig = []
     band_powers_clean = []
+    outlier_channels_orig = {}
+    outlier_channels_clean = {}
+    band_powers_metadata = {}
+
     for band_name, l_freq, h_freq in bands:
-        # Get band power for original data
-        band_power_orig = spectrum_orig.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1)
+        # Get band powers
+        band_power_orig = psd_original.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1) * df * 1e6
+        band_power_clean = psd_cleaned.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1) * df * 1e6
+        
         band_powers_orig.append(band_power_orig)
-        
-        # Get band power for cleaned data
-        band_power_clean = spectrum_clean.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1)
         band_powers_clean.append(band_power_clean)
-        
-        # Store in metadata
+
+        # Identify outliers
+        for power, raw_data, outlier_dict in [
+            (band_power_orig, raw_original, outlier_channels_orig),
+            (band_power_clean, raw_cleaned, outlier_channels_clean)
+        ]:
+            mean_power = np.mean(power)
+            std_power = np.std(power)
+            if std_power > 0:
+                z_scores = (power - mean_power) / std_power
+                outliers = [ch for ch, z in zip(raw_data.ch_names, z_scores) if abs(z) > 3]
+            else:
+                outliers = []
+            outlier_dict[band_name] = outliers
+
+        # Store metadata
         band_powers_metadata[band_name] = {
             "frequency_band": f"{l_freq}-{h_freq} Hz",
-            "band_power_mean_original": float(np.mean(band_power_orig)),
-            "band_power_std_original": float(np.std(band_power_orig)),
-            "band_power_mean_cleaned": float(np.mean(band_power_clean)),
-            "band_power_std_cleaned": float(np.std(band_power_clean))
+            "band_power_mean_original_mV2": float(np.mean(band_power_orig)),
+            "band_power_std_original_mV2": float(np.std(band_power_orig)),
+            "band_power_mean_cleaned_mV2": float(np.mean(band_power_clean)),
+            "band_power_std_cleaned_mV2": float(np.std(band_power_clean)),
+            "outlier_channels_original": outlier_channels_orig[band_name],
+            "outlier_channels_cleaned": outlier_channels_clean[band_name]
         }
 
-    # Create a figure with subplots arranged in 2 rows
-    num_bands = len(bands)
-    fig, axes = plt.subplots(2, num_bands, figsize=(5*num_bands, 10))  # Increased height for 2 rows
-    
-    # Add a title to the entire figure with the filename
-    fig.suptitle(os.path.basename(raw.filenames[0]), fontsize=16)
-    
-    # Plot original data on top row
-    for ax, (band, power) in zip(axes[0], zip(bands, band_powers_orig)):
-        band_name, l_freq, h_freq = band
-        mne.viz.plot_topomap(
-            power, pipeline.raw.info, axes=ax, show=False, contours=0, cmap='jet'
-        )
-        ax.set_title(f"Original: {band_name}\n({l_freq}-{h_freq} Hz)", fontsize=12)
-    
-    # Plot cleaned data on bottom row
-    for ax, (band, power) in zip(axes[1], zip(bands, band_powers_clean)):
-        band_name, l_freq, h_freq = band
-        mne.viz.plot_topomap(
-            power, raw.info, axes=ax, show=False, contours=0, cmap='jet'
-        )
-        ax.set_title(f"Cleaned: {band_name}\n({l_freq}-{h_freq} Hz)", fontsize=12)
-    
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])  # Adjust layout to accommodate suptitle
-    
-    # Save the figure in high resolution
+    # Create figure and GridSpec
+    fig = plt.figure(figsize=(15, 20))
+    gs = GridSpec(4, len(bands), height_ratios=[2, 1, 1, 1.5], hspace=0.4, wspace=0.3)
+
+    # Create PSD plots
+    _plot_psd(fig, gs, freqs, psd_original_mean_mV2, psd_cleaned_mean_mV2, 
+              psd_original_rel, psd_cleaned_rel, len(bands))
+
+    # Create topographical maps
+    _plot_topomaps(fig, gs, bands, band_powers_orig, band_powers_clean,
+                   raw_original, raw_cleaned, outlier_channels_orig, outlier_channels_clean)
+
+    # Add suptitle and adjust layout
+    fig.suptitle(os.path.basename(raw_cleaned.filenames[0]), fontsize=16)
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+    # Save and close figure
     fig.savefig(target_figure, dpi=300)
     plt.close(fig)
-    
+
+    print(f"Combined figure saved to {target_figure}")
     return target_figure
 
 
