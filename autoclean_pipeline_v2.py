@@ -402,6 +402,67 @@ def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
 
     return set_path
 
+def save_epochs_to_set(epochs, autoclean_dict, stage="post_import", output_path=None):
+    """Save epoched EEG data to SET format with descriptive filename.
+    
+    Args:
+        epochs: MNE Epochs object containing EEG data
+        output_path: Path object specifying output directory
+        autoclean_dict: Dictionary containing configuration and paths
+        stage: Processing stage to get suffix from stage_files config
+        
+    Returns:
+        Path: Path to the saved SET file
+    """
+    # Only save if enabled for this stage in stage_files config
+    if not autoclean_dict['stage_files'][stage]['enabled']:
+        return None
+        
+    # Get suffix from stage_files config
+    suffix = autoclean_dict['stage_files'][stage]['suffix']
+
+    # Create subfolder using suffix name
+    if output_path is None:
+        output_path = autoclean_dict["stage_dir"]
+
+    subfolder = output_path / suffix
+    subfolder.mkdir(exist_ok=True)
+
+    basename = Path(autoclean_dict["unprocessed_file"]).stem
+    set_path = subfolder / f"{basename}{suffix}_epo.set"
+    
+    epochs.export(set_path, fmt='eeglab', overwrite=True)
+    message("success", f"Saved stage file for {stage} to: {basename}")
+
+    metadata = {
+        "save_epochs_to_set": {
+            "creationDateTime": datetime.now().isoformat(),
+            "stage": stage,
+            "outputPath": str(set_path),
+            "suffix": suffix,
+            "basename": basename,
+            "format": "eeglab",
+            "n_epochs": len(epochs),
+            "tmin": epochs.tmin,
+            "tmax": epochs.tmax
+        }
+    }
+
+    run_id = autoclean_dict['run_id']
+    manage_database(operation='update', update_record={
+        'run_id': run_id,
+        'metadata': metadata
+    })
+
+    # Update the main database record status to reflect the stage completed
+    manage_database(operation='update_status', update_record={
+        'run_id': run_id,
+        'status': f'{stage} completed'
+    })
+
+    return set_path
+
+
 def manage_database(operation: str = 'connect', run_record: dict = None, update_record: dict = None) -> None:
     try:
         if operation == 'create_collection':
@@ -699,6 +760,10 @@ def pre_pipeline_processing(raw, autoclean_dict):
         metadata["pre_pipeline_processing"]["HighPassHz1"] = target_hfreq
         save_raw_to_set(raw, autoclean_dict, 'post_filter')
     
+    metadata["pre_pipeline_processing"]["channelCount"] = len(raw.ch_names)
+    metadata["pre_pipeline_processing"]["durationSec"] = int(raw.n_times) / raw.info["sfreq"]
+    metadata["pre_pipeline_processing"]["numberSamples"] = int(raw.n_times)
+
     run_id = autoclean_dict['run_id']
     manage_database(operation='update', update_record={
         'run_id': run_id,
@@ -1030,7 +1095,10 @@ def step_clean_bad_channels(raw, autoclean_dict):
             "creationDateTime": datetime.now().isoformat(),
             "method": "NoisyChannels",
             "options": options,
-            "bads": raw.info["bads"]
+            "bads": raw.info["bads"],
+            "channelCount": len(raw.ch_names),
+            "durationSec": int(raw.n_times) / raw.info["sfreq"],
+            "numberSamples": int(raw.n_times)
         }
     }
 
@@ -1072,7 +1140,10 @@ def step_run_pylossless(autoclean_dict):
                 "creationDateTime": datetime.now().isoformat(),
                 "derivativeName": derivative_name,
                 "configFile": str(config_path),
-                "pylossless_config": pylossless_config
+                "pylossless_config": pylossless_config,
+                "channelCount": len(pipeline.raw.ch_names),
+                "durationSec": int(pipeline.raw.n_times) / pipeline.raw.info["sfreq"],
+                "numberSamples": int(pipeline.raw.n_times)
             }
         }
 
@@ -1087,80 +1158,267 @@ def step_run_pylossless(autoclean_dict):
 
     return pipeline
 
-def clean_artifacts_continuous(pipeline, autoclean_dict):
-
-    bids_path = autoclean_dict["bids_path"]
-
-    rejection_policy = step_get_rejection_policy(autoclean_dict)
-    cleaned_raw      = rejection_policy.apply(pipeline)
-
-    #playraw = cleaned_raw.copy()
-
-    breakpoint()
-
-    step_plot_combined_figure(pipeline.raw, cleaned_raw, pipeline, autoclean_dict)
-    step_plot_band_topos(cleaned_raw, pipeline, autoclean_dict)
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+import mne
+from matplotlib.gridspec import GridSpec
 
 
 
-    #bad_epochs = mne.preprocessing.find_bad_epochs(pipeline.raw)
+def plot_ica_components(pipeline, cleaned_raw, autoclean_dict, duration=60, components='all'):
+    """
+    Plots ICA components with labels and saves reports.
 
-    return pipeline, autoclean_dict
+    Parameters:
+    -----------
+    pipeline : pylossless.Pipeline
+        Pipeline object containing raw data and ICA.
+    autoclean_dict : dict
+        Autoclean dictionary containing metadata.
+    duration : int
+        Duration in seconds to plot.
+    components : str
+        'all' to plot all components, 'rejected' to plot only rejected components.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+    from matplotlib.backends.backend_pdf import PdfPages
+    from matplotlib.gridspec import GridSpec
 
-def step_get_rejection_policy(autoclean_dict: dict) -> dict:
+    # Get raw and ICA from pipeline
+    raw = pipeline.raw
+    ica = pipeline.ica2
+    ic_labels = pipeline.flags['ic']
 
-    task = autoclean_dict["task"]
-    # Create a new rejection policy for cleaning channels and removing ICs
-    rejection_policy = ll.RejectionPolicy()
+    # Determine components to plot
+    if components == 'all':
+        component_indices = range(ica.n_components_)
+        report_name = 'ica_components_all'
+    elif components == 'rejected':
+        component_indices = ica.exclude
+        report_name = 'ica_components_rejected'
+        if not component_indices:
+            print("No components were rejected. Skipping rejected components report.")
+            return
+    else:
+        raise ValueError("components parameter must be 'all' or 'rejected'.")
 
-    #breakpoint()
+    # Get ICA activations
+    ica_sources = ica.get_sources(raw)
+    ica_data = ica_sources.get_data()
 
-    # Set parameters for channel rejection
-    rejection_policy["ch_flags_to_reject"] = autoclean_dict['tasks'][task]['rejection_policy']['ch_flags_to_reject']
-    rejection_policy["ch_cleaning_mode"] = autoclean_dict['tasks'][task]['rejection_policy']['ch_cleaning_mode']
-    rejection_policy["interpolate_bads_kwargs"] = {"method": autoclean_dict['tasks'][task]['rejection_policy']['interpolate_bads_kwargs']['method']}
+    # Limit data to specified duration
+    sfreq = raw.info['sfreq']
+    n_samples = int(duration * sfreq)
+    times = raw.times[:n_samples]
 
-    # Set parameters for IC rejection
-    rejection_policy["ic_flags_to_reject"] = autoclean_dict['tasks'][task]['rejection_policy']['ic_flags_to_reject']
-    rejection_policy["ic_rejection_threshold"] = autoclean_dict['tasks'][task]['rejection_policy']['ic_rejection_threshold']
-    rejection_policy["remove_flagged_ics"] = autoclean_dict['tasks'][task]['rejection_policy']['remove_flagged_ics']
+    # Create output path for the PDF report
+    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+    pdf_path = str(
+        derivatives_path.copy().update(suffix=report_name, extension='.pdf')
+    )
 
-    # Add metadata about rejection policy
+    # Remove existing file
+    if os.path.exists(pdf_path):
+        os.remove(pdf_path)
+
+    with PdfPages(pdf_path) as pdf:
+        # Calculate how many components to show per page
+        components_per_page = 20
+        num_pages = int(np.ceil(len(component_indices) / components_per_page))
+
+        # Create summary tables split across pages
+        for page in range(num_pages):
+            start_idx = page * components_per_page
+            end_idx = min((page + 1) * components_per_page, len(component_indices))
+            page_components = component_indices[start_idx:end_idx]
+
+            fig_table = plt.figure(figsize=(11, 8.5))
+            ax_table = fig_table.add_subplot(111)
+            ax_table.axis('off')
+
+            # Prepare table data for this page
+            table_data = []
+            colors = []
+            for idx in page_components:
+                comp_info = ic_labels.iloc[idx]
+                table_data.append([
+                    f"IC{idx + 1}",
+                    comp_info['ic_type'],
+                    f"{comp_info['confidence']:.2f}",
+                    "Yes" if idx in ica.exclude else "No"
+                ])
+                
+                # Define colors for different IC types
+                color_map = {
+                    'brain': '#d4edda',  # Light green
+                    'eog': '#f9e79f',    # Light yellow
+                    'muscle': '#f5b7b1',  # Light red
+                    'ecg': '#d7bde2',    # Light purple,
+                    'ch_noise': '#ffd700', # Light orange
+                    'line_noise': '#add8e6', # Light blue
+                    'other': '#f0f0f0'    # Light grey
+                }
+                colors.append([color_map.get(comp_info['ic_type'].lower(), 'white')] * 4)
+
+            # Create and customize table
+            table = ax_table.table(
+                cellText=table_data,
+                colLabels=['Component', 'Type', 'Confidence', 'Rejected'],
+                loc='center',
+                cellLoc='center',
+                cellColours=colors,
+                colWidths=[0.2, 0.3, 0.25, 0.25]
+            )
+            
+            # Customize table appearance
+            table.auto_set_font_size(False)
+            table.set_fontsize(9)
+            table.scale(1.2, 1.5)  # Reduced vertical scaling
+            
+            # Add title with page information, filename and timestamp
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            fig_table.suptitle(
+                f'ICA Components Summary - {autoclean_dict["bids_path"].basename}\n'
+                f'(Page {page + 1} of {num_pages})\n'
+                f'Generated: {timestamp}', 
+                fontsize=12, 
+                y=0.95
+            )
+            # Add legend for colors
+            legend_elements = [plt.Rectangle((0,0),1,1, facecolor=color, edgecolor='none') 
+                             for color in color_map.values()]
+            ax_table.legend(legend_elements, color_map.keys(), 
+                           loc='upper right', title='Component Types')
+
+            # Add margins
+            plt.subplots_adjust(top=0.85, bottom=0.15)
+
+            pdf.savefig(fig_table)
+            plt.close(fig_table)
+
+        # First page: Component topographies overview
+        fig_topo = ica.plot_components(picks=component_indices, show=False)
+        if isinstance(fig_topo, list):
+            for f in fig_topo:
+                pdf.savefig(f)
+                plt.close(f)
+        else:
+            pdf.savefig(fig_topo)
+            plt.close(fig_topo)
+
+        # If rejected components, add overlay plot
+        if components == 'rejected':
+            fig_overlay = plt.figure()
+            end_time = min(30., pipeline.raw.times[-1])
+            fig_overlay = pipeline.ica2.plot_overlay(pipeline.raw, start=0, stop=end_time, exclude=component_indices, show=False)
+            fig_overlay.set_size_inches(15, 10)  # Set size after creating figure
+
+            pdf.savefig(fig_overlay)
+            plt.close(fig_overlay)
+
+        # For each component, create detailed plots
+        for idx in component_indices:
+            fig = plt.figure(constrained_layout=True, figsize=(12, 8))
+            gs = GridSpec(nrows=3, ncols=3, figure=fig)
+
+            # Axes for ica.plot_properties
+            ax1 = fig.add_subplot(gs[0, 0])  # Data
+            ax2 = fig.add_subplot(gs[0, 1])  # Epochs image
+            ax3 = fig.add_subplot(gs[0, 2])  # ERP/ERF
+            ax4 = fig.add_subplot(gs[1, 0])  # Spectrum
+            ax5 = fig.add_subplot(gs[1, 1])  # Topomap
+            ax_props = [ax1, ax2, ax3, ax4, ax5]
+
+            # Plot properties
+            ica.plot_properties(
+                raw,
+                picks=[idx],
+                axes=ax_props,
+                dB=True,
+                plot_std=True,
+                log_scale=False,
+                reject='auto',
+                show=False
+            )
+
+            # Add time series plot
+            ax_timeseries = fig.add_subplot(gs[2, :])  # Last row, all columns
+            ax_timeseries.plot(times, ica_data[idx, :n_samples], linewidth=0.5)
+            ax_timeseries.set_xlabel('Time (seconds)')
+            ax_timeseries.set_ylabel('Amplitude')
+            ax_timeseries.set_title(f'Component {idx + 1} Time Course ({duration}s)')
+
+            # Add labels
+            comp_info = ic_labels.iloc[idx]
+            label_text = (
+                f"Component {idx + 1}\n"
+                f"Type: {comp_info['ic_type']}\n"
+                f"Confidence: {comp_info['confidence']:.2f}"
+            )
+
+            fig.suptitle(
+                label_text,
+                fontsize=14,
+                fontweight='bold',
+                color='red' if comp_info['ic_type'] in ['eog', 'muscle', 'ecg', 'other'] else 'black'
+            )
+
+            # Save the figure
+            pdf.savefig(fig)
+            plt.close(fig)
+
+        print(f"Report saved to {pdf_path}")
+        return Path(pdf_path).name
+
+def generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60):
+    """
+    Generates two reports:
+    1. All ICA components.
+    2. Only the rejected ICA components.
+
+    Parameters:
+    -----------
+    pipeline : pylossless.Pipeline
+        The pipeline object containing the ICA and raw data.
+    autoclean_dict : dict
+        Dictionary containing configuration and paths.
+    duration : int
+        Duration in seconds for plotting time series data.
+    """
+    # Generate report for all components
+    report_filename = plot_ica_components(pipeline, cleaned_raw, autoclean_dict, duration=duration, components='all')
+
     metadata = {
-        "rejection_policy": {
+        "artifact_reports": {
             "creationDateTime": datetime.now().isoformat(),
-            "task": task,
-            "ch_flags_to_reject": rejection_policy["ch_flags_to_reject"],
-            "ch_cleaning_mode": rejection_policy["ch_cleaning_mode"],
-            "interpolate_method": rejection_policy["interpolate_bads_kwargs"]["method"],
-            "ic_flags_to_reject": rejection_policy["ic_flags_to_reject"],
-            "ic_rejection_threshold": rejection_policy["ic_rejection_threshold"],
-            "remove_flagged_ics": rejection_policy["remove_flagged_ics"]
+            "ica_all_components": report_filename
         }
     }
-
 
     manage_database(operation='update', update_record={
         'run_id': autoclean_dict['run_id'],
         'metadata': metadata
     })
 
-    # Log rejection policy details using messaging function
-    message("info", "[bold blue]Rejection Policy Settings:[/bold blue]")
-    message("info", f"Channel flags to reject: {rejection_policy['ch_flags_to_reject']}")
-    message("info", f"Channel cleaning mode: {rejection_policy['ch_cleaning_mode']}")
-    message("info", f"Interpolation method: {rejection_policy['interpolate_bads_kwargs']['method']}")
-    message("info", f"IC flags to reject: {rejection_policy['ic_flags_to_reject']}")
-    message("info", f"IC rejection threshold: {rejection_policy['ic_rejection_threshold']}")
-    message("info", f"Remove flagged ICs: {rejection_policy['remove_flagged_ics']}")
+    # Generate report for rejected components
+    report_filename = plot_ica_components(pipeline, cleaned_raw, autoclean_dict, duration=duration, components='rejected')
 
-    return rejection_policy
+    metadata = {
+        "artifact_reports": {
+            "creationDateTime": datetime.now().isoformat(),
+            "ica_rejected_components": report_filename
+        }
+    }
 
-import os
-import numpy as np
-import matplotlib.pyplot as plt
-import mne
-from matplotlib.gridspec import GridSpec
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
 
 def _plot_psd(fig, gs, freqs, psd_original_mean_mV2, psd_cleaned_mean_mV2, psd_original_rel, psd_cleaned_rel, num_bands):
     """Helper function to create PSD plots"""
@@ -1235,7 +1493,7 @@ def _plot_topomaps(fig, gs, bands, band_powers_orig, band_powers_clean, raw_orig
             ax.annotate(f"Outliers:\n{', '.join(outliers)}", xy=(0.5, -0.15), xycoords='axes fraction',
                        ha='center', va='top', fontsize=8, color='red')
 
-def step_plot_combined_figure(raw_original, raw_cleaned, pipeline, autoclean_dict, bands=None, metadata=None):
+def step_psd_topo_figure(raw_original, raw_cleaned, pipeline, autoclean_dict, bands=None, metadata=None):
     """
     Generate and save a single high-resolution image that includes:
     - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
@@ -1281,7 +1539,7 @@ def step_plot_combined_figure(raw_original, raw_cleaned, pipeline, autoclean_dic
 
     # Output figure path
     target_figure = str(derivatives_path.copy().update(
-        suffix='combined_plot',
+        suffix='step_psd_topo_figure',
         extension='.png',
         datatype='eeg'
     ))
@@ -1384,7 +1642,966 @@ def step_plot_combined_figure(raw_original, raw_cleaned, pipeline, autoclean_dic
     plt.close(fig)
 
     print(f"Combined figure saved to {target_figure}")
+
+    metadata = {
+        "artifact_reports": {
+            "creationDateTime": datetime.now().isoformat(),
+            "plot_psd_topo_figure": Path(target_figure).name
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
     return target_figure
+    
+
+def plot_bad_channels_with_topography(raw_original, raw_cleaned, pipeline, autoclean_dict, zoom_duration=30, zoom_start=0):
+    """
+    Plot bad channels with a topographical map and time series overlays for both full duration and a zoomed-in window.
+
+    Parameters:
+    -----------
+    raw_original : mne.io.Raw
+        Original raw EEG data before cleaning.
+    raw_cleaned : mne.io.Raw
+        Cleaned raw EEG data after interpolation of bad channels.
+    pipeline : pylossless.Pipeline
+        Pipeline object containing flags and raw data.
+    autoclean_dict : dict
+        Autoclean dictionary containing metadata.
+    zoom_duration : float, optional
+        Duration in seconds for the zoomed-in time series plot. Default is 30 seconds.
+    zoom_start : float, optional
+        Start time in seconds for the zoomed-in window. Default is 0 seconds.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import mne
+    from matplotlib.gridspec import GridSpec
+
+    # ----------------------------
+    # 1. Collect Bad Channels
+    # ----------------------------
+    bad_channels_info = {}
+
+    # Mapping from channel to reason(s)
+    for reason, channels in pipeline.flags.get('ch', {}).items():
+        for ch in channels:
+            if ch in bad_channels_info:
+                if reason not in bad_channels_info[ch]:
+                    bad_channels_info[ch].append(reason)
+            else:
+                bad_channels_info[ch] = [reason]
+
+    bad_channels = list(bad_channels_info.keys())
+
+    if not bad_channels:
+        print("No bad channels were identified.")
+        return
+
+    # Debugging: Print bad channels
+    print(f"Identified Bad Channels: {bad_channels}")
+
+    # ----------------------------
+    # 2. Identify Good Channels
+    # ----------------------------
+    all_channels = raw_original.ch_names
+    good_channels = [ch for ch in all_channels if ch not in bad_channels]
+
+    # Debugging: Print good channels count
+    print(f"Number of Good Channels: {len(good_channels)}")
+
+    # ----------------------------
+    # 3. Extract Data for Bad Channels
+    # ----------------------------
+    picks_bad_original = mne.pick_channels(raw_original.ch_names, bad_channels)
+    picks_bad_cleaned = mne.pick_channels(raw_cleaned.ch_names, bad_channels)
+
+    if len(picks_bad_original) == 0:
+        print("No bad channels found in original data.")
+        return
+
+    if len(picks_bad_cleaned) == 0:
+        print("No bad channels found in cleaned data.")
+        return
+
+    data_original, times = raw_original.get_data(picks=picks_bad_original, return_times=True)
+    data_cleaned = raw_cleaned.get_data(picks=picks_bad_cleaned)
+
+    channel_labels = [raw_original.ch_names[i] for i in picks_bad_original]
+    n_channels = len(channel_labels)
+
+    # Debugging: Print number of bad channels being plotted
+    print(f"Number of Bad Channels to Plot: {n_channels}")
+
+    # ----------------------------
+    # 4. Downsample Data if Necessary
+    # ----------------------------
+    sfreq = raw_original.info['sfreq']
+    desired_sfreq = 100  # Target sampling rate
+    downsample_factor = int(sfreq // desired_sfreq)
+    if downsample_factor > 1:
+        data_original = data_original[:, ::downsample_factor]
+        data_cleaned = data_cleaned[:, ::downsample_factor]
+        times = times[::downsample_factor]
+        print(f"Data downsampled by a factor of {downsample_factor} to {desired_sfreq} Hz.")
+
+    # ----------------------------
+    # 5. Normalize and Scale Data
+    # ----------------------------
+    data_original_normalized = np.zeros_like(data_original)
+    data_cleaned_normalized = np.zeros_like(data_cleaned)
+    # Dynamic spacing based on number of bad channels
+    spacing = 10 + (n_channels * 2)  # Adjusted spacing
+
+    for idx in range(n_channels):
+        channel_data_original = data_original[idx]
+        channel_data_cleaned = data_cleaned[idx]
+        # Remove DC offset
+        channel_data_original -= np.mean(channel_data_original)
+        channel_data_cleaned -= np.mean(channel_data_cleaned)
+        # Normalize by standard deviation
+        std_orig = np.std(channel_data_original)
+        std_clean = np.std(channel_data_cleaned)
+        if std_orig == 0:
+            std_orig = 1  # Prevent division by zero
+        if std_clean == 0:
+            std_clean = 1
+        data_original_normalized[idx] = channel_data_original / std_orig
+        data_cleaned_normalized[idx] = channel_data_cleaned / std_clean
+
+    # Scaling factor for better visibility
+    scaling_factor = 5  # Increased scaling factor
+    data_original_scaled = data_original_normalized * scaling_factor
+    data_cleaned_scaled = data_cleaned_normalized * scaling_factor
+
+    # Calculate offsets
+    offsets = np.arange(n_channels) * spacing
+
+    # ----------------------------
+    # 6. Define Zoom Window
+    # ----------------------------
+    zoom_end = zoom_start + zoom_duration
+    if zoom_end > times[-1]:
+        zoom_end = times[-1]
+        zoom_start = max(zoom_end - zoom_duration, times[0])
+
+    # ----------------------------
+    # 7. Create Figure with GridSpec
+    # ----------------------------
+    fig_height = 10 + (n_channels * 0.3)
+    fig = plt.figure(constrained_layout=True, figsize=(20, fig_height))
+    gs = GridSpec(3, 2, figure=fig)
+
+    # ----------------------------
+    # 8. Topography Subplot
+    # ----------------------------
+    ax_topo = fig.add_subplot(gs[0, :])
+
+    # Plot sensors with ch_groups for good and bad channels
+    ch_groups = [
+        [int(raw_original.ch_names.index(ch)) for ch in good_channels],
+        [int(raw_original.ch_names.index(ch)) for ch in bad_channels]
+    ]
+    colors = 'RdYlBu_r'
+
+    # Plot again for the main figure subplot
+    mne.viz.plot_sensors(
+        raw_original.info,
+        kind='topomap',
+        ch_type='eeg',
+        title='Sensor Topography: Good vs Bad Channels', 
+        show_names=True,
+        ch_groups=ch_groups,
+        pointsize=75,
+        linewidth=0,
+        cmap=colors,
+        show=False,
+        axes=ax_topo
+    )
+
+    ax_topo.legend(['Good Channels', 'Bad Channels'], loc='upper right', fontsize=12)
+    ax_topo.set_title('Topography of Good and Bad Channels', fontsize=16)
+
+    # ----------------------------
+    # 9. Full Duration Time Series Subplot
+    # ----------------------------
+    ax_full = fig.add_subplot(gs[1, 0])
+    for idx in range(n_channels):
+        # Plot original data
+        ax_full.plot(times, data_original_scaled[idx] + offsets[idx], color='red', linewidth=1, linestyle='-')
+        # Plot cleaned data
+        ax_full.plot(times, data_cleaned_scaled[idx] + offsets[idx], color='black', linewidth=1, linestyle='-')
+
+    ax_full.set_xlabel('Time (seconds)', fontsize=14)
+    ax_full.set_ylabel('Bad Channels', fontsize=14)
+    ax_full.set_title('Bad Channels: Original vs Interpolated (Full Duration)', fontsize=16)
+    ax_full.set_xlim(times[0], times[-1])
+    ax_full.set_ylim(-spacing, offsets[-1] + spacing)
+    ax_full.set_yticks([])  # Hide y-ticks
+    ax_full.invert_yaxis()
+
+    # Add legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='red', lw=2, linestyle='-', label='Original Data'),
+        Line2D([0], [0], color='black', lw=2, linestyle='-', label='Interpolated Data')
+    ]
+    ax_full.legend(handles=legend_elements, loc='upper right', fontsize=12)
+
+    # ----------------------------
+    # 10. Zoomed-In Time Series Subplot
+    # ----------------------------
+    ax_zoom = fig.add_subplot(gs[1, 1])
+    for idx in range(n_channels):
+        # Plot original data
+        ax_zoom.plot(times, data_original_scaled[idx] + offsets[idx], color='red', linewidth=1, linestyle='-')
+        # Plot cleaned data
+        ax_zoom.plot(times, data_cleaned_scaled[idx] + offsets[idx], color='black', linewidth=1, linestyle='-')
+
+    ax_zoom.set_xlabel('Time (seconds)', fontsize=14)
+    ax_zoom.set_title(f'Bad Channels: Original vs Interpolated (Zoom: {zoom_start}-{zoom_end} s)', fontsize=16)
+    ax_zoom.set_xlim(zoom_start, zoom_end)
+    ax_zoom.set_ylim(-spacing, offsets[-1] + spacing)
+    ax_zoom.set_yticks([])  # Hide y-ticks
+    ax_zoom.invert_yaxis()
+
+    # Add legend
+    ax_zoom.legend(handles=legend_elements, loc='upper right', fontsize=12)
+
+    # ----------------------------
+    # 11. Add Channel Labels
+    # ----------------------------
+    for idx, ch in enumerate(channel_labels):
+        label = f"{ch}\n({', '.join(bad_channels_info[ch])})"
+        ax_full.text(times[0] - (0.05 * (times[-1] - times[0])), offsets[idx], label, 
+                     horizontalalignment='right', fontsize=10, verticalalignment='center')
+
+    # ----------------------------
+    # 12. Finalize and Save the Figure
+    # ----------------------------
+    plt.tight_layout()
+
+    # Get output path for bad channels figure
+    bids_path = autoclean_dict.get("bids_path", "")
+    if bids_path:
+        derivatives_path = pipeline.get_derivative_path(bids_path)
+    else:
+        derivatives_path = "."
+
+    # Assuming pipeline.get_derivative_path returns a Path-like object with a copy method
+    # and update method as per the initial code
+    try:
+        target_figure = str(derivatives_path.copy().update(
+            suffix='step_bad_channels_with_map',
+            extension='.png',
+            datatype='eeg'
+        ))
+    except AttributeError:
+        # Fallback if copy or update is not implemented
+        target_figure = os.path.join(derivatives_path, 'bad_channels_with_topography.png')
+
+    # Save the figure
+    fig.savefig(target_figure, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
+    print(f"Bad channels with topography plot saved to {target_figure}")
+
+    metadata = {
+        "artifact_reports": {
+            "creationDateTime": datetime.now().isoformat(),
+            "plot_bad_channels_with_topography": Path(target_figure).name
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return fig
+
+
+def step_plot_raw_vs_cleaned_overlay(raw_original, raw_cleaned, pipeline, autoclean_dict, suffix=''):
+    """
+    Plot raw data channels over the full duration, overlaying the original and cleaned data.
+    Original data is plotted in red, cleaned data in black.
+
+    Parameters:
+    -----------
+    raw_original : mne.io.Raw
+        Original raw EEG data before cleaning.
+    raw_cleaned : mne.io.Raw
+        Cleaned raw EEG data after preprocessing.
+    pipeline : pylossless.Pipeline
+        Pipeline object (can be None if not used).
+    autoclean_dict : dict
+        Autoclean dictionary containing metadata.
+    suffix : str
+        Suffix for the filename.
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+
+    # Ensure that the original and cleaned data have the same channels and times
+    if raw_original.ch_names != raw_cleaned.ch_names:
+        raise ValueError("Channel names in raw_original and raw_cleaned do not match.")
+    if raw_original.times.shape != raw_cleaned.times.shape:
+        raise ValueError("Time vectors in raw_original and raw_cleaned do not match.")
+
+    # Get raw data
+    channel_labels = raw_original.ch_names
+    n_channels = len(channel_labels)
+    sfreq = raw_original.info['sfreq']
+    times = raw_original.times
+    n_samples = len(times)
+    data_original = raw_original.get_data()
+    data_cleaned = raw_cleaned.get_data()
+
+    # Increase downsample factor to reduce file size
+    desired_sfreq = 100  # Reduced sampling rate to 100 Hz
+    downsample_factor = int(sfreq // desired_sfreq)
+    if downsample_factor > 1:
+        data_original = data_original[:, ::downsample_factor]
+        data_cleaned = data_cleaned[:, ::downsample_factor]
+        times = times[::downsample_factor]
+
+    # Normalize each channel individually for better visibility
+    data_original_normalized = np.zeros_like(data_original)
+    data_cleaned_normalized = np.zeros_like(data_cleaned)
+    spacing = 10  # Fixed spacing between channels
+    for idx in range(n_channels):
+        # Original data
+        channel_data_original = data_original[idx]
+        channel_data_original = channel_data_original - np.mean(channel_data_original)  # Remove DC offset
+        std = np.std(channel_data_original)
+        if std == 0:
+            std = 1  # Avoid division by zero
+        data_original_normalized[idx] = channel_data_original / std  # Normalize to unit variance
+
+        # Cleaned data
+        channel_data_cleaned = data_cleaned[idx]
+        channel_data_cleaned = channel_data_cleaned - np.mean(channel_data_cleaned)  # Remove DC offset
+        # Use same std for normalization to ensure both signals are on the same scale
+        data_cleaned_normalized[idx] = channel_data_cleaned / std
+
+    # Multiply by a scaling factor to control amplitude
+    scaling_factor = 2  # Adjust this factor as needed for visibility
+    data_original_scaled = data_original_normalized * scaling_factor
+    data_cleaned_scaled = data_cleaned_normalized * scaling_factor
+
+    # Calculate offsets for plotting
+    offsets = np.arange(n_channels) * spacing
+
+    # Create plot
+    total_duration = times[-1] - times[0]
+    width_per_second = 0.1  # Adjust this factor as needed
+    fig_width = min(total_duration * width_per_second, 50)
+    fig_height = max(6, n_channels * 0.25)  # Adjusted for better spacing
+
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+    # Plot channels
+    for idx in range(n_channels):
+        ch_name = channel_labels[idx]
+        offset = offsets[idx]
+
+        # Plot original data in red
+        ax.plot(times, data_original_scaled[idx] + offset, color='red', linewidth=0.5, linestyle='-')
+
+        # Plot cleaned data in black
+        ax.plot(times, data_cleaned_scaled[idx] + offset, color='black', linewidth=0.5, linestyle='-')
+
+    # Set y-ticks and labels
+    ax.set_yticks(offsets)
+    ax.set_yticklabels(channel_labels, fontsize=8)
+
+    # Customize axes
+    ax.set_xlabel('Time (seconds)', fontsize=12)
+    ax.set_title('Raw Data Channels: Original vs Cleaned (Full Duration)', fontsize=14)
+    ax.set_xlim(times[0], times[-1])
+    ax.set_ylim(-spacing, offsets[-1] + spacing)
+    ax.set_ylabel('')
+    ax.invert_yaxis()
+
+    # Add legend
+    from matplotlib.lines import Line2D
+    legend_elements = [
+        Line2D([0], [0], color='red', lw=0.5, linestyle='-', label='Original Data'),
+        Line2D([0], [0], color='black', lw=0.5, linestyle='-', label='Cleaned Data')
+    ]
+    ax.legend(handles=legend_elements, loc='upper right', fontsize=8)
+
+    plt.tight_layout()
+
+    # Create Artifact Report
+    derivatives_path  = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+
+    # Independent Components
+    target_figure = str(derivatives_path.copy().update(
+        suffix='step_plot_raw_vs_cleaned_overlay',
+        extension='.png',
+        datatype='eeg'
+    ))
+
+    # Save as PNG with high DPI for quality
+    fig.savefig(target_figure, dpi=150, bbox_inches='tight')
+    plt.close(fig)
+
+    print(f"Raw channels overlay full duration plot saved to {target_figure}")
+
+    metadata = {
+        "artifact_reports": {
+            "creationDateTime": datetime.now().isoformat(),
+            "plot_raw_vs_cleaned_overlay": Path(target_figure).name
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+
+
+def step_plot_ica_full(pipeline, autoclean_dict):
+    """
+    Plot ICA components over the full duration with their labels and probabilities.
+    
+    Parameters:
+    -----------
+    pipeline : pylossless.Pipeline
+        PyLossless pipeline object containing raw data and ICA
+    autoclean_dict : dict
+        Autoclean dictionary containing metadata
+    """
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import os
+
+    # Get raw and ICA from pipeline
+    raw = pipeline.raw
+    ica = pipeline.ica2
+    ic_labels = pipeline.flags['ic']
+
+    # Get ICA activations and create time vector
+    ica_sources = ica.get_sources(raw)
+    ica_data = ica_sources.get_data()
+    sfreq = raw.info['sfreq']
+    times = raw.times
+    n_components, n_samples = ica_data.shape
+
+    # Normalize each component individually for better visibility
+    for idx in range(n_components):
+        component = ica_data[idx]
+        # Scale to have a consistent peak-to-peak amplitude
+        ptp = np.ptp(component)
+        if ptp == 0:
+            scaling_factor = 2.5  # Avoid division by zero
+        else:
+            scaling_factor = 2.5 / ptp
+        ica_data[idx] = component * scaling_factor
+
+    # Determine appropriate spacing
+    spacing = 2  # Fixed spacing between components
+
+    # Calculate figure size proportional to duration
+    total_duration = times[-1] - times[0]
+    width_per_second = 0.1  # Increased from 0.02 to 0.1 for wider view
+    fig_width = total_duration * width_per_second
+    max_fig_width = 200  # Doubled from 100 to allow wider figures
+    fig_width = min(fig_width, max_fig_width)
+    fig_height = max(6, n_components * 0.5)  # Ensure a minimum height
+
+    # Create plot with wider figure
+    fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+    # Create a colormap for the components
+    cmap = plt.cm.get_cmap('tab20', n_components)
+    line_colors = [cmap(i) for i in range(n_components)]
+
+    # Plot components in original order
+    for idx in range(n_components):
+        offset = idx * spacing
+        ax.plot(times, ica_data[idx] + offset, color=line_colors[idx], linewidth=0.5)
+
+    # Set y-ticks and labels
+    yticks = [idx * spacing for idx in range(n_components)]
+    yticklabels = []
+    for idx in range(n_components):
+        label_text = f"IC{idx + 1}: {ic_labels['ic_type'][idx]} ({ic_labels['confidence'][idx]:.2f})"
+        yticklabels.append(label_text)
+
+    ax.set_yticks(yticks)
+    ax.set_yticklabels(yticklabels, fontsize=8)
+
+    # Customize axes
+    ax.set_xlabel('Time (seconds)', fontsize=12)
+    ax.set_title('ICA Component Activations (Full Duration)', fontsize=14)
+    ax.set_xlim(times[0], times[-1])
+
+    # Adjust y-axis limits
+    ax.set_ylim(-spacing, (n_components - 1) * spacing + spacing)
+
+    # Remove y-axis label as we have custom labels
+    ax.set_ylabel('')
+
+    # Invert y-axis to have the first component at the top
+    ax.invert_yaxis()
+
+    # Color the labels red or black based on component type
+    artifact_types = ['eog', 'muscle', 'ecg', 'other']
+    for ticklabel, idx in zip(ax.get_yticklabels(), range(n_components)):
+        ic_type = ic_labels['ic_type'][idx]
+        if ic_type in artifact_types:
+            ticklabel.set_color('red')
+        else:
+            ticklabel.set_color('black')
+
+    # Adjust layout
+    plt.tight_layout()
+
+    # Get output path for ICA components figure
+    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+    target_figure = str(derivatives_path.copy().update(
+        suffix='ica_components_full_duration',
+        extension='.png',
+        datatype='eeg'
+    ))
+
+    # Save figure with higher DPI for better resolution of wider plot
+    fig.savefig(target_figure, dpi=300, bbox_inches='tight')
+    plt.close(fig)
+
+    metadata = {
+        "artifact_reports": {
+            "creationDateTime": datetime.now().isoformat(),
+            "ica_components_full_duration": Path(target_figure).name
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return fig
+
+def extended_BAD_LL_noisy_ICs_annotations(raw, pipeline, autoclean_dict, extra_duration=1):
+
+    from collections import OrderedDict
+
+    # Extend each annotation by 1 second on each side
+    for ann in raw.annotations:
+        new_annotation = OrderedDict([
+            ('onset', np.float64(ann['onset'])),
+            ('duration', np.float64(ann['duration'])),
+            ('description', np.str_(ann['description'])),
+            ('orig_time', ann.get('orig_time', None))
+        ])
+        print(f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}")
+
+    from collections import OrderedDict
+
+    updated_annotations = []
+    for annotation in raw.annotations:
+        if annotation['description'] == "BAD_LL_noisy_ICs":
+            start = annotation['onset']  # Extend start by 1 second
+            duration = annotation['duration'] + extra_duration  # Extend duration by extra_duration
+            new_ann = mne.Annotations(onset=start, duration=duration, description=annotation['description'])
+            updated_annotations.append(new_ann)
+        else:
+            updated_annotations.append(annotation)  # Keep other annotations unchanged
+
+    # Create new annotation structure from updated_annotations list
+    combined_onset = []
+    combined_duration = []
+    combined_description = []
+    combined_orig_time = None
+
+    # Extract data from each annotation
+    for ann in updated_annotations:
+        if isinstance(ann, mne.Annotations):
+            # Handle single annotation objects
+            combined_onset.extend(ann.onset)
+            combined_duration.extend(ann.duration) 
+            combined_description.extend(ann.description)
+            if combined_orig_time is None and hasattr(ann, 'orig_time'):
+                combined_orig_time = ann.orig_time
+        else:
+            # Handle individual annotation entries
+            combined_onset.append(ann['onset'])
+            combined_duration.append(ann['duration'])
+            combined_description.append(ann['description'])
+            if combined_orig_time is None and 'orig_time' in ann:
+                combined_orig_time = ann['orig_time']
+
+    # Create new consolidated Annotations object
+    new_annotations = mne.Annotations(
+        onset=np.array(combined_onset),
+        duration=np.array(combined_duration), 
+        description=np.array(combined_description),
+        orig_time=combined_orig_time
+    )
+
+    raw.set_annotations(new_annotations)
+
+    # Extract indices and info for BAD_LL_noisy_ICs after extension
+    bad_indices = np.where(raw.annotations.description == "BAD_LL_noisy_ICs")[0]
+    n_segments = len(bad_indices)
+
+    if n_segments > 0:
+        # Create figure with subplots for each segment
+        fig, axes = plt.subplots(n_segments, 1, figsize=(15, 4 * n_segments), sharex=True)
+        if n_segments == 1:
+            axes = [axes]  # Ensure axes is iterable
+
+        sfreq = raw.info['sfreq']
+        for idx, i_ann in enumerate(bad_indices):
+            onset = raw.annotations.onset[i_ann]
+            duration = raw.annotations.duration[i_ann]
+
+            # Calculate start and end times with padding
+            start_time = max(onset - 5, raw.times[0])
+            end_time = min(onset + duration + 5, raw.times[-1])
+
+            # Convert times to sample indices
+            start_sample = raw.time_as_index(start_time)[0]
+            end_sample = raw.time_as_index(end_time)[0]
+
+            # Get data and corresponding times
+            data, times = raw.get_data(start=start_sample, stop=end_sample, return_times=True)
+
+            # Plot the data
+            axes[idx].plot(times, data.T, 'k', linewidth=0.5, alpha=0.5)
+
+            # Highlight the annotation region
+            axes[idx].axvspan(onset, onset + duration, color='red', alpha=0.2, label='BAD_LL_noisy_ICs')
+
+            # Add vertical lines at annotation boundaries
+            axes[idx].axvline(onset, color='red', linestyle='--', alpha=0.5)
+            axes[idx].axvline(onset + duration, color='red', linestyle='--', alpha=0.5)
+
+            axes[idx].set_title(f'Segment {idx + 1}: {onset:.1f}s - {(onset + duration):.1f}s', fontsize=10)
+            axes[idx].set_ylabel('Amplitude')
+            axes[idx].legend(loc='upper right')
+
+        axes[-1].set_xlabel('Time (s)')
+
+        plt.tight_layout()
+
+        # Save figure
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+        target_figure = str(derivatives_path.copy().update(
+            suffix='bad_ll_noisy_segments',
+            extension='.pdf',
+            datatype='eeg'
+        ))
+
+        fig.savefig(target_figure, dpi=300, bbox_inches='tight')
+        plt.close(fig)
+
+    # Add catalog of BAD_LL_noisy_ICs to metadata
+    bad_ll_noisy_ics_count = sum(1 for ann in updated_annotations if isinstance(ann, mne.Annotations) and ann.description == "BAD_LL_noisy_ICs") if updated_annotations else 0
+    metadata = {
+        "extended_BAD_LL_noisy_ICs_annotations": {
+            "creationDateTime": datetime.now().isoformat(),
+            "extended_BAD_LL_noisy_ICs_annotations": True,
+            "extended_BAD_LL_noisy_ICs_annotations_figure": Path(target_figure).name,
+            "extra_duration": extra_duration,
+            "bad_LL_noisy_ICs_count": bad_ll_noisy_ics_count  # Count of BAD_LL_noisy_ICs
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return raw
+
+
+def detect_muscle_beta_focus_robust(epochs, pipeline, autoclean_dict, freq_band=(20, 30), scale_factor=3.0):
+    """
+    Detect muscle artifacts using a robust measure (median + MAD * scale_factor) 
+    focusing only on electrodes labeled as 'OTHER'.
+    This reduces forced removal of epochs in very clean data.
+    """
+
+    # Ensure data is loaded
+    epochs.load_data()
+
+    backup_epochs = epochs.copy()
+    
+    # Filter in beta band
+    epochs_beta = epochs.copy().filter(l_freq=freq_band[0], h_freq=freq_band[1], verbose=False)
+
+    # Get channel names
+    ch_names = epochs_beta.ch_names
+    
+    # Build channel_region_map from the provided channel data
+    # Make sure all "OTHER" electrodes are listed here
+    channel_region_map = {
+        "E17":"OTHER", "E38":"OTHER", "E43":"OTHER", "E44":"OTHER", "E48":"OTHER", "E49":"OTHER",
+        "E56":"OTHER", "E73":"OTHER", "E81":"OTHER", "E88":"OTHER", "E94":"OTHER", "E107":"OTHER",
+        "E113":"OTHER", "E114":"OTHER", "E119":"OTHER", "E120":"OTHER", "E121":"OTHER", "E125":"OTHER",
+        "E126":"OTHER", "E127":"OTHER", "E128":"OTHER"
+    }
+    
+    # Select only OTHER channels
+    selected_ch_indices = [i for i, ch in enumerate(ch_names) if channel_region_map.get(ch, "") == "OTHER"]
+    
+    # If no OTHER channels are found, return empty
+    if not selected_ch_indices:
+        return np.array([], dtype=int)
+    
+    # Extract data from OTHER channels only
+    data = epochs_beta.get_data()[:, selected_ch_indices, :]  # shape: (n_epochs, n_sel_channels, n_times)
+
+    # Compute peak-to-peak amplitude per epoch and selected channels
+    p2p = data.max(axis=2) - data.min(axis=2)
+
+    # Compute maximum peak-to-peak amplitude across the selected channels
+    max_p2p = p2p.max(axis=1)
+
+    # Compute median and MAD
+    med = np.median(max_p2p)
+    mad = np.median(np.abs(max_p2p - med))
+
+    # Robust threshold
+    threshold = med + scale_factor * mad
+
+    # Identify bad epochs
+    bad_epochs = np.where(max_p2p > threshold)[0].tolist()
+
+    # Combine current bads and new bads
+    current_bads = [i for i, log in enumerate(epochs.drop_log) if log]
+    combined_bads = sorted(set(current_bads + bad_epochs))
+    epochs.drop(bad_epochs, reason='BAD_MOVEMENT')
+    breakpoint()
+
+    metadata = {
+        "muscle_beta_focus_robust": {
+            "creationDateTime": datetime.now().isoformat(),
+            "muscle_beta_focus_robust": True,
+            "freq_band": freq_band,
+            "scale_factor": scale_factor,
+            "bad_epochs": bad_epochs
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return bad_epochs
+
+
+from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.pyplot as plt
+import numpy as np
+import mne
+
+def plot_epochs_to_pdf(epochs: mne.Epochs, pipeline, autoclean_dict: dict, epochs_per_page: int = 6, spacing: float = 50, bad_epochs: list = None) -> None:
+    data_array = epochs.get_data() * 1e6
+    times = epochs.times
+    n_epochs = len(epochs)
+    n_channels = len(epochs.ch_names)
+    offsets = np.arange(n_channels) * spacing
+    pages = int(np.ceil(n_epochs / epochs_per_page))
+
+    fig, axes = plt.subplots(2, 3, figsize=(15, 11))
+    axes = axes.flatten()
+
+
+    # Create output path for the PDF report
+    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+    output_file = str(
+        derivatives_path.copy().update(suffix='epoch_plots', extension='.pdf')
+    )
+
+
+    with PdfPages(output_file) as pdf:
+        for p in range(pages):
+            start_idx = p * epochs_per_page
+            end_idx = min((p + 1) * epochs_per_page, n_epochs)
+
+            for ax in axes:
+                ax.cla()
+                ax.set_visible(True)
+
+            page_data = data_array[start_idx:end_idx]
+            for i, ep_data in enumerate(page_data):
+                ax = axes[i]
+                epoch_idx = start_idx + i
+                color = 'red' if bad_epochs is not None and epoch_idx in bad_epochs else 'black'
+                ax.plot(times[:, None], (ep_data.T + offsets), color=color, linewidth=0.5)
+                if i % 3 == 0:
+                    ax.set_yticks(offsets)
+                    ax.set_yticklabels([f'{ch}' for ch in epochs.ch_names], fontsize=6)
+                else:
+                    ax.set_yticklabels([])
+                ax.set_title(f'Epoch {epoch_idx + 1}', fontsize=10, color=color)
+                ax.set_xlim(times[0], times[-1])
+                ax.set_ylim(-spacing, offsets[-1] + np.ptp(ep_data) + spacing)
+                ax.invert_yaxis()
+                ax.grid(True, alpha=0.2)
+                if i >= 3:
+                    ax.set_xlabel('Time (s)', fontsize=8)
+
+            for j in range(i + 1, len(axes)):
+                axes[j].set_visible(False)
+
+            plt.subplots_adjust(hspace=0.4, wspace=0.2)
+            pdf.savefig(fig, dpi=150)
+
+    print(f"Epoch plots saved to {output_file}")
+
+def step_run_ll_rejection_policy(pipeline, autoclean_dict):
+    bids_path = autoclean_dict["bids_path"]
+
+    rejection_policy = step_get_rejection_policy(autoclean_dict)
+    cleaned_raw = rejection_policy.apply(pipeline)
+    cleaned_raw = extended_BAD_LL_noisy_ICs_annotations(cleaned_raw, pipeline, autoclean_dict, extra_duration=1)
+
+    # Calculate total duration of BAD annotations
+    total_bad_duration = 0
+    bad_annotation_count = 0
+    distinct_annotation_types = set()
+
+    if cleaned_raw.annotations:
+        for annotation in cleaned_raw.annotations:
+            if annotation['description'].startswith('BAD'):
+                total_bad_duration += annotation['duration']
+                bad_annotation_count += 1
+                distinct_annotation_types.add(annotation['description'])
+
+    plot_bad_channels_with_topography(
+        raw_original=pipeline.raw,
+        raw_cleaned=cleaned_raw,
+        pipeline=pipeline,
+        autoclean_dict=autoclean_dict,
+        zoom_duration=30,  # Duration for the zoomed-in plot
+        zoom_start=0        # Start time for the zoomed-in plot
+    )
+
+    metadata = {
+        "step_run_ll_rejection_policy": {
+            "creationDateTime": datetime.now().isoformat(),
+            "rejection_policy": rejection_policy,
+            "channelCount": len(cleaned_raw.ch_names),
+            "durationSec": int(cleaned_raw.n_times) / cleaned_raw.info["sfreq"],
+            "numberSamples": int(cleaned_raw.n_times),
+            "bad_annotations_pending": {
+                "number_of_annotations": bad_annotation_count,
+                "total_duration_seconds": total_bad_duration,
+                "total_duration_minutes": round(total_bad_duration / 60, 2),
+                "percent_of_recording": round((total_bad_duration / cleaned_raw.times[-1]) * 100, 2) if cleaned_raw.times[-1] > 0 else 0,
+                "distinct_annotation_types": list(distinct_annotation_types)
+            }
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return pipeline, cleaned_raw
+
+def clean_artifacts_continuous(pipeline, autoclean_dict):
+
+    bids_path = autoclean_dict["bids_path"]
+
+
+    #step_psd_topo_figure(pipeline.raw, cleaned_raw, pipeline, autoclean_dict)
+
+    # Generate ICA reports
+    #generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
+
+    step_plot_raw_vs_cleaned_overlay(pipeline.raw, cleaned_raw, pipeline, autoclean_dict, suffix='')
+
+    step_plot_ica_full(pipeline, autoclean_dict)
+
+    cleaned_raw = extended_BAD_LL_noisy_ICs_annotations(cleaned_raw, pipeline, autoclean_dict, extra_duration=1)
+
+    epochs = mne.make_fixed_length_epochs(cleaned_raw, duration=2, reject_by_annotation=True)
+    bad_epochs = detect_muscle_beta_focus_robust(epochs, pipeline, autoclean_dict, freq_band=(20, 30), scale_factor=3.0)
+    print(f"Detected {len(bad_epochs)} bad epochs")
+
+    plot_epochs_to_pdf(epochs, pipeline=pipeline, autoclean_dict=autoclean_dict, bad_epochs=bad_epochs)
+
+    # Remove bad epochs detected from muscle artifacts
+    if len(bad_epochs) > 0:
+        print(f"Removing {len(bad_epochs)} epochs with muscle artifacts...")
+        epochs.drop(bad_epochs, reason='muscle')
+        print(f"Remaining epochs: {len(epochs)}")
+    
+    # Store cleaned epochs for later use
+    cleaned_epochs = epochs
+    
+    save_epochs_to_set(cleaned_epochs, autoclean_dict, 'post_clean_epochs')
+
+    metadata = {
+        "step_clean_artifacts_continuous": {
+            "creationDateTime": datetime.now().isoformat(),
+            "rejection_policy": rejection_policy
+        }
+    }
+
+    return pipeline, autoclean_dict
+
+def step_get_rejection_policy(autoclean_dict: dict) -> dict:
+
+    task = autoclean_dict["task"]
+    # Create a new rejection policy for cleaning channels and removing ICs
+    rejection_policy = ll.RejectionPolicy()
+
+    # Set parameters for channel rejection
+    rejection_policy["ch_flags_to_reject"] = autoclean_dict['tasks'][task]['rejection_policy']['ch_flags_to_reject']
+    rejection_policy["ch_cleaning_mode"] = autoclean_dict['tasks'][task]['rejection_policy']['ch_cleaning_mode']
+    rejection_policy["interpolate_bads_kwargs"] = {"method": autoclean_dict['tasks'][task]['rejection_policy']['interpolate_bads_kwargs']['method']}
+
+    # Set parameters for IC rejection
+    rejection_policy["ic_flags_to_reject"] = autoclean_dict['tasks'][task]['rejection_policy']['ic_flags_to_reject']
+    rejection_policy["ic_rejection_threshold"] = autoclean_dict['tasks'][task]['rejection_policy']['ic_rejection_threshold']
+    rejection_policy["remove_flagged_ics"] = autoclean_dict['tasks'][task]['rejection_policy']['remove_flagged_ics']
+
+    # Add metadata about rejection policy
+    metadata = {
+        "rejection_policy": {
+            "creationDateTime": datetime.now().isoformat(),
+            "task": task,
+            "ch_flags_to_reject": rejection_policy["ch_flags_to_reject"],
+            "ch_cleaning_mode": rejection_policy["ch_cleaning_mode"],
+            "interpolate_method": rejection_policy["interpolate_bads_kwargs"]["method"],
+            "ic_flags_to_reject": rejection_policy["ic_flags_to_reject"],
+            "ic_rejection_threshold": rejection_policy["ic_rejection_threshold"],
+            "remove_flagged_ics": rejection_policy["remove_flagged_ics"]
+        }
+    }
+
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    # Log rejection policy details using messaging function
+    message("info", "[bold blue]Rejection Policy Settings:[/bold blue]")
+    message("info", f"Channel flags to reject: {rejection_policy['ch_flags_to_reject']}")
+    message("info", f"Channel cleaning mode: {rejection_policy['ch_cleaning_mode']}")
+    message("info", f"Interpolation method: {rejection_policy['interpolate_bads_kwargs']['method']}")
+    message("info", f"IC flags to reject: {rejection_policy['ic_flags_to_reject']}")
+    message("info", f"IC rejection threshold: {rejection_policy['ic_rejection_threshold']}")
+    message("info", f"Remove flagged ICs: {rejection_policy['remove_flagged_ics']}")
+
+    return rejection_policy
 
 
 def process_resting_eyesopen(autoclean_dict: dict) -> None:
@@ -1408,10 +2625,73 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
     pipeline = step_run_pylossless(autoclean_dict)
     save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
 
-    # Artifact Rejection
-    pipeline, autoclean_dict = clean_artifacts_continuous(pipeline, autoclean_dict)
+    # Use PyLossless Rejection Policy
+    pipeline, cleaned_raw = step_run_ll_rejection_policy(pipeline, autoclean_dict)
 
-    console.print("[green]✓ Completed[/green]")
+    # Plot raw data channels over the full duration, overlaying the original and cleaned data.
+    step_plot_raw_vs_cleaned_overlay(pipeline.raw, cleaned_raw, pipeline, autoclean_dict, suffix='')
+
+    # Plot ICA components
+    step_plot_ica_full(pipeline, autoclean_dict)
+
+    # Generate Full ICA Reports
+    # generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
+
+    # Detect Muscle Beta Focus
+    epochs = mne.make_fixed_length_epochs(cleaned_raw, duration=2, reject_by_annotation=True)
+
+    bad_epochs = detect_muscle_beta_focus_robust(epochs, pipeline, autoclean_dict, freq_band=(20, 30), scale_factor=3.0)
+
+    epochs.drop_bad()
+
+
+    # Analyze drop log to tally different annotation types
+    drop_log = epochs.drop_log
+    total_epochs = len(drop_log)
+    good_epochs = sum(1 for log in drop_log if len(log) == 0)
+
+    # Dynamically collect all unique annotation types
+    annotation_types = {}
+    for log in drop_log:
+        if len(log) > 0:  # If epoch was dropped
+            for annotation in log:
+                # Convert numpy string to regular string if needed
+                annotation = str(annotation)
+                annotation_types[annotation] = annotation_types.get(annotation, 0) + 1
+
+    message("info", f"\nEpoch Drop Log Summary:")
+    message("info", f"Total epochs: {total_epochs}")
+    message("info", f"Good epochs: {good_epochs}")
+    for annotation, count in annotation_types.items():
+        message("info", f"Epochs with {annotation}: {count}")
+
+    # Add good and total to the annotation_types dictionary
+    annotation_types['KEEP'] = good_epochs
+    annotation_types['TOTAL'] = total_epochs
+
+    metadata = {
+        "make_fixed_length_epochs": {
+            "creationDateTime": datetime.now().isoformat(),
+            "duration": 2,
+            "reject_by_annotation": True,
+            "number_of_epochs": len(epochs),
+            "single_epoch_duration": epochs.times[-1] - epochs.times[0],
+            "single_epoch_samples": epochs.times.shape[0],
+            "durationSec": (epochs.times[-1] - epochs.times[0])*len(epochs), 
+            "numberSamples": epochs.times.shape[0] * len(epochs),
+            "channelCount": len(epochs.ch_names),
+            "annotation_types": annotation_types
+        }
+    }
+
+
+    breakpoint()
+
+
+    # # Artifact Rejection
+    # pipeline, autoclean_dict = clean_artifacts_continuous(pipeline, autoclean_dict)
+
+    # console.print("[green]✓ Completed[/green]")
 
 
 def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
@@ -1471,6 +2751,13 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
         })
 
         message("info", f"Starting processing for task: {task}")
+
+        ##################################################
+        #                                                #
+        #         This is the start of the task        #
+        #            specific code section               #
+        #                                                #
+        ##################################################
 
         if task == "rest_eyesopen":
             process_resting_eyesopen(autoclean_dict)
