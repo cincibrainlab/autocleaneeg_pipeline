@@ -2382,7 +2382,7 @@ def detect_muscle_beta_focus_robust(epochs, pipeline, autoclean_dict, freq_band=
     current_bads = [i for i, log in enumerate(epochs.drop_log) if log]
     combined_bads = sorted(set(current_bads + bad_epochs))
     epochs.drop(bad_epochs, reason='BAD_MOVEMENT')
-    breakpoint()
+
 
     metadata = {
         "muscle_beta_focus_robust": {
@@ -2514,6 +2514,212 @@ def step_run_ll_rejection_policy(pipeline, autoclean_dict):
 
     return pipeline, cleaned_raw
 
+def step_gfp_clean_epochs(
+    epochs: mne.Epochs,
+    pipeline,
+    autoclean_dict,
+    gfp_threshold=3.0,
+    number_of_epochs=None,
+    apply_autoreject=False,
+    random_seed=None
+):
+    """
+    Clean an MNE Epochs object by applying artifact rejection and removing outlier epochs based on GFP.
+    
+    Args:
+        epochs (mne.Epochs): The input epoched EEG data.
+        gfp_threshold (float, optional): Z-score threshold for GFP-based outlier detection. 
+                                         Epochs with GFP z-scores above this value are removed.
+                                         Defaults to 3.0.
+        number_of_epochs (int, optional): If specified, randomly selects this number of epochs from the cleaned data.
+                                           If None, retains all cleaned epochs. Defaults to None.
+        apply_autoreject (bool, optional): Whether to apply AutoReject for artifact correction. Defaults to True.
+        random_seed (int, optional): Seed for random number generator to ensure reproducibility when selecting epochs.
+                                     Defaults to None.
+    
+    Returns:
+        Tuple[mne.Epochs, Dict[str, any]]: A tuple containing the cleaned Epochs object and a dictionary of statistics.
+    
+    Raises:
+        ValueError: If after cleaning, the number of epochs is less than `number_of_epochs` when specified.
+    """
+    message("info", "Starting epoch cleaning process.")
+
+    import random
+
+    # Force preload to avoid RuntimeError
+    if not epochs.preload:
+        epochs.load_data()
+    
+    # Step 1: Artifact Rejection using AutoReject
+    if apply_autoreject:
+        message("info", "Applying AutoReject for artifact rejection.")
+        ar = AutoReject()
+        epochs_clean = ar.fit_transform(epochs)
+        message("info", f"Artifacts rejected: {len(epochs) - len(epochs_clean)} epochs removed by AutoReject.")
+    else:
+        epochs_clean = epochs.copy()
+        message("info", "AutoReject not applied. Proceeding without artifact rejection.")
+    
+    # Step 2: Calculate Global Field Power (GFP)
+    message("info", "Calculating Global Field Power (GFP) for each epoch.")
+    gfp = np.sqrt(np.mean(epochs_clean.get_data() ** 2, axis=(1, 2)))  # Shape: (n_epochs,)
+    
+    # Step 3: Epoch Statistics
+    epoch_stats = pd.DataFrame({
+        'epoch': np.arange(len(gfp)),
+        'gfp': gfp,
+        'mean_amplitude': epochs_clean.get_data().mean(axis=(1, 2)),
+        'max_amplitude': epochs_clean.get_data().max(axis=(1, 2)),
+        'min_amplitude': epochs_clean.get_data().min(axis=(1, 2)),
+        'std_amplitude': epochs_clean.get_data().std(axis=(1, 2))
+    })
+    # Step 4: Remove Outlier Epochs based on GFP
+    message("info", "Removing outlier epochs based on GFP z-scores.")
+    gfp_mean = epoch_stats['gfp'].mean()
+    gfp_std = epoch_stats['gfp'].std()
+    z_scores = np.abs((epoch_stats['gfp'] - gfp_mean) / gfp_std)
+    good_epochs_mask = z_scores < gfp_threshold
+    removed_by_gfp = np.sum(~good_epochs_mask)
+    epochs_final = epochs_clean[good_epochs_mask]
+    epoch_stats_final = epoch_stats[good_epochs_mask]
+    message("info", f"Outlier epochs removed based on GFP: {removed_by_gfp}")
+    
+    # Step 5: Randomly Select a Specified Number of Epochs
+    if number_of_epochs is not None:
+        if len(epochs_final) < number_of_epochs:
+            error_msg = (f"Requested number_of_epochs={number_of_epochs} exceeds the available cleaned epochs={len(epochs_final)}.")
+            message("error", error_msg)
+            raise ValueError(error_msg)
+        if random_seed is not None:
+            random.seed(random_seed)
+        selected_indices = random.sample(range(len(epochs_final)), number_of_epochs)
+        epochs_final = epochs_final[selected_indices]
+        epoch_stats_final = epoch_stats_final.iloc[selected_indices]
+        message("info", f"Randomly selected {number_of_epochs} epochs from the cleaned data.")
+
+    # Analyze drop log to tally different annotation types
+    drop_log = epochs.drop_log
+    total_epochs = len(drop_log)
+    good_epochs = sum(1 for log in drop_log if len(log) == 0)
+
+    # Dynamically collect all unique annotation types
+    annotation_types = {}
+    for log in drop_log:
+        if len(log) > 0:  # If epoch was dropped
+            for annotation in log:
+                # Convert numpy string to regular string if needed
+                annotation = str(annotation)
+                annotation_types[annotation] = annotation_types.get(annotation, 0) + 1
+
+    # Add good and total to the annotation_types dictionary
+    annotation_types['KEEP'] = good_epochs
+    annotation_types['TOTAL'] = total_epochs
+    # Create GFP barplot
+    plt.figure(figsize=(12, 4))
+
+    # Plot all epochs in red first (marking removed epochs)
+    plt.bar(epoch_stats.index, epoch_stats['gfp'], width=0.8, color='red', alpha=0.3)
+
+    # Then overlay kept epochs in blue
+    plt.bar(epoch_stats_final.index, epoch_stats_final['gfp'], width=0.8, color='blue')
+
+    plt.xlabel('Epoch Number')
+    plt.ylabel('Global Field Power (GFP)')
+    plt.title('GFP Values by Epoch (Red = Removed, Blue = Kept)')
+
+    # Save plot using BIDS derivative name
+    plot_fname = autoclean_dict['bids_path'].copy().update(
+        suffix='gfp',
+        extension='png',
+        check=False
+    )
+    plt.savefig(plot_fname, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    # Create GFP heatmap with larger figure size and improved readability
+    plt.figure(figsize=(30, 18))
+    
+    # Calculate number of rows and columns for grid layout
+    n_epochs = len(epoch_stats)
+    n_cols = 8  # Reduced number of columns for larger cells
+    n_rows = int(np.ceil(n_epochs / n_cols))
+    
+    # Create a grid of values
+    grid = np.full((n_rows, n_cols), np.nan)
+    for i, (idx, gfp) in enumerate(epoch_stats['gfp'].items()):
+        row = i // n_cols
+        col = i % n_cols
+        grid[row, col] = gfp
+    
+    # Create heatmap with larger spacing between cells
+    im = plt.imshow(grid, cmap='RdYlBu_r', aspect='auto')
+    plt.colorbar(im, label='GFP Value (×10⁻⁶)', fraction=0.02, pad=0.04)
+    
+    # Add text annotations with increased font size and spacing
+    for i, (idx, gfp) in enumerate(epoch_stats['gfp'].items()):
+        row = i // n_cols
+        col = i % n_cols
+        kept = idx in epoch_stats_final.index
+        color = 'black' if kept else 'gray'
+        plt.text(col, row, f'ID: {idx}\nGFP: {gfp:.1e}', 
+                ha='center', va='center', color=color, fontsize=10,
+                bbox=dict(facecolor='white', alpha=0.8, pad=0.8))
+    
+    # Improve title and labels with larger font sizes
+    plt.title('GFP Heatmap by Epoch (Gray = Removed, Black = Kept)', fontsize=14, pad=20)
+    plt.xlabel('Column', fontsize=12, labelpad=10)
+    plt.ylabel('Row', fontsize=12, labelpad=10)
+    
+    # Adjust layout to prevent text overlap
+    plt.tight_layout()
+    
+    # Save heatmap plot with higher DPI for better quality
+    plot_fname = autoclean_dict['bids_path'].copy().update(
+        suffix='gfp-heatmap',
+        extension='png',
+        check=False
+    )
+    plt.savefig(plot_fname, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    
+    
+    metadata = {
+        "step_gfp_clean_epochs": {
+            "creationDateTime": datetime.now().isoformat(),
+            'initial_epochs': len(epochs),
+            'after_autoreject': len(epochs_clean),
+            'removed_by_autoreject': len(epochs) - len(epochs_clean),
+            'removed_by_gfp': removed_by_gfp,
+            'final_epochs': len(epochs_final),
+            'mean_amplitude': float(epoch_stats_final['mean_amplitude'].mean()),
+            'max_amplitude': float(epoch_stats_final['max_amplitude'].max()),
+            'min_amplitude': float(epoch_stats_final['min_amplitude'].min()),
+            'std_amplitude': float(epoch_stats_final['std_amplitude'].mean()),
+            'mean_gfp': float(epoch_stats_final['gfp'].mean()),
+            'gfp_threshold': float(gfp_threshold),
+            'removed_total': (len(epochs) - len(epochs_clean)) + removed_by_gfp,
+            'annotation_types': annotation_types,
+            'epoch_duration': epochs.times[-1] - epochs.times[0],
+            'samples_per_epoch': epochs.times.shape[0],
+            'total_duration_sec': (epochs.times[-1] - epochs.times[0])*len(epochs_final),
+            'total_samples': epochs.times.shape[0] * len(epochs_final),
+            'channel_count': len(epochs.ch_names)
+        }
+    }
+
+    breakpoint()
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+    
+    message("info", "Epoch GFP cleaning process completed.")
+    
+    return epochs_final
+
 def clean_artifacts_continuous(pipeline, autoclean_dict):
 
     bids_path = autoclean_dict["bids_path"]
@@ -2603,47 +2809,16 @@ def step_get_rejection_policy(autoclean_dict: dict) -> dict:
 
     return rejection_policy
 
+def step_create_regular_epochs(cleaned_raw, pipeline, autoclean_dict):
 
-def process_resting_eyesopen(autoclean_dict: dict) -> None:
-    message("info", "Processing resting_eyesopen data...")
-
-    # Import and save raw EEG data
-    raw = step_import_raw(autoclean_dict)
-    save_raw_to_set(raw, autoclean_dict, 'post_import')
-
-    # Run preprocessing pipeline and save intermediate result
-    raw = pre_pipeline_processing(raw, autoclean_dict)
-    save_raw_to_set(raw, autoclean_dict, 'post_prepipeline')
-
-    # Create BIDS-compliant paths and filenames
-    raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
-
-    raw = step_clean_bad_channels(raw, autoclean_dict)
-    save_raw_to_set(raw, autoclean_dict, 'post_bad_channels')
-
-    # Run PyLossless pipeline and save result
-    pipeline = step_run_pylossless(autoclean_dict)
-    save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
-
-    # Use PyLossless Rejection Policy
-    pipeline, cleaned_raw = step_run_ll_rejection_policy(pipeline, autoclean_dict)
-
-    # Plot raw data channels over the full duration, overlaying the original and cleaned data.
-    step_plot_raw_vs_cleaned_overlay(pipeline.raw, cleaned_raw, pipeline, autoclean_dict, suffix='')
-
-    # Plot ICA components
-    step_plot_ica_full(pipeline, autoclean_dict)
-
-    # Generate Full ICA Reports
-    # generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
-
-    # Detect Muscle Beta Focus
+   # Detect Muscle Beta Focus
     epochs = mne.make_fixed_length_epochs(cleaned_raw, duration=2, reject_by_annotation=True)
 
-    bad_epochs = detect_muscle_beta_focus_robust(epochs, pipeline, autoclean_dict, freq_band=(20, 30), scale_factor=3.0)
+    #breakpoint()
+
+    bad_epochs = detect_muscle_beta_focus_robust(epochs.copy(), pipeline, autoclean_dict, freq_band=(20, 100), scale_factor=2.0)
 
     epochs.drop_bad()
-
 
     # Analyze drop log to tally different annotation types
     drop_log = epochs.drop_log
@@ -2684,8 +2859,62 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
         }
     }
 
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
 
-    breakpoint()
+    return epochs
+
+def process_resting_eyesopen(autoclean_dict: dict) -> None:
+    message("info", "Processing resting_eyesopen data...")
+
+    # Import and save raw EEG data
+    raw = step_import_raw(autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_import')
+
+    # Run preprocessing pipeline and save intermediate result
+    raw = pre_pipeline_processing(raw, autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_prepipeline')
+
+    # Create BIDS-compliant paths and filenames
+    raw, autoclean_dict = create_bids_path(raw, autoclean_dict)
+
+    raw = step_clean_bad_channels(raw, autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_bad_channels')
+
+    # Run PyLossless pipeline and save result
+    pipeline = step_run_pylossless(autoclean_dict)
+    save_raw_to_set(raw, autoclean_dict, 'post_pylossless')
+
+    # Use PyLossless Rejection Policy
+    pipeline, cleaned_raw = step_run_ll_rejection_policy(pipeline, autoclean_dict)
+
+    # Plot raw data channels over the full duration, overlaying the original and cleaned data.
+    step_plot_raw_vs_cleaned_overlay(pipeline.raw, cleaned_raw, pipeline, autoclean_dict, suffix='')
+
+    # Plot ICA components
+    step_plot_ica_full(pipeline, autoclean_dict)
+
+    # Generate Full ICA Reports
+    # generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
+
+    epochs = step_create_regular_epochs(cleaned_raw, pipeline, autoclean_dict)
+
+    epochs = step_gfp_clean_epochs(
+        epochs,
+        pipeline,
+        autoclean_dict,
+        gfp_threshold=1.5,
+        number_of_epochs=80,
+        apply_autoreject=False
+    ) 
+
+
+    save_epochs_to_set(epochs, autoclean_dict, 'post_clean_epochs')
+
+    #breakpoint()
+
 
 
     # # Artifact Rejection
@@ -2787,6 +3016,7 @@ def main() -> None:
     
     # Development Test File
     unprocessed_file = Path("/Users/ernie/Documents/GitHub/spg_analysis_redo/dataset_raw/0170_rest.raw")  
+    unprocessed_file = Path("/Users/ernie/Documents/GitHub/spg_analysis_redo/dataset_raw/0006_rest.raw")
     task = "rest_eyesopen"
 
     try:
