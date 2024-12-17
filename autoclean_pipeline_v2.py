@@ -72,10 +72,11 @@ import numpy as np
 import mne
 from mne_bids import BIDSPath, read_raw_bids, write_raw_bids, update_sidecar_json
 from mne.io.constants import FIFF
+from mne.preprocessing import bads
 
 from pyprep.find_noisy_channels import NoisyChannels
 import pylossless as ll
-
+from autoreject import AutoReject
 
 logger = logging.getLogger('autoclean')
 console = Console()
@@ -373,6 +374,8 @@ def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
 
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     set_path = subfolder / f"{basename}{suffix}_raw.set"
+
+    raw.info['description'] = autoclean_dict['run_id'] 
     
     raw.export(set_path, fmt='eeglab', overwrite=True)
     message("success", f"Saved stage file for {stage} to: {basename}")
@@ -430,9 +433,24 @@ def save_epochs_to_set(epochs, autoclean_dict, stage="post_import", output_path=
 
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     set_path = subfolder / f"{basename}{suffix}_epo.set"
-    
+
+    breakpoint()
+
+    # Add run_id for future database reference
+    epochs.info['description'] = autoclean_dict['run_id']  
+    epochs.apply_proj()
     epochs.export(set_path, fmt='eeglab', overwrite=True)
+
+    import scipy.io as sio
+    EEG = sio.loadmat(set_path)
+    EEG['etc'] = {}
+    EEG['etc']['run_id'] = autoclean_dict['run_id']
+    sio.savemat(set_path, EEG, do_compression=False)
+
+    # epochs2 = mne.read_epochs_eeglab(set_path)
+
     message("success", f"Saved stage file for {stage} to: {basename}")
+
 
     metadata = {
         "save_epochs_to_set": {
@@ -2514,17 +2532,130 @@ def step_run_ll_rejection_policy(pipeline, autoclean_dict):
 
     return pipeline, cleaned_raw
 
+def prepare_epochs_for_ica(epochs: mne.Epochs, pipeline, autoclean_dict) -> mne.Epochs:
+    """
+    Drops epochs that were marked bad based on a global outlier detection.
+    This implementation for the preliminary epoch rejection was based on the
+    Python implementation of the FASTER algorithm from Marijn van Vliet
+    https://gist.github.com/wmvanvliet/d883c3fe1402c7ced6fc
+    Parameters
+    ----------
+    epochs
+
+    Returns
+    -------
+    Epochs instance
+    """
+    message("info", "Preliminary epoch rejection: ")
+
+    def _deviation(data: np.ndarray) -> np.ndarray:
+        """
+        Computes the deviation from mean for each channel.
+        """
+        channels_mean = np.mean(data, axis=2)
+        return channels_mean - np.mean(channels_mean, axis=0)
+
+    metrics = {
+        "amplitude": lambda x: np.mean(np.ptp(x, axis=2), axis=1),
+        "deviation": lambda x: np.mean(_deviation(x), axis=1),
+        "variance": lambda x: np.mean(np.var(x, axis=2), axis=1),
+    }
+
+    epochs_data = epochs.get_data()
+
+    bad_epochs = []
+    bad_epochs_by_metric = {}
+    for metric in metrics:
+        scores = metrics[metric](epochs_data)
+        outliers = bads._find_outliers(scores, threshold=3.0)
+        message("info", f"Bad epochs by {metric}: {outliers}")
+        bad_epochs.extend(outliers)
+        bad_epochs_by_metric[metric] = list(outliers)
+
+    # Convert numpy int64 values to regular integers for JSON serialization
+    bad_epochs_by_metric_dict = {
+        metric: [int(epoch) for epoch in epochs]
+        for metric, epochs in bad_epochs_by_metric.items()
+    }
+
+    bad_epochs = list(set(bad_epochs))
+    epochs_faster = epochs.copy().drop(bad_epochs, reason="BAD_EPOCHS")
+
+    metadata = {
+        "prepare_epochs_for_ica": {
+            "creationDateTime": datetime.now().isoformat(),
+            "initial_epochs": len(epochs),
+            "final_epochs": len(epochs_faster),
+            "rejected_epochs": len(bad_epochs),
+            "rejection_percent": round((len(bad_epochs) / len(epochs)) * 100, 2),
+            "bad_epochs_by_metric": bad_epochs_by_metric_dict,
+            "total_bad_epochs": bad_epochs,
+            "epoch_duration": epochs.times[-1] - epochs.times[0],
+            "samples_per_epoch": epochs.times.shape[0],
+            "total_duration_sec": (epochs.times[-1] - epochs.times[0])*len(epochs_faster),
+            "total_samples": epochs.times.shape[0] * len(epochs_faster),
+            "channel_count": len(epochs.ch_names)
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return epochs_faster
+    
+def step_apply_autoreject(epochs, pipeline, autoclean_dict):
+    """
+    Apply AutoReject to clean epochs.
+    
+    Args:
+        epochs (mne.Epochs): The input epoched EEG data
+        pipeline: The pipeline object containing configuration and metadata
+        autoclean_dict (dict): Dictionary containing pipeline configuration and metadata
+        
+    Returns:
+        mne.Epochs: The cleaned epochs after AutoReject
+    """
+    message("info", "Applying AutoReject for artifact rejection.")
+    ar = AutoReject()
+    epochs_clean = ar.fit_transform(epochs)
+    rejected_epochs = len(epochs) - len(epochs_clean)
+    message("info", f"Artifacts rejected: {rejected_epochs} epochs removed by AutoReject.")
+
+    metadata = {
+        "step_apply_autoreject": {
+            "creationDateTime": datetime.now().isoformat(),
+            "initial_epochs": len(epochs),
+            "final_epochs": len(epochs_clean),
+            "rejected_epochs": rejected_epochs,
+            "rejection_percent": round((rejected_epochs / len(epochs)) * 100, 2),
+            "epoch_duration": epochs.times[-1] - epochs.times[0],
+            "samples_per_epoch": epochs.times.shape[0],
+            "total_duration_sec": (epochs.times[-1] - epochs.times[0])*len(epochs_clean),
+            "total_samples": epochs.times.shape[0] * len(epochs_clean),
+            "channel_count": len(epochs.ch_names)
+        }
+    }
+
+    manage_database(operation='update', update_record={
+        'run_id': autoclean_dict['run_id'],
+        'metadata': metadata
+    })
+
+    return epochs_clean
+
 def step_gfp_clean_epochs(
     epochs: mne.Epochs,
     pipeline,
     autoclean_dict,
     gfp_threshold=3.0,
     number_of_epochs=None,
-    apply_autoreject=False,
     random_seed=None
 ):
     """
-    Clean an MNE Epochs object by applying artifact rejection and removing outlier epochs based on GFP.
+    Clean an MNE Epochs object by removing outlier epochs based on GFP.
+    Only calculates GFP on scalp electrodes (excluding those defined in channel_region_map).
     
     Args:
         epochs (mne.Epochs): The input epoched EEG data.
@@ -2533,15 +2664,11 @@ def step_gfp_clean_epochs(
                                          Defaults to 3.0.
         number_of_epochs (int, optional): If specified, randomly selects this number of epochs from the cleaned data.
                                            If None, retains all cleaned epochs. Defaults to None.
-        apply_autoreject (bool, optional): Whether to apply AutoReject for artifact correction. Defaults to True.
         random_seed (int, optional): Seed for random number generator to ensure reproducibility when selecting epochs.
                                      Defaults to None.
     
     Returns:
         Tuple[mne.Epochs, Dict[str, any]]: A tuple containing the cleaned Epochs object and a dictionary of statistics.
-    
-    Raises:
-        ValueError: If after cleaning, the number of epochs is less than `number_of_epochs` when specified.
     """
     message("info", "Starting epoch cleaning process.")
 
@@ -2551,28 +2678,34 @@ def step_gfp_clean_epochs(
     if not epochs.preload:
         epochs.load_data()
     
-    # Step 1: Artifact Rejection using AutoReject
-    if apply_autoreject:
-        message("info", "Applying AutoReject for artifact rejection.")
-        ar = AutoReject()
-        epochs_clean = ar.fit_transform(epochs)
-        message("info", f"Artifacts rejected: {len(epochs) - len(epochs_clean)} epochs removed by AutoReject.")
-    else:
-        epochs_clean = epochs.copy()
-        message("info", "AutoReject not applied. Proceeding without artifact rejection.")
+    epochs_clean = epochs.copy()
     
-    # Step 2: Calculate Global Field Power (GFP)
-    message("info", "Calculating Global Field Power (GFP) for each epoch.")
-    gfp = np.sqrt(np.mean(epochs_clean.get_data() ** 2, axis=(1, 2)))  # Shape: (n_epochs,)
+    # Define non-scalp electrodes to exclude
+    channel_region_map = {
+        "E17":"OTHER", "E38":"OTHER", "E43":"OTHER", "E44":"OTHER", "E48":"OTHER", "E49":"OTHER",
+        "E56":"OTHER", "E73":"OTHER", "E81":"OTHER", "E88":"OTHER", "E94":"OTHER", "E107":"OTHER",
+        "E113":"OTHER", "E114":"OTHER", "E119":"OTHER", "E120":"OTHER", "E121":"OTHER", "E125":"OTHER",
+        "E126":"OTHER", "E127":"OTHER", "E128":"OTHER"
+    }
+
+    # Get scalp electrode indices (all channels except those in channel_region_map)
+    non_scalp_channels = list(channel_region_map.keys())
+    all_channels = epochs_clean.ch_names
+    scalp_channels = [ch for ch in all_channels if ch not in non_scalp_channels]
+    scalp_indices = [epochs_clean.ch_names.index(ch) for ch in scalp_channels]
+    
+    # Step 2: Calculate Global Field Power (GFP) only for scalp electrodes
+    message("info", "Calculating Global Field Power (GFP) for each epoch using only scalp electrodes.")
+    gfp = np.sqrt(np.mean(epochs_clean.get_data()[:, scalp_indices, :] ** 2, axis=(1, 2)))  # Shape: (n_epochs,)
     
     # Step 3: Epoch Statistics
     epoch_stats = pd.DataFrame({
         'epoch': np.arange(len(gfp)),
         'gfp': gfp,
-        'mean_amplitude': epochs_clean.get_data().mean(axis=(1, 2)),
-        'max_amplitude': epochs_clean.get_data().max(axis=(1, 2)),
-        'min_amplitude': epochs_clean.get_data().min(axis=(1, 2)),
-        'std_amplitude': epochs_clean.get_data().std(axis=(1, 2))
+        'mean_amplitude': epochs_clean.get_data()[:, scalp_indices, :].mean(axis=(1, 2)),
+        'max_amplitude': epochs_clean.get_data()[:, scalp_indices, :].max(axis=(1, 2)),
+        'min_amplitude': epochs_clean.get_data()[:, scalp_indices, :].min(axis=(1, 2)),
+        'std_amplitude': epochs_clean.get_data()[:, scalp_indices, :].std(axis=(1, 2))
     })
     # Step 4: Remove Outlier Epochs based on GFP
     message("info", "Removing outlier epochs based on GFP z-scores.")
@@ -2585,18 +2718,21 @@ def step_gfp_clean_epochs(
     epoch_stats_final = epoch_stats[good_epochs_mask]
     message("info", f"Outlier epochs removed based on GFP: {removed_by_gfp}")
     
-    # Step 5: Randomly Select a Specified Number of Epochs
+    # Step 5: Handle epoch selection with warning if needed
+    requested_epochs_exceeded = False
     if number_of_epochs is not None:
         if len(epochs_final) < number_of_epochs:
-            error_msg = (f"Requested number_of_epochs={number_of_epochs} exceeds the available cleaned epochs={len(epochs_final)}.")
-            message("error", error_msg)
-            raise ValueError(error_msg)
+            warning_msg = (f"Requested number_of_epochs={number_of_epochs} exceeds the available cleaned epochs={len(epochs_final)}. Using all available epochs.")
+            message("warning", warning_msg)
+            requested_epochs_exceeded = True
+            number_of_epochs = len(epochs_final)
+        
         if random_seed is not None:
             random.seed(random_seed)
         selected_indices = random.sample(range(len(epochs_final)), number_of_epochs)
         epochs_final = epochs_final[selected_indices]
         epoch_stats_final = epoch_stats_final.iloc[selected_indices]
-        message("info", f"Randomly selected {number_of_epochs} epochs from the cleaned data.")
+        message("info", f"Selected {number_of_epochs} epochs from the cleaned data.")
 
     # Analyze drop log to tally different annotation types
     drop_log = epochs.drop_log
@@ -2629,12 +2765,16 @@ def step_gfp_clean_epochs(
     plt.title('GFP Values by Epoch (Red = Removed, Blue = Kept)')
 
     # Save plot using BIDS derivative name
-    plot_fname = autoclean_dict['bids_path'].copy().update(
+        # Create output path for the PDF report
+    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+
+
+    plot_fname = derivatives_path.copy().update(
         suffix='gfp',
         extension='png',
         check=False
     )
-    plt.savefig(plot_fname, dpi=150, bbox_inches='tight')
+    plt.savefig(Path(plot_fname), dpi=150, bbox_inches='tight')
     plt.close()
 
     # Create GFP heatmap with larger figure size and improved readability
@@ -2661,13 +2801,13 @@ def step_gfp_clean_epochs(
         row = i // n_cols
         col = i % n_cols
         kept = idx in epoch_stats_final.index
-        color = 'black' if kept else 'gray'
+        color = 'black' if kept else 'red'
         plt.text(col, row, f'ID: {idx}\nGFP: {gfp:.1e}', 
                 ha='center', va='center', color=color, fontsize=10,
                 bbox=dict(facecolor='white', alpha=0.8, pad=0.8))
     
     # Improve title and labels with larger font sizes
-    plt.title('GFP Heatmap by Epoch (Gray = Removed, Black = Kept)', fontsize=14, pad=20)
+    plt.title('GFP Heatmap by Epoch (Red = Removed, Black = Kept)', fontsize=14, pad=20)
     plt.xlabel('Column', fontsize=12, labelpad=10)
     plt.ylabel('Row', fontsize=12, labelpad=10)
     
@@ -2675,12 +2815,12 @@ def step_gfp_clean_epochs(
     plt.tight_layout()
     
     # Save heatmap plot with higher DPI for better quality
-    plot_fname = autoclean_dict['bids_path'].copy().update(
+    plot_fname = derivatives_path.copy().update(
         suffix='gfp-heatmap',
         extension='png',
         check=False
     )
-    plt.savefig(plot_fname, dpi=300, bbox_inches='tight')
+    plt.savefig(Path(plot_fname), dpi=300, bbox_inches='tight')
     plt.close()
 
     
@@ -2689,23 +2829,23 @@ def step_gfp_clean_epochs(
         "step_gfp_clean_epochs": {
             "creationDateTime": datetime.now().isoformat(),
             'initial_epochs': len(epochs),
-            'after_autoreject': len(epochs_clean),
-            'removed_by_autoreject': len(epochs) - len(epochs_clean),
-            'removed_by_gfp': removed_by_gfp,
             'final_epochs': len(epochs_final),
+            'removed_by_gfp': removed_by_gfp,
             'mean_amplitude': float(epoch_stats_final['mean_amplitude'].mean()),
             'max_amplitude': float(epoch_stats_final['max_amplitude'].max()),
             'min_amplitude': float(epoch_stats_final['min_amplitude'].min()),
             'std_amplitude': float(epoch_stats_final['std_amplitude'].mean()),
             'mean_gfp': float(epoch_stats_final['gfp'].mean()),
             'gfp_threshold': float(gfp_threshold),
-            'removed_total': (len(epochs) - len(epochs_clean)) + removed_by_gfp,
+            'removed_total': removed_by_gfp,
             'annotation_types': annotation_types,
             'epoch_duration': epochs.times[-1] - epochs.times[0],
             'samples_per_epoch': epochs.times.shape[0],
             'total_duration_sec': (epochs.times[-1] - epochs.times[0])*len(epochs_final),
             'total_samples': epochs.times.shape[0] * len(epochs_final),
-            'channel_count': len(epochs.ch_names)
+            'channel_count': len(epochs.ch_names),
+            'scalp_channels_used': scalp_channels,
+            'requested_epochs_exceeded': requested_epochs_exceeded
         }
     }
 
@@ -2901,14 +3041,17 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
 
     epochs = step_create_regular_epochs(cleaned_raw, pipeline, autoclean_dict)
 
+    epochs = prepare_epochs_for_ica(epochs, pipeline, autoclean_dict)
+
     epochs = step_gfp_clean_epochs(
         epochs,
         pipeline,
         autoclean_dict,
-        gfp_threshold=1.5,
-        number_of_epochs=80,
-        apply_autoreject=False
+        gfp_threshold=3.0,
+        number_of_epochs=None
     ) 
+
+    # epochs = step_apply_autoreject(epochs, pipeline, autoclean_dict)
 
 
     save_epochs_to_set(epochs, autoclean_dict, 'post_clean_epochs')
@@ -2922,25 +3065,45 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
 
     # console.print("[green]✓ Completed[/green]")
 
+def get_run_record(run_id: str) -> dict:
+    """Get a run record from the database by run ID.
+    
+    Args:
+        run_id: String ID of the run to retrieve
+        
+    Returns:
+        dict: The run record if found, None if not found
+    """
+    run_record = manage_database(operation='get_record', run_record={'run_id': run_id})
+    return run_record
 
-def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
+
+def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_id: str = None) -> None:
 
     manage_database(operation='create_collection')
 
-    run_id = str(ULID())
+    if run_id is None:
+        run_id = str(ULID())
+        run_record = {
+            'run_id': run_id,
+            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'task': task,
+            'unprocessed_file': str(unprocessed_file),
+            'status': 'unprocessed',
+            'success': False,
+            'json_file': f"{unprocessed_file.stem}_autoclean_metadata.json",
+            'metadata': {}
+        }
 
-    run_record = {
-        'run_id': run_id,
-        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-        'task': task,
-        'unprocessed_file': str(unprocessed_file),
-        'status': 'unprocessed',
-        'success': False,
-        'json_file': f"{unprocessed_file.stem}_autoclean_metadata.json",
-        'metadata': {}
-    }
+        run_record['record_id'] = manage_database(operation='store', run_record=run_record)
 
-    run_record['record_id'] = manage_database(operation='store', run_record=run_record)
+    else:
+        run_id = str(run_id)
+        run_record = get_run_record(run_id)
+        message("info", f"Resuming run {run_id}")
+        message("info", f"Run record: {run_record}")
+        return run_record
+
 
     try:
         autoclean_dir, autoclean_config_file = validate_environment_variables(run_id)
@@ -2988,7 +3151,7 @@ def entrypoint(unprocessed_file: Union[str, Path], task: str) -> None:
         #                                                #
         ##################################################
 
-        if task == "rest_eyesopen":
+        if autoclean_dict['task'] == "rest_eyesopen":
             process_resting_eyesopen(autoclean_dict)
             
         run_record['status'] = 'completed'
@@ -3021,6 +3184,7 @@ def main() -> None:
 
     try:
         entrypoint(unprocessed_file, task)
+        #entrypoint(run_id="01JF8K91SWWYBEKNNZBVM1VJKS")
     except Exception as e:
         message("error", f"Pipeline failed with error: {e}")
         raise
