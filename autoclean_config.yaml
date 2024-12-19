@@ -161,4 +161,7 @@ stage_files:
   post_autoreject:
     enabled: false
     suffix: "_postautoreject"
+  post_edit:
+    enabled: true
+    suffix: "_postedit"
 

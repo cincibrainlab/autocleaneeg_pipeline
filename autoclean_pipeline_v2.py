@@ -434,8 +434,6 @@ def save_epochs_to_set(epochs, autoclean_dict, stage="post_import", output_path=
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     set_path = subfolder / f"{basename}{suffix}_epo.set"
 
-    breakpoint()
-
     # Add run_id for future database reference
     epochs.info['description'] = autoclean_dict['run_id']  
     epochs.apply_proj()
@@ -480,6 +478,8 @@ def save_epochs_to_set(epochs, autoclean_dict, stage="post_import", output_path=
 
     return set_path
 
+def save_edited_epochs_to_set(epochs, autoclean_dict, stage="post_edit", output_path=None):
+    pass
 
 def manage_database(operation: str = 'connect', run_record: dict = None, update_record: dict = None) -> None:
     try:
@@ -2849,8 +2849,6 @@ def step_gfp_clean_epochs(
         }
     }
 
-    breakpoint()
-
     manage_database(operation='update', update_record={
         'run_id': autoclean_dict['run_id'],
         'metadata': metadata
@@ -2888,7 +2886,7 @@ def clean_artifacts_continuous(pipeline, autoclean_dict):
         epochs.drop(bad_epochs, reason='muscle')
         print(f"Remaining epochs: {len(epochs)}")
     
-    # Store cleaned epochs for later use
+    # Store cleaned epochs for later usesave_epochs_to_set
     cleaned_epochs = epochs
     
     save_epochs_to_set(cleaned_epochs, autoclean_dict, 'post_clean_epochs')
@@ -2953,8 +2951,6 @@ def step_create_regular_epochs(cleaned_raw, pipeline, autoclean_dict):
 
    # Detect Muscle Beta Focus
     epochs = mne.make_fixed_length_epochs(cleaned_raw, duration=2, reject_by_annotation=True)
-
-    #breakpoint()
 
     bad_epochs = detect_muscle_beta_focus_robust(epochs.copy(), pipeline, autoclean_dict, freq_band=(20, 100), scale_factor=2.0)
 
@@ -3056,7 +3052,6 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
 
     save_epochs_to_set(epochs, autoclean_dict, 'post_clean_epochs')
 
-    #breakpoint()
 
 
 
