@@ -49,7 +49,7 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
-from autoclean_pipeline_v2 import save_epochs_to_set, get_run_record
+from autoclean_pipeline_v2 import save_epochs_to_set, get_run_record, message
 import pyjsonviewer
 
 from PyQt5.QtCore import pyqtRemoveInputHook
@@ -188,7 +188,6 @@ class FileSelector(QWidget):
 
         # New "Save Edits" button
         self.save_edits_btn = QPushButton('Save Edits')
-        self.save_edits_btn.clicked.connect(self.saveEdits)
         self.save_edits_btn.setEnabled(False)
         self.left_layout.addWidget(self.save_edits_btn)
 
@@ -320,60 +319,89 @@ class FileSelector(QWidget):
     def plotFile(self):
         if hasattr(self, 'selected_file_path'):
             try:
+                print("INFO", "Plotting file")
                 epochs = mne.read_epochs_eeglab(self.selected_file_path)
+                self.current_epochs = epochs.copy()
+                self.save_edits_btn.setEnabled(True)
 
                 # Remove old plot widget if present
                 if self.plot_widget is not None:
+                    print("INFO", "Removing old plot widget")
                     self.right_layout.removeWidget(self.plot_widget)
                     self.plot_widget.close()
                     self.plot_widget = None
 
-                # Store original epochs
-                self.current_epochs = epochs.copy()  # Make sure we have a copy
-                self.original_epoch_count = len(epochs)
+                self.original_epoch_count = len(self.current_epochs)
+                print("INFO", "Original epoch count:", self.original_epoch_count)
 
-                # Store the original events array
-                self.original_events = self.current_epochs.events.copy()
-                # breakpoint()
+                def close_plot():
+                    message("info", "Closing plot after save.")
+                    message("info", f"Epoch number: {len(self.current_epochs)}")
+                    message("info", "Manually marked epochs for removal:")
+                    message("info", "="*50)
+                    bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
+                    if bad_epochs:
+                        message("info", f"Total epochs marked: {len(bad_epochs)}")
+                        message("info", f"Epoch indices: {bad_epochs}")
+                    else:
+                        message("info", "No epochs were marked for removal")
+                    message("info", "="*50)
+                    
+                    run_record = get_run_record(self.current_run_id)
+                    autoclean_dict = {
+                        'run_id': self.current_run_id,
+                        'stage_files': run_record['metadata']['entrypoint']['stage_files'],
+                        'stage_dir': Path(run_record['metadata']['step_prepare_directories']['stage']),
+                        'unprocessed_file': run_record['unprocessed_file']
+                    }
+                    reply = QMessageBox.question(self, 'Confirm Save', 
+                                               'Are you sure you want to save these changes?',
+                                               QMessageBox.Yes | QMessageBox.No)
+                    
+                    if reply == QMessageBox.Yes:
+                        message("info", "Saving epochs to file...")
+                        self.current_epochs.drop(self.plot_widget.mne.bad_epochs)
+                        save_epochs_to_set(self.current_epochs, autoclean_dict, stage='post_edit')
+                    else:
+                        message("info", "Save cancelled by user")
+
+                    # saved_epochs = mne.read_epochs_eeglab(set_path)
+
+                    self.plot_widget.deleteLater()
+                    self.plot_widget = None
+                    QApplication.processEvents()  # Process any pending GUI events
+                    self.plot_widget = QWidget()
+                    self.right_layout.addWidget(self.plot_widget)
+                    self.plot_widget.show()
+
+                self.save_edits_btn.clicked.connect(close_plot)
 
                 # Create the plot widget embedded in our GUI
                 self.plot_widget = self.current_epochs.plot(
-                    n_epochs=len(epochs),
+                    n_epochs=len(self.current_epochs),
                     show=False,  # Don't show in separate window
                     block=True,  # Don't block
-                    picks='all'
+                    picks='all',
+                    events=True
                 )
-                # Add close handler to the plot widget
-                def handle_close():
-                    print("Plot closed, checking for dropped epochs...")
-                    self.current_epochs.drop_bad()
-                    if hasattr(self, 'current_epochs'):
-                        # Compare original and updated events to find dropped epochs
-                        original_event_ids = set(self.original_events[:, 0])
-                        updated_event_ids = set(self.current_epochs.events[:, 0])
-                        dropped_ids = original_event_ids - updated_event_ids
-
-                        if dropped_ids:
-                            print(f"Epochs marked as bad: {list(dropped_ids)}")
-                            print(f"Epochs dropped. New count: {len(self.current_epochs)}")
-                        else:
-                            print("No epochs were dropped.")
-
-                self.plot_widget.destroyed.connect(handle_close)
 
                 # Embed the plot in our GUI
                 self.right_layout.addWidget(self.plot_widget)
                 self.plot_widget.show()
 
-                # Enable save button and store reference for access during save
-                self.save_edits_btn.setEnabled(True)
 
-                print("Plot widget created and embedded in GUI")
-                print(f"Initial epoch count: {len(self.current_epochs)}")
+
+
+                # Enable save button and store reference for access during save
+                #self.save_edits_btn.setEnabled(True)
+
+                print("INFO", "Plot widget created and embedded in GUI")
+                print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
 
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error loading/plotting file: {str(e)}")
                 print(f"Error in plotFile: {str(e)}")
+
     def saveEdits(self):
         if not hasattr(self, 'current_epochs'):
             QMessageBox.warning(self, "Warning", "No epochs loaded to save.")
