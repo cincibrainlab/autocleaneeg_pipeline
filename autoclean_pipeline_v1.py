@@ -1583,6 +1583,10 @@ def pre_pipeline_processing(raw, autoclean_dict):
         metadata["pre_pipeline_processing"]["HighPassHz1"] = target_hfreq
         save_raw_to_set(raw, autoclean_dict, 'post_filter')
     
+    # Add samples and duration to metadata
+    metadata["pre_pipeline_processing"]["n_samples"] = raw.n_samples
+    metadata["pre_pipeline_processing"]["duration_sec"] = raw.times[-1] - raw.times[0]
+
     # Save metadata
     step_handle_metadata(autoclean_dict, metadata, mode='save')
     return raw
@@ -2431,7 +2435,7 @@ def clean_artifacts_continuous(pipeline, autoclean_dict):
 
 
 
-    #cleaned_epochs, stats = clean_epochs(epochs, number_of_epochs=80, gfp_threshold=3)
+    cleaned_epochs, stats = clean_epochs(epochs, number_of_epochs=80, gfp_threshold=3)
     #cleaned_epochs.load_data()
     save_epochs_to_set(cleaned_epochs, autoclean_dict, 'post_clean_epochs')
 
