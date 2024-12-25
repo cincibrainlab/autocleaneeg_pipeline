@@ -52,6 +52,12 @@ import matplotlib.pyplot as plt
 from autoclean_pipeline_v2 import save_epochs_to_set, get_run_record
 import pyjsonviewer
 
+from PyQt5.QtCore import pyqtRemoveInputHook
+from pdb import set_trace
+
+pyqtRemoveInputHook()
+
+
 plt.style.use('default')
 mne.viz.set_browser_backend('qt')
 
@@ -328,19 +334,19 @@ class FileSelector(QWidget):
 
                 # Store the original events array
                 self.original_events = self.current_epochs.events.copy()
+                # breakpoint()
 
                 # Create the plot widget embedded in our GUI
                 self.plot_widget = self.current_epochs.plot(
                     n_epochs=len(epochs),
                     show=False,  # Don't show in separate window
-                    block=False,  # Don't block
+                    block=True,  # Don't block
                     picks='all'
                 )
-
                 # Add close handler to the plot widget
                 def handle_close():
                     print("Plot closed, checking for dropped epochs...")
-
+                    self.current_epochs.drop_bad()
                     if hasattr(self, 'current_epochs'):
                         # Compare original and updated events to find dropped epochs
                         original_event_ids = set(self.original_events[:, 0])
@@ -368,7 +374,6 @@ class FileSelector(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error loading/plotting file: {str(e)}")
                 print(f"Error in plotFile: {str(e)}")
-    
     def saveEdits(self):
         if not hasattr(self, 'current_epochs'):
             QMessageBox.warning(self, "Warning", "No epochs loaded to save.")
@@ -439,6 +444,8 @@ class FileSelector(QWidget):
 
             QMessageBox.information(self, "Save Complete", message)
             self.save_edits_btn.setEnabled(False)
+            if self.plot_widget:
+                self.plot_widget.deleteLater()
             print("Save process completed")
 
         except Exception as e:
@@ -446,7 +453,6 @@ class FileSelector(QWidget):
             import traceback
             print(f"Error during save: {str(e)}")
             print(f"Traceback: {traceback.format_exc()}")
-
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
