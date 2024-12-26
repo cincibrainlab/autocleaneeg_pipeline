@@ -47,7 +47,7 @@ from pathlib import Path
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QPushButton, QFileDialog,
     QVBoxLayout, QTreeWidget, QTreeWidgetItem, QStatusBar, QMessageBox,
-    QTreeView, QSplitter
+    QTreeView, QSplitter, QTabWidget
 )
 from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, QUrl
 from dotenv import load_dotenv
@@ -175,30 +175,61 @@ class FileSelector(QWidget):
         # Main splitter to divide the interface horizontally
         self.splitter = QSplitter(Qt.Horizontal, self)
 
-        # Left container (directory controls + file tree + buttons)
+        # Left container (now with tabs)
         left_container = QWidget()
         self.left_layout = QVBoxLayout()
         left_container.setLayout(self.left_layout)
 
+        # Create tab widget
+        self.tab_widget = QTabWidget()
+        
+        # First tab - Directory Browser
+        self.dir_tab = QWidget()
+        dir_layout = QVBoxLayout()
+        
         self.select_dir_btn = QPushButton('Select Directory')
         self.select_dir_btn.clicked.connect(self.selectDirectory)
-        self.left_layout.addWidget(self.select_dir_btn)
+        dir_layout.addWidget(self.select_dir_btn)
 
         self.open_folder_btn = QPushButton('Open Current Folder')
         self.open_folder_btn.clicked.connect(self.openCurrentFolder)
-        self.left_layout.addWidget(self.open_folder_btn)
+        dir_layout.addWidget(self.open_folder_btn)
 
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderLabel('Files')
         self.file_tree.itemClicked.connect(self.onFileSelect)
-        self.left_layout.addWidget(self.file_tree)
+        dir_layout.addWidget(self.file_tree)
+        
+        self.dir_tab.setLayout(dir_layout)
+        
+        # Second tab - Stage Files
+        self.stage_tab = QWidget()
+        stage_layout = QVBoxLayout()
+        
+        self.stage_tree = QTreeWidget()
+        self.stage_tree.setHeaderLabels(['File', 'Run ID'])
+        self.stage_tree.itemClicked.connect(self.onStageFileSelect)
+        stage_layout.addWidget(self.stage_tree)
+        
+        self.refresh_stage_btn = QPushButton('Refresh Stage Files')
+        self.refresh_stage_btn.clicked.connect(self.loadStageFiles)
+        stage_layout.addWidget(self.refresh_stage_btn)
+        
+        self.stage_tab.setLayout(stage_layout)
+        
+        # Add tabs to tab widget
+        self.tab_widget.addTab(self.dir_tab, "Directory Browser")
+        self.tab_widget.addTab(self.stage_tab, "Stage Files")
+        
+        # Add tab widget to left layout
+        self.left_layout.addWidget(self.tab_widget)
 
+        # Common buttons below tabs
         self.plot_btn = QPushButton('Review Selected File')
         self.plot_btn.clicked.connect(self.plotFile)
         self.plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.plot_btn)
 
-        # New "Save Edits" button
         self.save_edits_btn = QPushButton('Save Edits')
         self.save_edits_btn.setEnabled(False)
         self.left_layout.addWidget(self.save_edits_btn)
@@ -212,28 +243,34 @@ class FileSelector(QWidget):
         self.exit_btn.clicked.connect(self.close)
         self.left_layout.addWidget(self.exit_btn)
 
-        self.status_bar = QStatusBar()
-        self.left_layout.addWidget(self.status_bar)
-
         # Right container (for the plot widget)
         self.right_container = QWidget()
         self.right_layout = QVBoxLayout()
         self.right_container.setLayout(self.right_layout)
 
-        # Add the two containers to the splitter
+        # Add the containers to the splitter
         self.splitter.addWidget(left_container)
         self.splitter.addWidget(self.right_container)
 
-        # Set initial sizes, left smaller, right larger
+        # Set initial sizes
         self.splitter.setStretchFactor(0, 0)  
         self.splitter.setStretchFactor(1, 1)
 
-        # Main layout for the entire window
-        main_layout = QVBoxLayout()
+        # Create a main widget to hold everything
+        main_widget = QWidget()
+        main_layout = QVBoxLayout(main_widget)
+        main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.addWidget(self.splitter)
+        
+        # Status bar
+        self.status_bar = QStatusBar()
+        self.status_bar.setMaximumHeight(25)
+        main_layout.addWidget(self.status_bar)
+        
+        main_layout.setSpacing(0)
         self.setLayout(main_layout)
-
-        self.setGeometry(300, 300, 1200, 600)  # Wider default width
+        
+        self.setGeometry(300, 300, 1200, 600)
         self.setWindowTitle('Manual Epoch Rejection')
 
     def openCurrentFolder(self):
@@ -307,28 +344,33 @@ class FileSelector(QWidget):
             self.view_record_btn.setEnabled(False)
     def viewRunRecord(self):
         from PyQt5.QtGui import QPixmap
-        from PyQt5.QtWidgets import QComboBox, QLabel, QHBoxLayout, QPushButton
+        from PyQt5.QtWidgets import QComboBox, QLabel, QHBoxLayout, QPushButton, QScrollArea
         from PyQt5.QtCore import Qt
+
+        original_filename = self.current_run_record['metadata']['step_import_raw']['unprocessedFile']
 
         if hasattr(self, 'current_run_id') and self.current_run_record:
             try:
                 self.current_run_record_window = QWidget()
-                self.current_run_record_window.setWindowTitle(f"Run Record - {self.current_run_id}")
-                self.current_run_record_window.setGeometry(400, 400, 1000, 800)
+                self.current_run_record_window.setWindowTitle(f"File: {original_filename} - Run Record - {self.current_run_id}")
+                self.current_run_record_window.setFixedSize(1000, 800)
 
                 layout = QVBoxLayout()
                 
                 # Create splitter for tree and artifact view
                 splitter = QSplitter(Qt.Horizontal)
                 
-                # Left side - JSON tree
+                # Left side - JSON tree in scroll area
+                scroll_tree = QScrollArea()
                 tree_view = QTreeView()
                 model = JsonTreeModel(self.current_run_record)
                 tree_view.setModel(model)
                 tree_view.setAlternatingRowColors(True)
                 tree_view.setHeaderHidden(False)
                 tree_view.expandAll()
-                splitter.addWidget(tree_view)
+                scroll_tree.setWidget(tree_view)
+                scroll_tree.setWidgetResizable(True)
+                splitter.addWidget(scroll_tree)
 
                 # Right side - Artifact reports
                 artifact_widget = QWidget()
@@ -348,9 +390,11 @@ class FileSelector(QWidget):
                 zoom_in_btn = QPushButton("+")
                 zoom_out_btn = QPushButton("-")
                 zoom_reset_btn = QPushButton("Reset")
+                zoom_fit_btn = QPushButton("Fit")
                 zoom_layout.addWidget(zoom_in_btn)
                 zoom_layout.addWidget(zoom_out_btn) 
                 zoom_layout.addWidget(zoom_reset_btn)
+                zoom_layout.addWidget(zoom_fit_btn)
                 zoom_widget.setLayout(zoom_layout)
 
                 # Get paths
@@ -377,29 +421,44 @@ class FileSelector(QWidget):
                             
                             print(f"Loading document from: {img_path}")
                             
+                            # Clear existing widgets
+                            for i in reversed(range(artifact_layout.count())):
+                                widget = artifact_layout.itemAt(i).widget()
+                                if isinstance(widget, (QLabel, QScrollArea, QWebEngineView)):
+                                    widget.deleteLater()
+                            
                             if img_path.endswith('.pdf'):
                                 # Load PDF using QWebEngineView
                                 url = QUrl.fromLocalFile(img_path)
                                 web_view.load(url)
+                                artifact_layout.addWidget(web_view)
                                 web_view.show()
-                                # Remove any existing image label
-                                for i in reversed(range(artifact_layout.count())):
-                                    widget = artifact_layout.itemAt(i).widget()
-                                    if isinstance(widget, QLabel):
-                                        widget.deleteLater()
+                                # Auto-fit PDF
+                                web_view.setZoomFactor(0.75)
                             else:
-                                # For images, use QLabel with QPixmap
-                                pixmap = QPixmap(img_path)
+                                # For images, use QLabel with QPixmap in a scroll area
+                                scroll = QScrollArea()
                                 label = QLabel()
-                                label.setPixmap(pixmap)
-                                label.setScaledContents(True)
-                                web_view.hide()
-                                # Remove any existing image label
-                                for i in reversed(range(artifact_layout.count())):
-                                    widget = artifact_layout.itemAt(i).widget()
-                                    if isinstance(widget, QLabel):
-                                        widget.deleteLater()
-                                artifact_layout.addWidget(label)
+                                # Store original pixmap as a property of the label
+                                label.original_pixmap = QPixmap(img_path)
+                                
+                                # Calculate initial scaling factor to fit window
+                                scale_w = (artifact_widget.width() - 20) / label.original_pixmap.width()
+                                scale_h = (artifact_widget.height() - 20) / label.original_pixmap.height()
+                                scale = min(scale_w, scale_h)
+                                
+                                # Scale pixmap while maintaining aspect ratio
+                                scaled_pixmap = label.original_pixmap.scaled(
+                                    int(label.original_pixmap.width() * scale),
+                                    int(label.original_pixmap.height() * scale),
+                                    Qt.KeepAspectRatio,
+                                    Qt.SmoothTransformation
+                                )
+                                
+                                label.setPixmap(scaled_pixmap)
+                                scroll.setWidget(label)
+                                scroll.setWidgetResizable(True)
+                                artifact_layout.addWidget(scroll)
                             
                             print(f"Successfully loaded document: {img_path}")
                             
@@ -407,24 +466,69 @@ class FileSelector(QWidget):
                             print(f"Error loading document: {str(e)}")
 
                     def zoom_in():
-                        web_view.setZoomFactor(web_view.zoomFactor() * 1.2)
+                        if isinstance(artifact_layout.itemAt(2).widget(), QWebEngineView):
+                            # For PDFs
+                            web_view.setZoomFactor(web_view.zoomFactor() * 1.2)
+                        else:
+                            # For images, zoom using original high-res pixmap
+                            scroll = artifact_layout.itemAt(2).widget()
+                            label = scroll.widget()
+                            if hasattr(label, 'original_pixmap'):
+                                current_scale = label.pixmap().width() / label.original_pixmap.width()
+                                new_scale = current_scale * 1.2
+                                scaled_pixmap = label.original_pixmap.scaled(
+                                    int(label.original_pixmap.width() * new_scale),
+                                    int(label.original_pixmap.height() * new_scale),
+                                    Qt.KeepAspectRatio,
+                                    Qt.SmoothTransformation
+                                )
+                                label.setPixmap(scaled_pixmap)
 
                     def zoom_out():
-                        web_view.setZoomFactor(web_view.zoomFactor() / 1.2)
+                        if isinstance(artifact_layout.itemAt(2).widget(), QWebEngineView):
+                            if web_view.zoomFactor() > 0.1:  # Prevent zooming out too far
+                                web_view.setZoomFactor(web_view.zoomFactor() / 1.2)
+                        else:
+                            # For images, zoom using original high-res pixmap
+                            scroll = artifact_layout.itemAt(2).widget()
+                            label = scroll.widget()
+                            if hasattr(label, 'original_pixmap'):
+                                current_scale = label.pixmap().width() / label.original_pixmap.width()
+                                new_scale = current_scale / 1.2
+                                scaled_pixmap = label.original_pixmap.scaled(
+                                    int(label.original_pixmap.width() * new_scale),
+                                    int(label.original_pixmap.height() * new_scale),
+                                    Qt.KeepAspectRatio,
+                                    Qt.SmoothTransformation
+                                )
+                                label.setPixmap(scaled_pixmap)
 
                     def zoom_reset():
-                        web_view.setZoomFactor(1.0)
+                        if isinstance(artifact_layout.itemAt(2).widget(), QWebEngineView):
+                            web_view.setZoomFactor(1.0)
+                        else:
+                            # Reset to original size for images
+                            scroll = artifact_layout.itemAt(2).widget()
+                            label = scroll.widget()
+                            if hasattr(label, 'original_pixmap'):
+                                label.setPixmap(label.original_pixmap)
+                        
+                    def zoom_fit():
+                        if isinstance(artifact_layout.itemAt(2).widget(), QWebEngineView):
+                            web_view.setZoomFactor(0.75)
+                        else:
+                            update_image(file_dropdown.currentIndex())
 
                     # Connect signals
                     file_dropdown.currentIndexChanged.connect(update_image)
                     zoom_in_btn.clicked.connect(zoom_in)
                     zoom_out_btn.clicked.connect(zoom_out)
                     zoom_reset_btn.clicked.connect(zoom_reset)
+                    zoom_fit_btn.clicked.connect(zoom_fit)
 
                     # Add widgets to layout
                     artifact_layout.addWidget(file_dropdown)
                     artifact_layout.addWidget(zoom_widget)
-                    artifact_layout.addWidget(web_view)
                     artifact_widget.setLayout(artifact_layout)
                     
                     splitter.addWidget(artifact_widget)
@@ -434,8 +538,7 @@ class FileSelector(QWidget):
                     self.current_run_record_window.show()
 
                     # Initialize with first image
-                    if file_dropdown.count() > 0:
-                        file_dropdown.setCurrentIndex(0)
+                    update_image(0)
 
                 else:
                     QMessageBox.warning(self, "Warning", "No PNG or PDF files found in derivatives directory")
@@ -531,6 +634,59 @@ class FileSelector(QWidget):
                 QMessageBox.critical(self, "Error", f"Error loading/plotting file: {str(e)}")
                 print(f"Error in plotFile: {str(e)}")
 
+    def loadStageFiles(self):
+        """Load files from the stage/_postcleaneeg directory"""
+        self.stage_tree.clear()
+        
+        if not hasattr(self, 'current_run_record'):
+            return
+        
+        try:
+            # Get stage directory from current run record
+            stage_dir = Path(self.current_run_record['metadata']['step_prepare_directories']['stage'])
+            postcleaneeg_dir = stage_dir / '_postcleaneeg'
+            
+            if not postcleaneeg_dir.exists():
+                self.status_bar.showMessage("_postcleaneeg directory not found")
+                return
+            
+            # Load all .set files from the directory
+            for file_path in postcleaneeg_dir.glob('*.set'):
+                try:
+                    run_id = self.getRunId(str(file_path))
+                    item = QTreeWidgetItem(self.stage_tree)
+                    item.setText(0, file_path.name)
+                    item.setText(1, run_id)
+                    item.setData(0, Qt.UserRole, str(file_path))  # Store full path
+                    
+                    # Add icon
+                    item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
+                    
+                    if file_path.name in self.modified_files:
+                        item.setText(0, f"{file_path.name} *")
+                        item.setForeground(0, Qt.red)
+                        
+                except Exception as e:
+                    print(f"Error loading file {file_path}: {str(e)}")
+            
+            self.stage_tree.resizeColumnToContents(0)
+            self.stage_tree.resizeColumnToContents(1)
+            
+        except Exception as e:
+            self.status_bar.showMessage(f"Error loading stage files: {str(e)}")
+
+    def onStageFileSelect(self, item):
+        """Handle selection of a file in the stage files tab"""
+        file_path = item.data(0, Qt.UserRole)
+        if file_path:
+            self.selected_file_path = file_path
+            self.plot_btn.setEnabled(True)
+            try:
+                self.current_run_id = item.text(1)  # Run ID is already in the second column
+                self.current_run_record = get_run_record(self.current_run_id)
+                self.view_record_btn.setEnabled(True)
+            except Exception:
+                self.view_record_btn.setEnabled(False)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
