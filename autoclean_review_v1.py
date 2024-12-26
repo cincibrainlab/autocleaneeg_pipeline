@@ -27,7 +27,8 @@
 #     "matplotlib",
 #     "mne-qt-browser",
 #     "scipy",
-#     "pyjsonviewer"
+#     "pyjsonviewer",
+#     "pymupdf"
 # ]
 # ///
 
@@ -41,7 +42,9 @@ import json
 import scipy.io as sio
 import numpy as np
 from pathlib import Path
-
+import fitz
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtWidgets import QLabel, QScrollArea
 from PyQt5.QtWidgets import (
     QApplication, QWidget, QPushButton, QFileDialog,
     QVBoxLayout, QTreeWidget, QTreeWidgetItem, QStatusBar, QMessageBox,
@@ -52,6 +55,7 @@ from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 from autoclean_pipeline_v2 import save_epochs_to_set, get_run_record, message
 import pyjsonviewer
+import webbrowser
 
 from mne_bids import (
     BIDSPath,
@@ -249,6 +253,14 @@ class FileSelector(QWidget):
         else:
             self.status_bar.showMessage("No directory selected")
 
+    def render_pdf_page(pdf_path, page_num=0, zoom=1.0):
+        doc = fitz.open(pdf_path)
+        page = doc[page_num]
+        mat = fitz.Matrix(zoom, zoom)
+        pix = page.get_pixmap(matrix=mat)
+        q_img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGBA8888)
+        return QPixmap.fromImage(q_img)
+        
     def loadFiles(self):
         self.file_tree.clear()
         if self.current_dir is not None:
@@ -303,6 +315,7 @@ class FileSelector(QWidget):
         else:
             self.plot_btn.setEnabled(False)
             self.view_record_btn.setEnabled(False)
+
     def viewRunRecord(self):
         from PyQt5.QtGui import QPixmap
         from PyQt5.QtWidgets import QComboBox, QLabel, QHBoxLayout, QPushButton, QScrollArea
@@ -314,7 +327,7 @@ class FileSelector(QWidget):
             try:
                 self.current_run_record_window = QWidget()
                 self.current_run_record_window.setWindowTitle(f"File: {original_filename} - Run Record - {self.current_run_id}")
-                self.current_run_record_window.setFixedSize(1000, 800)
+                self.current_run_record_window.resize(1000, 800)
 
                 layout = QVBoxLayout()
                 
@@ -347,10 +360,12 @@ class FileSelector(QWidget):
                 zoom_out_btn = QPushButton("-")
                 zoom_reset_btn = QPushButton("Reset")
                 zoom_fit_btn = QPushButton("Fit")
+                open_folder_btn = QPushButton("Open Folder")
                 zoom_layout.addWidget(zoom_in_btn)
                 zoom_layout.addWidget(zoom_out_btn) 
                 zoom_layout.addWidget(zoom_reset_btn)
                 zoom_layout.addWidget(zoom_fit_btn)
+                zoom_layout.addWidget(open_folder_btn)
                 zoom_widget.setLayout(zoom_layout)
 
                 # Get paths
@@ -363,6 +378,17 @@ class FileSelector(QWidget):
 
                 derivatives_dir = Path(bids_root, "derivatives", derivatives_stem, "sub-" + subject_id, "eeg")
                 
+                def open_derivatives_folder():
+                    folder_path = str(derivatives_dir)
+                    if sys.platform == 'darwin':  # macOS
+                        subprocess.run(['open', folder_path])
+                    elif sys.platform == 'win32':  # Windows
+                        os.startfile(folder_path)
+                    else:  # Linux
+                        subprocess.run(['xdg-open', folder_path])
+
+                open_folder_btn.clicked.connect(open_derivatives_folder)
+
                 # Get all PNG and PDF files in derivatives directory
                 image_files = list(derivatives_dir.glob("*.png")) + list(derivatives_dir.glob("*.pdf"))
                 
@@ -371,45 +397,50 @@ class FileSelector(QWidget):
                     file_dropdown.addItems([f.name for f in image_files])
                     
                     def update_image(index):
+                        """Load and display the selected image or PDF file."""
                         try:
-                            # Get selected file path
-                            img_path = str(image_files[index])
-                            
-                            print(f"Loading document from: {img_path}")
-                            
-                            # Clear existing widgets
+                            # Get the selected file path
+                            file_path = str(image_files[index])
+                            print(f"Loading document from: {file_path}")
+
+                            if file_path.lower().endswith('.pdf'):
+                                # Open PDF in system's default browser
+                                webbrowser.open(f'file://{file_path}')
+                                print(f"Opened PDF in browser: {file_path}")
+                                return
+
+                            # Clear any previously displayed content for images
                             for i in reversed(range(artifact_layout.count())):
                                 widget = artifact_layout.itemAt(i).widget()
                                 if isinstance(widget, (QLabel, QScrollArea)):
                                     widget.deleteLater()
-                            
-                            if img_path.endswith('.png'):
-                                # For images, use QLabel with QPixmap in a scroll area
+
+                            if file_path.lower().endswith('.png'):
+                                # Set up scroll area and label for PNG
                                 scroll = QScrollArea()
                                 label = QLabel()
-                                # Store original pixmap as a property of the label
-                                label.original_pixmap = QPixmap(img_path)
                                 
-                                # Calculate initial scaling factor to fit window
-                                scale_w = (artifact_widget.width() - 20) / label.original_pixmap.width()
-                                scale_h = (artifact_widget.height() - 20) / label.original_pixmap.height()
-                                scale = min(scale_w, scale_h)
+                                # Load PNG at full resolution
+                                label.original_pixmap = QPixmap(file_path)
                                 
-                                # Scale pixmap while maintaining aspect ratio
-                                scaled_pixmap = label.original_pixmap.scaled(
-                                    int(label.original_pixmap.width() * scale),
-                                    int(label.original_pixmap.height() * scale),
-                                    Qt.KeepAspectRatio,
-                                    Qt.SmoothTransformation
-                                )
+                                # Initially show at full resolution
+                                label.setPixmap(label.original_pixmap)
                                 
-                                label.setPixmap(scaled_pixmap)
-                                scroll.setWidget(label)
+                                # Enable mouse tracking for better interaction
                                 scroll.setWidgetResizable(True)
+                                scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+                                scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+                                
+                                # Set minimum size for scroll area
+                                scroll.setMinimumSize(400, 400)
+                                
+                                scroll.setWidget(label)
                                 artifact_layout.addWidget(scroll)
-                            
-                            print(f"Successfully loaded document: {img_path}")
-                            
+                                print(f"Successfully loaded PNG at full resolution: {file_path}")
+                            else:
+                                print(f"Unsupported file type: {file_path}")
+                                return
+
                         except Exception as e:
                             print(f"Error loading document: {str(e)}")
 
@@ -451,7 +482,40 @@ class FileSelector(QWidget):
                             label.setPixmap(label.original_pixmap)
                         
                     def zoom_fit():
-                        update_image(file_dropdown.currentIndex())
+                        scroll = artifact_layout.itemAt(2).widget()
+                        if not scroll:
+                            return
+                        
+                        label = scroll.widget()
+                        if not hasattr(label, 'original_pixmap'):
+                            return
+                            
+                        # Get the available space in the scroll area
+                        available_width = scroll.width() - 20  # Account for scrollbar width
+                        available_height = scroll.height() - 20  # Account for scrollbar height
+                        
+                        # Calculate scaling factors
+                        width_ratio = available_width / label.original_pixmap.width()
+                        height_ratio = available_height / label.original_pixmap.height()
+                        
+                        # Use the smaller ratio to ensure the image fits both dimensions
+                        scale = min(width_ratio, height_ratio)
+                        
+                        # Scale the image
+                        scaled_pixmap = label.original_pixmap.scaled(
+                            int(label.original_pixmap.width() * scale),
+                            int(label.original_pixmap.height() * scale),
+                            Qt.KeepAspectRatio,
+                            Qt.SmoothTransformation
+                        )
+                        label.setPixmap(scaled_pixmap)
+
+                    # Add resize event handler to auto-fit when window is resized
+                    def on_resize(event):
+                        zoom_fit()
+                        super(type(self.current_run_record_window), self.current_run_record_window).resizeEvent(event)
+
+                    self.current_run_record_window.resizeEvent = on_resize
 
                     # Connect signals
                     file_dropdown.currentIndexChanged.connect(update_image)
@@ -554,12 +618,6 @@ class FileSelector(QWidget):
                 # Embed the plot in our GUI
                 self.right_layout.addWidget(self.plot_widget)
                 self.plot_widget.show()
-
-
-
-
-                # Enable save button and store reference for access during save
-                #self.save_edits_btn.setEnabled(True)
 
                 print("INFO", "Plot widget created and embedded in GUI")
                 print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
