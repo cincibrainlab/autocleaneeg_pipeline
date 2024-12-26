@@ -3,6 +3,7 @@
 # dependencies = [
 #     "mne",
 #     "rich", 
+#     "PyQt5",
 #     "numpy",
 #     "python-dotenv",
 #     "openneuro-py",
@@ -23,15 +24,17 @@
 #     "asyncio",
 #     "mplcairo",
 #     "unqlite",
-#     "PyQt5",
 #     "matplotlib",
 #     "mne-qt-browser",
 #     "scipy",
-#     "pyjsonviewer"
+#     "pyjsonviewer",
+#     "PyQtWebEngine"
 # ]
 # ///
 
-
+from PyQt5.Qt import *
+import PyQt5.QtCore
+from PyQt5.QtWebEngineWidgets import QWebEngineView
 import sys
 import os
 import subprocess
@@ -46,11 +49,20 @@ from PyQt5.QtWidgets import (
     QVBoxLayout, QTreeWidget, QTreeWidgetItem, QStatusBar, QMessageBox,
     QTreeView, QSplitter
 )
-from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex
+from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, QUrl
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
 from autoclean_pipeline_v2 import save_epochs_to_set, get_run_record, message
 import pyjsonviewer
+
+from mne_bids import (
+    BIDSPath,
+    find_matching_paths,
+    get_entity_vals,
+    make_report,
+    print_dir_tree,
+    read_raw_bids,
+)
 
 from PyQt5.QtCore import pyqtRemoveInputHook
 from pdb import set_trace
@@ -295,26 +307,132 @@ class FileSelector(QWidget):
             self.view_record_btn.setEnabled(False)
 
     def viewRunRecord(self):
+        from PyQt5.QtGui import QPixmap
+        from PyQt5.QtWidgets import QComboBox, QLabel, QHBoxLayout, QPushButton
+        from PyQt5.QtCore import Qt
+
         if hasattr(self, 'current_run_id') and self.current_run_record:
             try:
                 self.current_run_record_window = QWidget()
                 self.current_run_record_window.setWindowTitle(f"Run Record - {self.current_run_id}")
-                self.current_run_record_window.setGeometry(400, 400, 800, 600)
+                self.current_run_record_window.setGeometry(400, 400, 1000, 800)
 
                 layout = QVBoxLayout()
+                
+                # Create splitter for tree and artifact view
+                splitter = QSplitter(Qt.Horizontal)
+                
+                # Left side - JSON tree
                 tree_view = QTreeView()
                 model = JsonTreeModel(self.current_run_record)
                 tree_view.setModel(model)
                 tree_view.setAlternatingRowColors(True)
                 tree_view.setHeaderHidden(False)
                 tree_view.expandAll()
-                layout.addWidget(tree_view)
-                self.current_run_record_window.setLayout(layout)
-                self.current_run_record_window.show()
+                splitter.addWidget(tree_view)
+
+                # Right side - Artifact reports
+                artifact_widget = QWidget()
+                artifact_layout = QVBoxLayout()
+                
+                # Dropdown for PNG/PDF file selection
+                file_dropdown = QComboBox()
+
+                # Create QWebEngineView for viewing PDFs
+                web_view = QWebEngineView()
+
+                # Add zoom controls
+                zoom_widget = QWidget()
+                zoom_layout = QHBoxLayout()
+                zoom_in_btn = QPushButton("+")
+                zoom_out_btn = QPushButton("-")
+                zoom_reset_btn = QPushButton("Reset")
+                zoom_layout.addWidget(zoom_in_btn)
+                zoom_layout.addWidget(zoom_out_btn) 
+                zoom_layout.addWidget(zoom_reset_btn)
+                zoom_widget.setLayout(zoom_layout)
+
+                # Get paths
+                subject_id = self.current_run_record['metadata']['step_convert_to_bids']['bids_subject']
+                session = self.current_run_record['metadata']['step_convert_to_bids']['bids_session']
+                task = self.current_run_record['metadata']['step_convert_to_bids']['bids_task']
+                run = self.current_run_record['metadata']['step_convert_to_bids']['bids_run']
+                bids_root = Path(self.current_run_record['metadata']['step_prepare_directories']['bids'])
+                derivatives_stem = "pylossless"
+
+                derivatives_dir = Path(bids_root, "derivatives", derivatives_stem, "sub-" + subject_id, "eeg")
+                
+                # Get all PNG and PDF files in derivatives directory
+                image_files = list(derivatives_dir.glob("*.png")) + list(derivatives_dir.glob("*.pdf"))
+                
+                if image_files:
+                    # Add PNG/PDF filenames to dropdown
+                    file_dropdown.addItems([f.name for f in image_files])
+                    
+                    def update_image(index):
+                        try:
+                            # Get selected file path
+                            img_path = str(image_files[index])
+                            
+                            print(f"Loading document from: {img_path}")
+                            
+                            if img_path.endswith('.pdf'):
+                                # Load PDF using QWebEngineView
+                                web_view.setUrl(QUrl.fromLocalFile(img_path))
+                            else:
+                                # For images, use QLabel with QPixmap
+                                pixmap = QPixmap(img_path)
+                                label = QLabel()
+                                label.setPixmap(pixmap)
+                                label.setScaledContents(True)
+                                # Replace web_view with label
+                                artifact_layout.replaceWidget(web_view, label)
+                                web_view.hide()
+                                label.show()
+                            
+                            print(f"Successfully loaded document: {img_path}")
+                            
+                        except Exception as e:
+                            print(f"Error loading document: {str(e)}")
+
+                    def zoom_in():
+                        web_view.setZoomFactor(web_view.zoomFactor() * 1.2)
+
+                    def zoom_out():
+                        web_view.setZoomFactor(web_view.zoomFactor() / 1.2)
+
+                    def zoom_reset():
+                        web_view.setZoomFactor(1.0)
+
+                    # Connect signals
+                    file_dropdown.currentIndexChanged.connect(update_image)
+                    zoom_in_btn.clicked.connect(zoom_in)
+                    zoom_out_btn.clicked.connect(zoom_out)
+                    zoom_reset_btn.clicked.connect(zoom_reset)
+
+                    # Add widgets to layout
+                    artifact_layout.addWidget(file_dropdown)
+                    artifact_layout.addWidget(zoom_widget)
+                    artifact_layout.addWidget(web_view)
+                    artifact_widget.setLayout(artifact_layout)
+                    
+                    splitter.addWidget(artifact_widget)
+                    layout.addWidget(splitter)
+                    
+                    self.current_run_record_window.setLayout(layout)
+                    self.current_run_record_window.show()
+
+                    # Initialize with first image
+                    if file_dropdown.count() > 0:
+                        file_dropdown.setCurrentIndex(0)
+
+                else:
+                    QMessageBox.warning(self, "Warning", "No PNG or PDF files found in derivatives directory")
+                    
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error retrieving run record: {str(e)}")
         else:
-                QMessageBox.warning(self, "Warning", "No run record found for this ID")
+            QMessageBox.warning(self, "Warning", "No run record found for this ID")
 
     def plotFile(self):
         if hasattr(self, 'selected_file_path'):

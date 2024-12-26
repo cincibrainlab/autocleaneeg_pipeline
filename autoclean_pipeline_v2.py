@@ -835,19 +835,20 @@ def create_bids_path(raw, autoclean_dict):
 
         autoclean_dict["bids_path"] = bids_path
         autoclean_dict["bids_basename"] = bids_path.basename
-
         metadata = {
             "step_convert_to_bids": {
                 "creationDateTime": datetime.now().isoformat(),
-                "bids_output_dir": str(bids_dir),
-                "bids_path": str(bids_path),
-                "bids_basename": bids_path.basename,
-                "study_name": unprocessed_file.stem,
-                "task": mne_task,
-                "participant_id": None,
-                "line_freq": 60.0,
+                "bids_subject": bids_path.subject,
+                "bids_task": bids_path.task,
+                "bids_run": bids_path.run,
+                "bids_session": bids_path.session,
+                "bids_dir": str(bids_dir),
+                "bids_datatype": bids_path.datatype,
+                "bids_suffix": bids_path.suffix,
+                "bids_root": str(bids_path.root),
                 "eegSystem": eeg_system,
-                "configFile": str(config_file)
+                "configFile": str(config_file),
+                "line_freq": 60.0
             }
         }
 
@@ -938,7 +939,7 @@ def step_convert_to_bids(
         sys.exit(1)
 
     # Prepare additional metadata
-    raw.info["subject_info"] = {"id": int(subject_id), "age": None, "sex": sex}
+    raw.info["subject_info"] = {"id": int(subject_id)}
 
     raw.info["line_freq"] = line_freq
 
