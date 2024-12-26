@@ -305,7 +305,6 @@ class FileSelector(QWidget):
         else:
             self.plot_btn.setEnabled(False)
             self.view_record_btn.setEnabled(False)
-
     def viewRunRecord(self):
         from PyQt5.QtGui import QPixmap
         from PyQt5.QtWidgets import QComboBox, QLabel, QHBoxLayout, QPushButton
@@ -340,6 +339,8 @@ class FileSelector(QWidget):
 
                 # Create QWebEngineView for viewing PDFs
                 web_view = QWebEngineView()
+                web_view.settings().setAttribute(web_view.settings().PluginsEnabled, True)
+                web_view.settings().setAttribute(web_view.settings().PdfViewerEnabled, True)
 
                 # Add zoom controls
                 zoom_widget = QWidget()
@@ -378,17 +379,27 @@ class FileSelector(QWidget):
                             
                             if img_path.endswith('.pdf'):
                                 # Load PDF using QWebEngineView
-                                web_view.setUrl(QUrl.fromLocalFile(img_path))
+                                url = QUrl.fromLocalFile(img_path)
+                                web_view.load(url)
+                                web_view.show()
+                                # Remove any existing image label
+                                for i in reversed(range(artifact_layout.count())):
+                                    widget = artifact_layout.itemAt(i).widget()
+                                    if isinstance(widget, QLabel):
+                                        widget.deleteLater()
                             else:
                                 # For images, use QLabel with QPixmap
                                 pixmap = QPixmap(img_path)
                                 label = QLabel()
                                 label.setPixmap(pixmap)
                                 label.setScaledContents(True)
-                                # Replace web_view with label
-                                artifact_layout.replaceWidget(web_view, label)
                                 web_view.hide()
-                                label.show()
+                                # Remove any existing image label
+                                for i in reversed(range(artifact_layout.count())):
+                                    widget = artifact_layout.itemAt(i).widget()
+                                    if isinstance(widget, QLabel):
+                                        widget.deleteLater()
+                                artifact_layout.addWidget(label)
                             
                             print(f"Successfully loaded document: {img_path}")
                             
