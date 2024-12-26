@@ -200,6 +200,12 @@ class FileSelector(QWidget):
         self.plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.plot_btn)
 
+        # Close Plot button
+        self.close_plot_btn = QPushButton('Close Review Plot')
+        self.close_plot_btn.clicked.connect(self.closePlot)
+        self.close_plot_btn.setEnabled(False)
+        self.left_layout.addWidget(self.close_plot_btn)
+
         # New "Save Edits" button
         self.save_edits_btn = QPushButton('Save Edits')
         self.save_edits_btn.setEnabled(False)
@@ -217,6 +223,71 @@ class FileSelector(QWidget):
         # Right container (for the plot widget)
         self.right_container = QWidget()
         self.right_layout = QVBoxLayout()
+        
+        # Create and style instruction label
+        self.instruction_widget = QWidget()
+        instruction_layout = QVBoxLayout()
+        
+        title_label = QLabel("Manual Epoch Rejection Instructions")
+        title_label.setStyleSheet("""
+            QLabel {
+                font-size: 24px;
+                font-weight: bold;
+                color: #2c3e50;
+                margin-bottom: 20px;
+            }
+        """)
+        title_label.setAlignment(Qt.AlignCenter)
+        
+        instructions = QLabel("""
+            <html>
+            <style>
+                p { margin: 10px 0; }
+                .step { color: #2980b9; font-weight: bold; }
+                .key { color: #27ae60; font-weight: bold; }
+                .note { color: #c0392b; }
+            </style>
+            <body>
+            <p><span class='step'>1.</span> Select a directory containing .set files using the <span class='key'>Select Directory</span> button</p>
+            <p><span class='step'>2.</span> Navigate through the file tree and select a .set file to review</p>
+            <p><span class='step'>3.</span> Click <span class='key'>Review Selected File</span> to load the EEG epochs</p>
+            <p><span class='step'>4.</span> In the epoch viewer:</p>
+            <ul>
+                <li>Use <span class='key'>←/→</span> keys to navigate between epochs</li>
+                <li>Press <span class='key'>Space</span> to mark/unmark bad epochs</li>
+                <li>Click <span class='key'>Save Edits</span> when finished to save your changes</li>
+                <li>After confirmation, edited files will be saved to the <span class='key'>postedit</span> directory</li>
+            </ul>
+            <p><span class='step'>5.</span> Click <span class='key'>View Run Record</span> to see:</p>
+            <ul>
+                <li>Processing history and parameters</li>
+                <li>Channel rejection plots</li>
+                <li>ICA component plots</li>
+                <li>Power spectral density plots</li>
+                <li>Artifact detection statistics</li>
+            </ul>
+            <p><span class='note'>Note: Modified files will be marked with an asterisk (*) in red</span></p>
+            </body>
+            </html>
+        """)
+        instructions.setStyleSheet("""
+            QLabel {
+                font-size: 14px;
+                color: #34495e;
+                background-color: #f8f9fa;
+                padding: 20px;
+                border-radius: 5px;
+            }
+        """)
+        instructions.setWordWrap(True)
+        instructions.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+        
+        instruction_layout.addWidget(title_label)
+        instruction_layout.addWidget(instructions)
+        instruction_layout.addStretch()
+        self.instruction_widget.setLayout(instruction_layout)
+        
+        self.right_layout.addWidget(self.instruction_widget)
         self.right_container.setLayout(self.right_layout)
 
         # Add the two containers to the splitter
@@ -486,14 +557,22 @@ class FileSelector(QWidget):
                             label.setPixmap(label.original_pixmap)
                         
                     def zoom_fit():
-                        scroll = artifact_layout.itemAt(2).widget()
-                        if not scroll:
-                            return
-                        
-                        label = scroll.widget()
-                        if not hasattr(label, 'original_pixmap'):
-                            return
+                        message("info", "Zooming to fit")
+
+                        if artifact_layout.count() > 2:
+                            scroll = artifact_layout.itemAt(2).widget()
+                            if not scroll:
+                                message("info", "No scroll area found")
+                                return
                             
+                            label = scroll.widget()
+                            if not hasattr(label, 'original_pixmap'):
+                                message("info", "No original pixmap found")
+                                return
+                        else:
+                            message("info", "No scroll area found")
+                            return
+
                         # Get the available space in the scroll area
                         available_width = scroll.width() - 20  # Account for scrollbar width
                         available_height = scroll.height() - 20  # Account for scrollbar height
@@ -517,7 +596,7 @@ class FileSelector(QWidget):
                     # Add resize event handler to auto-fit when window is resized
                     def on_resize(event):
                         zoom_fit()
-                        super(type(self.current_run_record_window), self.current_run_record_window).resizeEvent(event)
+                        QWidget.resizeEvent(self.current_run_record_window, event)
 
                     self.current_run_record_window.resizeEvent = on_resize
 
@@ -550,6 +629,17 @@ class FileSelector(QWidget):
         else:
             QMessageBox.warning(self, "Warning", "No run record found for this ID")
 
+    def closePlot(self):
+        """Close the plot and show instructions"""
+        if self.plot_widget is not None:
+            self.plot_widget.close()
+            self.plot_widget.deleteLater()
+            self.plot_widget = None
+            self.close_plot_btn.setEnabled(False)
+            self.save_edits_btn.setEnabled(False)
+            self.instruction_widget.show()
+            QApplication.processEvents()
+
     def plotFile(self):
         if hasattr(self, 'selected_file_path'):
             try:
@@ -557,6 +647,9 @@ class FileSelector(QWidget):
                 epochs = mne.read_epochs_eeglab(self.selected_file_path)
                 self.current_epochs = epochs.copy()
                 self.save_edits_btn.setEnabled(True)
+
+                # Hide instructions
+                self.instruction_widget.hide()
 
                 # Remove old plot widget if present
                 if self.plot_widget is not None:
@@ -599,14 +692,7 @@ class FileSelector(QWidget):
                     else:
                         message("info", "Save cancelled by user")
 
-                    # saved_epochs = mne.read_epochs_eeglab(set_path)
-
-                    self.plot_widget.deleteLater()
-                    self.plot_widget = None
-                    QApplication.processEvents()  # Process any pending GUI events
-                    self.plot_widget = QWidget()
-                    self.right_layout.addWidget(self.plot_widget)
-                    self.plot_widget.show()
+                    self.closePlot()
 
                 self.save_edits_btn.clicked.connect(close_plot)
 
@@ -622,6 +708,7 @@ class FileSelector(QWidget):
                 # Embed the plot in our GUI
                 self.right_layout.addWidget(self.plot_widget)
                 self.plot_widget.show()
+                self.close_plot_btn.setEnabled(True)
 
                 print("INFO", "Plot widget created and embedded in GUI")
                 print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
@@ -629,6 +716,7 @@ class FileSelector(QWidget):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error loading/plotting file: {str(e)}")
                 print(f"Error in plotFile: {str(e)}")
+                self.instruction_widget.show()  # Show instructions if plot fails
 
 
 if __name__ == '__main__':
