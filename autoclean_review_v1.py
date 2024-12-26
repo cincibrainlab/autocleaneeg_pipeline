@@ -214,9 +214,6 @@ class FileSelector(QWidget):
         self.exit_btn.clicked.connect(self.close)
         self.left_layout.addWidget(self.exit_btn)
 
-        self.status_bar = QStatusBar()
-        self.left_layout.addWidget(self.status_bar)
-
         # Right container (for the plot widget)
         self.right_container = QWidget()
         self.right_layout = QVBoxLayout()
@@ -230,13 +227,20 @@ class FileSelector(QWidget):
         self.splitter.setStretchFactor(0, 0)  
         self.splitter.setStretchFactor(1, 1)
 
+        # Create status bar
+        self.status_bar = QStatusBar()
+        self.status_bar.setFixedHeight(25)
+        
         # Main layout for the entire window
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.splitter)
+        main_layout.addWidget(self.status_bar)
+        # Remove margins around the status bar
+        main_layout.setContentsMargins(0, 0, 0, 0)
         self.setLayout(main_layout)
 
         self.setGeometry(300, 300, 1200, 600)  # Wider default width
-        self.setWindowTitle('Manual Epoch Rejection')
+        self.setWindowTitle('Autoclean 1.0 - Manual Epoch Rejection')
 
     def openCurrentFolder(self):
         if self.current_dir:
@@ -608,7 +612,7 @@ class FileSelector(QWidget):
 
                 # Create the plot widget embedded in our GUI
                 self.plot_widget = self.current_epochs.plot(
-                    n_epochs=len(self.current_epochs),
+                    n_epochs=10,
                     show=False,  # Don't show in separate window
                     block=True,  # Don't block
                     picks='all',
