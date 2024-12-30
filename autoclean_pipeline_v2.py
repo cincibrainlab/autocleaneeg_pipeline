@@ -2864,10 +2864,10 @@ def clean_artifacts_continuous(pipeline, autoclean_dict):
     bids_path = autoclean_dict["bids_path"]
 
 
-    #step_psd_topo_figure(pipeline.raw, cleaned_raw, pipeline, autoclean_dict)
+    step_psd_topo_figure(pipeline.raw, cleaned_raw, pipeline, autoclean_dict)
 
     # Generate ICA reports
-    #generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
+    generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
 
     step_plot_raw_vs_cleaned_overlay(pipeline.raw, cleaned_raw, pipeline, autoclean_dict, suffix='')
 
@@ -3034,7 +3034,9 @@ def process_resting_eyesopen(autoclean_dict: dict) -> None:
     step_plot_ica_full(pipeline, autoclean_dict)
 
     # Generate Full ICA Reports
-    # generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
+    generate_ica_reports(pipeline, cleaned_raw, autoclean_dict, duration=60)
+
+    step_psd_topo_figure(pipeline.raw, cleaned_raw, pipeline, autoclean_dict)
 
     epochs = step_create_regular_epochs(cleaned_raw, pipeline, autoclean_dict)
 

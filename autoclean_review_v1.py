@@ -498,9 +498,6 @@ class FileSelector(QWidget):
                                 # Load PNG at full resolution
                                 label.original_pixmap = QPixmap(file_path)
                                 
-                                # Initially show at full resolution
-                                label.setPixmap(label.original_pixmap)
-                                
                                 # Enable mouse tracking for better interaction
                                 scroll.setWidgetResizable(True)
                                 scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
@@ -512,6 +509,22 @@ class FileSelector(QWidget):
                                 scroll.setWidget(label)
                                 artifact_layout.addWidget(scroll)
                                 print(f"Successfully loaded PNG at full resolution: {file_path}")
+
+                                # Calculate fit scale
+                                available_width = scroll.width() - 20
+                                available_height = scroll.height() - 20
+                                width_ratio = available_width / label.original_pixmap.width()
+                                height_ratio = available_height / label.original_pixmap.height()
+                                scale = min(width_ratio, height_ratio)
+
+                                # Scale image to fit by default
+                                scaled_pixmap = label.original_pixmap.scaled(
+                                    int(label.original_pixmap.width() * scale),
+                                    int(label.original_pixmap.height() * scale),
+                                    Qt.KeepAspectRatio,
+                                    Qt.SmoothTransformation
+                                )
+                                label.setPixmap(scaled_pixmap)
                             else:
                                 print(f"Unsupported file type: {file_path}")
                                 return
@@ -644,9 +657,20 @@ class FileSelector(QWidget):
         if hasattr(self, 'selected_file_path'):
             try:
                 print("INFO", "Plotting file")
-                epochs = mne.read_epochs_eeglab(self.selected_file_path)
-                self.current_epochs = epochs.copy()
-                self.save_edits_btn.setEnabled(True)
+                
+                # Check if this is a RAW file
+                is_raw = '_raw.set' in self.selected_file_path.lower()
+                
+                if is_raw:
+                    # Load as raw EEG
+                    raw = mne.io.read_raw_eeglab(self.selected_file_path, preload=True)
+                    self.current_raw = raw.copy()
+                    self.save_edits_btn.setEnabled(False) # Disable saving for raw files
+                else:
+                    # Load as epochs
+                    epochs = mne.read_epochs_eeglab(self.selected_file_path)
+                    self.current_epochs = epochs.copy()
+                    self.save_edits_btn.setEnabled(True)
 
                 # Hide instructions
                 self.instruction_widget.hide()
@@ -658,52 +682,60 @@ class FileSelector(QWidget):
                     self.plot_widget.close()
                     self.plot_widget = None
 
-                self.original_epoch_count = len(self.current_epochs)
-                print("INFO", "Original epoch count:", self.original_epoch_count)
+                if not is_raw:
+                    self.original_epoch_count = len(self.current_epochs)
+                    print("INFO", "Original epoch count:", self.original_epoch_count)
 
-                def close_plot():
-                    message("info", "Closing plot after save.")
-                    message("info", f"Epoch number: {len(self.current_epochs)}")
-                    message("info", "Manually marked epochs for removal:")
-                    message("info", "="*50)
-                    bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
-                    if bad_epochs:
-                        message("info", f"Total epochs marked: {len(bad_epochs)}")
-                        message("info", f"Epoch indices: {bad_epochs}")
-                    else:
-                        message("info", "No epochs were marked for removal")
-                    message("info", "="*50)
-                    
-                    run_record = get_run_record(self.current_run_id)
-                    autoclean_dict = {
-                        'run_id': self.current_run_id,
-                        'stage_files': run_record['metadata']['entrypoint']['stage_files'],
-                        'stage_dir': Path(run_record['metadata']['step_prepare_directories']['stage']),
-                        'unprocessed_file': run_record['unprocessed_file']
-                    }
-                    reply = QMessageBox.question(self, 'Confirm Save', 
-                                               'Are you sure you want to save these changes?',
-                                               QMessageBox.Yes | QMessageBox.No)
-                    
-                    if reply == QMessageBox.Yes:
-                        message("info", "Saving epochs to file...")
-                        self.current_epochs.drop(self.plot_widget.mne.bad_epochs)
-                        save_epochs_to_set(self.current_epochs, autoclean_dict, stage='post_edit')
-                    else:
-                        message("info", "Save cancelled by user")
+                    def close_plot():
+                        message("info", "Closing plot after save.")
+                        message("info", f"Epoch number: {len(self.current_epochs)}")
+                        message("info", "Manually marked epochs for removal:")
+                        message("info", "="*50)
+                        bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
+                        if bad_epochs:
+                            message("info", f"Total epochs marked: {len(bad_epochs)}")
+                            message("info", f"Epoch indices: {bad_epochs}")
+                        else:
+                            message("info", "No epochs were marked for removal")
+                        message("info", "="*50)
+                        
+                        run_record = get_run_record(self.current_run_id)
+                        autoclean_dict = {
+                            'run_id': self.current_run_id,
+                            'stage_files': run_record['metadata']['entrypoint']['stage_files'],
+                            'stage_dir': Path(run_record['metadata']['step_prepare_directories']['stage']),
+                            'unprocessed_file': run_record['unprocessed_file']
+                        }
+                        reply = QMessageBox.question(self, 'Confirm Save', 
+                                                   'Are you sure you want to save these changes?',
+                                                   QMessageBox.Yes | QMessageBox.No)
+                        
+                        if reply == QMessageBox.Yes:
+                            message("info", "Saving epochs to file...")
+                            self.current_epochs.drop(self.plot_widget.mne.bad_epochs)
+                            save_epochs_to_set(self.current_epochs, autoclean_dict, stage='post_edit')
+                        else:
+                            message("info", "Save cancelled by user")
 
-                    self.closePlot()
+                        self.closePlot()
 
-                self.save_edits_btn.clicked.connect(close_plot)
+                    self.save_edits_btn.clicked.connect(close_plot)
 
-                # Create the plot widget embedded in our GUI
-                self.plot_widget = self.current_epochs.plot(
-                    n_epochs=10,
-                    show=False,  # Don't show in separate window
-                    block=True,  # Don't block
-                    picks='all',
-                    events=True
-                )
+                    # Create the plot widget for epochs
+                    self.plot_widget = self.current_epochs.plot(
+                        n_epochs=10,
+                        show=False,
+                        block=True,
+                        picks='all',
+                        events=True
+                    )
+                else:
+                    # Create the plot widget for raw data
+                    self.plot_widget = self.current_raw.plot(
+                        show=False,
+                        block=True,
+                        scalings='auto'
+                    )
 
                 # Embed the plot in our GUI
                 self.right_layout.addWidget(self.plot_widget)
@@ -711,7 +743,8 @@ class FileSelector(QWidget):
                 self.close_plot_btn.setEnabled(True)
 
                 print("INFO", "Plot widget created and embedded in GUI")
-                print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
+                if not is_raw:
+                    print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
 
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Error loading/plotting file: {str(e)}")

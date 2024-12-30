@@ -379,21 +379,35 @@ class FileSelector(QWidget):
                 # Create the plot widget embedded in our GUI
                 self.plot_widget = self.current_epochs.plot(
                     n_epochs=len(self.current_epochs),
-                    show=False,  # Don't show in separate window
-                    block=True,  # Don't block
+                    show=False,
+                    block=True,
                     picks='all',
                     events=True
                 )
 
+                # Set focus policies to enable keyboard interaction
+                self.plot_widget.setFocusPolicy(Qt.StrongFocus)
+                self.plot_widget.setFocus()  # Give immediate focus to the plot
+                
+                # Enable key events
+                self.plot_widget.setAttribute(Qt.WA_KeyboardFocusChange)
+                
+                # Optionally, disable focus for other widgets while plot is active
+                self.file_tree.setEnabled(False)
+                self.plot_btn.setEnabled(False)
+                self.select_dir_btn.setEnabled(False)
+                
+                # Re-enable other widgets when plot is closed
+                def on_plot_close():
+                    self.file_tree.setEnabled(True)
+                    self.plot_btn.setEnabled(True)
+                    self.select_dir_btn.setEnabled(True)
+                
+                self.plot_widget.destroyed.connect(on_plot_close)
+
                 # Embed the plot in our GUI
                 self.right_layout.addWidget(self.plot_widget)
                 self.plot_widget.show()
-
-
-
-
-                # Enable save button and store reference for access during save
-                #self.save_edits_btn.setEnabled(True)
 
                 print("INFO", "Plot widget created and embedded in GUI")
                 print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
