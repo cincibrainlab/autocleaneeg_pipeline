@@ -18,7 +18,7 @@
 #     "eeglabio",
 #     "autoreject",
 #     "python-ulid",
-#     "pylossless @ /Users/ernie/Documents/GitHub/EegServer/pylossless",
+#     "pylossless @ https://github.com/lina-usc/pylossless.git",
 #     "textual",
 #     "textual-dev",
 #     "asyncio",
@@ -28,7 +28,8 @@
 #     "mne-qt-browser",
 #     "scipy",
 #     "pyjsonviewer",
-#     "pymupdf"
+#     "pymupdf",
+#     "reportlab"
 # ]
 # ///
 
@@ -342,6 +343,12 @@ class FileSelector(QWidget):
             root = QTreeWidgetItem(self.file_tree, [os.path.basename(self.current_dir)])
             self.populateTree(root, self.current_dir)
             root.setExpanded(True)
+        
+        # Expand the first folder if it exists
+            if root.childCount() > 0:
+                first_child = root.child(0)
+                first_child.setExpanded(True)  # Expand the first folder
+                self.file_tree.expandItem(first_child)  # Ensure the first folder is expanded
 
     def populateTree(self, parent, path):
         # Directories
@@ -416,7 +423,7 @@ class FileSelector(QWidget):
                 tree_view.setModel(model)
                 tree_view.setAlternatingRowColors(True)
                 tree_view.setHeaderHidden(False)
-                tree_view.expandAll()
+                # tree_view.expandAll()
                 scroll_tree.setWidget(tree_view)
                 scroll_tree.setWidgetResizable(True)
                 splitter.addWidget(scroll_tree)

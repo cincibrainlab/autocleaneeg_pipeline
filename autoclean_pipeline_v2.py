@@ -17,7 +17,7 @@
 #     "eeglabio",
 #     "autoreject",
 #     "python-ulid",
-#     "pylossless @ /Users/ernie/Documents/GitHub/EegServer/pylossless",
+#     "pylossless @ https://github.com/lina-usc/pylossless.git",
 #     "textual",
 #     "textual-dev",
 #     "asyncio",
@@ -3175,17 +3175,42 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
 def main() -> None:
     message("header", "Initializing Autoclean Pipeline")
     
-    # Development Test File
-    unprocessed_file = Path("/Users/ernie/Documents/GitHub/spg_analysis_redo/dataset_raw/0170_rest.raw")  
-    unprocessed_file = Path("/Users/ernie/Documents/GitHub/spg_analysis_redo/dataset_raw/0006_rest.raw")
+    # Specify the directory containing the raw files
+    data_dir = Path("C:/Users/Gam9LG/Documents/TestData/Autoclean")
     task = "rest_eyesopen"
 
-    try:
-        entrypoint(unprocessed_file, task)
-        #entrypoint(run_id="01JF8K91SWWYBEKNNZBVM1VJKS")
-    except Exception as e:
-        message("error", f"Pipeline failed with error: {e}")
-        raise
+    # Get all .raw files in the directory
+    raw_files = list(data_dir.glob("*.raw"))
+    
+    if not raw_files:
+        message("error", f"No .raw files found in {data_dir}")
+        return
+
+    message("info", f"Found {len(raw_files)} .raw files to process")
+    
+    # Process each file
+    for file_num, unprocessed_file in enumerate(raw_files, 1):
+        message("header", f"Processing file {file_num}/{len(raw_files)}: {unprocessed_file.name}")
+        
+        try:
+            entrypoint(unprocessed_file, task)
+        except Exception as e:
+            message("error", f"Failed to process {unprocessed_file.name}: {e}")
+            # Continue with next file instead of stopping the entire process
+            continue
+
+    message("success", "Completed processing all files")
+    # # Development Test File
+    # unprocessed_file = Path("C:/Users/Gam9LG/Documents/TestData/Autoclean/1807_rest.raw")  
+    # # unprocessed_file = Path("/Users/ernie/Documents/GitHub/spg_analysis_redo/dataset_raw/0006_rest.raw")
+    # task = "rest_eyesopen"
+
+    # try:
+    #     entrypoint(unprocessed_file, task)
+    #     #entrypoint(run_id="01JF8K91SWWYBEKNNZBVM1VJKS")
+    # except Exception as e:
+    #     message("error", f"Pipeline failed with error: {e}")
+    #     raise
 
 if __name__ == "__main__":
     main()
