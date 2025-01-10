@@ -3521,6 +3521,7 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
         # Print record to console
         manage_database(operation='print_record', run_record=run_record)
 
+        run_record = get_run_record(run_id)
         # Export run record to JSON file
         json_file = metadata_dir / run_record['json_file']
         with open(json_file, "w") as f:
@@ -3541,7 +3542,7 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
         message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
         raise
     finally:
-        manage_database(operation='update', update_record=run_record)
+        # manage_database(operation='update', update_record=run_record)
         message("header", f"Run {run_record['run_id']} completed")
 
 def main() -> None:
