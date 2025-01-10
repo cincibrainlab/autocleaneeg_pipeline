@@ -2552,6 +2552,10 @@ def step_run_ll_rejection_policy(pipeline, autoclean_dict):
         'metadata': metadata
     })
 
+    # Save the cleaned raw data to stage file if enabled
+    if autoclean_dict['stage_files'].get('post_rejection_policy', {}).get('enabled', False):
+        save_raw_to_set(cleaned_raw, autoclean_dict, stage="post_rejection_policy")
+
     return pipeline, cleaned_raw
 
 def prepare_epochs_for_ica(epochs: mne.Epochs, pipeline, autoclean_dict) -> mne.Epochs:
