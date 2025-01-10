@@ -3121,10 +3121,10 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             bids_path   = autoclean_dict["bids_path"]
             config_path = autoclean_dict["tasks"][task]["lossless_config"] 
 
-            derivative_name = "report"
+            derivative_name = "pylossless"
             pipeline = ll.LosslessPipeline(config_path)
             derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
-            derivatives_path = str(derivatives_path.copy().update(suffix=derivative_name, extension='.pdf'))
+            derivatives_path = str(derivatives_path.copy().update(suffix='report', extension='.pdf'))
         except Exception as e:
             message("error", f"Failed to get derivatives path: {str(e)} \nSaving only to metadata directory")
             derivatives_path = None
@@ -3140,7 +3140,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         metadata_dir.mkdir(parents=True, exist_ok=True)
     
     # Create PDF filename
-    pdf_path = metadata_dir / f"{run_id}_report.pdf"
+    pdf_path = metadata_dir / f"{run_record['report_file']}"
     
     # Initialize the PDF document
     doc = SimpleDocTemplate(
@@ -3374,6 +3374,40 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             ]))
             story.append(figure_table)
 
+    # Add Bad Channels Table
+    story.append(Paragraph("Bad Channels", heading_style))
+    story.append(Spacer(1, 6))
+    
+    # Get bad channel information from metadata
+    bad_channels_data = [['Channel', 'Type', 'Additional Info']]
+    if 'step_clean_bad_channels' in run_record['metadata']:
+        bads = run_record['metadata']['step_clean_bad_channels']['bads']
+        if bads:
+            for ch in bads:
+                bad_channels_data.append([
+                    ch,
+                    'Bad Channel',
+                    'Detected by NoisyChannels'
+                ])
+    
+    # Create and style the bad channels table
+    bad_channels_table = ReportLabTable(bad_channels_data, colWidths=[1.5*inch, 1.5*inch, 3*inch])
+    bad_channels_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#BDC3C7')),  # Light gray border
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F5F6FA')),  # Very light blue header
+        ('BACKGROUND', (0, 1), (-1, -1), colors.HexColor('#F8F9F9')),  # Very light gray rows
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    
+    story.append(bad_channels_table)
+    story.append(Spacer(1, 15))
+
     # Build the PDF
     try:
         # First build in metadata directory
@@ -3417,6 +3451,7 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
             'status': 'unprocessed',
             'success': False,
             'json_file': f"{unprocessed_file.stem}_autoclean_metadata.json",
+            'report_file': f"{unprocessed_file.stem}_autoclean_report.pdf",
             'metadata': {}
         }
 
@@ -3477,9 +3512,11 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
 
         if autoclean_dict['task'] == "rest_eyesopen":
             process_resting_eyesopen(autoclean_dict)
-            
-        run_record['status'] = 'completed'
-        run_record['success'] = True
+    
+
+        manage_database(operation='update', update_record={
+            'run_id': run_record['run_id'], 'status': 'completed', 'success': True})
+        
 
         # Print record to console
         manage_database(operation='print_record', run_record=run_record)
