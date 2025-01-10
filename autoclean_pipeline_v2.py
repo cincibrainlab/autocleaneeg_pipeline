@@ -22,7 +22,8 @@
 #     "textual-dev",
 #     "asyncio",
 #     "mplcairo",
-#     "unqlite"
+#     "unqlite",
+#     "reportlab"
 # ]
 # ///
 
@@ -55,11 +56,12 @@ import yaml
 from datetime import datetime
 from pathlib import Path
 from typing import Union
+import shutil
 
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
-from rich.table import Table
+from rich.table import Table as RichTable
 from schema import Schema, Or
 from dotenv import load_dotenv
 from unqlite import UnQLite
@@ -77,6 +79,13 @@ from mne.preprocessing import bads
 from pyprep.find_noisy_channels import NoisyChannels
 import pylossless as ll
 from autoreject import AutoReject
+
+# ReportLab imports for PDF generation
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table as ReportLabTable, Image, PageBreak, TableStyle
 
 logger = logging.getLogger('autoclean')
 console = Console()
@@ -330,7 +339,7 @@ def step_prepare_directories(task: str, run_id: str) -> tuple[Path, Path, Path, 
         dir_.mkdir(parents=True, exist_ok=True)
     
     table_data = [["root", str(autoclean_dir)]] + [[name, str(path)] for name, path in dirs.items()]
-    table = Table(title="Directory Structure", show_header=True, header_style="cyan", show_lines=True)
+    table = RichTable(title="Directory Structure", show_header=True, header_style="cyan", show_lines=True)
     table.add_column("Type", style="green")
     table.add_column("Path", style="dim cyan")
     for row in table_data:
@@ -345,6 +354,13 @@ def step_prepare_directories(task: str, run_id: str) -> tuple[Path, Path, Path, 
 
     message("success", "Directories ready")
     return autoclean_dir, dirs["bids"], dirs["metadata"], dirs["clean"], dirs["stage"], dirs["debug"]
+
+
+#--------------------------------------------------------------------------------------------------------
+
+#   EEG OPERATION
+
+#--------------------------------------------------------------------------------------------------------
 
 def save_raw_to_set(raw, autoclean_dict, stage="post_import", output_path=None):
     """Save raw EEG data to SET format with descriptive filename.
@@ -2326,15 +2342,20 @@ def extended_BAD_LL_noisy_ICs_annotations(raw, pipeline, autoclean_dict, extra_d
 
     # Add catalog of BAD_LL_noisy_ICs to metadata
     bad_ll_noisy_ics_count = sum(1 for ann in updated_annotations if isinstance(ann, mne.Annotations) and ann.description == "BAD_LL_noisy_ICs") if updated_annotations else 0
+    
+    # Initialize metadata with required fields
     metadata = {
         "extended_BAD_LL_noisy_ICs_annotations": {
             "creationDateTime": datetime.now().isoformat(),
             "extended_BAD_LL_noisy_ICs_annotations": True,
-            "extended_BAD_LL_noisy_ICs_annotations_figure": Path(target_figure).name,
             "extra_duration": extra_duration,
             "bad_LL_noisy_ICs_count": bad_ll_noisy_ics_count  # Count of BAD_LL_noisy_ICs
         }
     }
+    
+    # Only add figure info if it was generated
+    if 'target_figure' in locals():
+        metadata["extended_BAD_LL_noisy_ICs_annotations"]["extended_BAD_LL_noisy_ICs_annotations_figure"] = Path(target_figure).name
 
     manage_database(operation='update', update_record={
         'run_id': autoclean_dict['run_id'],
@@ -3075,6 +3096,312 @@ def get_run_record(run_id: str) -> dict:
     run_record = manage_database(operation='get_record', run_record={'run_id': run_id})
     return run_record
 
+def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
+    """
+    Creates a scientific report in PDF format using ReportLab based on the run metadata.
+    
+    Args:
+        run_id (str): The run ID to generate a report for
+        Optional: autoclean_dict (dict): The autoclean dictionary
+    """
+    if not run_id:
+        message("error", "No run ID provided")
+        return
+    
+    run_record = get_run_record(run_id)
+    if not run_record or 'metadata' not in run_record:
+        message("error", "No metadata found for run ID")
+        return
+    
+    if not autoclean_dict:
+        message("info", "No autoclean dictionary provided, saving only to metadata directory")
+    else:
+        try:
+            task        = autoclean_dict["task"]
+            bids_path   = autoclean_dict["bids_path"]
+            config_path = autoclean_dict["tasks"][task]["lossless_config"] 
+
+            derivative_name = "report"
+            pipeline = ll.LosslessPipeline(config_path)
+            derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
+            derivatives_path = str(derivatives_path.copy().update(suffix=derivative_name, extension='.pdf'))
+        except Exception as e:
+            message("error", f"Failed to get derivatives path: {str(e)} \nSaving only to metadata directory")
+            derivatives_path = None
+
+
+    # Get metadata directory from step_prepare_directories
+    if 'step_prepare_directories' not in run_record['metadata']:
+        message("error", "No directory information found in run record")
+        return
+        
+    metadata_dir = Path(run_record['metadata']['step_prepare_directories']['metadata'])
+    if not metadata_dir.exists():
+        metadata_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Create PDF filename
+    pdf_path = metadata_dir / f"{run_id}_report.pdf"
+    
+    # Initialize the PDF document
+    doc = SimpleDocTemplate(
+        str(pdf_path),
+        pagesize=letter,
+        rightMargin=36,  # Reduced margins
+        leftMargin=36,
+        topMargin=36,
+        bottomMargin=36
+    )
+    
+    # Get styles
+    styles = getSampleStyleSheet()
+    
+    # Custom styles for better visual hierarchy
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Title'],
+        fontSize=16,
+        spaceAfter=10,  # Reduced from 20
+        textColor=colors.HexColor('#2C3E50'),  # Dark blue-gray
+        alignment=1  # Center alignment
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading1'],
+        fontSize=12,
+        spaceAfter=8,
+        textColor=colors.HexColor('#34495E'),  # Slightly lighter blue-gray
+        alignment=1
+    )
+    
+    normal_style = ParagraphStyle(
+        'CustomNormal',
+        parent=styles['Normal'],
+        fontSize=8,
+        spaceAfter=3,
+        textColor=colors.HexColor('#2C3E50')
+    )
+    
+    # Create story (content) for the PDF
+    story = []
+    
+    # Define frame style for main content
+    frame_style = TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#BDC3C7')),  # Light gray border
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ECF0F1')),  # Very light gray background
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 15),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 15),
+    ])
+    
+    # Title and Basic Info
+    title = f"EEG Processing Report"
+    story.append(Paragraph(title, title_style))
+    
+    # Add status-colored subtitle
+    status_color = colors.HexColor('#2ECC71') if run_record.get('success', False) else colors.HexColor('#E74C3C')
+    subtitle_style = ParagraphStyle(
+        'CustomSubtitle',
+        parent=heading_style,
+        textColor=status_color,
+        spaceAfter=4  # Reduced spacing
+    )
+    status_text = "SUCCESS" if run_record.get('success', False) else "FAILED"
+    subtitle = f"Run ID: {run_id} - {status_text}"
+    story.append(Paragraph(subtitle, subtitle_style))
+    
+    # Add timestamp
+    timestamp_style = ParagraphStyle(
+        'Timestamp',
+        parent=normal_style,
+        textColor=colors.HexColor('#7F8C8D'),  # Gray
+        alignment=1,
+        spaceAfter=15  # Space before tables
+    )
+    timestamp = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    story.append(Paragraph(timestamp, timestamp_style))
+    
+    # Three tables layout with better styling
+    data = [[
+        Paragraph("Import Information", heading_style),
+        Paragraph("Preprocessing Parameters", heading_style),
+        Paragraph("Lossless Configuration", heading_style)
+    ]]
+    
+    # Common table style
+    table_style = TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#BDC3C7')),  # Light gray border
+        ('FONTSIZE', (0, 0), (-1, -1), 8),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#F5F6FA')),  # Very light blue header
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.HexColor('#2C3E50')),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ])
+    
+    # Left column: Import info with colored background
+    import_info = []
+    if 'step_import_raw' in run_record['metadata']:
+        raw_info = run_record['metadata']['step_import_raw']
+        import_info.extend([
+            ["File", raw_info.get('unprocessedFile', 'N/A')],
+            ["Duration", f"{raw_info.get('durationSec', 'N/A'):.1f} sec"],
+            ["Sample Rate", f"{raw_info.get('sampleRate', 'N/A')} Hz"],
+            ["Channels", str(raw_info.get('channelCount', 'N/A'))]
+        ])
+    
+    import_table = ReportLabTable(import_info, colWidths=[0.7*inch, 1.3*inch])
+    import_table.setStyle(TableStyle([
+        *table_style._cmds,
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F8F9F9'))  # Very light gray
+    ]))
+    
+    # Middle column: Preprocessing parameters
+    preproc_info = []
+    if 'entrypoint' in run_record['metadata']:
+        task_config = run_record['metadata']['entrypoint']['tasks'][run_record['metadata']['entrypoint']['task']]['settings']
+        preproc_info.extend([
+            ["Resample", f"{task_config['resample_step']['value']} Hz" if task_config['resample_step']['enabled'] else "Disabled"],
+            ["Trim", f"{task_config['trim_step']['value']} sec" if task_config['trim_step']['enabled'] else "Disabled"],
+            ["Reference", task_config['reference_step']['value'] if task_config['reference_step']['enabled'] else "Disabled"],
+            ["Filter", f"{task_config['filter_step']['value']['l_freq']}-{task_config['filter_step']['value']['h_freq']} Hz" if task_config['filter_step']['enabled'] else "Disabled"]
+        ])
+    
+    preproc_table = ReportLabTable(preproc_info, colWidths=[0.7*inch, 1.3*inch])
+    preproc_table.setStyle(TableStyle([
+        *table_style._cmds,
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#EFF8F9'))  # Very light blue
+    ]))
+    
+    # Right column: Lossless settings
+    lossless_info = []
+    if 'step_run_pylossless' in run_record['metadata']:
+        lossless_config = run_record['metadata']['step_run_pylossless']['pylossless_config']
+        filter_args = lossless_config.get('filtering', {}).get('filter_args', {})
+        ica_args = lossless_config.get('ica', {}).get('ica_args', {})
+        lossless_info.extend([
+            ["Filter", f"{filter_args.get('l_freq', 'N/A')}-{filter_args.get('h_freq', 'N/A')} Hz"],
+            ["Notch", f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0]} Hz"],
+            ["ICA", ica_args.get('run2', {}).get('method', 'N/A')],
+            ["Components", str(ica_args.get('run2', {}).get('n_components', 'N/A'))]
+        ])
+    
+    lossless_table = ReportLabTable(lossless_info, colWidths=[0.7*inch, 1.3*inch])
+    lossless_table.setStyle(TableStyle([
+        *table_style._cmds,
+        ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#F5EEF8'))  # Very light purple
+    ]))
+    
+    # Add tables to main layout with spacing
+    data.append([import_table, preproc_table, lossless_table])
+    main_table = ReportLabTable(data, colWidths=[2*inch, 2*inch, 2*inch])
+    main_table.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 0), (-1, 0), 0),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+    ]))
+    
+    # Add main content in a frame
+    frame_data = [[main_table]]
+    frame = ReportLabTable(frame_data, colWidths=[6.5*inch])
+    frame.setStyle(frame_style)
+    story.append(frame)
+    story.append(Spacer(1, 15))
+    
+    # Add processing steps list after tables
+    story.append(Paragraph("Processing Steps:", heading_style))
+    story.append(Spacer(1, 4))
+    
+    # Get steps from metadata (excluding validation and post-entrypoint)
+    steps = []
+    for key in run_record['metadata'].keys():
+            steps.append(key)
+    
+    # Create vertical list of steps
+    steps_style = ParagraphStyle(
+        'Steps',
+        parent=normal_style,
+        fontSize=8,
+        leftIndent=20,
+        spaceAfter=2
+    )
+    
+    for step in steps:
+        story.append(Paragraph(f"• {step}", steps_style))
+    
+    story.append(Spacer(1, 10))
+    
+    # Add figures if they exist
+    if 'artifact_reports' in run_record['metadata']:
+        story.append(Paragraph("Quality Control Figures", heading_style))
+        story.append(Spacer(1, 6))
+        
+        artifact_reports = run_record['metadata']['artifact_reports']
+        # Prioritize the most important figures
+        figure_paths = [
+            ('Raw vs Cleaned', artifact_reports[-3].get('plot_raw_vs_cleaned_overlay')),
+            ('PSD and Topography', artifact_reports[-1].get('plot_psd_topo_figure'))
+        ]
+        
+        # Create a table for the figures
+        figure_data = []
+        current_row = []
+        for title, path in figure_paths:
+            if path:
+                full_path = metadata_dir.parent / path
+                if full_path.exists():
+                    img = Image(str(full_path), width=3*inch, height=2*inch)
+                    current_row.append([Paragraph(title, normal_style), img])
+                    if len(current_row) == 2:
+                        figure_data.append(current_row)
+                        current_row = []
+        
+        if current_row:  # Add any remaining figures
+            while len(current_row) < 2:
+                current_row.append(['', ''])
+            figure_data.append(current_row)
+        
+        if figure_data:
+            figure_table = ReportLabTable(figure_data, colWidths=[3*inch, 3*inch])
+            figure_table.setStyle(TableStyle([
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ]))
+            story.append(figure_table)
+
+    # Build the PDF
+    try:
+        # First build in metadata directory
+        doc.build(story)
+        message("success", f"Report generated in metadata directory: {pdf_path}")
+        
+        # Update metadata with pdf path
+        metadata = {
+            "create_run_report": {
+                "creationDateTime": datetime.now().isoformat(),
+                "metadata_report_path": str(pdf_path),
+            }
+        }
+
+        # Create a copy in derivatives
+        if derivatives_path:
+            shutil.copy2(pdf_path, derivatives_path)
+            message("success", f"Report copied to derivatives: {derivatives_path}")
+            metadata["create_run_report"]["derivatives_report_path"] = str(derivatives_path)
+        
+        # Update database with metadata
+        manage_database(operation='update', update_record={
+            'run_id': run_id,
+            'metadata': metadata
+        })
+        
+    except Exception as e:
+        message("error", f"Failed to generate or copy report: {str(e)}")
 
 def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_id: str = None) -> None:
 
@@ -3100,10 +3427,9 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
         run_record = get_run_record(run_id)
         message("info", f"Resuming run {run_id}")
         message("info", f"Run record: {run_record}")
-        return run_record
-
 
     try:
+
         autoclean_dir, autoclean_config_file = validate_environment_variables(run_id)
 
         autoclean_dict = validate_autoclean_config(autoclean_config_file)
@@ -3153,6 +3479,7 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
             process_resting_eyesopen(autoclean_dict)
             
         run_record['status'] = 'completed'
+        run_record['success'] = True
 
         # Print record to console
         manage_database(operation='print_record', run_record=run_record)
@@ -3163,9 +3490,17 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
             json.dump(run_record, f, indent=4)
         message("success", f"Run record exported to {json_file}")
 
+        create_run_report(run_id, autoclean_dict)
+        message("success", f"Run report generated successfully: {run_id}")
+
+
     except Exception as e:
         run_record['status'] = 'failed'
         run_record['error'] = str(e)
+        if autoclean_dict:
+            create_run_report(run_id, autoclean_dict)
+        else:
+            create_run_report(run_id)   
         message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
         raise
     finally:
@@ -3173,44 +3508,44 @@ def entrypoint(unprocessed_file: Union[str, Path] = None, task: str = None, run_
         message("header", f"Run {run_record['run_id']} completed")
 
 def main() -> None:
-    message("header", "Initializing Autoclean Pipeline")
+    # message("header", "Initializing Autoclean Pipeline")
     
-    # Specify the directory containing the raw files
-    data_dir = Path("C:/Users/Gam9LG/Documents/TestData/Autoclean")
-    task = "rest_eyesopen"
-
-    # Get all .raw files in the directory
-    raw_files = list(data_dir.glob("*.raw"))
-    
-    if not raw_files:
-        message("error", f"No .raw files found in {data_dir}")
-        return
-
-    message("info", f"Found {len(raw_files)} .raw files to process")
-    
-    # Process each file
-    for file_num, unprocessed_file in enumerate(raw_files, 1):
-        message("header", f"Processing file {file_num}/{len(raw_files)}: {unprocessed_file.name}")
-        
-        try:
-            entrypoint(unprocessed_file, task)
-        except Exception as e:
-            message("error", f"Failed to process {unprocessed_file.name}: {e}")
-            # Continue with next file instead of stopping the entire process
-            continue
-
-    message("success", "Completed processing all files")
-    # # Development Test File
-    # unprocessed_file = Path("C:/Users/Gam9LG/Documents/TestData/Autoclean/1807_rest.raw")  
-    # # unprocessed_file = Path("/Users/ernie/Documents/GitHub/spg_analysis_redo/dataset_raw/0006_rest.raw")
+    # # Specify the directory containing the raw files
+    # data_dir = Path("C:/Users/Gam9LG/Documents/TestData/Autoclean")
     # task = "rest_eyesopen"
 
-    # try:
-    #     entrypoint(unprocessed_file, task)
-    #     #entrypoint(run_id="01JF8K91SWWYBEKNNZBVM1VJKS")
-    # except Exception as e:
-    #     message("error", f"Pipeline failed with error: {e}")
-    #     raise
+    # # Get all .raw files in the directory
+    # raw_files = list(data_dir.glob("*.raw"))
+    
+    # if not raw_files:
+    #     message("error", f"No .raw files found in {data_dir}")
+    #     return
+
+    # message("info", f"Found {len(raw_files)} .raw files to process")
+    
+    # # Process each file
+    # for file_num, unprocessed_file in enumerate(raw_files, 1):
+    #     message("header", f"Processing file {file_num}/{len(raw_files)}: {unprocessed_file.name}")
+        
+    #     try:
+    #         entrypoint(unprocessed_file, task)
+    #     except Exception as e:
+    #         message("error", f"Failed to process {unprocessed_file.name}: {e}")
+    #         # Continue with next file instead of stopping the entire process
+    #         continue
+
+    # message("success", "Completed processing all files")
+    # Development Test File
+    unprocessed_file = Path("C:/Users/Gam9LG/Documents/TestData/Autoclean/1807_rest.raw")  
+    # unprocessed_file = Path("/Users/ernie/Documents/GitHub/spg_analysis_redo/dataset_raw/0006_rest.raw")
+    task = "rest_eyesopen"
+
+    try:
+        entrypoint(unprocessed_file, task)
+        #entrypoint(run_id="01JF8K91SWWYBEKNNZBVM1VJKS")
+    except Exception as e:
+        message("error", f"Pipeline failed with error: {e}")
+        raise
 
 if __name__ == "__main__":
     main()
