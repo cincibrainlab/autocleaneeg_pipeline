@@ -87,6 +87,11 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table as ReportLabTable, Image, PageBreak, TableStyle
 
+from PyQt5.QtCore import pyqtRemoveInputHook
+from pdb import set_trace
+pyqtRemoveInputHook()
+
+
 logger = logging.getLogger('autoclean')
 console = Console()
 
