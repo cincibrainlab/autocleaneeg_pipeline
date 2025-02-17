@@ -1,23 +1,27 @@
-import sys
-from pathlib import Path
-
-# Add the src directory to Python path if package is not installed
-src_path = Path(__file__).resolve().parent.parent.parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
-
+# Standard library imports
 import os
 import subprocess
+import sys
 import webbrowser
 from pathlib import Path
 
+# Find and add the src directory to the path
+src_path = Path(__file__).resolve().parents[2]
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+# Third-party imports
 import fitz
 import matplotlib.pyplot as plt
 import mne
 import scipy.io as sio
 from dotenv import load_dotenv
-from PyQt5.Qt import *
-from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
+from PyQt5.QtCore import (
+    QAbstractItemModel,
+    QModelIndex,
+    Qt,
+    pyqtRemoveInputHook,
+)
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
@@ -35,6 +39,7 @@ from PyQt5.QtWidgets import (
     QWidget,
 )
 
+# Local imports
 from autoclean.step_functions.io import save_epochs_to_set
 from autoclean.utils.database import get_run_record
 from autoclean.utils.logging import message

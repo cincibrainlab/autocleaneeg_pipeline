@@ -15,7 +15,7 @@ _current_dir = Path(__file__).parent
 _task_modules = {
     name: importlib.import_module(f"{__package__}.{name}")
     for finder, name, ispkg in pkgutil.iter_modules([str(_current_dir)])
-    if not name.startswith('_')  # Skip private modules
+    if not name.startswith("_")  # Skip private modules
 }
 
 # Initialize collections
@@ -30,12 +30,12 @@ for module_name, module in _task_modules.items():
         for name, obj in inspect.getmembers(module, inspect.isclass)
         if issubclass(obj, Task) and obj != Task  # Exclude the base Task class
     }
-    
+
     # Add to __all__
     __all__.extend(task_classes.keys())
-    
+
     # Add to task registry
     task_registry.update(task_classes)
-    
+
     # Add classes to the current namespace
     globals().update(task_classes)
