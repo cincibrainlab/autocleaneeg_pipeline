@@ -90,7 +90,6 @@ def step_plot_raw_vs_cleaned_overlay(
     n_channels = len(channel_labels)
     sfreq = raw_original.info["sfreq"]
     times = raw_original.times
-    n_samples = len(times)
     data_original = raw_original.get_data()
     data_cleaned = raw_cleaned.get_data()
 
@@ -145,7 +144,6 @@ def step_plot_raw_vs_cleaned_overlay(
 
     # Plot channels
     for idx in range(n_channels):
-        ch_name = channel_labels[idx]
         offset = offsets[idx]
 
         # Plot original data in red
@@ -242,7 +240,6 @@ def step_plot_ica_full(pipeline: Any, autoclean_dict: Dict[str, Any]) -> None:
     # Get ICA activations and create time vector
     ica_sources = ica.get_sources(raw)
     ica_data = ica_sources.get_data()
-    sfreq = raw.info["sfreq"]
     times = raw.times
     n_components, n_samples = ica_data.shape
 

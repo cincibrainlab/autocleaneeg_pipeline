@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import mne
 import numpy as np
@@ -85,7 +85,7 @@ def step_create_regular_epochs(
 
     # Detect Muscle Beta Focus
     bad_muscle_epochs = _detect_muscle_beta_focus_robust(
-        epochs.copy(), pipeline, autoclean_dict, freq_band=(20, 100), scale_factor=2.0
+        epochs.copy(), autoclean_dict, freq_band=(20, 100), scale_factor=2.0
     )
 
     # Remove duplicates and sort
@@ -662,8 +662,11 @@ def step_apply_autoreject(
 
 
 def _detect_muscle_beta_focus_robust(
-    epochs, pipeline, autoclean_dict, freq_band=(20, 30), scale_factor=3.0
-):
+    epochs: mne.Epochs,
+    autoclean_dict: Dict[str, Any],
+    freq_band: Tuple[int, int] = (20, 30),
+    scale_factor: float = 3.0,
+) -> List[int]:
     """
     Detect muscle artifacts using a robust measure (median + MAD * scale_factor)
     focusing only on electrodes labeled as 'OTHER'.
@@ -672,8 +675,6 @@ def _detect_muscle_beta_focus_robust(
 
     # Ensure data is loaded
     epochs.load_data()
-
-    backup_epochs = epochs.copy()
 
     # Filter in beta band
     epochs_beta = epochs.copy().filter(

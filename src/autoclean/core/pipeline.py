@@ -72,6 +72,7 @@ from autoclean.step_functions.reports import (
     create_run_report,
     update_task_processing_log,
 )
+from autoclean.tasks import task_registry
 from autoclean.tools.autoclean_review import run_autoclean_review
 from autoclean.utils.config import (
     hash_and_encode_yaml,
@@ -81,7 +82,6 @@ from autoclean.utils.config import (
 from autoclean.utils.database import get_run_record, manage_database
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
-from autoclean.tasks import task_registry
 
 # Force matplotlib to use non-interactive backend for async operations
 # This prevents GUI thread conflicts during parallel processing

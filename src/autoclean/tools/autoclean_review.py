@@ -449,15 +449,6 @@ class FileSelector(QWidget):
                 subject_id = self.current_run_record["metadata"][
                     "step_convert_to_bids"
                 ]["bids_subject"]
-                session = self.current_run_record["metadata"]["step_convert_to_bids"][
-                    "bids_session"
-                ]
-                task = self.current_run_record["metadata"]["step_convert_to_bids"][
-                    "bids_task"
-                ]
-                run = self.current_run_record["metadata"]["step_convert_to_bids"][
-                    "bids_run"
-                ]
                 bids_root = Path(
                     self.current_run_record["metadata"]["step_prepare_directories"][
                         "bids"
