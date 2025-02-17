@@ -7,8 +7,8 @@ import requests
 from autoclean import Pipeline
 
 
-def download_eeg_from_onedrive(url: str) -> Path:
-    """Download EEG file from OneDrive link and return its path.
+def download_eeg_from_googledrive(url: str) -> Path:
+    """Download EEG file from Google Drive link and return its path.
 
     Args:
         url: OneDrive sharing URL
@@ -32,8 +32,8 @@ def test_simple_resting_pipeline():
     """Test basic pipeline functionality with resting state data."""
 
     # Download sample data and get its path
-    onedrive_url = "https://cchmc-my.sharepoint.com/:i:/g/personal/gavin_gammoh_cchmc_org/EZWyFUvk1hRHuHWa8WvAQGUBlmVK90F2XRxnrCqr1JusWg?e=2DkfBf"
-    raw_file = download_eeg_from_onedrive(onedrive_url)
+    onedrive_url = "https://drive.google.com/file/d/1Fvztzx0PfYD0IeW3R8UPUYHL4-eKSbyD/view?usp=sharing"
+    raw_file = download_eeg_from_googledrive(onedrive_url)
 
     # Initialize and run pipeline
     pipeline = Pipeline(
