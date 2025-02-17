@@ -158,7 +158,6 @@ def test_config(test_raw_data):
     """Create a test configuration based on the test data."""
     # Load test file to get properties
     raw = mne.io.read_raw_fif(test_raw_data, preload=False)
-    n_channels = len(raw.ch_names)
 
     return {
         "tasks": {
