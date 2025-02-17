@@ -6,41 +6,21 @@ src_path = Path(__file__).resolve().parent.parent.parent / "src"
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
-from PyQt5.Qt import *
-import PyQt5.QtCore
+import json
 import os
 import subprocess
-import mne
-import json
-import scipy.io as sio
-import numpy as np
-from pathlib import Path
-import fitz
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import QLabel, QScrollArea
-from PyQt5.QtWidgets import (
-    QApplication,
-    QWidget,
-    QPushButton,
-    QFileDialog,
-    QVBoxLayout,
-    QTreeWidget,
-    QTreeWidgetItem,
-    QStatusBar,
-    QMessageBox,
-    QTreeView,
-    QSplitter,
-)
-from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, QUrl
-from dotenv import load_dotenv
-import matplotlib.pyplot as plt
-
-from autoclean.step_functions.io import save_epochs_to_set
-from autoclean.utils.database import get_run_record
-from autoclean.utils.logging import message
-import pyjsonviewer
 import webbrowser
+from pathlib import Path
+from pdb import set_trace
 
+import fitz
+import matplotlib.pyplot as plt
+import mne
+import numpy as np
+import pyjsonviewer
+import PyQt5.QtCore
+import scipy.io as sio
+from dotenv import load_dotenv
 from mne_bids import (
     BIDSPath,
     find_matching_paths,
@@ -49,9 +29,28 @@ from mne_bids import (
     print_dir_tree,
     read_raw_bids,
 )
+from PyQt5.Qt import *
+from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, QUrl, pyqtRemoveInputHook
+from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtWidgets import (
+    QApplication,
+    QFileDialog,
+    QLabel,
+    QMessageBox,
+    QPushButton,
+    QScrollArea,
+    QSplitter,
+    QStatusBar,
+    QTreeView,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 
-from PyQt5.QtCore import pyqtRemoveInputHook
-from pdb import set_trace
+from autoclean.step_functions.io import save_epochs_to_set
+from autoclean.utils.database import get_run_record
+from autoclean.utils.logging import message
 
 pyqtRemoveInputHook()
 
@@ -399,15 +398,15 @@ class FileSelector(QWidget):
             self.view_record_btn.setEnabled(False)
 
     def viewRunRecord(self):
+        from PyQt5.QtCore import Qt
         from PyQt5.QtGui import QPixmap
         from PyQt5.QtWidgets import (
             QComboBox,
-            QLabel,
             QHBoxLayout,
+            QLabel,
             QPushButton,
             QScrollArea,
         )
-        from PyQt5.QtCore import Qt
 
         original_filename = self.current_run_record["metadata"]["step_import"][
             "unprocessedFile"

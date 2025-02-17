@@ -1,6 +1,7 @@
 """Utility functions for handling EEG montage mappings and conversions."""
 
 from typing import Dict, List
+
 from autoclean.utils.logging import message
 
 VALID_MONTAGES = {

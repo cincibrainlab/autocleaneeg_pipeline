@@ -8,19 +8,16 @@ from typing import Any, Dict
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.step_functions.io import save_epochs_to_set, step_import, save_raw_to_set
-
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_pylossless,
 )
-
 from autoclean.step_functions.epochs import (
-    step_create_regular_epochs,
     step_apply_autoreject,
+    step_create_regular_epochs,
 )
-
+from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, step_import
 from autoclean.step_functions.reports import (
     step_generate_ica_reports,
     step_plot_ica_full,

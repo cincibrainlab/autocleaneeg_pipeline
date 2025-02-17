@@ -1,13 +1,14 @@
 # src/autoclean/utils/logging.py
 """Logging utilities for the autoclean package."""
 
-import os
 import logging
+import os
 import sys
 import warnings
-from loguru import logger
-from typing import Optional, Union
 from enum import Enum
+from typing import Optional, Union
+
+from loguru import logger
 
 # Remove default handler
 logger.remove()

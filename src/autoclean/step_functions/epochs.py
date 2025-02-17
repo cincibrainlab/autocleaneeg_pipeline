@@ -1,17 +1,17 @@
-from matplotlib import pyplot as plt
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional
+
 import mne
 import numpy as np
-from pathlib import Path
-from typing import Dict, Any, Optional
-from datetime import datetime
-
-from mne.preprocessing import bads
 import pandas as pd
 from autoreject import AutoReject
+from matplotlib import pyplot as plt
+from mne.preprocessing import bads
 
-from autoclean.utils.logging import message
-from autoclean.utils.database import manage_database
 from autoclean.step_functions.io import save_epochs_to_set
+from autoclean.utils.database import manage_database
+from autoclean.utils.logging import message
 
 
 def step_create_regular_epochs(

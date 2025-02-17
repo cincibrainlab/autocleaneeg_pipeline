@@ -7,27 +7,24 @@ from typing import Any, Dict
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.step_functions.io import (
-    save_epochs_to_set,
-    step_import,
-    save_raw_to_set,
-)
-
 from autoclean.step_functions.continuous import (
     step_clean_bad_channels,
     step_create_bids_path,
+    step_detect_dense_oscillatory_artifacts,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
     step_run_pylossless,
-    step_detect_dense_oscillatory_artifacts,
 )
-
 from autoclean.step_functions.epochs import (
     step_create_regular_epochs,
-    step_prepare_epochs_for_ica,
     step_gfp_clean_epochs,
+    step_prepare_epochs_for_ica,
 )
-
+from autoclean.step_functions.io import (
+    save_epochs_to_set,
+    save_raw_to_set,
+    step_import,
+)
 from autoclean.step_functions.reports import (
     step_generate_ica_reports,
     step_plot_ica_full,

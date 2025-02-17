@@ -9,18 +9,10 @@ import numpy as np
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.step_functions.io import save_epochs_to_set, step_import, save_raw_to_set
-from autoclean.utils.logging import message
-from autoclean.step_functions.reports import (
-    step_generate_ica_reports,
-    step_plot_ica_full,
-    step_psd_topo_figure,
-    generate_mmn_erp,
-)
 from autoclean.step_functions.continuous import (
-    step_detect_dense_oscillatory_artifacts,
     step_clean_bad_channels,
     step_create_bids_path,
+    step_detect_dense_oscillatory_artifacts,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
     step_run_pylossless,
@@ -28,6 +20,14 @@ from autoclean.step_functions.continuous import (
 from autoclean.step_functions.epochs import (
     step_create_eventid_epochs,
 )
+from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, step_import
+from autoclean.step_functions.reports import (
+    generate_mmn_erp,
+    step_generate_ica_reports,
+    step_plot_ica_full,
+    step_psd_topo_figure,
+)
+from autoclean.utils.logging import message
 
 
 class HBCD_MMN(Task):

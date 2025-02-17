@@ -1,21 +1,21 @@
-from matplotlib import pyplot as plt
-from matplotlib.gridspec import GridSpec
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Tuple
+
 import mne
 import numpy as np
-from pathlib import Path
-from typing import Dict, Any, Tuple
-from datetime import datetime
-
-from mne_bids import read_raw_bids
-from pyprep.find_noisy_channels import NoisyChannels
 import pylossless as ll
 import yaml
+from matplotlib import pyplot as plt
+from matplotlib.gridspec import GridSpec
+from mne_bids import read_raw_bids
+from pyprep.find_noisy_channels import NoisyChannels
 
-from autoclean.utils.logging import message
-from autoclean.utils.database import manage_database
-from autoclean.utils.bids import step_convert_to_bids
-from autoclean.step_functions.reports import plot_bad_channels_with_topography
 from autoclean.step_functions.io import save_raw_to_set
+from autoclean.step_functions.reports import plot_bad_channels_with_topography
+from autoclean.utils.bids import step_convert_to_bids
+from autoclean.utils.database import manage_database
+from autoclean.utils.logging import message
 
 
 def step_pre_pipeline_processing(

@@ -50,45 +50,44 @@ Example:
     ... )
 """
 
+import asyncio
+
 # Standard library imports
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Type, List, Union
-import asyncio
+from typing import Any, Dict, List, Optional, Type, Union
+
+import matplotlib
 
 # Third-party imports
 import mne
-from ulid import ULID
 from tqdm import tqdm
+from ulid import ULID
 
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
-from autoclean.tasks.bb_long import BB_Long
-from autoclean.tasks.chirp_default import ChirpDefault
-from autoclean.tasks.assr_default import AssrDefault
-from autoclean.tasks.hbcd_mmn import HBCD_MMN
-from autoclean.tasks.mouse_xdat_resting import MouseXdatResting
-from autoclean.tasks.mouse_xdat_chirp import MouseXdatChirp
-from autoclean.tasks.resting_eyes_open import RestingEyesOpen
-
 from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,
     update_task_processing_log,
 )
+from autoclean.tasks.assr_default import AssrDefault
+from autoclean.tasks.bb_long import BB_Long
+from autoclean.tasks.chirp_default import ChirpDefault
+from autoclean.tasks.hbcd_mmn import HBCD_MMN
+from autoclean.tasks.mouse_xdat_chirp import MouseXdatChirp
+from autoclean.tasks.mouse_xdat_resting import MouseXdatResting
+from autoclean.tasks.resting_eyes_open import RestingEyesOpen
+from autoclean.tools.autoclean_review import run_autoclean_review
 from autoclean.utils.config import (
+    hash_and_encode_yaml,
     load_config,
     validate_eeg_system,
-    hash_and_encode_yaml,
 )
 from autoclean.utils.database import get_run_record, manage_database
 from autoclean.utils.file_system import step_prepare_directories
-from autoclean.utils.logging import message, configure_logger
-
-import matplotlib
-
-from autoclean.tools.autoclean_review import run_autoclean_review
+from autoclean.utils.logging import configure_logger, message
 
 # Force matplotlib to use non-interactive backend for async operations
 # This prevents GUI thread conflicts during parallel processing

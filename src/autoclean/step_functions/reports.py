@@ -12,43 +12,45 @@ The functions generate clear, publication-ready figures and detailed
 HTML reports documenting the processing pipeline results.
 """
 
-from datetime import datetime
-import os
-from pathlib import Path
-import shutil
-from typing import Any, Dict, List, Optional, Tuple
 import csv
-import pandas as pd
+import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 
-from matplotlib.gridspec import GridSpec
-from mne_bids import BIDSPath
+import matplotlib
+import matplotlib.pyplot as plt
 import mne
 import numpy as np
-import matplotlib.pyplot as plt
+import pandas as pd
 import pylossless as ll
-import matplotlib
+from matplotlib.gridspec import GridSpec
+from mne_bids import BIDSPath
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
-from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.figure import Figure
 
 # ReportLab imports for PDF generation
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
 from reportlab.platypus import (
-    SimpleDocTemplate,
     Paragraph,
+    SimpleDocTemplate,
     Spacer,
-    Table as ReportLabTable,
+)
+from reportlab.platypus import Table as ReportLabTable
+from reportlab.platypus import (
     TableStyle,
 )
 
-from autoclean.utils.logging import message
 from autoclean.utils.database import get_run_record, manage_database
+from autoclean.utils.logging import message
 from autoclean.utils.montage import get_standard_set_in_montage, validate_channel_set
 
 
@@ -76,9 +78,10 @@ def step_plot_raw_vs_cleaned_overlay(
     suffix : str
         Suffix for the filename.
     """
+    import os
+
     import matplotlib.pyplot as plt
     import numpy as np
-    import os
 
     # Ensure that the original and cleaned data have the same channels and times
     if raw_original.ch_names != raw_cleaned.ch_names:
@@ -231,9 +234,10 @@ def step_plot_ica_full(pipeline: Any, autoclean_dict: Dict[str, Any]) -> None:
     autoclean_dict : dict
         Autoclean dictionary containing metadata
     """
+    import os
+
     import matplotlib.pyplot as plt
     import numpy as np
-    import os
 
     # Get raw and ICA from pipeline
     raw = pipeline.raw
@@ -421,8 +425,8 @@ def plot_bad_channels_with_topography(
         Start time in seconds for the zoomed-in window. Default is 0 seconds.
     """
     import matplotlib.pyplot as plt
-    import numpy as np
     import mne
+    import numpy as np
     from matplotlib.gridspec import GridSpec
 
     # ----------------------------
@@ -731,9 +735,10 @@ def _plot_ica_components(
     components : str
         'all' to plot all components, 'rejected' to plot only rejected components.
     """
+    import os
+
     import matplotlib.pyplot as plt
     import numpy as np
-    import os
     from matplotlib.backends.backend_pdf import PdfPages
     from matplotlib.gridspec import GridSpec
 

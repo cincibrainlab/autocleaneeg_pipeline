@@ -2,9 +2,9 @@
 
 from .bids import *
 from .config import load_config, validate_eeg_system
-from .database import manage_database, get_run_record
+from .database import get_run_record, manage_database
 from .file_system import step_prepare_directories
-from .logging import message, configure_logger
+from .logging import configure_logger, message
 from .montage import VALID_MONTAGES
 
 __all__ = [

@@ -1,12 +1,14 @@
 # src/autoclean/utils/config.py
-from pathlib import Path
-from typing import Dict, Any
-import yaml
-import logging
-from schema import Schema, Or
-import hashlib
 import base64
+import hashlib
+import logging
 import zlib
+from pathlib import Path
+from typing import Any, Dict
+
+import yaml
+from schema import Or, Schema
+
 from ..utils.logging import message
 from .montage import VALID_MONTAGES
 

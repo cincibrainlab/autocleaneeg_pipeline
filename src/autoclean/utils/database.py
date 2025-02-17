@@ -1,11 +1,12 @@
 # src/autoclean/utils/database.py
 """Database utilities for the autoclean package using UnQLite."""
 
+import threading
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
 from unqlite import UnQLite
-import threading
 
 from autoclean.utils.logging import message
 

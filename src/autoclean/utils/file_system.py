@@ -1,6 +1,6 @@
 # src/autoclean/utils/file_system.py
-from pathlib import Path
 import os
+from pathlib import Path
 
 from autoclean.utils.logging import message
 

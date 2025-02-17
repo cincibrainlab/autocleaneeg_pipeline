@@ -1,11 +1,11 @@
 # src/autoclean/utils/bids.py
-from pathlib import Path
 import json
 import sys
+from pathlib import Path
 
-from mne_bids import BIDSPath, write_raw_bids, update_sidecar_json
-from mne.io.constants import FIFF
 import pandas as pd
+from mne.io.constants import FIFF
+from mne_bids import BIDSPath, update_sidecar_json, write_raw_bids
 
 from ..utils.logging import message
 

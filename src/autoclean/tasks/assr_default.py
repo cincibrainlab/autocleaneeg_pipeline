@@ -2,22 +2,22 @@
 """Task implementation for assr EEG preprocessing."""
 
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
 
 from ..core.task import Task
-from ..step_functions.io import step_import, save_raw_to_set, save_epochs_to_set
 from ..step_functions.continuous import (
-    step_pre_pipeline_processing,
-    step_create_bids_path,
     step_clean_bad_channels,
-    step_run_pylossless,
+    step_create_bids_path,
+    step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
+    step_run_pylossless,
 )
 from ..step_functions.epochs import (
     step_create_eventid_epochs,
-    step_prepare_epochs_for_ica,
     step_gfp_clean_epochs,
+    step_prepare_epochs_for_ica,
 )
+from ..step_functions.io import save_epochs_to_set, save_raw_to_set, step_import
 
 
 class AssrDefault(Task):

@@ -7,26 +7,24 @@ from typing import Any, Dict
 
 # Local imports
 from autoclean.core.task import Task
+from autoclean.step_functions.continuous import (
+    step_clean_bad_channels,
+    step_create_bids_path,
+    step_detect_dense_oscillatory_artifacts,
+    step_pre_pipeline_processing,
+    step_reject_bad_segments,
+    step_run_ll_rejection_policy,
+    step_run_pylossless,
+)
 from autoclean.step_functions.io import (
     save_raw_to_set,
     step_import,
 )
-
 from autoclean.step_functions.reports import (
     step_generate_ica_reports,
     step_plot_ica_full,
     step_plot_raw_vs_cleaned_overlay,
     step_psd_topo_figure,
-)
-
-from autoclean.step_functions.continuous import (
-    step_clean_bad_channels,
-    step_create_bids_path,
-    step_pre_pipeline_processing,
-    step_reject_bad_segments,
-    step_run_ll_rejection_policy,
-    step_run_pylossless,
-    step_detect_dense_oscillatory_artifacts,
 )
 
 

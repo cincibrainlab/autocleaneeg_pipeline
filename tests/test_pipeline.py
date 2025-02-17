@@ -1,15 +1,17 @@
 """Test suite for the autoclean pipeline functionality."""
 
-import pytest
+import os
+import shutil
 from pathlib import Path
+from urllib.parse import urlparse
+
 import mne
 import numpy as np
-from autoclean import Pipeline
-import yaml
-import os
+import pytest
 import requests
-from urllib.parse import urlparse
-import shutil
+import yaml
+
+from autoclean import Pipeline
 
 
 def download_test_file(url: str, output_path: Path) -> Path:
