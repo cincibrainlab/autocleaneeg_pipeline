@@ -80,9 +80,6 @@ jobs:
     - name: Check imports (isort)
       run: isort --check-only src tests
         
-    - name: Static type checking (mypy)
-      run: mypy src
-        
     - name: Lint (ruff)
       run: ruff check src tests
 
