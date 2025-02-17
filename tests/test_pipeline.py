@@ -198,7 +198,7 @@ def test_gui_feature_without_pyqt():
     """Test that GUI features gracefully handle missing PyQt5."""
     config_file = Path("configs/autoclean_config.yaml")
     pipeline = Pipeline(autoclean_dir=Path("/tmp"), autoclean_config=config_file)
-    
+
     with pytest.raises(ImportError) as exc_info:
         pipeline.start_autoclean_review()
     assert "PyQt5" in str(exc_info.value)

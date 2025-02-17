@@ -615,10 +615,14 @@ class Pipeline:
         """
         try:
             from autoclean.tools import run_autoclean_review
+
             run_autoclean_review(self.autoclean_dir)
         except ImportError as e:
             message("error", f"Could not load GUI components: {str(e)}")
-            message("error", "Make sure PyQt5 is installed if you want to use the GUI features.")
+            message(
+                "error",
+                "Make sure PyQt5 is installed if you want to use the GUI features.",
+            )
             raise
 
     def _validate_task(self, task: str) -> None:

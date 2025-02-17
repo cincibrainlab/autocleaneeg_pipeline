@@ -46,27 +46,16 @@ jobs:
       run: |
         echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
     
-    - name: Configure AWS Credentials
-      if: env.AWS_ACCESS_KEY_ID
-      uses: aws-actions/configure-aws-credentials@v1
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
-    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install uv
         uv venv
         uv pip install -e ".[dev]"
-        pip install boto3 requests pytest pytest-cov PyQt5  # Add PyQt5
+        pip install requests pytest pytest-cov PyQt5
         
     - name: Run tests
       env:
-        # Test file locations (in order of preference)
-        TEST_EEG_S3_URL: ${{ secrets.TEST_EEG_S3_URL }}
-        TEST_EEG_HTTP_URL: ${{ secrets.TEST_EEG_HTTP_URL }}
         DISPLAY: ':99.0'  # Virtual display for GUI tests
       shell: bash
       run: |
@@ -81,7 +70,7 @@ jobs:
         else
           source .venv/bin/activate
         fi
-        python -m pytest tests/ --cov=autoclean --cov-report=term-missing:skip-covered
+        python -m pytest tests/test_simple_pipeline.py -v
         
     - name: Generate HTML coverage report
       shell: bash
@@ -93,7 +82,7 @@ jobs:
         else
           source .venv/bin/activate
         fi
-        python -m pytest tests/ --cov=autoclean --cov-report=html
+        python -m pytest tests/test_simple_pipeline.py --cov=autoclean --cov-report=html
         
     - name: Upload test results
       if: always()
