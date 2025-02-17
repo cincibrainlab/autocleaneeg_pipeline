@@ -28,7 +28,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcairo2-dev pkg-config python3-dev xvfb qt5-default
+        sudo apt-get install -y libcairo2-dev pkg-config python3-dev xvfb qtbase5-dev qt5-qmake qttools5-dev-tools libqt5gui5 libqt5test5 libqt5widgets5 libqt5core5a
     
     - name: Install system dependencies (Windows)
       if: runner.os == 'Windows'
