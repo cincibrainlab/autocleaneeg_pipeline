@@ -73,7 +73,6 @@ from autoclean.step_functions.reports import (
     update_task_processing_log,
 )
 from autoclean.tasks import task_registry
-from autoclean.tools.autoclean_review import run_autoclean_review
 from autoclean.utils.config import (
     hash_and_encode_yaml,
     load_config,
@@ -614,8 +613,13 @@ class Pipeline:
         Manages GUI event loop and maintains separation between processing
         and visualization components.
         """
-        from autoclean.tools import run_autoclean_review
-        run_autoclean_review(self.autoclean_dir)
+        try:
+            from autoclean.tools import run_autoclean_review
+            run_autoclean_review(self.autoclean_dir)
+        except ImportError as e:
+            message("error", f"Could not load GUI components: {str(e)}")
+            message("error", "Make sure PyQt5 is installed if you want to use the GUI features.")
+            raise
 
     def _validate_task(self, task: str) -> None:
         """Validate that a task type is supported and properly configured.

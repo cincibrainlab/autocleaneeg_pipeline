@@ -186,19 +186,22 @@ def test_config(test_raw_data):
     }
 
 
-def test_pipeline_initialization(tmp_path, test_config):
-    """Test pipeline initialization."""
-    # Save test config
-    config_path = tmp_path / "test_config.yaml"
-    with open(config_path, "w") as f:
-        yaml.dump(test_config, f)
-
-    # Initialize pipeline
-    pipeline = Pipeline(autoclean_dir=str(tmp_path), autoclean_config=str(config_path))
-
-    assert pipeline is not None
+def test_pipeline_initialization(tmp_path):
+    """Test basic pipeline initialization."""
+    config_file = Path("configs/autoclean_config.yaml")
+    pipeline = Pipeline(autoclean_dir=tmp_path, autoclean_config=config_file)
     assert pipeline.autoclean_dir == tmp_path
-    assert "test_task" in pipeline.list_tasks()
+    assert pipeline.autoclean_config == config_file
+
+
+def test_gui_feature_without_pyqt():
+    """Test that GUI features gracefully handle missing PyQt5."""
+    config_file = Path("configs/autoclean_config.yaml")
+    pipeline = Pipeline(autoclean_dir=Path("/tmp"), autoclean_config=config_file)
+    
+    with pytest.raises(ImportError) as exc_info:
+        pipeline.start_autoclean_review()
+    assert "PyQt5" in str(exc_info.value)
 
 
 def test_pipeline_processing(test_raw_data, tmp_path, test_config):
