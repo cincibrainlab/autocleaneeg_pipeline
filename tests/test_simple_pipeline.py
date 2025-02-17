@@ -1,6 +1,7 @@
 """Test simple pipeline for resting state data processing."""
 
 from pathlib import Path
+
 import requests
 
 from autoclean import Pipeline
