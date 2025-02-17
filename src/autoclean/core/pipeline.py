@@ -614,6 +614,7 @@ class Pipeline:
         Manages GUI event loop and maintains separation between processing
         and visualization components.
         """
+        from autoclean.tools import run_autoclean_review
         run_autoclean_review(self.autoclean_dir)
 
     def _validate_task(self, task: str) -> None:

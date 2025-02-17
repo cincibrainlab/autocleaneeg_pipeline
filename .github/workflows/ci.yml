@@ -28,7 +28,7 @@ jobs:
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get install -y libcairo2-dev pkg-config python3-dev
+        sudo apt-get install -y libcairo2-dev pkg-config python3-dev xvfb qt5-default
     
     - name: Install system dependencies (Windows)
       if: runner.os == 'Windows'
@@ -60,15 +60,22 @@ jobs:
         pip install uv
         uv venv
         uv pip install -e ".[dev]"
-        pip install boto3 requests pytest pytest-cov  # Ensure pytest is installed
+        pip install boto3 requests pytest pytest-cov PyQt5  # Add PyQt5
         
     - name: Run tests
       env:
         # Test file locations (in order of preference)
         TEST_EEG_S3_URL: ${{ secrets.TEST_EEG_S3_URL }}
         TEST_EEG_HTTP_URL: ${{ secrets.TEST_EEG_HTTP_URL }}
+        DISPLAY: ':99.0'  # Virtual display for GUI tests
       shell: bash
       run: |
+        if [ "$RUNNER_OS" == "Linux" ]; then
+          # Start virtual display for Linux
+          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+          sleep 3  # Wait for Xvfb to start
+        fi
+        
         if [ "$RUNNER_OS" == "Windows" ]; then
           source .venv/Scripts/activate
         else
@@ -78,6 +85,8 @@ jobs:
         
     - name: Generate HTML coverage report
       shell: bash
+      env:
+        DISPLAY: ':99.0'  # Virtual display for GUI tests
       run: |
         if [ "$RUNNER_OS" == "Windows" ]; then
           source .venv/Scripts/activate
