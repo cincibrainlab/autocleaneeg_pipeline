@@ -1,7 +1,7 @@
-aref_trim: 30
+# aref_trim: 30
 bridged_channels:
-    bridge_trim: 40
-    bridge_z: 6
+    bridge_trim: 50
+    bridge_z: 16
 epoching:
     epochs_args:
         baseline: null
@@ -9,29 +9,29 @@ epoching:
         tmin: 0
     overlap: 0
 filtering:
-    filter_args:
+    filter_args: # Arguments are directly passed into mne.io.Raw.filter()
         h_freq: 100
         l_freq: 1
-    notch_filter_args:
-        freqs:
-        - 60
+    notch_filter_args: # Arguments are directly passed into mne.io.Raw.notch_filter()
+        freqs: [60, 120]
+        notch_widths: 3
 find_breaks: null
 ica:
     ica_args:
         run1:
             method: fastica
         run2:
-            n_components: 64
+            # n_components: 64
             fit_params:
                 extended: true
             method: infomax
     noisy_ic_epochs:
-        flag_crit: 0.2
+        flag_crit: 0.1
         outlier_method: quantile
         outliers_kwargs:
-            k: 6
-            lower: 0.3
-            upper: 0.7
+            k: 4
+            lower: 0.25
+            upper: 0.75
 in_path: []
 montage_info:
 - 0.0
@@ -43,23 +43,40 @@ montage_info:
 - 10.7
 - 11.5
 - 11.5
-nearest_neighbors:
-    n_nbr_ch: 3
-    n_nbr_epoch: 3
+
 noisy_channels:
     flag_crit: 0.3
     outlier_method: quantile
     outliers_kwargs:
         k: 16
-        lower: 0.3
-        upper: 0.7
+        lower: 0.25
+        upper: 0.75
 noisy_epochs:
+    flag_crit: 0.1
+    outlier_method: quantile
+    outliers_kwargs:
+        k: 4
+        lower: 0.25
+        upper: 0.75
+
+nearest_neighbors:
+    n_nbr_ch: 3
+    n_nbr_epoch: 3
+uncorrelated_channels:
     flag_crit: 0.2
     outlier_method: quantile
     outliers_kwargs:
-        k: 16
-        lower: 0.3
-        upper: 0.7
+        k: 6
+        lower: 0.25
+        upper: 0.75
+uncorrelated_epochs:
+    flag_crit: 0.25
+    outlier_method: quantile
+    outliers_kwargs:
+        k: 6
+        lower: 0.25
+        upper: 0.75
+
 order: 1
 out_path: derivatives/EEG-IP-L
 project:
@@ -72,6 +89,7 @@ project:
         authors:
         - Ernie Pedapati
         - Grace Westerkamp
+        - Gavin Gammoh
         dataset_doi: []
         funding: NIH
         how_to_acknowledge: tba
@@ -104,17 +122,4 @@ slurm_options:
     program_options: []
     threads_per_task: []
     time_limit: 2h
-uncorrelated_channels:
-    flag_crit: 0.2
-    outlier_method: quantile
-    outliers_kwargs:
-        k: 16
-        lower: 0.3
-        upper: 0.7
-uncorrelated_epochs:
-    flag_crit: 0.2
-    outlier_method: quantile
-    outliers_kwargs:
-        k: 16
-        lower: 0.3
-        upper: 0.7
+

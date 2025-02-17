@@ -1,41 +1,13 @@
-# /// script
-# requires-python = ">=3.10"
-# dependencies = [
-#     "mne",
-#     "rich", 
-#     "PyQt5",
-#     "numpy",
-#     "python-dotenv",
-#     "openneuro-py",
-#     "pyyaml",
-#     "schema",
-#     "mne-bids",
-#     "pandas",
-#     "pathlib",
-#     "pybv",
-#     "torch",
-#     "pyprep",
-#     "eeglabio",
-#     "autoreject",
-#     "python-ulid",
-#     "pylossless @ https://github.com/lina-usc/pylossless.git",
-#     "textual",
-#     "textual-dev",
-#     "asyncio",
-#     "mplcairo",
-#     "unqlite",
-#     "matplotlib",
-#     "mne-qt-browser",
-#     "scipy",
-#     "pyjsonviewer",
-#     "pymupdf",
-#     "reportlab"
-# ]
-# ///
+import sys
+from pathlib import Path
+
+# Add the src directory to Python path if package is not installed
+src_path = Path(__file__).resolve().parent.parent.parent / 'src'
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
 
 from PyQt5.Qt import *
 import PyQt5.QtCore
-import sys
 import os
 import subprocess
 import mne
@@ -54,7 +26,10 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, QUrl
 from dotenv import load_dotenv
 import matplotlib.pyplot as plt
-from autoclean_pipeline_v2 import save_epochs_to_set, get_run_record, message
+
+from autoclean.step_functions.io import save_epochs_to_set
+from autoclean.utils.database import get_run_record
+from autoclean.utils.logging import message
 import pyjsonviewer
 import webbrowser
 
@@ -158,9 +133,9 @@ class JsonTreeModel(QAbstractItemModel):
 load_dotenv()
 
 class FileSelector(QWidget):
-    def __init__(self):
+    def __init__(self, autoclean_dir):
         super().__init__()
-        self.current_dir = os.getenv('AUTOCLEAN_DIR', None)
+        self.current_dir = autoclean_dir
         self.modified_files = set()
         self.current_run_id = None
         self.current_run_record = None
@@ -403,7 +378,7 @@ class FileSelector(QWidget):
         from PyQt5.QtWidgets import QComboBox, QLabel, QHBoxLayout, QPushButton, QScrollArea
         from PyQt5.QtCore import Qt
 
-        original_filename = self.current_run_record['metadata']['step_import_raw']['unprocessedFile']
+        original_filename = self.current_run_record['metadata']['step_import']['unprocessedFile']
 
         if hasattr(self, 'current_run_id') and self.current_run_record:
             try:
@@ -758,10 +733,12 @@ class FileSelector(QWidget):
                 print(f"Error in plotFile: {str(e)}")
                 self.instruction_widget.show()  # Show instructions if plot fails
 
-
-if __name__ == '__main__':
+def run_autoclean_review(autoclean_dir):
     app = QApplication(sys.argv)
     app.setStyleSheet("")
-    window = FileSelector()
+    window = FileSelector(autoclean_dir)
     window.show()
     sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    run_autoclean_review(Path("/tmp"))

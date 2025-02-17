@@ -1,0 +1,202 @@
+# =================================================================
+# AUTOCLEAN CONFIGURATION FILE
+# This file controls how EEG data is automatically processed and cleaned
+# =================================================================
+
+# TASK CONFIGURATION
+# Each task represents a different type of EEG recording (e.g., resting state, specific experiments)
+tasks:
+  # RESTING STATE TASK (Eyes Open)
+  # RESTING STATE TASK (Eyes Open)
+  mouse_xdat_resting:
+    mne_task: "rest"
+    description: "Neuronexus Mouse XDAT Resting State"
+    lossless_config: configs/lossless_config_mea.yaml    # Points to additional configuration settings
+    settings:
+      # PROCESSING STEPS
+      # Each step can be enabled/disabled and has specific settings
+      
+      resample_step:
+        enabled: true        # Set to false to skip this step
+        value: 250          # New sampling rate in Hz
+
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]  # Channel numbers for eye movement detection
+      
+      trim_step:
+        enabled: true
+        value: 10            # Number of seconds to trim from start/end
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0          # Start time in seconds
+          end: null         # null means use entire recording, or specify time in seconds (e.g., 30.0)
+      
+      reference_step:
+        enabled: false
+        value: "average"    # Type of EEG reference to use
+      
+      montage:
+        enabled: false
+        value: "MEA30"  # Type of EEG cap/electrode layout
+
+      event_id:
+        enabled: false      # No triggers in resting state
+        value: {}          # Empty since no triggers
+
+      epoch_settings:
+        enabled: true     # Resting state doesn't use epoching
+        value:
+          tmin: 0
+          tmax: 2
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: false
+          volt_threshold: 
+            eeg: 150e-6
+          
+
+    # ARTIFACT REJECTION SETTINGS
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
+      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
+      interpolate_bads_kwargs:
+        method: "MNE"                                          # Method for interpolating bad channels
+      ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
+      ic_rejection_threshold: 0.3                              # Threshold for component rejection
+      remove_flagged_ics: true                                 # Whether to remove marked components   
+      
+  mouse_xdat_chirp:
+    mne_task: "chirp"
+    description: "Neuronexus Mouse XDAT Chirp"
+    lossless_config: configs/lossless_config_mea.yaml    # Points to additional configuration settings
+    settings:
+      resample_step:
+        enabled: true        # Set to false to skip this step
+        value: 250          # New sampling rate in Hz
+
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+        value: []  # Channel numbers for eye movement detection
+      
+      trim_step:
+        enabled: true
+        value: 4            # Number of seconds to trim from start/end
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0          # Start time in seconds
+          end: 30.0         # null means use entire recording, or specify time in seconds (e.g., 30.0)
+      
+      reference_step:
+        enabled: false
+        value: "average"    # Type of EEG reference to use
+      
+      montage:
+        enabled: false
+        value: "MEA30"  # Type of EEG cap/electrode layout
+
+      event_id:
+        enabled: true      
+        value: {'START': 1}          
+
+      epoch_settings:
+        enabled: true     
+        value:
+          tmin: -0.5
+          tmax: 2.75
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: false
+          volt_threshold: 
+            eeg: 150e-6
+
+
+
+    # ARTIFACT REJECTION SETTINGS
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated"]  # Types of bad channels to reject
+      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
+      interpolate_bads_kwargs:
+        method: "MNE"                                          # Method for interpolating bad channels
+      ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
+      ic_rejection_threshold: 0.3                              # Threshold for component rejection
+      remove_flagged_ics: false          
+                            # Whether to remove marked components
+
+  
+# OUTPUT FILE CONFIGURATION
+# Controls which processing stages save intermediate files
+# Useful for quality checking and troubleshooting
+stage_files:
+  post_import:
+    enabled: true          # Set to true to save file after this stage
+    suffix: "_postimport"  # This text will be added to the filename
+  post_outerlayer:
+    enabled: false
+    suffix: "_postouterlayer"
+  post_prepipeline:
+    enabled: true
+    suffix: "_postprepipeline"
+  post_resample:
+    enabled: false
+    suffix: "_postresample"
+  post_reference:
+    enabled: false
+    suffix: "_postreference"
+  post_trim:
+    enabled: false
+    suffix: "_posttrim"
+  post_crop:
+    enabled: false
+    suffix: "_postcrop"
+  post_prefilter:
+    enabled: false
+    suffix: "_postprefilter"
+  post_bad_channels:
+    enabled: false
+    suffix: "_postbadchannels"
+  post_pylossless:
+    enabled: true
+    suffix: "_postpylossless"
+  post_rejection_policy:
+    enabled: true
+    suffix: "_postrejection"
+  post_bad_segments:
+    enabled: true
+    suffix: "_postbadsegments"
+  post_event_id:
+    enabled: true
+    suffix: "_posteventid"
+  post_epochs:
+    enabled: true
+    suffix: "_postepochs"
+  post_drop_bads:
+    enabled: true
+    suffix: "_postdropbads"
+  post_comp:
+    enabled: true
+    suffix: "_postcomp"
+  post_autoreject:
+    enabled: true
+    suffix: "_postautoreject"
+  post_edit:
+    enabled: true
+    suffix: "_postedit"
+

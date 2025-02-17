@@ -1,0 +1,57 @@
+﻿- AI_Instructions
+  - loguru.md
+  - pipeline.md
+  - pylossless.md
+  - pylossless_pipeline.md
+  - step_functions.md
+  - task.md
+- configs
+  - autoclean_config.yaml
+  - autoclean_mouse.yaml
+  - lossless_config.yaml
+  - lossless_config_chirp.yaml
+  - lossless_config_hbcd.yaml
+  - lossless_config_mea.yaml
+- examples
+  - basic_usage.py
+- src
+  - autoclean
+    - core
+      - pipeline.py
+      - task.py
+    - step_functions
+      - continuous.py
+      - epochs.py
+      - io.py
+      - reports.py
+    - tasks
+      - assr_default.py
+      - bb_long.py
+      - chirp_default.py
+      - hbcd_mmn.py
+      - mouse_xdat_chirp.py
+      - mouse_xdat_resting.py
+      - resting_eyes_open.py
+      - TEMPLATE.py
+    - tools
+      - autoclean_review.py
+    - utils
+      - bids.py
+      - config.py
+      - database.py
+      - file_system.py
+      - logging.py
+      - montage.py
+    - __init__.py
+- tests
+- autoclean_chanreview.py
+- CHANGELOG.md
+- CONTRIBUTING.md
+- file_structure.md
+- LICENSE
+- lossless_config_mea.yaml
+- prompts.txt
+- pyproject.toml
+- README.md
+- uv.lock
+- __init__.py

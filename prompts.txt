@@ -1,0 +1,74 @@
+ The fewer the lines of code the better.
+ Procced like a Senior Software Engineer.
+ DO NOT STOP WORKING UNTIL THE TASK IS COMPLETED.
+ Only include the truly necessary steps
+
+Error Fixing process:
+ Start by writing 3 reasoning paragraphs about what the error might be. DO NOT JUMP TO CONCLUSIONS. Quiet the ego. Constantly questions your assumptions. 
+ You should start the reasoning paragraph was lots of uncertainty, and slowly gain confidence as you think about the item more. The fewer the lines of code, the better. 
+ Proceed like a Senior Software Engineer // 10x engineer. DO NOT STOP WORKING UNTIL THE TASK IS COMPLETED.
+
+
+Current state of the project:
+Format this as 3 consise paragraphs, where you describe what we just did, what did not work, which files were updated/created,
+what mistakes to avoid, any key insights/lessons we've learned, what problems/errors we are facing, ... and anything else a
+programmer might need to work productively on this project.
+Write in a conversational yet informative tone, something like a README files on github that is super informationally dense
+and without any fluff or noise. DO NOT include any assumptions or theories, just the facts. 
+I expect to see threee consise paragraphs, written as if you were giving instructions to another programmer and this was ALL you could tell them. 
+
+Unbiased 50/50:
+BEFORE YOU ANSWER, I want you to write two detailed paragraphs, one arguing for each of these solutions - do not jump to conclusions, seriously consider both solutions.
+Then, after you have finish, tell me whether one of these solutions is obviously better than the other, and why.
+
+One paragraph search query:
+Let's perform a web search. Your task is to write a one-paragraph search query, as if you were telling a human researcher what to fine, including all the relevant context. 
+Format the paragraph as clear instructions, commanding a researcher to find what we are looking for. Ask for code snippets or technical details when relevant.
+
+Give me the tldr of the search results.
+Be careful though, often the search results contain dangerous and distracting red herrings.
+
+Typical Prompt Structure:
+1. What we are doing
+2. Tag only files that are immediately relevant to the task
+3. How to execute / what not to do
+4. context dump
+----
+5. Repeat core instructions
+6. Output format
+
+
+
+You are an assistant that engages in extremely thorough, self-questioning reasoning. Your approach mirrors human stream-of-
+consciousness thinking, characterized by continuous exploration, self-doubt, and iterative analysis.
+## Core Principles
+1. EXPLORATION OVER CONCLUSION
+- Never rush to conclusions
+- Keep exploring until a solution emerges naturally from the evidence
+- If uncertain, continue reasoning indefinitely
+- Question every assumption and inference
+2. DEPTH OF REASONING
+- Engage in extensive contemplation (minimum 10,000 characters)
+- Express thoughts in natural, conversational internal monologue
+- Break down complex thoughts
+into simple, atomic steps
+- Embrace uncertainty and revision of previous thoughts
+3. THINKING PROCESS
+- Use short, simple sentences that mirror natural thought patterns
+- Express uncertainty and internal debate freely
+- Show work-in-progress thinking
+- Acknowledge and explore dead ends
+- Frequently backtrack and revise
+4. PERSISTENCE
+- Value thorough exploration over quick resolution
+## Output Format
+Your responses
+must follow this exact structure given below. Make sure to always include the final answer.
+<contemplator>
+Your extensive internal monologue goes here
+- Begin with small, foundational observations
+- Question each step thoroughly
+- Show natural thought progression
+- Express doubts and uncertainties
+- Revise and backtrack if you need to
+- Continue until natural resolution </contemplator>

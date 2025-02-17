@@ -1,0 +1,676 @@
+#src/autoclean/core/pipeline.py
+"""Core pipeline class for EEG processing.
+
+This module provides the main interface for automated EEG data processing.
+The Pipeline class handles:
+
+1. Configuration Management:
+   - Loading and validating processing settings
+   - Managing output directories
+   - Task-specific parameter validation
+
+2. Data Processing:
+   - Single file processing
+   - Batch processing of multiple files
+   - Progress tracking and error handling
+
+3. Results Management:
+   - Saving processed data
+   - Generating reports
+   - Database logging
+
+Example:
+    Basic usage for processing a single file:
+
+    >>> from autoclean import Pipeline
+    >>> pipeline = Pipeline(
+    ...     autoclean_dir="/path/to/output",
+    ...     autoclean_config="config.yaml"
+    ... )
+    >>> pipeline.process_file(
+    ...     file_path="/path/to/data.raw",
+    ...     task="rest_eyesopen"
+    ... )
+
+    Processing multiple files:
+
+    >>> pipeline.process_directory(
+    ...     directory="/path/to/data",
+    ...     task="rest_eyesopen",
+    ...     pattern="*.raw"
+    ... )
+
+    Async processing of multiple files:
+
+    >>> pipeline.process_directory_async(
+    ...     directory="/path/to/data",
+    ...     task="rest_eyesopen",
+    ...     pattern="*.raw",
+    ...     max_concurrent=5
+    ... )
+"""
+
+# Standard library imports
+import json
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, Optional, Type, List, Union
+import asyncio
+
+# Third-party imports
+import mne
+from ulid import ULID
+from tqdm import tqdm
+
+# IMPORT TASKS HERE
+from autoclean.core.task import Task
+from autoclean.tasks.bb_long import BB_Long
+from autoclean.tasks.chirp_default import ChirpDefault
+from autoclean.tasks.assr_default import AssrDefault
+from autoclean.tasks.hbcd_mmn import HBCD_MMN
+from autoclean.tasks.mouse_xdat_resting import MouseXdatResting
+from autoclean.tasks.mouse_xdat_chirp import MouseXdatChirp
+from autoclean.tasks.resting_eyes_open import RestingEyesOpen
+
+from autoclean.step_functions.reports import create_json_summary, create_run_report, update_task_processing_log
+from autoclean.utils.config import load_config, validate_eeg_system, hash_and_encode_yaml
+from autoclean.utils.database import get_run_record, manage_database
+from autoclean.utils.file_system import step_prepare_directories
+from autoclean.utils.logging import message, configure_logger
+
+import matplotlib
+
+from autoclean.tools.autoclean_review import run_autoclean_review
+# Force matplotlib to use non-interactive backend for async operations
+# This prevents GUI thread conflicts during parallel processing
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+
+class Pipeline:
+    """Main pipeline class for EEG processing.
+    
+    This class serves as the primary interface for the autoclean package.
+    It manages the complete processing workflow including:
+    
+    - Configuration loading and validation
+    - Directory structure setup
+    - Task instantiation and execution
+    - Progress tracking and error handling
+    - Results saving and report generation
+    
+    The pipeline supports multiple EEG processing paradigms through its task registry,
+    allowing researchers to process different types of EEG recordings with appropriate
+    analysis pipelines.
+    
+    Core orchestrator that maintains state through a SQLite-based run tracking system,
+    manages file system operations via pathlib, and coordinates task execution while
+    ensuring atomic operations and proper error handling.
+    
+    Attributes:
+        TASK_REGISTRY (Dict[str, Type[Task]]): Available processing task types.
+            Current tasks include:
+            - 'rest_eyesopen': Resting state with eyes open
+            - 'assr_default': Auditory steady-state response
+            - 'chirp_default': Auditory chirp paradigm
+    """
+    
+    TASK_REGISTRY: Dict[str, Type[Task]] = {
+        'rest_eyesopen': RestingEyesOpen,
+        'assr_default': AssrDefault,
+        'chirp_default': ChirpDefault,
+        'mouse_xdat_resting': MouseXdatResting,
+        'mouse_xdat_chirp' : MouseXdatChirp,
+        'hbcd_mmn': HBCD_MMN,
+        'bb_long': BB_Long,
+    }
+    
+    def __init__(
+        self,
+        autoclean_dir: str | Path,
+        autoclean_config: str | Path,
+        use_async: bool = False,
+        verbose: Optional[Union[bool, str, int]] = None
+    ):
+        """Initialize a new processing pipeline.
+        
+        Establishes core pipeline state by initializing SQLite database connection,
+        loading YAML configuration into memory, and setting up filesystem paths.
+        Handles path normalization and validation of core dependencies.
+        
+        Args:
+            autoclean_dir: Root directory where all processing outputs will be saved.
+                          The pipeline will create subdirectories for each task.
+            autoclean_config: Path to the YAML configuration file that defines
+                            processing parameters for all tasks.
+            use_async: Whether to use asynchronous processing. Currently not
+                      implemented, defaults to False.
+            verbose: Controls logging verbosity. Can be:
+                    - bool: True for INFO, False for WARNING
+                    - str: One of 'debug', 'info', 'warning', 'error', or 'critical'
+                    - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
+                    - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
+            
+        Raises:
+            FileNotFoundError: If config_file doesn't exist
+            ValueError: If configuration is invalid
+            PermissionError: If output directory is not writable
+            
+        Example:
+            >>> pipeline = Pipeline(
+            ...     autoclean_dir="results/",
+            ...     autoclean_config="configs/default.yaml",
+            ...     verbose="debug"  # Enable detailed logging
+            ... )
+        """
+        # Configure logging first
+        configure_logger(verbose)
+        mne.set_log_level(verbose)
+
+        message("header", "Welcome to AutoClean!")
+
+        # Convert to Path objects for consistent cross-platform handling
+        self.autoclean_dir = Path(autoclean_dir)
+        if self.autoclean_dir.exists():
+            message("success", f"✓ AUTOCLEAN_DIR: {self.autoclean_dir}")
+        elif self.autoclean_dir.exists() and not self.autoclean_dir.parent.exists():
+            raise EnvironmentError(f"Parent directory for AUTOCLEAN_DIR does not exist: {self.autoclean_dir.parent}")
+        
+
+        self.autoclean_config = Path(autoclean_config)
+        if self.autoclean_config.exists():
+            message("success", f"✓ AUTOCLEAN_CONFIG: {self.autoclean_config}")
+        else:
+            raise FileNotFoundError(f"AUTOCLEAN_CONFIG does not exist: {self.autoclean_config}")
+
+        # Load YAML config into memory for repeated access during processing
+        self.autoclean_dict = load_config(self.autoclean_config)
+        
+        # Initialize SQLite collection for run tracking
+        # This creates tables if they don't exist
+        manage_database(operation="create_collection")
+        
+        message("success", f"✓ Pipeline initialized with output directory: {self.autoclean_dir}")
+
+        
+    def _entrypoint(
+        self,
+        unprocessed_file: Path,
+        task: str,
+        run_id: Optional[str] = None
+    ) -> None:
+        """Main processing entrypoint that orchestrates the complete pipeline.
+        
+        Implements core processing logic with ACID-compliant database operations,
+        filesystem management, and error handling. Uses ULID for time-ordered
+        run tracking and maintains atomic operation guarantees.
+        
+        Args:
+            unprocessed_file: Path to the raw EEG data file
+            task: Name of the processing task to run
+            run_id: Optional identifier for the processing run. If not provided,
+                   a unique ID will be generated.
+            
+        Raises:
+            ValueError: If task is not registered or configuration is invalid
+            FileNotFoundError: If input file doesn't exist
+            RuntimeError: If processing fails
+            
+        Note:
+            This is an internal method called by process_file and process_directory.
+            Users should not call this method directly.
+        """
+        task = self._validate_task(task)
+        # Either create new run record or resume existing one
+        if run_id is None:
+            # Generate time-ordered unique ID for run tracking
+            run_id = str(ULID())
+            # Initialize run record with metadata
+            run_record = {
+                "run_id": run_id,
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "task": task,
+                "unprocessed_file": str(unprocessed_file),
+                "lossless_config": self.autoclean_dict["tasks"][task]["lossless_config"],
+                "status": "unprocessed",
+                "success": False,
+                # Define output filenames based on input file
+                "json_file": f"{unprocessed_file.stem}_autoclean_metadata.json",
+                "report_file": f"{unprocessed_file.stem}_autoclean_report.pdf",
+                "metadata": {},
+            }
+
+            # Store initial run record and get database ID
+            run_record["record_id"] = manage_database(
+                operation="store", run_record=run_record
+            )
+
+        else:
+            # Convert run_id to string for consistency
+            run_id = str(run_id)
+            # Load existing run record for resumed processing
+            run_record = get_run_record(run_id)
+            message("info", f"Resuming run {run_id}")
+            message("info", f"Run record: {run_record}")
+
+        try:
+            # Perform core validation steps
+            self._validate_file(unprocessed_file)
+            # Validate EEG system configuration for task
+            eeg_system = validate_eeg_system(self.autoclean_dict, task)
+
+            # Prepare directory structure for processing outputs
+            (
+                autoclean_dir,    # Root output directory
+                bids_dir,         # BIDS-compliant data directory
+                metadata_dir,     # Processing metadata storage
+                clean_dir,        # Cleaned data output
+                stage_dir,        # Intermediate processing stages
+                debug_dir,        # Debug information and logs
+                script_dir,       # Generated processing scripts
+            ) = step_prepare_directories(task, self.autoclean_dir)
+
+            # Update database with directory structure
+            manage_database(
+                operation="update",
+                update_record={
+                    "run_id": run_id,
+                    "metadata": {"step_prepare_directories": {
+                        "bids": str(bids_dir),
+                        "metadata": str(metadata_dir),
+                        "clean": str(clean_dir),
+                        "debug": str(debug_dir),
+                        "stage": str(stage_dir),
+                        "script": str(script_dir)
+                    }}
+                }
+            )
+
+            # Secure configuration files
+            b64_config, config_hash = hash_and_encode_yaml(self.autoclean_config, is_file=True)
+            b64_task, task_hash = hash_and_encode_yaml(self.autoclean_dict['tasks'][task], is_file=False)
+            if self.autoclean_dict['tasks'][task]['lossless_config']:
+                b64_ll_config, ll_config_hash = hash_and_encode_yaml(self.autoclean_dict['tasks'][task]['lossless_config'], is_file=True)
+            else:
+                b64_ll_config, ll_config_hash = None, None
+
+            # Prepare configuration for task execution
+            run_dict = {
+                "run_id": run_id,
+                "task": task,
+                "eeg_system": eeg_system,
+                "config_file": self.autoclean_config,
+                "stage_files": self.autoclean_dict["stage_files"],
+                "unprocessed_file": unprocessed_file,
+                "autoclean_dir": autoclean_dir,
+                "bids_dir": bids_dir,
+                "metadata_dir": metadata_dir,
+                "clean_dir": clean_dir,
+                "debug_dir": debug_dir,
+                "stage_dir": stage_dir,
+                "config_hash": config_hash,
+                "config_b64": b64_config,
+                "task_hash": task_hash,
+                "task_b64": b64_task,
+                "ll_config_hash": ll_config_hash,
+                "ll_config_b64": b64_ll_config,
+            }
+
+            # Merge task-specific config with base config
+            run_dict = {**run_dict, **self.autoclean_dict}
+
+            # Record full run configuration
+            manage_database(
+                operation="update", 
+                update_record={
+                    "run_id": run_id, 
+                    "metadata": {"entrypoint": run_dict}
+                }
+            )
+
+            message("header", f"Starting processing for task: {task}")
+
+            # Instantiate and run task processor
+            task_object = self.TASK_REGISTRY[task](run_dict)
+            task_object.run()
+
+            # Mark run as successful in database
+            manage_database(
+                operation="update",
+                update_record={
+                    "run_id": run_record["run_id"],
+                    "status": "completed",
+                    "success": True,
+                },
+            )
+
+            message("success", f"✓ Task {task} completed successfully")
+            
+            # Get final run record for report generation
+            run_record = get_run_record(run_id)
+        
+            # Export run metadata to JSON
+            json_file = metadata_dir / run_record["json_file"]
+            with open(json_file, "w") as f:
+                json.dump(run_record, f, indent=4)
+            message("success", f"✓ Run record exported to {json_file}")
+
+            json_summary = create_json_summary(run_id)
+
+            # Generate PDF report if processing succeeded
+            try:
+                create_run_report(run_id, run_dict)
+            except Exception as report_error:
+                message("error", f"Failed to generate report: {str(report_error)}")
+
+            # Update processing log
+            update_task_processing_log(json_summary)
+
+        except Exception as e:
+            # Update database with failure status
+            manage_database(
+                operation="update",
+                update_record={
+                    "run_id": run_record["run_id"],
+                    "status": "failed",
+                    "error": str(e),
+                    "success": False
+                },
+            )
+
+            json_summary = create_json_summary(run_id)
+            
+            # Attempt to generate error report
+            try:
+                if run_dict:
+                    create_run_report(run_id, run_dict)
+                else:
+                    create_run_report(run_id)
+            except Exception as report_error:
+                message("error", f"Failed to generate error report: {str(report_error)}")
+                
+            # Update processing log with failure
+            update_task_processing_log(json_summary)
+                
+            message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
+            raise
+
+        return run_record["run_id"]
+
+
+    def process_file(
+        self,
+        file_path: str | Path,
+        task: str,
+        run_id: Optional[str] = None
+    ) -> None:
+        """Process a single EEG data file.
+        
+        Public interface for single-file processing that ensures proper path
+        handling and maintains processing state through database-backed run
+        tracking. Delegates core processing to _entrypoint.
+        
+        Args:
+            file_path: Path to the raw EEG data file
+            task: Name of the processing task to run (e.g., 'rest_eyesopen')
+            run_id: Optional identifier for the processing run. If not provided,
+                   a unique ID will be generated.
+            
+        Raises:
+            ValueError: If task is not registered or configuration is invalid
+            FileNotFoundError: If input file doesn't exist
+            RuntimeError: If processing fails
+            
+        Example:
+            >>> pipeline.process_file(
+            ...     file_path='data/sub-01_task-rest_eeg.raw',
+            ...     task='rest_eyesopen'
+            ... )
+        """
+        self._entrypoint(Path(file_path), task, run_id)
+            
+    def process_directory(
+        self,
+        directory: str | Path,
+        task: str,
+        pattern: str = "*.raw",
+        recursive: bool = False
+    ) -> None:
+        """Process all matching EEG files in a directory.
+        
+        Implements fault-tolerant batch processing using pathlib for filesystem
+        operations. Maintains independent error handling per file to prevent
+        cascade failures in batch operations.
+        
+        Args:
+            directory: Path to the directory containing EEG files
+            task: Name of the processing task to run (e.g., 'rest_eyesopen')
+            pattern: Glob pattern to match files (default: "*.raw")
+            recursive: Whether to search in subdirectories (default: False)
+            
+        Raises:
+            NotADirectoryError: If directory doesn't exist
+            ValueError: If task is not registered
+            RuntimeError: If processing fails for any file
+            
+        Example:
+            >>> pipeline.process_directory(
+            ...     directory='data/rest_state/',
+            ...     task='rest_eyesopen',
+            ...     pattern='*.raw',
+            ...     recursive=True
+            ... )
+            
+        Note:
+            If processing fails for one file, the pipeline will continue
+            with the remaining files and report all errors at the end.
+        """
+        directory = Path(directory)
+        if not directory.is_dir():
+            raise NotADirectoryError(f"Directory not found: {directory}")
+            
+        # Find all matching files
+        if recursive:
+            search_pattern = f"**/{pattern}"
+        else:
+            search_pattern = pattern
+            
+        files = list(directory.glob(search_pattern))
+        if not files:
+            message("warning", f"No files matching '{pattern}' found in {directory}")
+            return
+            
+        message("info", f"Found {len(files)} files to process")
+        
+        # Process each file
+        for file_path in files:
+            try:
+                self._entrypoint(file_path, task)
+            except Exception as e:
+                message("error", f"Failed to process {file_path}: {str(e)}")
+                continue
+
+    def list_tasks(self) -> list[str]:
+        """Get a list of available processing tasks.
+        
+        Exposes configured tasks from YAML configuration, providing runtime
+        introspection of available processing options. Used for validation
+        and user interface integration.
+        
+        Returns:
+            list[str]: Names of all configured tasks
+            
+        Example:
+            >>> pipeline.list_tasks()
+            ['rest_eyesopen', 'assr_default', 'chirp_default']
+        """
+        return list(self.TASK_REGISTRY.keys())
+    
+    def list_stage_files(self) -> list[str]:
+        """Get a list of configured stage file types.
+        
+        Provides access to intermediate processing stage definitions from
+        configuration. Critical for understanding processing flow and
+        debugging pipeline state.
+        
+        Returns:
+            list[str]: Names of all configured stage file types
+            
+        Example:
+            >>> pipeline.list_stage_files()
+            ['post_import', 'post_prepipeline', 'post_clean']
+        """
+        return list(self.autoclean_dict['stage_files'].keys())
+
+    async def _entrypoint_async(
+        self,
+        unprocessed_file: Path,
+        task: str,
+        run_id: Optional[str] = None
+    ) -> None:
+        """Async version of _entrypoint for concurrent processing.
+        
+        Wraps synchronous processing in asyncio thread pool to enable
+        non-blocking concurrent execution while maintaining database
+        and filesystem operation safety.
+        """
+        try:
+            # Run the processing in a thread to avoid blocking
+            await asyncio.to_thread(self._entrypoint, unprocessed_file, task, run_id)
+        except Exception as e:
+            message("error", f"Failed to process {unprocessed_file}: {str(e)}")
+            raise
+
+    async def process_directory_async(
+        self,
+        directory: str | Path,
+        task: str,
+        pattern: str = "*.raw",
+        sub_directories: bool = False,
+        max_concurrent: int = 5
+    ) -> None:
+        """Process all matching EEG files in a directory asynchronously.
+        
+        Implements concurrent batch processing using asyncio semaphores
+        for resource management. Processes files in optimized batches
+        while maintaining progress tracking and error isolation.
+        """
+        directory = Path(directory)
+        if not directory.is_dir():
+            raise NotADirectoryError(f"Directory not found: {directory}")
+            
+        # Find all matching files using glob pattern
+        if sub_directories:
+            search_pattern = f"**/{pattern}"  # Search in subdirectories
+        else:
+            search_pattern = pattern          # Search only in current directory
+            
+        files = list(directory.glob(search_pattern))
+        if not files:
+            message("warning", f"No files matching '{pattern}' found in {directory}")
+            return
+            
+        message("info", f"\nStarting processing of {len(files)} files with {max_concurrent} concurrent workers")
+        
+        # Create semaphore to prevent resource exhaustion
+        sem = asyncio.Semaphore(max_concurrent)
+        
+        # Initialize progress tracking
+        pbar = tqdm(total=len(files), desc="Processing files", unit="file")
+        
+        async def process_with_semaphore(file_path: Path) -> None:
+            """Process a single file with semaphore control."""
+            async with sem:  # Limit concurrent processing
+                try:
+                    await self._entrypoint_async(file_path, task)
+                    pbar.write(f"✓ Completed: {file_path.name}")
+                except Exception as e:
+                    pbar.write(f"✗ Failed: {file_path.name} - {str(e)}")
+                finally:
+                    pbar.update(1)  # Update progress regardless of outcome
+        
+        try:
+            # Process files in batches to optimize memory usage
+            # Batch size is double the concurrent limit to ensure worker saturation
+            batch_size = max_concurrent * 2
+            for i in range(0, len(files), batch_size):
+                batch = files[i:i + batch_size]
+                # Create task list for current batch
+                tasks = [process_with_semaphore(f) for f in batch]
+                # Process batch with error handling
+                await asyncio.gather(*tasks, return_exceptions=True)
+        finally:
+            pbar.close()
+            
+        # Print processing summary
+        message("info", "\nProcessing Summary:")
+        message("info", f"Total files processed: {len(files)}")
+        message("info", "Check individual file logs for detailed status")
+
+
+    def start_autoclean_review(self):
+        """Launch the AutoClean Review GUI application.
+        
+        Initializes PyQt5-based GUI for visual inspection of processed data.
+        Manages GUI event loop and maintains separation between processing
+        and visualization components.
+        """
+        run_autoclean_review(self.autoclean_dir)
+
+
+
+    def _validate_task(self, task: str) -> None:
+        """Validate that a task type is supported and properly configured.
+        
+        Ensures task exists in configuration and has required parameters.
+        Acts as a guard clause for task instantiation, preventing invalid
+        task configurations from entering the processing pipeline.
+        
+        Args:
+            task: Name of the task to validate (e.g., 'rest_eyesopen')
+            
+        Returns:
+            str: The validated task name
+            
+        Raises:
+            ValueError: If the task is not found in configuration
+            
+        Example:
+            >>> pipeline.validate_task('rest_eyesopen')
+            'rest_eyesopen'
+        """
+        message("debug", "Validating task")
+
+        if task not in self.autoclean_dict['tasks']:
+            raise ValueError(f"Task '{task}' not found in configuration")
+
+        message("success", f"✓ Task '{task}' found in configuration")
+        return task
+
+    def _validate_file(self, file_path: str | Path) -> None:
+        """Validate that an input file exists and is accessible.
+        
+        Performs filesystem-level validation using pathlib, ensuring atomic
+        file operations can proceed. Normalizes paths for cross-platform
+        compatibility.
+        
+        Args:
+            file_path: Path to the EEG data file to validate
+            
+        Returns:
+            Path: The validated file path
+            
+        Raises:
+            FileNotFoundError: If the file doesn't exist
+            
+        Example:
+            >>> pipeline.validate_file('data/sub-01_task-rest_eeg.raw')
+            Path('data/sub-01_task-rest_eeg.raw')
+        """
+        message("debug", "Validating file")
+
+        if not Path(file_path).exists():
+            raise FileNotFoundError(f"File not found: {file_path}")
+
+        message("success", f"✓ File '{file_path}' found")
+        return file_path
