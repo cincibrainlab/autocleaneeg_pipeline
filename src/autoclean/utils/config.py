@@ -1,10 +1,8 @@
 # src/autoclean/utils/config.py
 import base64
 import hashlib
-import logging
 import zlib
 from pathlib import Path
-from typing import Any, Dict
 
 import yaml
 from schema import Or, Schema

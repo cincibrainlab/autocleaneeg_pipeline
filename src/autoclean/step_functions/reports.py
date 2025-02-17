@@ -75,7 +75,6 @@ def step_plot_raw_vs_cleaned_overlay(
     suffix : str
         Suffix for the filename.
     """
-    import os
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -231,7 +230,6 @@ def step_plot_ica_full(pipeline: Any, autoclean_dict: Dict[str, Any]) -> None:
     autoclean_dict : dict
         Autoclean dictionary containing metadata
     """
-    import os
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -1319,7 +1317,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 except Exception as e:
                     message(
                         "warning",
-                        f"Failed to get BIDS path from autoclean_dict: Trying metadata",
+                        f"Failed to get BIDS path from autoclean_dict: Trying metadata \n {e}",
                     )
             if not bids_path and "step_convert_to_bids" in run_record["metadata"]:
                 bids_info = run_record["metadata"]["step_convert_to_bids"]
@@ -1443,7 +1441,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     story = []
 
     # Title and Basic Info
-    title = f"EEG Processing Report"
+    title = "EEG Processing Report"
     story.append(Paragraph(title, title_style))
 
     # Add status-colored subtitle

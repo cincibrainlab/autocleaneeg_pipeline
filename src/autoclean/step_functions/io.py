@@ -80,7 +80,7 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
                     events_as_annotations=True,
                 )
             except Exception as e:
-                message("critical", f"Failed to read .raw file")
+                message("critical", "Failed to read .raw file")
                 raise RuntimeError(f"{str(e)}")
         else:
             message("error", f"Unsupported file type: {file_ext}")

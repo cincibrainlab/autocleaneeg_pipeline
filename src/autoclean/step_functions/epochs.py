@@ -135,7 +135,7 @@ def step_create_regular_epochs(
                 annotation = str(annotation)
                 annotation_types[annotation] = annotation_types.get(annotation, 0) + 1
 
-    message("info", f"\nEpoch Drop Log Summary:")
+    message("info", "\nEpoch Drop Log Summary:")
     message("info", f"Total epochs: {total_epochs}")
     message("info", f"Good epochs: {good_epochs}")
     for annotation, count in annotation_types.items():
