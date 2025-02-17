@@ -72,13 +72,6 @@ from autoclean.step_functions.reports import (
     create_run_report,
     update_task_processing_log,
 )
-from autoclean.tasks.assr_default import AssrDefault
-from autoclean.tasks.bb_long import BB_Long
-from autoclean.tasks.chirp_default import ChirpDefault
-from autoclean.tasks.hbcd_mmn import HBCD_MMN
-from autoclean.tasks.mouse_xdat_chirp import MouseXdatChirp
-from autoclean.tasks.mouse_xdat_resting import MouseXdatResting
-from autoclean.tasks.resting_eyes_open import RestingEyesOpen
 from autoclean.tools.autoclean_review import run_autoclean_review
 from autoclean.utils.config import (
     hash_and_encode_yaml,
@@ -88,6 +81,7 @@ from autoclean.utils.config import (
 from autoclean.utils.database import get_run_record, manage_database
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
+from autoclean.tasks import task_registry
 
 # Force matplotlib to use non-interactive backend for async operations
 # This prevents GUI thread conflicts during parallel processing
@@ -122,15 +116,7 @@ class Pipeline:
             - 'chirp_default': Auditory chirp paradigm
     """
 
-    TASK_REGISTRY: Dict[str, Type[Task]] = {
-        "rest_eyesopen": RestingEyesOpen,
-        "assr_default": AssrDefault,
-        "chirp_default": ChirpDefault,
-        "mouse_xdat_resting": MouseXdatResting,
-        "mouse_xdat_chirp": MouseXdatChirp,
-        "hbcd_mmn": HBCD_MMN,
-        "bb_long": BB_Long,
-    }
+    TASK_REGISTRY: Dict[str, Type[Task]] = task_registry
 
     def __init__(
         self,
@@ -347,7 +333,7 @@ class Pipeline:
             message("header", f"Starting processing for task: {task}")
 
             # Instantiate and run task processor
-            task_object = self.TASK_REGISTRY[task](run_dict)
+            task_object = self.TASK_REGISTRY[task.lower()](run_dict)
             task_object.run()
 
             # Mark run as successful in database

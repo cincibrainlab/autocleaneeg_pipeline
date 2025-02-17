@@ -7,7 +7,7 @@
 # Each task represents a different type of EEG recording (e.g., resting state, specific experiments)
 tasks:
   # RESTING STATE TASK (Eyes Open)
-  rest_eyesopen:
+  RestingEyesOpen:
     mne_task: "rest"
     description: "Resting state with eyes open"
     lossless_config: configs/lossless_config.yaml    # Points to additional configuration settings

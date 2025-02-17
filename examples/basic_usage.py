@@ -20,13 +20,13 @@ def process_single_file():
 
     pipeline.process_file(
         file_path=file_path,
-        task="rest_eyesopen",
+        task="RestingEyesOpen",
     )
 
 async def batch_process():
     directory = Path("C:/Users/Gam9LG/Documents/DATA/hbcd_mmn")
 
-    pipeline.process_directory_async(
+    await pipeline.process_directory_async(
         directory=directory,
         task="hbcd_mmn",
         sub_directories=False,
