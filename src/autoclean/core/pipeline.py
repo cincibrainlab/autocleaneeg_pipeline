@@ -56,7 +56,7 @@ import asyncio
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Type, Union
+from typing import Dict, Optional, Type, Union
 
 import matplotlib
 
@@ -92,7 +92,6 @@ from autoclean.utils.logging import configure_logger, message
 # Force matplotlib to use non-interactive backend for async operations
 # This prevents GUI thread conflicts during parallel processing
 matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
 
 class Pipeline:

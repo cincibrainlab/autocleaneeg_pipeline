@@ -7,7 +7,6 @@ import numpy as np
 import pylossless as ll
 import yaml
 from matplotlib import pyplot as plt
-from matplotlib.gridspec import GridSpec
 from mne_bids import read_raw_bids
 from pyprep.find_noisy_channels import NoisyChannels
 

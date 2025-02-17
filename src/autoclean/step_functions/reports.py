@@ -12,7 +12,6 @@ The functions generate clear, publication-ready figures and detailed
 HTML reports documenting the processing pipeline results.
 """
 
-import csv
 import os
 import shutil
 from datetime import datetime
@@ -30,9 +29,7 @@ from mne_bids import BIDSPath
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.figure import Figure
 
 # ReportLab imports for PDF generation
 from reportlab.lib import colors

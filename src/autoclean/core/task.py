@@ -44,11 +44,6 @@ from typing import Any, Dict, Optional
 
 # Third-party imports
 import mne  # Core EEG processing library for data containers and processing
-import numpy as np  # Numerical operations on EEG data
-import pandas as pd  # Data structure for results and metadata
-
-# Local imports
-from autoclean.utils.logging import message
 
 
 class Task(ABC):
