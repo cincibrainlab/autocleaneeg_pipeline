@@ -1,9 +1,10 @@
 """Test simple pipeline for resting state data processing."""
 
+import json
 import os
 from pathlib import Path
+
 import requests
-import json
 
 from autoclean import Pipeline
 
@@ -18,44 +19,46 @@ def download_eeg_from_googledrive(url: str) -> Path:
         Path to downloaded file
     """
     # Extract file ID from Google Drive URL
-    file_id = url.split('/d/')[1].split('/')[0]
+    file_id = url.split("/d/")[1].split("/")[0]
     download_url = f"https://drive.google.com/uc?id={file_id}"
-    
+
     # Download to current directory
     output_path = Path("test_raw.raw")
-    
+
     print(f"Downloading from URL: {download_url}")
-    
+
     # Use a session to handle redirects
     session = requests.Session()
     response = session.get(download_url, stream=True)
     response.raise_for_status()
-    
+
     # Check content type
-    content_type = response.headers.get('content-type', '')
+    content_type = response.headers.get("content-type", "")
     print(f"Content-Type: {content_type}")
     print(f"Response Headers: {json.dumps(dict(response.headers), indent=2)}")
-    
+
     # Save the file
     with open(output_path, "wb") as f:
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
                 f.write(chunk)
-    
+
     # Debug file information
     print(f"\nFile details:")
     print(f"File exists: {output_path.exists()}")
     print(f"File size: {output_path.stat().st_size} bytes")
-    
+
     # Try to read first few bytes to check format
     with open(output_path, "rb") as f:
         header_bytes = f.read(16)
         print(f"First 16 bytes (hex): {header_bytes.hex()}")
         try:
-            print(f"First 16 bytes (ascii): {header_bytes.decode('ascii', errors='replace')}")
+            print(
+                f"First 16 bytes (ascii): {header_bytes.decode('ascii', errors='replace')}"
+            )
         except:
             print("Could not decode as ASCII")
-    
+
     return output_path
 
 
