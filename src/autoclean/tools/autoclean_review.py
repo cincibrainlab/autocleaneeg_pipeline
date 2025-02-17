@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 
 # Add the src directory to Python path if package is not installed
-src_path = Path(__file__).resolve().parent.parent.parent / 'src'
+src_path = Path(__file__).resolve().parent.parent.parent / "src"
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
@@ -19,9 +19,17 @@ import fitz
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import QLabel, QScrollArea
 from PyQt5.QtWidgets import (
-    QApplication, QWidget, QPushButton, QFileDialog,
-    QVBoxLayout, QTreeWidget, QTreeWidgetItem, QStatusBar, QMessageBox,
-    QTreeView, QSplitter
+    QApplication,
+    QWidget,
+    QPushButton,
+    QFileDialog,
+    QVBoxLayout,
+    QTreeWidget,
+    QTreeWidgetItem,
+    QStatusBar,
+    QMessageBox,
+    QTreeView,
+    QSplitter,
 )
 from PyQt5.QtCore import Qt, QAbstractItemModel, QModelIndex, QUrl
 from dotenv import load_dotenv
@@ -48,8 +56,9 @@ from pdb import set_trace
 pyqtRemoveInputHook()
 
 
-plt.style.use('default')
-mne.viz.set_browser_backend('qt')
+plt.style.use("default")
+mne.viz.set_browser_backend("qt")
+
 
 class JsonTreeModel(QAbstractItemModel):
     class TreeItem:
@@ -107,7 +116,9 @@ class JsonTreeModel(QAbstractItemModel):
         parent_item = child_item.parent
         if parent_item is self._root or parent_item is None:
             return QModelIndex()
-        row = parent_item.parent.children.index(parent_item) if parent_item.parent else 0
+        row = (
+            parent_item.parent.children.index(parent_item) if parent_item.parent else 0
+        )
         return self.createIndex(row, 0, parent_item)
 
     def rowCount(self, parent=QModelIndex()):
@@ -130,7 +141,9 @@ class JsonTreeModel(QAbstractItemModel):
             return ["Key", "Value"][section]
         return None
 
+
 load_dotenv()
+
 
 class FileSelector(QWidget):
     def __init__(self, autoclean_dir):
@@ -158,64 +171,67 @@ class FileSelector(QWidget):
         self.left_layout = QVBoxLayout()
         left_container.setLayout(self.left_layout)
 
-        self.select_dir_btn = QPushButton('Select Directory')
+        self.select_dir_btn = QPushButton("Select Directory")
         self.select_dir_btn.clicked.connect(self.selectDirectory)
         self.left_layout.addWidget(self.select_dir_btn)
 
-        self.open_folder_btn = QPushButton('Open Current Folder')
+        self.open_folder_btn = QPushButton("Open Current Folder")
         self.open_folder_btn.clicked.connect(self.openCurrentFolder)
         self.left_layout.addWidget(self.open_folder_btn)
 
         self.file_tree = QTreeWidget()
-        self.file_tree.setHeaderLabel('Files')
+        self.file_tree.setHeaderLabel("Files")
         self.file_tree.itemClicked.connect(self.onFileSelect)
         self.left_layout.addWidget(self.file_tree)
 
-        self.plot_btn = QPushButton('Review Selected File')
+        self.plot_btn = QPushButton("Review Selected File")
         self.plot_btn.clicked.connect(self.plotFile)
         self.plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.plot_btn)
 
         # Close Plot button
-        self.close_plot_btn = QPushButton('Close Review Plot')
+        self.close_plot_btn = QPushButton("Close Review Plot")
         self.close_plot_btn.clicked.connect(self.closePlot)
         self.close_plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.close_plot_btn)
 
         # New "Save Edits" button
-        self.save_edits_btn = QPushButton('Save Edits')
+        self.save_edits_btn = QPushButton("Save Edits")
         self.save_edits_btn.setEnabled(False)
         self.left_layout.addWidget(self.save_edits_btn)
 
-        self.view_record_btn = QPushButton('View Run Record')
+        self.view_record_btn = QPushButton("View Run Record")
         self.view_record_btn.clicked.connect(self.viewRunRecord)
         self.view_record_btn.setEnabled(False)
         self.left_layout.addWidget(self.view_record_btn)
 
-        self.exit_btn = QPushButton('Exit')
+        self.exit_btn = QPushButton("Exit")
         self.exit_btn.clicked.connect(self.close)
         self.left_layout.addWidget(self.exit_btn)
 
         # Right container (for the plot widget)
         self.right_container = QWidget()
         self.right_layout = QVBoxLayout()
-        
+
         # Create and style instruction label
         self.instruction_widget = QWidget()
         instruction_layout = QVBoxLayout()
-        
+
         title_label = QLabel("Manual Epoch Rejection Instructions")
-        title_label.setStyleSheet("""
+        title_label.setStyleSheet(
+            """
             QLabel {
                 font-size: 24px;
                 font-weight: bold;
                 color: #2c3e50;
                 margin-bottom: 20px;
             }
-        """)
+        """
+        )
         title_label.setAlignment(Qt.AlignCenter)
-        
-        instructions = QLabel("""
+
+        instructions = QLabel(
+            """
             <html>
             <style>
                 p { margin: 10px 0; }
@@ -245,8 +261,10 @@ class FileSelector(QWidget):
             <p><span class='note'>Note: Modified files will be marked with an asterisk (*) in red</span></p>
             </body>
             </html>
-        """)
-        instructions.setStyleSheet("""
+        """
+        )
+        instructions.setStyleSheet(
+            """
             QLabel {
                 font-size: 14px;
                 color: #34495e;
@@ -254,15 +272,16 @@ class FileSelector(QWidget):
                 padding: 20px;
                 border-radius: 5px;
             }
-        """)
+        """
+        )
         instructions.setWordWrap(True)
         instructions.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-        
+
         instruction_layout.addWidget(title_label)
         instruction_layout.addWidget(instructions)
         instruction_layout.addStretch()
         self.instruction_widget.setLayout(instruction_layout)
-        
+
         self.right_layout.addWidget(self.instruction_widget)
         self.right_container.setLayout(self.right_layout)
 
@@ -271,13 +290,13 @@ class FileSelector(QWidget):
         self.splitter.addWidget(self.right_container)
 
         # Set initial sizes, left smaller, right larger
-        self.splitter.setStretchFactor(0, 0)  
+        self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
 
         # Create status bar
         self.status_bar = QStatusBar()
         self.status_bar.setFixedHeight(25)
-        
+
         # Main layout for the entire window
         main_layout = QVBoxLayout()
         main_layout.addWidget(self.splitter)
@@ -287,14 +306,14 @@ class FileSelector(QWidget):
         self.setLayout(main_layout)
 
         self.setGeometry(300, 300, 1200, 600)  # Wider default width
-        self.setWindowTitle('Autoclean 1.0 - Manual Epoch Rejection')
+        self.setWindowTitle("Autoclean 1.0 - Manual Epoch Rejection")
 
     def openCurrentFolder(self):
         if self.current_dir:
-            if sys.platform == 'darwin':
-                subprocess.run(['open', self.current_dir])
-            elif sys.platform == 'linux':
-                subprocess.run(['xdg-open', self.current_dir])
+            if sys.platform == "darwin":
+                subprocess.run(["open", self.current_dir])
+            elif sys.platform == "linux":
+                subprocess.run(["xdg-open", self.current_dir])
             else:
                 os.startfile(self.current_dir)
 
@@ -309,21 +328,25 @@ class FileSelector(QWidget):
         page = doc[page_num]
         mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
-        q_img = QImage(pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGBA8888)
+        q_img = QImage(
+            pix.samples, pix.width, pix.height, pix.stride, QImage.Format_RGBA8888
+        )
         return QPixmap.fromImage(q_img)
-        
+
     def loadFiles(self):
         self.file_tree.clear()
         if self.current_dir is not None:
             root = QTreeWidgetItem(self.file_tree, [os.path.basename(self.current_dir)])
             self.populateTree(root, self.current_dir)
             root.setExpanded(True)
-        
-        # Expand the first folder if it exists
+
+            # Expand the first folder if it exists
             if root.childCount() > 0:
                 first_child = root.child(0)
                 first_child.setExpanded(True)  # Expand the first folder
-                self.file_tree.expandItem(first_child)  # Ensure the first folder is expanded
+                self.file_tree.expandItem(
+                    first_child
+                )  # Ensure the first folder is expanded
 
     def populateTree(self, parent, path):
         # Directories
@@ -335,9 +358,11 @@ class FileSelector(QWidget):
                 self.populateTree(folder, item_path)
         # Files
         for item in os.listdir(path):
-            if item.endswith('.set'):
+            if item.endswith(".set"):
                 file_item = QTreeWidgetItem(parent, [item])
-                file_item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
+                file_item.setIcon(
+                    0, self.style().standardIcon(self.style().SP_FileIcon)
+                )
                 if item in self.modified_files:
                     file_item.setText(0, f"{item} *")
                     file_item.setForeground(0, Qt.red)
@@ -351,10 +376,10 @@ class FileSelector(QWidget):
 
     def getRunId(self, file_path):
         EEG = sio.loadmat(file_path)
-        return str(EEG['etc']['run_id'][0][0][0])
+        return str(EEG["etc"]["run_id"][0][0][0])
 
     def onFileSelect(self, item):
-        if item.text(0).endswith('.set') or item.text(0).endswith('.set *'):
+        if item.text(0).endswith(".set") or item.text(0).endswith(".set *"):
             self.selected_file = item.text(0).replace(" *", "")
             self.plot_btn.setEnabled(True)
             path_parts = []
@@ -375,22 +400,32 @@ class FileSelector(QWidget):
 
     def viewRunRecord(self):
         from PyQt5.QtGui import QPixmap
-        from PyQt5.QtWidgets import QComboBox, QLabel, QHBoxLayout, QPushButton, QScrollArea
+        from PyQt5.QtWidgets import (
+            QComboBox,
+            QLabel,
+            QHBoxLayout,
+            QPushButton,
+            QScrollArea,
+        )
         from PyQt5.QtCore import Qt
 
-        original_filename = self.current_run_record['metadata']['step_import']['unprocessedFile']
+        original_filename = self.current_run_record["metadata"]["step_import"][
+            "unprocessedFile"
+        ]
 
-        if hasattr(self, 'current_run_id') and self.current_run_record:
+        if hasattr(self, "current_run_id") and self.current_run_record:
             try:
                 self.current_run_record_window = QWidget()
-                self.current_run_record_window.setWindowTitle(f"File: {original_filename} - Run Record - {self.current_run_id}")
+                self.current_run_record_window.setWindowTitle(
+                    f"File: {original_filename} - Run Record - {self.current_run_id}"
+                )
                 self.current_run_record_window.resize(1000, 800)
 
                 layout = QVBoxLayout()
-                
+
                 # Create splitter for tree and artifact view
                 splitter = QSplitter(Qt.Horizontal)
-                
+
                 # Left side - JSON tree in scroll area
                 scroll_tree = QScrollArea()
                 tree_view = QTreeView()
@@ -406,7 +441,7 @@ class FileSelector(QWidget):
                 # Right side - Artifact reports
                 artifact_widget = QWidget()
                 artifact_layout = QVBoxLayout()
-                
+
                 # Dropdown for PNG/PDF file selection
                 file_dropdown = QComboBox()
 
@@ -419,40 +454,60 @@ class FileSelector(QWidget):
                 zoom_fit_btn = QPushButton("Fit")
                 open_folder_btn = QPushButton("Open Folder")
                 zoom_layout.addWidget(zoom_in_btn)
-                zoom_layout.addWidget(zoom_out_btn) 
+                zoom_layout.addWidget(zoom_out_btn)
                 zoom_layout.addWidget(zoom_reset_btn)
                 zoom_layout.addWidget(zoom_fit_btn)
                 zoom_layout.addWidget(open_folder_btn)
                 zoom_widget.setLayout(zoom_layout)
 
                 # Get paths
-                subject_id = self.current_run_record['metadata']['step_convert_to_bids']['bids_subject']
-                session = self.current_run_record['metadata']['step_convert_to_bids']['bids_session']
-                task = self.current_run_record['metadata']['step_convert_to_bids']['bids_task']
-                run = self.current_run_record['metadata']['step_convert_to_bids']['bids_run']
-                bids_root = Path(self.current_run_record['metadata']['step_prepare_directories']['bids'])
+                subject_id = self.current_run_record["metadata"][
+                    "step_convert_to_bids"
+                ]["bids_subject"]
+                session = self.current_run_record["metadata"]["step_convert_to_bids"][
+                    "bids_session"
+                ]
+                task = self.current_run_record["metadata"]["step_convert_to_bids"][
+                    "bids_task"
+                ]
+                run = self.current_run_record["metadata"]["step_convert_to_bids"][
+                    "bids_run"
+                ]
+                bids_root = Path(
+                    self.current_run_record["metadata"]["step_prepare_directories"][
+                        "bids"
+                    ]
+                )
                 derivatives_stem = "pylossless"
 
-                derivatives_dir = Path(bids_root, "derivatives", derivatives_stem, "sub-" + subject_id, "eeg")
-                
+                derivatives_dir = Path(
+                    bids_root,
+                    "derivatives",
+                    derivatives_stem,
+                    "sub-" + subject_id,
+                    "eeg",
+                )
+
                 def open_derivatives_folder():
                     folder_path = str(derivatives_dir)
-                    if sys.platform == 'darwin':  # macOS
-                        subprocess.run(['open', folder_path])
-                    elif sys.platform == 'win32':  # Windows
+                    if sys.platform == "darwin":  # macOS
+                        subprocess.run(["open", folder_path])
+                    elif sys.platform == "win32":  # Windows
                         os.startfile(folder_path)
                     else:  # Linux
-                        subprocess.run(['xdg-open', folder_path])
+                        subprocess.run(["xdg-open", folder_path])
 
                 open_folder_btn.clicked.connect(open_derivatives_folder)
 
                 # Get all PNG and PDF files in derivatives directory
-                image_files = list(derivatives_dir.glob("*.png")) + list(derivatives_dir.glob("*.pdf"))
-                
+                image_files = list(derivatives_dir.glob("*.png")) + list(
+                    derivatives_dir.glob("*.pdf")
+                )
+
                 if image_files:
                     # Add PNG/PDF filenames to dropdown
                     file_dropdown.addItems([f.name for f in image_files])
-                    
+
                     def update_image(index):
                         """Load and display the selected image or PDF file."""
                         try:
@@ -460,9 +515,9 @@ class FileSelector(QWidget):
                             file_path = str(image_files[index])
                             print(f"Loading document from: {file_path}")
 
-                            if file_path.lower().endswith('.pdf'):
+                            if file_path.lower().endswith(".pdf"):
                                 # Open PDF in system's default browser
-                                webbrowser.open(f'file://{file_path}')
+                                webbrowser.open(f"file://{file_path}")
                                 print(f"Opened PDF in browser: {file_path}")
                                 return
 
@@ -472,31 +527,39 @@ class FileSelector(QWidget):
                                 if isinstance(widget, (QLabel, QScrollArea)):
                                     widget.deleteLater()
 
-                            if file_path.lower().endswith('.png'):
+                            if file_path.lower().endswith(".png"):
                                 # Set up scroll area and label for PNG
                                 scroll = QScrollArea()
                                 label = QLabel()
-                                
+
                                 # Load PNG at full resolution
                                 label.original_pixmap = QPixmap(file_path)
-                                
+
                                 # Enable mouse tracking for better interaction
                                 scroll.setWidgetResizable(True)
-                                scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAsNeeded)
+                                scroll.setHorizontalScrollBarPolicy(
+                                    Qt.ScrollBarAsNeeded
+                                )
                                 scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
-                                
+
                                 # Set minimum size for scroll area
                                 scroll.setMinimumSize(400, 400)
-                                
+
                                 scroll.setWidget(label)
                                 artifact_layout.addWidget(scroll)
-                                print(f"Successfully loaded PNG at full resolution: {file_path}")
+                                print(
+                                    f"Successfully loaded PNG at full resolution: {file_path}"
+                                )
 
                                 # Calculate fit scale
                                 available_width = scroll.width() - 20
                                 available_height = scroll.height() - 20
-                                width_ratio = available_width / label.original_pixmap.width()
-                                height_ratio = available_height / label.original_pixmap.height()
+                                width_ratio = (
+                                    available_width / label.original_pixmap.width()
+                                )
+                                height_ratio = (
+                                    available_height / label.original_pixmap.height()
+                                )
                                 scale = min(width_ratio, height_ratio)
 
                                 # Scale image to fit by default
@@ -504,7 +567,7 @@ class FileSelector(QWidget):
                                     int(label.original_pixmap.width() * scale),
                                     int(label.original_pixmap.height() * scale),
                                     Qt.KeepAspectRatio,
-                                    Qt.SmoothTransformation
+                                    Qt.SmoothTransformation,
                                 )
                                 label.setPixmap(scaled_pixmap)
                             else:
@@ -518,14 +581,16 @@ class FileSelector(QWidget):
                         # For images, zoom using original high-res pixmap
                         scroll = artifact_layout.itemAt(2).widget()
                         label = scroll.widget()
-                        if hasattr(label, 'original_pixmap'):
-                            current_scale = label.pixmap().width() / label.original_pixmap.width()
+                        if hasattr(label, "original_pixmap"):
+                            current_scale = (
+                                label.pixmap().width() / label.original_pixmap.width()
+                            )
                             new_scale = current_scale * 1.2
                             scaled_pixmap = label.original_pixmap.scaled(
                                 int(label.original_pixmap.width() * new_scale),
                                 int(label.original_pixmap.height() * new_scale),
                                 Qt.KeepAspectRatio,
-                                Qt.SmoothTransformation
+                                Qt.SmoothTransformation,
                             )
                             label.setPixmap(scaled_pixmap)
 
@@ -533,14 +598,16 @@ class FileSelector(QWidget):
                         # For images, zoom using original high-res pixmap
                         scroll = artifact_layout.itemAt(2).widget()
                         label = scroll.widget()
-                        if hasattr(label, 'original_pixmap'):
-                            current_scale = label.pixmap().width() / label.original_pixmap.width()
+                        if hasattr(label, "original_pixmap"):
+                            current_scale = (
+                                label.pixmap().width() / label.original_pixmap.width()
+                            )
                             new_scale = current_scale / 1.2
                             scaled_pixmap = label.original_pixmap.scaled(
                                 int(label.original_pixmap.width() * new_scale),
                                 int(label.original_pixmap.height() * new_scale),
                                 Qt.KeepAspectRatio,
-                                Qt.SmoothTransformation
+                                Qt.SmoothTransformation,
                             )
                             label.setPixmap(scaled_pixmap)
 
@@ -548,9 +615,9 @@ class FileSelector(QWidget):
                         # Reset to original size for images
                         scroll = artifact_layout.itemAt(2).widget()
                         label = scroll.widget()
-                        if hasattr(label, 'original_pixmap'):
+                        if hasattr(label, "original_pixmap"):
                             label.setPixmap(label.original_pixmap)
-                        
+
                     def zoom_fit():
                         message("info", "Zooming to fit")
 
@@ -559,9 +626,9 @@ class FileSelector(QWidget):
                             if not scroll:
                                 message("info", "No scroll area found")
                                 return
-                            
+
                             label = scroll.widget()
-                            if not hasattr(label, 'original_pixmap'):
+                            if not hasattr(label, "original_pixmap"):
                                 message("info", "No original pixmap found")
                                 return
                         else:
@@ -569,22 +636,26 @@ class FileSelector(QWidget):
                             return
 
                         # Get the available space in the scroll area
-                        available_width = scroll.width() - 20  # Account for scrollbar width
-                        available_height = scroll.height() - 20  # Account for scrollbar height
-                        
+                        available_width = (
+                            scroll.width() - 20
+                        )  # Account for scrollbar width
+                        available_height = (
+                            scroll.height() - 20
+                        )  # Account for scrollbar height
+
                         # Calculate scaling factors
                         width_ratio = available_width / label.original_pixmap.width()
                         height_ratio = available_height / label.original_pixmap.height()
-                        
+
                         # Use the smaller ratio to ensure the image fits both dimensions
                         scale = min(width_ratio, height_ratio)
-                        
+
                         # Scale the image
                         scaled_pixmap = label.original_pixmap.scaled(
                             int(label.original_pixmap.width() * scale),
                             int(label.original_pixmap.height() * scale),
                             Qt.KeepAspectRatio,
-                            Qt.SmoothTransformation
+                            Qt.SmoothTransformation,
                         )
                         label.setPixmap(scaled_pixmap)
 
@@ -606,10 +677,10 @@ class FileSelector(QWidget):
                     artifact_layout.addWidget(file_dropdown)
                     artifact_layout.addWidget(zoom_widget)
                     artifact_widget.setLayout(artifact_layout)
-                    
+
                     splitter.addWidget(artifact_widget)
                     layout.addWidget(splitter)
-                    
+
                     self.current_run_record_window.setLayout(layout)
                     self.current_run_record_window.show()
 
@@ -617,10 +688,16 @@ class FileSelector(QWidget):
                     update_image(0)
 
                 else:
-                    QMessageBox.warning(self, "Warning", "No PNG or PDF files found in derivatives directory")
-                    
+                    QMessageBox.warning(
+                        self,
+                        "Warning",
+                        "No PNG or PDF files found in derivatives directory",
+                    )
+
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error retrieving run record: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error retrieving run record: {str(e)}"
+                )
         else:
             QMessageBox.warning(self, "Warning", "No run record found for this ID")
 
@@ -636,18 +713,20 @@ class FileSelector(QWidget):
             QApplication.processEvents()
 
     def plotFile(self):
-        if hasattr(self, 'selected_file_path'):
+        if hasattr(self, "selected_file_path"):
             try:
                 print("INFO", "Plotting file")
-                
+
                 # Check if this is a RAW file
-                is_raw = '_raw.set' in self.selected_file_path.lower()
-                
+                is_raw = "_raw.set" in self.selected_file_path.lower()
+
                 if is_raw:
                     # Load as raw EEG
                     raw = mne.io.read_raw_eeglab(self.selected_file_path, preload=True)
                     self.current_raw = raw.copy()
-                    self.save_edits_btn.setEnabled(False) # Disable saving for raw files
+                    self.save_edits_btn.setEnabled(
+                        False
+                    )  # Disable saving for raw files
                 else:
                     # Load as epochs
                     epochs = mne.read_epochs_eeglab(self.selected_file_path)
@@ -672,30 +751,41 @@ class FileSelector(QWidget):
                         message("info", "Closing plot after save.")
                         message("info", f"Epoch number: {len(self.current_epochs)}")
                         message("info", "Manually marked epochs for removal:")
-                        message("info", "="*50)
+                        message("info", "=" * 50)
                         bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
                         if bad_epochs:
                             message("info", f"Total epochs marked: {len(bad_epochs)}")
                             message("info", f"Epoch indices: {bad_epochs}")
                         else:
                             message("info", "No epochs were marked for removal")
-                        message("info", "="*50)
-                        
+                        message("info", "=" * 50)
+
                         run_record = get_run_record(self.current_run_id)
                         autoclean_dict = {
-                            'run_id': self.current_run_id,
-                            'stage_files': run_record['metadata']['entrypoint']['stage_files'],
-                            'stage_dir': Path(run_record['metadata']['step_prepare_directories']['stage']),
-                            'unprocessed_file': run_record['unprocessed_file']
+                            "run_id": self.current_run_id,
+                            "stage_files": run_record["metadata"]["entrypoint"][
+                                "stage_files"
+                            ],
+                            "stage_dir": Path(
+                                run_record["metadata"]["step_prepare_directories"][
+                                    "stage"
+                                ]
+                            ),
+                            "unprocessed_file": run_record["unprocessed_file"],
                         }
-                        reply = QMessageBox.question(self, 'Confirm Save', 
-                                                   'Are you sure you want to save these changes?',
-                                                   QMessageBox.Yes | QMessageBox.No)
-                        
+                        reply = QMessageBox.question(
+                            self,
+                            "Confirm Save",
+                            "Are you sure you want to save these changes?",
+                            QMessageBox.Yes | QMessageBox.No,
+                        )
+
                         if reply == QMessageBox.Yes:
                             message("info", "Saving epochs to file...")
                             self.current_epochs.drop(self.plot_widget.mne.bad_epochs)
-                            save_epochs_to_set(self.current_epochs, autoclean_dict, stage='post_edit')
+                            save_epochs_to_set(
+                                self.current_epochs, autoclean_dict, stage="post_edit"
+                            )
                         else:
                             message("info", "Save cancelled by user")
 
@@ -705,18 +795,12 @@ class FileSelector(QWidget):
 
                     # Create the plot widget for epochs
                     self.plot_widget = self.current_epochs.plot(
-                        n_epochs=10,
-                        show=False,
-                        block=True,
-                        picks='all',
-                        events=True
+                        n_epochs=10, show=False, block=True, picks="all", events=True
                     )
                 else:
                     # Create the plot widget for raw data
                     self.plot_widget = self.current_raw.plot(
-                        show=False,
-                        block=True,
-                        scalings='auto'
+                        show=False, block=True, scalings="auto"
                     )
 
                 # Embed the plot in our GUI
@@ -729,9 +813,12 @@ class FileSelector(QWidget):
                     print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
 
             except Exception as e:
-                QMessageBox.critical(self, "Error", f"Error loading/plotting file: {str(e)}")
+                QMessageBox.critical(
+                    self, "Error", f"Error loading/plotting file: {str(e)}"
+                )
                 print(f"Error in plotFile: {str(e)}")
                 self.instruction_widget.show()  # Show instructions if plot fails
+
 
 def run_autoclean_review(autoclean_dir):
     app = QApplication(sys.argv)
@@ -740,5 +827,6 @@ def run_autoclean_review(autoclean_dir):
     window.show()
     sys.exit(app.exec_())
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run_autoclean_review(Path("/tmp"))

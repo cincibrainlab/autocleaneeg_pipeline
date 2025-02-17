@@ -1,4 +1,4 @@
-#src/autoclean/utils/bids.py
+# src/autoclean/utils/bids.py
 from pathlib import Path
 import json
 import sys
@@ -8,7 +8,6 @@ from mne.io.constants import FIFF
 import pandas as pd
 
 from ..utils.logging import message
-
 
 
 def step_convert_to_bids(
@@ -148,6 +147,7 @@ def step_convert_to_bids(
 
     return bids_path
 
+
 def step_sanitize_id(filename):
     """
     Sanitizes the participant ID extracted from the filename to comply with BIDS conventions.
@@ -173,6 +173,7 @@ def step_sanitize_id(filename):
     message("info", f"Unique Number for {basename}: {participant_id}")
 
     return participant_id
+
 
 def step_create_dataset_desc(output_path, study_name):
     """

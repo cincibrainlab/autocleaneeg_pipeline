@@ -1,4 +1,4 @@
-#src/autoclean/step_functions/reports.py
+# src/autoclean/step_functions/reports.py
 """Visualization and reporting functions.
 
 This module provides functions for generating visualizations and reports
@@ -27,8 +27,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pylossless as ll
 import matplotlib
+
 # Force matplotlib to use non-interactive backend for async operations
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 from matplotlib.backends.backend_pdf import PdfPages
@@ -43,7 +44,7 @@ from reportlab.platypus import (
     Paragraph,
     Spacer,
     Table as ReportLabTable,
-    TableStyle
+    TableStyle,
 )
 
 from autoclean.utils.logging import message
@@ -51,8 +52,13 @@ from autoclean.utils.database import get_run_record, manage_database
 from autoclean.utils.montage import get_standard_set_in_montage, validate_channel_set
 
 
-def step_plot_raw_vs_cleaned_overlay(raw_original: mne.io.Raw, raw_cleaned: mne.io.Raw, 
-                                   pipeline: Any, autoclean_dict: Dict[str, Any], suffix: str = "") -> None:
+def step_plot_raw_vs_cleaned_overlay(
+    raw_original: mne.io.Raw,
+    raw_cleaned: mne.io.Raw,
+    pipeline: Any,
+    autoclean_dict: Dict[str, Any],
+    suffix: str = "",
+) -> None:
     """
     Plot raw data channels over the full duration, overlaying the original and cleaned data.
     Original data is plotted in red, cleaned data in black.
@@ -212,6 +218,7 @@ def step_plot_raw_vs_cleaned_overlay(raw_original: mne.io.Raw, raw_cleaned: mne.
         update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
     )
 
+
 def step_plot_ica_full(pipeline: Any, autoclean_dict: Dict[str, Any]) -> None:
     """Plot ICA components."""
     """
@@ -336,8 +343,13 @@ def step_plot_ica_full(pipeline: Any, autoclean_dict: Dict[str, Any]) -> None:
 
     return fig
 
-def step_generate_ica_reports(pipeline: Any, cleaned_raw: mne.io.Raw, 
-                            autoclean_dict: Dict[str, Any], duration: int = 60) -> None:
+
+def step_generate_ica_reports(
+    pipeline: Any,
+    cleaned_raw: mne.io.Raw,
+    autoclean_dict: Dict[str, Any],
+    duration: int = 60,
+) -> None:
     """
     Generates two reports:
     1. All ICA components.
@@ -385,6 +397,7 @@ def step_generate_ica_reports(pipeline: Any, cleaned_raw: mne.io.Raw,
         operation="update",
         update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
     )
+
 
 def plot_bad_channels_with_topography(
     raw_original, raw_cleaned, pipeline, autoclean_dict, zoom_duration=30, zoom_start=0
@@ -696,7 +709,14 @@ def plot_bad_channels_with_topography(
 
     return fig
 
-def _plot_ica_components(pipeline: Any, cleaned_raw: mne.io.Raw, autoclean_dict: Dict[str, Any], duration: int = 60, components: str = "all"):
+
+def _plot_ica_components(
+    pipeline: Any,
+    cleaned_raw: mne.io.Raw,
+    autoclean_dict: Dict[str, Any],
+    duration: int = 60,
+    components: str = "all",
+):
     """
     Plots ICA components with labels and saves reports.
 
@@ -909,9 +929,12 @@ def _plot_ica_components(pipeline: Any, cleaned_raw: mne.io.Raw, autoclean_dict:
                 label_text,
                 fontsize=14,
                 fontweight="bold",
-                color="red"
-                if comp_info["ic_type"] in ["eog", "muscle", "ch_noise","line_noise", "ecg"]
-                else "black",
+                color=(
+                    "red"
+                    if comp_info["ic_type"]
+                    in ["eog", "muscle", "ch_noise", "line_noise", "ecg"]
+                    else "black"
+                ),
             )
 
             # Save the figure
@@ -921,8 +944,15 @@ def _plot_ica_components(pipeline: Any, cleaned_raw: mne.io.Raw, autoclean_dict:
         print(f"Report saved to {pdf_path}")
         return Path(pdf_path).name
 
-def step_psd_topo_figure(raw_original: mne.io.Raw, raw_cleaned: mne.io.Raw, 
-                        pipeline: Any, autoclean_dict: Dict[str, Any], bands: Optional[List[Tuple[str, float, float]]] = None, metadata: Optional[Dict[str, Any]] = None) -> None:
+
+def step_psd_topo_figure(
+    raw_original: mne.io.Raw,
+    raw_cleaned: mne.io.Raw,
+    pipeline: Any,
+    autoclean_dict: Dict[str, Any],
+    bands: Optional[List[Tuple[str, float, float]]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+) -> None:
     """
     Generate and save a single high-resolution image that includes:
     - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
@@ -963,7 +993,6 @@ def step_psd_topo_figure(raw_original: mne.io.Raw, raw_cleaned: mne.io.Raw,
             ("Gamma2", 60, 80),
         ]
 
-
     # Create Artifact Report
     derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
 
@@ -979,14 +1008,13 @@ def step_psd_topo_figure(raw_original: mne.io.Raw, raw_cleaned: mne.io.Raw,
 
     # Count number of EEG channels
     channel_types = raw_original.get_channel_types()
-    n_eeg_channels = channel_types.count('eeg')
+    n_eeg_channels = channel_types.count("eeg")
 
     if n_eeg_channels == 0:
         message("warning", "No EEG channels found in raw data.")
     else:
         message("info", f"Number of EEG channels: {n_eeg_channels}")
         raw_original.pick("eeg")
-
 
     # Parameters for PSD
     fmin = 0.5
@@ -1127,6 +1155,7 @@ def step_psd_topo_figure(raw_original: mne.io.Raw, raw_cleaned: mne.io.Raw,
 
     return target_figure
 
+
 def _plot_psd(
     fig,
     gs,
@@ -1183,6 +1212,7 @@ def _plot_psd(
     ax_rel_psd.set_title("Relative Power Spectral Density (%)")
     ax_rel_psd.legend()
     ax_rel_psd.grid(True, which="both")  # Grid lines for both major and minor ticks
+
 
 def _plot_topomaps(
     fig,
@@ -1246,6 +1276,7 @@ def _plot_topomaps(
                 color="red",
             )
 
+
 def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     """
     Creates a scientific report in PDF format using ReportLab based on the run metadata.
@@ -1284,7 +1315,10 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                     bids_path = None
                     bids_path = autoclean_dict["bids_path"]
                 except Exception as e:
-                    message("warning", f"Failed to get BIDS path from autoclean_dict: Trying metadata")
+                    message(
+                        "warning",
+                        f"Failed to get BIDS path from autoclean_dict: Trying metadata",
+                    )
             if not bids_path and "step_convert_to_bids" in run_record["metadata"]:
                 bids_info = run_record["metadata"]["step_convert_to_bids"]
                 if bids_info:
@@ -1297,11 +1331,13 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         datatype=bids_info["bids_datatype"],
                         root=bids_info["bids_root"],
                         suffix=bids_info["bids_suffix"],
-                        extension=bids_info["bids_extension"]
+                        extension=bids_info["bids_extension"],
                     )
-                
+
             task = run_record["task"]
-            config_path = run_record["metadata"]["entrypoint"]["tasks"][task]["lossless_config"]
+            config_path = run_record["metadata"]["entrypoint"]["tasks"][task][
+                "lossless_config"
+            ]
             derivative_name = "pylossless"
             pipeline = ll.LosslessPipeline(config_path)
             derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
@@ -1310,9 +1346,11 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 derivatives_path.copy().update(suffix="report", extension=".pdf")
             )
         except Exception as e:
-            message("warning", f"Failed to get BIDS path: {str(e)} : Saving only to metadata directory")
+            message(
+                "warning",
+                f"Failed to get BIDS path: {str(e)} : Saving only to metadata directory",
+            )
             derivatives_path = None
-            
 
     # Get metadata directory from step_prepare_directories
     metadata_dir = Path(run_record["metadata"]["step_prepare_directories"]["metadata"])
@@ -1448,19 +1486,23 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         if not raw_info:
             raw_info = {"message": "Step import metadata not available"}
 
-        import_info = []    
+        import_info = []
         # Get values and format them safely
-        duration = raw_info.get('durationSec')
-        duration_str = f"{duration:.1f} sec" if isinstance(duration, (int, float)) else "N/A"
-        
-        sample_rate = raw_info.get('sampleRate') 
-        sample_rate_str = f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "N/A"
-        
+        duration = raw_info.get("durationSec")
+        duration_str = (
+            f"{duration:.1f} sec" if isinstance(duration, (int, float)) else "N/A"
+        )
+
+        sample_rate = raw_info.get("sampleRate")
+        sample_rate_str = (
+            f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "N/A"
+        )
+
         import_info.extend(
             [
                 ["File", raw_info.get("unprocessedFile", "N/A")],
                 ["Duration", duration_str],
-                ["Sample Rate", sample_rate_str], 
+                ["Sample Rate", sample_rate_str],
                 ["Channels", str(raw_info.get("channelCount", "N/A"))],
             ]
         )
@@ -1498,22 +1540,37 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 [
                     [
                         "Resample",
-                        f"{task_config['resample_step']['value']} Hz"
-                        if task_config["resample_step"]["enabled"]
-                        else "Disabled",
+                        (
+                            f"{task_config['resample_step']['value']} Hz"
+                            if task_config["resample_step"]["enabled"]
+                            else "Disabled"
+                        ),
                     ],
                     [
                         "Trim",
-                        f"{task_config['trim_step']['value']} sec"
-                        if task_config["trim_step"]["enabled"]
-                        else "Disabled",
+                        (
+                            f"{task_config['trim_step']['value']} sec"
+                            if task_config["trim_step"]["enabled"]
+                            else "Disabled"
+                        ),
                     ],
                     [
                         "Reference",
-                        str(task_config["reference_step"]["value"]) if isinstance(task_config["reference_step"]["value"], str)
-                        else ", ".join(task_config["reference_step"]["value"]) if isinstance(task_config["reference_step"]["value"], list)
-                        else "Disabled" if task_config["reference_step"]["enabled"]
-                        else "Disabled"
+                        (
+                            str(task_config["reference_step"]["value"])
+                            if isinstance(task_config["reference_step"]["value"], str)
+                            else (
+                                ", ".join(task_config["reference_step"]["value"])
+                                if isinstance(
+                                    task_config["reference_step"]["value"], list
+                                )
+                                else (
+                                    "Disabled"
+                                    if task_config["reference_step"]["enabled"]
+                                    else "Disabled"
+                                )
+                            )
+                        ),
                     ],
                 ]
             )
@@ -1620,45 +1677,57 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         fixed_epochs_info = metadata.get("make_fixed_length_epochs", {})
         eventid_info = metadata.get("step_create_eventid_epochs", {})
         save_epochs_info = metadata.get("save_epochs_to_set", {})
-        
+
         if any([gfp_info, fixed_epochs_info, eventid_info, save_epochs_info]):
             # Main export details
-            export_info.extend([
+            export_info.extend(
                 [
-                    "Post-Epoch Duration",
-                    f"{eventid_info.get('total_duration', 'N/A'):.1f} sec" 
-                    if isinstance(eventid_info.get('total_duration'), (int, float)) else "N/A",
-                ],
-                [
-                    "Final Duration",
-                    f"{gfp_info.get('total_duration_sec', 'N/A'):.1f} sec" 
-                    if isinstance(gfp_info.get('total_duration_sec'), (int, float)) else "N/A",
-                ],
-                [
-                    "Sample Rate",
-                    f"{int(gfp_info.get('total_samples', 0) / gfp_info.get('total_duration_sec', 1)):.0f} Hz" 
-                    if gfp_info.get('total_samples') and gfp_info.get('total_duration_sec') else "N/A",
-                ],
-                [
-                    "Channels", 
-                    str(gfp_info.get("channel_count", "N/A"))
-                ],
-                [
-                    "Initial Epochs",
-                    str(eventid_info.get("number_of_epochs", "N/A"))
-                ],
-                [
-                    "Final Epochs",
-                    str(save_epochs_info.get("n_epochs", "N/A"))
-                ],
-                [
-                    "Epoch Length",
-                    f"[{save_epochs_info.get('tmin', 'N/A')}, {save_epochs_info.get('tmax', 'N/A')}] sec"
-                    if isinstance(save_epochs_info.get('tmin'), (int, float)) and 
-                       isinstance(save_epochs_info.get('tmax'), (int, float)) 
-                    else "N/A",
-                ],
-            ])
+                    [
+                        "Post-Epoch Duration",
+                        (
+                            f"{eventid_info.get('total_duration', 'N/A'):.1f} sec"
+                            if isinstance(
+                                eventid_info.get("total_duration"), (int, float)
+                            )
+                            else "N/A"
+                        ),
+                    ],
+                    [
+                        "Final Duration",
+                        (
+                            f"{gfp_info.get('total_duration_sec', 'N/A'):.1f} sec"
+                            if isinstance(
+                                gfp_info.get("total_duration_sec"), (int, float)
+                            )
+                            else "N/A"
+                        ),
+                    ],
+                    [
+                        "Sample Rate",
+                        (
+                            f"{int(gfp_info.get('total_samples', 0) / gfp_info.get('total_duration_sec', 1)):.0f} Hz"
+                            if gfp_info.get("total_samples")
+                            and gfp_info.get("total_duration_sec")
+                            else "N/A"
+                        ),
+                    ],
+                    ["Channels", str(gfp_info.get("channel_count", "N/A"))],
+                    [
+                        "Initial Epochs",
+                        str(eventid_info.get("number_of_epochs", "N/A")),
+                    ],
+                    ["Final Epochs", str(save_epochs_info.get("n_epochs", "N/A"))],
+                    [
+                        "Epoch Length",
+                        (
+                            f"[{save_epochs_info.get('tmin', 'N/A')}, {save_epochs_info.get('tmax', 'N/A')}] sec"
+                            if isinstance(save_epochs_info.get("tmin"), (int, float))
+                            and isinstance(save_epochs_info.get("tmax"), (int, float))
+                            else "N/A"
+                        ),
+                    ],
+                ]
+            )
 
             # Annotation counts
             if "annotation_types" in gfp_info:
@@ -1863,63 +1932,106 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
 
     try:
         files_data = [["Type", "File Name", "Size"]]
-        
+
         if derivatives_dir.exists():
             files = list(derivatives_dir.glob("**/*"))
-            
+
             if files:
                 # Get and sort files
                 sorted_files = sorted(
-                    [f for f in files if f.is_file()],
-                    key=lambda x: (x.suffix, x.name)
+                    [f for f in files if f.is_file()], key=lambda x: (x.suffix, x.name)
                 )
-                
+
                 # Process each file
                 for file in sorted_files:
                     file_type = file.suffix.upper()[1:] if file.suffix else "Unknown"
-                    
+
                     # Format file size
                     size_bytes = file.stat().st_size
                     size_str = (
-                        f"{size_bytes} B" if size_bytes < 1024 else
-                        f"{size_bytes/1024:.1f} KB" if size_bytes < 1024 * 1024 else
-                        f"{size_bytes/(1024*1024):.1f} MB"
+                        f"{size_bytes} B"
+                        if size_bytes < 1024
+                        else (
+                            f"{size_bytes/1024:.1f} KB"
+                            if size_bytes < 1024 * 1024
+                            else f"{size_bytes/(1024*1024):.1f} MB"
+                        )
                     )
-                    
+
                     files_data.append([file_type, file.name, size_str])
 
                 # Create table if files were found
                 if len(files_data) > 1:
-                    story.append(Paragraph(f"Directory: {derivatives_dir}", normal_style))
-                    story.append(Spacer(1, 4))
-                    
-                    files_table = ReportLabTable(
-                        files_data,
-                        colWidths=[1.0 * inch, 4.0 * inch, 1.5 * inch]
+                    story.append(
+                        Paragraph(f"Directory: {derivatives_dir}", normal_style)
                     )
-                    files_table.setStyle(TableStyle([
-                        ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
-                        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
-                        ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F8F9F9")),
-                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
-                        ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                        ("FONTSIZE", (0, 0), (-1, -1), 8),
-                        ("TOPPADDING", (0, 0), (-1, -1), 4),
-                        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                    ]))
+                    story.append(Spacer(1, 4))
+
+                    files_table = ReportLabTable(
+                        files_data, colWidths=[1.0 * inch, 4.0 * inch, 1.5 * inch]
+                    )
+                    files_table.setStyle(
+                        TableStyle(
+                            [
+                                (
+                                    "GRID",
+                                    (0, 0),
+                                    (-1, -1),
+                                    0.5,
+                                    colors.HexColor("#BDC3C7"),
+                                ),
+                                (
+                                    "BACKGROUND",
+                                    (0, 0),
+                                    (-1, 0),
+                                    colors.HexColor("#F5F6FA"),
+                                ),
+                                (
+                                    "BACKGROUND",
+                                    (0, 1),
+                                    (-1, -1),
+                                    colors.HexColor("#F8F9F9"),
+                                ),
+                                (
+                                    "TEXTCOLOR",
+                                    (0, 0),
+                                    (-1, 0),
+                                    colors.HexColor("#2C3E50"),
+                                ),
+                                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                                ("FONTSIZE", (0, 0), (-1, -1), 8),
+                                ("TOPPADDING", (0, 0), (-1, -1), 4),
+                                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+                                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                            ]
+                        )
+                    )
                     story.append(files_table)
                 else:
-                    story.append(Paragraph("No files found in derivatives directory", normal_style))
+                    story.append(
+                        Paragraph(
+                            "No files found in derivatives directory", normal_style
+                        )
+                    )
             else:
-                story.append(Paragraph("No files found in derivatives directory", normal_style))
+                story.append(
+                    Paragraph("No files found in derivatives directory", normal_style)
+                )
         else:
-            story.append(Paragraph(f"Derivatives directory not found: {derivatives_dir}", normal_style))
+            story.append(
+                Paragraph(
+                    f"Derivatives directory not found: {derivatives_dir}", normal_style
+                )
+            )
     except Exception as e:
-        message("warning", f"Error processing derivatives directory information: {str(e)}")
-        story.append(Paragraph(f"Error listing derivatives files: {str(e)}", normal_style))
+        message(
+            "warning", f"Error processing derivatives directory information: {str(e)}"
+        )
+        story.append(
+            Paragraph(f"Error listing derivatives files: {str(e)}", normal_style)
+        )
 
     story.append(Spacer(1, 15))
 
@@ -1949,95 +2061,134 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         manage_database(
             operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
-        
+
     except Exception as e:
         message("error", f"Failed to generate or copy report: {str(e)}")
 
+
 def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
     """Update the task-specific processing log CSV file with details about the current file.
-    
+
     Args:
         summary_dict: The summary dictionary containing processing details
     """
     try:
 
         # Define CSV path
-        csv_path = Path(summary_dict['output_dir']) / f"{summary_dict['task']}_processing_log.csv"
+        csv_path = (
+            Path(summary_dict["output_dir"])
+            / f"{summary_dict['task']}_processing_log.csv"
+        )
 
         # Extract details from summary_dict
         details = {
-            'timestamp': summary_dict['timestamp'],
-            'study_user': os.getenv('USERNAME', 'unknown'),
-            'run_id': summary_dict['run_id'],
-            'proc_state': summary_dict['proc_state'],
-            'subj_basename': Path(summary_dict['basename']).stem,
-            'bids_subject': summary_dict['bids_subject'],
-            'task': summary_dict['task'],
-            'net_nbchan_orig': str(summary_dict['import_details']['net_nbchan_orig']),
-            'net_nbchan_post': str(summary_dict['export_details'].get('net_nbchan_post', '')),
-            'proc_badchans': str(summary_dict['channel_dict'].get('removed_channels', '')),
-            'proc_filt_lowcutoff': str(summary_dict['processing_details']['l_freq']),
-            'proc_filt_highcutoff': str(summary_dict['processing_details']['h_freq']),
-            'proc_filt_notch': str(summary_dict['processing_details']['notch_freqs']),
-            'proc_filt_notch_width': str(summary_dict['processing_details']['notch_widths']),
-            'proc_sRate_raw': str(summary_dict['import_details']['sample_rate']),
-            'proc_sRate1': str(summary_dict['export_details'].get('srate_post', '')),
-            'proc_xmax_raw': str(summary_dict['import_details']['duration']),
-            'proc_xmax_post': str(summary_dict['export_details'].get('final_duration', '')),
-            'proc_xmax_percent': str(float(summary_dict['export_details'].get('final_duration', '')) / float(summary_dict['import_details']['duration'])),
-            'epoch_length': str(summary_dict['export_details'].get('epoch_length', '')),
-            'epoch_limits': f"{summary_dict['export_details'].get('epoch_limits', '')}" if 'epoch_limits' in summary_dict['export_details'] else "",
-            'epoch_trials': str(summary_dict['export_details'].get('initial_n_epochs', '')),
-            'epoch_badtrials': str(float(summary_dict['export_details'].get('initial_n_epochs', '')) - float(summary_dict['export_details'].get('final_n_epochs', ''))),
-            'epoch_percent': str(float(summary_dict['export_details'].get('final_n_epochs', '')) / float(summary_dict['export_details'].get('initial_n_epochs', ''))),
-            'proc_nComps': str(summary_dict['ica_details'].get('proc_nComps', '')),
-            'proc_removeComps': str(summary_dict['ica_details'].get('proc_removeComps', '')),
-            'exclude_category': summary_dict['exclude_category']
+            "timestamp": summary_dict["timestamp"],
+            "study_user": os.getenv("USERNAME", "unknown"),
+            "run_id": summary_dict["run_id"],
+            "proc_state": summary_dict["proc_state"],
+            "subj_basename": Path(summary_dict["basename"]).stem,
+            "bids_subject": summary_dict["bids_subject"],
+            "task": summary_dict["task"],
+            "net_nbchan_orig": str(summary_dict["import_details"]["net_nbchan_orig"]),
+            "net_nbchan_post": str(
+                summary_dict["export_details"].get("net_nbchan_post", "")
+            ),
+            "proc_badchans": str(
+                summary_dict["channel_dict"].get("removed_channels", "")
+            ),
+            "proc_filt_lowcutoff": str(summary_dict["processing_details"]["l_freq"]),
+            "proc_filt_highcutoff": str(summary_dict["processing_details"]["h_freq"]),
+            "proc_filt_notch": str(summary_dict["processing_details"]["notch_freqs"]),
+            "proc_filt_notch_width": str(
+                summary_dict["processing_details"]["notch_widths"]
+            ),
+            "proc_sRate_raw": str(summary_dict["import_details"]["sample_rate"]),
+            "proc_sRate1": str(summary_dict["export_details"].get("srate_post", "")),
+            "proc_xmax_raw": str(summary_dict["import_details"]["duration"]),
+            "proc_xmax_post": str(
+                summary_dict["export_details"].get("final_duration", "")
+            ),
+            "proc_xmax_percent": str(
+                float(summary_dict["export_details"].get("final_duration", ""))
+                / float(summary_dict["import_details"]["duration"])
+            ),
+            "epoch_length": str(summary_dict["export_details"].get("epoch_length", "")),
+            "epoch_limits": (
+                f"{summary_dict['export_details'].get('epoch_limits', '')}"
+                if "epoch_limits" in summary_dict["export_details"]
+                else ""
+            ),
+            "epoch_trials": str(
+                summary_dict["export_details"].get("initial_n_epochs", "")
+            ),
+            "epoch_badtrials": str(
+                float(summary_dict["export_details"].get("initial_n_epochs", ""))
+                - float(summary_dict["export_details"].get("final_n_epochs", ""))
+            ),
+            "epoch_percent": str(
+                float(summary_dict["export_details"].get("final_n_epochs", ""))
+                / float(summary_dict["export_details"].get("initial_n_epochs", ""))
+            ),
+            "proc_nComps": str(summary_dict["ica_details"].get("proc_nComps", "")),
+            "proc_removeComps": str(
+                summary_dict["ica_details"].get("proc_removeComps", "")
+            ),
+            "exclude_category": summary_dict["exclude_category"],
         }
 
         if csv_path.exists():
             # Read existing CSV
             df = pd.read_csv(csv_path, dtype=str)  # Force all columns to be string type
-            
+
             # Ensure all columns exist in DataFrame
             for col in details.keys():
                 if col not in df.columns:
-                    df[col] = ''
-            
+                    df[col] = ""
+
             # Update or append entry
-            if details['subj_basename'] in df['subj_basename'].values:
+            if details["subj_basename"] in df["subj_basename"].values:
                 # Update existing row using dictionary update
-                df.loc[df['subj_basename'] == details['subj_basename'], list(details.keys())] = pd.Series(details)
+                df.loc[
+                    df["subj_basename"] == details["subj_basename"],
+                    list(details.keys()),
+                ] = pd.Series(details)
             else:
                 # Append new entry
                 df = pd.concat([df, pd.DataFrame([details])], ignore_index=True)
         else:
             # Create new DataFrame with all columns as string type
             df = pd.DataFrame([details], dtype=str)
-        
+
         # Save updated CSV
         df.to_csv(csv_path, index=False)
-        message("info", f"Updated processing log for {details['subj_basename']} in {csv_path}")
+        message(
+            "info",
+            f"Updated processing log for {details['subj_basename']} in {csv_path}",
+        )
 
         # Update run record with CSV path
         metadata = {
             "processing_log": {
                 "creationDateTime": datetime.now().isoformat(),
-                "csv_path": str(csv_path)
+                "csv_path": str(csv_path),
             }
         }
-        manage_database(operation="update", update_record={"run_id": summary_dict['run_id'], "metadata": metadata})
+        manage_database(
+            operation="update",
+            update_record={"run_id": summary_dict["run_id"], "metadata": metadata},
+        )
 
     except Exception as e:
         message("error", f"Error updating processing log: {str(e)}")
         return
+
 
 def create_json_summary(run_id: str) -> None:
     run_record = get_run_record(run_id)
     if not run_record:
         message("error", f"No run record found for run ID: {run_id}")
         return
-    
+
     metadata = run_record.get("metadata", {})
 
     # Create a JSON summary of the metadata
@@ -2054,9 +2205,9 @@ def create_json_summary(run_id: str) -> None:
                     datatype=bids_info["bids_datatype"],
                     root=bids_info["bids_root"],
                     suffix=bids_info["bids_suffix"],
-                    extension=bids_info["bids_extension"]
+                    extension=bids_info["bids_extension"],
                 )
-            
+
         config_path = run_record["lossless_config"]
         derivative_name = "pylossless"
         pipeline = ll.LosslessPipeline(config_path)
@@ -2086,10 +2237,12 @@ def create_json_summary(run_id: str) -> None:
             proc_state = "ERROR"
             exclude_category = f"Processing Error: {error_msg[:100]}"
 
-    #FIND BAD CHANNELS
+    # FIND BAD CHANNELS
     channel_dict = {}
     if "step_clean_bad_channels" in metadata:
-        channel_dict["step_clean_bad_channels"] = metadata["step_clean_bad_channels"]["bads"]
+        channel_dict["step_clean_bad_channels"] = metadata["step_clean_bad_channels"][
+            "bads"
+        ]
 
     flagged_chs_file = None
     for file_name in outputs:
@@ -2111,16 +2264,16 @@ def create_json_summary(run_id: str) -> None:
                     channel_dict[label].append(channel)
 
     # Get unique sorted list of all removed channels, sorting by numeric value
-    bad_channels = sorted(set(
-        channel for channels in channel_dict.values() 
-        for channel in channels
-    ), key=lambda x: int(x.replace('E', '')))
+    bad_channels = sorted(
+        set(channel for channels in channel_dict.values() for channel in channels),
+        key=lambda x: int(x.replace("E", "")),
+    )
     channel_dict["removed_channels"] = bad_channels
 
     if "step_prepare_directories" in metadata:
         output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
-    
-    #FIND IMPORT DETAILS
+
+    # FIND IMPORT DETAILS
     import_details = {}
     if "step_import" in metadata:
         import_details["sample_rate"] = metadata["step_import"]["sampleRate"]
@@ -2135,17 +2288,23 @@ def create_json_summary(run_id: str) -> None:
     processing_details = {}
     if "step_run_pylossless" in metadata:
         pylossless_info = metadata["step_run_pylossless"]["pylossless_config"]
-        processing_details["h_freq"] = pylossless_info["filtering"]["filter_args"]["h_freq"]
-        processing_details["l_freq"] = pylossless_info["filtering"]["filter_args"]["l_freq"]
-        processing_details["notch_freqs"] = pylossless_info["filtering"]["notch_filter_args"]["freqs"]
+        processing_details["h_freq"] = pylossless_info["filtering"]["filter_args"][
+            "h_freq"
+        ]
+        processing_details["l_freq"] = pylossless_info["filtering"]["filter_args"][
+            "l_freq"
+        ]
+        processing_details["notch_freqs"] = pylossless_info["filtering"][
+            "notch_filter_args"
+        ]["freqs"]
         if "notch_widths" in pylossless_info["filtering"]["notch_filter_args"]:
-            processing_details["notch_widths"] = pylossless_info["filtering"]["notch_filter_args"]["notch_widths"]
+            processing_details["notch_widths"] = pylossless_info["filtering"][
+                "notch_filter_args"
+            ]["notch_widths"]
         else:
-            processing_details["notch_widths"] = 'notch_freqs/200'
+            processing_details["notch_widths"] = "notch_freqs/200"
 
-
-
-    #FIND EXPORT DETAILS
+    # FIND EXPORT DETAILS
     export_details = {}
     if "save_epochs_to_set" in metadata:
         save_epochs_to_set = metadata["save_epochs_to_set"]
@@ -2154,18 +2313,29 @@ def create_json_summary(run_id: str) -> None:
         export_details["final_n_epochs"] = save_epochs_to_set["n_epochs"]
         export_details["final_duration"] = epoch_length * save_epochs_to_set["n_epochs"]
         if original_channel_count and bad_channels:
-            export_details["net_nbchan_post"] = original_channel_count - len(bad_channels)
+            export_details["net_nbchan_post"] = original_channel_count - len(
+                bad_channels
+            )
         else:
             export_details["net_nbchan_post"] = original_channel_count
 
-
-
     if "step_create_regular_epochs" in metadata:
         make_fixed_length_epochs = metadata["step_create_regular_epochs"]
-        export_details["initial_n_epochs"] = make_fixed_length_epochs["initial_epoch_count"]
-        export_details["initial_duration"] = make_fixed_length_epochs["initial_epoch_count"] * make_fixed_length_epochs["duration"]
-        export_details["srate_post"] = make_fixed_length_epochs["single_epoch_samples"] // make_fixed_length_epochs["duration"]
-        export_details["epoch_limits"] = [make_fixed_length_epochs["tmin"], make_fixed_length_epochs["tmax"]]
+        export_details["initial_n_epochs"] = make_fixed_length_epochs[
+            "initial_epoch_count"
+        ]
+        export_details["initial_duration"] = (
+            make_fixed_length_epochs["initial_epoch_count"]
+            * make_fixed_length_epochs["duration"]
+        )
+        export_details["srate_post"] = (
+            make_fixed_length_epochs["single_epoch_samples"]
+            // make_fixed_length_epochs["duration"]
+        )
+        export_details["epoch_limits"] = [
+            make_fixed_length_epochs["tmin"],
+            make_fixed_length_epochs["tmax"],
+        ]
 
         # export_details["rejected_epochs"] = make_fixed_length_epochs["rejected_epochs"]
         # export_details["rejection_percent"] = make_fixed_length_epochs["rejection_percent"]
@@ -2174,15 +2344,19 @@ def create_json_summary(run_id: str) -> None:
         create_eventid_epochs = metadata["step_create_eventid_epochs"]
         export_details["initial_n_epochs"] = create_eventid_epochs["number_of_events"]
         export_details["initial_duration"] = create_eventid_epochs["total_duration"]
-        export_details["srate_post"] = (create_eventid_epochs["samples_per_epoch"] - 1) / create_eventid_epochs["epoch_duration"]
-        export_details["epoch_limits"] = [create_eventid_epochs["tmin"], create_eventid_epochs["tmax"]]
+        export_details["srate_post"] = (
+            create_eventid_epochs["samples_per_epoch"] - 1
+        ) / create_eventid_epochs["epoch_duration"]
+        export_details["epoch_limits"] = [
+            create_eventid_epochs["tmin"],
+            create_eventid_epochs["tmax"],
+        ]
 
     ica_details = {}
     if "step_run_ll_rejection_policy" in metadata:
         ll_rejection_policy = metadata["step_run_ll_rejection_policy"]
         ica_details["proc_removeComps"] = ll_rejection_policy["ica_components"]
         ica_details["proc_nComps"] = ll_rejection_policy["n_components"]
-
 
     summary_dict = {
         "run_id": run_id,
@@ -2199,49 +2373,52 @@ def create_json_summary(run_id: str) -> None:
         "channel_dict": channel_dict,
         "outputs": outputs,
         "output_dir": output_dir,
-        "derivatives_dir": derivatives_dir
+        "derivatives_dir": derivatives_dir,
     }
 
     return summary_dict
 
-def generate_mmn_erp(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]) -> None:
+
+def generate_mmn_erp(
+    epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]
+) -> None:
     """Analyze MMN data and create a PDF report with ERPs and topographies."""
     message("header", "step_analyze_mmn")
-    
+
     # Get ROI channels
     task = autoclean_dict["task"]
     settings = autoclean_dict["tasks"][task]["settings"]
-    roi_channels = get_standard_set_in_montage("mmn_standard", settings["montage"]["value"])
+    roi_channels = get_standard_set_in_montage(
+        "mmn_standard", settings["montage"]["value"]
+    )
     roi_channels = validate_channel_set(roi_channels, epochs.ch_names)
-    
+
     if not roi_channels:
         message("error", "No valid ROI channels found in data")
         return None
-    
+
     # Get conditions
     event_id = settings["event_id"]["value"]
     conditions = {
         "standard": event_id.get("standard", "DIN2/1"),
         "predeviant": event_id.get("predeviant", "DIN2/2"),
-        "deviant": event_id.get("deviant", "DIN2/3")
+        "deviant": event_id.get("deviant", "DIN2/3"),
     }
-    
+
     # Create evoked objects
     try:
         evoked_dict = {
             "standard": epochs[conditions["standard"]].average(),
             "predeviant": epochs[conditions["predeviant"]].average(),
-            "deviant": epochs[conditions["deviant"]].average()
+            "deviant": epochs[conditions["deviant"]].average(),
         }
-        
+
         # Add difference waves
         evoked_dict["mmn"] = mne.combine_evoked(
-            [evoked_dict["deviant"], evoked_dict["standard"]], 
-            weights=[1, -1]
+            [evoked_dict["deviant"], evoked_dict["standard"]], weights=[1, -1]
         )
         evoked_dict["mmn_pre"] = mne.combine_evoked(
-            [evoked_dict["deviant"], evoked_dict["predeviant"]], 
-            weights=[1, -1]
+            [evoked_dict["deviant"], evoked_dict["predeviant"]], weights=[1, -1]
         )
     except KeyError as e:
         message("error", f"Could not find condition: {e}")
@@ -2250,8 +2427,10 @@ def generate_mmn_erp(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str
 
     # Create output paths
     derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-    pdf_path = str(derivatives_path.copy().update(suffix="erp-report", extension=".pdf"))
-    
+    pdf_path = str(
+        derivatives_path.copy().update(suffix="erp-report", extension=".pdf")
+    )
+
     # Remove existing file
     if os.path.exists(pdf_path):
         os.remove(pdf_path)
@@ -2260,12 +2439,22 @@ def generate_mmn_erp(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str
         # Plot ERPs - using non-interactive method
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
-        
+
         times = epochs.times * 1000  # Convert to milliseconds
-        for condition, color in [("standard", "black"), ("predeviant", "blue"), ("deviant", "red")]:
+        for condition, color in [
+            ("standard", "black"),
+            ("predeviant", "blue"),
+            ("deviant", "red"),
+        ]:
             data = evoked_dict[condition].get_data(picks=roi_channels).mean(axis=0)
-            ax.plot(times, data * 1e6, color=color, linewidth=2, label=condition.capitalize())
-        
+            ax.plot(
+                times,
+                data * 1e6,
+                color=color,
+                linewidth=2,
+                label=condition.capitalize(),
+            )
+
         ax.set_xlabel("Time (ms)")
         ax.set_ylabel("Amplitude (μV)")
         ax.set_title("ERPs by Condition")
@@ -2278,7 +2467,7 @@ def generate_mmn_erp(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str
         # Plot difference waves - using non-interactive method
         fig = plt.figure(figsize=(12, 8))
         ax = fig.add_subplot(111)
-        
+
         data = evoked_dict["mmn"].get_data(picks=roi_channels).mean(axis=0)
         ax.plot(times, data * 1e6, color="red", linewidth=2)
         ax.set_xlabel("Time (ms)")
@@ -2297,11 +2486,7 @@ def generate_mmn_erp(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str
             for idx, (time, label) in enumerate(zip(times, time_labels), 1):
                 ax = fig.add_subplot(1, 3, idx)
                 evoked_dict[condition].plot_topomap(
-                    times=time, 
-                    axes=ax,
-                    show=False,
-                    colorbar=False,
-                    time_unit='ms'
+                    times=time, axes=ax, show=False, colorbar=False, time_unit="ms"
                 )
                 ax.set_title(label)
             plt.suptitle(f"{condition.upper()} Topography")
@@ -2319,7 +2504,7 @@ def generate_mmn_erp(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str
         mmn=evoked_dict["mmn"].data,
         mmn_pre=evoked_dict["mmn_pre"].data,
         channels=epochs.ch_names,
-        roi_channels=roi_channels
+        roi_channels=roi_channels,
     )
 
     # Add metadata
@@ -2330,13 +2515,15 @@ def generate_mmn_erp(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str
             "epoch_counts": {
                 "standard": len(epochs[conditions["standard"]]),
                 "predeviant": len(epochs[conditions["predeviant"]]),
-                "deviant": len(epochs[conditions["deviant"]])
+                "deviant": len(epochs[conditions["deviant"]]),
             },
             "report_path": pdf_path,
-            "data_path": str(derivatives_path.copy().update(suffix="erp-data", extension=".csv"))
+            "data_path": str(
+                derivatives_path.copy().update(suffix="erp-data", extension=".csv")
+            ),
         }
     }
-    
+
     manage_database(
         operation="update",
         update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},

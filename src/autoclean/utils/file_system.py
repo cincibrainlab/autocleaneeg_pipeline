@@ -1,40 +1,43 @@
-#src/autoclean/utils/file_system.py
+# src/autoclean/utils/file_system.py
 from pathlib import Path
 import os
 
 from autoclean.utils.logging import message
 
+
 def step_prepare_directories(
     task: str, autoclean_dir_str: Path
 ) -> tuple[Path, Path, Path, Path, Path, Path, Path]:
     """Set up and validate directory structure for processing pipeline.
-    
+
     Args:
         task: Name of the processing task
         autoclean_dir_str: Path to the autoclean directory
-        
+
     Returns:
         Tuple of Path objects for key directories:
         (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, debug_dir, script_dir)
-        
+
     Raises:
         EnvironmentError: If AUTOCLEAN_DIR is not set or invalid
         PermissionError: If unable to create/access required directories
     """
     message("header", f"Setting up directories for task: {task}")
-    
+
     autoclean_dir = Path(autoclean_dir_str)
     if not autoclean_dir.exists() and not autoclean_dir.parent.exists():
-        raise EnvironmentError(f"Parent directory for AUTOCLEAN_DIR does not exist: {autoclean_dir.parent}")
+        raise EnvironmentError(
+            f"Parent directory for AUTOCLEAN_DIR does not exist: {autoclean_dir.parent}"
+        )
 
     # Define directory structure
     dirs = {
         "bids": autoclean_dir / task / "bids",
         "metadata": autoclean_dir / task / "metadata",
-        "clean": autoclean_dir / task / "postcomps", 
+        "clean": autoclean_dir / task / "postcomps",
         "debug": autoclean_dir / task / "debug",
         "stage": autoclean_dir / task / "stage",
-        "script": Path(__file__).parent
+        "script": Path(__file__).parent,
     }
 
     # Create directories with error handling
@@ -59,9 +62,9 @@ def step_prepare_directories(
     return (
         autoclean_dir,
         dirs["bids"],
-        dirs["metadata"], 
+        dirs["metadata"],
         dirs["clean"],
         dirs["stage"],
         dirs["debug"],
-        dirs["script"]
+        dirs["script"],
     )

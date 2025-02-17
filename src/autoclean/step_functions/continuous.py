@@ -18,7 +18,9 @@ from autoclean.step_functions.reports import plot_bad_channels_with_topography
 from autoclean.step_functions.io import save_raw_to_set
 
 
-def step_pre_pipeline_processing(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]) -> mne.io.Raw:
+def step_pre_pipeline_processing(
+    raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
+) -> mne.io.Raw:
     message("header", "\nPre-pipeline Processing Steps")
 
     task = autoclean_dict["task"]
@@ -27,7 +29,9 @@ def step_pre_pipeline_processing(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
     apply_resample_toggle = autoclean_dict["tasks"][task]["settings"]["resample_step"][
         "enabled"
     ]
-    apply_drop_outerlayer_toggle = autoclean_dict["tasks"][task]["settings"]["drop_outerlayer"]["enabled"]
+    apply_drop_outerlayer_toggle = autoclean_dict["tasks"][task]["settings"][
+        "drop_outerlayer"
+    ]["enabled"]
     apply_eog_toggle = autoclean_dict["tasks"][task]["settings"]["eog_step"]["enabled"]
     apply_average_reference_toggle = autoclean_dict["tasks"][task]["settings"][
         "reference_step"
@@ -40,12 +44,29 @@ def step_pre_pipeline_processing(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
     ]
 
     # Print status of each step
-    message("info", f"{'✓' if apply_resample_toggle else '✗'} Resample: {apply_resample_toggle}")
-    message("info", f"{'✓' if apply_drop_outerlayer_toggle else '✗'} Drop Outer Layer: {apply_drop_outerlayer_toggle}")
-    message("info", f"{'✓' if apply_eog_toggle else '✗'} EOG Assignment: {apply_eog_toggle}")
-    message("info", f"{'✓' if apply_average_reference_toggle else '✗'} Average Reference: {apply_average_reference_toggle}")
-    message("info", f"{'✓' if apply_trim_toggle else '✗'} Edge Trimming: {apply_trim_toggle}")
-    message("info", f"{'✓' if apply_crop_toggle else '✗'} Duration Cropping: {apply_crop_toggle}")
+    message(
+        "info",
+        f"{'✓' if apply_resample_toggle else '✗'} Resample: {apply_resample_toggle}",
+    )
+    message(
+        "info",
+        f"{'✓' if apply_drop_outerlayer_toggle else '✗'} Drop Outer Layer: {apply_drop_outerlayer_toggle}",
+    )
+    message(
+        "info", f"{'✓' if apply_eog_toggle else '✗'} EOG Assignment: {apply_eog_toggle}"
+    )
+    message(
+        "info",
+        f"{'✓' if apply_average_reference_toggle else '✗'} Average Reference: {apply_average_reference_toggle}",
+    )
+    message(
+        "info",
+        f"{'✓' if apply_trim_toggle else '✗'} Edge Trimming: {apply_trim_toggle}",
+    )
+    message(
+        "info",
+        f"{'✓' if apply_crop_toggle else '✗'} Duration Cropping: {apply_crop_toggle}",
+    )
 
     # Initialize metadata
     metadata = {
@@ -60,7 +81,7 @@ def step_pre_pipeline_processing(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
         }
     }
 
-        # Resample
+    # Resample
     if apply_resample_toggle:
         message("header", "Resampling data...")
         target_sfreq = autoclean_dict["tasks"][task]["settings"]["resample_step"][
@@ -74,7 +95,9 @@ def step_pre_pipeline_processing(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
     # Drop Outer Layer
     if apply_drop_outerlayer_toggle:
         message("header", "Dropping Outer Layer Channels...")
-        outer_layer_channels = autoclean_dict["tasks"][task]["settings"]["drop_outerlayer"]["value"]
+        outer_layer_channels = autoclean_dict["tasks"][task]["settings"][
+            "drop_outerlayer"
+        ]["value"]
         raw = raw.drop_channels(outer_layer_channels)
         message("info", f"  - Outer Layer Channels dropped: {outer_layer_channels}")
         metadata["pre_pipeline_processing"]["OuterLayerChannels"] = outer_layer_channels
@@ -93,7 +116,7 @@ def step_pre_pipeline_processing(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
     if apply_average_reference_toggle:
         message("header", "Applying average reference...")
         ref_type = autoclean_dict["tasks"][task]["settings"]["reference_step"]["value"]
-        if ref_type =='average':
+        if ref_type == "average":
             raw = raw.set_eeg_reference(ref_type, projection=True)
         else:
             raw = raw.set_eeg_reference(ref_type)
@@ -143,7 +166,10 @@ def step_pre_pipeline_processing(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
 
     return raw
 
-def step_create_bids_path(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]) -> Tuple[mne.io.Raw, Dict[str, Any]]:
+
+def step_create_bids_path(
+    raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
+) -> Tuple[mne.io.Raw, Dict[str, Any]]:
     """Create BIDS-compliant paths."""
     message("header", "step_create_bids_path")
     unprocessed_file = autoclean_dict["unprocessed_file"]
@@ -202,8 +228,11 @@ def step_create_bids_path(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]) -> Tu
     except Exception as e:
         message("error", f"Error converting raw to bids: {e}")
         raise e
-    
-def step_clean_bad_channels(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]) -> mne.io.Raw:
+
+
+def step_clean_bad_channels(
+    raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
+) -> mne.io.Raw:
     """Clean bad channels."""
     message("header", "step_clean_bad_channels")
     # Setup options
@@ -216,28 +245,34 @@ def step_clean_bad_channels(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]) -> 
     }
 
     # check if "eog" is in channel type dictionary
-    if "eog" in raw.get_channel_types():     
+    if "eog" in raw.get_channel_types():
         eog_picks = mne.pick_types(raw.info, eog=True)
         eog_ch_names = [raw.ch_names[idx] for idx in eog_picks]
         raw.set_channel_types({ch: "eeg" for ch in eog_ch_names})
-        
+
     # Run noisy channels detection
     cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
     cleaned_raw.find_bad_by_SNR()
     cleaned_raw.find_bad_by_correlation(correlation_threshold=0.35, frac_bad=0.01)
     cleaned_raw.find_bad_by_deviation(deviation_threshold=4.0)
 
-    cleaned_raw.find_bad_by_ransac(n_samples=100, sample_prop=0.25, corr_thresh=0.70, 
-            frac_bad=0.35, corr_window_secs=5.0, channel_wise=True, max_chunk_size=None)
+    cleaned_raw.find_bad_by_ransac(
+        n_samples=100,
+        sample_prop=0.25,
+        corr_thresh=0.70,
+        frac_bad=0.35,
+        corr_window_secs=5.0,
+        channel_wise=True,
+        max_chunk_size=None,
+    )
 
     bad_channels = cleaned_raw.get_bads(as_dict=True)
-    raw.info["bads"].extend([str(ch) for ch in bad_channels['bad_by_ransac']])
-    raw.info["bads"].extend([str(ch) for ch in bad_channels['bad_by_deviation']])
-    raw.info["bads"].extend([str(ch) for ch in bad_channels['bad_by_correlation']])
-    raw.info["bads"].extend([str(ch) for ch in bad_channels['bad_by_SNR']])
+    raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_ransac"]])
+    raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_deviation"]])
+    raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
+    raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_SNR"]])
 
     print(raw.info["bads"])
-    
 
     # Record metadata with options
     metadata = {
@@ -259,6 +294,7 @@ def step_clean_bad_channels(raw: mne.io.Raw, autoclean_dict: Dict[str, Any]) -> 
 
     return raw
 
+
 def step_run_pylossless(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw]:
     """Run PyLossless pipeline."""
     message("header", "step_run_pylossless")
@@ -266,10 +302,10 @@ def step_run_pylossless(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw
     bids_path = autoclean_dict["bids_path"]
     config_path = autoclean_dict["tasks"][task]["lossless_config"]
     derivative_name = "pylossless"
-    
+
     # Use the already processed raw data if available, otherwise load from disk
-    if '_current_raw' in autoclean_dict:
-        raw = autoclean_dict['_current_raw']
+    if "_current_raw" in autoclean_dict:
+        raw = autoclean_dict["_current_raw"]
     else:
         raw = read_raw_bids(bids_path, verbose="ERROR", extra_params={"preload": True})
 
@@ -309,7 +345,10 @@ def step_run_pylossless(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw
 
     return pipeline, raw
 
-def step_run_ll_rejection_policy(pipeline: Any, autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw]:
+
+def step_run_ll_rejection_policy(
+    pipeline: Any, autoclean_dict: Dict[str, Any]
+) -> Tuple[Any, mne.io.Raw]:
     """Apply PyLossless rejection policy."""
     message("header", "step_run_ll_rejection_policy")
     rejection_policy = _get_rejection_policy(autoclean_dict)
@@ -321,7 +360,7 @@ def step_run_ll_rejection_policy(pipeline: Any, autoclean_dict: Dict[str, Any]) 
     ica = pipeline.ica2
     rejected_ics = ica.exclude
     n_components = int(ica.n_components_)
-        # Calculate total duration of BAD annotations
+    # Calculate total duration of BAD annotations
     total_bad_duration = 0
     bad_annotation_count = 0
     distinct_annotation_types = set()
@@ -342,11 +381,11 @@ def step_run_ll_rejection_policy(pipeline: Any, autoclean_dict: Dict[str, Any]) 
         zoom_start=0,  # Start time for the zoomed-in plot
     )
     # Validate inputs
-    if cleaned_raw is None or not hasattr(cleaned_raw, 'ch_names'):
+    if cleaned_raw is None or not hasattr(cleaned_raw, "ch_names"):
         raise ValueError("cleaned_raw must be a valid MNE Raw object")
     if not isinstance(rejection_policy, (str, dict)):
         raise ValueError("rejection_policy must be a string or dictionary")
-    if not isinstance(autoclean_dict, dict) or 'run_id' not in autoclean_dict:
+    if not isinstance(autoclean_dict, dict) or "run_id" not in autoclean_dict:
         raise ValueError("autoclean_dict must be a dictionary containing 'run_id'")
 
     # Safely calculate duration and sampling rate
@@ -359,9 +398,7 @@ def step_run_ll_rejection_policy(pipeline: Any, autoclean_dict: Dict[str, Any]) 
     # Safely calculate percentage with bounds checking
     try:
         percent_recording = (
-            round((total_bad_duration / total_time) * 100, 2)
-            if total_time > 0
-            else 0
+            round((total_bad_duration / total_time) * 100, 2) if total_time > 0 else 0
         )
     except ZeroDivisionError:
         percent_recording = 0
@@ -378,7 +415,9 @@ def step_run_ll_rejection_policy(pipeline: Any, autoclean_dict: Dict[str, Any]) 
                 "total_duration_seconds": float(total_bad_duration),  # Ensure float
                 "total_duration_minutes": round(float(total_bad_duration) / 60, 2),
                 "percent_of_recording": percent_recording,
-                "distinct_annotation_types": sorted(list(distinct_annotation_types)),  # Sort for consistency
+                "distinct_annotation_types": sorted(
+                    list(distinct_annotation_types)
+                ),  # Sort for consistency
             },
             "ica_components": rejected_ics,
             "n_components": n_components,
@@ -394,6 +433,7 @@ def step_run_ll_rejection_policy(pipeline: Any, autoclean_dict: Dict[str, Any]) 
         raise RuntimeError(f"Failed to update database: {str(e)}")
 
     return pipeline, cleaned_raw
+
 
 def _get_rejection_policy(autoclean_dict: dict) -> dict:
     task = autoclean_dict["task"]
@@ -461,6 +501,7 @@ def _get_rejection_policy(autoclean_dict: dict) -> dict:
 
     return rejection_policy
 
+
 def _extended_BAD_LL_noisy_ICs_annotations(
     raw, pipeline, autoclean_dict, extra_duration=1
 ):
@@ -476,7 +517,7 @@ def _extended_BAD_LL_noisy_ICs_annotations(
                 ("orig_time", ann.get("orig_time", None)),
             ]
         )
-        
+
         # print(
         #     f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}"
         # )
@@ -633,10 +674,13 @@ def _extended_BAD_LL_noisy_ICs_annotations(
 
     return raw
 
-def step_detect_dense_oscillatory_artifacts(raw, window_size_ms=100, channel_threshold_uv=50, min_channels=75, padding_ms=500):
+
+def step_detect_dense_oscillatory_artifacts(
+    raw, window_size_ms=100, channel_threshold_uv=50, min_channels=75, padding_ms=500
+):
     """
     Detect smaller, dense oscillatory multichannel artifacts while excluding large single deflections.
-    
+
     Parameters:
     -----------
     raw : mne.io.Raw
@@ -649,14 +693,14 @@ def step_detect_dense_oscillatory_artifacts(raw, window_size_ms=100, channel_thr
         Minimum number of channels that must exhibit oscillations to classify as an artifact.
     padding_ms : float
         Amount of padding in milliseconds to add before and after each detected artifact.
-    
+
     Returns:
     --------
     raw : mne.io.Raw
         Raw object with updated artifact annotations.
     """
     # Convert parameters to samples and volts
-    sfreq = raw.info['sfreq']
+    sfreq = raw.info["sfreq"]
     window_size = int(window_size_ms * sfreq / 1000)
     channel_threshold = channel_threshold_uv * 1e-6  # Convert µV to V
     padding_sec = padding_ms / 1000.0  # Convert padding to seconds
@@ -669,11 +713,11 @@ def step_detect_dense_oscillatory_artifacts(raw, window_size_ms=100, channel_thr
 
     # Sliding window detection
     for start_idx in range(0, n_samples - window_size, window_size):
-        window = data[:, start_idx:start_idx + window_size]
+        window = data[:, start_idx : start_idx + window_size]
 
         # Compute peak-to-peak amplitude for each channel in the window
         ptp_amplitudes = np.ptp(window, axis=1)  # Peak-to-peak amplitude per channel
-        
+
         # Count channels exceeding the threshold
         num_channels_exceeding = np.sum(ptp_amplitudes > channel_threshold)
 
@@ -681,26 +725,33 @@ def step_detect_dense_oscillatory_artifacts(raw, window_size_ms=100, channel_thr
         if num_channels_exceeding >= min_channels:
             start_time = times[start_idx] - padding_sec  # Add padding before
             end_time = times[start_idx + window_size] + padding_sec  # Add padding after
-            
+
             # Ensure we don't go beyond recording bounds
             start_time = max(start_time, times[0])
             end_time = min(end_time, times[-1])
-            
-            artifact_annotations.append([start_time, end_time - start_time, 'BAD_REF_AF'])
-    
+
+            artifact_annotations.append(
+                [start_time, end_time - start_time, "BAD_REF_AF"]
+            )
+
     if artifact_annotations:
         for annotation in artifact_annotations:
-            raw.annotations.append(onset=annotation[0], duration=annotation[1], description=annotation[2])
+            raw.annotations.append(
+                onset=annotation[0], duration=annotation[1], description=annotation[2]
+            )
     else:
         message("info", "No reference artifacts detected")
-    
+
     return raw.copy()
 
-def step_reject_bad_segments(raw: mne.io.Raw, bad_label: str | None = None) -> mne.io.Raw:
+
+def step_reject_bad_segments(
+    raw: mne.io.Raw, bad_label: str | None = None
+) -> mne.io.Raw:
     """
-    Remove all time spans annotated with a specific label (e.g., 'BAD_LL') 
+    Remove all time spans annotated with a specific label (e.g., 'BAD_LL')
     or all segments starting with 'BAD' and concatenate the remaining segments.
-    
+
     Parameters:
     -----------
     raw : mne.io.Raw
@@ -708,7 +759,7 @@ def step_reject_bad_segments(raw: mne.io.Raw, bad_label: str | None = None) -> m
     bad_label : str | None, optional
         The specific label of annotations to reject (e.g., 'BAD_LL').
         If None, rejects all segments where description starts with 'BAD'.
-        
+
     Returns:
     --------
     raw_cleaned : mne.io.Raw
@@ -716,14 +767,17 @@ def step_reject_bad_segments(raw: mne.io.Raw, bad_label: str | None = None) -> m
     """
     # Get annotations
     annotations = raw.annotations
-    
+
     # Identify bad intervals based on label matching strategy
     bad_intervals = [
         (onset, onset + duration)
-        for onset, duration, desc in zip(annotations.onset, annotations.duration, annotations.description)
-        if (bad_label is None and desc.startswith('BAD')) or (bad_label is not None and desc == bad_label)
+        for onset, duration, desc in zip(
+            annotations.onset, annotations.duration, annotations.description
+        )
+        if (bad_label is None and desc.startswith("BAD"))
+        or (bad_label is not None and desc == bad_label)
     ]
-    
+
     # Define good intervals (non-bad spans)
     good_intervals = []
     prev_end = 0  # Start of the first good interval
@@ -734,6 +788,8 @@ def step_reject_bad_segments(raw: mne.io.Raw, bad_label: str | None = None) -> m
     if prev_end < raw.times[-1]:  # Add final good interval if it exists
         good_intervals.append((prev_end, raw.times[-1]))
     # Crop and concatenate good intervals
-    raw_segments = [raw.copy().crop(tmin=start, tmax=end) for start, end in good_intervals]
+    raw_segments = [
+        raw.copy().crop(tmin=start, tmax=end) for start, end in good_intervals
+    ]
     raw_cleaned = mne.concatenate_raws(raw_segments)
     return raw_cleaned

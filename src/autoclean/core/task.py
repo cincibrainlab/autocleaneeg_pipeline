@@ -1,4 +1,4 @@
-#src/autoclean/core/task.py
+# src/autoclean/core/task.py
 """Base class for all EEG processing tasks.
 
 This class defines the interface that all specific EEG processing tasks must implement.
@@ -50,9 +50,10 @@ import pandas as pd  # Data structure for results and metadata
 # Local imports
 from autoclean.utils.logging import message
 
+
 class Task(ABC):
     """Base class for all EEG processing tasks.
-    
+
     This class defines the interface that all specific EEG tasks must implement.
     It provides the basic structure for:
     1. Loading and validating configuration
@@ -65,7 +66,7 @@ class Task(ABC):
     tasks through abstract methods and strict type checking. Manages state through
     MNE objects (Raw and Epochs) while maintaining processing history in a dictionary.
     """
-    
+
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -97,15 +98,15 @@ class Task(ABC):
         """
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
-        
+
         # Initialize MNE data containers to None
         # These will be populated during the processing pipeline
-        self.raw: Optional[mne.io.Raw] = None        # Holds continuous EEG data
-        self.epochs: Optional[mne.Epochs] = None      # Holds epoched data segments
-        
+        self.raw: Optional[mne.io.Raw] = None  # Holds continuous EEG data
+        self.epochs: Optional[mne.Epochs] = None  # Holds epoched data segments
+
         # Dictionary to track processing history, metrics, and state changes
         self.pipeline_results: Dict[str, Any] = {}
-        
+
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the complete task configuration.
 
@@ -133,30 +134,30 @@ class Task(ABC):
         # Schema definition for base configuration requirements
         # All tasks must provide these fields with exact types
         required_fields = {
-            'run_id': str,              # Unique identifier for tracking
-            'unprocessed_file': Path,    # Input file path
-            'task': str,                 # Task identifier
-            'tasks': dict,               # Task-specific settings
-            'stage_files': dict,         # Intermediate file config
+            "run_id": str,  # Unique identifier for tracking
+            "unprocessed_file": Path,  # Input file path
+            "task": str,  # Task identifier
+            "tasks": dict,  # Task-specific settings
+            "stage_files": dict,  # Intermediate file config
         }
-        
+
         # Two-stage validation: first check existence, then type
         for field, field_type in required_fields.items():
             # Stage 1: Check field existence
             if field not in config:
                 raise ValueError(f"Missing required field: {field}")
-            
+
             # Stage 2: Validate field type using isinstance for safety
             if not isinstance(config[field], field_type):
                 raise TypeError(
                     f"Field '{field}' must be of type {field_type.__name__}, "
                     f"got {type(config[field]).__name__} instead"
                 )
-                
+
         # After base validation succeeds, delegate to task-specific validation
         # Using template method pattern for extensibility
         return self._validate_task_config(config)
-        
+
     @abstractmethod
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate task-specific configuration settings.
@@ -188,7 +189,7 @@ class Task(ABC):
         - Must implement type checking for all fields
         """
         pass
-    
+
     @abstractmethod
     def import_data(self, file_path: Path) -> None:
         """Import raw EEG data for processing.
@@ -211,7 +212,7 @@ class Task(ABC):
             The exact format and preprocessing steps depend on the task type.
         """
         pass
-    
+
     @abstractmethod
     def preprocess(self) -> None:
         """Run the standard EEG preprocessing pipeline.
@@ -230,7 +231,7 @@ class Task(ABC):
             defined in the task configuration and validated before use.
         """
         pass
-    
+
     @abstractmethod
     def process(self) -> None:
         """Run task-specific processing steps.
@@ -249,4 +250,3 @@ class Task(ABC):
             and should be defined in the task configuration.
         """
         pass
-    

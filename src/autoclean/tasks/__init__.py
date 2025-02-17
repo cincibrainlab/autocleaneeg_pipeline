@@ -10,7 +10,7 @@ from .resting_eyes_open import RestingEyesOpen
 
 __all__ = [
     "AssrDefault",
-    "BB_Long", 
+    "BB_Long",
     "ChirpDefault",
     "HBCD_MMN",
     "MouseXdatChirp",

@@ -1,4 +1,3 @@
-
 from matplotlib import pyplot as plt
 import mne
 import numpy as np
@@ -14,8 +13,10 @@ from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database
 from autoclean.step_functions.io import save_epochs_to_set
 
-def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any, 
-                             autoclean_dict: Dict[str, Any]) -> mne.Epochs:
+
+def step_create_regular_epochs(
+    cleaned_raw: mne.io.Raw, pipeline: Any, autoclean_dict: Dict[str, Any]
+) -> mne.Epochs:
     message("header", "step_create_regular_epochs")
     # Check if epoching is enabled
     task = autoclean_dict["task"]
@@ -25,18 +26,33 @@ def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any,
 
     tmin = epoch_settings["value"]["tmin"]
     tmax = epoch_settings["value"]["tmax"]
-    baseline = tuple(epoch_settings["remove_baseline"]["window"]) if epoch_settings["remove_baseline"]["enabled"] else None
-    volt_threshold = epoch_settings["threshold_rejection"]["volt_threshold"] if epoch_settings["threshold_rejection"]["enabled"] else None
+    baseline = (
+        tuple(epoch_settings["remove_baseline"]["window"])
+        if epoch_settings["remove_baseline"]["enabled"]
+        else None
+    )
+    volt_threshold = (
+        epoch_settings["threshold_rejection"]["volt_threshold"]
+        if epoch_settings["threshold_rejection"]["enabled"]
+        else None
+    )
     if isinstance(volt_threshold, (int, float)):
-        volt_threshold = { "eeg" : volt_threshold} 
-
-
+        volt_threshold = {"eeg": volt_threshold}
 
     # Create initial epochs with reject_by_annotation=False to handle annotations manually
-    events = mne.make_fixed_length_events(cleaned_raw, duration=tmax - tmin, overlap=0, start=abs(tmin))
-    epochs = mne.Epochs(cleaned_raw, events, tmin=tmin, tmax=tmax, baseline=baseline, reject=volt_threshold,
-                    preload=True, reject_by_annotation=False)
-
+    events = mne.make_fixed_length_events(
+        cleaned_raw, duration=tmax - tmin, overlap=0, start=abs(tmin)
+    )
+    epochs = mne.Epochs(
+        cleaned_raw,
+        events,
+        tmin=tmin,
+        tmax=tmax,
+        baseline=baseline,
+        reject=volt_threshold,
+        preload=True,
+        reject_by_annotation=False,
+    )
 
     # Initialize metadata DataFrame
     epochs.metadata = pd.DataFrame(index=range(len(epochs)))
@@ -44,25 +60,27 @@ def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any,
     # Find epochs that overlap with BAD_REF_AF annotations
     bad_ref_epochs = []
     for ann in cleaned_raw.annotations:
-        if ann['description'] == 'BAD_REF_AF':
+        if ann["description"] == "BAD_REF_AF":
             # Find epochs that overlap with this annotation
-            ann_start = ann['onset']
-            ann_end = ann['onset'] + ann['duration']
-            
+            ann_start = ann["onset"]
+            ann_end = ann["onset"] + ann["duration"]
+
             # Check each epoch
             for idx, event in enumerate(epochs.events):
-                epoch_start = event[0] / epochs.info['sfreq']  # Convert to seconds
+                epoch_start = event[0] / epochs.info["sfreq"]  # Convert to seconds
                 epoch_end = epoch_start + (tmax - tmin)
-                
+
                 # Check for overlap
                 if (epoch_start <= ann_end) and (epoch_end >= ann_start):
                     bad_ref_epochs.append(idx)
 
     # Remove duplicates and sort
     bad_ref_epochs = sorted(list(set(bad_ref_epochs)))
-    
+
     # Mark bad reference epochs in metadata
-    epochs.metadata['BAD_REF_AF'] = [idx in bad_ref_epochs for idx in range(len(epochs))]
+    epochs.metadata["BAD_REF_AF"] = [
+        idx in bad_ref_epochs for idx in range(len(epochs))
+    ]
     message("info", f"Marked {len(bad_ref_epochs)} unique epochs as BAD_REF_AF")
 
     # Detect Muscle Beta Focus
@@ -72,18 +90,19 @@ def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any,
 
     # Remove duplicates and sort
     bad_muscle_epochs = sorted(list(set(bad_muscle_epochs)))
-    
+
     # Add muscle artifact information to metadata
-    epochs.metadata['BAD_MOVEMENT'] = [idx in bad_muscle_epochs for idx in range(len(epochs))]
+    epochs.metadata["BAD_MOVEMENT"] = [
+        idx in bad_muscle_epochs for idx in range(len(epochs))
+    ]
     message("info", f"Marked {len(bad_muscle_epochs)} unique epochs as BAD_MOVEMENT")
 
     # Add annotations for visualization
     for idx in bad_muscle_epochs:
-        onset = epochs.events[idx, 0] / epochs.info['sfreq']
+        onset = epochs.events[idx, 0] / epochs.info["sfreq"]
         duration = tmax - tmin
-        description = 'BAD_MOVEMENT'
+        description = "BAD_MOVEMENT"
         epochs.annotations.append(onset, duration, description)
-
 
     # Save epochs with bad epochs marked but not dropped
     save_epochs_to_set(epochs, autoclean_dict, "post_epochs")
@@ -93,7 +112,7 @@ def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any,
 
     # Combine all bad epochs and remove duplicates
     all_bad_epochs = sorted(list(set(bad_ref_epochs + bad_muscle_epochs)))
-    
+
     # Drop all bad epochs at once
     if all_bad_epochs:
         epochs_clean.drop(all_bad_epochs)
@@ -135,8 +154,7 @@ def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any,
             "final_epoch_count": len(epochs_clean),
             "single_epoch_duration": epochs.times[-1] - epochs.times[0],
             "single_epoch_samples": epochs.times.shape[0],
-            "durationSec": (epochs.times[-1] - epochs.times[0])
-            * len(epochs_clean),
+            "durationSec": (epochs.times[-1] - epochs.times[0]) * len(epochs_clean),
             "numberSamples": epochs.times.shape[0] * len(epochs_clean),
             "channelCount": len(epochs.ch_names),
             "annotation_types": annotation_types,
@@ -146,7 +164,7 @@ def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any,
             "marked_epochs_file": "post_epochs",
             "cleaned_epochs_file": "post_drop_bads",
             "tmin": tmin,
-            "tmax": tmax
+            "tmax": tmax,
         }
     }
 
@@ -157,7 +175,10 @@ def step_create_regular_epochs(cleaned_raw: mne.io.Raw, pipeline: Any,
 
     return epochs_clean
 
-def step_create_eventid_epochs(cleaned_raw: mne.io.Raw, pipeline: Any, autoclean_dict: Dict[str, Any]) -> Optional[mne.Epochs]:
+
+def step_create_eventid_epochs(
+    cleaned_raw: mne.io.Raw, pipeline: Any, autoclean_dict: Dict[str, Any]
+) -> Optional[mne.Epochs]:
     message("header", "step_create_eventid_epochs")
     task = autoclean_dict["task"]
 
@@ -176,9 +197,13 @@ def step_create_eventid_epochs(cleaned_raw: mne.io.Raw, pipeline: Any, autoclean
     tmin = epoch_settings["value"]["tmin"]
     tmax = epoch_settings["value"]["tmax"]
     message("info", f"Using tmin: {tmin} and tmax: {tmax}")
-    baseline = tuple(epoch_settings["remove_baseline"]["window"]) if epoch_settings["remove_baseline"]["enabled"] else None
+    baseline = (
+        tuple(epoch_settings["remove_baseline"]["window"])
+        if epoch_settings["remove_baseline"]["enabled"]
+        else None
+    )
     message("info", f"Using baseline: {baseline}")
-    
+
     # Process voltage threshold
     volt_threshold = None
     if epoch_settings["threshold_rejection"]["enabled"]:
@@ -190,13 +215,14 @@ def step_create_eventid_epochs(cleaned_raw: mne.io.Raw, pipeline: Any, autoclean
         message("info", f"Using voltage threshold: {volt_threshold}")
 
     # Create regexp pattern for all event types
-    target_event_type = list(autoclean_dict["tasks"][task]["settings"]["event_id"]["value"].keys())[0]
-    reg_exp = f'.*{target_event_type}.*'
-    message("info", f"Looking for events matching pattern: {reg_exp}")    
+    target_event_type = list(
+        autoclean_dict["tasks"][task]["settings"]["event_id"]["value"].keys()
+    )[0]
+    reg_exp = f".*{target_event_type}.*"
+    message("info", f"Looking for events matching pattern: {reg_exp}")
 
     # Get events using regexp
     events, event_id = mne.events_from_annotations(cleaned_raw, regexp=reg_exp)
-    
 
     if len(events) == 0:
         message("warning", "No matching events found")
@@ -205,7 +231,7 @@ def step_create_eventid_epochs(cleaned_raw: mne.io.Raw, pipeline: Any, autoclean
     message("info", f"Found {len(events)} events matching the patterns:")
     for event_name, event_num in event_id.items():
         message("info", f"  {event_name}: {event_num}")
-    
+
     # Create epochs centered around events
     epochs = mne.Epochs(
         cleaned_raw,
@@ -226,12 +252,17 @@ def step_create_eventid_epochs(cleaned_raw: mne.io.Raw, pipeline: Any, autoclean
     message("info", "First 5 epoch events:")
     for i in range(min(5, len(epochs.events))):
         sample = epochs.events[i, 0]
-        time = sample / epochs.info['sfreq']
-        message("info", f"  Event {i}: sample={sample}, time={time:.3f}s, id={epochs.events[i, 2]}")
-    
+        time = sample / epochs.info["sfreq"]
+        message(
+            "info",
+            f"  Event {i}: sample={sample}, time={time:.3f}s, id={epochs.events[i, 2]}",
+        )
+
     message("info", f"Created {len(epochs)} epochs")
-    message("info", f"Each epoch spans from {tmin}s to {tmax}s relative to the event at t=0")
-    
+    message(
+        "info", f"Each epoch spans from {tmin}s to {tmax}s relative to the event at t=0"
+    )
+
     # Add metadata about the epoching
     metadata = {
         "step_create_eventid_epochs": {
@@ -241,26 +272,28 @@ def step_create_eventid_epochs(cleaned_raw: mne.io.Raw, pipeline: Any, autoclean
             "number_of_epochs": len(epochs),
             "epoch_duration": epochs.times[-1] - epochs.times[0],
             "samples_per_epoch": len(epochs.times),
-            "total_duration": (epochs.times[-1] - epochs.times[0])
-            * len(epochs),
+            "total_duration": (epochs.times[-1] - epochs.times[0]) * len(epochs),
             "total_samples": len(epochs.times) * len(epochs),
             "channel_count": len(epochs.ch_names),
-            "event_counts": {name: sum(events[:, 2] == num) for name, num in event_id.items()},
+            "event_counts": {
+                name: sum(events[:, 2] == num) for name, num in event_id.items()
+            },
             "tmin": tmin,
-            "tmax": tmax
+            "tmax": tmax,
         }
     }
-    
+
     manage_database(
         operation="update",
         update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
     )
-    
+
     return epochs
 
 
-def step_prepare_epochs_for_ica(epochs: mne.Epochs, pipeline: Any, 
-                               autoclean_dict: Dict[str, Any]) -> mne.Epochs:
+def step_prepare_epochs_for_ica(
+    epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]
+) -> mne.Epochs:
     """
     Drops epochs that were marked bad based on a global outlier detection.
     This implementation for the preliminary epoch rejection was based on the
@@ -334,8 +367,15 @@ def step_prepare_epochs_for_ica(epochs: mne.Epochs, pipeline: Any,
 
     return epochs_faster
 
-def step_gfp_clean_epochs(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any],
-                         gfp_threshold: float = 3.0, number_of_epochs: Optional[int] = None, random_seed: Optional[int] = None,) -> mne.Epochs:
+
+def step_gfp_clean_epochs(
+    epochs: mne.Epochs,
+    pipeline: Any,
+    autoclean_dict: Dict[str, Any],
+    gfp_threshold: float = 3.0,
+    number_of_epochs: Optional[int] = None,
+    random_seed: Optional[int] = None,
+) -> mne.Epochs:
     """
     Clean an MNE Epochs object by removing outlier epochs based on GFP.
     Only calculates GFP on scalp electrodes (excluding those defined in channel_region_map).
@@ -574,7 +614,10 @@ def step_gfp_clean_epochs(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dic
 
     return epochs_final
 
-def step_apply_autoreject(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]) -> mne.Epochs:
+
+def step_apply_autoreject(
+    epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]
+) -> mne.Epochs:
     """
     Apply AutoReject to clean epochs.
 
@@ -616,6 +659,7 @@ def step_apply_autoreject(epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dic
     )
 
     return epochs_clean
+
 
 def _detect_muscle_beta_focus_robust(
     epochs, pipeline, autoclean_dict, freq_band=(20, 30), scale_factor=3.0

@@ -11,7 +11,7 @@ __all__ = [
     "load_config",
     "validate_eeg_system",
     "manage_database",
-    "get_run_record", 
+    "get_run_record",
     "step_prepare_directories",
     "message",
     "configure_logger",
