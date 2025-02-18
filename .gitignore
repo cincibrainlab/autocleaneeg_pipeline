@@ -52,3 +52,5 @@ logs/
 # EEGLAB temporary files
 *.m~
 *.asv 
+data/pipeline.db
+/data
