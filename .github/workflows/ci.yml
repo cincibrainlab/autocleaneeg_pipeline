@@ -60,7 +60,7 @@ jobs:
         pip install uv
         uv venv
         uv pip install -e ".[dev]"
-        pip install requests pytest pytest-cov PyQt5
+        pip install requests pytest pytest-cov pytest-timeout PyQt5
         
     - name: Run tests
       env:
@@ -78,7 +78,8 @@ jobs:
         else
           source .venv/bin/activate
         fi
-        python -m pytest tests/test_simple_pipeline.py -v
+        # Run with increased verbosity and show output in real time
+        python -m pytest tests/test_simple_pipeline.py -v --capture=no
         
     - name: Generate HTML coverage report
       shell: bash
