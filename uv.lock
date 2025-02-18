@@ -172,6 +172,7 @@ dependencies = [
     { name = "pymupdf", marker = "python_version <= '3.11' or python_version >= '3.12' or (python_version < '3.12' and python_version > '3.11')" },
     { name = "pyprep", marker = "python_version <= '3.11' or python_version >= '3.12' or (python_version < '3.12' and python_version > '3.11')" },
     { name = "pyside6", marker = "python_version <= '3.11' or python_version >= '3.12' or (python_version < '3.12' and python_version > '3.11')" },
+    { name = "pytest", marker = "python_version <= '3.11' or python_version >= '3.12' or (python_version < '3.12' and python_version > '3.11')" },
     { name = "python-dotenv", marker = "python_version <= '3.11' or python_version >= '3.12' or (python_version < '3.12' and python_version > '3.11')" },
     { name = "python-ulid", marker = "python_version <= '3.11' or python_version >= '3.12' or (python_version < '3.12' and python_version > '3.11')" },
     { name = "pyyaml", marker = "python_version <= '3.11' or python_version >= '3.12' or (python_version < '3.12' and python_version > '3.11')" },

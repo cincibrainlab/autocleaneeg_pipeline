@@ -54,3 +54,4 @@ logs/
 *.asv 
 data/pipeline.db
 /data
+/outputs

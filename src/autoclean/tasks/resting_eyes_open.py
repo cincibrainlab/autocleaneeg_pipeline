@@ -134,6 +134,7 @@ class RestingEyesOpen(Task):
             min_channels=65,
             padding_ms=500,
         )
+
         save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
 
         # Generate visualization reports
@@ -175,9 +176,9 @@ class RestingEyesOpen(Task):
         step_plot_ica_full(self.pipeline, self.config)
 
         # # Generate ICA reports
-        step_generate_ica_reports(
-            self.pipeline, self.cleaned_raw, self.config, duration=60
-        )
+        # step_generate_ica_reports(
+        #     self.pipeline, self.cleaned_raw, self.config, duration=60
+        # )
 
         # # Create PSD topography figure
         step_psd_topo_figure(
