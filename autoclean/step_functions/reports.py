@@ -17,6 +17,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+import traceback
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -26,6 +27,17 @@ import pandas as pd
 import pylossless as ll
 from matplotlib.gridspec import GridSpec
 from mne_bids import BIDSPath
+
+__all__ = [
+    "step_plot_raw_vs_cleaned_overlay",
+    "step_plot_ica_full",
+    "step_generate_ica_reports",
+    "plot_bad_channels_with_topography",
+    "create_run_report",
+    "update_task_processing_log",
+    "create_json_summary",
+    "generate_mmn_erp",
+]
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
@@ -1311,10 +1323,10 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 try:
                     bids_path = None
                     bids_path = autoclean_dict["bids_path"]
-                except Exception as e:
+                except Exception:
                     message(
                         "warning",
-                        f"Failed to get BIDS path from autoclean_dict: Trying metadata \n {e}",
+                        "Failed to get BIDS path from autoclean_dict: Trying metadata",
                     )
             if not bids_path and "step_convert_to_bids" in run_record["metadata"]:
                 bids_info = run_record["metadata"]["step_convert_to_bids"]
@@ -2076,7 +2088,6 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             Path(summary_dict["output_dir"])
             / f"{summary_dict['task']}_processing_log.csv"
         )
-
         # Extract details from summary_dict
         details = {
             "timestamp": summary_dict["timestamp"],
@@ -2176,7 +2187,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
         )
 
     except Exception as e:
-        message("error", f"Error updating processing log: {str(e)}")
+        message("error", f"Error updating processing log: {str(e)}\n{traceback.format_exc()}")
         return
 
 
@@ -2260,11 +2271,15 @@ def create_json_summary(run_id: str) -> None:
                         channel_dict[label] = []
                     channel_dict[label].append(channel)
 
+    # Deprecated for systems that don't use "E" nomenclature for channels
     # Get unique sorted list of all removed channels, sorting by numeric value
-    bad_channels = sorted(
-        set(channel for channels in channel_dict.values() for channel in channels),
-        key=lambda x: int(x.replace("E", "")),
-    )
+    # bad_channels = sorted(
+    #     set(channel for channels in channel_dict.values() for channel in channels),
+    #     key=lambda x: int(x.replace("E", "")),
+    # )
+    bad_channels = [
+        channel for channels in channel_dict.values() for channel in channels
+    ]
     channel_dict["removed_channels"] = bad_channels
 
     if "step_prepare_directories" in metadata:

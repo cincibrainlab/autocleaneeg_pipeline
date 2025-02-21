@@ -85,11 +85,7 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.step_functions.epochs import (
-    step_apply_autoreject,
-    step_create_eventid_epochs,
-)
-from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, step_import
+from autoclean.step_functions.io import save_raw_to_set, step_import
 from autoclean.step_functions.reports import (
     step_generate_ica_reports,
     step_plot_ica_full,

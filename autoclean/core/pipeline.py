@@ -73,12 +73,13 @@ from autoclean.step_functions.reports import (
     update_task_processing_log,
 )
 from autoclean.tasks import task_registry
+from autoclean.tools.autoclean_review import run_autoclean_review
 from autoclean.utils.config import (
     hash_and_encode_yaml,
     load_config,
     validate_eeg_system,
 )
-from autoclean.utils.database import get_run_record, manage_database
+from autoclean.utils.database import get_run_record, manage_database, set_database_path
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
 
@@ -180,6 +181,9 @@ class Pipeline:
 
         # Load YAML config into memory for repeated access during processing
         self.autoclean_dict = load_config(self.autoclean_config)
+
+        # Set global database path
+        set_database_path(self.autoclean_dir)
 
         # Initialize SQLite collection for run tracking
         # This creates tables if they don't exist
@@ -392,7 +396,7 @@ class Pipeline:
                     "error", f"Failed to generate error report: {str(report_error)}"
                 )
 
-            # Update processing log with failure
+            # Update processing log
             update_task_processing_log(json_summary)
 
             message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
@@ -503,7 +507,7 @@ class Pipeline:
             >>> pipeline.list_tasks()
             ['rest_eyesopen', 'assr_default', 'chirp_default']
         """
-        return list(self.TASK_REGISTRY.keys())
+        return list(self.task_registry.keys())
 
     def list_stage_files(self) -> list[str]:
         """Get a list of configured stage file types.
@@ -613,17 +617,7 @@ class Pipeline:
         Manages GUI event loop and maintains separation between processing
         and visualization components.
         """
-        try:
-            from autoclean.tools import run_autoclean_review
-
-            run_autoclean_review(self.autoclean_dir)
-        except ImportError as e:
-            message("error", f"Could not load GUI components: {str(e)}")
-            message(
-                "error",
-                "Make sure PyQt5 is installed if you want to use the GUI features.",
-            )
-            raise
+        run_autoclean_review(self.autoclean_dir)
 
     def _validate_task(self, task: str) -> None:
         """Validate that a task type is supported and properly configured.

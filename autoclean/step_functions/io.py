@@ -23,6 +23,8 @@ import scipy.io as sio
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 
+__all__ = ["step_import", "save_raw_to_set", "save_epochs_to_set"]
+
 
 def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
     """Import raw EEG data from file.
@@ -55,7 +57,7 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
     eeg_system = autoclean_dict["eeg_system"]
     task = autoclean_dict.get("task", None)
     file_ext = unprocessed_file.suffix.lower()
-    extract_eeglab_events = False
+    extract_eeglab_complex_events = False
 
     events = None
     event_dict = None
@@ -64,21 +66,25 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
 
     try:
         # Determine how to read the file
+        message("info", "Determining file type and loading data...")
         if file_ext == ".set":
             try:
-                raw = mne.io.read_raw_eeglab(
-                    input_fname=unprocessed_file, preload=preload, verbose=True
-                )
-                extract_eeglab_events = True
+                message("info", "Loading .set file using EEGLAB reader...")
+                raw = mne.io.read_raw_eeglab(input_fname=unprocessed_file, preload=preload, verbose=True)
+                extract_eeglab_complex_events = True
+                message("success", "Successfully loaded .set file")
             except Exception as e:
                 raise RuntimeError(f"Failed to read .set file: {str(e)}")
+                
         elif file_ext == ".raw":
             try:
+                message("info", "Loading .raw file using EGI reader...")
                 raw = mne.io.read_raw_egi(
                     input_fname=unprocessed_file,
                     preload=preload,
                     events_as_annotations=True,
                 )
+                message("success", "Successfully loaded .raw file")
             except Exception as e:
                 message("critical", "Failed to read .raw file")
                 raise RuntimeError(f"{str(e)}")
@@ -87,12 +93,15 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
             raise ValueError(f"Unsupported file type: {file_ext}")
 
         # Montage and channel setup
+        message("info", "Setting up montage and channels...")
         if eeg_system == "GSN-HydroCel-129":
             try:
+                message("info", "Configuring GSN-HydroCel-129 montage...")
                 montage = mne.channels.make_standard_montage(eeg_system)
                 montage.ch_names[128] = "E129"
                 raw.set_montage(montage, match_case=False)
                 raw.pick("eeg")
+                message("success", "Successfully configured GSN-HydroCel-129 montage")
             except Exception as e:
                 raise RuntimeError(
                     f"Failed to set up GSN-HydroCel-129 montage: {str(e)}"
@@ -100,19 +109,33 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
 
         elif eeg_system == "GSN-HydroCel-124" and file_ext == ".set":
             try:
+                message("info", "Configuring GSN-HydroCel-124 channels...")
                 ecg_channels = ["E125", "E126", "E127", "E128"]
                 ecg_mapping = {ch: "ecg" for ch in ecg_channels}
                 raw.set_channel_types(ecg_mapping)
                 raw.drop_channels(ecg_channels)
                 raw.pick("eeg")
+                message("success", "Successfully configured GSN-HydroCel-124 channels")
             except Exception as e:
                 raise RuntimeError(
                     f"Failed to configure GSN-HydroCel-124 channels: {str(e)}"
                 )
 
+        elif eeg_system == "standard_1020" and file_ext == ".set":
+            try:
+                message("info", "Setting up standard 10-20 montage...")
+                montage = mne.channels.make_standard_montage(eeg_system)
+                raw.set_montage(montage, match_case=False)
+                extract_eeglab_complex_events = False
+                message("success", "Successfully configured standard 10-20 montage")
+            except Exception as e:
+                raise RuntimeError(f"Failed to set up standard_1020 montage: {str(e)}")
+
         elif eeg_system == "MEA30" and file_ext == ".set":
             try:
+                message("info", "Configuring MEA30 channels...")
                 raw.pick("eeg")
+                message("success", "Successfully configured MEA30 channels")
             except Exception as e:
                 raise RuntimeError(f"Failed to pick EEG channels for MEA30: {str(e)}")
 
@@ -121,7 +144,8 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
                 f"Unsupported system or file type: {eeg_system}, {file_ext}"
             )
 
-        if extract_eeglab_events:
+        if extract_eeglab_complex_events:
+            message("info", "Extracting complex events from EEGLAB file...")
             try:
                 events_df = _get_matlab_annotations_table(autoclean_dict)
                 message("success", "Events table loaded successfully:")
@@ -133,6 +157,7 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
                 events_df = None
 
             try:
+                message("info", "Creating annotations from events...")
                 subset_events_df = events_df[["Task", "type", "onset", "Condition"]]
                 new_annotations = mne.Annotations(
                     onset=subset_events_df["onset"].values,
@@ -143,13 +168,20 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
                     ],
                 )
                 raw.set_annotations(new_annotations)
+                message("success", "Successfully created annotations from events")
             except Exception as e:
                 message("warning", f"Could not set annotations: {str(e)}")
 
         else:
             events_df = None
 
+        if task == "p300_grael4k":
+            message("info", "Processing P300 task-specific annotations...")
+            mapping = {"13": "Standard", "14": "Target"}
+            raw.annotations.rename(mapping)
+
         if task == "hbcd_mmn":
+            message("info", "Processing HBCD MMN task-specific annotations...")
             # Adds missing EEGLAB Metadata
             subset_events_df = events_df[["Task", "type", "onset", "Condition"]]
             new_annotations = mne.Annotations(
@@ -161,40 +193,26 @@ def step_import(autoclean_dict: dict, preload: bool = True) -> mne.io.Raw:
                 ],
             )
             raw.set_annotations(new_annotations)
-            # target_event_type = list(autoclean_dict["tasks"][task]["settings"]["event_id"]["value"].keys())[0]
-            # reg_exp = f'.*{target_event_type}.*'
-            # events, event_id = mne.events_from_annotations(raw, regexp=reg_exp)
-            # event_dict = {str(k): int(v) for k, v in event_id.items()}
-        else:
-            events, event_dict, events_df = None, None, None
-            if (
-                task
-                and autoclean_dict["tasks"][task]["settings"]["event_id"]["enabled"]
-            ):
-                target_event_id = autoclean_dict["tasks"][task]["settings"]["event_id"][
-                    "value"
-                ]
-                events, event_id = _update_events(raw, target_event_id)
-                rev_target_event_id = dict(map(reversed, target_event_id.items()))
-                raw.set_annotations(None)
-                raw.set_annotations(
-                    mne.annotations_from_events(
-                        events, raw.info["sfreq"], event_desc=rev_target_event_id
-                    )
-                )
-
-        # def parse_description(description):
-        #     parts = description.split('/')
-        #     return parts[:2] + ['n/a'] if len(parts) > 3 else parts
-        # # Convert annotations descriptions to DataFrame
-        # if raw.annotations is not None and task == 'hbcd_mmn':
-        #     parsed_data = [parse_description(desc) for desc in raw.annotations.description]
-        #     parsed_df = pd.DataFrame(parsed_data, columns=['Task', 'type', 'Condition'])
-
-        # # Get unique event types
-        #     unique_types = parsed_df['type'].unique()
-        #     message("info", f"Unique event types: {unique_types}")
-        # event_dict = create_event_id_dictionary(raw)
+            message("success", "Successfully processed HBCD MMN annotations")
+        # else:
+        #     message("info", "Processing general task events...")
+        #     events, event_dict, events_df = None, None, None
+        #     if (
+        #         task
+        #         and autoclean_dict["tasks"][task]["settings"]["event_id"]["enabled"]
+        #     ):
+        #         target_event_id = autoclean_dict["tasks"][task]["settings"]["event_id"][
+        #             "value"
+        #         ]
+        #         events, event_id = _update_events(raw, target_event_id)
+        #         rev_target_event_id = dict(map(reversed, target_event_id.items()))
+        #         raw.set_annotations(None)
+        #         raw.set_annotations(
+        #             mne.annotations_from_events(
+        #                 events, raw.info["sfreq"], event_desc=rev_target_event_id
+        #             )
+        #         )
+        #         message("success", "Successfully processed task events")
 
         # Prepare metadata
         metadata = {

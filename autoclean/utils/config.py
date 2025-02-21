@@ -223,7 +223,7 @@ def validate_eeg_system(autoclean_dict: dict, task: str) -> str:
         message("success", f"✓ EEG system validated: {eeg_system}")
         return eeg_system
     else:
-        error_msg = f"Invalid EEG system: {eeg_system}. Supported: {', '.join(VALID_MONTAGES.keys())}"
+        error_msg = f"Invalid EEG system: {eeg_system}. Supported: {', '.join(VALID_MONTAGES.keys())}. To add a new montage, please edit configs/montage.yaml or request it on GitHub issues."
         message("error", error_msg)
         raise ValueError(error_msg)
 

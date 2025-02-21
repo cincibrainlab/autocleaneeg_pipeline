@@ -1,6 +1,6 @@
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional
 
 import mne
 import numpy as np
@@ -12,6 +12,14 @@ from mne.preprocessing import bads
 from autoclean.step_functions.io import save_epochs_to_set
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
+
+__all__ = [
+    "step_create_regular_epochs",
+    "step_create_eventid_epochs",
+    "step_prepare_epochs_for_ica",
+    "step_gfp_clean_epochs",
+    "step_apply_autoreject",
+]
 
 
 def step_create_regular_epochs(
@@ -85,7 +93,7 @@ def step_create_regular_epochs(
 
     # Detect Muscle Beta Focus
     bad_muscle_epochs = _detect_muscle_beta_focus_robust(
-        epochs.copy(), autoclean_dict, freq_band=(20, 100), scale_factor=2.0
+        epochs.copy(), pipeline, autoclean_dict, freq_band=(20, 100), scale_factor=2.0
     )
 
     # Remove duplicates and sort
@@ -662,11 +670,8 @@ def step_apply_autoreject(
 
 
 def _detect_muscle_beta_focus_robust(
-    epochs: mne.Epochs,
-    autoclean_dict: Dict[str, Any],
-    freq_band: Tuple[int, int] = (20, 30),
-    scale_factor: float = 3.0,
-) -> List[int]:
+    epochs, pipeline, autoclean_dict, freq_band=(20, 30), scale_factor=3.0
+):
     """
     Detect muscle artifacts using a robust measure (median + MAD * scale_factor)
     focusing only on electrodes labeled as 'OTHER'.

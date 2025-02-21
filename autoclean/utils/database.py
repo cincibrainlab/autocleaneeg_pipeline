@@ -13,6 +13,19 @@ from autoclean.utils.logging import message
 # Global lock for thread safety
 _db_lock = threading.Lock()
 
+# Global database path
+_DB_PATH = None
+
+
+def set_database_path(path: Path) -> None:
+    """Set the global database path.
+
+    Args:
+        path: Path to the database directory
+    """
+    global _DB_PATH
+    _DB_PATH = path
+
 
 class DatabaseError(Exception):
     """Custom exception for database operations."""
@@ -35,6 +48,7 @@ def get_run_record(run_id: str) -> dict:
 
     Args:
         run_id: String ID of the run to retrieve
+        autoclean_dir: Path to the autoclean output directory
 
     Returns:
         dict: The run record if found, None if not found
@@ -62,7 +76,9 @@ def manage_database(
         run_record: Record to store (for 'store' operation)
         update_record: Record updates (for 'update' operation)
     """
-    db_path = Path("data/pipeline.db")
+    global _DB_PATH
+
+    db_path = _DB_PATH / "pipeline.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     with _db_lock:  # Ensure only one thread can access the database at a time
@@ -74,7 +90,7 @@ def manage_database(
             if operation == "create_collection":
                 if not collection.exists():
                     collection.create()
-                message("info", "✓ Created 'pipeline_runs' collection")
+                message("info", f"✓ Created 'pipeline_runs' collection in {db_path}")
 
             elif operation == "store":
                 if not run_record:
@@ -125,7 +141,7 @@ def manage_database(
             elif operation == "drop_collection":
                 if collection.exists():
                     collection.drop()
-                message("warning", "'pipeline_runs' collection dropped")
+                message("warning", f"'pipeline_runs' collection dropped from {db_path}")
 
             elif operation == "get_collection":
                 if not collection.exists():

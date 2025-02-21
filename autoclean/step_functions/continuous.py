@@ -16,6 +16,16 @@ from autoclean.utils.bids import step_convert_to_bids
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 
+__all__ = [
+    "step_pre_pipeline_processing",
+    "step_create_bids_path",
+    "step_clean_bad_channels",
+    "step_run_pylossless",
+    "step_run_ll_rejection_policy",
+    "step_detect_dense_oscillatory_artifacts",
+    "step_reject_bad_segments",
+]
+
 
 def step_pre_pipeline_processing(
     raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
@@ -163,6 +173,10 @@ def step_pre_pipeline_processing(
         operation="update", update_record={"run_id": run_id, "metadata": metadata}
     )
 
+    # self._verify_annotations(self.raw, "post_prepipeline")
+    save_raw_to_set(raw, autoclean_dict, "post_prepipeline")
+
+
     return raw
 
 
@@ -244,7 +258,12 @@ def step_clean_bad_channels(
     }
 
     # check if "eog" is in channel type dictionary
-    if "eog" in raw.get_channel_types():
+    if (
+        "eog" in raw.get_channel_types()
+        and not autoclean_dict["tasks"][autoclean_dict["task"]]["settings"]["eog_step"][
+            "enabled"
+        ]
+    ):
         eog_picks = mne.pick_types(raw.info, eog=True)
         eog_ch_names = [raw.ch_names[idx] for idx in eog_picks]
         raw.set_channel_types({ch: "eeg" for ch in eog_ch_names})
@@ -430,6 +449,8 @@ def step_run_ll_rejection_policy(
         )
     except Exception as e:
         raise RuntimeError(f"Failed to update database: {str(e)}")
+
+    save_raw_to_set(cleaned_raw, autoclean_dict, "post_rejection_policy")
 
     return pipeline, cleaned_raw
 
