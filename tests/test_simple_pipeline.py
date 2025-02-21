@@ -6,6 +6,7 @@ from pathlib import Path
 import time
 
 from autoclean import Pipeline
+from .utils import get_test_file
 
 
 @pytest.mark.timeout(300)  # 5 minute timeout
@@ -15,18 +16,10 @@ def test_simple_resting_pipeline():
     print("\nStarting test_simple_resting_pipeline...")
     start_time = time.time()
 
-    # Test file is tracked by Git LFS
-    test_file = Path("tests/data/0199_rest.raw")
+    print("Downloading test file if needed...")
+    test_file = get_test_file("0199_rest.raw")
     
-    print(f"Checking for test file: {test_file}")
-    if not test_file.exists():
-        raise FileNotFoundError(
-            f"Test file not found: {test_file}\n"
-            "Make sure you have Git LFS installed and have pulled the test data:\n"
-            "  git lfs install\n"
-            "  git lfs pull"
-        )
-    
+    print(f"Test file path: {test_file}")
     print(f"Test file exists, size: {test_file.stat().st_size} bytes")
     
     # Debug: Check file format
