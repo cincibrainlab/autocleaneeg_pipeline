@@ -1,9 +1,8 @@
 """Test configuration and fixtures."""
 
 import pytest
-from pathlib import Path
 
-from .utils import get_test_file
+from tests.utils import get_test_file
 
 @pytest.fixture
 def test_raw_file():

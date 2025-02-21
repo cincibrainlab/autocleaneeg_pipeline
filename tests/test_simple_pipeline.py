@@ -6,7 +6,7 @@ from pathlib import Path
 import time
 
 from autoclean import Pipeline
-from .utils import get_test_file
+from tests.utils import get_test_file
 
 
 @pytest.mark.timeout(300)  # 5 minute timeout
