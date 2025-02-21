@@ -58,6 +58,7 @@ Homepage = "https://github.com/cincibrainlab/autoclean_complete"
 dev = [
     "pytest>=7.0",
     "pytest-cov>=3.0",
+    "pytest-timeout>=2.1.0",
     "black>=22.0",
     "isort>=5.0",
     "mypy>=0.9",

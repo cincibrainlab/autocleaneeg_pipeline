@@ -57,12 +57,21 @@ def download_test_file(filename: str, force: bool = False) -> Optional[Path]:
     # Construct GitHub release asset URL
     url = (
         f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/"
-        f"{TEST_DATA_VERSION}/{filename}"
+        f"{TEST_DATA_VERSION}/0199_rest.raw"  # Use exact filename to avoid any case sensitivity issues
     )
     
+    print(f"\nAttempting to download from URL:\n{url}")
+    
     try:
-        # Download the file
-        urllib.request.urlretrieve(url, file_path)
+        # Add headers to request to handle pre-releases
+        headers = {
+            "Accept": "application/octet-stream",
+            "User-Agent": "Python/urllib"
+        }
+        req = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(req) as response:
+            with open(file_path, 'wb') as out_file:
+                out_file.write(response.read())
         
         # Verify hash
         if calculate_file_hash(file_path) != TEST_FILES[filename]:
