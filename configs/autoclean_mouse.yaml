@@ -8,10 +8,10 @@
 tasks:
   # RESTING STATE TASK (Eyes Open)
   # RESTING STATE TASK (Eyes Open)
-  mouse_xdat_resting:
+  MouseXdatResting:
     mne_task: "rest"
     description: "Neuronexus Mouse XDAT Resting State"
-    lossless_config: configs/lossless_config_mea.yaml    # Points to additional configuration settings
+    lossless_config: configs/pylossless/lossless_config_mea.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
@@ -19,14 +19,9 @@ tasks:
       resample_step:
         enabled: true        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
-
-      drop_outerlayer:
-        enabled: false
-        value: []
       
       eog_step:
         enabled: false
-
         value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]  # Channel numbers for eye movement detection
       
       trim_step:
@@ -56,15 +51,6 @@ tasks:
         value:
           tmin: 0
           tmax: 2
-        remove_baseline:
-          enabled: false
-          window: [null, 0]
-        threshold_rejection:
-          enabled: false
-          volt_threshold: 
-            eeg: 150e-6
-          
-
     # ARTIFACT REJECTION SETTINGS
     rejection_policy:
       ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
@@ -75,18 +61,14 @@ tasks:
       ic_rejection_threshold: 0.3                              # Threshold for component rejection
       remove_flagged_ics: true                                 # Whether to remove marked components   
       
-  mouse_xdat_chirp:
+  MouseXdatChirp:
     mne_task: "chirp"
     description: "Neuronexus Mouse XDAT Chirp"
-    lossless_config: configs/lossless_config_mea.yaml    # Points to additional configuration settings
+    lossless_config: configs/pylossless/lossless_config_mea.yaml    # Points to additional configuration settings
     settings:
       resample_step:
         enabled: true        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
-
-      drop_outerlayer:
-        enabled: false
-        value: []
       
       eog_step:
         enabled: false
@@ -112,32 +94,23 @@ tasks:
 
       event_id:
         enabled: true      
-        value: {'START': 1}          
+        value: {'TTL_pulse_start': 1}          
 
       epoch_settings:
         enabled: true     
         value:
           tmin: -0.5
-          tmax: 2.75
-        remove_baseline:
-          enabled: false
-          window: [null, 0]
-        threshold_rejection:
-          enabled: false
-          volt_threshold: 
-            eeg: 150e-6
-
-
+          tmax: 1.5
 
     # ARTIFACT REJECTION SETTINGS
     rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated"]  # Types of bad channels to reject
+      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
       ch_cleaning_mode: "interpolate"                           # How to handle bad channels
       interpolate_bads_kwargs:
         method: "MNE"                                          # Method for interpolating bad channels
       ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
       ic_rejection_threshold: 0.3                              # Threshold for component rejection
-      remove_flagged_ics: false          
+      remove_flagged_ics: true          
                             # Whether to remove marked components
 
   

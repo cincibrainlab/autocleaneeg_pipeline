@@ -28,7 +28,7 @@ Example:
     ...     autoclean_config="config.yaml"
     ... )
     >>> pipeline.process_file(
-    ...     file_path="/path/to/data.raw",
+    ...     file_path="/path/to/data.set",
     ...     task="rest_eyesopen"
     ... )
 
@@ -73,7 +73,6 @@ from autoclean.step_functions.reports import (
     update_task_processing_log,
 )
 from autoclean.tasks import task_registry
-from autoclean.tools.autoclean_review import run_autoclean_review
 from autoclean.utils.config import (
     hash_and_encode_yaml,
     load_config,
@@ -403,6 +402,22 @@ class Pipeline:
             raise
 
         return run_record["run_id"]
+    
+    async def _entrypoint_async(
+        self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
+    ) -> None:
+        """Async version of _entrypoint for concurrent processing.
+
+        Wraps synchronous processing in asyncio thread pool to enable
+        non-blocking concurrent execution while maintaining database
+        and filesystem operation safety.
+        """
+        try:
+            # Run the processing in a thread to avoid blocking
+            await asyncio.to_thread(self._entrypoint, unprocessed_file, task, run_id)
+        except Exception as e:
+            message("error", f"Failed to process {unprocessed_file}: {str(e)}")
+            raise
 
     def process_file(
         self, file_path: str | Path, task: str, run_id: Optional[str] = None
@@ -493,61 +508,13 @@ class Pipeline:
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
 
-    def list_tasks(self) -> list[str]:
-        """Get a list of available processing tasks.
-
-        Exposes configured tasks from YAML configuration, providing runtime
-        introspection of available processing options. Used for validation
-        and user interface integration.
-
-        Returns:
-            list[str]: Names of all configured tasks
-
-        Example:
-            >>> pipeline.list_tasks()
-            ['rest_eyesopen', 'assr_default', 'chirp_default']
-        """
-        return list(self.task_registry.keys())
-
-    def list_stage_files(self) -> list[str]:
-        """Get a list of configured stage file types.
-
-        Provides access to intermediate processing stage definitions from
-        configuration. Critical for understanding processing flow and
-        debugging pipeline state.
-
-        Returns:
-            list[str]: Names of all configured stage file types
-
-        Example:
-            >>> pipeline.list_stage_files()
-            ['post_import', 'post_prepipeline', 'post_clean']
-        """
-        return list(self.autoclean_dict["stage_files"].keys())
-
-    async def _entrypoint_async(
-        self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
-    ) -> None:
-        """Async version of _entrypoint for concurrent processing.
-
-        Wraps synchronous processing in asyncio thread pool to enable
-        non-blocking concurrent execution while maintaining database
-        and filesystem operation safety.
-        """
-        try:
-            # Run the processing in a thread to avoid blocking
-            await asyncio.to_thread(self._entrypoint, unprocessed_file, task, run_id)
-        except Exception as e:
-            message("error", f"Failed to process {unprocessed_file}: {str(e)}")
-            raise
-
     async def process_directory_async(
         self,
         directory: str | Path,
         task: str,
-        pattern: str = "*.raw",
+        pattern: str = "*.set",
         sub_directories: bool = False,
-        max_concurrent: int = 5,
+        max_concurrent: int = 3,
     ) -> None:
         """Process all matching EEG files in a directory asynchronously.
 
@@ -610,14 +577,54 @@ class Pipeline:
         message("info", f"Total files processed: {len(files)}")
         message("info", "Check individual file logs for detailed status")
 
-    def start_autoclean_review(self):
-        """Launch the AutoClean Review GUI application.
 
-        Initializes PyQt5-based GUI for visual inspection of processed data.
-        Manages GUI event loop and maintains separation between processing
-        and visualization components.
+    def list_tasks(self) -> list[str]:
+        """Get a list of available processing tasks.
+
+        Exposes configured tasks from YAML configuration, providing runtime
+        introspection of available processing options. Used for validation
+        and user interface integration.
+
+        Returns:
+            list[str]: Names of all configured tasks
+
+        Example:
+            >>> pipeline.list_tasks()
+            ['rest_eyesopen', 'assr_default', 'chirp_default']
         """
-        run_autoclean_review(self.autoclean_dir)
+        return list(self.task_registry.keys())
+
+
+    def list_stage_files(self) -> list[str]:
+        """Get a list of configured stage file types.
+
+        Provides access to intermediate processing stage definitions from
+        configuration. Critical for understanding processing flow and
+        debugging pipeline state.
+
+        Returns:
+            list[str]: Names of all configured stage file types
+
+        Example:
+            >>> pipeline.list_stage_files()
+            ['post_import', 'post_prepipeline', 'post_clean']
+        """
+        return list(self.autoclean_dict["stage_files"].keys())
+
+
+    def start_autoclean_review(self):
+        """Launch the AutoClean Review GUI tool.
+        
+        This method requires the GUI dependencies to be installed.
+        Install them with: pip install autocleaneeg[gui]
+        """
+        try:
+            from autoclean.tools.autoclean_review import run_autoclean_review
+            run_autoclean_review(self.autoclean_dir)
+        except ImportError:
+            message("error", "GUI dependencies not installed. To use the review tool, install:")
+            message("error", "pip install autocleaneeg[gui]")
+            raise
 
     def _validate_task(self, task: str) -> None:
         """Validate that a task type is supported and properly configured.

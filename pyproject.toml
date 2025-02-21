@@ -41,19 +41,13 @@ dependencies = [
     "autoreject>=0.3.0",
     "python-ulid>=1.0.0",
     "pylossless @ git+https://github.com/lina-usc/pylossless.git",
-    "textual>=0.11.0",
-    "textual-dev>=0.11.0",
     "mplcairo>=0.5",
     "cython>=0.29.0",
     "unqlite>=0.9.3",
-    "reportlab>=3.6.0",
     "scipy>=1.7.0",
     "loguru>=0.6.0",
     "matplotlib>=3.4.0",
-    "PySide6>=6.5.0",
-    "pymupdf>=1.0.0",
-    "pyjsonviewer>=0.1.0",
-    "pytest>=7.0"
+    "pydantic>=2.0"
 ]
 
 [project.urls]
@@ -71,14 +65,25 @@ dev = [
     "sphinx-rtd-theme>=1.0"
 ]
 
+gui = [
+    "PyQt5>=5.15.0",
+    "mne-qt-browser>=0.3.0",
+    "PySide6>=6.5.0",
+    "pymupdf>=1.0.0",
+    "pyjsonviewer>=0.1.0",
+    "reportlab>=3.6.0",
+    "textual>=0.11.0",
+    "textual-dev>=0.11.0"
+]
+
 [tool.hatch]
-version.path = "src/autoclean/__init__.py"
+version.path = "autoclean/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/autoclean"]
+packages = ["autoclean"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -103,9 +108,8 @@ warn_unused_configs = true
 disallow_untyped_defs = true
 
 [tool.ruff]
-# Exclude template files and other patterns
 exclude = [
-    "src/autoclean/tasks/TEMPLATE.py",
+    "autoclean/tasks/TEMPLATE.py",
     ".git",
     ".env",
     "__pycache__",
@@ -114,5 +118,4 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-# Ignore specific rules for certain patterns
-per-file-ignores = { "src/autoclean/step_functions/__init__.py" = ["E402", "F403"], "src/autoclean/tools/autoclean_review.py" = ["E402"] }
+per-file-ignores = { "autoclean/step_functions/__init__.py" = ["E402", "F403"], "autoclean/tools/autoclean_review.py" = ["E402"] }

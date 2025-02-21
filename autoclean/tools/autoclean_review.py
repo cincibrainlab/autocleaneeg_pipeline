@@ -1,4 +1,32 @@
+"""
+Autoclean Review Tool - GUI for reviewing EEG processing results
+Requires additional GUI dependencies. Install with: pip install autocleaneeg[gui]
+"""
+
 import sys
+
+def check_gui_dependencies():
+    """Check if all required GUI dependencies are installed."""
+    missing = []
+    try:
+        import PyQt5
+    except ImportError:
+        missing.append("PyQt5")
+    try:
+        import fitz
+    except ImportError:
+        missing.append("pymupdf")
+    
+    if missing:
+        print("Error: Missing required GUI dependencies.")
+        print("To use the review tool, install the GUI dependencies:")
+        print("pip install autocleaneeg[gui]")
+        print(f"\nMissing packages: {', '.join(missing)}")
+        sys.exit(1)
+
+# Check dependencies before importing
+check_gui_dependencies()
+
 from pathlib import Path
 
 # Add the src directory to Python path if package is not installed

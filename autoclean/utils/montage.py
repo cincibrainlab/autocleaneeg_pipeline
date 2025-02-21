@@ -11,9 +11,7 @@ from autoclean.utils.logging import message
 def load_valid_montages() -> Dict[str, str]:
     """Load valid montages from configuration file."""
     config_path = os.path.join(
-        os.path.dirname(
-            os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        ),
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
         "configs",
         "montages.yaml",
     )

@@ -104,6 +104,48 @@ class Task(ABC):
         # Dictionary to track processing history, metrics, and state changes
         self.pipeline_results: Dict[str, Any] = {}
 
+    @abstractmethod
+    def import_data(self, file_path: Path) -> None:
+        """Import raw EEG data for processing.
+
+        Defines interface for data import operations, ensuring consistent handling
+        of MNE Raw objects across tasks. Implementations must handle file I/O
+        and initial data validation.
+
+        Args:
+            file_path: Path to the EEG data file. The file format should match
+                      what's expected by the specific task implementation.
+
+        Raises:
+            FileNotFoundError: If the specified file doesn't exist.
+            ValueError: If the file format is invalid or data is corrupted.
+            RuntimeError: If there are problems reading the file.
+
+        Note:
+            This method typically sets self.raw with the imported MNE Raw object.
+            The exact format and preprocessing steps depend on the task type.
+        """
+        pass
+
+    @abstractmethod
+    def run(self) -> None:
+        """Run the standard EEG preprocessing pipeline.
+
+        Defines interface for MNE-based preprocessing operations including filtering,
+        resampling, and artifact detection. Maintains processing state through
+        self.raw modifications.
+
+        Raises:
+            RuntimeError: If no data has been imported (self.raw is None)
+            ValueError: If preprocessing parameters are invalid
+            RuntimeError: If any preprocessing step fails
+
+        Note:
+            The specific parameters for each preprocessing step should be
+            defined in the task configuration and validated before use.
+        """
+        pass
+
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the complete task configuration.
 
@@ -187,63 +229,4 @@ class Task(ABC):
         """
         pass
 
-    @abstractmethod
-    def import_data(self, file_path: Path) -> None:
-        """Import raw EEG data for processing.
 
-        Defines interface for data import operations, ensuring consistent handling
-        of MNE Raw objects across tasks. Implementations must handle file I/O
-        and initial data validation.
-
-        Args:
-            file_path: Path to the EEG data file. The file format should match
-                      what's expected by the specific task implementation.
-
-        Raises:
-            FileNotFoundError: If the specified file doesn't exist.
-            ValueError: If the file format is invalid or data is corrupted.
-            RuntimeError: If there are problems reading the file.
-
-        Note:
-            This method typically sets self.raw with the imported MNE Raw object.
-            The exact format and preprocessing steps depend on the task type.
-        """
-        pass
-
-    @abstractmethod
-    def preprocess(self) -> None:
-        """Run the standard EEG preprocessing pipeline.
-
-        Defines interface for MNE-based preprocessing operations including filtering,
-        resampling, and artifact detection. Maintains processing state through
-        self.raw modifications.
-
-        Raises:
-            RuntimeError: If no data has been imported (self.raw is None)
-            ValueError: If preprocessing parameters are invalid
-            RuntimeError: If any preprocessing step fails
-
-        Note:
-            The specific parameters for each preprocessing step should be
-            defined in the task configuration and validated before use.
-        """
-        pass
-
-    @abstractmethod
-    def process(self) -> None:
-        """Run task-specific processing steps.
-
-        Defines interface for specialized analysis operations, working with both
-        continuous (Raw) and epoched data. Implementations should update
-        pipeline_results with processing outcomes.
-
-        Raises:
-            RuntimeError: If preprocessing hasn't been completed
-            ValueError: If processing parameters are invalid
-            RuntimeError: If any processing step fails
-
-        Note:
-            The exact processing steps and parameters depend on the task type
-            and should be defined in the task configuration.
-        """
-        pass

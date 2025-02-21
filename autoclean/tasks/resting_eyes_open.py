@@ -93,16 +93,10 @@ class RestingEyesOpen(Task):
         """Run the complete resting state processing pipeline."""
         file_path = Path(self.config["unprocessed_file"])
         self.import_data(file_path)
-        self.preprocess()
-        self.process()
 
-    def import_data(self, file_path: Path) -> None:
-        """Import raw resting state EEG data."""
-        # Import and save raw EEG data
-        self.raw = step_import(self.config)
-        save_raw_to_set(self.raw, self.config, "post_import")
 
-    def preprocess(self) -> None:
+
+
         """Run preprocessing steps on the raw data."""
         if self.raw is None:
             raise RuntimeError("No data has been imported")
@@ -136,30 +130,39 @@ class RestingEyesOpen(Task):
         )
         save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
 
-        # Generate visualization reports
-        self._generate_reports()
 
-    def process(self) -> None:
         """Run final processing steps including epoching."""
         if self.cleaned_raw is None:
             raise RuntimeError("Preprocessing must be completed first")
 
-        # # Create regular epochs
+        # Create regular epochs
         self.epochs = step_create_regular_epochs(
             self.cleaned_raw, self.pipeline, self.config
         )
         save_epochs_to_set(self.epochs, self.config, "post_epochs")
 
-        # # Prepare epochs for ICA
+        # Prepare epochs for ICA
         self.epochs = step_prepare_epochs_for_ica(
             self.epochs, self.pipeline, self.config
         )
 
-        # # Clean epochs using GFP
+        # Clean epochs using GFP
         self.epochs = step_gfp_clean_epochs(
             self.epochs, self.pipeline, self.config, gfp_threshold=3.0
         )
         save_epochs_to_set(self.epochs, self.config, "post_comp")
+
+
+        # Generate visualization reports
+        self._generate_reports()
+
+    def import_data(self, file_path: Path) -> None:
+        """Import raw resting state EEG data."""
+        # Import and save raw EEG data
+        self.raw = step_import(self.config)
+        save_raw_to_set(self.raw, self.config, "post_import")
+
+
 
     def _generate_reports(self) -> None:
         """Generate all visualization reports."""

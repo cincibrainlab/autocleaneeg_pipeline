@@ -6,10 +6,9 @@ from typing import Any, Dict
 # Third-party imports
 import mne
 import numpy as np
-
 import matplotlib.pyplot as plt
 import matplotlib
-
+from datetime import datetime
 # Local imports
 from autoclean.core.task import Task
 from autoclean.step_functions.io import save_epochs_to_set, step_import, save_raw_to_set
@@ -35,9 +34,6 @@ from autoclean.step_functions.continuous import (
 from autoclean.types.task_models import ImportMetadata, ProcessingMetadata
 
 from typing import Optional
-
-from PyQt5.QtCore import pyqtRemoveInputHook
-pyqtRemoveInputHook()
 
 
 

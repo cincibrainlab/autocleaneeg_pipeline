@@ -10,7 +10,7 @@ tasks:
   RestingEyesOpen:
     mne_task: "rest"
     description: "Resting state with eyes open"
-    lossless_config: configs/lossless_config.yaml    # Points to additional configuration settings
+    lossless_config: configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
@@ -72,10 +72,10 @@ tasks:
       remove_flagged_ics: true          # Whether to remove marked components
                             
   
-  chirp_default:
+  ChirpDefault:
     mne_task: "chirp"
     description: "Chirp auditory stimulus task" 
-    lossless_config: configs/lossless_config_chirp.yaml
+    lossless_config: configs/pylossless/lossless_config_chirp.yaml
     settings:
       resample_step:
         enabled: true
@@ -124,10 +124,10 @@ tasks:
       ic_rejection_threshold: 0.3
       remove_flagged_ics: true
   
-  assr_default:
+  AssrDefault:
     mne_task: "assr"
     description: "Auditory steady state response task"
-    lossless_config: configs/lossless_config.yaml
+    lossless_config: configs/pylossless/lossless_config.yaml
     settings:
       resample_step:
         enabled: true
@@ -176,10 +176,10 @@ tasks:
       ic_rejection_threshold: 0.3
       remove_flagged_ics: true
 
-  bb_long:
+  BB_Long:
     mne_task: "Binural Beats"
     description: "Binural Beats full length file"
-    lossless_config: configs/lossless_config.yaml
+    lossless_config: configs/pylossless/lossless_config.yaml
     settings:
       resample_step:
         enabled: true
@@ -228,10 +228,10 @@ tasks:
       ic_rejection_threshold: 0.3
       remove_flagged_ics: true
   
-  hbcd_mmn:
+  HBCD_MMN:
     mne_task: "MMN"
     description: "HBCD Mismatch Negativity task"
-    lossless_config: configs/lossless_config_hbcd.yaml
+    lossless_config: configs/pylossless/lossless_config_hbcd.yaml
     settings:
       resample_step:
         enabled: true
@@ -290,36 +290,50 @@ stage_files:
   post_import:
     enabled: true          # Set to true to save file after this stage
     suffix: "_postimport"  # This text will be added to the filename
+
   post_prepipeline:
     enabled: true
     suffix: "_postprepipeline"
+
+  #Prepipeline steps
   post_resample:
     enabled: false
     suffix: "_postresample"
+
   post_outerlayer:
     enabled: false
     suffix: "_postouterlayer"
+
   post_reference:
     enabled: false
     suffix: "_postreference"
+
   post_trim:
     enabled: false
     suffix: "_posttrim"
+
   post_crop:
     enabled: false
     suffix: "_postcrop"
-  post_bad_channels:
-    enabled: false
-    suffix: "_postbadchannels"
+
+  #PyLossless steps
   post_pylossless:
     enabled: true
     suffix: "_postpylossless"
+
+  post_bad_channels:
+    enabled: false
+    suffix: "_postbadchannels"
+
   post_rejection_policy:
     enabled: true
     suffix: "_postrejection"
+
   post_clean_raw:
     enabled: true
     suffix: "_postcleanraw"
+
+
   post_epochs:
     enabled: true
     suffix: "_postepochs"
