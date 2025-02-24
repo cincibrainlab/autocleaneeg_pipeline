@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "autocleaneeg"
+name = "autoclean"
 version = "1.0.0"
 description = "Automated EEG Processing Pipeline"
 readme = "README.md"
@@ -87,7 +87,7 @@ version.path = "autoclean/__init__.py"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["autoclean"]
+packages = ["src/autoclean"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
