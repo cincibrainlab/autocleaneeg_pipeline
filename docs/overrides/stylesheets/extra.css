@@ -1,0 +1,108 @@
+/* Custom CSS with Supabase-inspired styles */
+
+/* Card Grid */
+.grid.cards {
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.grid.cards > :is(ul, ol) {
+    display: contents;
+}
+
+.grid.cards > :is(ul, ol) > li,
+.grid.cards > .card {
+    border-radius: 0.5rem;
+    box-shadow: var(--md-shadow-z1);
+    margin: 0;
+    padding: 1rem;
+    transition: transform 0.25s, box-shadow 0.25s;
+    background-color: var(--md-default-bg-color);
+    border: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.grid.cards > :is(ul, ol) > li:hover,
+.grid.cards > .card:hover {
+    transform: scale(1.02);
+    box-shadow: var(--md-shadow-z2);
+}
+
+/* Typography */
+:root {
+    --md-text-font: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --md-code-font: "JetBrains Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Code blocks */
+.highlight pre {
+    border-radius: 0.5rem;
+    background-color: var(--md-code-bg-color);
+}
+
+/* Buttons */
+.md-button {
+    border-radius: 0.5rem;
+    transition: all 0.25s;
+    border: 1px solid var(--md-primary-fg-color);
+    background-color: var(--md-primary-fg-color);
+    color: var(--md-primary-bg-color);
+    padding: 0.5rem 1rem;
+}
+
+.md-button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--md-shadow-z1);
+    background-color: var(--md-primary-fg-color--dark);
+    border-color: var(--md-primary-fg-color--dark);
+}
+
+/* Tabs */
+.md-tabs {
+    background-color: transparent;
+    border-bottom: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-tabs__link {
+    opacity: 0.7;
+    transition: opacity 0.25s;
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+    opacity: 1;
+}
+
+/* Navigation */
+.md-nav__item .md-nav__link--active {
+    color: var(--md-primary-fg-color);
+    font-weight: 600;
+}
+
+/* Admonitions */
+.md-typeset .admonition {
+    border-radius: 0.5rem;
+    box-shadow: var(--md-shadow-z1);
+}
+
+/* Tables */
+.md-typeset table:not([class]) {
+    border-radius: 0.5rem;
+    box-shadow: var(--md-shadow-z1);
+    border: 1px solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset table:not([class]) th {
+    background-color: var(--md-default-fg-color--lightest);
+    border-bottom: 1px solid var(--md-default-fg-color--lighter);
+}
+
+/* Dark mode adjustments */
+[data-md-color-scheme="slate"] {
+    --md-default-bg-color: #1c1c1c;
+    --md-default-fg-color: #ffffff;
+    --md-default-fg-color--light: #e0e0e0;
+    --md-default-fg-color--lighter: #bdbdbd;
+    --md-default-fg-color--lightest: #424242;
+    --md-code-bg-color: #2d2d2d;
+} 
