@@ -84,3 +84,60 @@ If you use this software in your research, please cite:
 
 - Cincinnati Children's Hospital Medical Center
 - Built with [MNE-Python](https://mne.tools/) and [PyLossless](https://github.com/lina-usc/pylossless) 
+
+## Docker Usage
+
+The pipeline can be run in a containerized environment using Docker. This ensures consistent execution across different systems and isolates the pipeline dependencies.
+
+### Building the Docker Image
+
+```bash
+# Build the image
+docker build -t autoclean:latest .
+
+# Or using docker-compose
+docker-compose build
+```
+
+### Running the Pipeline
+
+There are two ways to run the pipeline:
+
+1. Using docker-compose (recommended):
+```bash
+# Run with default configuration
+docker-compose up
+
+# Run with specific task and parameters
+docker-compose run --rm autoclean --task resting_eyes_open --input /data/input --output /data/output
+```
+
+2. Using docker directly:
+```bash
+docker run -it --rm \
+  --shm-size=2g \
+  -v $(pwd)/data:/data \
+  -v $(pwd)/configs:/app/configs \
+  autoclean:latest --task resting_eyes_open --input /data/input --output /data/output
+```
+
+### Data Mounting
+
+- Mount your input data directory to `/data` inside the container
+- Configuration files should be mounted to `/app/configs`
+- Output will be written to the mounted data directory
+
+### Resource Configuration
+
+The default configuration in docker-compose.yml allocates:
+- 2GB shared memory
+- 4-8GB RAM
+- These can be adjusted in the docker-compose.yml file
+
+### GUI Support (if needed)
+
+For GUI support on Linux systems:
+```bash
+xhost +local:docker
+docker-compose run --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix autoclean
+```

@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  autoclean:
+    build: .
+    image: autoclean:latest
+    volumes:
+      # These paths will be mounted to fixed locations in the container
+      - ${EEG_DATA_PATH:-./data}:/data
+      - ${CONFIG_PATH:-./configs}:/app/configs
+      - ${OUTPUT_PATH:-./output}:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+    shm_size: '2gb'
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+        reservations:
+          memory: 4G
+    # Example commands:
+    # Process all files: --task RestingEyesOpen
+    # Process single file: --task RestingEyesOpen --filename subject1.eeg
+    command: ["--task", "RestingEyesOpen"] 

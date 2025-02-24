@@ -41,7 +41,6 @@ dependencies = [
     "autoreject>=0.3.0",
     "python-ulid>=1.0.0",
     "pylossless @ git+https://github.com/lina-usc/pylossless.git",
-    "mplcairo>=0.5",
     "cython>=0.29.0",
     "unqlite>=0.9.3",
     "scipy>=1.7.0",
@@ -77,6 +76,9 @@ gui = [
     "textual>=0.11.0",
     "textual-dev>=0.11.0"
 ]
+
+[project.scripts]
+autoclean = "autoclean.__main__:main"
 
 [tool.hatch]
 version.path = "autoclean/__init__.py"
