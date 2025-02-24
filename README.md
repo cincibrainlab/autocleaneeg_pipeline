@@ -76,7 +76,7 @@ If you use this software in your research, please cite:
   title = {AutoClean EEG: Automated EEG Processing Pipeline},
   year = {2024},
   publisher = {GitHub},
-  url = {https://github.com/yourusername/autoclean-eeg}
+  url = {[https://github.com/yourusername/autoclean-eeg](https://github.com/cincibrainlab/autoclean_pipeline/)}
 }
 ```
 
