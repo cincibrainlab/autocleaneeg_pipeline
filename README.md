@@ -89,55 +89,51 @@ If you use this software in your research, please cite:
 
 The pipeline can be run in a containerized environment using Docker. This ensures consistent execution across different systems and isolates the pipeline dependencies.
 
-### Building the Docker Image
+### Windows PowerShell
 
-```bash
-# Build the image
-docker build -t autoclean:latest .
+```powershell
+# Add the autoclean command to your PowerShell profile
+Copy-Item profile.ps1 $PROFILE
+# or add to existing profile
+. "C:\path\to\autoclean.ps1"
 
-# Or using docker-compose
-docker-compose build
+# Run the pipeline
+autoclean -DataPath "C:\Data\raw" -Task "RestingEyesOpen" -ConfigPath "C:\configs\autoclean_config.yaml"
+
+# View help
+autoclean -Help
 ```
 
-### Running the Pipeline
+### Linux/WSL
 
-There are two ways to run the pipeline:
-
-1. Using docker-compose (recommended):
 ```bash
-# Run with default configuration
-docker-compose up
+# Add the autoclean command to your system
+sudo cp autoclean.sh /usr/local/bin/autoclean
+sudo chmod +x /usr/local/bin/autoclean
 
-# Run with specific task and parameters
-docker-compose run --rm autoclean --task resting_eyes_open --input /data/input --output /data/output
+# Run the pipeline
+autoclean -DataPath "/path/to/data" -Task "RestingEyesOpen" -ConfigPath "/path/to/config.yaml"
+
+# View help
+autoclean --help
 ```
 
-2. Using docker directly:
-```bash
-docker run -it --rm \
-  --shm-size=2g \
-  -v $(pwd)/data:/data \
-  -v $(pwd)/configs:/app/configs \
-  autoclean:latest --task resting_eyes_open --input /data/input --output /data/output
-```
+### Command Parameters
 
-### Data Mounting
+- `-DataPath`: Directory containing raw EEG data or path to single data file
+- `-Task`: Processing task type (RestingEyesOpen, ASSR, ChirpDefault, etc.)
+- `-ConfigPath`: Path to configuration YAML file
+- `-OutputPath`: (Optional) Output directory, defaults to "./output"
 
-- Mount your input data directory to `/data` inside the container
-- Configuration files should be mounted to `/app/configs`
-- Output will be written to the mounted data directory
+### Requirements
 
-### Resource Configuration
+- Docker Desktop installed and running
+- Docker Compose v2 or higher
+- PowerShell 5.1+ (Windows) or Bash (Linux/WSL)
 
-The default configuration in docker-compose.yml allocates:
-- 2GB shared memory
-- 4-8GB RAM
-- These can be adjusted in the docker-compose.yml file
+### Notes
 
-### GUI Support (if needed)
-
-For GUI support on Linux systems:
-```bash
-xhost +local:docker
-docker-compose run --rm -e DISPLAY=$DISPLAY -v /tmp/.X11-unix:/tmp/.X11-unix autoclean
-```
+- Windows paths are automatically converted to the appropriate format in WSL
+- The script handles mounting volumes and setting environment variables
+- Output directories are created automatically if they don't exist
+- All paths can be absolute or relative

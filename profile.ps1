@@ -1,14 +1,76 @@
+# =============================================================================
+# AutoClean EEG Processing Pipeline PowerShell Script
+# =============================================================================
+#
+# INSTALLATION:
+# 1. Either:
+#    a) Copy this file to your PowerShell profile:
+#       Copy-Item profile.ps1 $PROFILE
+#    OR
+#    b) Add this line to your existing profile:
+#       . .\profile.ps1
+#
+# USAGE:
+#    autoclean -DataPath "C:\Data\raw" -Task "RestingEyesOpen" -ConfigPath "C:\configs\autoclean_config.yaml"
+#
+# VIEW HELP:
+#    Get-Help autoclean -Detailed
+#
+# REQUIREMENTS:
+# - Docker Desktop for Windows
+# - PowerShell 5.1 or higher
+# =============================================================================
+
+function Get-AutocleanHelp {
+    $help = @"
+Starts containerized autoclean pipeline.
+Usage: autoclean -DataPath <path> -Task <task> -ConfigPath <config> [-OutputPath <path>]
+
+Required:
+  -DataPath <path>    Directory containing raw EEG data or file path to single data file
+  -Task <task>        Task type (Defined in src/autoclean/tasks)
+  -ConfigPath <path>  Path to configuration YAML file
+
+Optional:
+  -OutputPath <path>  Output directory (default: .\output)
+  -Help              Show this help message
+
+Example:
+  autoclean -DataPath "C:\Data\raw" -Task "RestingEyesOpen" -ConfigPath "C:\configs\autoclean_config.yaml"
+"@
+    Write-Host $help
+}
+
 function autoclean {
+    <#
+    .SYNOPSIS
+    Starts containerized autoclean pipeline.
+    .EXAMPLE
+    autoclean -DataPath "C:\Data\raw" -Task "RestingEyesOpen" -ConfigPath "C:\configs\autoclean_config.yaml"
+    #>
+    [CmdletBinding(DefaultParameterSetName="Help")]
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(ParameterSetName="Help")]
+        [switch]$Help,
+
+        [Parameter(Mandatory=$true, ParameterSetName="Execute")]
         [string]$DataPath,
-        [Parameter(Mandatory=$true)]
+
+        [Parameter(Mandatory=$true, ParameterSetName="Execute")]
         [string]$Task,
-        [Parameter(Mandatory=$true)]
+
+        [Parameter(Mandatory=$true, ParameterSetName="Execute")]
         [string]$ConfigPath,
-        [Parameter(Mandatory=$false)]
+
+        [Parameter(Mandatory=$false, ParameterSetName="Execute")]
         [string]$OutputPath = ".\output"
     )
+    
+    # Show help if -Help is specified or no parameters are provided
+    if ($Help -or $PSCmdlet.ParameterSetName -eq "Help") {
+        Get-AutocleanHelp
+        return
+    }
     
     # Ensure paths exist
     if (-not (Test-Path $DataPath)) {
@@ -37,6 +99,7 @@ function autoclean {
     $env:CONFIG_PATH = (Split-Path $ConfigPath -Parent)
     $env:OUTPUT_PATH = $OutputPath
     
-    # Run using docker-compose with just the task argument
+    # Run using docker-compose
+    Write-Host "Starting docker-compose..."
     docker-compose run --rm autoclean --task $Task --data $DataPath --config $ConfigFile --output $OutputPath
 } 

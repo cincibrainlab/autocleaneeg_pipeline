@@ -56,3 +56,4 @@ data/pipeline.db
 /data
 /outputs
 /output
+uv.lock
