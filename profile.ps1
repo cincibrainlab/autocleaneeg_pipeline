@@ -4,8 +4,10 @@ function autoclean {
         [string]$DataPath,
         [Parameter(Mandatory=$true)]
         [string]$Task,
+        [Parameter(Mandatory=$true)]
+        [string]$ConfigPath,
         [Parameter(Mandatory=$false)]
-        [string]$ConfigPath = ".\configs"  # Default to local configs directory
+        [string]$OutputPath = ".\output"
     )
     
     # Ensure paths exist
@@ -18,14 +20,23 @@ function autoclean {
         return
     }
     
+    # Create output directory if it doesn't exist
+    if (-not (Test-Path $OutputPath)) {
+        New-Item -ItemType Directory -Path $OutputPath | Out-Null
+    }
+    
     Write-Host "Using data from: $DataPath"
     Write-Host "Using configs from: $ConfigPath"
     Write-Host "Task: $Task"
+    Write-Host "Output will be written to: $OutputPath"
+
+    $ConfigFile = (Split-Path $ConfigPath -Leaf)
     
-    $cmd = "docker run -it --rm" + 
-           " -v `"$DataPath`":/data" +
-           " -v `"$ConfigPath`":/app/configs" +
-           " autoclean:latest --task $Task"
-           
-    Invoke-Expression $cmd
+    # Set environment variables for docker-compose
+    $env:EEG_DATA_PATH = $DataPath
+    $env:CONFIG_PATH = (Split-Path $ConfigPath -Parent)
+    $env:OUTPUT_PATH = $OutputPath
+    
+    # Run using docker-compose with just the task argument
+    docker-compose run --rm autoclean --task $Task --data $DataPath --config $ConfigFile --output $OutputPath
 } 

@@ -15,6 +15,12 @@ def main():
     parser = argparse.ArgumentParser(description='AutoClean EEG Processing Pipeline')
     parser.add_argument('--task', type=str, required=True,
                       help='Task to run (e.g., RestingEyesOpen)')
+    parser.add_argument('--data', type=str, required=True,
+                      help='Path to data file or directory')
+    parser.add_argument('--config', type=str, default='/app/configs/autoclean_config.yaml',
+                      help='Path to config file')
+    parser.add_argument('--output', type=str, default='/app/output',
+                      help='Output directory')
     
     args = parser.parse_args()
     

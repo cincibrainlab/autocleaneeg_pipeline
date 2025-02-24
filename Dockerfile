@@ -26,7 +26,7 @@ RUN pip install uv && \
 # Copy project files
 COPY pyproject.toml uv.lock LICENSE ./
 COPY README.md ./
-COPY src/autoclean ./autoclean
+COPY src/autoclean ./src/autoclean
 COPY configs ./configs
 
 # Install Python dependencies using uv

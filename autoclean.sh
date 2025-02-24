@@ -1,57 +1,162 @@
 #!/bin/bash
 
-# Help function
-show_help() {
-    echo "Usage: autoclean -t TASK -d DATA_PATH [-c CONFIG_PATH]"
-    echo
-    echo "Required arguments:"
-    echo "  -t TASK        Task to run (e.g., RestingEyesOpen)"
-    echo "  -d DATA_PATH   Path to data file or directory"
-    echo
-    echo "Optional arguments:"
-    echo "  -c CONFIG_PATH Path to config directory (default: ./configs)"
-    echo "  -h            Show this help message"
-    exit 1
+# =============================================================================
+# AutoClean EEG Processing Pipeline Shell Script
+# =============================================================================
+#
+# INSTALLATION:
+# 1. Save this file as 'autoclean.sh'
+# 2. Make it executable:
+#    chmod +x autoclean.sh
+# 3. Source it in your shell:
+#    source autoclean.sh
+#    or add to your ~/.bashrc:
+#    echo "source /path/to/autoclean.sh" >> ~/.bashrc
+#
+# QUICK START:
+# 1. Basic usage:
+#    autoclean -DataPath "/path/to/data" -Task "RestingEyesOpen" -ConfigPath "/path/to/config.yaml"
+#
+# 2. View help:
+#    autoclean --help
+#
+# REQUIREMENTS:
+# - Docker and docker-compose must be installed and running
+# - Appropriate permissions to execute Docker commands
+# =============================================================================
+
+autoclean() {
+    # Check for help flag
+    if [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
+        autoclean_help
+        return 0
+    }
+
+    # Check if required arguments are provided
+    if [ "$#" -lt 3 ]; then
+        echo "Error: Missing required arguments"
+        echo "Use 'autoclean --help' for usage information"
+        return 1
+    }
+
+    # Parse arguments
+    data_path=""
+    task=""
+    config_path=""
+    output_path="./output"
+
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -DataPath)
+                data_path="$2"
+                shift 2
+                ;;
+            -Task)
+                task="$2"
+                shift 2
+                ;;
+            -ConfigPath)
+                config_path="$2"
+                shift 2
+                ;;
+            -OutputPath)
+                output_path="$2"
+                shift 2
+                ;;
+            *)
+                echo "Error: Unknown parameter: $1"
+                echo "Use 'autoclean --help' for usage information"
+                return 1
+                ;;
+        esac
+    done
+
+    # Validate required parameters
+    if [ -z "$data_path" ] || [ -z "$task" ] || [ -z "$config_path" ]; then
+        echo "Error: Missing required parameters"
+        echo "Use 'autoclean --help' for usage information"
+        return 1
+    fi
+
+    # Check if paths exist
+    if [ ! -d "$data_path" ]; then
+        echo "Error: Data path does not exist: $data_path"
+        return 1
+    fi
+
+    if [ ! -f "$config_path" ]; then
+        echo "Error: Config path does not exist: $config_path"
+        return 1
+    fi
+
+    # Create output directory if it doesn't exist
+    mkdir -p "$output_path"
+
+    # Display information
+    echo "Using data from: $data_path"
+    echo "Using configs from: $config_path"
+    echo "Task: $task"
+    echo "Output will be written to: $output_path"
+
+    # Get config filename
+    config_file=$(basename "$config_path")
+    config_dir=$(dirname "$config_path")
+
+    # Set environment variables for docker-compose
+    export EEG_DATA_PATH="$data_path"
+    export CONFIG_PATH="$config_dir"
+    export OUTPUT_PATH="$output_path"
+
+    # Run using docker-compose
+    docker-compose run --rm autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
 }
 
-# Default config path
-CONFIG_PATH="./configs"
+autoclean_help() {
+    cat << 'EOF'
+NAME
+    autoclean - Automated EEG Processing Pipeline
 
-# Parse arguments
-while getopts "t:d:c:h" opt; do
-    case $opt in
-        t) TASK="$OPTARG" ;;
-        d) DATA_PATH="$OPTARG" ;;
-        c) CONFIG_PATH="$OPTARG" ;;
-        h) show_help ;;
-        ?) show_help ;;
-    esac
-done
+SYNOPSIS
+    autoclean -DataPath <path> -Task <task_name> -ConfigPath <config_path> [-OutputPath <output_path>]
+    autoclean --help
 
-# Check required arguments
-if [ -z "$TASK" ] || [ -z "$DATA_PATH" ]; then
-    echo "Error: Task (-t) and Data Path (-d) are required"
-    show_help
-fi
+DESCRIPTION
+    Processes EEG data using a containerized pipeline with specified configurations.
 
-# Validate paths
-if [ ! -e "$DATA_PATH" ]; then
-    echo "Error: Data path does not exist: $DATA_PATH"
-    exit 1
-fi
+REQUIRED ARGUMENTS
+    -DataPath <path>
+        Path to the directory containing raw EEG data files.
+        Must be an existing directory.
 
-if [ ! -d "$CONFIG_PATH" ]; then
-    echo "Error: Config path does not exist or is not a directory: $CONFIG_PATH"
-    exit 1
-fi
+    -Task <task_name>
+        Name of the processing task to execute.
+        Available tasks: RestingEyesOpen, ASSR, ChirpDefault, HBCD_MMN, MouseXDatResting
 
-# Print info
-echo "Using data from: $DATA_PATH"
-echo "Using configs from: $CONFIG_PATH"
-echo "Task: $TASK"
+    -ConfigPath <config_path>
+        Path to the configuration YAML file.
+        Must be an existing file.
 
-# Run docker command
-docker run -it --rm \
-    -v "$DATA_PATH":/data \
-    -v "$CONFIG_PATH":/app/configs \
-    autoclean:latest --task "$TASK" 
+OPTIONAL ARGUMENTS
+    -OutputPath <output_path>
+        Directory where processed data will be saved.
+        Defaults to "./output"
+        Will be created if it doesn't exist.
+
+    --help
+        Display this help message and exit.
+
+EXAMPLES
+    # Process resting state data with default output location
+    autoclean -DataPath "/data/eeg/raw" -Task "RestingEyesOpen" -ConfigPath "/configs/autoclean_config.yaml"
+
+    # Process with custom output location
+    autoclean -DataPath "/data/eeg/raw" -Task "ASSR" -ConfigPath "/configs/autoclean_config.yaml" -OutputPath "/results/assr_output"
+
+    # Display help
+    autoclean --help
+EOF
+}
+
+# Make the functions available in the shell
+export -f autoclean
+export -f autoclean_help 

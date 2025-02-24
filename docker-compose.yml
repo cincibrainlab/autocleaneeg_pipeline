@@ -15,9 +15,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 8G
+          memory: 16G
         reservations:
-          memory: 4G
+          memory: 8G
     # Example commands:
     # Process all files: --task RestingEyesOpen
     # Process single file: --task RestingEyesOpen --filename subject1.eeg
