@@ -5,8 +5,8 @@ bridged_channels:
 epoching:
     epochs_args:
         baseline: null
-        tmax: 1.5
-        tmin: -0.5
+        tmax: 2
+        tmin: 0
     overlap: 0
 filtering:
     filter_args:
@@ -20,7 +20,6 @@ ica:
         run1:
             method: fastica
         run2:
-            n_components: 20
             fit_params:
                 extended: true
             method: infomax
