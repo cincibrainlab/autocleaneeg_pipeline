@@ -77,6 +77,16 @@ function autoclean {
         Write-Error "Data path does not exist: $DataPath"
         return
     }
+
+    # Handle single file vs directory
+    $DataMountPath = if (Test-Path $DataPath -PathType Leaf) {
+        $DataFile = Split-Path $DataPath -Leaf
+        Split-Path $DataPath -Parent
+    } else {
+        $DataFile = ""
+        $DataPath
+    }
+
     if (-not (Test-Path $ConfigPath)) {
         Write-Error "Config path does not exist: $ConfigPath"
         return
@@ -95,11 +105,17 @@ function autoclean {
     $ConfigFile = (Split-Path $ConfigPath -Leaf)
     
     # Set environment variables for docker-compose
-    $env:EEG_DATA_PATH = $DataPath
+    $env:EEG_DATA_PATH = $DataMountPath
     $env:CONFIG_PATH = (Split-Path $ConfigPath -Parent)
     $env:OUTPUT_PATH = $OutputPath
     
     # Run using docker-compose
     Write-Host "Starting docker-compose..."
-    docker-compose run --rm autoclean --task $Task --data $DataPath --config $ConfigFile --output $OutputPath
+    if ($DataFile) {
+        # For single file
+        docker-compose run --rm autoclean --task $Task --data $DataFile --config $ConfigFile --output $OutputPath
+    } else {
+        # For directory
+        docker-compose run --rm autoclean --task $Task --data $DataPath --config $ConfigFile --output $OutputPath
+    }
 } 

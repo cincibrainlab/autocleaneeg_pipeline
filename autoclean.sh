@@ -109,9 +109,19 @@ main() {
     fi
 
     # Check if paths exist
-    if [ ! -d "$data_path" ]; then
+    if [ ! -e "$data_path" ]; then
         echo "Error: Data path does not exist: $data_path"
         exit 1
+    fi
+
+    # Get the parent directory if data_path is a file
+    if [ -f "$data_path" ]; then
+        local data_file=$(basename "$data_path")
+        local data_dir=$(dirname "$data_path")
+        data_mount_path="$data_dir"
+    else
+        data_mount_path="$data_path"
+        data_file=""
     fi
 
     if [ ! -f "$config_path" ]; then
@@ -133,13 +143,19 @@ main() {
     local config_dir=$(dirname "$config_path")
 
     # Set environment variables for docker-compose
-    export EEG_DATA_PATH="$data_path"
+    export EEG_DATA_PATH="$data_mount_path"
     export CONFIG_PATH="$config_dir"
     export OUTPUT_PATH="$output_path"
 
     # Run using docker-compose
     echo "Starting docker-compose..."
-    docker-compose run --rm autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
+    if [ -n "$data_file" ]; then
+        # For single file
+        docker-compose run --rm autoclean --task "$task" --data "$data_file" --config "$config_file" --output "$output_path"
+    else
+        # For directory
+        docker-compose run --rm autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
+    fi
 }
 
 # Execute main function with all arguments
