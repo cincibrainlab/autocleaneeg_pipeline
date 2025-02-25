@@ -48,7 +48,7 @@ RUN python -m venv /app/venv && \
     pip install --no-cache-dir pip --upgrade wheel setuptools
 
 # Copy package files in the correct order for better layer caching
-COPY pyproject.toml uv.lock ./
+COPY pyproject.toml ./
 COPY LICENSE ./
 COPY README.md ./
 COPY src/autoclean ./src/autoclean
