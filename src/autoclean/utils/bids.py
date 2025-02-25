@@ -100,6 +100,11 @@ def step_convert_to_bids(
         "allow_preload": True,
     }
 
+    # Create derivatives directory structure
+    derivatives_dir = bids_root / "derivatives" / "pylossless" / f"sub-{subject_id}" / "eeg"
+    derivatives_dir.mkdir(parents=True, exist_ok=True)
+    message("info", f"Created derivatives directory structure at {derivatives_dir}")
+
     # Write BIDS data
     try:
         write_raw_bids(**bids_kwargs)

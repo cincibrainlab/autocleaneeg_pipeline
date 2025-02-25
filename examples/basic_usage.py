@@ -12,7 +12,7 @@ from pathlib import Path
 from autoclean import Pipeline
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean_test")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to this example
 
 # Create output directory if it doesn't exist
@@ -28,7 +28,7 @@ def process_single_file():
     )
     
     # Example file path - modify this to point to your EEG file
-    file_path = Path("C:/Users/Gam9LG/Documents/DATA/n141_resting/raw/0079_rest.raw")
+    file_path = Path("C:/Users/Gam9LG/Documents/DATA/n141_resting/raw/0199_rest.raw")
     
     # Process the file
     pipeline.process_file(
