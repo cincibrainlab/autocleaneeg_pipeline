@@ -6,6 +6,7 @@ import os
 import sys
 import warnings
 from enum import Enum
+from pathlib import Path
 from typing import Optional, Union
 
 from loguru import logger
@@ -142,9 +143,13 @@ def message(level: str, text: str, **kwargs) -> None:
         logger.log(level, text)
 
 
-def configure_logger(verbose: Optional[Union[bool, str, int, LogLevel]] = None) -> None:
+def configure_logger(
+    verbose: Optional[Union[bool, str, int, LogLevel]] = None,
+    output_dir: Optional[Union[str, Path]] = None,
+    task: Optional[str] = None
+) -> None:
     """
-    Configure the logger based on verbosity level, following MNE's conventions.
+    Configure the logger based on verbosity level and output directory.
 
     Args:
         verbose: Controls logging verbosity. Can be:
@@ -153,15 +158,28 @@ def configure_logger(verbose: Optional[Union[bool, str, int, LogLevel]] = None) 
             - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
             - LogLevel enum: Direct log level specification
             - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
+        output_dir: Directory where task outputs will be stored
+        task: Name of the current task. If provided, logs will be stored in task's debug directory
     """
     logger.remove()
 
     # Convert input to LogLevel using our new conversion method
     level = LogLevel.from_value(verbose)
 
+    # Set up log directory
+    if output_dir is not None and task is not None:
+        # Create logs directory in the task's debug directory
+        log_dir = Path(output_dir) / task / "logs"
+    else:
+        # Fallback to current working directory if no task-specific path
+        log_dir = Path(os.getcwd()) / "logs"
+    
+    # Create logs directory
+    log_dir.mkdir(parents=True, exist_ok=True)
+
     # File handler with rotation and retention
     logger.add(
-        "logs/autoclean_{time}.log",
+        str(log_dir / "autoclean_{time}.log"),
         rotation="1 day",  # Rotate daily
         retention="1 week",  # Keep logs for 1 week
         compression="zip",  # Compress rotated logs
@@ -170,7 +188,7 @@ def configure_logger(verbose: Optional[Union[bool, str, int, LogLevel]] = None) 
         backtrace=True,  # Better exception logging
         diagnose=True,  # Show variable values in tracebacks
         enqueue=True,  # Thread-safe logging
-        colorize=False,  # No colors in file
+        colorize=True,  # No colors in file
         catch=True,  # Catch errors within handlers
     )
 

@@ -111,5 +111,5 @@ function autoclean {
     
     # Run using docker-compose
     Write-Host "Starting docker-compose..."
-    docker-compose run autoclean --task $Task --data $DataPath --config $ConfigFile --output $OutputPath
+    docker-compose run --rm autoclean --task $Task --data $DataPath --config $ConfigFile --output $OutputPath
 } 

@@ -121,7 +121,6 @@ class Pipeline:
         self,
         autoclean_dir: str | Path,
         autoclean_config: str | Path,
-        use_async: bool = False,
         verbose: Optional[Union[bool, str, int]] = None,
     ):
         """Initialize a new processing pipeline.
@@ -155,28 +154,16 @@ class Pipeline:
             ...     verbose="debug"  # Enable detailed logging
             ... )
         """
-        # Configure logging first
-        configure_logger(verbose)
+        # Convert paths to absolute Path objects
+        self.autoclean_dir = Path(autoclean_dir).absolute()
+        self.autoclean_config = Path(autoclean_config).absolute()
+
+        # Configure logging first with output directory
+        self.verbose = verbose
+        configure_logger(verbose, output_dir=self.autoclean_dir)
         mne.set_log_level(verbose)
 
         message("header", "Welcome to AutoClean!")
-
-        # Convert to Path objects for consistent cross-platform handling
-        self.autoclean_dir = Path(autoclean_dir)
-        if self.autoclean_dir.exists():
-            message("success", f"✓ AUTOCLEAN_DIR: {self.autoclean_dir}")
-        elif self.autoclean_dir.exists() and not self.autoclean_dir.parent.exists():
-            raise EnvironmentError(
-                f"Parent directory for AUTOCLEAN_DIR does not exist: {self.autoclean_dir.parent}"
-            )
-
-        self.autoclean_config = Path(autoclean_config)
-        if self.autoclean_config.exists():
-            message("success", f"✓ AUTOCLEAN_CONFIG: {self.autoclean_config}")
-        else:
-            raise FileNotFoundError(
-                f"AUTOCLEAN_CONFIG does not exist: {self.autoclean_config}"
-            )
 
         # Load YAML config into memory for repeated access during processing
         self.autoclean_dict = load_config(self.autoclean_config)
@@ -218,6 +205,7 @@ class Pipeline:
             Users should not call this method directly.
         """
         task = self._validate_task(task)
+        configure_logger(self.verbose, output_dir=self.autoclean_dir, task=task)
         # Either create new run record or resume existing one
         if run_id is None:
             # Generate time-ordered unique ID for run tracking
@@ -265,8 +253,7 @@ class Pipeline:
                 metadata_dir,  # Processing metadata storage
                 clean_dir,  # Cleaned data output
                 stage_dir,  # Intermediate processing stages
-                debug_dir,  # Debug information and logs
-                script_dir,  # Generated processing scripts
+                logs_dir,  # Debug information and logs
             ) = step_prepare_directories(task, self.autoclean_dir)
 
             # Update database with directory structure
@@ -279,9 +266,8 @@ class Pipeline:
                             "bids": str(bids_dir),
                             "metadata": str(metadata_dir),
                             "clean": str(clean_dir),
-                            "debug": str(debug_dir),
+                            "logs": str(logs_dir),
                             "stage": str(stage_dir),
-                            "script": str(script_dir),
                         }
                     },
                 },
@@ -313,7 +299,7 @@ class Pipeline:
                 "bids_dir": bids_dir,
                 "metadata_dir": metadata_dir,
                 "clean_dir": clean_dir,
-                "debug_dir": debug_dir,
+                "logs_dir": logs_dir,
                 "stage_dir": stage_dir,
                 "config_hash": config_hash,
                 "config_b64": b64_config,

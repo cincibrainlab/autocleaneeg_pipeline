@@ -35,9 +35,8 @@ def step_prepare_directories(
         "bids": autoclean_dir / task / "bids",
         "metadata": autoclean_dir / task / "metadata",
         "clean": autoclean_dir / task / "postcomps",
-        "debug": autoclean_dir / task / "debug",
+        "logs": autoclean_dir / task / "logs",
         "stage": autoclean_dir / task / "stage",
-        "script": Path(__file__).parent,
     }
 
     # Create directories with error handling
@@ -65,6 +64,5 @@ def step_prepare_directories(
         dirs["metadata"],
         dirs["clean"],
         dirs["stage"],
-        dirs["debug"],
-        dirs["script"],
+        dirs["logs"],
     )
