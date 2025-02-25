@@ -19,6 +19,3 @@ services:
         reservations:
           memory: 8G
     # Example commands:
-    # Process all files: --task RestingEyesOpen
-    # Process single file: --task RestingEyesOpen --filename subject1.eeg
-    command: ["--task", "RestingEyesOpen"] 
