@@ -37,6 +37,8 @@ RUN apt-get update && \
     websockify \
     openbox \
     supervisor \
+    evince \
+    firefox-esr \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory and virtual environment
@@ -55,7 +57,8 @@ COPY configs ./configs
 # Install dependencies
 RUN . /app/venv/bin/activate && \
     pip install --no-cache-dir uv && \
-    uv pip install --no-cache -e ".[gui]"
+    uv pip install --no-cache -e ".[gui]" && \
+    uv pip install --no-cache PyMuPDF
 
 # Create output directory with proper permissions
 RUN mkdir -p /app/output && \
@@ -112,4 +115,4 @@ RUN mkdir -p /var/log/supervisor && \
 EXPOSE 6080
 
 # Set the startup command
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
