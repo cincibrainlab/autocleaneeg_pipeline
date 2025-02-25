@@ -104,12 +104,23 @@ autoclean -DataPath "C:\Data\raw" -Task "RestingEyesOpen" -ConfigPath "C:\config
 autoclean -Help
 ```
 
-### Linux/WSL
+### Linux/WSL/Mac
 
 ```bash
 # Add the autoclean command to your system
-sudo cp autoclean.sh /usr/local/bin/autoclean
-sudo chmod +x /usr/local/bin/autoclean
+# Create directory if it doesn't exist
+mkdir -p ~/.local/bin
+
+# Copy script to this directory
+cp autoclean.sh ~/.local/bin/autoclean
+
+# Make it executable
+chmod +x ~/.local/bin/autoclean
+
+# Most modern Linux distributions automatically include ~/.local/bin in PATH
+# If it's not in your PATH, add it to your shell configuration:
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+
 
 # Run the pipeline
 autoclean -DataPath "/path/to/data" -Task "RestingEyesOpen" -ConfigPath "/path/to/config.yaml"

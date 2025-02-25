@@ -120,6 +120,16 @@ main() {
         exit 1
     fi
 
+    # Get the parent directory if data_path is a file
+    if [ -f "$data_path" ]; then
+        local data_file=$(basename "$data_path")
+        local data_dir=$(dirname "$data_path")
+        data_mount_path="$data_dir"
+    else
+        data_mount_path="$data_path"
+        data_file=""
+    fi
+
     if [ ! -f "$config_path" ]; then
         echo "Error: Config path does not exist: $config_path"
         exit 1
@@ -144,7 +154,13 @@ main() {
 
     # Run using docker-compose
     echo "Starting docker-compose..."
-    docker-compose run --rm autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
+    if [ -n "$data_file" ]; then
+        # For single file
+        docker-compose run --rm autoclean --task "$task" --data "$data_file" --config "$config_file" --output "$output_path"
+    else
+        # For directory
+        docker-compose run --rm autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
+    fi
 }
 
 # Execute main function with all arguments
