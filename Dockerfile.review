@@ -1,0 +1,115 @@
+# Use Python 3.10 as base image
+FROM python:3.10-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    VIRTUAL_ENV=/app/venv \
+    PATH="/app/venv/bin:$PATH" \
+    DISPLAY=:99 \
+    QT_QPA_PLATFORM=xcb \
+    LC_ALL=C.UTF-8 \
+    LANG=C.UTF-8
+
+# Install system dependencies, Qt, and noVNC
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    python3-pip \
+    python3-pyqt5 \
+    python3-pyqt5.qtwebengine \
+    python3-pyqt5.qtwebkit \
+    libqt5webkit5-dev \
+    libxcb1 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-keysyms1 \
+    libxcb-randr0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-xinerama0 \
+    xvfb \
+    x11vnc \
+    novnc \
+    websockify \
+    openbox \
+    supervisor \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory and virtual environment
+WORKDIR /app
+RUN python -m venv /app/venv && \
+    . /app/venv/bin/activate && \
+    pip install --no-cache-dir pip --upgrade wheel setuptools
+
+# Copy package files in the correct order for better layer caching
+COPY pyproject.toml uv.lock ./
+COPY LICENSE ./
+COPY README.md ./
+COPY src/autoclean ./src/autoclean
+COPY configs ./configs
+
+# Install dependencies
+RUN . /app/venv/bin/activate && \
+    pip install --no-cache-dir uv && \
+    uv pip install --no-cache -e ".[gui]"
+
+# Create output directory with proper permissions
+RUN mkdir -p /app/output && \
+    chmod 777 /app/output
+
+# Create startup script for noVNC
+RUN echo '#!/bin/bash\nwebsockify --web=/usr/share/novnc 6080 localhost:5900 --wrap-mode=ignore' > /usr/local/bin/novnc-start && \
+    chmod +x /usr/local/bin/novnc-start && \
+    ln -s /usr/share/novnc/vnc_auto.html /usr/share/novnc/index.html
+
+# Set up supervisord configuration
+RUN echo '[supervisord]\n\
+nodaemon=true\n\
+logfile=/var/log/supervisor/supervisord.log\n\
+pidfile=/var/run/supervisord.pid\n\
+user=root\n\
+\n\
+[program:xvfb]\n\
+priority=1\n\
+command=Xvfb :99 -screen 0 1024x768x16\n\
+autorestart=true\n\
+\n\
+[program:openbox]\n\
+priority=2\n\
+command=openbox\n\
+environment=DISPLAY=:99\n\
+autorestart=true\n\
+\n\
+[program:x11vnc]\n\
+priority=3\n\
+command=x11vnc -forever -shared -display :99\n\
+autorestart=true\n\
+\n\
+[program:novnc]\n\
+priority=4\n\
+command=/usr/local/bin/novnc-start\n\
+autorestart=true\n\
+\n\
+[program:autoclean]\n\
+priority=5\n\
+command=/app/venv/bin/python -u -c "from autoclean.tools.autoclean_review import run_autoclean_review; run_autoclean_review(\"/app/output\")"\n\
+environment=DISPLAY=:99,PYTHONUNBUFFERED=1,QT_DEBUG_PLUGINS=1,PYTHONPATH=/app/src\n\
+directory=/app\n\
+autorestart=true\n\
+stdout_logfile=/var/log/supervisor/autoclean.log\n\
+stderr_logfile=/var/log/supervisor/autoclean.err\n\
+startretries=3' > /etc/supervisor/conf.d/supervisord.conf
+
+# Create log directory for supervisor
+RUN mkdir -p /var/log/supervisor && \
+    chmod -R 777 /var/log/supervisor
+
+# Expose noVNC port
+EXPOSE 6080
+
+# Set the startup command
+CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"] 

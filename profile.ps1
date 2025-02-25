@@ -103,9 +103,19 @@ function autoclean {
     Write-Host "Output will be written to: $OutputPath"
 
     $ConfigFile = (Split-Path $ConfigPath -Leaf)
-    
-    # Set environment variables for docker-compose
-    $env:EEG_DATA_PATH = $DataMountPath
+
+    $ConfigFile = (Split-Path $ConfigPath -Leaf)
+
+    # Determine if DataPath is a file or directory
+    if (Test-Path -Path $DataPath -PathType Leaf) {
+        # If DataPath is a file, use its parent directory for mounting
+        $MountPath = Split-Path -Parent $DataPath
+        Write-Host "DataPath is a file. Mounting parent directory: $MountPath"
+        $env:EEG_DATA_PATH = $MountPath
+    } else {
+        # If DataPath is a directory, use it directly
+        $env:EEG_DATA_PATH = $DataPath
+    }
     $env:CONFIG_PATH = (Split-Path $ConfigPath -Parent)
     $env:OUTPUT_PATH = $OutputPath
     

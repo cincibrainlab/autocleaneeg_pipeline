@@ -108,8 +108,14 @@ main() {
         exit 1
     fi
 
-    # Check if paths exist
-    if [ ! -e "$data_path" ]; then
+    if [ -f "$data_path" ]; then
+        # If data_path is a file, use its parent directory for mounting
+        echo "DataPath is a file. Mounting parent directory: $(dirname "$data_path")"
+        export EEG_DATA_PATH=$(dirname "$data_path")
+    elif [ -d "$data_path" ]; then
+        # If data_path is a directory, use it directly
+        export EEG_DATA_PATH="$data_path"
+    else
         echo "Error: Data path does not exist: $data_path"
         exit 1
     fi
@@ -142,8 +148,7 @@ main() {
     local config_file=$(basename "$config_path")
     local config_dir=$(dirname "$config_path")
 
-    # Set environment variables for docker-compose
-    export EEG_DATA_PATH="$data_mount_path"
+    # Set remaining environment variables for docker-compose
     export CONFIG_PATH="$config_dir"
     export OUTPUT_PATH="$output_path"
 
