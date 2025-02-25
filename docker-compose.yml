@@ -19,3 +19,16 @@ services:
         reservations:
           memory: 8G
     # Example commands:
+
+  review:
+    build:
+      context: .
+      dockerfile: Dockerfile.review
+    image: autoclean-review:latest
+    volumes:
+      - ${OUTPUT_PATH:-C:/Users/Gam9LG/Documents/Autoclean}:/app/output
+    environment:
+      - PYTHONUNBUFFERED=1
+      - QT_QPA_PLATFORM=xcb
+    ports:
+      - 6080:6080     # noVNC web interface
