@@ -756,7 +756,14 @@ class FileSelector(QWidget):
                         message("info", f"Epoch number: {len(self.current_epochs)}")
                         message("info", "Manually marked epochs for removal:")
                         message("info", "=" * 50)
-                        bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
+                        
+                        # Store bad epochs before any cleanup can occur
+                        try:
+                            bad_epochs = sorted(self.plot_widget.mne.bad_epochs) if hasattr(self.plot_widget, 'mne') and self.plot_widget.mne is not None else []
+                        except AttributeError:
+                            bad_epochs = []
+                            message("warning", "Could not retrieve bad epochs, assuming none marked")
+                            
                         if bad_epochs:
                             message("info", f"Total epochs marked: {len(bad_epochs)}")
                             message("info", f"Epoch indices: {bad_epochs}")
@@ -786,7 +793,7 @@ class FileSelector(QWidget):
 
                         if reply == QMessageBox.Yes:
                             message("info", "Saving epochs to file...")
-                            self.current_epochs.drop(self.plot_widget.mne.bad_epochs)
+                            self.current_epochs.drop(bad_epochs)  # Use stored bad_epochs instead of accessing plot_widget
                             save_epochs_to_set(
                                 self.current_epochs, autoclean_dict, stage="post_edit"
                             )

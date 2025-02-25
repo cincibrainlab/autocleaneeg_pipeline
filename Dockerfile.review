@@ -70,42 +70,42 @@ RUN echo '#!/bin/bash\nwebsockify --web=/usr/share/novnc 6080 localhost:5900 --w
     ln -s /usr/share/novnc/vnc_auto.html /usr/share/novnc/index.html
 
 # Set up supervisord configuration
-RUN echo '[supervisord]\n\
-nodaemon=true\n\
-logfile=/var/log/supervisor/supervisord.log\n\
-pidfile=/var/run/supervisord.pid\n\
-user=root\n\
-\n\
-[program:xvfb]\n\
-priority=1\n\
-command=Xvfb :99 -screen 0 1024x768x16\n\
-autorestart=true\n\
-\n\
-[program:openbox]\n\
-priority=2\n\
-command=openbox\n\
-environment=DISPLAY=:99\n\
-autorestart=true\n\
-\n\
-[program:x11vnc]\n\
-priority=3\n\
-command=x11vnc -forever -shared -display :99\n\
-autorestart=true\n\
-\n\
-[program:novnc]\n\
-priority=4\n\
-command=/usr/local/bin/novnc-start\n\
-autorestart=true\n\
-\n\
-[program:autoclean]\n\
-priority=5\n\
-command=/app/venv/bin/python -u -c "from autoclean.tools.autoclean_review import run_autoclean_review; run_autoclean_review(\"/app/output\")"\n\
-environment=DISPLAY=:99,PYTHONUNBUFFERED=1,QT_DEBUG_PLUGINS=1,PYTHONPATH=/app/src\n\
-directory=/app\n\
-autorestart=true\n\
-stdout_logfile=/var/log/supervisor/autoclean.log\n\
-stderr_logfile=/var/log/supervisor/autoclean.err\n\
-startretries=3' > /etc/supervisor/conf.d/supervisord.conf
+RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'logfile=/var/log/supervisor/supervisord.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'pidfile=/var/run/supervisord.pid' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'user=root' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:xvfb]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'priority=1' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=Xvfb :99 -screen 0 1024x768x16' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:openbox]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'priority=2' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=openbox' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'environment=DISPLAY=:99' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:x11vnc]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'priority=3' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=x11vnc -forever -shared -display :99' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:novnc]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'priority=4' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=/usr/local/bin/novnc-start' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:autoclean]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'priority=5' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=/app/venv/bin/python -u -c "from autoclean import Pipeline; pipeline = Pipeline(autoclean_dir='"'"'/app/output'"'"', autoclean_config='"'"'/app/configs/autoclean_config.yaml'"'"', verbose='"'"'INFO'"'"'); pipeline.start_autoclean_review()"' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'environment=DISPLAY=:99,PYTHONUNBUFFERED=1,QT_DEBUG_PLUGINS=1,PYTHONPATH=/app/src' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'directory=/app' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/var/log/supervisor/autoclean.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/var/log/supervisor/autoclean.err' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'startretries=3' >> /etc/supervisor/conf.d/supervisord.conf
 
 # Create log directory for supervisor
 RUN mkdir -p /var/log/supervisor && \
