@@ -126,7 +126,7 @@ def step_pre_pipeline_processing(
         message("header", "Applying average reference...")
         ref_type = autoclean_dict["tasks"][task]["settings"]["reference_step"]["value"]
         if ref_type == "average":
-            raw = raw.set_eeg_reference(ref_type, projection=True)
+            raw = raw.set_eeg_reference(ref_type, projection=False)
         else:
             raw = raw.set_eeg_reference(ref_type)
         message("info", "  - Average reference applied")

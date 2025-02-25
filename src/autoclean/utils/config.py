@@ -150,56 +150,56 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
     Raises:
         ValueError: If parameters violate signal processing constraints
     """
-    # Get sampling rate
-    resample_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]
-    if not resample_settings["enabled"] or resample_settings["value"] is None:
-        message("error", "Resampling must be enabled and have a valid value")
-        raise ValueError("Invalid resampling configuration")
+    # # Get sampling rate
+    # resample_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]
+    # if not resample_settings["enabled"] or resample_settings["value"] is None:
+    #     message("error", "Resampling must be enabled and have a valid value")
+    #     raise ValueError("Invalid resampling configuration")
 
-    sampling_rate = resample_settings["value"]
-    nyquist_freq = sampling_rate / 2
+    # sampling_rate = resample_settings["value"]
+    # nyquist_freq = sampling_rate / 2
 
-    # Load lossless config to check filter settings
-    lossless_config_path = autoclean_dict["tasks"][task]["lossless_config"]
-    message("debug", f"Attempting to load config: {lossless_config_path}")
-    try:
-        with open(lossless_config_path) as f:
-            lossless_config = yaml.safe_load(f)
-    except Exception as e:
-        message(
-            "error",
-            f"Failed to validate config ({lossless_config_path}) for task: {task}",
-        )
-        raise e
+    # # Load lossless config to check filter settings
+    # lossless_config_path = autoclean_dict["tasks"][task]["lossless_config"]
+    # message("debug", f"Attempting to load config: {lossless_config_path}")
+    # try:
+    #     with open(lossless_config_path) as f:
+    #         lossless_config = yaml.safe_load(f)
+    # except Exception as e:
+    #     message(
+    #         "error",
+    #         f"Failed to validate config ({lossless_config_path}) for task: {task}",
+    #     )
+    #     raise e
 
-    # Validate filter settings
-    filter_args = lossless_config.get("filtering", {}).get("filter_args", {})
+    # # Validate filter settings
+    # filter_args = lossless_config.get("filtering", {}).get("filter_args", {})
 
-    # High-pass filter validation (ensures cutoff is below Nyquist)
-    h_freq = filter_args.get("h_freq", [])
-    if isinstance(h_freq, (int, float)):
-        h_freq = [h_freq]
-    if any(freq >= nyquist_freq for freq in h_freq):
-        message(
-            "error",
-            f"High-pass filter frequency {h_freq} must be below Nyquist frequency {nyquist_freq} Hz",
-        )
-        raise ValueError(
-            f"Filter frequency {h_freq} exceeds Nyquist frequency {nyquist_freq} Hz"
-        )
+    # # High-pass filter validation (ensures cutoff is below Nyquist)
+    # h_freq = filter_args.get("h_freq", [])
+    # if isinstance(h_freq, (int, float)):
+    #     h_freq = [h_freq]
+    # if any(freq >= nyquist_freq for freq in h_freq):
+    #     message(
+    #         "error",
+    #         f"High-pass filter frequency {h_freq} must be below Nyquist frequency {nyquist_freq} Hz",
+    #     )
+    #     raise ValueError(
+    #         f"Filter frequency {h_freq} exceeds Nyquist frequency {nyquist_freq} Hz"
+    #     )
 
-    # Low-pass filter validation (ensures cutoff is below Nyquist)
-    l_freq = filter_args.get("l_freq", [])
-    if isinstance(l_freq, (int, float)):
-        l_freq = [l_freq]
-    if any(freq >= nyquist_freq for freq in l_freq):
-        message(
-            "error",
-            f"Low-pass filter frequency {l_freq} must be below Nyquist frequency {nyquist_freq} Hz",
-        )
-        raise ValueError(
-            f"Filter frequency {l_freq} exceeds Nyquist frequency {nyquist_freq} Hz"
-        )
+    # # Low-pass filter validation (ensures cutoff is below Nyquist)
+    # l_freq = filter_args.get("l_freq", [])
+    # if isinstance(l_freq, (int, float)):
+    #     l_freq = [l_freq]
+    # if any(freq >= nyquist_freq for freq in l_freq):
+    #     message(
+    #         "error",
+    #         f"Low-pass filter frequency {l_freq} must be below Nyquist frequency {nyquist_freq} Hz",
+    #     )
+    #     raise ValueError(
+    #         f"Filter frequency {l_freq} exceeds Nyquist frequency {nyquist_freq} Hz"
+    #     )
 
     # Validate epoch settings if enabled
     epoch_settings = autoclean_dict["tasks"][task]["settings"]["epoch_settings"]

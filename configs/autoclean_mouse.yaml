@@ -20,6 +20,10 @@ tasks:
         enabled: true        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
       
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
       eog_step:
         enabled: false
         value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]  # Channel numbers for eye movement detection
@@ -51,6 +55,13 @@ tasks:
         value:
           tmin: 0
           tmax: 2
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: false
+          volt_threshold: 
+            eeg: 150e-6
     # ARTIFACT REJECTION SETTINGS
     rejection_policy:
       ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
@@ -69,6 +80,10 @@ tasks:
       resample_step:
         enabled: true        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
+
+      drop_outerlayer:
+        enabled: false
+        value: []
       
       eog_step:
         enabled: false
@@ -101,7 +116,13 @@ tasks:
         value:
           tmin: -0.5
           tmax: 1.5
-
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: false
+          volt_threshold: 
+            eeg: 150e-6
     # ARTIFACT REJECTION SETTINGS
     rejection_policy:
       ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
@@ -112,6 +133,71 @@ tasks:
       ic_rejection_threshold: 0.3                              # Threshold for component rejection
       remove_flagged_ics: true          
                             # Whether to remove marked components
+
+  MouseXdatAssr:
+    mne_task: "assr"
+    description: "Neuronexus Mouse XDAT assr State"
+    lossless_config: configs/pylossless/lossless_config_mea.yaml    # Points to additional configuration settings
+    settings:
+      # PROCESSING STEPS
+      # Each step can be enabled/disabled and has specific settings
+      
+      resample_step:
+        enabled: false        # Set to false to skip this step
+        value: 250          # New sampling rate in Hz
+
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]  # Channel numbers for eye movement detection
+      
+      trim_step:
+        enabled: true
+        value: 4            # Number of seconds to trim from start/end
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0          # Start time in seconds
+          end: null         # null means use entire recording, or specify time in seconds (e.g., 30.0)
+      
+      reference_step:
+        enabled: true
+        value: "average"    # Type of EEG reference to use
+      
+      montage:
+        enabled: false
+        value: "MEA30"  # Type of EEG cap/electrode layout
+
+      event_id:
+        enabled: true      
+        value: {'TTL_pulse_start'}          
+
+      epoch_settings:
+        enabled: true     # Resting state doesn't use epoching
+        value:
+          tmin: -0.5
+          tmax: 3
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: false
+          volt_threshold: 
+            eeg: 150e-6
+
+    # ARTIFACT REJECTION SETTINGS
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
+      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
+      interpolate_bads_kwargs:
+        method: "MNE"                                          # Method for interpolating bad channels
+      ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
+      ic_rejection_threshold: 0.3                              # Threshold for component rejection
+      remove_flagged_ics: true  
 
   
 # OUTPUT FILE CONFIGURATION
