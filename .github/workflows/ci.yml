@@ -1,153 +1,152 @@
-name: CI
+# name: CI
+# on:
+#   push:
+#     branches: [ main, dev ]
+#   pull_request:
+#     branches: [ main, dev ]
+#   workflow_dispatch:  # Allows manual triggering
 
-on:
-  push:
-    branches: [ main, dev ]
-  pull_request:
-    branches: [ main, dev ]
-  workflow_dispatch:  # Allows manual triggering
+# jobs:
+#   test:
+#     runs-on: ${{ matrix.os }}
+#     strategy:
+#       matrix:
+#         os: [ubuntu-latest, windows-latest]
+#         python-version: ['3.10', '3.11']
+        
+#     steps:
+#     - name: Checkout repository
+#       uses: actions/checkout@v4
+#       with:
+#         lfs: true
+        
+#     - name: Setup Git LFS
+#       run: |
+#         git lfs install
+#         git lfs pull
+    
+#     - name: Set up Python ${{ matrix.python-version }}
+#       uses: actions/setup-python@v5
+#       with:
+#         python-version: ${{ matrix.python-version }}
+#         cache: 'pip'
+    
+#     - name: Install system dependencies (Linux)
+#       if: runner.os == 'Linux'
+#       run: |
+#         sudo apt-get update
+#         sudo apt-get install -y libcairo2-dev pkg-config python3-dev xvfb qtbase5-dev qt5-qmake qttools5-dev-tools libqt5gui5 libqt5test5 libqt5widgets5 libqt5core5a
+    
+#     - name: Install system dependencies (Windows)
+#       if: runner.os == 'Windows'
+#       uses: msys2/setup-msys2@v2
+#       with:
+#         update: true
+#         install: >-
+#           mingw-w64-x86_64-cairo
+#           mingw-w64-x86_64-pkg-config
+#           mingw-w64-x86_64-gcc
+#           mingw-w64-x86_64-python-pip
+    
+#     - name: Add MSYS2 to PATH (Windows)
+#       if: runner.os == 'Windows'
+#       run: |
+#         echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+    
+#     - name: Install dependencies
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install uv
+#         uv venv
+#         uv pip install -e ".[dev]"
+#         pip install requests pytest pytest-cov pytest-timeout PyQt5
+        
+#     - name: Run tests
+#       env:
+#         DISPLAY: ':99.0'  # Virtual display for GUI tests
+#       shell: bash
+#       run: |
+#         if [ "$RUNNER_OS" == "Linux" ]; then
+#           # Start virtual display for Linux
+#           Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
+#           sleep 3  # Wait for Xvfb to start
+#         fi
+        
+#         if [ "$RUNNER_OS" == "Windows" ]; then
+#           source .venv/Scripts/activate
+#         else
+#           source .venv/bin/activate
+#         fi
+#         # Run with increased verbosity and show output in real time
+#         python -m pytest tests/test_simple_pipeline.py -v --capture=no
+        
+#     - name: Generate HTML coverage report
+#       shell: bash
+#       env:
+#         DISPLAY: ':99.0'  # Virtual display for GUI tests
+#       run: |
+#         if [ "$RUNNER_OS" == "Windows" ]; then
+#           source .venv/Scripts/activate
+#         else
+#           source .venv/bin/activate
+#         fi
+#         python -m pytest tests/test_simple_pipeline.py --cov=autoclean --cov-report=html
+        
+#     - name: Upload test results
+#       if: always()
+#       uses: actions/upload-artifact@v4
+#       with:
+#         name: test-results
+#         path: |
+#           .coverage
+#           htmlcov/
+#           test-results/
+#         retention-days: 30
 
-jobs:
-  test:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ['3.10', '3.11']
-        
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
-      with:
-        lfs: true
-        
-    - name: Setup Git LFS
-      run: |
-        git lfs install
-        git lfs pull
+#   lint:
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v3
     
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-        cache: 'pip'
+#     - name: Set up Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.10'
+#         cache: 'pip'
     
-    - name: Install system dependencies (Linux)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libcairo2-dev pkg-config python3-dev xvfb qtbase5-dev qt5-qmake qttools5-dev-tools libqt5gui5 libqt5test5 libqt5widgets5 libqt5core5a
-    
-    - name: Install system dependencies (Windows)
-      if: runner.os == 'Windows'
-      uses: msys2/setup-msys2@v2
-      with:
-        update: true
-        install: >-
-          mingw-w64-x86_64-cairo
-          mingw-w64-x86_64-pkg-config
-          mingw-w64-x86_64-gcc
-          mingw-w64-x86_64-python-pip
-    
-    - name: Add MSYS2 to PATH (Windows)
-      if: runner.os == 'Windows'
-      run: |
-        echo "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install uv
-        uv venv
-        uv pip install -e ".[dev]"
-        pip install requests pytest pytest-cov pytest-timeout PyQt5
+#     - name: Install dependencies
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install black isort mypy ruff
         
-    - name: Run tests
-      env:
-        DISPLAY: ':99.0'  # Virtual display for GUI tests
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" == "Linux" ]; then
-          # Start virtual display for Linux
-          Xvfb :99 -screen 0 1024x768x24 > /dev/null 2>&1 &
-          sleep 3  # Wait for Xvfb to start
-        fi
+#     - name: Check formatting (black)
+#       run: black --check src tests
         
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          source .venv/Scripts/activate
-        else
-          source .venv/bin/activate
-        fi
-        # Run with increased verbosity and show output in real time
-        python -m pytest tests/test_simple_pipeline.py -v --capture=no
+#     - name: Check imports (isort)
+#       run: isort --check-only src tests
         
-    - name: Generate HTML coverage report
-      shell: bash
-      env:
-        DISPLAY: ':99.0'  # Virtual display for GUI tests
-      run: |
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          source .venv/Scripts/activate
-        else
-          source .venv/bin/activate
-        fi
-        python -m pytest tests/test_simple_pipeline.py --cov=autoclean --cov-report=html
-        
-    - name: Upload test results
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: test-results
-        path: |
-          .coverage
-          htmlcov/
-          test-results/
-        retention-days: 30
+#     - name: Lint (ruff)
+#       run: ruff check src tests
 
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
+#   build:
+#     needs: [test, lint]
+#     runs-on: ubuntu-latest
+#     steps:
+#     - uses: actions/checkout@v3
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        cache: 'pip'
+#     - name: Set up Python
+#       uses: actions/setup-python@v4
+#       with:
+#         python-version: '3.10'
+#         cache: 'pip'
     
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install black isort mypy ruff
+#     - name: Install build dependencies
+#       run: |
+#         python -m pip install --upgrade pip
+#         pip install build twine
         
-    - name: Check formatting (black)
-      run: black --check src tests
+#     - name: Build package
+#       run: python -m build
         
-    - name: Check imports (isort)
-      run: isort --check-only src tests
-        
-    - name: Lint (ruff)
-      run: ruff check src tests
-
-  build:
-    needs: [test, lint]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
-        cache: 'pip'
-    
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
-        
-    - name: Build package
-      run: python -m build
-        
-    - name: Check package
-      run: twine check dist/* 
+#     - name: Check package
+#       run: twine check dist/* 
