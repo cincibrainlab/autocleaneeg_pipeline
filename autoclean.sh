@@ -111,6 +111,7 @@ main() {
     if [ -f "$data_path" ]; then
         # If data_path is a file, use its parent directory for mounting
         echo "DataPath is a file. Mounting parent directory: $(dirname "$data_path")"
+        local data_file=$(basename "$data_path")
         export EEG_DATA_PATH=$(dirname "$data_path")
     elif [ -d "$data_path" ]; then
         # If data_path is a directory, use it directly
@@ -120,15 +121,6 @@ main() {
         exit 1
     fi
 
-    # Get the parent directory if data_path is a file
-    if [ -f "$data_path" ]; then
-        local data_file=$(basename "$data_path")
-        local data_dir=$(dirname "$data_path")
-        data_mount_path="$data_dir"
-    else
-        data_mount_path="$data_path"
-        data_file=""
-    fi
 
     if [ ! -f "$config_path" ]; then
         echo "Error: Config path does not exist: $config_path"
@@ -139,7 +131,7 @@ main() {
     mkdir -p "$output_path"
 
     # Display information
-    echo "Using data from: $data_path"
+    echo "Using data from: $EEG_DATA_PATH"
     echo "Using configs from: $config_path"
     echo "Task: $task"
     echo "Output will be written to: $output_path"
@@ -155,11 +147,13 @@ main() {
     # Run using docker-compose
     echo "Starting docker-compose..."
     if [ -n "$data_file" ]; then
-        # For single file
-        docker-compose run --rm autoclean --task "$task" --data "$data_file" --config "$config_file" --output "$output_path"
+        # For single file - pass just the filename since parent dir is mounted as /data
+        echo "Processing single file: $data_file"
+        docker-compose run autoclean --task "$task" --data "$data_file" --config "$config_file" --output "$output_path"
     else
         # For directory
-        docker-compose run --rm autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
+        echo "Processing all files in directory: $data_path"
+        docker-compose run autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
     fi
 }
 

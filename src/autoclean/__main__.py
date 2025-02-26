@@ -37,17 +37,24 @@ def main():
     )
     
     # Check if input is file or directory
-    input_path = Path(DATA_DIR)
-    if input_path.is_file():
-        print(f"Processing single file: {input_path}")
+    input_path = Path(args.data)
+    
+    # Always look in DATA_DIR since that's where docker mounts the data
+    full_path = Path(DATA_DIR) / input_path.name
+    
+    if input_path.is_file():  # Just check if it's a file, no extension validation
+        print(f"Processing single file: {full_path}")
+        if not full_path.exists():
+            print(f"Error: File not found in mounted directory: {full_path}")
+            return 1
         pipeline.process_file(
-            file_path=str(input_path),
+            file_path=str(full_path),
             task=args.task
         )
     else:
-        print(f"Processing all files in directory: {input_path}")
+        print(f"Processing all files in directory: {DATA_DIR}")
         pipeline.process_directory(
-            directory=str(input_path),
+            directory=DATA_DIR,
             task=args.task
         )
 
