@@ -24,7 +24,7 @@ RUN pip install uv && \
     uv venv /app/venv
 
 # Copy project files
-COPY pyproject.toml uv.lock LICENSE ./
+COPY pyproject.toml LICENSE ./
 COPY README.md ./
 COPY src/autoclean ./src/autoclean
 COPY configs ./configs
