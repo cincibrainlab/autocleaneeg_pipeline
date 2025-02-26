@@ -57,3 +57,4 @@ data/pipeline.db
 /outputs
 /output
 uv.lock
+codefetch/codebase.md
