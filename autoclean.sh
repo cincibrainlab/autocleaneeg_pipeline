@@ -39,7 +39,7 @@ convert_path() {
 show_help() {
     cat << 'EOF'
 Starts containerized autoclean pipeline.
-Usage: autoclean -DataPath <path> -Task <task> -ConfigPath <config> [-OutputPath <path>]
+Usage: autoclean -DataPath <path> -Task <task> -ConfigPath <config> [-OutputPath <path>] [-WorkDir <path>]
 
 Required:
   -DataPath <path>    Directory containing raw EEG data or file path to single data file
@@ -48,6 +48,7 @@ Required:
 
 Optional:
   -OutputPath <path>  Output directory (default: ./output)
+  -WorkDir <path>     Working directory for the autoclean pipeline (default: current directory)
   --help             Show this help message
 
 Example:
@@ -74,6 +75,7 @@ main() {
     local task=""
     local config_path=""
     local output_path="./output"
+    local work_dir=$(pwd)  # Default to current directory
 
     while [[ $# -gt 0 ]]; do
         case $1 in
@@ -93,6 +95,10 @@ main() {
                 output_path=$(convert_path "$2")
                 shift 2
                 ;;
+            -WorkDir)
+                work_dir=$(convert_path "$2")
+                shift 2
+                ;;
             *)
                 echo "Error: Unknown parameter: $1"
                 echo "Use 'autoclean --help' for usage information"
@@ -105,6 +111,12 @@ main() {
     if [ -z "$data_path" ] || [ -z "$task" ] || [ -z "$config_path" ]; then
         echo "Error: Missing required parameters"
         echo "Use 'autoclean --help' for usage information"
+        exit 1
+    fi
+
+    # Validate work directory
+    if [ ! -d "$work_dir" ]; then
+        echo "Error: Working directory does not exist: $work_dir"
         exit 1
     fi
 
@@ -135,6 +147,7 @@ main() {
     echo "Using configs from: $config_path"
     echo "Task: $task"
     echo "Output will be written to: $output_path"
+    echo "Working directory: $work_dir"
 
     # Get config filename
     local config_file=$(basename "$config_path")
@@ -143,6 +156,9 @@ main() {
     # Set remaining environment variables for docker-compose
     export CONFIG_PATH="$config_dir"
     export OUTPUT_PATH="$output_path"
+
+    # Change to the working directory
+    cd "$work_dir"
 
     # Run using docker-compose
     echo "Starting docker-compose..."
