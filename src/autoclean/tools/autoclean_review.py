@@ -772,18 +772,35 @@ class FileSelector(QWidget):
                         message("info", "=" * 50)
 
                         run_record = get_run_record(self.current_run_id)
+                        
+                        # Get the original stage directory from the database
+                        original_stage_dir = Path(run_record["metadata"]["step_prepare_directories"]["stage"])
+                        
+                        # Extract the relative portion of the path that matters
+                        # This assumes the stage directory is within a structure we can extract
+                        # For example, if the path is /srv2/RAWDATA/.../MouseXdatAssr/stage/
+                        # We want to extract 'MouseXdatAssr/stage/' or just 'stage/'
+                        
+                        # Find the immediate parent directory that contains 'stage'
+                        try:
+                            # This gets the parent folder of 'stage' (typically the task name)
+                            task_name = original_stage_dir.parent.name
+                            # Reconstruct the path using the current directory and the task/stage structure
+                            container_stage_dir = Path(self.current_dir) / task_name / "stage"
+                            message("info", f"Remapped stage directory from {original_stage_dir} to {container_stage_dir}")
+                        except Exception as e:
+                            # If we can't extract the path structure, try a simpler approach
+                            # Just use the current directory as the base and add 'stage'
+                            container_stage_dir = Path(self.current_dir) / "stage"
+                            message("warning", f"Could not extract task name from path, using simplified mapping: {container_stage_dir}")
+                        
                         autoclean_dict = {
                             "run_id": self.current_run_id,
-                            "stage_files": run_record["metadata"]["entrypoint"][
-                                "stage_files"
-                            ],
-                            "stage_dir": Path(
-                                run_record["metadata"]["step_prepare_directories"][
-                                    "stage"
-                                ]
-                            ),
+                            "stage_files": run_record["metadata"]["entrypoint"]["stage_files"],
+                            "stage_dir": container_stage_dir,  # Use our remapped path
                             "unprocessed_file": run_record["unprocessed_file"],
                         }
+                        
                         reply = QMessageBox.question(
                             self,
                             "Confirm Save",
@@ -793,10 +810,16 @@ class FileSelector(QWidget):
 
                         if reply == QMessageBox.Yes:
                             message("info", "Saving epochs to file...")
-                            self.current_epochs.drop(bad_epochs)  # Use stored bad_epochs instead of accessing plot_widget
+                            self.current_epochs.drop(bad_epochs)
+                            
+                            # Create the stage directory if it doesn't exist
+                            container_stage_dir.mkdir(parents=True, exist_ok=True)
+                            
                             save_epochs_to_set(
                                 self.current_epochs, autoclean_dict, stage="post_edit"
                             )
+                            # Refresh the file tree after saving
+                            self.loadFiles()
                         else:
                             message("info", "Save cancelled by user")
 

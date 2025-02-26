@@ -74,7 +74,8 @@ gui = [
     "pyjsonviewer>=0.1.0",
     "reportlab>=3.6.0",
     "textual>=0.11.0",
-    "textual-dev>=0.11.0"
+    "textual-dev>=0.11.0",
+    "PyMuPDF"
 ]
 
 [project.scripts]
