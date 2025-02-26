@@ -47,18 +47,18 @@ RUN python -m venv /app/venv && \
     . /app/venv/bin/activate && \
     pip install --no-cache-dir pip --upgrade wheel setuptools
 
-# Copy package files in the correct order for better layer caching
+# Copy application files
 COPY pyproject.toml ./
 COPY LICENSE ./
 COPY README.md ./
 COPY src/autoclean ./src/autoclean
 COPY configs ./configs
 
-# Install dependencies
+# Install uv and dependencies first - this layer will be cached unless pyproject.toml changes
 RUN . /app/venv/bin/activate && \
-    pip install --no-cache-dir uv && \
-    uv pip install --no-cache -e ".[gui]" && \
-    uv pip install --no-cache PyMuPDF
+    pip install uv
+    
+RUN uv pip install -e ".[gui]"
 
 # Create output directory with proper permissions
 RUN mkdir -p /app/output && \

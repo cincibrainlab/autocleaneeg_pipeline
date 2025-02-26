@@ -774,14 +774,8 @@ class FileSelector(QWidget):
                         run_record = get_run_record(self.current_run_id)
                         autoclean_dict = {
                             "run_id": self.current_run_id,
-                            "stage_files": run_record["metadata"]["entrypoint"][
-                                "stage_files"
-                            ],
-                            "stage_dir": Path(
-                                run_record["metadata"]["step_prepare_directories"][
-                                    "stage"
-                                ]
-                            ),
+                            "stage_files": run_record["metadata"]["entrypoint"]["stage_files"],
+                            "stage_dir": Path(run_record["metadata"]["step_prepare_directories"]["stage"]),
                             "unprocessed_file": run_record["unprocessed_file"],
                         }
                         reply = QMessageBox.question(
@@ -793,10 +787,12 @@ class FileSelector(QWidget):
 
                         if reply == QMessageBox.Yes:
                             message("info", "Saving epochs to file...")
-                            self.current_epochs.drop(bad_epochs)  # Use stored bad_epochs instead of accessing plot_widget
+                            self.current_epochs.drop(bad_epochs)
                             save_epochs_to_set(
                                 self.current_epochs, autoclean_dict, stage="post_edit"
                             )
+                            # Refresh the file tree after saving
+                            self.loadFiles()
                         else:
                             message("info", "Save cancelled by user")
 
