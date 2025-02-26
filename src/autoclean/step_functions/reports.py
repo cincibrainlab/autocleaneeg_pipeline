@@ -2074,7 +2074,6 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     except Exception as e:
         message("error", f"Failed to generate or copy report: {str(e)}")
 
-
 def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
     """Update the task-specific processing log CSV file with details about the current file.
 
@@ -2082,114 +2081,144 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
         summary_dict: The summary dictionary containing processing details
     """
     try:
+        # Validate required top-level keys
+        required_keys = ["output_dir", "task", "timestamp", "run_id", "proc_state", 
+                        "basename", "bids_subject"]
+        for key in required_keys:
+            if key not in summary_dict:
+                message("error", f"Missing required key in summary_dict: {key}")
+                return
 
         # Define CSV path
         csv_path = (
             Path(summary_dict["output_dir"])
             / f"{summary_dict['task']}_processing_log.csv"
         )
-        # Extract details from summary_dict
+        
+        # Safe dictionary access function
+        def safe_get(d, *keys, default=""):
+            """Safely access nested dictionary keys"""
+            current = d
+            for key in keys:
+                if not isinstance(current, dict):
+                    return default
+                current = current.get(key, {})
+            return current if current is not None else default
+        
+        # Calculate percentages safely
+        def safe_percentage(numerator, denominator, default=""):
+            try:
+                num = float(numerator)
+                denom = float(denominator)
+                return str(num / denom) if denom != 0 else default
+            except (ValueError, TypeError):
+                return default
+        
+        # Extract details from summary_dict with safe access
         details = {
-            "timestamp": summary_dict["timestamp"],
+            "timestamp": summary_dict.get("timestamp", ""),
             "study_user": os.getenv("USERNAME", "unknown"),
-            "run_id": summary_dict["run_id"],
-            "proc_state": summary_dict["proc_state"],
-            "subj_basename": Path(summary_dict["basename"]).stem,
-            "bids_subject": summary_dict["bids_subject"],
-            "task": summary_dict["task"],
-            "net_nbchan_orig": str(summary_dict["import_details"]["net_nbchan_orig"]),
-            "net_nbchan_post": str(
-                summary_dict["export_details"].get("net_nbchan_post", "")
-            ),
-            "proc_badchans": str(
-                summary_dict["channel_dict"].get("removed_channels", "")
-            ),
-            "proc_filt_lowcutoff": str(summary_dict["processing_details"]["l_freq"]),
-            "proc_filt_highcutoff": str(summary_dict["processing_details"]["h_freq"]),
-            "proc_filt_notch": str(summary_dict["processing_details"]["notch_freqs"]),
-            "proc_filt_notch_width": str(
-                summary_dict["processing_details"]["notch_widths"]
-            ),
-            "proc_sRate_raw": str(summary_dict["import_details"]["sample_rate"]),
-            "proc_sRate1": str(summary_dict["export_details"].get("srate_post", "")),
-            "proc_xmax_raw": str(summary_dict["import_details"]["duration"]),
-            "proc_xmax_post": str(
-                summary_dict["export_details"].get("final_duration", "")
-            ),
-            "proc_xmax_percent": str(
-                float(summary_dict["export_details"].get("final_duration", ""))
-                / float(summary_dict["import_details"]["duration"])
-            ),
-            "epoch_length": str(summary_dict["export_details"].get("epoch_length", "")),
-            "epoch_limits": (
-                f"{summary_dict['export_details'].get('epoch_limits', '')}"
-                if "epoch_limits" in summary_dict["export_details"]
-                else ""
-            ),
-            "epoch_trials": str(
-                summary_dict["export_details"].get("initial_n_epochs", "")
-            ),
-            "epoch_badtrials": str(
-                float(summary_dict["export_details"].get("initial_n_epochs", ""))
-                - float(summary_dict["export_details"].get("final_n_epochs", ""))
-            ),
-            "epoch_percent": str(
-                float(summary_dict["export_details"].get("final_n_epochs", ""))
-                / float(summary_dict["export_details"].get("initial_n_epochs", ""))
-            ),
-            "proc_nComps": str(summary_dict["ica_details"].get("proc_nComps", "")),
-            "proc_removeComps": str(
-                summary_dict["ica_details"].get("proc_removeComps", "")
-            ),
-            "exclude_category": summary_dict["exclude_category"],
+            "run_id": summary_dict.get("run_id", ""),
+            "proc_state": summary_dict.get("proc_state", ""),
+            "subj_basename": Path(summary_dict.get("basename", "")).stem,
+            "bids_subject": summary_dict.get("bids_subject", ""),
+            "task": summary_dict.get("task", ""),
+            "net_nbchan_orig": str(safe_get(summary_dict, "import_details", "net_nbchan_orig", default="")),
+            "net_nbchan_post": str(safe_get(summary_dict, "export_details", "net_nbchan_post", default="")),
+            "proc_badchans": str(safe_get(summary_dict, "channel_dict", "removed_channels", default="")),
+            "proc_filt_lowcutoff": str(safe_get(summary_dict, "processing_details", "l_freq", default="")),
+            "proc_filt_highcutoff": str(safe_get(summary_dict, "processing_details", "h_freq", default="")),
+            "proc_filt_notch": str(safe_get(summary_dict, "processing_details", "notch_freqs", default="")),
+            "proc_filt_notch_width": str(safe_get(summary_dict, "processing_details", "notch_widths", default="")),
+            "proc_sRate_raw": str(safe_get(summary_dict, "import_details", "sample_rate", default="")),
+            "proc_sRate1": str(safe_get(summary_dict, "export_details", "srate_post", default="")),
+            "proc_xmax_raw": str(safe_get(summary_dict, "import_details", "duration", default="")),
+            "proc_xmax_post": str(safe_get(summary_dict, "export_details", "final_duration", default="")),
         }
+        
+        # Calculate percentages safely
+        raw_duration = safe_get(summary_dict, "import_details", "duration", default="0")
+        final_duration = safe_get(summary_dict, "export_details", "final_duration", default="0")
+        initial_epochs = safe_get(summary_dict, "export_details", "initial_n_epochs", default="0")
+        final_epochs = safe_get(summary_dict, "export_details", "final_n_epochs", default="0")
+        
+        # Add calculated fields
+        details.update({
+            "proc_xmax_percent": safe_percentage(final_duration, raw_duration),
+            "epoch_length": str(safe_get(summary_dict, "export_details", "epoch_length", default="")),
+            "epoch_limits": str(safe_get(summary_dict, "export_details", "epoch_limits", default="")),
+            "epoch_trials": str(initial_epochs),
+            "epoch_badtrials": safe_percentage(
+                float(initial_epochs) - float(final_epochs) if initial_epochs and final_epochs else "0", 
+                "1"
+            ),
+            "epoch_percent": safe_percentage(final_epochs, initial_epochs),
+            "proc_nComps": str(safe_get(summary_dict, "ica_details", "proc_nComps", default="")),
+            "proc_removeComps": str(safe_get(summary_dict, "ica_details", "proc_removeComps", default="")),
+            "exclude_category": summary_dict.get("exclude_category", ""),
+        })
 
+        # Handle CSV operations with appropriate error handling
         if csv_path.exists():
-            # Read existing CSV
-            df = pd.read_csv(csv_path, dtype=str)  # Force all columns to be string type
+            try:
+                # Read existing CSV
+                df = pd.read_csv(csv_path, dtype=str)  # Force all columns to be string type
 
-            # Ensure all columns exist in DataFrame
-            for col in details.keys():
-                if col not in df.columns:
-                    df[col] = ""
+                # Ensure all columns exist in DataFrame
+                for col in details.keys():
+                    if col not in df.columns:
+                        df[col] = ""
 
-            # Update or append entry
-            if details["subj_basename"] in df["subj_basename"].values:
-                # Update existing row using dictionary update
-                df.loc[
-                    df["subj_basename"] == details["subj_basename"],
-                    list(details.keys()),
-                ] = pd.Series(details)
-            else:
-                # Append new entry
-                df = pd.concat([df, pd.DataFrame([details])], ignore_index=True)
+                # Update or append entry
+                subj_basename = details.get("subj_basename", "")
+                if subj_basename and subj_basename in df["subj_basename"].values:
+                    # Update existing row
+                    df.loc[
+                        df["subj_basename"] == subj_basename,
+                        list(details.keys()),
+                    ] = pd.Series(details)
+                else:
+                    # Append new entry
+                    df = pd.concat([df, pd.DataFrame([details])], ignore_index=True)
+            except Exception as csv_err:
+                message("error", f"Error processing existing CSV: {str(csv_err)}")
+                # Create new DataFrame as fallback
+                df = pd.DataFrame([details], dtype=str)
         else:
             # Create new DataFrame with all columns as string type
             df = pd.DataFrame([details], dtype=str)
 
-        # Save updated CSV
-        df.to_csv(csv_path, index=False)
-        message(
-            "info",
-            f"Updated processing log for {details['subj_basename']} in {csv_path}",
-        )
+        # Save updated CSV with error handling
+        try:
+            # Ensure directory exists
+            csv_path.parent.mkdir(parents=True, exist_ok=True)
+            df.to_csv(csv_path, index=False)
+            message(
+                "info",
+                f"Updated processing log for {details['subj_basename']} in {csv_path}",
+            )
+        except Exception as save_err:
+            message("error", f"Error saving CSV: {str(save_err)}")
+            return
 
         # Update run record with CSV path
-        metadata = {
-            "processing_log": {
-                "creationDateTime": datetime.now().isoformat(),
-                "csv_path": str(csv_path),
+        try:
+            metadata = {
+                "processing_log": {
+                    "creationDateTime": datetime.now().isoformat(),
+                    "csv_path": str(csv_path),
+                }
             }
-        }
-        manage_database(
-            operation="update",
-            update_record={"run_id": summary_dict["run_id"], "metadata": metadata},
-        )
+            manage_database(
+                operation="update",
+                update_record={"run_id": summary_dict.get("run_id", ""), "metadata": metadata},
+            )
+        except Exception as db_err:
+            message("error", f"Error updating database: {str(db_err)}")
 
     except Exception as e:
         message("error", f"Error updating processing log: {str(e)}\n{traceback.format_exc()}")
         return
-
 
 def create_json_summary(run_id: str) -> None:
     run_record = get_run_record(run_id)
