@@ -24,7 +24,7 @@ def main():
     
     args = parser.parse_args()
     
-    print(f"Starting AutoClean Pipeline...")
+    print(f"Starting AutoClean Pipeline Container...")
     print(f"Task: {args.task}")
     print(f"Using data from: {DATA_DIR}")
     print(f"Using config from: {CONFIG_DIR}")
@@ -38,11 +38,18 @@ def main():
     
     # Check if input is file or directory
     input_path = Path(args.data)
+    print(f"Input path: {input_path}")
     
     # Always look in DATA_DIR since that's where docker mounts the data
     full_path = Path(DATA_DIR) / input_path.name
+    print(f"Full path: {full_path}")
+
+    # list files in DATA_DIR
+    print(f"Files in {DATA_DIR}:")
+    for file in Path(DATA_DIR).glob('*'):
+        print(file)
     
-    if input_path.is_file():  # Just check if it's a file, no extension validation
+    if full_path.is_file():  # Just check if it's a file, no extension validation
         print(f"Processing single file: {full_path}")
         if not full_path.exists():
             print(f"Error: File not found in mounted directory: {full_path}")
