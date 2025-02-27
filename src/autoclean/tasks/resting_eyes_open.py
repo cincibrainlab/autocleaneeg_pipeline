@@ -154,7 +154,7 @@ class RestingEyesOpen(Task):
 
 
         # Generate visualization reports
-        # self._generate_reports()
+        self._generate_reports()
 
     def import_data(self, file_path: Path) -> None:
         """Import raw resting state EEG data."""
