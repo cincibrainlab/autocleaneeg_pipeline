@@ -10,7 +10,7 @@ services:
       - ${OUTPUT_PATH:-./output}:/app/output
     environment:
       - PYTHONUNBUFFERED=1
-    shm_size: '2gb'
+    shm_size: '1gb'
     deploy:
       resources:
         limits:

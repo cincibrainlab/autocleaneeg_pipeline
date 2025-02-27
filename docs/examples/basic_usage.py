@@ -28,7 +28,7 @@ def process_single_file():
     )
     
     # Example file path - modify this to point to your EEG file
-    file_path = Path("C:/Users/Gam9LG/Documents/DATA/n141_resting/raw/0079_rest.raw")
+    file_path = Path("C:/Users/Gam9LG/Documents/DATA/n141_resting/raw/0199_rest.raw")
     
     # Process the file
     pipeline.process_file(
@@ -51,18 +51,18 @@ async def batch_process():
     # Process all files in directory
     await pipeline.process_directory_async(
         directory=directory,
-        task="MouseXdatAssr",  # Choose appropriate task
+        task="hbcd_mmn",  # Choose appropriate task
         sub_directories=False,
-        max_concurrent=1
+        max_concurrent=5
     )
 
 if __name__ == "__main__":
-    # print("Processing single file...")
-    # process_single_file()
+    print("Processing single file...")
+    process_single_file()
     
     # Uncomment to run batch processing
-    print("Batch processing...")
-    asyncio.run(batch_process())
+    # print("Batch processing...")
+    # asyncio.run(batch_process())
 
 
 

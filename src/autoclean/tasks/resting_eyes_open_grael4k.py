@@ -33,7 +33,7 @@ from autoclean.step_functions.reports import (
 )
 
 
-class RestingEyesOpen(Task):
+class RestingEyesOpen_grael(Task):
     """Task implementation for resting state EEG preprocessing."""
 
     def __init__(self, config: Dict[str, Any]):

@@ -346,15 +346,19 @@ class Pipeline:
             message("success", f"✓ Run record exported to {json_file}")
 
             json_summary = create_json_summary(run_id)
+            
+            # Only proceed with processing log update if we have a valid summary
+            if json_summary:
+                # Update processing log
+                update_task_processing_log(json_summary)
+            else:
+                message("warning", "Could not create JSON summary, processing log will not be updated")
 
             # Generate PDF report if processing succeeded
             try:
                 create_run_report(run_id, run_dict)
             except Exception as report_error:
                 message("error", f"Failed to generate report: {str(report_error)}")
-
-            # Update processing log
-            update_task_processing_log(json_summary)
 
         except Exception as e:
             # Update database with failure status
@@ -369,6 +373,15 @@ class Pipeline:
             )
 
             json_summary = create_json_summary(run_id)
+            
+            # Try to update processing log even in error case
+            if json_summary:
+                try:
+                    update_task_processing_log(json_summary)
+                except Exception as log_error:
+                    message("warning", f"Failed to update processing log: {str(log_error)}")
+            else:
+                message("warning", "Could not create JSON summary for error case")
 
             # Attempt to generate error report
             try:
@@ -380,9 +393,6 @@ class Pipeline:
                 message(
                     "error", f"Failed to generate error report: {str(report_error)}"
                 )
-
-            # Update processing log
-            update_task_processing_log(json_summary)
 
             message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
             raise
@@ -437,7 +447,7 @@ class Pipeline:
         self,
         directory: str | Path,
         task: str,
-        pattern: str = "*.raw",
+        pattern: str = "*.set",
         recursive: bool = False,
     ) -> None:
         """Process all matching EEG files in a directory.
@@ -448,7 +458,7 @@ class Pipeline:
 
         Args:
             directory: Path to the directory containing EEG files
-            task: Name of the processing task to run (e.g., 'rest_eyesopen')
+            task: Name of the processing task to run (e.g., 'RestingEyesOpen')
             pattern: Glob pattern to match files (default: "*.raw")
             recursive: Whether to search in subdirectories (default: False)
 

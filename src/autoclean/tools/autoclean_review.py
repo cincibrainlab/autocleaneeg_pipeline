@@ -829,12 +829,14 @@ class FileSelector(QWidget):
 
                     # Create the plot widget for epochs
                     self.plot_widget = self.current_epochs.plot(
-                        n_epochs=10, show=False, block=True, picks="all", events=True
+                        n_epochs=10, show=False, block=True, picks="all", events=True, show_scalebars=True, scalings={"eeg": 25e-6},
+                        n_channels=self.current_epochs.info["nchan"]
                     )
                 else:
                     # Create the plot widget for raw data
                     self.plot_widget = self.current_raw.plot(
-                        show=False, block=True, scalings="auto"
+                        show=False, block=True, show_scalebars=True, scalings={"eeg": 25e-6},
+                        n_channels=self.current_raw.info["nchan"], show_options=True
                     )
 
                 # Embed the plot in our GUI
@@ -863,4 +865,4 @@ def run_autoclean_review(autoclean_dir):
 
 
 if __name__ == "__main__":
-    run_autoclean_review(Path("/tmp"))
+    run_autoclean_review(Path("C:/Users/Gam9LG/Documents/Autoclean_test"))

@@ -35,6 +35,14 @@ def main():
         autoclean_dir=OUTPUT_DIR,
         autoclean_config=f"{CONFIG_DIR}/autoclean_config.yaml"
     )
+
+    # Print all arguments for debugging
+    print("\nArguments:")
+    print(f"  --task: {args.task}")
+    print(f"  --data: {args.data}")
+    print(f"  --config: {args.config}")
+    print(f"  --output: {args.output}")
+    print()
     
     # Check if input is file or directory
     input_path = Path(args.data)
