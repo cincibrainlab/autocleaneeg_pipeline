@@ -447,7 +447,7 @@ class Pipeline:
         self,
         directory: str | Path,
         task: str,
-        pattern: str = "*.raw",
+        pattern: str = "*.set",
         recursive: bool = False,
     ) -> None:
         """Process all matching EEG files in a directory.
@@ -458,7 +458,7 @@ class Pipeline:
 
         Args:
             directory: Path to the directory containing EEG files
-            task: Name of the processing task to run (e.g., 'rest_eyesopen')
+            task: Name of the processing task to run (e.g., 'RestingEyesOpen')
             pattern: Glob pattern to match files (default: "*.raw")
             recursive: Whether to search in subdirectories (default: False)
 
