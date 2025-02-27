@@ -498,7 +498,7 @@ class Pipeline:
         self,
         directory: str | Path,
         task: str,
-        pattern: str = "*.set",
+        pattern: str = "*.raw",
         sub_directories: bool = False,
         max_concurrent: int = 3,
     ) -> None:

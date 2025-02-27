@@ -70,7 +70,7 @@ uncorrelated_channels:
         lower: 0.25
         upper: 0.75
 uncorrelated_epochs:
-    flag_crit: 0.2
+    flag_crit: 0.1
     outlier_method: quantile
     outliers_kwargs:
         k: 6

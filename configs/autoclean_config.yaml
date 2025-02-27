@@ -82,7 +82,9 @@ tasks:
         value: 250
       drop_outerlayer:
         enabled: false
-        value: []
+        value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
+                "E120", "E121", "E56", "E63", "E68", "E73", "E81", "E88", "E94",
+                "E99", "E107" ]
       eog_step:
         enabled: false
         value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
@@ -107,7 +109,7 @@ tasks:
         enabled: true
         value:
           tmin: -0.5
-          tmax: 2.7
+          tmax: 2.5
         remove_baseline:
           enabled: false
           window: [null, 0]
@@ -341,7 +343,7 @@ stage_files:
     enabled: true
     suffix: "_postcomp"
   post_autoreject:
-    enabled: false
+    enabled: true
     suffix: "_postautoreject"
   post_edit:
     enabled: true

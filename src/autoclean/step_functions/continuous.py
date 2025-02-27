@@ -271,19 +271,18 @@ def step_clean_bad_channels(
     # Run noisy channels detection
     cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
     cleaned_raw.find_bad_by_SNR()
-    cleaned_raw.find_bad_by_correlation(correlation_threshold=0.35, frac_bad=0.01)
-    cleaned_raw.find_bad_by_deviation(deviation_threshold=4.0)
+    cleaned_raw.find_bad_by_correlation(correlation_secs=5.0,correlation_threshold=0.35, frac_bad=0.1) #testing cs of 5 instead of 1
+    cleaned_raw.find_bad_by_deviation(deviation_threshold=6.0)  
 
     cleaned_raw.find_bad_by_ransac(
         n_samples=100,
-        sample_prop=0.25,
-        corr_thresh=0.70,
-        frac_bad=0.35,
-        corr_window_secs=5.0,
-        channel_wise=True,
+        sample_prop=0.5,
+        corr_thresh=0.5,
+        frac_bad=0.5,
+        corr_window_secs=4.0,
+        channel_wise=False, #GW changed to false
         max_chunk_size=None,
     )
-
     bad_channels = cleaned_raw.get_bads(as_dict=True)
     raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_ransac"]])
     raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_deviation"]])

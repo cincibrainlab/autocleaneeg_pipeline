@@ -1,18 +1,10 @@
-"""
-Basic usage example for the autoclean package.
-
-This example demonstrates how to:
-1. Process a single EEG file
-2. Batch process multiple files asynchronously
-"""
-
 import asyncio
 from pathlib import Path
 
 from autoclean import Pipeline
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean_test")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("/srv2/RAWDATA/Autoclean_Example_Chirp/output")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to this example
 
 # Create output directory if it doesn't exist
@@ -46,23 +38,21 @@ async def batch_process():
     )
     
     # Example directory path - modify this to point to your EEG files
-    directory = Path("path/to/your/eeg/files")
+    directory = Path("/srv2/RAWDATA/Autoclean_Example_Chirp/input")
     
     # Process all files in directory
     await pipeline.process_directory_async(
         directory=directory,
-        task="hbcd_mmn",  # Choose appropriate task
+        task="ChirpDefault",  # Choose appropriate task
         sub_directories=False,
         max_concurrent=5
     )
 
 if __name__ == "__main__":
-    print("Processing single file...")
-    process_single_file()
+    #print("Processing single file...")
+    #process_single_file()
     
-    # Uncomment to run batch processing
-    # print("Batch processing...")
-    # asyncio.run(batch_process())
-
-
+     #Uncomment to run batch processing
+     print("Batch processing...")
+     asyncio.run(batch_process())
 
