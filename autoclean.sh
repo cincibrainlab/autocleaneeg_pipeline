@@ -32,15 +32,15 @@ debug_log() {
     fi
 }
 
-# Convert Windows paths to WSL paths
+# Convert Windows paths to Unix-compatible paths
 convert_path() {
     local path=$1
     debug_log "Converting path: $path"
-    if [[ $path == [A-Za-z]:\\* ]]; then
-        drive=${path:0:1}
-        path=${path:2}
-        local converted_path="/mnt/${drive,,}${path//\\//}"
-        debug_log "Converted Windows path to WSL path: $converted_path"
+    # Check if it's a Windows-style path
+    if [[ $path == *\\* ]]; then
+        # Replace backslashes with forward slashes
+        local converted_path="${path//\\//}"
+        debug_log "Converted Windows path to Unix path: $converted_path"
         echo "$converted_path"
     else
         debug_log "Path appears to be Unix-style, no conversion needed"
@@ -90,7 +90,6 @@ main() {
     local config_path=""
     local output_path="./output"
     local work_dir=$(pwd)
-    local bind_mount=false
 
     debug_log "Parsing command line arguments"
     while [[ $# -gt 0 ]]; do
@@ -101,11 +100,18 @@ main() {
             -ConfigPath) config_path=$(convert_path "$2"); shift 2 ;;
             -OutputPath) output_path=$(convert_path "$2"); shift 2 ;;
             -WorkDir) work_dir=$(convert_path "$2"); shift 2 ;;
-            -BindMount) bind_mount=true; shift ;;
             -Debug) DEBUG=true; shift ;;
             *) echo "Error: Unknown parameter: $1"; echo "Use 'autoclean --help' for usage information"; exit 1 ;;
         esac
     done
+    
+    debug_log "AUTOCLEAN SCRIPT ARGS"
+    debug_log "data_path: $data_path"
+    debug_log "task: $task"
+    debug_log "config_path: $config_path"
+    debug_log "output_path: $output_path"
+    debug_log "work_dir: $work_dir"
+    debug_log "DEBUG: $DEBUG"
 
     debug_log "Validating required parameters"
     if [ -z "$data_path" ] || [ -z "$task" ] || [ -z "$config_path" ]; then
@@ -121,27 +127,57 @@ main() {
         echo "Continuing with execution..."
     fi
 
-    debug_log "Checking if data_path is a file or directory: $data_path"
-    if [ -f "$data_path" ]; then
-        echo "DataPath is a file. Mounting parent directory: $(dirname "$data_path")"
-        local data_file=$(basename "$data_path")
+    # Check if we should skip path validation (for Docker-in-Docker operations)
+    if [ -n "$AUTOCLEAN_SKIP_PATH_VALIDATION" ]; then
+        debug_log "AUTOCLEAN_SKIP_PATH_VALIDATION is set, skipping path validation for host paths"
+        
+        # For file paths, extract the filename for later use
+        if [[ "$data_path" == */* ]]; then
+            local data_file=$(basename "$data_path")
+            debug_log "Extracted filename from path: $data_file"
+        fi
+        
+        # Set environment variables directly without validation
         export EEG_DATA_PATH=$(dirname "$data_path")
-    elif [ -d "$data_path" ]; then
-        export EEG_DATA_PATH="$data_path"
+        debug_log "EEG_DATA_PATH set to: $EEG_DATA_PATH (without validation)"
+        
+        # Create output directory if it doesn't exist
+        debug_log "Creating output directory if it doesn't exist: $output_path"
+        mkdir -p "$output_path"
+        debug_log "mkdir exit code: $?"
     else
-        echo "Warning: Data path does not exist: $data_path"
-        echo "Continuing with execution..."
-        export EEG_DATA_PATH="$data_path"
-    fi
+        debug_log "Checking if data_path is a file or directory: $data_path"
+        if [ -f "$data_path" ]; then
+            # If data_path is a file, use its parent directory for mounting
+            debug_log "data_path is a file"
+            echo "DataPath is a file. Mounting parent directory: $(dirname "$data_path")"
+            local data_file=$(basename "$data_path")
+            debug_log "data_file basename: $data_file"
+            export EEG_DATA_PATH=$(dirname "$data_path")
+            debug_log "EEG_DATA_PATH set to: $EEG_DATA_PATH"
+        elif [ -d "$data_path" ]; then
+            # If data_path is a directory, use it directly
+            debug_log "data_path is a directory"
+            export EEG_DATA_PATH="$data_path"
+            debug_log "EEG_DATA_PATH set to: $EEG_DATA_PATH"
+        else
+            echo "Error: Data path does not exist: $data_path"
+            debug_log "Data path validation failed"
+            exit 1
+        fi
 
-    debug_log "Checking if config directory exists: $config_path"
-    if [ ! -d "$config_path" ]; then
-        echo "Warning: Config directory does not exist: $config_path"
-        echo "Continuing with execution..."
-    fi
+        debug_log "Checking if config directory exists: $config_path"
+        if [ ! -d "$config_path" ]; then
+            echo "Error: Config directory does not exist: $config_path"
+            debug_log "Config directory validation failed"
+            exit 1
+        fi
 
-    debug_log "Creating output directory if it doesn't exist: $output_path"
-    mkdir -p "$output_path"
+        # Create output directory if it doesn't exist
+        debug_log "Creating output directory if it doesn't exist: $output_path"
+        mkdir -p "$output_path"
+        debug_log "mkdir exit code: $?"
+    fi
 
     echo "Using data from: $EEG_DATA_PATH"
     echo "Using configs from: $config_path"
@@ -150,9 +186,6 @@ main() {
     echo "Working directory: $work_dir"
     if [ "$DEBUG" = true ]; then
         echo "Debug mode: ENABLED"
-    fi
-    if [ "$bind_mount" = true ]; then
-        echo "Bind mount enabled: Mapping configs to container"
     fi
 
     debug_log "Extracting config filename and directory"
@@ -165,51 +198,72 @@ main() {
     debug_log "CONFIG_PATH=$CONFIG_PATH, OUTPUT_PATH=$OUTPUT_PATH"
 
     debug_log "Changing to working directory: $work_dir"
-    cd "$work_dir" || echo "Warning: Failed to change to working directory: $work_dir"
-
-    # Prepare docker-compose command with optional bind mount
-    echo "Starting docker-compose..."
-    local compose_cmd="docker-compose run --no-deps"
-    if [ "$bind_mount" = true ]; then
-        local host_config_dir="/mnt/srv2/robots/aud_assr2/configs"  # Corrected host path
-        debug_log "Using host config directory: $host_config_dir"
-        ls -la "$config_path" >&2 || echo "Warning: Cannot access config path: $config_path"
-        ls -la "$host_config_dir" >&2 || echo "Warning: Host config directory not accessible"
-        compose_cmd="$compose_cmd -v $host_config_dir:/app/configs"
-        echo "Bind mount command: $compose_cmd"
+    cd "$work_dir"
+    debug_log "Current directory after cd: $(pwd)"
+    
+    # Check if docker-compose.yml exists in the current directory
+    if [ -f "docker-compose.yml" ]; then
+        echo "Found docker-compose.yml in current directory"
+    else
+        echo "ERROR: docker-compose.yml not found in current directory: $(pwd)"
+        echo "Directory contents:"
+        ls -la
     fi
+    
+    # Check Docker status
+    echo "Checking Docker status:"
+    if docker info > /dev/null 2>&1; then
+        echo "Docker is running"
+    else
+        echo "WARNING: Docker may not be running properly"
+    fi
+    
+    # Print environment variables for debugging
+    echo "Environment variables for docker-compose:"
+    echo "EEG_DATA_PATH=$EEG_DATA_PATH"
+    echo "CONFIG_PATH=$CONFIG_PATH"
+    echo "OUTPUT_PATH=$OUTPUT_PATH"
+    
+
 
     if [ -n "$data_file" ]; then
         echo "Processing single file: $data_file"
-        debug_log "Running docker-compose command: $compose_cmd autoclean --task \"$task\" --data \"$data_file\" --config \"/app/configs/autoclean_config.yaml\" --output \"$output_path\""
-        $compose_cmd autoclean --task "$task" --data "$data_file" --config "/app/configs/autoclean_config.yaml" --output "$output_path" &
-        local pid=$!
-        local container_id=$(docker ps -lq)  # Get container ID right after start
-        debug_log "Container ID: $container_id"
-        wait $pid
-        local exit_code=$?
-        debug_log "Docker-compose exit code: $exit_code"
-        if [ "$bind_mount" = true ]; then
-            debug_log "Checking host config directory after run: $host_config_dir"
-            ls -la "$host_config_dir" >&2 || echo "Warning: Cannot access host config directory after run"
+        debug_log "Running docker-compose command: docker-compose run --rm autoclean --task \"$task\" --data \"$data_file\" --config \"$config_file\" --output \"$output_path\""
+        
+        # Run with verbose output
+        docker-compose run --rm autoclean --task "$task" --data "$data_file" --config "$config_file" --output "$output_path"
+        DOCKER_EXIT_CODE=$?
+        debug_log "docker-compose exit code: $DOCKER_EXIT_CODE"
+        
+        if [ $DOCKER_EXIT_CODE -ne 0 ]; then
+            echo "ERROR: docker-compose command failed with exit code $DOCKER_EXIT_CODE"
+            echo "Checking for running containers:"
+            docker ps
+            echo "Checking for stopped containers:"
+            docker ps -a
         fi
-        if docker ps -q | grep -q "$container_id"; then
-            debug_log "Inspecting container mounts"
-            docker inspect "$container_id" --format '{{ .Mounts }}' >&2 || echo "Warning: Failed to inspect container mounts"
-        else
-            debug_log "Container $container_id is not running, skipping mount inspection"
-        fi
-        docker-compose run --rm autoclean ls -la /app/configs >&2 || echo "Warning: Failed to list /app/configs"
-        exit $exit_code
     else
-        echo "Processing all files in directory: $data_path"
-        debug_log "Running docker-compose command: $compose_cmd autoclean --task \"$task\" --data \"$data_path\" --config \"/app/configs/autoclean_config.yaml\" --output \"$output_path\""
-        $compose_cmd autoclean --task "$task" --data "$data_path" --config "/app/configs/autoclean_config.yaml" --output "$output_path"
-        local exit_code=$?
-        debug_log "docker-compose exit code: $exit_code"
-        exit $exit_code
+        # For directory
+        echo "Processing all files in directory: $data_path"       
+        debug_log "Running command: docker-compose run autoclean --task \"$task\" --data \"$data_path\" --config \"$config_file\" --output \"$output_path\""
+ 
+        # Run with verbose output
+        docker-compose run --rm autoclean --task "$task" --data "$data_path" --config "$config_file" --output "$output_path"
+        DOCKER_EXIT_CODE=$?
+        debug_log "docker-compose exit code: $DOCKER_EXIT_CODE"
+        
+        if [ $DOCKER_EXIT_CODE -ne 0 ]; then
+            echo "ERROR: docker-compose command failed with exit code $DOCKER_EXIT_CODE"
+            echo "Checking for running containers:"
+            docker ps
+            echo "Checking for stopped containers:"
+            docker ps -a
+        fi
     fi
+    
+    debug_log "Autoclean processing completed"
 }
 
+# Execute main function with all arguments
 debug_log "Script started with arguments: $@"
 main "$@"
