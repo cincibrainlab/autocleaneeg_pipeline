@@ -102,9 +102,8 @@ def validate_pylossless_config(
         task: Name of the current processing task
         config_file_path: Path to the main configuration file
 
-    Raises:
-        FileNotFoundError: If the pylossless config file cannot be found at either the
-            specified path or relative to the main config directory
+    Returns:
+        dict: Updated configuration dictionary
 
     Example:
         >>> validate_pylossless_config(
@@ -133,10 +132,9 @@ def validate_pylossless_config(
             message("success", f"[{task}] Found pylossless config at: {relative_path}")
         else:
             message(
-                "error",
+                "warning",
                 f"[{task}] Could not find pylossless config at {lossless_config_path} or {relative_path}",
             )
-            raise FileNotFoundError(f"Missing pylossless config for task {task}")
 
     return autoclean_dict
 
