@@ -19,9 +19,27 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from assr_analysis import analyze_assr, load_epochs, compute_time_frequency, compute_metrics
 from assr_viz import plot_all_figures, plot_global_mean_itc, plot_topomap
 
-
-def run_complete_analysis(file_path, output_dir=None):
-    """Run the complete analysis with all plots"""
+def run_complete_analysis(file_path=None, output_dir=None, epochs=None, file_basename=None):
+    """
+    Run the complete analysis with all plots
+    
+    Parameters:
+    -----------
+    file_path : str or Path, optional
+        Path to the EEGLAB .set file. Not required if epochs are provided directly.
+    output_dir : str or Path, optional
+        Directory to save results
+    epochs : mne.Epochs, optional
+        Pre-loaded MNE Epochs object. If provided, file_path is ignored.
+    file_basename : str, optional
+        Base filename to use for saving results when epochs don't have a filename.
+    
+    Returns:
+    --------
+    tuple : (analysis_results, figures)
+        - analysis_results: Dictionary containing analysis results
+        - figures: Dictionary of generated figures
+    """
     # Set default output directory if not provided
     if output_dir is None:
         output_dir = Path('results')
@@ -30,18 +48,27 @@ def run_complete_analysis(file_path, output_dir=None):
     
     output_dir.mkdir(parents=True, exist_ok=True)
     
-    print(f"Running complete analysis on {file_path}")
+    if epochs is None:
+        if file_path is None:
+            raise ValueError("Either file_path or epochs must be provided")
+        print(f"Running complete analysis on {file_path}")
+    else:
+        print("Running complete analysis on provided epochs object")
+    
     print(f"Saving results to {output_dir}")
     
     # Run the analysis
-    analysis_results = analyze_assr(file_path, output_dir, save_results=True)
+    analysis_results = analyze_assr(file_path=file_path, output_dir=output_dir, 
+                                   save_results=True, epochs=epochs,
+                                   file_basename=file_basename)
     
     # Generate all plots
     figures = plot_all_figures(
         analysis_results['tf_data'], 
         analysis_results['epochs'],
         output_dir, 
-        save_figures=True
+        save_figures=True,
+        file_basename=analysis_results.get('file_basename')
     )
     
     print("Analysis and visualization complete!")
@@ -62,7 +89,6 @@ def run_analysis_only(file_path, output_dir=None):
     
     print("Analysis complete!")
     return analysis_results
-
 
 def create_specific_plots(analysis_results, output_dir=None):
     """Create only specific plots from existing analysis results"""

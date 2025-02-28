@@ -150,7 +150,7 @@ def compute_metrics(tf_data, epochs, freq_bands=None, time_windows=None):
     single_trial_power = tf_data['single_trial_power']
     ersp = tf_data['ersp']
     freqs = tf_data['freqs']
-    
+
     # Define frequency bands if not provided
     if freq_bands is None:
         freq_bands = {
@@ -276,18 +276,23 @@ def compute_metrics(tf_data, epochs, freq_bands=None, time_windows=None):
     return results_df
 
 
-def analyze_assr(file_path, output_dir=None, save_results=True):
+def analyze_assr(file_path=None, output_dir=None, save_results=True, epochs=None, file_basename=None):
     """
     Main function to analyze ASSR data
     
     Parameters:
     -----------
-    file_path : str or Path
-        Path to the EEGLAB .set file
+    file_path : str or Path, optional
+        Path to the EEGLAB .set file. Not required if epochs are provided directly.
     output_dir : str or Path, optional
         Directory to save results
     save_results : bool, optional
         Whether to save results to disk
+    epochs : mne.Epochs, optional
+        Pre-loaded MNE Epochs object. If provided, file_path is ignored.
+    file_basename : str, optional
+        Base filename to use for saving results when epochs don't have a filename.
+        Takes precedence over automatically extracted filenames.
     
     Returns:
     --------
@@ -295,6 +300,7 @@ def analyze_assr(file_path, output_dir=None, save_results=True):
         - 'results_df': DataFrame with computed metrics
         - 'tf_data': Time-frequency data
         - 'epochs': MNE Epochs object
+        - 'file_basename': Basename used for saving files
     """
     # Set up output directory
     if output_dir is None:
@@ -303,8 +309,11 @@ def analyze_assr(file_path, output_dir=None, save_results=True):
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
     
-    # Load epochs
-    epochs = load_epochs(file_path)
+    # Load epochs if not provided
+    if epochs is None:
+        if file_path is None:
+            raise ValueError("Either file_path or epochs must be provided")
+        epochs = load_epochs(file_path)
     
     # Compute time-frequency representations
     tf_data = compute_time_frequency(epochs)
@@ -323,7 +332,17 @@ def analyze_assr(file_path, output_dir=None, save_results=True):
     
     # Save results if requested
     if save_results:
-        file_basename = Path(file_path).stem
+        # Determine file basename with explicit parameter taking precedence
+        if file_basename is not None:
+            # Use provided basename
+            pass
+        elif file_path is not None:
+            file_basename = Path(file_path).stem
+        elif hasattr(epochs, 'filename') and epochs.filename is not None:
+            file_basename = Path(epochs.filename).stem
+        else:
+            # Use a default name if no file path or filename is provided
+            file_basename = "assr_analysis"
         
         # Create data subdirectory
         data_dir = output_dir / "data"
@@ -338,7 +357,8 @@ def analyze_assr(file_path, output_dir=None, save_results=True):
     return {
         'results_df': results_df,
         'tf_data': tf_data,
-        'epochs': epochs
+        'epochs': epochs,
+        'file_basename': file_basename
     }
 
 

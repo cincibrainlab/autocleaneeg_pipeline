@@ -3,8 +3,8 @@ from pathlib import Path
 from autoclean import Pipeline
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("Path to desired output directory")  # Where processed data will be stored
-CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
+EXAMPLE_OUTPUT_DIR = Path("/mnt/srv2/robots/aud_assr40/test")  # Where processed data will be stored
+CONFIG_FILE = Path("/mnt/srv2/robots/aud_assr40/configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
 # Create pipeline instance
@@ -15,10 +15,10 @@ pipeline = Pipeline(
 )
 
 # Example file path - modify this to point to your EEG file
-file_path = Path("C:/Users/example/Documents/DATA/n141_resting/raw/0079_rest.raw")
+file_path = Path("/mnt/srv2/robots/aud_assr40/input/allego_8__uid1205-17-34-38_data.set")
 
 # Process the file
 pipeline.process_file(
     file_path=file_path,
-    task="RestingEyesOpen",  # Choose appropriate task
+    task="MouseXdatAssr",  # Choose appropriate task
 )

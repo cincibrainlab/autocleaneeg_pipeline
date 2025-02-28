@@ -23,7 +23,7 @@ def create_ersp_colormap():
     return LinearSegmentedColormap.from_list('ersp_cmap', colors, N=100)
 
 
-def plot_itc_channels(tf_data, epochs, output_dir=None, save_figures=True):
+def plot_itc_channels(tf_data, epochs, output_dir=None, save_figures=True, file_basename=None):
     """
     Plot ITC for each channel
     
@@ -37,6 +37,8 @@ def plot_itc_channels(tf_data, epochs, output_dir=None, save_figures=True):
         Directory to save figures
     save_figures : bool, optional
         Whether to save figures to disk
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
     
     Returns:
     --------
@@ -97,7 +99,10 @@ def plot_itc_channels(tf_data, epochs, output_dir=None, save_figures=True):
     # Save figure if requested
     if save_figures and output_dir is not None:
         # Get the basename of the epochs file
-        if hasattr(epochs, 'filename') and epochs.filename is not None:
+        if file_basename is not None:
+            # Use provided basename - takes precedence
+            pass
+        elif hasattr(epochs, 'filename') and epochs.filename is not None:
             file_basename = Path(epochs.filename).stem
         else:
             file_basename = "unknown"
@@ -117,7 +122,7 @@ def plot_itc_channels(tf_data, epochs, output_dir=None, save_figures=True):
     return fig
 
 
-def plot_global_mean_itc(tf_data, output_dir=None, save_figures=True, epochs=None):
+def plot_global_mean_itc(tf_data, output_dir=None, save_figures=True, epochs=None, file_basename=None):
     """
     Plot global mean ITC (average across all channels)
     
@@ -131,6 +136,8 @@ def plot_global_mean_itc(tf_data, output_dir=None, save_figures=True, epochs=Non
         Whether to save figures to disk
     epochs : mne.Epochs, optional
         Epochs object for filename extraction
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
     
     Returns:
     --------
@@ -177,7 +184,10 @@ def plot_global_mean_itc(tf_data, output_dir=None, save_figures=True, epochs=Non
     # Save figure if requested
     if save_figures and output_dir is not None:
         # Get the basename of the epochs file
-        if epochs is not None and hasattr(epochs, 'filename') and epochs.filename is not None:
+        if file_basename is not None:
+            # Use provided basename - takes precedence
+            pass
+        elif epochs is not None and hasattr(epochs, 'filename') and epochs.filename is not None:
             file_basename = Path(epochs.filename).stem
         else:
             file_basename = "unknown"
@@ -197,7 +207,7 @@ def plot_global_mean_itc(tf_data, output_dir=None, save_figures=True, epochs=Non
     return fig
 
 
-def plot_topomap(tf_data, epochs, time_point=0.3, output_dir=None, save_figures=True):
+def plot_topomap(tf_data, epochs, time_point=0.3, output_dir=None, save_figures=True, file_basename=None):
     """
     Plot topographic map of ITC at 40 Hz
     
@@ -213,6 +223,8 @@ def plot_topomap(tf_data, epochs, time_point=0.3, output_dir=None, save_figures=
         Directory to save figures
     save_figures : bool, optional
         Whether to save figures to disk
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
     
     Returns:
     --------
@@ -253,7 +265,10 @@ def plot_topomap(tf_data, epochs, time_point=0.3, output_dir=None, save_figures=
     # Save figure if requested
     if save_figures and output_dir is not None:
         # Get the basename of the epochs file
-        if hasattr(epochs, 'filename') and epochs.filename is not None:
+        if file_basename is not None:
+            # Use provided basename - takes precedence
+            pass
+        elif hasattr(epochs, 'filename') and epochs.filename is not None:
             file_basename = Path(epochs.filename).stem
         else:
             file_basename = "unknown"
@@ -273,7 +288,7 @@ def plot_topomap(tf_data, epochs, time_point=0.3, output_dir=None, save_figures=
     return fig
 
 
-def plot_ersp_channels(tf_data, epochs, output_dir=None, save_figures=True):
+def plot_ersp_channels(tf_data, epochs, output_dir=None, save_figures=True, file_basename=None):
     """
     Plot ERSP for each channel
     
@@ -287,6 +302,8 @@ def plot_ersp_channels(tf_data, epochs, output_dir=None, save_figures=True):
         Directory to save figures
     save_figures : bool, optional
         Whether to save figures to disk
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
     
     Returns:
     --------
@@ -352,7 +369,10 @@ def plot_ersp_channels(tf_data, epochs, output_dir=None, save_figures=True):
     # Save figure if requested
     if save_figures and output_dir is not None:
         # Get the basename of the epochs file
-        if hasattr(epochs, 'filename') and epochs.filename is not None:
+        if file_basename is not None:
+            # Use provided basename - takes precedence
+            pass
+        elif hasattr(epochs, 'filename') and epochs.filename is not None:
             file_basename = Path(epochs.filename).stem
         else:
             file_basename = "unknown"
@@ -372,7 +392,7 @@ def plot_ersp_channels(tf_data, epochs, output_dir=None, save_figures=True):
     return fig
 
 
-def plot_global_mean_ersp(tf_data, output_dir=None, save_figures=True, epochs=None):
+def plot_global_mean_ersp(tf_data, output_dir=None, save_figures=True, epochs=None, file_basename=None):
     """
     Plot global mean ERSP (average across all channels)
     
@@ -386,6 +406,8 @@ def plot_global_mean_ersp(tf_data, output_dir=None, save_figures=True, epochs=No
         Whether to save figures to disk
     epochs : mne.Epochs, optional
         Epochs object for filename extraction
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
     
     Returns:
     --------
@@ -437,7 +459,10 @@ def plot_global_mean_ersp(tf_data, output_dir=None, save_figures=True, epochs=No
     # Save figure if requested
     if save_figures and output_dir is not None:
         # Get the basename of the epochs file
-        if epochs is not None and hasattr(epochs, 'filename') and epochs.filename is not None:
+        if file_basename is not None:
+            # Use provided basename - takes precedence
+            pass
+        elif epochs is not None and hasattr(epochs, 'filename') and epochs.filename is not None:
             file_basename = Path(epochs.filename).stem
         else:
             file_basename = "unknown"
@@ -457,7 +482,7 @@ def plot_global_mean_ersp(tf_data, output_dir=None, save_figures=True, epochs=No
     return fig
 
 
-def plot_stp_channels(tf_data, epochs, output_dir=None, save_figures=True):
+def plot_stp_channels(tf_data, epochs, output_dir=None, save_figures=True, file_basename=None):
     """
     Plot Single Trial Power (STP) for each channel
     
@@ -471,6 +496,8 @@ def plot_stp_channels(tf_data, epochs, output_dir=None, save_figures=True):
         Directory to save figures
     save_figures : bool, optional
         Whether to save figures to disk
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
     
     Returns:
     --------
@@ -546,7 +573,10 @@ def plot_stp_channels(tf_data, epochs, output_dir=None, save_figures=True):
     # Save figure if requested
     if save_figures and output_dir is not None:
         # Get the basename of the epochs file
-        if hasattr(epochs, 'filename') and epochs.filename is not None:
+        if file_basename is not None:
+            # Use provided basename - takes precedence
+            pass
+        elif hasattr(epochs, 'filename') and epochs.filename is not None:
             file_basename = Path(epochs.filename).stem
         else:
             file_basename = "unknown"
@@ -566,7 +596,7 @@ def plot_stp_channels(tf_data, epochs, output_dir=None, save_figures=True):
     return fig
 
 
-def plot_global_mean_stp(tf_data, epochs, output_dir=None, save_figures=True):
+def plot_global_mean_stp(tf_data, epochs, output_dir=None, save_figures=True, file_basename=None):
     """
     Plot global mean STP (average across all channels)
     
@@ -580,6 +610,8 @@ def plot_global_mean_stp(tf_data, epochs, output_dir=None, save_figures=True):
         Directory to save figures
     save_figures : bool, optional
         Whether to save figures to disk
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
     
     Returns:
     --------
@@ -644,7 +676,10 @@ def plot_global_mean_stp(tf_data, epochs, output_dir=None, save_figures=True):
     # Save figure if requested
     if save_figures and output_dir is not None:
         # Get the basename of the epochs file
-        if hasattr(epochs, 'filename') and epochs.filename is not None:
+        if file_basename is not None:
+            # Use provided basename - takes precedence
+            pass
+        elif hasattr(epochs, 'filename') and epochs.filename is not None:
             file_basename = Path(epochs.filename).stem
         else:
             file_basename = "unknown"
@@ -664,7 +699,7 @@ def plot_global_mean_stp(tf_data, epochs, output_dir=None, save_figures=True):
     return fig
 
 
-def plot_all_figures(tf_data, epochs, output_dir=None, save_figures=True):
+def plot_all_figures(tf_data, epochs, output_dir=None, save_figures=True, file_basename=None):
     """
     Generate all plots from the analysis
     
@@ -678,6 +713,8 @@ def plot_all_figures(tf_data, epochs, output_dir=None, save_figures=True):
         Directory to save figures
     save_figures : bool, optional
         Whether to save figures to disk
+    file_basename : str, optional
+        Base filename to use for saving figures, takes precedence over epoch filename
         
     Returns:
     --------
@@ -687,25 +724,25 @@ def plot_all_figures(tf_data, epochs, output_dir=None, save_figures=True):
     figs = {}
     
     # Plot ITC for all channels
-    figs['itc_channels'] = plot_itc_channels(tf_data, epochs, output_dir, save_figures)
+    figs['itc_channels'] = plot_itc_channels(tf_data, epochs, output_dir, save_figures, file_basename)
     
     # Plot global mean ITC - pass epochs for filename extraction
-    figs['global_mean_itc'] = plot_global_mean_itc(tf_data, output_dir, save_figures, epochs)
+    figs['global_mean_itc'] = plot_global_mean_itc(tf_data, output_dir, save_figures, epochs, file_basename)
     
     # Plot topographic map
-    figs['topomap'] = plot_topomap(tf_data, epochs, output_dir=output_dir, save_figures=save_figures)
+    figs['topomap'] = plot_topomap(tf_data, epochs, output_dir=output_dir, save_figures=save_figures, file_basename=file_basename)
     
     # Plot ERSP for all channels
-    figs['ersp_channels'] = plot_ersp_channels(tf_data, epochs, output_dir, save_figures)
+    figs['ersp_channels'] = plot_ersp_channels(tf_data, epochs, output_dir, save_figures, file_basename)
     
     # Plot global mean ERSP - pass epochs for filename extraction
-    figs['global_mean_ersp'] = plot_global_mean_ersp(tf_data, output_dir, save_figures, epochs)
+    figs['global_mean_ersp'] = plot_global_mean_ersp(tf_data, output_dir, save_figures, epochs, file_basename)
     
     # Plot STP for all channels
-    figs['stp_channels'] = plot_stp_channels(tf_data, epochs, output_dir, save_figures)
+    figs['stp_channels'] = plot_stp_channels(tf_data, epochs, output_dir, save_figures, file_basename)
     
     # Plot global mean STP
-    figs['global_mean_stp'] = plot_global_mean_stp(tf_data, epochs, output_dir, save_figures)
+    figs['global_mean_stp'] = plot_global_mean_stp(tf_data, epochs, output_dir, save_figures, file_basename)
     
     return figs
 
