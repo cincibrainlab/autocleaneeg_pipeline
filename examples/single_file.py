@@ -1,10 +1,11 @@
 from pathlib import Path
 
 from autoclean import Pipeline
+import mne
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("/mnt/srv2/robots/aud_assr40/test")  # Where processed data will be stored
-CONFIG_FILE = Path("/mnt/srv2/robots/aud_assr40/configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean_chirp")  # Where processed data will be stored
+CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
 # Create pipeline instance
@@ -15,10 +16,11 @@ pipeline = Pipeline(
 )
 
 # Example file path - modify this to point to your EEG file
-file_path = Path("/mnt/srv2/robots/aud_assr40/input/allego_8__uid1205-17-34-38_data.set")
+file_path = Path("C:/Users/Gam9LG/Documents/DATA/chirp/grace/2278_chirp.set")
+
 
 # Process the file
 pipeline.process_file(
     file_path=file_path,
-    task="MouseXdatAssr",  # Choose appropriate task
+    task="ChirpDefault",  # Choose appropriate task
 )

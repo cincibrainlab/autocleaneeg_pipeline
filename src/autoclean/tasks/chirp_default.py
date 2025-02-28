@@ -4,6 +4,8 @@
 from pathlib import Path
 from typing import Any, Dict
 
+from autoclean.step_functions.reports import step_generate_ica_reports, step_plot_ica_full, step_plot_raw_vs_cleaned_overlay, step_psd_topo_figure
+
 from ..core.task import Task
 from ..step_functions.continuous import (
     step_clean_bad_channels,
@@ -83,6 +85,7 @@ class ChirpDefault(Task):
         self.import_data(file_path)
         self.preprocess()
         self.process()
+        self._generate_reports()
 
     def import_data(self, file_path: Path) -> None:
         # Import and save raw EEG data
@@ -106,7 +109,7 @@ class ChirpDefault(Task):
         save_raw_to_set(pipeline_raw, self.config, "post_pylossless")
 
         # Clean bad channels
-        self.raw = step_clean_bad_channels(self.raw, self.config)
+        self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_bad_channels")
 
         # Use PyLossless Rejection Policy
@@ -135,3 +138,26 @@ class ChirpDefault(Task):
 
         # Save cleaned epochs
         save_epochs_to_set(self.epochs, self.config, "post_comp")
+
+    def _generate_reports(self) -> None:
+        """Generate all visualization reports."""
+        if self.pipeline is None or self.cleaned_raw is None:
+            return
+
+        # Plot raw vs cleaned overlay
+        step_plot_raw_vs_cleaned_overlay(
+            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+        )
+
+        # Plot ICA components
+        step_plot_ica_full(self.pipeline, self.config)
+
+        # # # Generate ICA reports
+        # step_generate_ica_reports(
+        #     self.pipeline, self.cleaned_raw, self.config, duration=60
+        # )
+
+        # # Create PSD topography figure
+        step_psd_topo_figure(
+            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+        )
