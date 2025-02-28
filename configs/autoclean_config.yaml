@@ -92,7 +92,7 @@ tasks:
         enabled: true
         value: 4
       crop_step:
-        enabled: true
+        enabled: false
         value:
           start: 0
           end: 60  # null uses full duration
