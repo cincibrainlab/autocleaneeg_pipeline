@@ -60,6 +60,7 @@ from PyQt5.QtWidgets import (
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
+    QScrollArea,
 )
 
 from autoclean.step_functions.io import save_epochs_to_set
@@ -484,16 +485,63 @@ class FileSelector(QWidget):
                 )
                 derivatives_stem = "pylossless"
 
-                derivatives_dir = Path(
+                # Original derivatives path from database
+                original_derivatives_dir = Path(
                     bids_root,
                     "derivatives",
                     derivatives_stem,
                     "sub-" + subject_id,
                     "eeg",
                 )
+                
+                # Try to remap the path for Docker container environment
+                try:
+                    # Extract the relative path structure that should be consistent
+                    # This assumes a structure like /some/path/derivatives/pylossless/sub-XXX/eeg
+                    relative_derivatives_path = Path(
+                        "derivatives", 
+                        derivatives_stem,
+                        "sub-" + subject_id,
+                        "eeg"
+                    )
+                    
+                    # First try: Look for the derivatives directory relative to current_dir
+                    container_derivatives_dir = Path(self.current_dir) / relative_derivatives_path
+                    
+                    # Second try: Look for derivatives in parent directories (up to 3 levels)
+                    if not container_derivatives_dir.exists():
+                        for i in range(1, 4):
+                            parent_dir = Path(self.current_dir)
+                            for _ in range(i):
+                                if parent_dir.parent:
+                                    parent_dir = parent_dir.parent
+                            test_path = parent_dir / relative_derivatives_path
+                            if test_path.exists():
+                                container_derivatives_dir = test_path
+                                break
+                    
+                    # Third try: Look for derivatives directory anywhere under current_dir
+                    if not container_derivatives_dir.exists():
+                        for root, dirs, _ in os.walk(self.current_dir):
+                            if "derivatives" in dirs:
+                                test_path = Path(root) / "derivatives" / derivatives_stem / f"sub-{subject_id}" / "eeg"
+                                if test_path.exists():
+                                    container_derivatives_dir = test_path
+                                    break
+                    
+                    # Use the remapped path if it exists, otherwise fall back to original
+                    derivatives_dir = container_derivatives_dir if container_derivatives_dir.exists() else original_derivatives_dir
+                    print(f"Using derivatives directory: {derivatives_dir}")
+                    print(f"Original path was: {original_derivatives_dir}")
+                except Exception as e:
+                    print(f"Error remapping derivatives path: {str(e)}")
+                    # Fall back to original path
+                    derivatives_dir = original_derivatives_dir
+                    print(f"Falling back to original path: {derivatives_dir}")
 
                 def open_derivatives_folder():
                     folder_path = str(derivatives_dir)
+                    print(f"Attempting to open folder: {folder_path}")
                     if sys.platform == "darwin":  # macOS
                         subprocess.run(["open", folder_path])
                     elif sys.platform == "win32":  # Windows
@@ -504,9 +552,72 @@ class FileSelector(QWidget):
                 open_folder_btn.clicked.connect(open_derivatives_folder)
 
                 # Get all PNG and PDF files in derivatives directory
-                image_files = list(derivatives_dir.glob("*.png")) + list(
-                    derivatives_dir.glob("*.pdf")
-                )
+                print(f"Searching for image files in: {derivatives_dir}")
+                image_files = []
+                if derivatives_dir.exists():
+                    image_files = list(derivatives_dir.glob("*.png")) + list(
+                        derivatives_dir.glob("*.pdf")
+                    )
+                    print(f"Found {len(image_files)} image files")
+                else:
+                    print(f"Warning: Derivatives directory does not exist: {derivatives_dir}")
+                
+                # If no image files found in the derivatives directory, try alternative locations
+                if not image_files:
+                    print("No image files found in derivatives directory, searching alternative locations...")
+                    
+                    # Try to find image files in the current directory and its subdirectories
+                    alt_locations = [
+                        self.current_dir,  # Current directory
+                        Path(self.current_dir).parent,  # Parent directory
+                        Path(self.selected_file_path).parent,  # Directory containing the selected file
+                    ]
+                    
+                    for location in alt_locations:
+                        if not location.exists():
+                            continue
+                            
+                        print(f"Searching for image files in: {location}")
+                        # Search for PNG and PDF files directly in this directory
+                        location_images = list(location.glob("*.png")) + list(location.glob("*.pdf"))
+                        
+                        # Also search one level down for a reports or figures directory
+                        for subdir in ["reports", "figures", "images", "plots"]:
+                            report_dir = location / subdir
+                            if report_dir.exists():
+                                location_images.extend(list(report_dir.glob("*.png")) + list(report_dir.glob("*.pdf")))
+                        
+                        if location_images:
+                            print(f"Found {len(location_images)} image files in alternative location: {location}")
+                            image_files = location_images
+                            break
+                
+                # If we still have no image files, try a more aggressive search
+                if not image_files:
+                    print("Still no image files found, performing deeper search...")
+                    # Look for any PNG or PDF files in the current directory tree (limit depth to avoid excessive searching)
+                    max_depth = 3
+                    current_depth = 0
+                    
+                    def search_directory(directory, current_depth, max_depth):
+                        if current_depth > max_depth:
+                            return []
+                        
+                        found_files = list(directory.glob("*.png")) + list(directory.glob("*.pdf"))
+                        if found_files:
+                            print(f"Found {len(found_files)} image files in: {directory}")
+                            return found_files
+                            
+                        # Search subdirectories
+                        for subdir in directory.iterdir():
+                            if subdir.is_dir():
+                                subdir_files = search_directory(subdir, current_depth + 1, max_depth)
+                                if subdir_files:
+                                    return subdir_files
+                        
+                        return []
+                    
+                    image_files = search_directory(Path(self.current_dir), 0, max_depth)
 
                 if image_files:
                     # Add PNG/PDF filenames to dropdown
@@ -692,11 +803,68 @@ class FileSelector(QWidget):
                     update_image(0)
 
                 else:
-                    QMessageBox.warning(
-                        self,
-                        "Warning",
-                        "No PNG or PDF files found in derivatives directory",
+                    # No image files found, provide manual selection option
+                    manual_widget = QWidget()
+                    manual_layout = QVBoxLayout()
+                    
+                    # Informative message
+                    message_label = QLabel(
+                        "No image files were found automatically. This may be due to the Docker container environment.\n\n"
+                        "You can manually select a PNG or PDF file to view."
                     )
+                    message_label.setWordWrap(True)
+                    message_label.setStyleSheet("font-size: 14px; color: #e74c3c; margin: 10px;")
+                    
+                    # Button to browse for files
+                    browse_btn = QPushButton("Browse for PNG/PDF Files")
+                    
+                    def browse_for_files():
+                        file_path, _ = QFileDialog.getOpenFileName(
+                            self,
+                            "Select PNG or PDF File",
+                            str(self.current_dir),
+                            "Image Files (*.png *.pdf)"
+                        )
+                        if file_path:
+                            if file_path.lower().endswith(".pdf"):
+                                # Open PDF in system's default browser
+                                webbrowser.open(f"file://{file_path}")
+                            elif file_path.lower().endswith(".png"):
+                                # Create a new window to display the PNG
+                                image_window = QWidget()
+                                image_window.setWindowTitle(f"Image Viewer - {os.path.basename(file_path)}")
+                                image_layout = QVBoxLayout()
+                                
+                                # Create scroll area and label
+                                scroll = QScrollArea()
+                                label = QLabel()
+                                
+                                # Load PNG
+                                pixmap = QPixmap(file_path)
+                                label.setPixmap(pixmap)
+                                
+                                scroll.setWidget(label)
+                                image_layout.addWidget(scroll)
+                                image_window.setLayout(image_layout)
+                                image_window.resize(800, 600)
+                                image_window.show()
+                    
+                    browse_btn.clicked.connect(browse_for_files)
+                    
+                    # Add widgets to layout
+                    manual_layout.addWidget(message_label)
+                    manual_layout.addWidget(browse_btn)
+                    manual_widget.setLayout(manual_layout)
+                    
+                    # Add to the artifact layout
+                    artifact_layout.addWidget(manual_widget)
+                    artifact_widget.setLayout(artifact_layout)
+                    
+                    splitter.addWidget(artifact_widget)
+                    layout.addWidget(splitter)
+                    
+                    self.current_run_record_window.setLayout(layout)
+                    self.current_run_record_window.show()
 
             except Exception as e:
                 QMessageBox.critical(
