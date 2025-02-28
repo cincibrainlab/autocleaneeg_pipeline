@@ -104,7 +104,7 @@ tasks:
         value: "GSN-HydroCel-129"
       event_id:
         enabled: true
-        value: {'DIN8' : 1}
+        value: {'DIN8' : 10001 }
       epoch_settings:
         enabled: true
         value:
