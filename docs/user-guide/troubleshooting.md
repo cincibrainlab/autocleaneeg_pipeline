@@ -21,7 +21,7 @@ brew install libev
 
 After installing libev, retry your package installation command.
 
-### Missing pycairo and pkg-config dependency
+### Missing pycairo and pkg-config dependencies
 
 **Issue**: When installing dependencies, you may encounter a build error with `pycairo` package:
 ```
