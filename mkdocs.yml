@@ -86,6 +86,7 @@ nav:
     - Step Functions: user-guide/step-functions.md
     - Configuration Files: user-guide/configuration-files.md
     - Plugin System: plugin_system.md
+    - Troubleshooting: user-guide/troubleshooting.md
   - API Reference:
     - Pipeline: api-reference/pipeline.md
     - Task: api-reference/task.md
