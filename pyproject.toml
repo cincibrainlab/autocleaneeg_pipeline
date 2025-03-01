@@ -48,6 +48,10 @@ dependencies = [
     "matplotlib>=3.4.0",
     "pydantic>=2.0",
     "reportlab>=3.6.0",
+    "mkdocs",
+    "mkdocs-material",
+    "mkdocs-git-revision-date-localized-plugin",
+    "mkdocs-glightbox"
 ]
 
 [project.urls]
