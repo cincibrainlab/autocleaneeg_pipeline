@@ -423,7 +423,7 @@ class FileSelector(QWidget):
             QScrollArea,
         )
 
-        original_filename = self.current_run_record["metadata"]["step_import"][
+        original_filename = self.current_run_record["metadata"]["import_eeg"][
             "unprocessedFile"
         ]
 

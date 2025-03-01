@@ -71,7 +71,7 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.step_functions.io import save_raw_to_set, step_import
+from autoclean.step_functions.io import save_raw_to_set, import_eeg
 from autoclean.step_functions.reports import (
     step_generate_ica_reports,
     step_plot_ica_full,
@@ -231,7 +231,7 @@ class TemplateTask(Task):
             Use save_raw_to_set() to save intermediate results if needed.
         """
         # Import raw data using standard function
-        self.raw = step_import(self.config)
+        self.raw = import_eeg(self.config)
 
         # Save imported data if configured
         save_raw_to_set(self.raw, self.config, "post_import")

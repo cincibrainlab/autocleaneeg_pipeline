@@ -8,12 +8,12 @@ import mne
 class BaseMetadata(BaseModel):
     """Common fields for all metadata entries."""
     creationDateTime: str = Field(default_factory=lambda: datetime.now().isoformat())
-    step_name: str  # Name of the processing step (e.g., "step_import")
+    step_name: str  # Name of the processing step (e.g., "import_eeg")
 
 class ImportMetadata(BaseMetadata):
     """Metadata for the import step."""
-    step_name: str = "step_import"
-    import_function: str = "step_import"
+    step_name: str = "import_eeg"
+    import_function: str = "import_eeg"
     unprocessedFile: str
     eegSystem: str
     sampleRate: float
@@ -27,4 +27,4 @@ class ImportMetadata(BaseMetadata):
 
 # Main metadata class with optional steps
 class ProcessingMetadata(BaseModel):
-    step_import: Optional[ImportMetadata] = None
+    import_eeg: Optional[ImportMetadata] = None

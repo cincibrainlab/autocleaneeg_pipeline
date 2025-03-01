@@ -11,7 +11,7 @@ import matplotlib
 from datetime import datetime
 # Local imports
 from autoclean.core.task import Task
-from autoclean.step_functions.io import save_epochs_to_set, step_import, save_raw_to_set
+from autoclean.step_functions.io import save_epochs_to_set, import_eeg, save_raw_to_set
 from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database
 from autoclean.step_functions.reports import (
@@ -239,7 +239,7 @@ class P300_Grael4k(Task):
 
             manage_database(
                 operation="update",
-                update_record={"run_id": self.config["run_id"], "metadata": ProcessingMetadata(step_import=metadata).model_dump()},
+                update_record={"run_id": self.config["run_id"], "metadata": ProcessingMetadata(import_eeg=metadata).model_dump()},
             )
 
             message("success", "✓ Raw EEG data imported successfully")
@@ -472,8 +472,8 @@ class P300_Grael4k(Task):
                 raise TypeError("unprocessed_file must be a pathlib.Path object")
 
             metadata = {
-                "step_import": {
-                    "import_function": "step_import",
+                "import_eeg": {
+                    "import_function": "import_eeg",
                     "creationDateTime": datetime.now().isoformat(),
                     "unprocessedFile": str(unprocessed_file.name),
                     "eegSystem": self.config.get("eeg_system", "Unknown"),
@@ -499,16 +499,16 @@ class P300_Grael4k(Task):
             "numberSamples": int,
             "hasEvents": bool,
         }
-        step_import = metadata.get("step_import")
-        if not isinstance(step_import, dict):
-            message("error", "step_import must be a dictionary")
+        import_eeg = metadata.get("import_eeg")
+        if not isinstance(import_eeg, dict):
+            message("error", "import_eeg must be a dictionary")
             return False
 
         for key, expected_type in required_keys.items():
-            if key not in step_import:
-                message("error", f"Missing required key in step_import: {key}")
+            if key not in import_eeg:
+                message("error", f"Missing required key in import_eeg: {key}")
                 return False
-            if not isinstance(step_import[key], expected_type):
+            if not isinstance(import_eeg[key], expected_type):
                 message("error", f"Key {key} must be of type {expected_type.__name__}")
                 return False
         return True

@@ -20,7 +20,7 @@ from autoclean.step_functions.continuous import (
 from autoclean.step_functions.epochs import (
     step_create_eventid_epochs,
 )
-from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, step_import
+from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
 from autoclean.step_functions.reports import (
     generate_mmn_erp,
     step_generate_ica_reports,
@@ -264,7 +264,7 @@ class HBCD_MMN(Task):
             Use save_raw_to_set() to save intermediate results if needed.
         """
         # Import raw data using standard function
-        self.raw = step_import(self.config)
+        self.raw = import_eeg(self.config)
 
         # Verify initial annotations
         self._verify_annotations(self.raw, "post_import")

@@ -117,7 +117,7 @@ class MyNewTask(Task):
 
     def import_data(self, file_path):
         # Import raw data using standard function
-        self.raw = step_import(self.config)
+        self.raw = import_eeg(self.config)
         # Save imported data if configured
         save_raw_to_set(self.raw, self.config, "post_import")
 
@@ -331,7 +331,7 @@ class SimpleRestingTask(Task):
         return config
         
     def import_data(self, file_path):
-        self.raw = step_import(self.config)
+        self.raw = import_eeg(self.config)
         
     def preprocess(self):
         self.raw = step_pre_pipeline_processing(self.raw, self.config)

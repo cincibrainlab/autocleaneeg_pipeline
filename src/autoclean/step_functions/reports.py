@@ -1491,7 +1491,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
 
     # Left column: Import info with colored background
     try:
-        raw_info = run_record["metadata"].get("step_import", {})
+        raw_info = run_record["metadata"].get("import_eeg", {})
         if not raw_info:
             raw_info = {"message": "Step import metadata not available"}
 
@@ -2316,12 +2316,12 @@ def create_json_summary(run_id: str) -> None:
 
     # FIND IMPORT DETAILS
     import_details = {}
-    if "step_import" in metadata:
-        import_details["sample_rate"] = metadata["step_import"]["sampleRate"]
-        import_details["net_nbchan_orig"] = metadata["step_import"]["channelCount"]
-        import_details["duration"] = metadata["step_import"]["durationSec"]
-        import_details["basename"] = metadata["step_import"]["unprocessedFile"]
-        original_channel_count = int(metadata["step_import"]["channelCount"])
+    if "import_eeg" in metadata:
+        import_details["sample_rate"] = metadata["import_eeg"]["sampleRate"]
+        import_details["net_nbchan_orig"] = metadata["import_eeg"]["channelCount"]
+        import_details["duration"] = metadata["import_eeg"]["durationSec"]
+        import_details["basename"] = metadata["import_eeg"]["unprocessedFile"]
+        original_channel_count = int(metadata["import_eeg"]["channelCount"])
     else:
         message("error", "No import details found")
         return

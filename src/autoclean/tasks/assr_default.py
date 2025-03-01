@@ -17,7 +17,7 @@ from ..step_functions.epochs import (
     step_gfp_clean_epochs,
     step_prepare_epochs_for_ica,
 )
-from ..step_functions.io import save_epochs_to_set, save_raw_to_set, step_import
+from ..step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
 
 
 class AssrDefault(Task):
@@ -33,7 +33,7 @@ class AssrDefault(Task):
     
     def import_data(self, file_path: Path) -> None:
         # Import and save raw EEG data
-        self.raw = step_import(self.config)
+        self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
 
 

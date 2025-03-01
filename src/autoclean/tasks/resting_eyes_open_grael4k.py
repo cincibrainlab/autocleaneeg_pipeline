@@ -23,7 +23,7 @@ from autoclean.step_functions.epochs import (
 from autoclean.step_functions.io import (
     save_epochs_to_set,
     save_raw_to_set,
-    step_import,
+    import_eeg,
 )
 from autoclean.step_functions.reports import (
     step_generate_ica_reports,
@@ -99,7 +99,7 @@ class RestingEyesOpen_grael(Task):
     def import_data(self, file_path: Path) -> None:
         """Import raw resting state EEG data."""
         # Import and save raw EEG data
-        self.raw = step_import(self.config)
+        self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
 
     def preprocess(self) -> None:

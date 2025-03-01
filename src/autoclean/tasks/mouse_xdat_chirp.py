@@ -17,7 +17,7 @@ from autoclean.step_functions.epochs import (
     step_apply_autoreject,
     step_create_eventid_epochs,
 )
-from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, step_import
+from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
 from autoclean.step_functions.reports import (
     step_generate_ica_reports,
     step_plot_ica_full,
@@ -131,7 +131,7 @@ class MouseXdatChirp(Task):
             Use save_raw_to_set() to save intermediate results if needed.
         """
         # Import raw data using standard function
-        self.raw = step_import(self.config)
+        self.raw = import_eeg(self.config)
 
         # Save imported data if configured
         save_raw_to_set(self.raw, self.config, "post_import")
