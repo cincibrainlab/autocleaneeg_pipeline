@@ -10,7 +10,7 @@ tasks:
   RestingEyesOpen:
     mne_task: "rest"
     description: "Resting state with eyes open"
-    lossless_config: configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
+    lossless_config: /Users/ernie/Documents/GitHub/autoclean_pipeline/configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
