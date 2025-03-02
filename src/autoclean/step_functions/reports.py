@@ -1,6 +1,16 @@
 # src/autoclean/step_functions/reports.py
 """Visualization and reporting functions.
 
+**DEPRECATED**: This module is deprecated. Please use the reporting mixins instead.
+
+The functionality from this module has been moved to:
+- `autoclean.mixins.reporting.visualization.VisualizationMixin`
+- `autoclean.mixins.reporting.ica.ICAReportingMixin`
+- `autoclean.mixins.reporting.reports.ReportGenerationMixin`
+
+The reporting mixins provide the same functionality with improved integration 
+with the Task class and better configuration handling.
+
 This module provides functions for generating visualizations and reports
 from EEG processing results. It includes:
 - Run summary reports

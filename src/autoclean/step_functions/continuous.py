@@ -11,6 +11,8 @@ from mne_bids import read_raw_bids
 from pyprep.find_noisy_channels import NoisyChannels
 
 from autoclean.step_functions.io import save_raw_to_set
+# NOTE: The following import is using a deprecated function.
+# It should eventually be migrated to use the ReportingMixin instead.
 from autoclean.step_functions.reports import plot_bad_channels_with_topography
 from autoclean.utils.bids import step_convert_to_bids
 from autoclean.utils.database import manage_database

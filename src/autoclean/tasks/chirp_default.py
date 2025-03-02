@@ -4,7 +4,9 @@
 from pathlib import Path
 from typing import Any, Dict
 
-from autoclean.step_functions.reports import step_generate_ica_reports, step_plot_ica_full, step_plot_raw_vs_cleaned_overlay, step_psd_topo_figure
+# Import the reporting functions directly from the Task class via mixins
+# # Import the reporting functions directly from the Task class via mixins
+# from autoclean.step_functions.reports import step_generate_ica_reports, step_plot_ica_full, step_plot_raw_vs_cleaned_overlay, step_psd_topo_figure
 
 from ..core.task import Task
 from ..step_functions.continuous import (
@@ -144,20 +146,20 @@ class ChirpDefault(Task):
         if self.pipeline is None or self.cleaned_raw is None:
             return
 
-        # Plot raw vs cleaned overlay
-        step_plot_raw_vs_cleaned_overlay(
+        # Plot raw vs cleaned overlay using mixin method using mixin method
+        self.plot_raw_vs_cleaned_overlay(
             self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
         )
 
-        # Plot ICA components
-        step_plot_ica_full(self.pipeline, self.config)
+        # Plot ICA components using mixin method using mixin method
+        self.plot_ica_full(self.pipeline, self.config)
 
-        # # # Generate ICA reports
-        # step_generate_ica_reports(
-        #     self.pipeline, self.cleaned_raw, self.config, duration=60
+        # # Generate ICA reports using mixin method using mixin method (uncomment if needed)
+        # self.plot_ica_components(
+        #     self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
         # )
 
-        # # Create PSD topography figure
-        step_psd_topo_figure(
+        # Create PSD topography figure using mixin method using mixin method
+        self.psd_topo_figure(
             self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
         )

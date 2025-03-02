@@ -67,6 +67,8 @@ from ulid import ULID
 
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
+# NOTE: The following imports are using deprecated functions. 
+# They should eventually be migrated to use the ReportingMixin instead.
 from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,

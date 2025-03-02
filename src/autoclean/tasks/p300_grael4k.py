@@ -14,12 +14,15 @@ from autoclean.core.task import Task
 from autoclean.step_functions.io import save_epochs_to_set, import_eeg, save_raw_to_set
 from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database
-from autoclean.step_functions.reports import (
-    step_generate_ica_reports,
+# Import the reporting functions directly from the Task class via mixins
+# # Import the reporting functions directly from the Task class via mixins
+# from autoclean.step_functions.reports import (
+#     step_generate_ica_reports,
     step_plot_ica_full,
     step_psd_topo_figure,
     generate_mmn_erp,
-)
+
+# )
 from autoclean.step_functions.continuous import (
     step_detect_dense_oscillatory_artifacts,
     step_clean_bad_channels,
@@ -360,16 +363,17 @@ class P300_Grael4k(Task):
         if self.pipeline is None or self.cleaned_raw is None:
             return
 
-        # Plot ICA components
-        step_plot_ica_full(self.pipeline, self.config)
+        # Plot ICA components using mixin method
+        self.plot_ica_full(self.pipeline, self.config)
 
-        # Generate ICA reports
-        step_generate_ica_reports(
-            self.pipeline, self.cleaned_raw, self.config, duration=60
+        # Generate ICA reports using mixin method
+        self.plot_ica_components(
+            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
+        
         )
 
-        # Create PSD topography figure
-        step_psd_topo_figure(
+        # Create PSD topography figure using mixin method
+        self.psd_topo_figure(
             self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
         )
 
