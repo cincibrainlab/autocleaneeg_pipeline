@@ -1,18 +1,8 @@
-# Pipeline Overview
+# EEG Pipeline Architecture
 
-The AutoClean EEG pipeline is a powerful and flexible framework for processing EEG data. It supports various EEG paradigms and ensures that the processing steps are modular, configurable, and can be integrated into automated agents for regulated EEG processing.
+## Overview
 
-## Key Features
-
-- **Modular Design**: The pipeline is built with a modular architecture, allowing users to customize and extend the processing steps according to their needs.
-- **Task-Based Processing**: The pipeline supports multiple tasks, each corresponding to a specific EEG processing paradigm.
-- **Comprehensive Error Handling**: The pipeline includes robust error handling mechanisms to ensure smooth processing.
-- **BIDS Compatibility**: The pipeline is designed to work with BIDS (Brain Imaging Data Structure) datasets.
-- **Extensive Quality Control**: The pipeline provides automated quality control metrics and visual inspection tools.
-
-## Detailed Architecture
-
-For a detailed description of the architecture and features of the EEG pipeline, please refer to the [Architecture](../architecture.md) documentation.
+The EEG pipeline is designed to provide a flexible and comprehensive framework for processing EEG data. It supports various EEG paradigms and ensures that the processing steps are modular, configurable, and can be integrated into automated agents for regulated EEG processing.
 
 ## Core Components
 
