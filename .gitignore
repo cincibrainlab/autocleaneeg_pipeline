@@ -61,3 +61,6 @@ codefetch/codebase.md
 examples/batch_run.py
 examples/batch_run.py
 examples/single_file.py
+
+#mkdocs
+site/
