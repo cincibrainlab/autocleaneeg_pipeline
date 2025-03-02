@@ -30,42 +30,47 @@ from autoclean.mixins.reporting.visualization import VisualizationMixin
 from autoclean.mixins.reporting.ica import ICAReportingMixin
 from autoclean.mixins.reporting.reports import ReportGenerationMixin
 
-class ReportingMixin(
-    BaseReportingMixin,
-    VisualizationMixin,
-    ICAReportingMixin,
-    ReportGenerationMixin
-):
+class ReportingMixin(object):
     """Main mixin class that combines all reporting functionality.
     
-    This class inherits from all specialized reporting mixins to provide
-    a comprehensive set of reporting methods for EEG data processing results.
+    This class uses composition to integrate functionality from all specialized
+    reporting mixins, providing a unified interface for generating visualizations,
+    reports, and summaries from EEG data processing results.
     
-    The ReportingMixin provides the following capabilities:
+    The ReportingMixin provides the following capabilities through delegation:
     
     1. EEG data visualizations:
        - Raw vs. cleaned data overlays
        - Bad channel reports with topographies
        - PSD and topographical maps
        - MMN ERP analysis and visualization
-    
-    2. ICA component visualizations and reports:
-       - Full-duration component activations
-       - Component properties and topographies
-       - Component rejection documentation
-    
-    3. Comprehensive reporting:
-       - PDF summary reports
-       - Processing log updates
-       - JSON summaries for machine-readable output
-    
-    This combined mixin follows the same pattern as the SignalProcessingMixin,
-    providing a clean interface for task classes to access all reporting functionality.
-    All methods respect configuration settings in `autoclean_config.yaml`.
-    
-    Note:
-        This class is automatically included in the base `Task` class through
-        multiple inheritance, so any task that inherits from `Task` will have
-        access to all reporting methods.
+       
+    2. ICA visualizations and reports:
+       - Component property plots
+       - Rejected component reports
+       - Component activation plots
+       
+    3. Report generation:
+       - Processing summary reports (PDF)
+       - Log updates
+       - JSON summaries
     """
-    pass
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Initialize all mixins using composition instead of inheritance
+        self.base_mixin = BaseReportingMixin()
+        self.viz_mixin = VisualizationMixin()
+        self.ica_mixin = ICAReportingMixin()
+        self.report_mixin = ReportGenerationMixin()
+        
+    # Delegate methods to the appropriate mixins
+    def __getattr__(self, name):
+        # Check each mixin for the attribute
+        for mixin in [self.viz_mixin, self.ica_mixin, self.report_mixin, self.base_mixin]:
+            if hasattr(mixin, name):
+                return getattr(mixin, name)
+        
+        # If not found, raise AttributeError
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")

@@ -47,7 +47,7 @@ from autoclean.mixins.reporting.base import ReportingMixin
 matplotlib.use("Agg")
 
 
-class ICAReportingMixin(ReportingMixin):
+class ICAReportingMixin(object):
     """Mixin providing ICA reporting functionality for EEG data.
     
     This mixin extends the base ReportingMixin with specialized methods for

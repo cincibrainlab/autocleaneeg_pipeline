@@ -26,13 +26,11 @@ from autoclean.step_functions.io import (
     import_eeg,
 )
 # Import the reporting functions directly from the Task class via mixins
-# # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,
-    step_plot_ica_full,
-    step_plot_raw_vs_cleaned_overlay,
-    step_psd_topo_figure,
-
+#     step_plot_ica_full,
+#     step_plot_raw_vs_cleaned_overlay,
+#     step_psd_topo_figure,
 # )
 
 

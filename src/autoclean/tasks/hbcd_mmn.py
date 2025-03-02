@@ -22,12 +22,11 @@ from autoclean.step_functions.epochs import (
 )
 from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
 # Import the reporting functions directly from the Task class via mixins
-# # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     generate_mmn_erp,
-    step_generate_ica_reports,
-    step_plot_ica_full,
-    step_psd_topo_figure,
+#     step_generate_ica_reports,
+#     step_plot_ica_full,
+#     step_psd_topo_figure,
 
 # )
 from autoclean.utils.logging import message

@@ -15,13 +15,11 @@ from autoclean.step_functions.io import save_epochs_to_set, import_eeg, save_raw
 from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database
 # Import the reporting functions directly from the Task class via mixins
-# # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,
-    step_plot_ica_full,
-    step_psd_topo_figure,
-    generate_mmn_erp,
-
+#     step_plot_ica_full,
+#     step_psd_topo_figure,
+#     generate_mmn_erp,
 # )
 from autoclean.step_functions.continuous import (
     step_detect_dense_oscillatory_artifacts,

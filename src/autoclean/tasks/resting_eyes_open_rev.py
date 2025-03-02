@@ -3,7 +3,10 @@
 
 # Standard library imports
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Union
+
+# Third-party imports
+import mne
 
 # Local imports
 from autoclean.core.task import Task
@@ -25,13 +28,13 @@ from autoclean.step_functions.io import (
     save_raw_to_set,
     import_eeg
 )
-# Import the reporting functions directly from the Task class via mixins
 # # Import the reporting functions directly from the Task class via mixins
-# from autoclean.step_functions.reports import (
-#     step_generate_ica_reports,
-    step_plot_ica_full,
-    step_plot_raw_vs_cleaned_overlay,
-    step_psd_topo_figure,
+# # # Import the reporting functions directly from the Task class via mixins
+# # from autoclean.step_functions.reports import (
+# #     step_generate_ica_reports,
+#     step_plot_ica_full,
+#     step_plot_raw_vs_cleaned_overlay,
+#     step_psd_topo_figure,
 
 # )
 from autoclean.utils.logging import message
@@ -51,65 +54,10 @@ class RestingEyesOpenRev(Task):
         self.epochs = None
         super().__init__(config)
 
-    def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        # """Validate resting state specific configuration.
-
-        # Args:
-        #     config: Configuration dictionary that has passed common validation
-
-        # Returns:
-        #     Validated configuration dictionary
-
-        # Raises:
-        #     ValueError: If required fields are missing or invalid
-        # """
-        # # Validate resting state specific fields
-        required_fields = {
-            "task": str,
-            "eeg_system": str,
-            "tasks": dict,
-        }
-
-        for field, field_type in required_fields.items():
-            if field not in config:
-                raise ValueError(f"Missing required field: {field}")
-            if not isinstance(config[field], field_type):
-                raise ValueError(f"Field {field} must be of type {field_type}")
-
-        # Validate stage_files structure
-        required_stages = [
-            "post_import",
-            "post_prepipeline",
-            "post_pylossless",
-            "post_rejection_policy",
-        ]
-
-        for stage in required_stages:
-            if stage not in config["stage_files"]:
-                raise ValueError(f"Missing stage in stage_files: {stage}")
-            stage_config = config["stage_files"][stage]
-            if not isinstance(stage_config, dict):
-                raise ValueError(f"Stage {stage} configuration must be a dictionary")
-            if "enabled" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'enabled' field")
-            if "suffix" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'suffix' field")
-
-        return config
-
     def run(self) -> None:
-        """Run the complete resting state processing pipeline.
-        
-        This method orchestrates the complete processing sequence:
-        1. Import raw data
-        2. Run preprocessing steps including resampling (using the mixin)
-        3. Apply artifact rejection
-        4. Create and process epochs
-        5. Generate reports
-        """
-        # Import raw data
-        file_path = Path(self.config["unprocessed_file"])
-        self.import_data(file_path)
+        """ Pipeline Execution """
+
+        self.import_data()
 
         # Check if data was imported successfully
         if self.raw is None:
@@ -180,17 +128,23 @@ class RestingEyesOpenRev(Task):
         # Generate visualization reports
         self._generate_reports()
 
-    def import_data(self, file_path: Path) -> None:
-        """Import raw resting state EEG data.
-        
-        Args:
-            file_path: Path to the EEG data file
-            
+    def import_data(self) -> Union[mne.io.BaseRaw, mne.BaseEpochs, mne.SourceEstimate, mne.Evoked]:
+        """Import signal data via filename, output must be a valid MNE datatype.
+
+        Returns:
+            Union[mne.io.BaseRaw, mne.BaseEpochs, mne.SourceEstimate, mne.Evoked]: 
+                Imported EEG data as MNE Raw, Epochs, SourceEstimate, or Evoked object.
+
         Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If file format is invalid
+            FileNotFoundError: If the specified file doesn't exist.
+            ValueError: If the file format is invalid or data is corrupted.
+            RuntimeError: If there are problems reading the file.
         """
+
         # Import and save raw EEG data
+
+        file_path = Path(self.config["unprocessed_file"])
+
         self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
 
@@ -219,3 +173,50 @@ class RestingEyesOpenRev(Task):
         self.psd_topo_figure(
             self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
         )
+
+
+    def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
+        # """Validate resting state specific configuration.
+
+        # Args:
+        #     config: Configuration dictionary that has passed common validation
+
+        # Returns:
+        #     Validated configuration dictionary
+
+        # Raises:
+        #     ValueError: If required fields are missing or invalid
+        # """
+        # # Validate resting state specific fields
+        required_fields = {
+            "task": str,
+            "eeg_system": str,
+            "tasks": dict,
+        }
+
+        for field, field_type in required_fields.items():
+            if field not in config:
+                raise ValueError(f"Missing required field: {field}")
+            if not isinstance(config[field], field_type):
+                raise ValueError(f"Field {field} must be of type {field_type}")
+
+        # Validate stage_files structure
+        required_stages = [
+            "post_import",
+            "post_prepipeline",
+            "post_pylossless",
+            "post_rejection_policy",
+        ]
+
+        for stage in required_stages:
+            if stage not in config["stage_files"]:
+                raise ValueError(f"Missing stage in stage_files: {stage}")
+            stage_config = config["stage_files"][stage]
+            if not isinstance(stage_config, dict):
+                raise ValueError(f"Stage {stage} configuration must be a dictionary")
+            if "enabled" not in stage_config:
+                raise ValueError(f"Stage {stage} must have 'enabled' field")
+            if "suffix" not in stage_config:
+                raise ValueError(f"Stage {stage} must have 'suffix' field")
+
+        return config

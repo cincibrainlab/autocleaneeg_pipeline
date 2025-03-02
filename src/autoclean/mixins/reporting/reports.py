@@ -56,7 +56,7 @@ from autoclean.utils.database import get_run_record, manage_database
 from autoclean.mixins.reporting.base import ReportingMixin
 
 
-class ReportGenerationMixin(ReportingMixin):
+class ReportGenerationMixin(object):
     """Mixin providing report generation functionality for EEG data.
     
     This mixin extends the base ReportingMixin with specialized methods for
@@ -114,11 +114,327 @@ class ReportGenerationMixin(ReportingMixin):
                 message("info", "✗ Report generation is disabled in configuration")
                 return
         
-        # Implementation goes here - this is a placeholder
-        # Since this is a very large method, I'm not including the full implementation here
-        # The actual implementation would be copied from the original function in reports.py
-        
-        message("info", "create_run_report is a placeholder - implementation needed")
+        if not run_id:
+            message("error", "No run ID provided")
+            return
+
+        run_record = get_run_record(run_id)
+        if not run_record or "metadata" not in run_record:
+            message("error", "No metadata found for run ID")
+            return
+
+        # Early validation of required metadata sections
+        required_sections = ["step_prepare_directories"]
+        missing_sections = [
+            section
+            for section in required_sections
+            if section not in run_record["metadata"]
+        ]
+        if missing_sections:
+            message(
+                "error",
+                f"Missing required metadata sections: {', '.join(missing_sections)}",
+            )
+            return
+
+        # Prepare PDF output directory and filename
+        try:
+            if "step_prepare_directories" in run_record["metadata"]:
+                out_dir = Path(run_record["metadata"]["step_prepare_directories"]["bids"]).parent
+                pdf_dir = out_dir / "reports"
+                pdf_dir.mkdir(exist_ok=True, parents=True)
+                pdf_path = pdf_dir / f"{run_id}_processing_report.pdf"
+
+                # If autoclean_dict is provided, add more metadata to the PDF name
+                if autoclean_dict and "bids_path" in autoclean_dict:
+                    bp = autoclean_dict["bids_path"]
+                    subject = bp.subject if hasattr(bp, "subject") else "unknown"
+                    task = bp.task if hasattr(bp, "task") else "unknown"
+                    pdf_path = pdf_dir / f"{subject}_{task}_{run_id}_report.pdf"
+
+        except Exception as e:
+            message("error", f"Error setting up report output path: {str(e)}")
+            return
+
+        message("info", f"Generating PDF report: {pdf_path}")
+
+        # Initialize PDF document
+        doc = SimpleDocTemplate(
+            str(pdf_path),
+            pagesize=letter,
+            rightMargin=36,
+            leftMargin=36,
+            topMargin=36,
+            bottomMargin=36,
+        )
+
+        # Define styles for the document
+        styles = getSampleStyleSheet()
+
+        # Custom styles for better presentation
+        title_style = ParagraphStyle(
+            "CustomTitle",
+            parent=styles["Title"],
+            fontSize=16,
+            spaceAfter=6,
+            textColor=colors.HexColor("#2C3E50"),
+            alignment=1,
+        )
+
+        heading_style = ParagraphStyle(
+            "CustomHeading",
+            parent=styles["Heading1"],
+            fontSize=10,
+            spaceAfter=4,
+            textColor=colors.HexColor("#34495E"),
+            alignment=1,
+        )
+
+        normal_style = ParagraphStyle(
+            "CustomNormal",
+            parent=styles["Normal"],
+            fontSize=7,
+            spaceAfter=2,
+            textColor=colors.HexColor("#2C3E50"),
+        )
+
+        steps_style = ParagraphStyle(
+            "Steps",
+            parent=normal_style,
+            fontSize=7,
+            leading=10,
+            spaceBefore=1,
+            spaceAfter=1,
+        )
+
+        # Define frame style for main content
+        frame_style = TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#ECF0F1")),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+
+        # Common table style
+        table_style = TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+
+        # Create story (content) for the PDF
+        story = []
+
+        # Title and Basic Info
+        title = "EEG Processing Report"
+        story.append(Paragraph(title, title_style))
+
+        # Add status-colored subtitle
+        status_color = (
+            colors.HexColor("#2ECC71")
+            if run_record.get("success", False)
+            else colors.HexColor("#E74C3C")
+        )
+        subtitle_style = ParagraphStyle(
+            "CustomSubtitle",
+            parent=heading_style,
+            textColor=status_color,
+            spaceAfter=2,
+        )
+        status_text = "SUCCESS" if run_record.get("success", False) else "FAILED"
+        subtitle = f"Run ID: {run_id} - {status_text}"
+        story.append(Paragraph(subtitle, subtitle_style))
+
+        # Add timestamp
+        timestamp_style = ParagraphStyle(
+            "Timestamp",
+            parent=normal_style,
+            textColor=colors.HexColor("#7F8C8D"),
+            alignment=1,
+            spaceAfter=8,
+        )
+        timestamp = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+        story.append(Paragraph(timestamp, timestamp_style))
+
+        # Add processing steps and timeline
+        if "metadata" in run_record:
+            # Extract processing steps from metadata
+            metadata = run_record["metadata"]
+            step_keys = [k for k in metadata.keys() if k.startswith("step_")]
+
+            if step_keys:
+                story.append(Paragraph("Processing Timeline", heading_style))
+                story.append(Spacer(1, 4))
+
+                # Create processing steps table
+                step_data = [("Step", "Status", "Details")]
+                for step in sorted(step_keys):
+                    step_name = step.replace("step_", "").replace("_", " ").title()
+                    step_status = "Completed" if metadata[step] else "Failed"
+                    step_details = ""
+
+                    # Extract key details (adapt this based on your step metadata structure)
+                    if isinstance(metadata[step], dict):
+                        # Just display a few key details to keep it simple
+                        details = []
+                        for k, v in metadata[step].items():
+                            if k in ["duration", "timestamp", "message"] and v:
+                                if k == "duration" and isinstance(v, (int, float)):
+                                    details.append(f"{k}: {v:.2f}s")
+                                elif k == "timestamp" and isinstance(v, str):
+                                    # Format timestamp
+                                    try:
+                                        dt = datetime.fromisoformat(v)
+                                        details.append(f"{dt.strftime('%H:%M:%S')}")
+                                    except:
+                                        details.append(f"{v}")
+                                else:
+                                    details.append(f"{k}: {str(v)[:30]}")
+                        step_details = ", ".join(details)
+
+                    step_data.append((step_name, step_status, step_details))
+
+                # Add steps table
+                steps_table = ReportLabTable(step_data, colWidths=[1.5*inch, 1.0*inch, 3.5*inch])
+                steps_table.setStyle(table_style)
+                story.append(steps_table)
+                story.append(Spacer(1, 12))
+
+        # Add error message if processing failed
+        if not run_record.get("success", False) and "error" in run_record:
+            error_style = ParagraphStyle(
+                "Error",
+                parent=normal_style,
+                textColor=colors.HexColor("#E74C3C"),
+                backColor=colors.HexColor("#FADBD8"),
+                borderWidth=1,
+                borderColor=colors.HexColor("#E74C3C"),
+                borderPadding=(4, 4, 4, 4),
+                spaceBefore=8,
+                spaceAfter=8,
+            )
+            error_text = f"<b>Processing Error:</b> {run_record['error']}"
+            story.append(Paragraph(error_text, error_style))
+            story.append(Spacer(1, 8))
+
+        # Add processing outputs and files
+        if "step_prepare_directories" in run_record["metadata"]:
+            try:
+                # Find derivatives directory
+                out_dir = Path(run_record["metadata"]["step_prepare_directories"]["bids"]).parent
+                derivatives_dir = out_dir / "derivatives"
+                
+                if derivatives_dir.exists() and derivatives_dir.is_dir():
+                    story.append(Paragraph("Processing Outputs", heading_style))
+                    story.append(Spacer(1, 4))
+                    
+                    # List files in derivatives directory
+                    files_data = [("Type", "Filename", "Size")]
+                    
+                    for file in derivatives_dir.glob("**/*"):
+                        if not file.is_file():
+                            continue
+                            
+                        # Categorize file by extension
+                        file_type = file.suffix.lower().replace(".", "").upper()
+                        
+                        # Get file size
+                        size_bytes = file.stat().st_size
+                        size_str = (
+                            f"{size_bytes} B"
+                            if size_bytes < 1024
+                            else (
+                                f"{size_bytes/1024:.1f} KB"
+                                if size_bytes < 1024 * 1024
+                                else f"{size_bytes/(1024*1024):.1f} MB"
+                            )
+                        )
+                        
+                        files_data.append([file_type, file.name, size_str])
+                    
+                    # Create table if files were found
+                    if len(files_data) > 1:
+                        story.append(
+                            Paragraph(f"Directory: {derivatives_dir}", normal_style)
+                        )
+                        story.append(Spacer(1, 4))
+                        
+                        files_table = ReportLabTable(
+                            files_data, colWidths=[1.0 * inch, 4.0 * inch, 1.5 * inch]
+                        )
+                        files_table.setStyle(
+                            TableStyle(
+                                [
+                                    (
+                                        "GRID",
+                                        (0, 0),
+                                        (-1, -1),
+                                        0.5,
+                                        colors.HexColor("#BDC3C7"),
+                                    ),
+                                    (
+                                        "BACKGROUND",
+                                        (0, 0),
+                                        (-1, 0),
+                                        colors.HexColor("#F5F6FA"),
+                                    ),
+                                    (
+                                        "BACKGROUND",
+                                        (0, 1),
+                                        (-1, -1),
+                                        colors.HexColor("#F8F9F9"),
+                                    ),
+                                    (
+                                        "TEXTCOLOR",
+                                        (0, 0),
+                                        (-1, 0),
+                                        colors.HexColor("#2C3E50"),
+                                    ),
+                                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                                ]
+                            )
+                        )
+                        story.append(files_table)
+                        story.append(Spacer(1, 12))
+                    
+            except Exception as e:
+                message("warning", f"Error listing derivatives: {str(e)}")
+
+        # Build the PDF document
+        try:
+            doc.build(story)
+            message("success", f"PDF report generated: {pdf_path}")
+            
+            # Update database with report information
+            manage_database(
+                operation="update",
+                update_record={
+                    "run_id": run_id, 
+                    "metadata": {
+                        "create_run_report": {
+                            "timestamp": datetime.now().isoformat(),
+                            "pdf_path": str(pdf_path),
+                        }
+                    },
+                },
+            )
+            
+        except Exception as e:
+            message("error", f"Error building PDF report: {str(e)}")
         
     def update_task_processing_log(self, summary_dict: Dict[str, Any]) -> None:
         """Update the task-specific processing log CSV file with details about the current file.
@@ -284,9 +600,200 @@ class ReportGenerationMixin(ReportingMixin):
                 message("info", "✗ JSON summary generation is disabled in configuration")
                 return {}
         
-        # Implementation goes here - this is a placeholder
-        # Since this is a large method, I'm not including the full implementation here
-        # The actual implementation would be copied from the original function in reports.py
+        run_record = get_run_record(run_id)
+        if not run_record:
+            message("error", f"No run record found for run ID: {run_id}")
+            return {}
+
+        metadata = run_record.get("metadata", {})
+
+        # Create a JSON summary of the metadata
+        try:
+            if "step_convert_to_bids" in run_record["metadata"]:
+                bids_info = run_record["metadata"]["step_convert_to_bids"]
+                if bids_info:
+                    # Reconstruct BIDSPath object
+                    bids_path = BIDSPath(
+                        subject=bids_info["bids_subject"],
+                        session=bids_info["bids_session"],
+                        task=bids_info["bids_task"],
+                        run=bids_info["bids_run"],
+                        datatype=bids_info["bids_datatype"],
+                        root=bids_info["bids_root"],
+                        suffix=bids_info["bids_suffix"],
+                        extension=bids_info["bids_extension"],
+                    )
+
+            config_path = run_record["lossless_config"]
+            derivative_name = "pylossless"
+            pipeline = ll.LosslessPipeline(config_path)
+            derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
+            derivatives_dir = Path(derivatives_path.directory)
+        except Exception as e:
+            message("error", f"Could not get derivatives path: {str(e)}")
+            return {}
+
+        outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
+
+        # Determine processing state and exclusion category
+        proc_state = "postcomps"
+        exclude_category = ""
+        if not run_record.get("success", False):
+            error_msg = run_record.get("error", "").lower()
+            if "line noise" in error_msg:
+                proc_state = "LINE NOISE"
+                exclude_category = "Excessive Line Noise"
+            elif "insufficient data" in error_msg:
+                proc_state = "INSUFFICIENT_DATA"
+                exclude_category = "Insufficient Data"
+            else:
+                proc_state = "ERROR"
+                exclude_category = f"Processing Error: {error_msg[:100]}"
+
+        # FIND BAD CHANNELS
+        channel_dict = {}
+        if "step_clean_bad_channels" in metadata:
+            channel_dict["step_clean_bad_channels"] = metadata["step_clean_bad_channels"][
+                "bads"
+            ]
+
+        flagged_chs_file = None
+        for file_name in outputs:
+            if file_name.endswith("FlaggedChs.tsv"):
+                flagged_chs_file = file_name
+                break
+
+        if flagged_chs_file:
+            with open(derivatives_dir / flagged_chs_file, "r") as f:
+                # Skip the header line
+                next(f)
+                # Read each line and extract the label and channel name
+                for line in f:
+                    parts = line.strip().split("\t")
+                    if len(parts) == 2:
+                        label, channel = parts
+                        if label not in channel_dict:
+                            channel_dict[label] = []
+                        channel_dict[label].append(channel)
+
+        # Get all bad channels
+        bad_channels = [
+            channel for channels in channel_dict.values() for channel in channels
+        ]
+        channel_dict["removed_channels"] = bad_channels
+
+        if "step_prepare_directories" in metadata:
+            output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
+
+        # FIND IMPORT DETAILS
+        import_details = {}
+        if "import_eeg" in metadata:
+            import_details["sample_rate"] = metadata["import_eeg"]["sampleRate"]
+            import_details["net_nbchan_orig"] = metadata["import_eeg"]["channelCount"]
+            import_details["duration"] = metadata["import_eeg"]["durationSec"]
+            import_details["basename"] = metadata["import_eeg"]["unprocessedFile"]
+            original_channel_count = int(metadata["import_eeg"]["channelCount"])
+        else:
+            message("error", "No import details found")
+            return {}
+
+        processing_details = {}
+        if "step_run_pylossless" in metadata:
+            pylossless_info = metadata["step_run_pylossless"]["pylossless_config"]
+            processing_details["h_freq"] = pylossless_info["filtering"]["filter_args"][
+                "h_freq"
+            ]
+            processing_details["l_freq"] = pylossless_info["filtering"]["filter_args"][
+                "l_freq"
+            ]
+            processing_details["notch_freqs"] = pylossless_info["filtering"][
+                "notch_filter_args"
+            ]["freqs"]
+            if "notch_widths" in pylossless_info["filtering"]["notch_filter_args"]:
+                processing_details["notch_widths"] = pylossless_info["filtering"][
+                    "notch_filter_args"
+                ]["notch_widths"]
+            else:
+                processing_details["notch_widths"] = "notch_freqs/200"
+
+        # FIND EXPORT DETAILS
+        export_details = {}
+        if "save_epochs_to_set" in metadata:
+            save_epochs_to_set = metadata["save_epochs_to_set"]
+            epoch_length = save_epochs_to_set["tmax"] - save_epochs_to_set["tmin"]
+            export_details["epoch_length"] = epoch_length
+            export_details["final_n_epochs"] = save_epochs_to_set["n_epochs"]
+            export_details["final_duration"] = epoch_length * save_epochs_to_set["n_epochs"]
+            if original_channel_count and bad_channels:
+                export_details["net_nbchan_post"] = original_channel_count - len(
+                    bad_channels
+                )
+            else:
+                export_details["net_nbchan_post"] = original_channel_count
+
+        if "step_create_regular_epochs" in metadata:
+            make_fixed_length_epochs = metadata["step_create_regular_epochs"]
+            export_details["initial_n_epochs"] = make_fixed_length_epochs[
+                "initial_epoch_count"
+            ]
+            export_details["initial_duration"] = (
+                make_fixed_length_epochs["initial_epoch_count"]
+                * make_fixed_length_epochs["duration"]
+            )
+            export_details["srate_post"] = (
+                make_fixed_length_epochs["single_epoch_samples"]
+                // make_fixed_length_epochs["duration"]
+            )
+            export_details["epoch_limits"] = [
+                make_fixed_length_epochs["tmin"],
+                make_fixed_length_epochs["tmax"],
+            ]
+
+        elif "step_create_eventid_epochs" in metadata:
+            create_eventid_epochs = metadata["step_create_eventid_epochs"]
+            export_details["initial_n_epochs"] = create_eventid_epochs["number_of_events"]
+            export_details["initial_duration"] = create_eventid_epochs["total_duration"]
+            export_details["srate_post"] = (
+                create_eventid_epochs["samples_per_epoch"] - 1
+            ) / create_eventid_epochs["epoch_duration"]
+            export_details["epoch_limits"] = [
+                create_eventid_epochs["tmin"],
+                create_eventid_epochs["tmax"],
+            ]
+
+        ica_details = {}
+        if "step_run_ll_rejection_policy" in metadata:
+            ll_rejection_policy = metadata["step_run_ll_rejection_policy"]
+            ica_details["proc_removeComps"] = ll_rejection_policy["ica_components"]
+            ica_details["proc_nComps"] = ll_rejection_policy["n_components"]
+
+        summary_dict = {
+            "run_id": run_id,
+            "task": run_record["task"],
+            "bids_subject": f"sub-{bids_path.subject}",
+            "timestamp": run_record["timestamp"],
+            "basename": import_details["basename"],
+            "proc_state": proc_state,
+            "exclude_category": exclude_category,
+            "import_details": import_details,
+            "processing_details": processing_details,
+            "export_details": export_details,
+            "ica_details": ica_details,
+            "channel_dict": channel_dict,
+            "outputs": outputs,
+            "output_dir": str(output_dir),
+            "derivatives_dir": str(derivatives_dir),
+        }
         
-        message("info", "create_json_summary is a placeholder - implementation needed")
-        return {}
+        message("success", f"Created JSON summary for run {run_id}")
+        
+        # Add metadata to database
+        manage_database(
+            operation="update",
+            update_record={
+                "run_id": run_id, 
+                "metadata": {"json_summary": {"timestamp": datetime.now().isoformat()}}
+            },
+        )
+        
+        return summary_dict
