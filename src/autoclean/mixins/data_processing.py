@@ -26,11 +26,13 @@ from datetime import datetime
 
 import mne
 import numpy as np
-from mne.preprocessing import NoisyChannels
 
 from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database, get_run_record
 from autoclean.step_functions.io import save_raw_to_set
+
+from pyprep.find_noisy_channels import NoisyChannels
+
 
 
 class SignalProcessingMixin:
