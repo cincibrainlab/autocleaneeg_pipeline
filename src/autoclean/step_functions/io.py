@@ -27,7 +27,10 @@ __all__ = [
     "save_epochs_to_set", 
     "register_plugin",
     "BaseEEGPlugin",
-    "register_format"
+    "register_format",
+    "BaseEventProcessor",
+    "register_event_processor",
+    "get_event_processor_for_task"
 ]
 
 # Registry to store format mappings and plugins
@@ -295,12 +298,13 @@ def import_eeg(autoclean_dict: dict, preload: bool = True) -> Union[mne.io.Raw, 
         # Process events if we have Raw data
         events = event_dict = events_df = None
         if not is_epochs:
+            # Basic event extraction from annotations
             events, event_dict, events_df = plugin.process_events(eeg_data, autoclean_dict)
             
-            # Apply task-specific processing if needed
+            # Apply task-specific event processing if specified
             if "task" in autoclean_dict and autoclean_dict["task"]:
                 task = autoclean_dict["task"]
-                message("info", f"Applying task-specific processing for: {task}")
+                message("info", f"Applying task-specific event processing for: {task}")
                 eeg_data = _apply_task_specific_processing(eeg_data, events, events_df, autoclean_dict)
         
         # Get plugin metadata
@@ -367,16 +371,164 @@ def import_eeg(autoclean_dict: dict, preload: bool = True) -> Union[mne.io.Raw, 
         raise
 
 
-def _apply_task_specific_processing(raw, events, events_df, autoclean_dict):
-    """Apply task-specific processing to raw data."""
-    task = autoclean_dict["task"]
+# Event processor plugin system
+_EVENT_PROCESSOR_REGISTRY = {}  # Maps task names to event processor classes
+
+
+class BaseEventProcessor(abc.ABC):
+    """Abstract base class for event processing plugins.
     
-    if task == "p300_grael4k":
+    Each plugin handles task-specific event processing logic for a particular
+    experimental paradigm or data format.
+    """
+    
+    @classmethod
+    @abc.abstractmethod
+    def supports_task(cls, task_name: str) -> bool:
+        """Check if this processor supports the given task.
+        
+        Args:
+            task_name: Name of the task
+            
+        Returns:
+            bool: True if this processor can handle the task, False otherwise
+        """
+        pass
+    
+    def _check_config_enabled(self, step_name: str, autoclean_dict: dict, default: bool = True) -> bool:
+        """Check if a specific processing step is enabled in configuration.
+        
+        Args:
+            step_name: Name of the step in configuration
+            autoclean_dict: Configuration dictionary
+            default: Default value if not specified in config
+            
+        Returns:
+            bool: True if enabled, False if disabled
+        """
+        # Configuration can be specified in several ways, check all of them
+        if step_name in autoclean_dict:
+            return autoclean_dict[step_name]
+        elif "processing_steps" in autoclean_dict and step_name in autoclean_dict["processing_steps"]:
+            return autoclean_dict["processing_steps"][step_name]
+        return default
+    
+    @abc.abstractmethod
+    def process_events(self, 
+                     raw: mne.io.Raw,
+                     events: Optional[np.ndarray],
+                     events_df: Optional[pd.DataFrame],
+                     autoclean_dict: dict) -> mne.io.Raw:
+        """Process events for a specific task.
+        
+        Args:
+            raw: Raw EEG data
+            events: Event array from MNE
+            events_df: DataFrame containing event information
+            autoclean_dict: Configuration dictionary
+            
+        Returns:
+            mne.io.Raw: Raw data with processed events/annotations
+        """
+        pass
+
+
+def register_event_processor(processor_class: Type[BaseEventProcessor]) -> None:
+    """Register a new event processor plugin.
+    
+    Args:
+        processor_class: Event processor class to register (must inherit from BaseEventProcessor)
+    
+    Raises:
+        TypeError: If processor_class is not a subclass of BaseEventProcessor
+    """
+    if not issubclass(processor_class, BaseEventProcessor):
+        raise TypeError(f"Event processor must inherit from BaseEventProcessor, got {processor_class}")
+    
+    # Create an instance to test supported tasks
+    processor_instance = processor_class()
+    
+    # Test with known tasks
+    test_tasks = [
+        "p300_grael4k", "hbcd_mmn", "resting_eyes_open", "custom_task", 
+        "bb_long", "mouse_xdat_assr", "mouse_xdat_chirp"
+    ]
+    
+    for task_name in test_tasks:
+        if processor_class.supports_task(task_name):
+            if task_name in _EVENT_PROCESSOR_REGISTRY:
+                message("warning", f"Overriding existing event processor for task: {task_name}")
+            _EVENT_PROCESSOR_REGISTRY[task_name] = processor_class
+            message("info", f"Registered {processor_class.__name__} for task: {task_name}")
+
+
+def discover_event_processors() -> None:
+    """Discover and register all available event processor plugins."""
+    try:
+        import autoclean.plugins.event_processors as processors_pkg
+        
+        for _, name, is_pkg in pkgutil.iter_modules(processors_pkg.__path__):
+            if not is_pkg:
+                module = importlib.import_module(f"autoclean.plugins.event_processors.{name}")
+                for item_name in dir(module):
+                    item = getattr(module, item_name)
+                    if (isinstance(item, type) and 
+                        issubclass(item, BaseEventProcessor) and 
+                        item is not BaseEventProcessor):
+                        register_event_processor(item)
+    except ImportError:
+        message("info", "No event processor plugins found, using built-in processors only")
+
+
+def get_event_processor_for_task(task_name: str) -> Optional[BaseEventProcessor]:
+    """Get appropriate event processor for the given task.
+    
+    Args:
+        task_name: Name of the task
+        
+    Returns:
+        BaseEventProcessor or None: An instance of the appropriate processor class, or None if not found
+    """
+    # Ensure processors are discovered
+    if not _EVENT_PROCESSOR_REGISTRY:
+        discover_event_processors()
+    
+    # Try to get an exact match
+    if task_name in _EVENT_PROCESSOR_REGISTRY:
+        processor_class = _EVENT_PROCESSOR_REGISTRY[task_name]
+        return processor_class()
+    
+    # If no exact match, try to find a processor that supports the task
+    for processor_class in _EVENT_PROCESSOR_REGISTRY.values():
+        if processor_class.supports_task(task_name):
+            return processor_class()
+    
+    return None
+
+
+# Built-in event processors
+class P300EventProcessor(BaseEventProcessor):
+    """Event processor for P300 tasks."""
+    
+    @classmethod
+    def supports_task(cls, task_name: str) -> bool:
+        return task_name == "p300_grael4k"
+    
+    def process_events(self, raw, events, events_df, autoclean_dict):
         message("info", "Processing P300 task-specific annotations...")
         mapping = {"13": "Standard", "14": "Target"}
         raw.annotations.rename(mapping)
-        
-    elif task == "hbcd_mmn":
+        return raw
+
+
+class HBCDMMNEventProcessor(BaseEventProcessor):
+    """Event processor for HBCD MMN tasks."""
+    
+    @classmethod
+    def supports_task(cls, task_name: str) -> bool:
+        return task_name == "hbcd_mmn"
+    
+    def process_events(self, raw, events, events_df, autoclean_dict):
         message("info", "Processing HBCD MMN task-specific annotations...")
         if events_df is not None:
             subset_events_df = events_df[["Task", "type", "onset", "Condition"]]
@@ -390,10 +542,44 @@ def _apply_task_specific_processing(raw, events, events_df, autoclean_dict):
             )
             raw.set_annotations(new_annotations)
             message("success", "Successfully processed HBCD MMN annotations")
-            
-    # Add more task-specific processing as needed
+        return raw
+
+
+# Register built-in processors
+register_event_processor(P300EventProcessor)
+register_event_processor(HBCDMMNEventProcessor)
+
+
+def _apply_task_specific_processing(raw, events, events_df, autoclean_dict):
+    """Apply task-specific processing to raw data using the plugin system.
     
-    return raw
+    This function respects configuration toggles from autoclean_config.yaml.
+    If 'event_processing_step' is set to False in the config, event processing
+    will be skipped.
+    """
+    # Check if event processing is enabled in config
+    event_processing_enabled = autoclean_dict.get("event_processing_step", True)
+    if not event_processing_enabled:
+        message("info", "✗ Event processing disabled in configuration")
+        return raw
+    
+    # Check if task is specified
+    if "task" not in autoclean_dict or not autoclean_dict["task"]:
+        message("info", "No task specified for event processing")
+        return raw
+        
+    task = autoclean_dict["task"]
+    message("info", f"✓ Processing events for task: {task}")
+    
+    # Try to get a task-specific processor
+    processor = get_event_processor_for_task(task)
+    
+    if processor:
+        message("info", f"Using event processor: {processor.__class__.__name__}")
+        return processor.process_events(raw, events, events_df, autoclean_dict)
+    else:
+        message("warning", f"No event processor found for task: {task}")
+        return raw
 
 
 # Keep the existing save functions with minor updates to ensure backward compatibility
