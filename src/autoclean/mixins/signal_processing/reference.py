@@ -30,24 +30,23 @@ class ReferenceMixin:
             TypeError: If data is not a Raw object
             RuntimeError: If reference application fails
         """
+        # Check if this step is enabled in the configuration
+        is_enabled, config_value = self._check_step_enabled("reference_step")
+            
+        if not is_enabled:
+            message("info", "Reference step is disabled in configuration")
+            return data
+            
+        # Get reference type from config if available
+        if config_value is not None:
+            ref_type = config_value
+            
         # Determine which data to use
         data = self._get_data_object(data)
         
         # Type checking
         if not isinstance(data, mne.io.BaseRaw):
             raise TypeError("Data must be an MNE Raw object for referencing")
-            
-        # Check configuration for reference settings
-        if ref_type == "average":
-            is_enabled, config_value = self._check_step_enabled("reference_step")
-                
-            if not is_enabled:
-                message("info", "Reference step is disabled in configuration")
-                return data
-                
-            # Get reference type from config if available
-            if config_value:
-                ref_type = config_value
             
         try:
             # Apply reference

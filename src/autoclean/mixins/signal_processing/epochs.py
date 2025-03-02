@@ -38,6 +38,39 @@ class EpochsMixin:
             ValueError: If no events are found
             RuntimeError: If epoch creation fails
         """
+        # Check if this step is enabled in the configuration
+        is_enabled, config_value = self._check_step_enabled("epoch_settings")
+            
+        if not is_enabled:
+            message("info", "Epoch creation step is disabled in configuration")
+            return None
+            
+        # Get parameters from config if available
+        if config_value and isinstance(config_value, dict):
+            # Get epoch settings
+            epoch_value = config_value.get("value", {})
+            if isinstance(epoch_value, dict):
+                tmin = epoch_value.get("tmin", tmin)
+                tmax = epoch_value.get("tmax", tmax)
+            
+            # Get baseline settings
+            baseline_settings = config_value.get("remove_baseline", {})
+            if isinstance(baseline_settings, dict) and baseline_settings.get("enabled", False):
+                baseline = baseline_settings.get("window", baseline)
+            
+            # Get threshold settings
+            threshold_settings = config_value.get("threshold_rejection", {})
+            if isinstance(threshold_settings, dict) and threshold_settings.get("enabled", False):
+                volt_threshold = threshold_settings.get("volt_threshold", {})
+                if isinstance(volt_threshold, dict):
+                    threshold = volt_threshold.get("eeg", threshold)
+                    
+        # Get event_id from config if not provided
+        if event_id is None:
+            event_id_enabled, event_id_config = self._check_step_enabled("event_id")
+            if event_id_enabled and event_id_config:
+                event_id = event_id_config
+        
         # Determine which data to use
         data = self._get_data_object(data)
         
