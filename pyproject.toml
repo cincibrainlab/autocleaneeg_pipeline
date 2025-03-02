@@ -51,7 +51,8 @@ dependencies = [
     "mkdocs",
     "mkdocs-material",
     "mkdocs-git-revision-date-localized-plugin",
-    "mkdocs-glightbox"
+    "mkdocs-glightbox",
+    "mkdocstrings-python>=1.16.2",
 ]
 
 [project.urls]
