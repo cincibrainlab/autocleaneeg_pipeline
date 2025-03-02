@@ -46,7 +46,7 @@ from typing import Any, Dict, Optional
 import mne  # Core EEG processing library for data containers and processing
 
 # Local imports
-from autoclean.mixins.data_processing import SignalProcessingMixin
+from autoclean.mixins.signal_processing.main import SignalProcessingMixin
 
 
 class Task(ABC, SignalProcessingMixin):

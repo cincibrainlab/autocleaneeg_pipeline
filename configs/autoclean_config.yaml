@@ -16,7 +16,72 @@ tasks:
       # Each step can be enabled/disabled and has specific settings
       
       resample_step:
-        enabled: true        # Set to false to skip this step
+        enabled: false        # Set to false to skip this step
+        value: 250          # New sampling rate in Hz
+      
+      drop_outerlayer:
+        enabled: false
+        value: []
+
+      eog_step:
+        enabled: false
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]  # Channel numbers for eye movement detection
+      
+      trim_step:
+        enabled: true
+        value: 4            # Number of seconds to trim from start/end
+      
+      crop_step:
+        enabled: true
+        value:
+          start: 0          # Start time in seconds
+          end: 60         # null means use entire recording, or specify time in seconds (e.g., 30.0)
+      
+      reference_step:
+        enabled: false
+        value: "average"    # Type of EEG reference to use
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"  # Type of EEG cap/electrode layout
+
+      event_id:
+        enabled: false      # No triggers in resting state
+        value: {}          # Empty since no triggers
+
+      epoch_settings:
+        enabled: true     
+        value:
+          tmin: -1
+          tmax: 1
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: false
+          volt_threshold: 
+            eeg: 150e-6
+    # ARTIFACT REJECTION SETTINGS
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated"]  # Types of bad channels to reject
+      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
+      interpolate_bads_kwargs:
+        method: "spline"                                    # Method for interpolating bad channels
+      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]  # Types of components to reject
+      ic_rejection_threshold: 0.3                              # Threshold for component rejection
+      remove_flagged_ics: true          # Whether to remove marked components
+                            
+  
+  RestingEyesOpenRev:
+    mne_task: "rest"
+    description: "Resting state with eyes open"
+    lossless_config: /Users/ernie/Documents/GitHub/autoclean_pipeline/configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
+    settings:
+      # PROCESSING STEPS
+      # Each step can be enabled/disabled and has specific settings
+      
+      resample_step:
+        enabled: false        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
       
       drop_outerlayer:
