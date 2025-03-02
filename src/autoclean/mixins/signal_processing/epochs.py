@@ -1,13 +1,31 @@
-"""Epochs creation and handling mixin for autoclean tasks."""
+"""Epochs creation and processing mixin for autoclean tasks."""
 
 from typing import Union, Dict, Optional, List
 import mne
 import numpy as np
 
 from autoclean.utils.logging import message
+from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
+from autoclean.mixins.signal_processing.eventid_epochs import EventIDEpochsMixin
+from autoclean.mixins.signal_processing.prepare_epochs_ica import PrepareEpochsICAMixin
+from autoclean.mixins.signal_processing.gfp_clean_epochs import GFPCleanEpochsMixin
+from autoclean.mixins.signal_processing.autoreject_epochs import AutoRejectEpochsMixin
 
-class EpochsMixin:
-    """Mixin class providing epochs creation and handling functionality for EEG data."""
+
+class EpochsMixin(RegularEpochsMixin, EventIDEpochsMixin, PrepareEpochsICAMixin, 
+                  GFPCleanEpochsMixin, AutoRejectEpochsMixin):
+    """Mixin class providing epochs creation and processing functionality for EEG data.
+    
+    This class combines all the specialized epoch-related mixins:
+    - RegularEpochsMixin: Creating regular fixed-length epochs
+    - EventIDEpochsMixin: Creating epochs based on event IDs
+    - PrepareEpochsICAMixin: Preparing epochs for ICA analysis
+    - GFPCleanEpochsMixin: Cleaning epochs based on Global Field Power
+    - AutoRejectEpochsMixin: Cleaning epochs using AutoReject
+    
+    Each of these mixins provides specific functionality for working with epochs
+    in EEG data processing pipelines.
+    """
     
     def create_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
                      event_id: Optional[Dict[str, int]] = None,
