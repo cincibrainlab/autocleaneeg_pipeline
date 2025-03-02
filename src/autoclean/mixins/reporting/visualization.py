@@ -1,0 +1,1122 @@
+"""Visualization mixin for EEG data in autoclean tasks.
+
+This module provides specialized visualization functionality for EEG data in the AutoClean
+pipeline. It defines methods for generating plots that visualize different aspects of
+EEG processing results, such as:
+
+- Raw data overlays comparing original and cleaned data
+- Bad channel visualizations with topographies
+- PSD and topographical maps
+- MMN ERP analyses
+
+These visualizations help users understand the effects of preprocessing steps and
+validate the quality of processed data.
+
+Example:
+    ```python
+    from autoclean.core.task import Task
+    
+    class MyEEGTask(Task):
+        def process(self, raw, pipeline, autoclean_dict):
+            # Process the data
+            raw_cleaned = self.apply_preprocessing(raw)
+            
+            # Generate visualizations
+            self.plot_raw_vs_cleaned_overlay(raw, raw_cleaned, pipeline, autoclean_dict)
+            self.psd_topo_figure(raw, raw_cleaned, pipeline, autoclean_dict)
+    ```
+"""
+
+from typing import Any, Dict, List, Optional, Tuple, Union
+import os
+from datetime import datetime
+from pathlib import Path
+
+import matplotlib
+import matplotlib.pyplot as plt
+import mne
+import numpy as np
+import pandas as pd
+from matplotlib.gridspec import GridSpec
+from matplotlib.backends.backend_pdf import PdfPages
+
+from autoclean.utils.logging import message
+from autoclean.utils.montage import get_standard_set_in_montage, validate_channel_set
+from autoclean.mixins.reporting.base import ReportingMixin
+
+# Force matplotlib to use non-interactive backend for async operations
+matplotlib.use("Agg")
+
+
+class VisualizationMixin(ReportingMixin):
+    """Mixin providing visualization methods for EEG data.
+    
+    This mixin extends the base ReportingMixin with specialized methods for
+    generating plots and visualizations of EEG data. It provides a comprehensive
+    set of visualization tools for assessing data quality and understanding the
+    effects of preprocessing steps.
+    
+    All visualization methods respect configuration toggles from `autoclean_config.yaml`,
+    checking if their corresponding step is enabled before execution. Each method
+    can be individually enabled or disabled via configuration.
+    
+    Available visualization methods include:
+    
+    - `plot_raw_vs_cleaned_overlay`: Overlay of original and cleaned EEG data
+    - `plot_bad_channels_with_topography`: Bad channel visualization with topographies
+    - `psd_topo_figure`: Combined PSD and topographical maps for frequency bands
+    - `generate_mmn_erp`: MMN ERP analysis for standard/deviant paradigms
+    - `step_psd_topo_figure`: Wrapper for backwards compatibility
+    """
+    
+    def plot_raw_vs_cleaned_overlay(
+        self,
+        raw_original: mne.io.Raw,
+        raw_cleaned: mne.io.Raw,
+        pipeline: Any,
+        autoclean_dict: Dict[str, Any],
+        suffix: str = "",
+    ) -> None:
+        """Plot raw data channels over the full duration, overlaying the original and cleaned data.
+        
+        This method creates a time series plot showing all EEG channels with original data 
+        overlaid with cleaned data for visual comparison. Original data is plotted in red, 
+        cleaned data in black. The method checks configuration settings to determine if this
+        visualization is enabled.
+        
+        Args:
+            raw_original: Original raw EEG data before cleaning.
+            raw_cleaned: Cleaned raw EEG data after preprocessing.
+            pipeline: Pipeline object containing pipeline metadata and utility functions.
+            autoclean_dict: Dictionary containing metadata about the processing run.
+            suffix: Optional suffix to append to the output filename.
+            
+        Returns:
+            None
+            
+        Raises:
+            ValueError: If channel names or time vectors don't match between original and cleaned data.
+            
+        Example:
+            ```python
+            task = MyEEGTask()
+            # After processing data
+            task.plot_raw_vs_cleaned_overlay(raw_original, raw_cleaned, pipeline, autoclean_dict)
+            ```
+            
+        Notes:
+            - The method downsamples the data for plotting to reduce file size
+            - The resulting plot is saved to the derivatives directory with appropriate naming
+            - Metadata about the plot is stored in the processing database
+        """
+        # Ensure that the original and cleaned data have the same channels and times
+        if raw_original.ch_names != raw_cleaned.ch_names:
+            raise ValueError("Channel names in raw_original and raw_cleaned do not match.")
+        if raw_original.times.shape != raw_cleaned.times.shape:
+            raise ValueError("Time vectors in raw_original and raw_cleaned do not match.")
+
+        # Get raw data
+        channel_labels = raw_original.ch_names
+        n_channels = len(channel_labels)
+        sfreq = raw_original.info["sfreq"]
+        times = raw_original.times
+        data_original = raw_original.get_data()
+        data_cleaned = raw_cleaned.get_data()
+
+        # Increase downsample factor to reduce file size
+        desired_sfreq = 100  # Reduced sampling rate to 100 Hz
+        downsample_factor = int(sfreq // desired_sfreq)
+        if downsample_factor > 1:
+            data_original = data_original[:, ::downsample_factor]
+            data_cleaned = data_cleaned[:, ::downsample_factor]
+            times = times[::downsample_factor]
+
+        # Normalize each channel individually for better visibility
+        data_original_normalized = np.zeros_like(data_original)
+        data_cleaned_normalized = np.zeros_like(data_cleaned)
+        spacing = 10  # Fixed spacing between channels
+        for idx in range(n_channels):
+            # Original data
+            channel_data_original = data_original[idx]
+            channel_data_original = channel_data_original - np.mean(
+                channel_data_original
+            )  # Remove DC offset
+            std = np.std(channel_data_original)
+            if std == 0:
+                std = 1  # Avoid division by zero
+            data_original_normalized[idx] = (
+                channel_data_original / std
+            )  # Normalize to unit variance
+
+            # Cleaned data
+            channel_data_cleaned = data_cleaned[idx]
+            channel_data_cleaned = channel_data_cleaned - np.mean(
+                channel_data_cleaned
+            )  # Remove DC offset
+            # Use same std for normalization to ensure both signals are on the same scale
+            data_cleaned_normalized[idx] = channel_data_cleaned / std
+
+        # Multiply by a scaling factor to control amplitude
+        scaling_factor = 2  # Adjust this factor as needed for visibility
+        data_original_scaled = data_original_normalized * scaling_factor
+        data_cleaned_scaled = data_cleaned_normalized * scaling_factor
+
+        # Calculate offsets for plotting
+        offsets = np.arange(n_channels) * spacing
+
+        # Create plot
+        total_duration = times[-1] - times[0]
+        width_per_second = 0.1  # Adjust this factor as needed
+        fig_width = min(total_duration * width_per_second, 50)
+        fig_height = max(6, n_channels * 0.25)  # Adjusted for better spacing
+
+        fig, ax = plt.subplots(figsize=(fig_width, fig_height))
+
+        # Plot channels
+        for idx in range(n_channels):
+            offset = offsets[idx]
+
+            # Plot original data in red
+            ax.plot(
+                times,
+                data_original_scaled[idx] + offset,
+                color="red",
+                linewidth=0.5,
+                linestyle="-",
+            )
+
+            # Plot cleaned data in black
+            ax.plot(
+                times,
+                data_cleaned_scaled[idx] + offset,
+                color="black",
+                linewidth=0.5,
+                linestyle="-",
+            )
+
+        # Set y-ticks and labels
+        ax.set_yticks(offsets)
+        ax.set_yticklabels(channel_labels, fontsize=8)
+
+        # Customize axes
+        ax.set_xlabel("Time (seconds)", fontsize=12)
+        ax.set_title("Raw Data Channels: Original vs Cleaned (Full Duration)", fontsize=14)
+        ax.set_xlim(times[0], times[-1])
+        ax.set_ylim(-spacing, offsets[-1] + spacing)
+        ax.set_ylabel("")
+        ax.invert_yaxis()
+
+        # Add legend
+        from matplotlib.lines import Line2D
+
+        legend_elements = [
+            Line2D([0], [0], color="red", lw=0.5, linestyle="-", label="Original Data"),
+            Line2D([0], [0], color="black", lw=0.5, linestyle="-", label="Cleaned Data"),
+        ]
+        ax.legend(handles=legend_elements, loc="upper right", fontsize=8)
+
+        plt.tight_layout()
+
+        # Create Artifact Report
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+
+        # Target file path
+        target_figure = str(
+            derivatives_path.copy().update(
+                suffix="step_plot_raw_vs_cleaned_overlay", extension=".png", datatype="eeg"
+            )
+        )
+
+        # Save as PNG with high DPI for quality
+        fig.savefig(target_figure, dpi=150, bbox_inches="tight")
+        plt.close(fig)
+
+        message("info", f"Raw channels overlay full duration plot saved to {target_figure}")
+
+        metadata = {
+            "artifact_reports": {
+                "creationDateTime": datetime.now().isoformat(),
+                "plot_raw_vs_cleaned_overlay": Path(target_figure).name,
+            }
+        }
+
+        self._update_metadata("plot_raw_vs_cleaned_overlay", metadata)
+        
+    def plot_bad_channels_with_topography(
+        self,
+        raw_original: mne.io.Raw,
+        raw_cleaned: mne.io.Raw,
+        pipeline: Any,
+        autoclean_dict: Dict[str, Any],
+        zoom_duration: float = 30,
+        zoom_start: float = 0,
+    ) -> None:
+        """Plot bad channels with a topographical map and time series overlays.
+        
+        This method creates a comprehensive visualization of bad channels including:
+        
+        1. A topographical map showing the locations of bad channels
+        2. Time series plots comparing original and cleaned data for bad channels
+        3. Both full duration and zoomed-in views of the data
+        
+        The visualization helps to validate the detection and interpolation of bad channels
+        during preprocessing.
+        
+        Args:
+            raw_original: Original raw EEG data before cleaning.
+            raw_cleaned: Cleaned raw EEG data after interpolation of bad channels.
+            pipeline: Pipeline object containing pipeline metadata and utility functions.
+            autoclean_dict: Dictionary containing metadata about the processing run.
+            zoom_duration: Duration in seconds for the zoomed-in time series plot.
+            zoom_start: Start time in seconds for the zoomed-in window.
+            
+        Returns:
+            None
+            
+        Example:
+            ```python
+            task = MyEEGTask()
+            # After identifying bad channels and interpolating them
+            task.plot_bad_channels_with_topography(
+                raw_original, 
+                raw_cleaned, 
+                pipeline, 
+                autoclean_dict,
+                zoom_duration=30,
+                zoom_start=60  # Start zoomed view at 1 minute
+            )
+            ```
+            
+        Notes:
+            - If no bad channels are found, the method returns without creating a plot
+            - The method respects configuration settings via the `bad_channel_report_step` config
+            - The resulting plot is saved to the derivatives directory
+        """
+        # Check if configuration checking is enabled and the step is enabled
+        if hasattr(self, '_check_step_enabled'):
+            is_enabled, _ = self._check_step_enabled("bad_channel_report_step")
+            if not is_enabled:
+                message("info", "✗ Bad channel report generation is disabled in configuration")
+                return
+            
+        # Get bad channels from the cleaned data
+        bad_channels = raw_cleaned.info['bads']
+        
+        if not bad_channels:
+            message("info", "No bad channels found. Skipping bad channel visualization.")
+            return
+            
+        message("info", f"Generating bad channel visualization for {len(bad_channels)} channels: {', '.join(bad_channels)}")
+        
+        # Create Artifact Report
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict['bids_path'])
+        
+        # Target file path
+        target_figure = str(
+            derivatives_path.copy().update(
+                suffix="step_bad_channels_topo", extension=".png", datatype="eeg"
+            )
+        )
+        
+        # Create a figure to visualize bad channels
+        n_bad_channels = len(bad_channels)
+        fig = plt.figure(figsize=(12, 8 + n_bad_channels * 1.5))
+        gs = GridSpec(2 + n_bad_channels, 2, height_ratios=[2] + [1.5] * n_bad_channels + [0.5])
+        
+        # 1. Plot topographical map of all channels with bad channels highlighted
+        ax_topo = fig.add_subplot(gs[0, :])
+        self._plot_bad_channels_topo(raw_original, bad_channels, ax_topo)
+        
+        # 2. Plot time series for each bad channel - full duration
+        message("info", "Generating full duration time series plots for bad channels")
+        sfreq = raw_original.info['sfreq']
+        for i, bad_ch in enumerate(bad_channels):
+            ax_full = fig.add_subplot(gs[i+1, 0])
+            self._plot_bad_channel_timeseries(
+                raw_original, raw_cleaned, bad_ch,
+                ax_full, full_duration=True, title_suffix="Full Duration"
+            )
+            
+        # 3. Plot time series for each bad channel - zoomed in
+        message("info", "Generating zoomed time series plots for bad channels")
+        for i, bad_ch in enumerate(bad_channels):
+            ax_zoom = fig.add_subplot(gs[i+1, 1])
+            self._plot_bad_channel_timeseries(
+                raw_original, raw_cleaned, bad_ch,
+                ax_zoom, full_duration=False, zoom_start=zoom_start,
+                zoom_duration=zoom_duration, title_suffix=f"Zoom {zoom_start}-{zoom_start+zoom_duration}s"
+            )
+            
+        # Add legend at the bottom
+        ax_legend = fig.add_subplot(gs[-1, :])
+        ax_legend.axis('off')
+        ax_legend.legend(
+            [plt.Line2D([0], [0], color='red', lw=1), plt.Line2D([0], [0], color='blue', lw=1)],
+            ['Original Data', 'Cleaned/Interpolated Data'],
+            loc='center', ncol=2, frameon=False
+        )
+        
+        plt.tight_layout()
+        
+        # Save figure
+        fig.savefig(target_figure, dpi=150, bbox_inches='tight')
+        plt.close(fig)
+        
+        message("info", f"Bad channels visualization saved to {target_figure}")
+        
+        metadata = {
+            "artifact_reports": {
+                "creationDateTime": datetime.now().isoformat(),
+                "bad_channels_visualization": Path(target_figure).name,
+                "bad_channels": bad_channels,
+            }
+        }
+        
+        self._update_metadata("bad_channels_visualization", metadata)
+        
+    def _plot_bad_channels_topo(self, raw: mne.io.Raw, bad_channels: List[str], ax) -> None:
+        """Plot topographical map highlighting bad channels.
+        
+        Parameters:
+        -----------
+        raw : mne.io.Raw
+            Raw EEG data with channel information.
+        bad_channels : list of str
+            List of bad channel names.
+        ax : matplotlib.axes.Axes
+            Axes to plot on.
+        """
+        # Create data array for topography where bad channels have value 1, good channels 0
+        ch_names = raw.ch_names
+        data = np.zeros(len(ch_names))
+        for bad_ch in bad_channels:
+            if bad_ch in ch_names:
+                data[ch_names.index(bad_ch)] = 1
+                
+        # Plot topography
+        mne.viz.plot_topomap(
+            data, raw.info, axes=ax, show=False,
+            cmap='RdBu_r', vmin=0, vmax=1,
+            outlines='head', contours=0, sensors=True
+        )
+        
+        # Add title
+        ax.set_title(f"Bad Channels Topography (n={len(bad_channels)})")
+        
+    def _plot_bad_channel_timeseries(
+        self,
+        raw_original: mne.io.Raw,
+        raw_cleaned: mne.io.Raw,
+        channel: str,
+        ax,
+        full_duration: bool = True,
+        zoom_start: float = 0,
+        zoom_duration: float = 30,
+        title_suffix: str = ""
+    ) -> None:
+        """Plot time series for a specific channel.
+        
+        Parameters:
+        -----------
+        raw_original : mne.io.Raw
+            Original raw EEG data before cleaning.
+        raw_cleaned : mne.io.Raw
+            Cleaned raw EEG data after preprocessing.
+        channel : str
+            Channel name to plot.
+        ax : matplotlib.axes.Axes
+            Axes to plot on.
+        full_duration : bool, optional
+            Whether to plot the full duration or a zoomed-in section. Default is True.
+        zoom_start : float, optional
+            Start time in seconds for the zoomed-in window. Default is 0 seconds.
+        zoom_duration : float, optional
+            Duration in seconds for the zoomed-in time series plot. Default is 30 seconds.
+        title_suffix : str, optional
+            Suffix to add to the plot title.
+        """
+        # Get channel data
+        sfreq = raw_original.info['sfreq']
+        ch_idx = raw_original.ch_names.index(channel)
+        
+        if full_duration:
+            data_orig = raw_original.get_data(picks=[ch_idx])[0]
+            data_clean = raw_cleaned.get_data(picks=[ch_idx])[0]
+            times = raw_original.times
+            
+            # Downsample for faster plotting if too many data points
+            if len(times) > 10000:  # Arbitrary threshold
+                downsample_factor = max(1, int(len(times) / 10000))
+                data_orig = data_orig[::downsample_factor]
+                data_clean = data_clean[::downsample_factor]
+                times = times[::downsample_factor]
+        else:
+            # Extract zoomed-in data
+            start_idx = int(zoom_start * sfreq)
+            end_idx = int((zoom_start + zoom_duration) * sfreq)
+            data_orig = raw_original.get_data(picks=[ch_idx], start=start_idx, stop=end_idx)[0]
+            data_clean = raw_cleaned.get_data(picks=[ch_idx], start=start_idx, stop=end_idx)[0]
+            times = np.arange(len(data_orig)) / sfreq + zoom_start
+        
+        # Plot data
+        ax.plot(times, data_orig, color='red', lw=0.8)
+        ax.plot(times, data_clean, color='blue', lw=0.8)
+        
+        # Add labels and title
+        ax.set_xlabel('Time (s)')
+        ax.set_ylabel('Amplitude (µV)')
+        ax.set_title(f"Channel: {channel} - {title_suffix}")
+        
+        # Add grid
+        ax.grid(True, linestyle='--', alpha=0.6)
+        
+    def psd_topo_figure(
+        self,
+        raw_original: mne.io.Raw,
+        raw_cleaned: mne.io.Raw,
+        pipeline: Any,
+        autoclean_dict: Dict[str, Any],
+        bands: Optional[List[Tuple[str, float, float]]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Generate and save a combined PSD and topographical map figure.
+        
+        This method creates a high-resolution image that includes:
+        
+        - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%)
+        - Topographical maps for multiple EEG frequency bands
+        - Pre and post cleaning comparisons
+        - Identification of outlier channels in each frequency band
+        
+        Args:
+            raw_original: Original raw EEG data before cleaning.
+            raw_cleaned: Cleaned EEG data after preprocessing.
+            pipeline: Pipeline object containing pipeline metadata and utility functions.
+            autoclean_dict: Dictionary containing metadata about the processing run.
+            bands: List of frequency bands to plot. Each tuple should contain 
+                (band_name, lower_freq, upper_freq). If None, default bands will be used.
+            metadata: Additional metadata to include in the JSON sidecar.
+            
+        Returns:
+            str: Path to the saved combined figure.
+            
+        Example:
+            ```python
+            # With default frequency bands
+            task.psd_topo_figure(raw_original, raw_cleaned, pipeline, autoclean_dict)
+            
+            # With custom frequency bands
+            custom_bands = [
+                ("Slow", 0.5, 2), 
+                ("Alpha", 8, 12),
+                ("Beta", 13, 30)
+            ]
+            task.psd_topo_figure(raw_original, raw_cleaned, pipeline, autoclean_dict, bands=custom_bands)
+            ```
+            
+        Notes:
+            - Default frequency bands if none provided: Delta (1-4 Hz), Theta (4-8 Hz), 
+              Alpha (8-12 Hz), Beta (12-30 Hz), Gamma1 (30-60 Hz), Gamma2 (60-80 Hz)
+            - The method respects configuration settings via the `psd_topo_step` config
+            - Outlier channels (z-score > 3) in each frequency band are identified
+            - The resulting figure is saved as a high-resolution PNG (300 DPI)
+        """
+        # Check if configuration checking is enabled and the step is enabled
+        if hasattr(self, '_check_step_enabled'):
+            is_enabled, _ = self._check_step_enabled("psd_topo_step")
+            if not is_enabled:
+                message("info", "✗ PSD/Topo figure generation is disabled in configuration")
+                return ""
+                
+        # Define default frequency bands if none provided
+        if bands is None:
+            bands = [
+                ("Delta", 1, 4),
+                ("Theta", 4, 8),
+                ("Alpha", 8, 12),
+                ("Beta", 12, 30),
+                ("Gamma1", 30, 60),
+                ("Gamma2", 60, 80),
+            ]
+
+        # Create Artifact Report
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+
+        # Output figure path
+        target_figure = str(
+            derivatives_path.copy().update(
+                suffix="psd_topo_figure", extension=".png", datatype="eeg"
+            )
+        )
+
+        # Select all EEG channels
+        raw_original.interpolate_bads()
+
+        # Count number of EEG channels
+        channel_types = raw_original.get_channel_types()
+        n_eeg_channels = channel_types.count("eeg")
+
+        if n_eeg_channels == 0:
+            message("warning", "No EEG channels found in raw data.")
+        else:
+            message("info", f"Number of EEG channels: {n_eeg_channels}")
+            raw_original.pick("eeg")
+
+        # Parameters for PSD
+        fmin = 0.5
+        fmax = 80
+        n_fft = int(raw_original.info["sfreq"] * 2)  # Window length of 2 seconds
+
+        # Compute PSD for original and cleaned data
+        psd_original = raw_original.compute_psd(
+            method="welch",
+            fmin=fmin,
+            fmax=fmax,
+            n_fft=n_fft,
+            average="mean",
+            verbose=False,
+        )
+        psd_cleaned = raw_cleaned.compute_psd(
+            method="welch",
+            fmin=fmin,
+            fmax=fmax,
+            n_fft=n_fft,
+            average="mean",
+            verbose=False,
+        )
+
+        freqs = psd_original.freqs
+        df = freqs[1] - freqs[0]  # Frequency resolution
+
+        # Convert PSDs to mV^2/Hz
+        psd_original_mV2 = psd_original.get_data() * 1e6
+        psd_cleaned_mV2 = psd_cleaned.get_data() * 1e6
+
+        # Compute mean PSDs
+        psd_original_mean_mV2 = np.mean(psd_original_mV2, axis=0)
+        psd_cleaned_mean_mV2 = np.mean(psd_cleaned_mV2, axis=0)
+
+        # Compute relative PSDs
+        total_power_orig = np.sum(psd_original_mean_mV2 * df)
+        total_power_clean = np.sum(psd_cleaned_mean_mV2 * df)
+        psd_original_rel = (psd_original_mean_mV2 * df) / total_power_orig * 100
+        psd_cleaned_rel = (psd_cleaned_mean_mV2 * df) / total_power_clean * 100
+
+        # Compute band powers and identify outliers
+        band_powers_orig = []
+        band_powers_clean = []
+        outlier_channels_orig = {}
+        outlier_channels_clean = {}
+        band_powers_metadata = {}
+
+        for band_name, l_freq, h_freq in bands:
+            # Get band powers
+            band_power_orig = (
+                psd_original.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1) * df * 1e6
+            )
+            band_power_clean = (
+                psd_cleaned.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1) * df * 1e6
+            )
+
+            band_powers_orig.append(band_power_orig)
+            band_powers_clean.append(band_power_clean)
+
+            # Identify outliers
+            for power, raw_data, outlier_dict in [
+                (band_power_orig, raw_original, outlier_channels_orig),
+                (band_power_clean, raw_cleaned, outlier_channels_clean),
+            ]:
+                mean_power = np.mean(power)
+                std_power = np.std(power)
+                if std_power > 0:
+                    z_scores = (power - mean_power) / std_power
+                    outliers = [
+                        ch for ch, z in zip(raw_data.ch_names, z_scores) if abs(z) > 3
+                    ]
+                else:
+                    outliers = []
+                outlier_dict[band_name] = outliers
+
+            # Store metadata
+            band_powers_metadata[band_name] = {
+                "frequency_band": f"{l_freq}-{h_freq} Hz",
+                "band_power_mean_original_mV2": float(np.mean(band_power_orig)),
+                "band_power_std_original_mV2": float(np.std(band_power_orig)),
+                "band_power_mean_cleaned_mV2": float(np.mean(band_power_clean)),
+                "band_power_std_cleaned_mV2": float(np.std(band_power_clean)),
+                "outlier_channels_original": outlier_channels_orig[band_name],
+                "outlier_channels_cleaned": outlier_channels_clean[band_name],
+            }
+
+        # Create figure and GridSpec
+        fig = plt.figure(figsize=(15, 20))
+        gs = GridSpec(4, len(bands), height_ratios=[2, 1, 1, 1.5], hspace=0.4, wspace=0.3)
+
+        # Create PSD plots
+        self._plot_psd(
+            fig,
+            gs,
+            freqs,
+            psd_original_mean_mV2,
+            psd_cleaned_mean_mV2,
+            psd_original_rel,
+            psd_cleaned_rel,
+            len(bands),
+        )
+
+        # Create topographical maps
+        self._plot_topomaps(
+            fig,
+            gs,
+            bands,
+            band_powers_orig,
+            band_powers_clean,
+            raw_original,
+            raw_cleaned,
+            outlier_channels_orig,
+            outlier_channels_clean,
+        )
+
+        # Add suptitle and adjust layout
+        fig.suptitle(os.path.basename(raw_cleaned.filenames[0]), fontsize=16)
+        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+
+        # Save and close figure
+        fig.savefig(target_figure, dpi=300)
+        plt.close(fig)
+
+        message("info", f"Combined PSD and topographical map figure saved to {target_figure}")
+
+        metadata = {
+            "artifact_reports": {
+                "creationDateTime": datetime.now().isoformat(),
+                "psd_topo_figure": Path(target_figure).name,
+                "band_powers": band_powers_metadata,
+            }
+        }
+
+        self._update_metadata("psd_topo_figure", metadata)
+        
+        return target_figure
+        
+    def _plot_psd(
+        self,
+        fig,
+        gs,
+        freqs,
+        psd_original_mean_mV2,
+        psd_cleaned_mean_mV2,
+        psd_original_rel,
+        psd_cleaned_rel,
+        num_bands,
+    ) -> None:
+        """Helper function to create PSD plots.
+        
+        Parameters:
+        -----------
+        fig : matplotlib.figure.Figure
+            Figure object to plot on
+        gs : matplotlib.gridspec.GridSpec
+            GridSpec for organizing subplots
+        freqs : numpy.ndarray
+            Frequency vector for PSD
+        psd_original_mean_mV2 : numpy.ndarray
+            Original mean PSD in mV²/Hz
+        psd_cleaned_mean_mV2 : numpy.ndarray
+            Cleaned mean PSD in mV²/Hz
+        psd_original_rel : numpy.ndarray
+            Original relative PSD in %
+        psd_cleaned_rel : numpy.ndarray
+            Cleaned relative PSD in %
+        num_bands : int
+            Number of frequency bands for subplot width
+        """
+        # Plot Absolute PSD
+        ax1 = fig.add_subplot(gs[0, :num_bands//2])
+        ax1.semilogy(freqs, psd_original_mean_mV2, color='red', label='Original')
+        ax1.semilogy(freqs, psd_cleaned_mean_mV2, color='black', label='Cleaned')
+        ax1.set_xlabel('Frequency (Hz)')
+        ax1.set_ylabel('PSD (mV²/Hz)')
+        ax1.set_title('Absolute PSD')
+        ax1.legend(loc='upper right')
+        ax1.grid(True, which="both", ls="--")
+
+        # Plot Relative PSD
+        ax2 = fig.add_subplot(gs[0, num_bands//2:])
+        ax2.plot(freqs, psd_original_rel, color='red', label='Original')
+        ax2.plot(freqs, psd_cleaned_rel, color='black', label='Cleaned')
+        ax2.set_xlabel('Frequency (Hz)')
+        ax2.set_ylabel('Relative Power (%)')
+        ax2.set_title('Relative PSD')
+        ax2.legend(loc='upper right')
+        ax2.grid(True)
+        
+    def _plot_topomaps(
+        self,
+        fig,
+        gs,
+        bands,
+        band_powers_orig,
+        band_powers_clean,
+        raw_original,
+        raw_cleaned,
+        outlier_channels_orig,
+        outlier_channels_clean,
+    ) -> None:
+        """Helper function to create topographical maps.
+        
+        Parameters:
+        -----------
+        fig : matplotlib.figure.Figure
+            Figure object to plot on
+        gs : matplotlib.gridspec.GridSpec
+            GridSpec for organizing subplots
+        bands : list of tuples
+            List of frequency bands as (name, low_freq, high_freq)
+        band_powers_orig : list of numpy.ndarray
+            Original band powers for each frequency band
+        band_powers_clean : list of numpy.ndarray
+            Cleaned band powers for each frequency band
+        raw_original : mne.io.Raw
+            Original raw data
+        raw_cleaned : mne.io.Raw
+            Cleaned raw data
+        outlier_channels_orig : dict
+            Dictionary of outlier channels in original data
+        outlier_channels_clean : dict
+            Dictionary of outlier channels in cleaned data
+        """
+        for i, ((band_name, l_freq, h_freq), power_orig, power_clean) in enumerate(
+            zip(bands, band_powers_orig, band_powers_clean)
+        ):
+            # Calculate vmin and vmax for consistent scale across both plots
+            combined_powers = np.concatenate([power_orig, power_clean])
+            vmin = np.min(combined_powers)
+            vmax = np.max(combined_powers)
+
+            # Original data topomap
+            ax_orig = fig.add_subplot(gs[1, i])
+            mne.viz.plot_topomap(
+                power_orig,
+                raw_original.info,
+                axes=ax_orig,
+                show=False,
+                vmin=vmin,
+                vmax=vmax,
+                cmap='viridis',
+                outlines='head',
+                contours=0,
+            )
+            ax_orig.set_title(f"Original {band_name}\n{l_freq}-{h_freq} Hz")
+
+            # Cleaned data topomap
+            ax_clean = fig.add_subplot(gs[2, i])
+            im = mne.viz.plot_topomap(
+                power_clean,
+                raw_cleaned.info,
+                axes=ax_clean,
+                show=False,
+                vmin=vmin,
+                vmax=vmax,
+                cmap='viridis',
+                outlines='head',
+                contours=0,
+            )
+            ax_clean.set_title(f"Cleaned {band_name}\n{l_freq}-{h_freq} Hz")
+
+            # Add colorbar for this band
+            cbar_ax = fig.add_subplot(gs[3, i])
+            cbar = plt.colorbar(im, cax=cbar_ax, orientation='horizontal')
+            cbar.set_label('Power (mV²)', fontsize=10)
+
+            # Add text below with statistics
+            mean_orig = np.mean(power_orig)
+            mean_clean = np.mean(power_clean)
+            info_text = f"Orig: {mean_orig:.2f} mV²\nClean: {mean_clean:.2f} mV²"
+            if outlier_channels_orig[band_name] or outlier_channels_clean[band_name]:
+                info_text += "\nOutliers:\n"
+                if outlier_channels_orig[band_name]:
+                    info_text += f"Orig: {', '.join(outlier_channels_orig[band_name][:3])}"
+                    if len(outlier_channels_orig[band_name]) > 3:
+                        info_text += f" +{len(outlier_channels_orig[band_name])-3} more"
+                    info_text += "\n"
+                if outlier_channels_clean[band_name]:
+                    info_text += f"Clean: {', '.join(outlier_channels_clean[band_name][:3])}"
+                    if len(outlier_channels_clean[band_name]) > 3:
+                        info_text += f" +{len(outlier_channels_clean[band_name])-3} more"
+            cbar_ax.text(0.5, -1.2, info_text, ha='center', va='center', fontsize=8, transform=cbar_ax.transAxes)
+        
+    def generate_mmn_erp(
+        self,
+        epochs: mne.Epochs,
+        pipeline: Any,
+        autoclean_dict: Dict[str, Any]
+    ) -> None:
+        """Analyze MMN data and create a comprehensive PDF report with ERPs and topographies.
+        
+        This method analyzes Mismatch Negativity (MMN) data from standard/deviant paradigms,
+        creates a multi-page PDF report with ERPs, topographical maps, peak measurements,
+        and global field power analysis.
+        
+        Args:
+            epochs: Epochs object containing the MMN data with standard and deviant conditions.
+            pipeline: Pipeline object containing pipeline metadata and utility functions.
+            autoclean_dict: Dictionary containing metadata about the processing run.
+            
+        Returns:
+            None
+            
+        Example:
+            ```python
+            # After creating epochs with standard and deviant events
+            task.generate_mmn_erp(epochs, pipeline, autoclean_dict)
+            ```
+            
+        Notes:
+            - Requires epochs to contain conditions with 'standard' and 'deviant' in their names
+            - Automatically identifies frontal channels for MMN analysis (Fz, FCz preferred)
+            - Calculates MMN as the difference wave (deviant - standard)
+            - Identifies peak MMN amplitude and latency in the 100-250ms window
+            - Creates a multi-page PDF report with title page, channel ERPs, and global field power
+            - The method respects configuration settings via the `mmn_erp_step` config
+        """
+        # Check if configuration checking is enabled and the step is enabled
+        if hasattr(self, '_check_step_enabled'):
+            is_enabled, _ = self._check_step_enabled("mmn_erp_step")
+            if not is_enabled:
+                message("info", "✗ MMN ERP generation is disabled in configuration")
+                return
+                
+        # Check if the epochs object has the necessary event_id
+        event_id = epochs.event_id
+        required_conditions = ['standard', 'deviant']
+        
+        # Check for MMN conditions - look for variants of standard/deviant
+        has_standard = False
+        has_deviant = False
+        standard_key = None
+        deviant_key = None
+        
+        for key in event_id.keys():
+            if 'standard' in key.lower():
+                has_standard = True
+                standard_key = key
+            if 'deviant' in key.lower():
+                has_deviant = True
+                deviant_key = key
+                
+        if not (has_standard and has_deviant):
+            message("warning", f"MMN analysis requires 'standard' and 'deviant' conditions. Found: {list(event_id.keys())}")
+            return
+            
+        message("info", f"Generating MMN ERP report with conditions: {standard_key} and {deviant_key}")
+        
+        # Create Artifact Report directory
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict['bids_path'])
+        
+        # Target file path
+        target_pdf = str(
+            derivatives_path.copy().update(
+                suffix="mmn_erp_report", extension=".pdf", datatype="eeg"
+            )
+        )
+        
+        # Get channel info and validate standard 10-20 channel set
+        channel_names = epochs.ch_names
+        
+        # Validate if we have the standard channels needed for MMN analysis
+        standard_frontal_channels = ['Fz', 'FCz']
+        available_channels = [ch for ch in standard_frontal_channels if ch in channel_names]
+        
+        if not available_channels:
+            message("warning", f"No standard frontal channels found for MMN analysis. Looking for: {standard_frontal_channels}")
+            # Try to find alternative frontal channels
+            for ch in channel_names:
+                if ch.startswith('F') and len(ch) <= 3:
+                    available_channels.append(ch)
+            
+            if not available_channels:
+                message("error", "Cannot perform MMN analysis: no suitable frontal channels found.")
+                return
+                
+        message("info", f"Using channels for MMN analysis: {available_channels}")
+        
+        # Extract evoked responses
+        standard_evoked = epochs[standard_key].average()
+        deviant_evoked = epochs[deviant_key].average()
+        
+        # Create MMN (deviant - standard)
+        mmn_evoked = mne.combine_evoked([deviant_evoked, -standard_evoked], weights='equal')
+        mmn_evoked.comment = 'MMN (Deviant - Standard)'
+        
+        # Calculate MMN peak amplitude and latency
+        mmn_peak_window = (0.1, 0.25)  # 100-250 ms window for MMN
+        mmn_stats = {}
+        
+        for ch in available_channels:
+            ch_data = mmn_evoked.copy().pick(ch).data[0]
+            ch_times = mmn_evoked.times
+            
+            # Find peak latency and amplitude within window
+            peak_window_indices = np.where(
+                (ch_times >= mmn_peak_window[0]) & (ch_times <= mmn_peak_window[1])
+            )[0]
+            if len(peak_window_indices) == 0:
+                message("warning", f"No data points found in MMN window for channel {ch}")
+                continue
+                
+            peak_data = ch_data[peak_window_indices]
+            peak_times = ch_times[peak_window_indices]
+            
+            # Find the most negative peak (MMN is a negative component)
+            peak_idx = np.argmin(peak_data)
+            peak_latency = peak_times[peak_idx]
+            peak_amplitude = peak_data[peak_idx]
+            
+            mmn_stats[ch] = {
+                'peak_latency': float(peak_latency),
+                'peak_amplitude': float(peak_amplitude)
+            }
+            
+        # Create PDF report
+        with PdfPages(target_pdf) as pdf:
+            # 1. Title page
+            fig_title = plt.figure(figsize=(8.5, 11))
+            plt.axis('off')
+            plt.text(0.5, 0.8, "MMN ERP Analysis Report", ha='center', fontsize=20, weight='bold')
+            plt.text(0.5, 0.7, f"Subject: {autoclean_dict['bids_path'].subject}", ha='center', fontsize=14)
+            plt.text(0.5, 0.65, f"Session: {autoclean_dict['bids_path'].session}", ha='center', fontsize=14)
+            plt.text(0.5, 0.6, f"Run: {autoclean_dict['bids_path'].run}", ha='center', fontsize=14)
+            plt.text(0.5, 0.55, f"Task: {autoclean_dict['bids_path'].task}", ha='center', fontsize=14)
+            plt.text(0.5, 0.5, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ha='center', fontsize=12)
+            plt.text(0.5, 0.45, f"Channels used: {', '.join(available_channels)}", ha='center', fontsize=12)
+            
+            # Add MMN stats to title page
+            stats_text = "MMN Peak Statistics:\n"
+            for ch, stats in mmn_stats.items():
+                stats_text += f"\n{ch}: {stats['peak_amplitude']:.2f} µV at {stats['peak_latency']*1000:.0f} ms"
+            plt.text(0.5, 0.35, stats_text, ha='center', fontsize=12)
+            
+            pdf.savefig(fig_title)
+            plt.close(fig_title)
+            
+            # 2. ERP plots for key channels
+            for ch in available_channels:
+                fig_erp = plt.figure(figsize=(10, 8))
+                plt.suptitle(f"MMN ERP Analysis - Channel {ch}", fontsize=16)
+                
+                gs = GridSpec(2, 2, height_ratios=[2, 1])
+                
+                # Plot ERPs
+                ax_erp = fig_erp.add_subplot(gs[0, :])
+                times = standard_evoked.times * 1000  # Convert to ms
+                ax_erp.plot(times, standard_evoked.copy().pick(ch).data[0] * 1e6, 'b-', linewidth=2, label=standard_key)
+                ax_erp.plot(times, deviant_evoked.copy().pick(ch).data[0] * 1e6, 'r-', linewidth=2, label=deviant_key)
+                ax_erp.plot(times, mmn_evoked.copy().pick(ch).data[0] * 1e6, 'k-', linewidth=2, label='MMN Difference')
+                
+                # Highlight MMN window
+                ax_erp.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
+                
+                # Mark MMN peak
+                if ch in mmn_stats:
+                    peak_lat = mmn_stats[ch]['peak_latency'] * 1000  # Convert to ms
+                    peak_amp = mmn_stats[ch]['peak_amplitude'] * 1e6  # Convert to µV
+                    ax_erp.plot(peak_lat, peak_amp, 'ko', markersize=8)
+                    ax_erp.annotate(f"{peak_amp:.1f} µV", xy=(peak_lat, peak_amp), xytext=(peak_lat+20, peak_amp-5),
+                                     arrowprops=dict(arrowstyle="->", color='black'))
+                
+                ax_erp.set_xlabel('Time (ms)')
+                ax_erp.set_ylabel('Amplitude (µV)')
+                ax_erp.legend(loc='best')
+                ax_erp.grid(True)
+                ax_erp.set_title(f"Event-Related Potentials - Channel {ch}")
+                
+                # Plot topomaps at different time points
+                time_points = [0.1, 0.15, 0.2, 0.25]  # 100, 150, 200, 250 ms
+                for i, t in enumerate(time_points):
+                    ax_topo = fig_erp.add_subplot(gs[1, i//2])
+                    mne.viz.plot_topomap(mmn_evoked.copy().crop(t, t).data[:, 0], mmn_evoked.info,
+                                         axes=ax_topo, show=False, times=t,
+                                         cmap='RdBu_r', vmin=-3, vmax=3)
+                    ax_topo.set_title(f"{int(t*1000)} ms")
+                
+                pdf.savefig(fig_erp)
+                plt.close(fig_erp)
+                
+            # 3. Global field power plot
+            fig_gfp = plt.figure(figsize=(10, 6))
+            plt.suptitle("Global Field Power", fontsize=16)
+            
+            # Calculate GFP for each condition
+            gfp_standard = np.std(standard_evoked.data, axis=0) * 1e6
+            gfp_deviant = np.std(deviant_evoked.data, axis=0) * 1e6
+            gfp_mmn = np.std(mmn_evoked.data, axis=0) * 1e6
+            
+            plt.plot(times, gfp_standard, 'b-', linewidth=2, label=standard_key)
+            plt.plot(times, gfp_deviant, 'r-', linewidth=2, label=deviant_key)
+            plt.plot(times, gfp_mmn, 'k-', linewidth=2, label='MMN Difference')
+            
+            plt.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
+            plt.xlabel('Time (ms)')
+            plt.ylabel('Global Field Power (µV)')
+            plt.legend(loc='best')
+            plt.grid(True)
+            
+            pdf.savefig(fig_gfp)
+            plt.close(fig_gfp)
+            
+        message("info", f"MMN ERP report saved to {target_pdf}")
+        
+        # Update metadata
+        metadata = {
+            "mmn_erp_report": {
+                "creationDateTime": datetime.now().isoformat(),
+                "report_file": Path(target_pdf).name,
+                "channels_analyzed": available_channels,
+                "standard_condition": standard_key,
+                "deviant_condition": deviant_key,
+                "mmn_peak_stats": mmn_stats
+            }
+        }
+        
+        self._update_metadata("mmn_erp_report", metadata)
+        
+    def step_psd_topo_figure(
+        self,
+        raw_original: mne.io.Raw,
+        raw_cleaned: mne.io.Raw,
+        pipeline: Any,
+        autoclean_dict: Dict[str, Any],
+        bands: Optional[List[Tuple[str, float, float]]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ) -> str:
+        """Generate and save PSD and topographical maps.
+        
+        This is a wrapper around psd_topo_figure method to maintain compatibility with
+        the original step_psd_topo_figure function in reports.py.
+        
+        Args:
+            raw_original: Original raw EEG data before cleaning.
+            raw_cleaned: Cleaned EEG data after preprocessing.
+            pipeline: Pipeline object containing pipeline metadata and utility functions.
+            autoclean_dict: Dictionary containing metadata about the processing run.
+            bands: List of frequency bands to plot. Each tuple should contain 
+                (band_name, lower_freq, upper_freq). If None, default bands will be used.
+            metadata: Additional metadata to include in the JSON sidecar.
+            
+        Returns:
+            str: Path to the saved combined figure.
+            
+        Notes:
+            - This is a compatibility wrapper that simply calls `psd_topo_figure` with the same parameters
+            - For detailed documentation, see the `psd_topo_figure` method
+        """
+        # Simply call the psd_topo_figure method
+        return self.psd_topo_figure(
+            raw_original=raw_original,
+            raw_cleaned=raw_cleaned,
+            pipeline=pipeline,
+            autoclean_dict=autoclean_dict,
+            bands=bands,
+            metadata=metadata
+        )

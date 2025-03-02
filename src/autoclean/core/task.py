@@ -47,9 +47,10 @@ import mne  # Core EEG processing library for data containers and processing
 
 # Local imports
 from autoclean.mixins.signal_processing.main import SignalProcessingMixin
+from autoclean.mixins.reporting.main import ReportingMixin
 
 
-class Task(ABC, SignalProcessingMixin):
+class Task(ABC, SignalProcessingMixin, ReportingMixin):
     """Base class for all EEG processing tasks.
 
     This class defines the interface that all specific EEG tasks must implement.

@@ -103,6 +103,7 @@ nav:
     - Task: api-reference/task.md
     - Step Functions: api-reference/step-functions.md
     - Signal Processing Mixins: api-reference/signal-processing-mixins.md
+    - Reporting Mixins: api-reference/reporting-mixins.md
     - Utils: api-reference/utils.md
   - Contributing: contributing.md
   - Changelog: changelog.md 
