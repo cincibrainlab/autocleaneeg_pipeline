@@ -55,7 +55,8 @@ Key Components:
 
 # Standard library imports
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union
+from datetime import datetime
 
 # Third-party imports
 import mne
@@ -78,6 +79,8 @@ from autoclean.step_functions.reports import (
     step_plot_raw_vs_cleaned_overlay,
     step_psd_topo_figure,
 )
+from autoclean.utils.logging import message
+from autoclean.utils.database import manage_database
 
 
 class TemplateTask(Task):
@@ -346,3 +349,81 @@ class TemplateTask(Task):
                 raise ValueError(f"Stage {stage} must have 'suffix' field")
 
         return config
+        
+    def resample_data(self, data: Union[mne.io.Raw, mne.Epochs], stage_name: str = "resampled") -> Union[mne.io.Raw, mne.Epochs]:
+        """Resample raw or epoched data based on configuration settings.
+        
+        This method checks the resample_step toggle in the configuration and applies
+        resampling if enabled. It works with both Raw and Epochs objects.
+        
+        Args:
+            data: The MNE Raw or Epochs object to resample
+            stage_name: Name for saving the resampled data (default: "resampled")
+            
+        Returns:
+            The resampled data object (same type as input)
+            
+        Raises:
+            TypeError: If data is not a Raw or Epochs object
+            RuntimeError: If resampling fails
+        """
+        if not isinstance(data, (mne.io.Raw, mne.Epochs)):
+            raise TypeError("Data must be an MNE Raw or Epochs object")
+            
+        task = self.config.get("task")
+        
+        # Check if resampling is enabled in the configuration
+        resample_enabled = self.config.get("tasks", {}).get(task, {}).get("settings", {}).get(
+            "resample_step", {}).get("enabled", False)
+            
+        if not resample_enabled:
+            message("info", "Resampling step is disabled in configuration")
+            return data
+            
+        # Get target sampling frequency
+        target_sfreq = self.config.get("tasks", {}).get(task, {}).get("settings", {}).get(
+            "resample_step", {}).get("value")
+            
+        if target_sfreq is None:
+            message("warning", "Target sampling frequency not specified, skipping resampling")
+            return data
+            
+        # Check if we need to resample (avoid unnecessary resampling)
+        current_sfreq = data.info["sfreq"]
+        if abs(current_sfreq - target_sfreq) < 0.01:  # Small threshold to account for floating point errors
+            message("info", f"Data already at target frequency ({target_sfreq} Hz), skipping resampling")
+            return data
+            
+        message("header", f"Resampling data from {current_sfreq} Hz to {target_sfreq} Hz...")
+        
+        try:
+            # Resample based on data type
+            if isinstance(data, mne.io.Raw):
+                resampled_data = data.copy().resample(target_sfreq)
+                # Save resampled raw data if it's a Raw object
+                save_raw_to_set(resampled_data, self.config, f"post_{stage_name}")
+            else:  # Epochs
+                resampled_data = data.copy().resample(target_sfreq)
+                
+            message("info", f"Data successfully resampled to {target_sfreq} Hz")
+            
+            # Update metadata
+            metadata = {
+                "resampling": {
+                    "creationDateTime": datetime.now().isoformat(),
+                    "original_sfreq": current_sfreq,
+                    "target_sfreq": target_sfreq,
+                    "data_type": "raw" if isinstance(data, mne.io.Raw) else "epochs"
+                }
+            }
+            
+            run_id = self.config.get("run_id")
+            manage_database(
+                operation="update", update_record={"run_id": run_id, "metadata": metadata}
+            )
+            
+            return resampled_data
+            
+        except Exception as e:
+            message("error", f"Error during resampling: {str(e)}")
+            raise RuntimeError(f"Failed to resample data: {str(e)}") from e

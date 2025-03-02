@@ -46,9 +46,10 @@ from typing import Any, Dict, Optional
 import mne  # Core EEG processing library for data containers and processing
 
 # Local imports
+from autoclean.mixins.data_processing import SignalProcessingMixin
 
 
-class Task(ABC):
+class Task(ABC, SignalProcessingMixin):
     """Base class for all EEG processing tasks.
 
     This class defines the interface that all specific EEG tasks must implement.
