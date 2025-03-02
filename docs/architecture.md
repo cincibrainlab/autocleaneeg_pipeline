@@ -903,3 +903,27 @@ If your plugin isn't working:
    - Mismatch between registered format ID and what's checked in `supports_format_montage()`
    - Forgetting to handle exceptions properly
    - Using incompatible MNE versions
+
+## Technology Agnostic Design
+
+The EEG pipeline is designed to be technology agnostic, allowing users to incorporate functions from any software, such as MATLAB functions, into the processing pipeline. This is achieved through the use of standardized types and metadata management.
+
+### Standardized Types
+
+The pipeline uses standardized types through MNE, including data arrays, which ensures compatibility with various software tools and libraries.
+
+### Metadata Management
+
+The pipeline can update metadata using standardized JSON database updates. This allows for seamless integration with other systems and ensures that the metadata is consistent and easily accessible.
+
+### Incorporating External Functions
+
+Users can add functions from any software, such as MATLAB, by following these steps:
+
+1. **Define the Function**: Create the function in the desired software (e.g., MATLAB) and ensure it can be called from Python.
+
+2. **Integrate with Pipeline**: Use the standardized types and metadata management to integrate the function into the pipeline.
+
+3. **Update Metadata**: Ensure that the metadata is updated using standardized JSON database updates to reflect the changes made by the external function.
+
+By following these steps, users can extend the functionality of the EEG pipeline and incorporate functions from any software, making the pipeline highly flexible and adaptable to various needs.
