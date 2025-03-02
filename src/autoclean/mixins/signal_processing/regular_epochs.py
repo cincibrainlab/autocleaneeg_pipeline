@@ -1,4 +1,17 @@
-"""Regular epochs creation mixin for autoclean tasks."""
+"""Regular epochs creation mixin for autoclean tasks.
+
+This module provides functionality for creating regular fixed-length epochs from
+continuous EEG data. Regular epochs are time segments of equal duration that are
+created at fixed intervals throughout the recording, regardless of event markers.
+
+The RegularEpochsMixin class implements methods for creating these epochs and
+detecting artifacts within them, particularly focusing on reference and muscle
+artifacts that can contaminate the data.
+
+Regular epoching is particularly useful for resting-state data analysis, where
+there are no specific events of interest, but the data needs to be segmented
+into manageable chunks for further processing and analysis.
+"""
 
 from typing import Union, Dict, Optional, List
 import mne
@@ -9,7 +22,19 @@ from datetime import datetime
 from autoclean.utils.logging import message
 
 class RegularEpochsMixin:
-    """Mixin class providing regular (fixed-length) epochs creation functionality for EEG data."""
+    """Mixin class providing regular (fixed-length) epochs creation functionality for EEG data.
+    
+    This mixin provides methods for creating regular fixed-length epochs from continuous
+    EEG data. It includes functionality for artifact detection, specifically focusing on
+    reference and muscle artifacts that can contaminate the data.
+    
+    Regular epochs are time segments of equal duration that are created at fixed intervals
+    throughout the recording, regardless of event markers. This approach is particularly
+    useful for resting-state data analysis, where there are no specific events of interest.
+    
+    The mixin respects configuration settings from the autoclean_config.yaml file,
+    allowing users to customize the epoching parameters and artifact detection thresholds.
+    """
     
     def create_regular_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
                              tmin: float = -0.2,
@@ -19,24 +44,45 @@ class RegularEpochsMixin:
                              stage_name: str = "regular_epochs") -> mne.Epochs:
         """Create regular fixed-length epochs from raw data.
         
-        This method creates fixed-length epochs from raw data, with optional
-        artifact detection for reference and muscle artifacts.
+        This method creates fixed-length epochs from continuous EEG data at regular
+        intervals. It supports optional baseline correction and amplitude-based artifact
+        rejection. The method also detects reference and muscle artifacts using specialized
+        algorithms.
+        
+        The epoching parameters can be customized through the configuration file
+        (autoclean_config.yaml) under the "epoch_settings" section. If enabled, the
+        configuration values will override the default parameters.
         
         Args:
             data: Optional MNE Raw object. If None, uses self.raw
             tmin: Start time of the epoch in seconds
             tmax: End time of the epoch in seconds
             baseline: Baseline correction (tuple of start, end)
-            volt_threshold: Rejection threshold in microvolts
-            stage_name: Name for saving and metadata
+            volt_threshold: Dictionary mapping channel types to rejection thresholds in microvolts
+                           (e.g., {"eeg": 100, "eog": 200})
+            stage_name: Name for saving and metadata tracking
             
         Returns:
-            The created epochs object
+            mne.Epochs: The created epochs object with bad epochs marked
             
         Raises:
             AttributeError: If self.raw doesn't exist when needed
             TypeError: If data is not a Raw object
             RuntimeError: If epoch creation fails
+            
+        Example:
+            ```python
+            # Create regular epochs with default parameters
+            epochs = task.create_regular_epochs()
+            
+            # Create regular epochs with custom parameters
+            epochs = task.create_regular_epochs(
+                tmin=-0.5,
+                tmax=1.0,
+                baseline=(-0.5, 0),
+                volt_threshold={"eeg": 75, "eog": 150}
+            )
+            ```
         """
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("epoch_settings")

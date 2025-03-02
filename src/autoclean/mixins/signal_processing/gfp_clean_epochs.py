@@ -1,4 +1,18 @@
-"""GFP-based epoch cleaning mixin for autoclean tasks."""
+"""GFP-based epoch cleaning mixin for autoclean tasks.
+
+This module provides functionality for cleaning epochs based on Global Field Power (GFP),
+a measure of the spatial standard deviation across all electrodes at each time point.
+GFP is a useful metric for identifying epochs with abnormal activity patterns that
+may represent artifacts.
+
+The GFPCleanEpochsMixin class implements methods for calculating GFP values for each
+epoch, identifying outliers based on statistical thresholds, and optionally creating
+visualization plots to help understand the distribution of GFP values across epochs.
+
+GFP-based cleaning is particularly useful for removing epochs with widespread artifacts
+that affect multiple channels simultaneously, such as movement artifacts, muscle activity,
+or other global disturbances in the EEG signal.
+"""
 
 from typing import Union, Dict, Optional, List, Any, Tuple
 import mne
@@ -12,31 +26,71 @@ from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database
 
 class GFPCleanEpochsMixin:
-    """Mixin class providing functionality to clean epochs based on Global Field Power (GFP)."""
+    """Mixin class providing functionality to clean epochs based on Global Field Power (GFP).
+    
+    This mixin provides methods for cleaning epochs using Global Field Power (GFP), which
+    is a measure of the spatial standard deviation across all electrodes at each time point.
+    GFP quantifies the overall variability in the electric field across the scalp and is
+    sensitive to both signal strength and spatial complexity.
+    
+    The cleaning process involves calculating GFP for each epoch, identifying epochs with
+    abnormally high or low GFP values (outliers), and optionally creating visualization
+    plots to help understand the distribution of GFP values. The mixin focuses on scalp
+    electrodes for GFP calculation, excluding non-EEG channels like EOG or reference
+    electrodes.
+    
+    The mixin respects configuration settings from the autoclean_config.yaml file,
+    allowing users to customize the GFP threshold, number of epochs to retain, and
+    other parameters.
+    """
     
     def gfp_clean_epochs(self, epochs: Union[mne.Epochs, None] = None,
                         gfp_threshold: float = 3.0,
                         number_of_epochs: Optional[int] = None,
                         random_seed: Optional[int] = None,
                         stage_name: str = "gfp_clean_epochs") -> mne.Epochs:
-        """Clean an MNE Epochs object by removing outlier epochs based on GFP.
+        """Clean an MNE Epochs object by removing outlier epochs based on Global Field Power.
         
-        Only calculates GFP on scalp electrodes (excluding those defined in channel_region_map).
+        This method calculates the Global Field Power (GFP) for each epoch, identifies
+        epochs with abnormal GFP values (outliers), and removes them from the dataset.
+        GFP is calculated as the standard deviation across all scalp electrodes at each
+        time point, providing a measure of the spatial variability of the electric field.
+        
+        The method focuses on scalp electrodes for GFP calculation, excluding non-EEG
+        channels like EOG or reference electrodes. It can also optionally select a random
+        subset of the cleaned epochs, which is useful for ensuring a consistent number
+        of epochs across subjects or conditions.
+        
+        The method generates visualization plots showing the GFP distribution and outliers,
+        which are saved to the output directory if a run_id is specified in the configuration.
         
         Args:
             epochs: Optional MNE Epochs object. If None, uses self.epochs
-            gfp_threshold: Z-score threshold for GFP-based outlier detection
+            gfp_threshold: Z-score threshold for GFP-based outlier detection (default: 3.0)
             number_of_epochs: If specified, randomly selects this number of epochs from the cleaned data
             random_seed: Seed for random number generator when selecting epochs
-            stage_name: Name for saving and metadata
+            stage_name: Name for saving and metadata tracking
             
         Returns:
-            The cleaned epochs object
+            mne.Epochs: The cleaned epochs object with outlier epochs removed
             
         Raises:
             AttributeError: If self.epochs doesn't exist when needed
             TypeError: If epochs is not an Epochs object
             RuntimeError: If cleaning fails
+            
+        Example:
+            ```python
+            # Clean epochs with default parameters
+            clean_epochs = task.gfp_clean_epochs()
+            
+            # Clean epochs with custom parameters and select a specific number of epochs
+            clean_epochs = task.gfp_clean_epochs(
+                gfp_threshold=2.5,
+                number_of_epochs=40,
+                random_seed=42
+            )
+            ```
         """
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("gfp_clean_epochs")

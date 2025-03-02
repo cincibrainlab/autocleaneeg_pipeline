@@ -1,4 +1,15 @@
-"""Base signal processing mixin for autoclean tasks."""
+"""Base signal processing mixin for autoclean tasks.
+
+This module provides the foundation for all signal processing mixins in the AutoClean
+pipeline. It defines the base class that all specialized signal processing mixins
+inherit from, providing common utility methods and a consistent interface for
+working with EEG data.
+
+The SignalProcessingMixin class is designed to be used as a mixin with Task classes,
+providing them with signal processing capabilities while maintaining a clean separation
+of concerns. This modular approach allows for flexible composition of processing
+functionality across different task types.
+"""
 
 from typing import Any, Dict, Optional, Tuple, Union
 import mne
@@ -6,15 +17,35 @@ import mne
 class SignalProcessingMixin:
     """Base mixin class providing signal processing functionality for EEG data.
     
-    This mixin serves as a composition of all signal processing mixins and provides
-    utility methods shared across the different signal processing operations.
+    This mixin serves as the foundation for all signal processing operations in the
+    AutoClean pipeline. It provides utility methods for configuration management,
+    data access, and metadata tracking that are shared across all signal processing
+    operations.
+    
+    The SignalProcessingMixin is designed to be used with Task classes through multiple
+    inheritance, allowing tasks to gain signal processing capabilities while maintaining
+    a clean separation of concerns. Specialized signal processing mixins inherit from
+    this base class and extend it with specific functionality.
     
     Attributes:
-        config: Task configuration dictionary (provided by the parent class)
+        config (Dict[str, Any]): Task configuration dictionary (provided by the parent class)
+        raw (mne.io.Raw): MNE Raw object containing the EEG data (if available)
+        epochs (mne.Epochs): MNE Epochs object containing epoched data (if available)
+        metadata (Dict[str, Any]): Dictionary tracking processing metadata
+    
+    Note:
+        This class expects to be mixed in with a class that provides access to
+        configuration settings via the `config` attribute and data objects via
+        the `raw` and/or `epochs` attributes.
     """
     
     def _check_step_enabled(self, step_name: str) -> Tuple[bool, Optional[Any]]:
         """Check if a processing step is enabled in the configuration.
+        
+        This method examines the task configuration to determine if a specific
+        processing step is enabled and retrieves its configuration value if available.
+        It is used by signal processing methods to respect user configuration
+        preferences and skip disabled steps.
         
         Args:
             step_name: Name of the step to check in the configuration
@@ -23,6 +54,17 @@ class SignalProcessingMixin:
             Tuple of (is_enabled, value) where is_enabled is a boolean indicating
             if the step is enabled, and value is the configuration value for the step
             if it exists, or None otherwise
+            
+        Example:
+            ```python
+            # Check if resampling is enabled
+            is_enabled, config_value = self._check_step_enabled("resample_step")
+            if not is_enabled:
+                return data  # Skip processing if disabled
+            
+            # Use configuration value if available
+            target_sfreq = config_value.get("sfreq", 250)  # Default to 250 Hz
+            ```
         """
         if not hasattr(self, 'config'):
             return True, None
@@ -40,7 +82,27 @@ class SignalProcessingMixin:
         return is_enabled, value
         
     def _report_step_status(self) -> None:
-        """Report the enabled/disabled status of all processing steps in the configuration."""
+        """Report the enabled/disabled status of all processing steps in the configuration.
+        
+        This method prints a formatted report of all processing steps defined in the
+        task configuration, indicating which steps are enabled (✓) and which are
+        disabled (✗). It provides a clear overview of the processing pipeline
+        configuration at runtime.
+        
+        The report is organized by task and includes the step name, enabled status,
+        and configuration value when available.
+        
+        Example output:
+        ```
+        Processing Steps Status for Task: resting_eyes_open
+        ✓ resample_step: sfreq=250
+        ✗ drop_outerlayer: disabled
+        ✓ reference_step: type=average
+        ```
+        
+        Returns:
+            None
+        """
         if not hasattr(self, 'config'):
             return
             

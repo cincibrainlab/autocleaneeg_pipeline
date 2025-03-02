@@ -1,4 +1,18 @@
-"""Event ID epochs creation mixin for autoclean tasks."""
+"""Event ID epochs creation mixin for autoclean tasks.
+
+This module provides functionality for creating epochs based on event markers in
+EEG data. Event-based epochs are time segments centered around specific event markers
+that represent stimuli, responses, or other experimental events of interest.
+
+The EventIDEpochsMixin class implements methods for creating these epochs and
+detecting artifacts within them, particularly focusing on reference and muscle
+artifacts that can contaminate the data.
+
+Event-based epoching is particularly useful for task-based EEG analysis, where
+the data needs to be segmented around specific events of interest for further
+processing and analysis, such as event-related potentials (ERPs) or time-frequency
+analysis.
+"""
 
 from typing import Union, Dict, Optional, List, Any
 import mne
@@ -9,7 +23,21 @@ from datetime import datetime
 from autoclean.utils.logging import message
 
 class EventIDEpochsMixin:
-    """Mixin class providing event ID based epochs creation functionality for EEG data."""
+    """Mixin class providing event ID based epochs creation functionality for EEG data.
+    
+    This mixin provides methods for creating epochs based on event markers in EEG data.
+    It includes functionality for artifact detection, specifically focusing on reference
+    and muscle artifacts that can contaminate the data.
+    
+    Event-based epochs are time segments centered around specific event markers that
+    represent stimuli, responses, or other experimental events of interest. This approach
+    is particularly useful for task-based EEG analysis, where the data needs to be
+    segmented around specific events for further processing.
+    
+    The mixin respects configuration settings from the autoclean_config.yaml file,
+    allowing users to customize the epoching parameters, event IDs, and artifact
+    detection thresholds.
+    """
     
     def create_eventid_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
                              event_id: Optional[Dict[str, int]] = None,
@@ -20,25 +48,49 @@ class EventIDEpochsMixin:
                              stage_name: str = "eventid_epochs") -> Optional[mne.Epochs]:
         """Create epochs based on event IDs from raw data.
         
-        This method creates epochs from raw data based on event IDs, with optional
-        artifact detection for reference and muscle artifacts.
+        This method creates epochs from continuous EEG data centered around specific
+        event markers. It supports optional baseline correction and amplitude-based
+        artifact rejection. The method also detects reference and muscle artifacts
+        using specialized algorithms.
+        
+        The epoching parameters and event IDs can be customized through the configuration
+        file (autoclean_config.yaml) under the "eventid_epochs" section. If enabled,
+        the configuration values will override the default parameters.
+        
+        If no event_id is provided, the method will attempt to extract event IDs from
+        the configuration or automatically detect them from the data.
         
         Args:
             data: Optional MNE Raw object. If None, uses self.raw
-            event_id: Dictionary mapping event names to event IDs
-            tmin: Start time of the epoch in seconds
-            tmax: End time of the epoch in seconds
+            event_id: Dictionary mapping event names to event IDs (e.g., {"target": 1, "standard": 2})
+            tmin: Start time of the epoch relative to the event in seconds
+            tmax: End time of the epoch relative to the event in seconds
             baseline: Baseline correction (tuple of start, end)
-            volt_threshold: Rejection threshold in microvolts
-            stage_name: Name for saving and metadata
+            volt_threshold: Dictionary mapping channel types to rejection thresholds in microvolts
+                           (e.g., {"eeg": 100, "eog": 200})
+            stage_name: Name for saving and metadata tracking
             
         Returns:
-            The created epochs object or None if no events found
+            mne.Epochs: The created epochs object with bad epochs marked, or None if no events found
             
         Raises:
             AttributeError: If self.raw doesn't exist when needed
             TypeError: If data is not a Raw object
             RuntimeError: If epoch creation fails
+            
+        Example:
+            ```python
+            # Create epochs for specific event IDs
+            epochs = task.create_eventid_epochs(
+                event_id={"target": 1, "standard": 2},
+                tmin=-0.2,
+                tmax=0.8,
+                baseline=(-0.2, 0)
+            )
+            
+            # Access specific event types
+            target_epochs = epochs["target"]
+            ```
         """
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("eventid_epochs")

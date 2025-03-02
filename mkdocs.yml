@@ -91,6 +91,7 @@ nav:
     - Pipeline: api-reference/pipeline.md
     - Task: api-reference/task.md
     - Step Functions: api-reference/step-functions.md
+    - Signal Processing Mixins: api-reference/signal-processing-mixins.md
     - Utils: api-reference/utils.md
   - Contributing: contributing.md
   - Changelog: changelog.md 
