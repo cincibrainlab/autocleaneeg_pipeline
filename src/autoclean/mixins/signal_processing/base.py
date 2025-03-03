@@ -205,4 +205,4 @@ class SignalProcessingMixin:
         from autoclean.step_functions.io import save_raw_to_set
         
         if isinstance(result_data, mne.io.BaseRaw):
-            save_raw_to_set(result_data, self.config, f"post_{stage_name}")
+            save_raw_to_set(result_data, self.config, stage_name)

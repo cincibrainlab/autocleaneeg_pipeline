@@ -11,9 +11,7 @@ import mne
 # Local imports
 from autoclean.core.task import Task
 from autoclean.step_functions.continuous import (
-    step_clean_bad_channels,
     step_create_bids_path,
-    step_detect_dense_oscillatory_artifacts,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
     step_run_pylossless,
@@ -57,20 +55,19 @@ class RestingEyesOpenRev(Task):
     def run(self) -> None:
         """ Pipeline Execution """
 
-        self.import_data()
+        # Import and save raw EEG data
+        self.raw = import_eeg(self.config)
+        save_raw_to_set(self.raw, self.config, "post_import")
 
         # Check if data was imported successfully
         if self.raw is None:
             raise RuntimeError("No data has been imported")
-
-        breakpoint()
-
+        
         message("header", "\nRunning preprocessing steps")
         
         # Use the resample_data mixin method instead of relying on step_pre_pipeline_processing
         # to handle resampling
-        message("info", "Resampling data using mixin method")
-        self.resample_data(stage_name="resample")
+        self.resample_data(stage_name="post_resample")
         
         # Continue with other preprocessing steps
         # Note: step_pre_pipeline_processing will skip resampling if already done
@@ -85,69 +82,29 @@ class RestingEyesOpenRev(Task):
         save_raw_to_set(self.raw, self.config, "post_pylossless")
 
         # Clean bad channels
-        self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-        save_raw_to_set(self.pipeline.raw, self.config, "post_bad_channels")
+        self.clean_bad_channels()
+
+        self.pipeline.raw = self.raw
 
         # # Use PyLossless Rejection Policy
-        self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
+        self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
 
-        self.cleaned_raw = step_detect_dense_oscillatory_artifacts(
-            self.cleaned_raw,
-            window_size_ms=100,
-            channel_threshold_uv=50,
-            min_channels=65,
-            padding_ms=500,
-        )
-        save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
+        self.detect_dense_oscillatory_artifacts()
 
-
-        """Run final processing steps including epoching."""
-        if self.cleaned_raw is None:
-            raise RuntimeError("Preprocessing must be completed first")
 
         # Create regular epochs
-        self.epochs = step_create_regular_epochs(
-            self.cleaned_raw, self.pipeline, self.config
-        )
-        save_epochs_to_set(self.epochs, self.config, "post_epochs")
+        self.create_regular_epochs()
 
         # Prepare epochs for ICA
-        self.epochs = step_prepare_epochs_for_ica(
-            self.epochs, self.pipeline, self.config
-        )
+        self.prepare_epochs_for_ica()
 
         # Clean epochs using GFP
-        self.epochs = step_gfp_clean_epochs(
-            self.epochs, self.pipeline, self.config, gfp_threshold=3.0
-        )
-        save_epochs_to_set(self.epochs, self.config, "post_comp")
-
+        self.gfp_clean_epochs()
 
         # Generate visualization reports
         self._generate_reports()
-
-    def import_data(self) -> Union[mne.io.BaseRaw, mne.BaseEpochs, mne.SourceEstimate, mne.Evoked]:
-        """Import signal data via filename, output must be a valid MNE datatype.
-
-        Returns:
-            Union[mne.io.BaseRaw, mne.BaseEpochs, mne.SourceEstimate, mne.Evoked]: 
-                Imported EEG data as MNE Raw, Epochs, SourceEstimate, or Evoked object.
-
-        Raises:
-            FileNotFoundError: If the specified file doesn't exist.
-            ValueError: If the file format is invalid or data is corrupted.
-            RuntimeError: If there are problems reading the file.
-        """
-
-        # Import and save raw EEG data
-
-        file_path = Path(self.config["unprocessed_file"])
-
-        self.raw = import_eeg(self.config)
-        save_raw_to_set(self.raw, self.config, "post_import")
-
 
 
     def _generate_reports(self) -> None:

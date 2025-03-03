@@ -92,11 +92,12 @@ class GFPCleanEpochsMixin:
             )
             ```
         """
-        # Check if this step is enabled in the configuration
+        # Check if this step is explicitly disabled in the configuration
         is_enabled, config_value = self._check_step_enabled("gfp_clean_epochs")
             
-        if not is_enabled:
-            message("info", "GFP clean epochs step is disabled in configuration")
+        # Only skip if explicitly disabled (enabled=False)
+        if is_enabled is False:
+            message("info", "GFP clean epochs step is explicitly disabled in configuration")
             return None
             
         # Get parameters from config if available

@@ -568,7 +568,7 @@ class ReportGenerationMixin(object):
                 csv_path.parent.mkdir(parents=True, exist_ok=True)
                 df.to_csv(csv_path, index=False)
                 message(
-                    "info",
+                    "success",
                     f"Updated processing log for {details['subj_basename']} in {csv_path}",
                 )
             except Exception as save_err:

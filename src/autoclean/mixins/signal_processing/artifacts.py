@@ -15,7 +15,7 @@ class ArtifactsMixin:
                                          min_channels: int = 75, 
                                          padding_ms: float = 500,
                                          annotation_label: str = "BAD_REF_AF",
-                                         stage_name: str = "artifact_detection") -> mne.io.BaseRaw:
+                                         stage_name: str = "post_artifact_detection") -> mne.io.BaseRaw:
         """Detect smaller, dense oscillatory multichannel artifacts.
         
         This method identifies oscillatory artifacts that affect multiple channels simultaneously,

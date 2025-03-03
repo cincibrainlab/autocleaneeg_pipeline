@@ -106,7 +106,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         # Dictionary to track processing history, metrics, and state changes
         self.pipeline_results: Dict[str, Any] = {}
 
-    @abstractmethod
     def import_data(self, file_path: Path) -> None:
         """Import raw EEG data for processing.
 

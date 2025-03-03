@@ -155,11 +155,13 @@ class ChannelsMixin:
             
     def clean_bad_channels(self, data: Union[mne.io.BaseRaw, None] = None,
                            correlation_thresh: float = 0.35,
-                           deviation_thresh: float = 6.0,
-                           ransac_corr_thresh: float = 0.5,
-                           ransac_channel_wise: bool = False,
+                           deviation_thresh: float = 4.0,
+                           ransac_sample_prop: float = 0.25,
+                           ransac_corr_thresh: float = 0.7,
+                           ransac_frac_bad: float = 0.35,
+                           ransac_channel_wise: bool = True,
                            random_state: int = 1337,
-                           stage_name: str = "clean_bad_channels") -> mne.io.BaseRaw:
+                           stage_name: str = "post_bad_channels") -> mne.io.BaseRaw:
         """Detect and mark bad channels using various methods.
         
         This method uses the MNE NoisyChannels class to detect bad channels using SNR,
@@ -222,7 +224,9 @@ class ChannelsMixin:
                 "random_state": random_state,
                 "correlation_thresh": correlation_thresh,
                 "deviation_thresh": deviation_thresh,
+                "ransac_sample_prop": ransac_sample_prop,
                 "ransac_corr_thresh": ransac_corr_thresh,
+                "ransac_frac_bad": ransac_frac_bad,
                 "ransac_channel_wise": ransac_channel_wise,
             }
             
@@ -233,15 +237,15 @@ class ChannelsMixin:
             cleaned_raw.find_bad_by_correlation(
                 correlation_secs=5.0,
                 correlation_threshold=options["correlation_thresh"],
-                frac_bad=0.1
+                frac_bad=0.01
             )
             cleaned_raw.find_bad_by_deviation(deviation_threshold=options["deviation_thresh"])
             cleaned_raw.find_bad_by_ransac(
                 n_samples=100,
-                sample_prop=0.5,
+                sample_prop=options["ransac_sample_prop"],
                 corr_thresh=options["ransac_corr_thresh"],
-                frac_bad=0.5,
-                corr_window_secs=4.0,
+                frac_bad=options["ransac_frac_bad"],
+                corr_window_secs=5.0,
                 channel_wise=options["ransac_channel_wise"],
                 max_chunk_size=None,
             )

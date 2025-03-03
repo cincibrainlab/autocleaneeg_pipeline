@@ -282,9 +282,7 @@ def import_eeg(autoclean_dict: dict, preload: bool = True) -> Union[mne.io.Raw, 
         
         # Get montage name from configuration
         montage_name = autoclean_dict["eeg_system"]
-        
-        breakpoint() 
-        
+                
         # Get appropriate plugin
         plugin = get_plugin_for_combination(format_id, montage_name)
         message("info", f"Using plugin: {plugin.__class__.__name__}")

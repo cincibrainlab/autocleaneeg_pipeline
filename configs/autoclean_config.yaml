@@ -10,7 +10,7 @@ tasks:
   RestingEyesOpen:
     mne_task: "rest"
     description: "Resting state with eyes open"
-    lossless_config: /Users/ernie/Documents/GitHub/autoclean_pipeline/configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
+    lossless_config: configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
@@ -75,13 +75,13 @@ tasks:
   RestingEyesOpenRev:
     mne_task: "rest"
     description: "Resting state with eyes open"
-    lossless_config: /Users/ernie/Documents/GitHub/autoclean_pipeline/configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
+    lossless_config: configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
       
       resample_step:
-        enabled: false        # Set to false to skip this step
+        enabled: true        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
       
       drop_outerlayer:
@@ -126,6 +126,7 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
+            
     # ARTIFACT REJECTION SETTINGS
     rejection_policy:
       ch_flags_to_reject: ["noisy", "uncorrelated"]  # Types of bad channels to reject
@@ -364,7 +365,7 @@ stage_files:
 
   #Prepipeline steps
   post_resample:
-    enabled: false
+    enabled: true
     suffix: "_postresample"
 
   post_outerlayer:
@@ -392,24 +393,27 @@ stage_files:
     enabled: false
     suffix: "_postbadchannels"
 
+  post_artifact_detection:
+    enabled: true
+    suffix: "_postartifactdetection"
+
   post_rejection_policy:
     enabled: true
     suffix: "_postrejection"
 
-  post_clean_raw:
-    enabled: true
-    suffix: "_postcleanraw"
-
-
+  #Epochs steps
   post_epochs:
     enabled: true
     suffix: "_postepochs"
-  post_comp:
-    enabled: true
-    suffix: "_postcomp"
+
   post_autoreject:
     enabled: true
     suffix: "_postautoreject"
+
+  post_comp:
+    enabled: true
+    suffix: "_postcomp"
+
   post_edit:
     enabled: true
     suffix: "_postedit"
