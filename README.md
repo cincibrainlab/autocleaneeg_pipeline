@@ -72,7 +72,7 @@ If you use this software in your research, please cite:
 
 ```bibtex
 @software{autoclean_eeg,
-  author = {Gammoh, Gavin, Pedapati, Ernest, and Grace },
+  author = {Gammoh, Gavin, Pedapati, Ernest, and Grace Westerkamp},
   title = {AutoClean EEG: Automated EEG Processing Pipeline},
   year = {2024},
   publisher = {GitHub},
