@@ -43,14 +43,25 @@ AutoClean Pipeline is a powerful, modular framework for automated EEG data proce
 ```python
 from autoclean import Pipeline
 
-# Initialize the pipeline
+# Define paths - modify these to match your system
+EXAMPLE_OUTPUT_DIR = Path("/srv2/RAWDATA/Autoclean_Example_Chirp/output")  # Where processed data will be stored
+CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to this example
+
+# Create pipeline instance
 pipeline = Pipeline(
-    task="resting_eyes_open",
-    data_path="path/to/data"
+    autoclean_dir=EXAMPLE_OUTPUT_DIR,
+    autoclean_config=CONFIG_FILE,
+    verbose='INFO'
 )
 
-# Run the pipeline
-pipeline.run()
+# Example file path - modify this to point to your EEG file
+file_path = Path("C:/Users/Gam9LG/Documents/DATA/n141_resting/raw/0079_rest.raw")
+
+# Process the file
+pipeline.process_file(
+    file_path=file_path,
+    task="RestingEyesOpen",  # Choose appropriate task
+)
 ```
 
 ## Key Features
