@@ -406,6 +406,14 @@ stage_files:
     enabled: true
     suffix: "_postepochs"
 
+  post_muscle_beta_focus:
+    enabled: true
+    suffix: "_postmusclebetafocus"
+
+  post_drop_bad_epochs:
+    enabled: true
+    suffix: "_postdropbadepochs"
+
   post_gfp_clean:
     enabled: true
     suffix: "_postgfpclean"

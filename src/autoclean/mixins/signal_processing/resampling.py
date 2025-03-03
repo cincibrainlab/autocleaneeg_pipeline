@@ -47,7 +47,7 @@ class ResamplingMixin:
                 message("info", "Resampling step is disabled in configuration")
                 return data
                 
-            target_sfreq = config_value
+            target_sfreq = config_value.get("value", None)
                 
             if target_sfreq is None:
                 message("warning", "Target sampling frequency not specified, skipping resampling")

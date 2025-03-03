@@ -77,9 +77,13 @@ class SignalProcessingMixin:
         step_settings = settings.get(step_name, {})
         
         is_enabled = step_settings.get("enabled", False)
-        value = step_settings.get("value")
         
-        return is_enabled, value
+        # Create a copy of step_settings without the 'enabled' key
+        settings_copy = step_settings.copy()
+        if "enabled" in settings_copy:
+            settings_copy.pop("enabled")
+        
+        return is_enabled, settings_copy
         
     def _report_step_status(self) -> None:
         """Report the enabled/disabled status of all processing steps in the configuration.

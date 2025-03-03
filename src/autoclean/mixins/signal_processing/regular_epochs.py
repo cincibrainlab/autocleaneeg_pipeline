@@ -37,11 +37,11 @@ class RegularEpochsMixin:
     """
     
     def create_regular_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
-                             tmin: float = -0.2,
-                             tmax: float = 0.5,
-                             baseline: Optional[tuple] = (None, 0),
+                             tmin: float = -1,
+                             tmax: float = 1,
+                             baseline: Optional[tuple] = None,
                              volt_threshold: Optional[Dict[str, float]] = None,
-                             stage_name: str = "regular_epochs") -> mne.Epochs:
+                             stage_name: str = "post_epochs") -> mne.Epochs:
         """Create regular fixed-length epochs from raw data.
         
         This method creates fixed-length epochs from continuous EEG data at regular
@@ -158,14 +158,14 @@ class RegularEpochsMixin:
                         if (epoch_start <= ann_end) and (epoch_end >= ann_start):
                             bad_ref_epochs.append(idx)
             
-            # Remove duplicates and sort
-            bad_ref_epochs = sorted(list(set(bad_ref_epochs)))
-            
-            # Mark bad reference epochs in metadata
-            epochs.metadata["BAD_REF_AF"] = [
-                idx in bad_ref_epochs for idx in range(len(epochs))
-            ]
-            message("info", f"Marked {len(bad_ref_epochs)} unique epochs as BAD_REF_AF")
+                    # Remove duplicates and sort
+                    bad_ref_epochs = sorted(list(set(bad_ref_epochs)))
+                    
+                    # Mark bad reference epochs in metadata
+                    epochs.metadata["BAD_REF_AF"] = [
+                        idx in bad_ref_epochs for idx in range(len(epochs))
+                    ]
+                    message("info", f"Marked {len(bad_ref_epochs)} unique epochs as BAD_REF_AF")
             
             # Detect Muscle Beta Focus
             bad_muscle_epochs = self._detect_muscle_beta_focus_robust(
@@ -191,7 +191,7 @@ class RegularEpochsMixin:
             # Save epochs with bad epochs marked but not dropped
             from autoclean.step_functions.io import save_epochs_to_set
             if hasattr(self, 'config'):
-                save_epochs_to_set(epochs, self.config, "post_epochs")
+                save_epochs_to_set(epochs, self.config, stage_name)
             
             # Create a copy for dropping
             epochs_clean = epochs.copy()
@@ -257,6 +257,10 @@ class RegularEpochsMixin:
             # Store epochs
             if hasattr(self, 'config') and self.config.get("run_id"):
                 self.epochs = epochs_clean
+
+            # Save epochs
+            if hasattr(self, 'config'):
+                save_epochs_to_set(epochs_clean, self.config, "post_drop_bad_epochs")
                 
             return epochs_clean
             
