@@ -41,8 +41,7 @@ class PrepareEpochsICAMixin:
     """
     
     def prepare_epochs_for_ica(self, epochs: Union[mne.Epochs, None] = None,
-                              threshold: float = 3.0,
-                              stage_name: str = "prepare_epochs_ica") -> mne.Epochs:
+                              threshold: float = 3.0) -> mne.Epochs:
         """Prepare epochs for ICA by dropping epochs marked as bad based on global outlier detection.
         
         This method identifies and marks epochs that are statistical outliers based on
@@ -87,18 +86,18 @@ class PrepareEpochsICAMixin:
             ```
         """
         # Check if this step is enabled in the configuration
-        is_enabled, config_value = self._check_step_enabled("prepare_epochs_ica")
+        # is_enabled, config_value = self._check_step_enabled("prepare_epochs_ica")
             
-        if not is_enabled:
-            message("info", "Prepare epochs for ICA step is disabled in configuration")
-            return None
+        # if not is_enabled:
+        #     message("info", "Prepare epochs for ICA step is disabled in configuration")
+        #     return None
             
-        # Get parameters from config if available
-        if config_value and isinstance(config_value, dict):
-            threshold = config_value.get("threshold", threshold)
+        # # Get parameters from config if available
+        # if config_value and isinstance(config_value, dict):
+        #     threshold = config_value.get("threshold", threshold)
         
         # Determine which data to use
-        epochs = self._get_epochs_object(epochs)
+        epochs = self._get_data_object(epochs, use_epochs=True)
         
         # Type checking
         if not isinstance(epochs, mne.Epochs):
@@ -166,10 +165,6 @@ class PrepareEpochsICAMixin:
             if hasattr(self, 'config') and self.config.get("run_id"):
                 self.epochs = epochs_clean
                 
-            # Save epochs
-            from autoclean.step_functions.io import save_epochs_to_set
-            if hasattr(self, 'config'):
-                save_epochs_to_set(epochs_clean, self.config, "post_ica_prep")
                 
             return epochs_clean
             

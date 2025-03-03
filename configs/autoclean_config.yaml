@@ -126,7 +126,7 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
-            
+
     # ARTIFACT REJECTION SETTINGS
     rejection_policy:
       ch_flags_to_reject: ["noisy", "uncorrelated"]  # Types of bad channels to reject
@@ -405,6 +405,10 @@ stage_files:
   post_epochs:
     enabled: true
     suffix: "_postepochs"
+
+  post_gfp_clean:
+    enabled: true
+    suffix: "_postgfpclean"
 
   post_autoreject:
     enabled: true

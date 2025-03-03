@@ -48,7 +48,7 @@ class GFPCleanEpochsMixin:
                         gfp_threshold: float = 3.0,
                         number_of_epochs: Optional[int] = None,
                         random_seed: Optional[int] = None,
-                        stage_name: str = "gfp_clean_epochs") -> mne.Epochs:
+                        stage_name: str = "post_gfp_clean") -> mne.Epochs:
         """Clean an MNE Epochs object by removing outlier epochs based on Global Field Power.
         
         This method calculates the Global Field Power (GFP) for each epoch, identifies
@@ -92,22 +92,21 @@ class GFPCleanEpochsMixin:
             )
             ```
         """
-        # Check if this step is explicitly disabled in the configuration
-        is_enabled, config_value = self._check_step_enabled("gfp_clean_epochs")
+        # Check if this step is enabled in the configuration
+        # is_enabled, config_value = self._check_step_enabled("gfp_clean_epochs")
             
-        # Only skip if explicitly disabled (enabled=False)
-        if is_enabled is False:
-            message("info", "GFP clean epochs step is explicitly disabled in configuration")
-            return None
+        # if not is_enabled:
+        #     message("info", "GFP clean epochs step is disabled in configuration")
+        #     return None
             
-        # Get parameters from config if available
-        if config_value and isinstance(config_value, dict):
-            gfp_threshold = config_value.get("gfp_threshold", gfp_threshold)
-            number_of_epochs = config_value.get("number_of_epochs", number_of_epochs)
-            random_seed = config_value.get("random_seed", random_seed)
+        # # Get parameters from config if available
+        # if config_value and isinstance(config_value, dict):
+        #     gfp_threshold = config_value.get("gfp_threshold", gfp_threshold)
+        #     number_of_epochs = config_value.get("number_of_epochs", number_of_epochs)
+        #     random_seed = config_value.get("random_seed", random_seed)
         
         # Determine which data to use
-        epochs = self._get_epochs_object(epochs)
+        epochs = self._get_data_object(epochs, use_epochs=True)
         
         # Type checking
         if not isinstance(epochs, mne.Epochs):
@@ -254,7 +253,7 @@ class GFPCleanEpochsMixin:
             # Save epochs
             from autoclean.step_functions.io import save_epochs_to_set
             if hasattr(self, 'config'):
-                save_epochs_to_set(epochs_final, self.config, "post_gfp_clean")
+                save_epochs_to_set(epochs_final, self.config, stage_name)
                 
             message("info", "Epoch GFP cleaning process completed")
             return epochs_final
