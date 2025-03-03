@@ -95,10 +95,30 @@ Get up and running with AutoClean Pipeline in minutes:
 === "Usage"
 
     ```python
+    from pathlib import Path
     from autoclean import Pipeline
     
-    pipeline = Pipeline.from_config("config.yaml")
-    pipeline.run()
+    # Create pipeline instance
+    pipeline = Pipeline(
+        autoclean_dir=Path("./output")
+        autoclean_config=Path("./configs/autoclean_config.yaml")
+        verbose='INFO'
+    )
+    
+    # Process a single file
+    pipeline.process_file(
+        file_path=Path("./data/subject_001.raw"),
+        task="RestingEyesOpen",
+    )
+    
+    # For batch processing (async)
+    # import asyncio
+    # await pipeline.process_directory_async(
+    #     directory=Path("./data"),
+    #     task="ChirpDefault",
+    #     sub_directories=False,
+    #     max_concurrent=5
+    # )
     ```
 
 ## Project Status
