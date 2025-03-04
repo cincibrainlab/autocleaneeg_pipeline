@@ -2433,10 +2433,8 @@ def create_json_summary(run_id: str) -> None:
 def generate_mmn_erp(
     epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]
 ) -> None:
-    """Analyze MMN data and create a PDF report with ERPs and topographies."""
-    message("header", "step_analyze_mmn")
-
-    # Get ROI channels
+    """Generate ERP plots for MMN paradigm."""
+    message("header", "generate_mmn_erp")
     task = autoclean_dict["task"]
     settings = autoclean_dict["tasks"][task]["settings"]
     roi_channels = get_standard_set_in_montage(
@@ -2449,7 +2447,13 @@ def generate_mmn_erp(
         return None
 
     # Get conditions
-    event_id = settings["event_id"]["value"]
+    epoch_settings = settings["epoch_settings"]
+    event_id = epoch_settings.get("event_id")
+    
+    if event_id is None:
+        message("warning", "Event ID is not specified in epoch_settings (set to null)")
+        return None
+        
     conditions = {
         "standard": event_id.get("standard", "DIN2/1"),
         "predeviant": event_id.get("predeviant", "DIN2/2"),

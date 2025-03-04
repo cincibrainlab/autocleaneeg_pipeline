@@ -77,10 +77,16 @@ class EGIRawGSN129Plugin(BaseEEGPlugin):
                 
                 # Check if task-specific event handling is needed
                 if "tasks" in autoclean_dict and task in autoclean_dict["tasks"]:
-                    if autoclean_dict["tasks"][task]["settings"]["event_id"]["enabled"]:
+                    # Get epoch settings
+                    settings = autoclean_dict["tasks"][task]["settings"]
+                    epoch_settings = settings.get("epoch_settings", {})
+                    event_id = epoch_settings.get("event_id")
+                    
+                    # If event_id is not None, process the events
+                    if event_id is not None:
                         try:
-                            target_event_id = autoclean_dict["tasks"][task]["settings"]["event_id"]["value"]
-                            events, event_id = mne.events_from_annotations(raw)
+                            target_event_id = event_id
+                            events, event_id_map = mne.events_from_annotations(raw)
                             rev_target_event_id = dict(map(reversed, target_event_id.items()))
                             raw.set_annotations(None)
                             raw.set_annotations(

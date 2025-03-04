@@ -1066,42 +1066,8 @@ class VisualizationMixin:
         pipeline: Any,
         autoclean_dict: Dict[str, Any]
     ) -> None:
-        """Analyze MMN data and create a comprehensive PDF report with ERPs and topographies.
-        
-        This method analyzes Mismatch Negativity (MMN) data from standard/deviant paradigms,
-        creates a multi-page PDF report with ERPs, topographical maps, peak measurements,
-        and global field power analysis.
-        
-        Args:
-            epochs: Epochs object containing the MMN data with standard and deviant conditions.
-            pipeline: Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict: Dictionary containing metadata about the processing run.
-            
-        Returns:
-            None
-            
-        Example:
-            ```python
-            # After creating epochs with standard and deviant events
-            task.generate_mmn_erp(epochs, pipeline, autoclean_dict)
-            ```
-            
-        Notes:
-            - Requires epochs to contain conditions with 'standard' and 'deviant' in their names
-            - Automatically identifies frontal channels for MMN analysis (Fz, FCz preferred)
-            - Calculates MMN as the difference wave (deviant - standard)
-            - Identifies peak MMN amplitude and latency in the 100-250ms window
-            - Creates a multi-page PDF report with title page, channel ERPs, and global field power
-            - The method respects configuration settings via the `mmn_erp_step` config
-        """
-        # Check if this step is enabled in the configuration
-        if not self._check_step_enabled("mmn_erp_step"):
-            message("info", "✗ MMN ERP analysis step disabled in config")
-            return
-            
-        message("header", "Generating MMN ERP analysis")
-        
-        # Get ROI channels
+        """Generate ERP plots for MMN paradigm."""
+        message("header", "generate_mmn_erp")
         task = autoclean_dict["task"]
         settings = autoclean_dict["tasks"][task]["settings"]
         roi_channels = get_standard_set_in_montage(
@@ -1114,7 +1080,13 @@ class VisualizationMixin:
             return None
         
         # Get conditions
-        event_id = settings["event_id"]["value"]
+        epoch_settings = settings["epoch_settings"]
+        event_id = epoch_settings.get("event_id")
+        
+        if event_id is None:
+            message("warning", "Event ID is not specified in epoch_settings (set to null)")
+            return None
+            
         conditions = {
             "standard": event_id.get("standard", "DIN2/1"),
             "predeviant": event_id.get("predeviant", "DIN2/2"),

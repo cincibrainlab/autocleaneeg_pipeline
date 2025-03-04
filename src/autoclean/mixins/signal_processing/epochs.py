@@ -29,11 +29,11 @@ class EpochsMixin(RegularEpochsMixin, EventIDEpochsMixin, PrepareEpochsICAMixin,
     
     def create_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
                      event_id: Optional[Dict[str, int]] = None,
-                     tmin: float = -0.2,
-                     tmax: float = 0.5,
-                     baseline: Optional[tuple] = (None, 0),
+                     tmin: float = -1,
+                     tmax: float = 1,
+                     baseline: Optional[tuple] = None,
                      threshold: Optional[float] = None,
-                     stage_name: str = "epochs") -> mne.Epochs:
+                     stage_name: str = "post_epochs") -> mne.Epochs:
         """Create epochs from raw data based on events.
         
         This method creates epochs from raw data based on specified events.
@@ -85,9 +85,11 @@ class EpochsMixin(RegularEpochsMixin, EventIDEpochsMixin, PrepareEpochsICAMixin,
                     
         # Get event_id from config if not provided
         if event_id is None:
-            event_id_enabled, event_id_config = self._check_step_enabled("event_id")
-            if event_id_enabled and event_id_config:
-                event_id = event_id_config
+            epoch_settings_enabled, epoch_settings_config = self._check_step_enabled("epoch_settings")
+            if epoch_settings_enabled and epoch_settings_config:
+                config_event_id = epoch_settings_config.get("event_id")
+                if config_event_id is not None:
+                    event_id = config_event_id
         
         # Determine which data to use
         data = self._get_data_object(data)

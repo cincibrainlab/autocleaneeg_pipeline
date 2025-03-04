@@ -40,13 +40,13 @@ def load_config(config_file: Path) -> dict:
                             "value": Or(str, list[str], None),
                         },
                         "montage": {"enabled": bool, "value": Or(str, None)},
-                        "event_id": {"enabled": bool, "value": Or(dict, None)},
                         "epoch_settings": {
                             "enabled": bool,
                             "value": {
                                 "tmin": Or(int, float, None),
                                 "tmax": Or(int, float, None),
                             },
+                            "event_id": Or(dict, None),
                             "remove_baseline": {
                                 "enabled": bool,
                                 "window": Or(list[float], None),

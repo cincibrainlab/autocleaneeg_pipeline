@@ -83,63 +83,50 @@ class ChirpDefault(Task):
 
     def run(self) -> None:
         """Run the complete chirp processing pipeline."""
-        file_path = Path(self.config["unprocessed_file"])
-        self.import_data(file_path)
-        self.preprocess()
-        self.process()
-        self._generate_reports()
-
-    def import_data(self, file_path: Path) -> None:
         # Import and save raw EEG data
         self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
 
-    def preprocess(self) -> None:
-        """Run preprocessing steps on the raw data."""
-        if self.raw is None:
-            raise RuntimeError("No data has been imported")
+        self.resample_data()
 
-        # Run preprocessing pipeline and save intermediate result
+        # Note: step_pre_pipeline_processing will skip resampling if already done
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
+
+        # Store a copy of the pre-cleaned raw data for comparison in reports
+        self.original_raw = self.raw.copy()
+
+        # Clean bad channels
+        self.clean_bad_channels()
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # # Run PyLossless pipeline and save result
-        self.pipeline, pipeline_raw = step_run_pylossless(self.config)
-        save_raw_to_set(pipeline_raw, self.config, "post_pylossless")
+        # Run PyLossless pipeline and save result
+        self.pipeline, self.raw = step_run_pylossless(self.config)
+        save_raw_to_set(self.raw, self.config, "post_pylossless")
 
-        # Clean bad channels
-        self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_bad_channels")
-
-        # Use PyLossless Rejection Policy
-        self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
+        # Apply PyLossless Rejection Policy for artifact removal
+        self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
-        save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
 
-    def process(self) -> None:
-        if self.cleaned_raw is None:
-            raise RuntimeError("Need to run preprocess first")
+        # Detect and mark dense oscillatory artifacts
+        self.detect_dense_oscillatory_artifacts()
 
-        # Create event-id epochs
-        self.epochs = step_create_eventid_epochs(
-            self.cleaned_raw, self.pipeline, self.config
-        )
-        save_epochs_to_set(self.epochs, self.config, "post_epochs")
+        # Detect and mark muscle artifacts in beta frequency range
+        self.detect_muscle_beta_focus(self.raw)
 
-        # Prepare epochs for ICA
-        self.epochs = step_prepare_epochs_for_ica(
-            self.epochs, self.pipeline, self.config
-        )
+        save_raw_to_set(self.raw, self.config, "post_artifact_detection")
 
-        # Clean epochs
-        self.epochs = step_gfp_clean_epochs(self.epochs, self.pipeline, self.config)
+        self.create_eventid_epochs()
 
-        # Save cleaned epochs
-        save_epochs_to_set(self.epochs, self.config, "post_comp")
+        self.prepare_epochs_for_ica()
+
+        self.gfp_clean_epochs()
+
+        self._generate_reports()
+
 
     def _generate_reports(self) -> None:
         """Generate all visualization reports."""

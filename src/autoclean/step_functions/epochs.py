@@ -40,7 +40,7 @@ def step_create_regular_epochs(
         else None
     )
     volt_threshold = (
-        epoch_settings["threshold_rejection"]["volt_threshold"]
+        tuple(epoch_settings["threshold_rejection"]["volt_threshold"])
         if epoch_settings["threshold_rejection"]["enabled"]
         else None
     )
@@ -192,16 +192,16 @@ def step_create_eventid_epochs(
     message("header", "step_create_eventid_epochs")
     task = autoclean_dict["task"]
 
-    # get event_id and epoch settings
-    if autoclean_dict["tasks"][task]["settings"]["event_id"]["enabled"]:
-        event_types = autoclean_dict["tasks"][task]["settings"]["event_id"]["value"]
-    else:
-        message("warning", "Event ID settings not enabled")
-        return None
-
     # Get epoch settings
     epoch_settings = autoclean_dict["tasks"][task]["settings"]["epoch_settings"]
     if not epoch_settings["enabled"]:
+        return None
+
+    # Get event_id settings from within epoch_settings
+    # If event_id is None, it means it's disabled
+    event_types = epoch_settings.get("event_id")
+    if event_types is None:
+        message("warning", "Event ID is not specified in epoch_settings (set to null)")
         return None
 
     tmin = epoch_settings["value"]["tmin"]
@@ -225,9 +225,7 @@ def step_create_eventid_epochs(
         message("info", f"Using voltage threshold: {volt_threshold}")
 
     # Create regexp pattern for all event types
-    target_event_type = list(
-        autoclean_dict["tasks"][task]["settings"]["event_id"]["value"].keys()
-    )[0]
+    target_event_type = list(event_types.keys())[0]
     reg_exp = f".*{target_event_type}.*"
     message("info", f"Looking for events matching pattern: {reg_exp}")
 

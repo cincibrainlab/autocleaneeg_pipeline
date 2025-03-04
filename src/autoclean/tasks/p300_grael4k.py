@@ -255,7 +255,7 @@ class P300_Grael4k(Task):
         cleaned_raw: mne.io.Raw, pipeline: Any, autoclean_dict: Dict[str, Any]
     ) -> Optional[mne.Epochs]:
         task = autoclean_dict["task"]
-            # Get epoch settings
+        # Get epoch settings
         epoch_settings = autoclean_dict["tasks"][task]["settings"]["epoch_settings"]
         if not epoch_settings["enabled"]:
             return None
@@ -274,7 +274,7 @@ class P300_Grael4k(Task):
         # Create epochs from -200ms to 800ms relative to the event onset, with baseline correction
         epochs = mne.Epochs(cleaned_raw, events, event_id, tmin=-0.5, tmax=0.8, baseline=(-.5, 0), preload=True)
 
-            # Average epochs for each condition
+        # Average epochs for each condition
         evoked_standard = epochs['Standard'].average()
         evoked_target = epochs['Target'].average()
 
@@ -287,14 +287,13 @@ class P300_Grael4k(Task):
         fig = figs[0] if isinstance(figs, list) else figs
         fig.savefig('erp_comparison.png', dpi=300)
 
-            # get event_id and epoch settings
-        if autoclean_dict["tasks"][task]["settings"]["event_id"]["enabled"]:
-            event_types = autoclean_dict["tasks"][task]["settings"]["event_id"]["value"]
-        else:
-            message("warning", "Event ID settings not enabled")
+        # get event_id settings
+        event_types = epoch_settings.get("event_id")
+        if event_types is None:
+            message("warning", "Event ID is not specified in epoch_settings (set to null)")
             return None
 
-            # Add metadata about the epoching
+        # Add metadata about the epoching
         metadata = {
             "step_create_eventid_epochs": {
                 "creationDateTime": datetime.now().isoformat(),

@@ -45,15 +45,12 @@ tasks:
         enabled: true
         value: "GSN-HydroCel-129"  # Type of EEG cap/electrode layout
 
-      event_id:
-        enabled: false      # No triggers in resting state
-        value: {}          # Empty since no triggers
-
       epoch_settings:
         enabled: true     
         value:
           tmin: -1
           tmax: 1
+        event_id: null      # null means no triggers/events to use (disabled)
         remove_baseline:
           enabled: false
           window: [null, 0]
@@ -110,15 +107,12 @@ tasks:
         enabled: true
         value: "GSN-HydroCel-129"  # Type of EEG cap/electrode layout
 
-      event_id:
-        enabled: false      # No triggers in resting state
-        value: {}          # Empty since no triggers
-
       epoch_settings:
         enabled: true     
         value:
           tmin: -1
           tmax: 1
+        event_id: null      # null means no triggers/events to use (disabled)
         remove_baseline:
           enabled: false
           window: [null, 0]
@@ -168,14 +162,12 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-129"
-      event_id:
-        enabled: true
-        value: {'DIN8'}
       epoch_settings:
         enabled: true
         value:
           tmin: -0.5
           tmax: 2.5
+        event_id: {'DIN8'}  # Event ID to use for epoching
         remove_baseline:
           enabled: false
           window: [null, 0]
@@ -220,14 +212,12 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-129"
-      event_id:
-        enabled: true
-        value: {'DI66': 1}
       epoch_settings:
         enabled: true
         value:
           tmin: -0.5
           tmax: 2.7
+        event_id: {'DI66': 1}  # Event ID to use for epoching
         remove_baseline:
           enabled: false
           window: [null, 0]
@@ -272,14 +262,12 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-129"
-      event_id:
-        enabled: false
-        value: {}
       epoch_settings:
         enabled: false
         value:
           tmin: -0.5
           tmax: 2.7
+        event_id: null      # null means no triggers/events to use (disabled)
         remove_baseline:
           enabled: false
           window: [null, 0]
@@ -326,14 +314,12 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-124"
-      event_id:
-        enabled: true
-        value: {'DIN2'}
       epoch_settings:
         enabled: true
         value:
           tmin: -0.1
           tmax: 0.5
+        event_id: {'DIN2'}  # Event ID to use for epoching
         remove_baseline: #Remove/Correct baseline
           enabled: true
           window: [null, 0]
