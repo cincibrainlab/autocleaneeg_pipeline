@@ -58,7 +58,7 @@ tasks:
           enabled: false
           window: [null, 0]
         threshold_rejection:
-          enabled: false
+          enabled: true
           volt_threshold: 
             eeg: 150e-6
     # ARTIFACT REJECTION SETTINGS
@@ -123,7 +123,7 @@ tasks:
           enabled: false
           window: [null, 0]
         threshold_rejection:
-          enabled: false
+          enabled: true
           volt_threshold: 
             eeg: 150e-6
 
@@ -393,22 +393,18 @@ stage_files:
     enabled: false
     suffix: "_postbadchannels"
 
-  post_artifact_detection:
-    enabled: true
-    suffix: "_postartifactdetection"
-
   post_rejection_policy:
     enabled: true
     suffix: "_postrejection"
+
+  post_artifact_detection:
+    enabled: true
+    suffix: "_postartifactdetection"
 
   #Epochs steps
   post_epochs:
     enabled: true
     suffix: "_postepochs"
-
-  post_muscle_beta_focus:
-    enabled: true
-    suffix: "_postmusclebetafocus"
 
   post_drop_bad_epochs:
     enabled: true

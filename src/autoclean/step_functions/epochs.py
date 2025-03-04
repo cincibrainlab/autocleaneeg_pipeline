@@ -47,6 +47,8 @@ def step_create_regular_epochs(
     if isinstance(volt_threshold, (int, float)):
         volt_threshold = {"eeg": volt_threshold}
 
+    volt_threshold["eeg"] = float(volt_threshold["eeg"])
+    
     # Create initial epochs with reject_by_annotation=False to handle annotations manually
     events = mne.make_fixed_length_events(
         cleaned_raw, duration=tmax - tmin, overlap=0, start=abs(tmin)

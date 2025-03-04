@@ -164,7 +164,6 @@ class RestingEyesOpen(Task):
     def import_data(self, file_path: Path) -> None:
         """Import raw resting state EEG data."""
         # Import and save raw EEG data
-        breakpoint()
         self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
 

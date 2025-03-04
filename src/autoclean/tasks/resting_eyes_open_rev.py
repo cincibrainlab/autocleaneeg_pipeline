@@ -93,6 +93,9 @@ class RestingEyesOpenRev(Task):
 
         self.detect_dense_oscillatory_artifacts()
 
+        self.detect_muscle_beta_focus(self.raw)
+
+        save_raw_to_set(self.raw, self.config, "post_artifact_detection")
 
         # Create regular epochs
         self.create_regular_epochs()

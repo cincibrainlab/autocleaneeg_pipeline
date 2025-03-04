@@ -64,3 +64,4 @@ examples/single_file.py
 
 #mkdocs
 site/
+examples/single_file.py

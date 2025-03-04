@@ -55,6 +55,7 @@ from PyQt5.QtWidgets import (
     QPushButton,
     QSplitter,
     QStatusBar,
+    QStyle,
     QTreeView,
     QTreeWidget,
     QTreeWidgetItem,
@@ -192,6 +193,16 @@ class FileSelector(QWidget):
         self.open_folder_btn = QPushButton("Open Current Folder")
         self.open_folder_btn.clicked.connect(self.openCurrentFolder)
         self.left_layout.addWidget(self.open_folder_btn)
+
+        self.refresh_btn = QPushButton("Refresh File Tree")
+        self.refresh_btn.clicked.connect(self.refreshFileTree)
+        self.refresh_btn.setShortcut("F5")  # Add F5 shortcut for refresh
+        self.refresh_btn.setToolTip("Refresh the file tree to show new or modified files (F5)")
+        # Add a refresh icon if available in the style
+        refresh_icon = self.style().standardIcon(QStyle.SP_BrowserReload)
+        if not refresh_icon.isNull():
+            self.refresh_btn.setIcon(refresh_icon)
+        self.left_layout.addWidget(self.refresh_btn)
 
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderLabel("Files")
@@ -1022,6 +1033,27 @@ class FileSelector(QWidget):
                 )
                 print(f"Error in plotFile: {str(e)}")
                 self.instruction_widget.show()  # Show instructions if plot fails
+
+    def refreshFileTree(self):
+        """Refresh the file tree to show any new or modified files."""
+        if self.current_dir:
+            # Change button text to indicate refreshing is in progress
+            original_text = self.refresh_btn.text()
+            self.refresh_btn.setText("Refreshing...")
+            self.refresh_btn.setEnabled(False)
+            
+            # Use QApplication.processEvents to update the UI
+            QApplication.processEvents()
+            
+            # Reload the files
+            self.loadFiles()
+            self.updateStatusBar()
+            
+            # Restore button state
+            self.refresh_btn.setText(original_text)
+            self.refresh_btn.setEnabled(True)
+            
+            print(f"File tree refreshed for directory: {self.current_dir}")
 
 
 def run_autoclean_review(autoclean_dir):

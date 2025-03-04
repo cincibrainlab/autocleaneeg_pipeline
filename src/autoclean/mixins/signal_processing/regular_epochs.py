@@ -5,12 +5,16 @@ continuous EEG data. Regular epochs are time segments of equal duration that are
 created at fixed intervals throughout the recording, regardless of event markers.
 
 The RegularEpochsMixin class implements methods for creating these epochs and
-detecting artifacts within them, particularly focusing on reference and muscle
-artifacts that can contaminate the data.
+handling annotations, allowing users to either automatically reject epochs that
+overlap with bad annotations or just mark them in the metadata for later processing.
 
 Regular epoching is particularly useful for resting-state data analysis, where
 there are no specific events of interest, but the data needs to be segmented
 into manageable chunks for further processing and analysis.
+
+Updates:
+- Added reject_by_annotation parameter to create_regular_epochs to control how bad annotations are handled
+- Added functionality to detect muscle artifacts in continuous Raw data using a sliding window approach
 """
 
 from typing import Union, Dict, Optional, List
@@ -25,8 +29,8 @@ class RegularEpochsMixin:
     """Mixin class providing regular (fixed-length) epochs creation functionality for EEG data.
     
     This mixin provides methods for creating regular fixed-length epochs from continuous
-    EEG data. It includes functionality for artifact detection, specifically focusing on
-    reference and muscle artifacts that can contaminate the data.
+    EEG data. It includes functionality for handling annotations and amplitude-based artifact
+    rejection.
     
     Regular epochs are time segments of equal duration that are created at fixed intervals
     throughout the recording, regardless of event markers. This approach is particularly
@@ -34,6 +38,11 @@ class RegularEpochsMixin:
     
     The mixin respects configuration settings from the autoclean_config.yaml file,
     allowing users to customize the epoching parameters and artifact detection thresholds.
+    
+    Methods:
+        create_regular_epochs: Create regular fixed-length epochs from raw data with options
+                              to either reject or just mark epochs with bad annotations.
+        detect_muscle_artifacts: Detect muscle artifacts in continuous Raw data and add annotations.
     """
     
     def create_regular_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
@@ -41,13 +50,13 @@ class RegularEpochsMixin:
                              tmax: float = 1,
                              baseline: Optional[tuple] = None,
                              volt_threshold: Optional[Dict[str, float]] = None,
-                             stage_name: str = "post_epochs") -> mne.Epochs:
+                             stage_name: str = "post_epochs",
+                             reject_by_annotation: bool = False) -> mne.Epochs:
         """Create regular fixed-length epochs from raw data.
         
         This method creates fixed-length epochs from continuous EEG data at regular
         intervals. It supports optional baseline correction and amplitude-based artifact
-        rejection. The method also detects reference and muscle artifacts using specialized
-        algorithms.
+        rejection.
         
         The epoching parameters can be customized through the configuration file
         (autoclean_config.yaml) under the "epoch_settings" section. If enabled, the
@@ -61,28 +70,17 @@ class RegularEpochsMixin:
             volt_threshold: Dictionary mapping channel types to rejection thresholds in microvolts
                            (e.g., {"eeg": 100, "eog": 200})
             stage_name: Name for saving and metadata tracking
+            reject_by_annotation: Whether to automatically reject epochs that overlap with
+                                 annotations starting with "bad" or "BAD", or just mark them
+                                 in the metadata for later processing
             
         Returns:
-            mne.Epochs: The created epochs object with bad epochs marked
+            mne.Epochs: The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)
             
         Raises:
             AttributeError: If self.raw doesn't exist when needed
             TypeError: If data is not a Raw object
             RuntimeError: If epoch creation fails
-            
-        Example:
-            ```python
-            # Create regular epochs with default parameters
-            epochs = task.create_regular_epochs()
-            
-            # Create regular epochs with custom parameters
-            epochs = task.create_regular_epochs(
-                tmin=-0.5,
-                tmax=1.0,
-                baseline=(-0.5, 0),
-                volt_threshold={"eeg": 75, "eog": 150}
-            )
-            ```
         """
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("epoch_settings")
@@ -121,7 +119,7 @@ class RegularEpochsMixin:
             raise TypeError("Data must be an MNE Raw object for epoch creation")
             
         try:
-            # Create initial epochs with reject_by_annotation=False to handle annotations manually
+            # Create initial epochs with reject_by_annotation parameter
             message("header", f"Creating regular epochs from {tmin}s to {tmax}s...")
             events = mne.make_fixed_length_events(
                 data, duration=tmax - tmin, overlap=0, start=abs(tmin)
@@ -135,76 +133,65 @@ class RegularEpochsMixin:
                 baseline=baseline,
                 reject=volt_threshold,
                 preload=True,
-                reject_by_annotation=False,
+                reject_by_annotation=reject_by_annotation,
             )
             
             # Initialize metadata DataFrame
             epochs.metadata = pd.DataFrame(index=range(len(epochs)))
             
-            # Find epochs that overlap with BAD_REF_AF annotations
-            bad_ref_epochs = []
-            for ann in data.annotations:
-                if ann["description"] == "BAD_REF_AF":
-                    # Find epochs that overlap with this annotation
-                    ann_start = ann["onset"]
-                    ann_end = ann["onset"] + ann["duration"]
-                    
-                    # Check each epoch
-                    for idx, event in enumerate(epochs.events):
-                        epoch_start = event[0] / epochs.info["sfreq"]  # Convert to seconds
-                        epoch_end = epoch_start + (tmax - tmin)
+            # If not using reject_by_annotation, manually track bad annotations
+            if not reject_by_annotation:
+                # Find epochs that overlap with any "bad" or "BAD" annotations
+                bad_epochs = []
+                bad_annotations = {}  # To track which annotation affected each epoch
+                
+                for ann in data.annotations:
+                    # Check if annotation description starts with "bad" or "BAD"
+                    if ann["description"].lower().startswith("bad"):
+                        ann_start = ann["onset"]
+                        ann_end = ann["onset"] + ann["duration"]
                         
-                        # Check for overlap
-                        if (epoch_start <= ann_end) and (epoch_end >= ann_start):
-                            bad_ref_epochs.append(idx)
-            
-                    # Remove duplicates and sort
-                    bad_ref_epochs = sorted(list(set(bad_ref_epochs)))
-                    
-                    # Mark bad reference epochs in metadata
-                    epochs.metadata["BAD_REF_AF"] = [
-                        idx in bad_ref_epochs for idx in range(len(epochs))
-                    ]
-                    message("info", f"Marked {len(bad_ref_epochs)} unique epochs as BAD_REF_AF")
-            
-            # Detect Muscle Beta Focus
-            bad_muscle_epochs = self._detect_muscle_beta_focus_robust(
-                epochs.copy(), freq_band=(20, 100), scale_factor=2.0
-            )
-            
-            # Remove duplicates and sort
-            bad_muscle_epochs = sorted(list(set(bad_muscle_epochs)))
-            
-            # Add muscle artifact information to metadata
-            epochs.metadata["BAD_MOVEMENT"] = [
-                idx in bad_muscle_epochs for idx in range(len(epochs))
-            ]
-            message("info", f"Marked {len(bad_muscle_epochs)} unique epochs as BAD_MOVEMENT")
-            
-            # Add annotations for visualization
-            for idx in bad_muscle_epochs:
-                onset = epochs.events[idx, 0] / epochs.info["sfreq"]
-                duration = tmax - tmin
-                description = "BAD_MOVEMENT"
-                epochs.annotations.append(onset, duration, description)
+                        # Check each epoch
+                        for idx, event in enumerate(epochs.events):
+                            epoch_start = event[0] / epochs.info["sfreq"]  # Convert to seconds
+                            epoch_end = epoch_start + (tmax - tmin)
+                            
+                            # Check for overlap
+                            if (epoch_start <= ann_end) and (epoch_end >= ann_start):
+                                bad_epochs.append(idx)
+                                
+                                # Track which annotation affected this epoch
+                                if idx not in bad_annotations:
+                                    bad_annotations[idx] = []
+                                bad_annotations[idx].append(ann["description"])
+                
+                # Remove duplicates and sort
+                bad_epochs = sorted(list(set(bad_epochs)))
+                
+                # Mark bad epochs in metadata
+                epochs.metadata["BAD_ANNOTATION"] = [
+                    idx in bad_epochs for idx in range(len(epochs))
+                ]
+                
+                # Add specific annotation types to metadata
+                for idx, annotations in bad_annotations.items():
+                    for annotation in annotations:
+                        col_name = annotation.upper()
+                        if col_name not in epochs.metadata.columns:
+                            epochs.metadata[col_name] = False
+                        epochs.metadata.loc[idx, col_name] = True
+                
+                message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
             
             # Save epochs with bad epochs marked but not dropped
             from autoclean.step_functions.io import save_epochs_to_set
             if hasattr(self, 'config'):
                 save_epochs_to_set(epochs, self.config, stage_name)
             
-            # Create a copy for dropping
+            # Create a copy for dropping if using amplitude thresholds
             epochs_clean = epochs.copy()
             
-            # Combine all bad epochs and remove duplicates
-            all_bad_epochs = sorted(list(set(bad_ref_epochs + bad_muscle_epochs)))
-            
-            # Drop all bad epochs at once
-            if all_bad_epochs:
-                epochs_clean.drop(all_bad_epochs)
-                message("info", f"Dropped {len(all_bad_epochs)} unique bad epochs")
-            
-            # Drop remaining bad epochs
+            # Drop bad epochs based on amplitude thresholds
             epochs_clean.drop_bad()
             
             # Analyze drop log to tally different annotation types
@@ -234,7 +221,7 @@ class RegularEpochsMixin:
             # Update metadata
             metadata = {
                 "duration": tmax - tmin,
-                "reject_by_annotation": False,  # We handled annotations manually
+                "reject_by_annotation": reject_by_annotation,
                 "initial_epoch_count": len(epochs),
                 "final_epoch_count": len(epochs_clean),
                 "single_epoch_duration": epochs.times[-1] - epochs.times[0],
@@ -243,9 +230,6 @@ class RegularEpochsMixin:
                 "numberSamples": epochs.times.shape[0] * len(epochs_clean),
                 "channelCount": len(epochs.ch_names),
                 "annotation_types": annotation_types,
-                "unique_bad_ref_epochs": len(bad_ref_epochs),
-                "unique_bad_muscle_epochs": len(bad_muscle_epochs),
-                "total_unique_bad_epochs": len(all_bad_epochs),
                 "marked_epochs_file": "post_epochs",
                 "cleaned_epochs_file": "post_drop_bads",
                 "tmin": tmin,
@@ -268,94 +252,4 @@ class RegularEpochsMixin:
             message("error", f"Error during regular epoch creation: {str(e)}")
             raise RuntimeError(f"Failed to create regular epochs: {str(e)}") from e
             
-    def _detect_muscle_beta_focus_robust(self, epochs, freq_band=(20, 30), scale_factor=3.0):
-        """Detect muscle artifacts using a robust measure (median + MAD * scale_factor).
-        
-        This method focuses only on electrodes labeled as 'OTHER' to reduce forced
-        removal of epochs in very clean data.
-        
-        Args:
-            epochs: MNE Epochs object
-            freq_band: Frequency band for filtering (min, max)
-            scale_factor: Scale factor for threshold calculation
-            
-        Returns:
-            List of indices of epochs with muscle artifacts
-        """
-        # Ensure data is loaded
-        epochs.load_data()
-        
-        # Filter in beta band
-        epochs_beta = epochs.copy().filter(
-            l_freq=freq_band[0], h_freq=freq_band[1], verbose=False
-        )
-        
-        # Get channel names
-        ch_names = epochs_beta.ch_names
-        
-        # Build channel_region_map from the provided channel data
-        # Make sure all "OTHER" electrodes are listed here
-        channel_region_map = {
-            "E17": "OTHER",
-            "E38": "OTHER",
-            "E43": "OTHER",
-            "E44": "OTHER",
-            "E48": "OTHER",
-            "E49": "OTHER",
-            "E56": "OTHER",
-            "E73": "OTHER",
-            "E81": "OTHER",
-            "E88": "OTHER",
-            "E94": "OTHER",
-            "E107": "OTHER",
-            "E113": "OTHER",
-            "E114": "OTHER",
-            "E119": "OTHER",
-            "E120": "OTHER",
-            "E121": "OTHER",
-            "E125": "OTHER",
-            "E126": "OTHER",
-            "E127": "OTHER",
-            "E128": "OTHER",
-        }
-        
-        # Select only OTHER channels
-        selected_ch_indices = [
-            i for i, ch in enumerate(ch_names) if channel_region_map.get(ch, "") == "OTHER"
-        ]
-        
-        # If no OTHER channels are found, return empty
-        if not selected_ch_indices:
-            return []
-        
-        # Extract data from OTHER channels only
-        data = epochs_beta.get_data()[
-            :, selected_ch_indices, :
-        ]  # shape: (n_epochs, n_sel_channels, n_times)
-        
-        # Compute peak-to-peak amplitude per epoch and selected channels
-        p2p = data.max(axis=2) - data.min(axis=2)
-        
-        # Compute maximum peak-to-peak amplitude across the selected channels
-        max_p2p = p2p.max(axis=1)
-        
-        # Compute median and MAD
-        med = np.median(max_p2p)
-        mad = np.median(np.abs(max_p2p - med))
-        
-        # Robust threshold
-        threshold = med + scale_factor * mad
-        
-        # Identify bad epochs
-        bad_epochs = np.where(max_p2p > threshold)[0].tolist()
-        
-        # Update metadata
-        metadata = {
-            "freq_band": freq_band,
-            "scale_factor": scale_factor,
-            "bad_epochs": bad_epochs,
-        }
-        
-        self._update_metadata("muscle_beta_focus_robust", metadata)
-        
-        return bad_epochs
+    

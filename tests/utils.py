@@ -9,7 +9,7 @@ from typing import Optional
 # Configuration
 REPO_OWNER = "cincibrainlab"
 REPO_NAME = "autoclean_pipeline"
-TEST_DATA_VERSION = "v1.0.0"  # Update this when you create a new release
+TEST_DATA_VERSION = "v1.1.0"  # Update this when you create a new release
 TEST_DATA_DIR = Path(__file__).parent / "data"
 
 # File registry with their expected SHA256 hashes
