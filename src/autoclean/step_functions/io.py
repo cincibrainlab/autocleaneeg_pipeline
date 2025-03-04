@@ -285,7 +285,7 @@ def import_eeg(autoclean_dict: dict, preload: bool = True) -> Union[mne.io.Raw, 
                 
         # Get appropriate plugin
         plugin = get_plugin_for_combination(format_id, montage_name)
-        message("info", f"Using plugin: {plugin.__class__.__name__}")
+        message("header", f"Using plugin: {plugin.__class__.__name__}")
         
         # Import and configure the data
         eeg_data = plugin.import_and_configure(unprocessed_file, autoclean_dict, preload)

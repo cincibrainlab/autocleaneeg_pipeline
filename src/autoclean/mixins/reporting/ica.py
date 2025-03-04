@@ -202,7 +202,6 @@ class ICAReportingMixin(object):
     def generate_ica_reports(
         self,
         pipeline: Any,
-        cleaned_raw: mne.io.Raw,
         autoclean_dict: Dict[str, Any],
         duration: int = 60,
     ) -> None:
@@ -225,7 +224,10 @@ class ICAReportingMixin(object):
         """
         # Generate report for all components
         report_filename = self._plot_ica_components(
-            pipeline, cleaned_raw, autoclean_dict, duration=duration, components="all"
+            pipeline = pipeline,
+            autoclean_dict = autoclean_dict,
+            duration = duration,
+            components = "all"
         )
 
         metadata = {
@@ -239,7 +241,10 @@ class ICAReportingMixin(object):
 
         # Generate report for rejected components
         report_filename = self._plot_ica_components(
-            pipeline, cleaned_raw, autoclean_dict, duration=duration, components="rejected"
+            pipeline = pipeline,
+            autoclean_dict = autoclean_dict,
+            duration = duration,
+            components = "rejected"
         )
 
         metadata = {
@@ -251,40 +256,252 @@ class ICAReportingMixin(object):
 
         self._update_metadata("generate_ica_reports", metadata)
         
+
     def _plot_ica_components(
         self,
         pipeline: Any,
-        cleaned_raw: mne.io.Raw,
         autoclean_dict: Dict[str, Any],
         duration: int = 60,
         components: str = "all",
-    ) -> str:
-        """Plot ICA components with labels and save reports.
-        
-        This internal method creates detailed visualizations of ICA components,
-        including their time series, topographical maps, and classification information.
-        
+    ):
+        """
+        Plots ICA components with labels and saves reports.
+
         Parameters:
         -----------
         pipeline : pylossless.Pipeline
-            Pipeline object containing raw data and ICA
-        cleaned_raw : mne.io.Raw
-            Cleaned raw data after processing
+            Pipeline object containing raw data and ICA.
         autoclean_dict : dict
-            Dictionary containing configuration and paths
+            Autoclean dictionary containing metadata.
         duration : int
-            Duration in seconds to plot
+            Duration in seconds to plot.
         components : str
-            'all' to plot all components, 'rejected' to plot only rejected components
-            
-        Returns:
-        --------
-        str
-            Filename of the generated report
+            'all' to plot all components, 'rejected' to plot only rejected components.
         """
-        # Implementation goes here - this is a placeholder
-        # Since this is a large method, I'm not including the full implementation here
-        # The actual implementation would be copied from the original function in reports.py
-        
-        message("info", f"_plot_ica_components is a placeholder - implementation needed")
-        return "placeholder.pdf"
+        import os
+
+        import matplotlib.pyplot as plt
+        import numpy as np
+        from matplotlib.backends.backend_pdf import PdfPages
+        from matplotlib.gridspec import GridSpec
+
+        # Get raw and ICA from pipeline
+        raw = pipeline.raw
+        ica = pipeline.ica2
+        ic_labels = pipeline.flags["ic"]
+
+        # Determine components to plot
+        if components == "all":
+            component_indices = range(ica.n_components_)
+            report_name = "ica_components_all"
+        elif components == "rejected":
+            component_indices = ica.exclude
+            report_name = "ica_components_rejected"
+            if not component_indices:
+                print("No components were rejected. Skipping rejected components report.")
+                return
+        else:
+            raise ValueError("components parameter must be 'all' or 'rejected'.")
+
+        # Get ICA activations
+        ica_sources = ica.get_sources(raw)
+        ica_data = ica_sources.get_data()
+
+        # Limit data to specified duration
+        sfreq = raw.info["sfreq"]
+        n_samples = int(duration * sfreq)
+        times = raw.times[:n_samples]
+
+        # Create output path for the PDF report
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+        pdf_path = str(derivatives_path.copy().update(suffix=report_name, extension=".pdf"))
+
+        # Remove existing file
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
+
+        with PdfPages(pdf_path) as pdf:
+            # Calculate how many components to show per page
+            components_per_page = 20
+            num_pages = int(np.ceil(len(component_indices) / components_per_page))
+
+            # Create summary tables split across pages
+            for page in range(num_pages):
+                start_idx = page * components_per_page
+                end_idx = min((page + 1) * components_per_page, len(component_indices))
+                page_components = component_indices[start_idx:end_idx]
+
+                fig_table = plt.figure(figsize=(11, 8.5))
+                ax_table = fig_table.add_subplot(111)
+                ax_table.axis("off")
+
+                # Prepare table data for this page
+                table_data = []
+                colors = []
+                for idx in page_components:
+                    comp_info = ic_labels.iloc[idx]
+                    table_data.append(
+                        [
+                            f"IC{idx + 1}",
+                            comp_info["ic_type"],
+                            f"{comp_info['confidence']:.2f}",
+                            "Yes" if idx in ica.exclude else "No",
+                        ]
+                    )
+
+                    # Define colors for different IC types
+                    color_map = {
+                        "brain": "#d4edda",  # Light green
+                        "eog": "#f9e79f",  # Light yellow
+                        "muscle": "#f5b7b1",  # Light red
+                        "ecg": "#d7bde2",  # Light purple,
+                        "ch_noise": "#ffd700",  # Light orange
+                        "line_noise": "#add8e6",  # Light blue
+                        "other": "#f0f0f0",  # Light grey
+                    }
+                    colors.append(
+                        [color_map.get(comp_info["ic_type"].lower(), "white")] * 4
+                    )
+
+                # Create and customize table
+                table = ax_table.table(
+                    cellText=table_data,
+                    colLabels=["Component", "Type", "Confidence", "Rejected"],
+                    loc="center",
+                    cellLoc="center",
+                    cellColours=colors,
+                    colWidths=[0.2, 0.3, 0.25, 0.25],
+                )
+
+                # Customize table appearance
+                table.auto_set_font_size(False)
+                table.set_fontsize(9)
+                table.scale(1.2, 1.5)  # Reduced vertical scaling
+
+                # Add title with page information, filename and timestamp
+                from datetime import datetime
+
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                fig_table.suptitle(
+                    f"ICA Components Summary - {autoclean_dict['bids_path'].basename}\n"
+                    f"(Page {page + 1} of {num_pages})\n"
+                    f"Generated: {timestamp}",
+                    fontsize=12,
+                    y=0.95,
+                )
+                # Add legend for colors
+                legend_elements = [
+                    plt.Rectangle((0, 0), 1, 1, facecolor=color, edgecolor="none")
+                    for color in color_map.values()
+                ]
+                ax_table.legend(
+                    legend_elements,
+                    color_map.keys(),
+                    loc="upper right",
+                    title="Component Types",
+                )
+
+                # Add margins
+                plt.subplots_adjust(top=0.85, bottom=0.15)
+
+                pdf.savefig(fig_table)
+                plt.close(fig_table)
+
+            # First page: Component topographies overview
+            fig_topo = ica.plot_components(picks=component_indices, show=False)
+            if isinstance(fig_topo, list):
+                for f in fig_topo:
+                    pdf.savefig(f)
+                    plt.close(f)
+            else:
+                pdf.savefig(fig_topo)
+                plt.close(fig_topo)
+
+            # If rejected components, add overlay plot
+            if components == "rejected":
+                fig_overlay = plt.figure()
+                end_time = min(30.0, pipeline.raw.times[-1])
+                
+                # Create a copy of raw data with only the channels used in ICA training
+                # to avoid shape mismatch during pre-whitening
+                raw_copy = pipeline.raw.copy()
+                
+                # Get the channel names that were used for ICA training
+                ica_ch_names = pipeline.ica2.ch_names
+                
+                # Pick only those channels from the raw data
+                if len(ica_ch_names) != len(raw_copy.ch_names):
+                    message('warning',f"Channel count mismatch: ICA has {len(ica_ch_names)} channels, raw has {len(raw_copy.ch_names)}. Using only ICA channels for plotting.")
+                    # Keep only the channels that were used in ICA
+                    raw_copy.pick_channels(ica_ch_names)
+                
+                fig_overlay = pipeline.ica2.plot_overlay(
+                    raw_copy,
+                    start=0,
+                    stop=end_time,
+                    exclude=component_indices,
+                    show=False,
+                )
+                fig_overlay.set_size_inches(15, 10)  # Set size after creating figure
+
+                pdf.savefig(fig_overlay)
+                plt.close(fig_overlay)
+
+            # For each component, create detailed plots
+            for idx in component_indices:
+                fig = plt.figure(constrained_layout=True, figsize=(12, 8))
+                gs = GridSpec(nrows=3, ncols=3, figure=fig)
+
+                # Axes for ica.plot_properties
+                ax1 = fig.add_subplot(gs[0, 0])  # Data
+                ax2 = fig.add_subplot(gs[0, 1])  # Epochs image
+                ax3 = fig.add_subplot(gs[0, 2])  # ERP/ERF
+                ax4 = fig.add_subplot(gs[1, 0])  # Spectrum
+                ax5 = fig.add_subplot(gs[1, 1])  # Topomap
+                ax_props = [ax1, ax2, ax3, ax4, ax5]
+
+                # Plot properties
+                ica.plot_properties(
+                    raw,
+                    picks=[idx],
+                    axes=ax_props,
+                    dB=True,
+                    plot_std=True,
+                    log_scale=False,
+                    reject="auto",
+                    show=False,
+                )
+
+                # Add time series plot
+                ax_timeseries = fig.add_subplot(gs[2, :])  # Last row, all columns
+                ax_timeseries.plot(times, ica_data[idx, :n_samples], linewidth=0.5)
+                ax_timeseries.set_xlabel("Time (seconds)")
+                ax_timeseries.set_ylabel("Amplitude")
+                ax_timeseries.set_title(f"Component {idx + 1} Time Course ({duration}s)")
+
+                # Add labels
+                comp_info = ic_labels.iloc[idx]
+                label_text = (
+                    f"Component {comp_info['component']}\n"
+                    f"Type: {comp_info['ic_type']}\n"
+                    f"Confidence: {comp_info['confidence']:.2f}"
+                )
+
+                fig.suptitle(
+                    label_text,
+                    fontsize=14,
+                    fontweight="bold",
+                    color=(
+                        "red"
+                        if comp_info["ic_type"]
+                        in ["eog", "muscle", "ch_noise", "line_noise", "ecg"]
+                        else "black"
+                    ),
+                )
+
+                # Save the figure
+                pdf.savefig(fig)
+                plt.close(fig)
+
+            print(f"Report saved to {pdf_path}")
+            return Path(pdf_path).name

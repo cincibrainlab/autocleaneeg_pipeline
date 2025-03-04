@@ -1,7 +1,6 @@
 """Resampling mixin for autoclean tasks."""
 
-from typing import Union, Optional
-from datetime import datetime
+from typing import Union
 import mne
 
 from autoclean.utils.logging import message

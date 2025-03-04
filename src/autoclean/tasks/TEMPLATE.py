@@ -18,7 +18,6 @@ Key Components:
 2. Required Methods:
    - __init__: Initialize task state
    - run: Main processing pipeline
-   - import_data: Load and validate raw data
    - _generate_reports: Create quality control visualizations
    - _validate_task_config: Validate task settings
 
@@ -55,8 +54,7 @@ Key Components:
 
 # Standard library imports
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
-from datetime import datetime
+from typing import Any, Dict, Optional
 
 # Third-party imports
 import mne
@@ -66,22 +64,13 @@ import matplotlib.pyplot as plt
 # Local imports
 from autoclean.core.task import Task
 from autoclean.step_functions.continuous import (
-    step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
 from autoclean.step_functions.io import save_raw_to_set, import_eeg
-# Import the reporting functions directly from the Task class via mixins
-# from autoclean.step_functions.reports import (
-#     step_generate_ica_reports,
-#     step_plot_ica_full,
-#     step_plot_raw_vs_cleaned_overlay,
-#     step_psd_topo_figure,
-# )
 from autoclean.utils.logging import message
-from autoclean.utils.database import manage_database
 
 
 class TemplateTask(Task):
@@ -91,19 +80,18 @@ class TemplateTask(Task):
     Each task must implement these key methods:
     1. __init__ - Initialize task state and validate config
     2. run - Main processing pipeline
-    3. import_data - Load and prepare raw EEG data
-    4. _generate_reports - Create quality control visualizations
-    5. _validate_task_config - Validate task-specific settings
+    3. _generate_reports - Create quality control visualizations
+    4. _validate_task_config - Validate task-specific settings
 
     The task should handle a specific EEG paradigm (e.g., resting state, ASSR, MMN)
     and implement appropriate processing steps for that paradigm.
 
     Attributes:
-        raw (mne.io.Raw): Raw EEG data after import
+        raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline
         pipeline (Any): PyLossless pipeline instance after preprocessing
-        cleaned_raw (mne.io.Raw): Preprocessed EEG data
         epochs (mne.Epochs): Epoched data after processing
-        config (Dict[str, Any]): Task configuration dictionary
+        config (Dict[str, Any]): Task configuration dictionary containing all settings
+        original_raw (mne.io.Raw): Original unprocessed raw data, preserved for comparison
 
     Example:
         To use this template:
@@ -138,14 +126,18 @@ class TemplateTask(Task):
         Note:
             The parent class handles basic initialization and validation.
             Task-specific setup should be added here if needed.
+            
+        Raises:
+            ValueError: If required configuration fields are missing
+            TypeError: If configuration fields have incorrect types
         """
         # Initialize instance variables
         self.raw: Optional[mne.io.Raw] = None
         self.pipeline: Optional[Any] = None
-        self.cleaned_raw: Optional[mne.io.Raw] = None
         self.epochs: Optional[mne.Epochs] = None
+        self.original_raw: Optional[mne.io.Raw] = None
 
-        # Call parent initialization
+        # Call parent initialization with validated config
         super().__init__(config)
 
     def run(self) -> None:
@@ -155,149 +147,153 @@ class TemplateTask(Task):
         1. Import raw data
         2. Run preprocessing steps
         3. Apply task-specific processing
+        4. Generate quality control reports
 
         The results are automatically saved at each stage according to
         the stage_files configuration.
 
         Processing Steps:
         1. Import and validate raw data
-        2. Apply preprocessing pipeline
-        3. Create BIDS-compliant paths
-        4. Run PyLossless pipeline
-        5. Clean bad channels
-        6. Apply rejection policy
-        7. Generate reports
-        8. Save processed data
+        2. Resample data to target frequency
+        3. Apply preprocessing pipeline (filtering, etc.)
+        4. Create BIDS-compliant paths
+        5. Run PyLossless pipeline for artifact detection
+        6. Clean bad channels
+        7. Apply rejection policy for artifact removal
+        8. Create event-based epochs
+        9. Prepare epochs for ICA
+        10. Apply GFP-based cleaning to epochs
+        11. Generate quality control reports
+        12. Save processed data
 
         Raises:
             FileNotFoundError: If input file doesn't exist
-            RuntimeError: If any processing step fails
+            RuntimeError: If any processing step fails or if data hasn't been imported
 
         Note:
             Progress and errors are automatically logged and tracked in
             the database. You can monitor progress through the logging
             messages and final report.
         """
-        # Import raw data
-        file_path = Path(self.config.get("unprocessed_file", ""))
-        self.import_data(file_path)
+        # Import raw data using standard function
+        self.raw = import_eeg(self.config)
+        
+        # Store a copy of the original raw data for comparison in reports
+        self.original_raw = self.raw.copy()
 
-        """Run preprocessing steps on the raw data."""
+        # Save imported data if configured
+        save_raw_to_set(self.raw, self.config, "post_import")
+
+        # Verify data was imported successfully
         if self.raw is None:
             raise RuntimeError("No data has been imported")
+        
+        # Resample data to target frequency (from mixins.signal_processing.resampling)
+        self.resample_data()
 
-        # Run preprocessing pipeline and save result
+        # Apply preprocessing steps (filtering, etc.)
+        # Note: step_pre_pipeline_processing will skip resampling if already done
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # Run PyLossless pipeline
-        self.pipeline, pipeline_raw = step_run_pylossless(self.config)
-        save_raw_to_set(pipeline_raw, self.config, "post_pylossless")
+        # Run PyLossless pipeline for artifact detection and save result
+        self.pipeline, self.raw = step_run_pylossless(self.config)
+        save_raw_to_set(self.raw, self.config, "post_pylossless")
 
-        # Clean bad channels
-        self.raw = step_clean_bad_channels(self.raw, self.config)
+        # Clean bad channels (from mixins.signal_processing.channels)
+        self.clean_bad_channels()
 
-        # Apply rejection policy
-        self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
+        # Update pipeline with cleaned raw data
+        self.pipeline.raw = self.raw
+
+        # Apply PyLossless Rejection Policy for artifact removal
+        self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
-        save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
+
+        # Create event-based epochs (from mixins.signal_processing.eventid_epochs)
+        self.create_eventid_epochs()
+
+        # Prepare epochs for ICA (from mixins.signal_processing.prepare_epochs_ica)
+        self.prepare_epochs_for_ica()
+
+        # Apply GFP-based cleaning to epochs (from mixins.signal_processing.gfp_clean_epochs)
+        self.gfp_clean_epochs()
 
         # Generate visualization reports
         self._generate_reports()
 
         # Save final cleaned data
-        save_raw_to_set(self.cleaned_raw, self.config, "post_clean_raw")
-
-    def import_data(self, file_path: Path) -> None:
-        """Import raw EEG data for this task.
-
-        This method handles:
-        1. Loading the raw EEG data file
-        2. Basic data validation
-        3. Task-specific import preprocessing
-        4. Saving imported data
-
-
-        Args:
-            file_path: Path to the EEG data file
-
-        Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If file format is invalid
-            RuntimeError: If import fails
-
-        Note:
-            The imported data should be stored in self.raw as an MNE Raw object.
-            Use save_raw_to_set() to save intermediate results if needed.
-        """
-        # Import raw data using standard function
-        self.raw = import_eeg(self.config)
-
-        # Save imported data if configured
-        save_raw_to_set(self.raw, self.config, "post_import")
-
+        save_raw_to_set(self.raw, self.config, "post_clean_raw")
 
 
     def _generate_reports(self) -> None:
-        """Generate quality control visualizations.
+        """Generate quality control visualizations and reports.
 
         Creates standard visualization reports including:
-        1. Raw vs cleaned data overlay
-        2. ICA components
-        3. ICA details
-        4. PSD topography
+        1. Raw vs cleaned data overlay - Shows the effect of preprocessing
+        2. ICA components - Displays the independent components extracted
+        3. ICA details - Shows detailed information about ICA components
+        4. PSD topography - Power spectral density across the scalp
 
         The reports are saved in the debug directory specified
-        in the configuration.
+        in the configuration, with standardized naming conventions.
 
         Note:
-            This is automatically called by run().
+            This is automatically called by run() method.
             Override this method if you need custom visualizations.
+            
+        Returns:
+            None: Reports are saved to disk, nothing is returned.
+            
+        Raises:
+            RuntimeError: If pipeline or raw is None (silently returns instead)
         """
-        if self.pipeline is None or self.cleaned_raw is None:
+        # Skip report generation if required data is missing
+        if self.pipeline is None or self.raw is None or self.original_raw is None:
             return
 
         # Plot raw vs cleaned overlay using mixin method
+        # Shows the effect of preprocessing on the raw data
         self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.original_raw, self.raw, self.pipeline, self.config
         )
 
         # Plot ICA components using mixin method
+        # Displays the independent components extracted during preprocessing
         self.plot_ica_full(self.pipeline, self.config)
 
         # Generate ICA reports using mixin method
+        # Shows detailed information about ICA components and their properties
         self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
+            self.pipeline.ica2, self.raw, self.config, self.pipeline, duration=60
         )
 
         # Create PSD topography figure using mixin method
+        # Shows power spectral density across the scalp before and after cleaning
         self.psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.original_raw, self.raw, self.pipeline, self.config
         )
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate task-specific configuration settings.
 
-        This method checks that all required settings for your task
-        are present and valid. Common validations include:
+        This method checks that all required settings for the task
+        are present and valid. The validation includes:
         - Required fields exist
         - Field types are correct
-        - Values are within valid ranges
-        - File paths exist and are accessible
-        - Settings are compatible with each other
-
+        - Stage files configuration is properly structured
+        
         Args:
             config: Configuration dictionary that has passed common validation.
                    Contains all standard fields plus task-specific settings.
 
         Returns:
             Dict[str, Any]: The validated configuration dictionary.
-                           You can add derived settings or defaults.
+                           You can add derived settings or defaults here.
 
         Raises:
             ValueError: If any required settings are missing or invalid
@@ -318,13 +314,14 @@ class TemplateTask(Task):
                 return config
             ```
         """
-        # Add your validation logic here
+        # Define required fields and their expected types
         required_fields = {
             "task": str,
             "eeg_system": str,
             "tasks": dict,
         }
 
+        # Validate required fields exist and have correct types
         for field, field_type in required_fields.items():
             if field not in config:
                 raise ValueError(f"Missing required field: {field}")
@@ -332,6 +329,7 @@ class TemplateTask(Task):
                 raise TypeError(f"Field {field} must be {field_type}")
 
         # Validate stage_files structure
+        # These are the processing stages where data can be saved
         required_stages = [
             "post_import",
             "post_prepipeline",
@@ -339,6 +337,7 @@ class TemplateTask(Task):
             "post_rejection_policy",
         ]
 
+        # Check each required stage has proper configuration
         for stage in required_stages:
             if stage not in config["stage_files"]:
                 raise ValueError(f"Missing stage in stage_files: {stage}")
@@ -352,80 +351,3 @@ class TemplateTask(Task):
 
         return config
         
-    def resample_data(self, data: Union[mne.io.Raw, mne.Epochs], stage_name: str = "resampled") -> Union[mne.io.Raw, mne.Epochs]:
-        """Resample raw or epoched data based on configuration settings.
-        
-        This method checks the resample_step toggle in the configuration and applies
-        resampling if enabled. It works with both Raw and Epochs objects.
-        
-        Args:
-            data: The MNE Raw or Epochs object to resample
-            stage_name: Name for saving the resampled data (default: "resampled")
-            
-        Returns:
-            The resampled data object (same type as input)
-            
-        Raises:
-            TypeError: If data is not a Raw or Epochs object
-            RuntimeError: If resampling fails
-        """
-        if not isinstance(data, (mne.io.Raw, mne.Epochs)):
-            raise TypeError("Data must be an MNE Raw or Epochs object")
-            
-        task = self.config.get("task")
-        
-        # Check if resampling is enabled in the configuration
-        resample_enabled = self.config.get("tasks", {}).get(task, {}).get("settings", {}).get(
-            "resample_step", {}).get("enabled", False)
-            
-        if not resample_enabled:
-            message("info", "Resampling step is disabled in configuration")
-            return data
-            
-        # Get target sampling frequency
-        target_sfreq = self.config.get("tasks", {}).get(task, {}).get("settings", {}).get(
-            "resample_step", {}).get("value")
-            
-        if target_sfreq is None:
-            message("warning", "Target sampling frequency not specified, skipping resampling")
-            return data
-            
-        # Check if we need to resample (avoid unnecessary resampling)
-        current_sfreq = data.info["sfreq"]
-        if abs(current_sfreq - target_sfreq) < 0.01:  # Small threshold to account for floating point errors
-            message("info", f"Data already at target frequency ({target_sfreq} Hz), skipping resampling")
-            return data
-            
-        message("header", f"Resampling data from {current_sfreq} Hz to {target_sfreq} Hz...")
-        
-        try:
-            # Resample based on data type
-            if isinstance(data, mne.io.Raw):
-                resampled_data = data.copy().resample(target_sfreq)
-                # Save resampled raw data if it's a Raw object
-                save_raw_to_set(resampled_data, self.config, f"post_{stage_name}")
-            else:  # Epochs
-                resampled_data = data.copy().resample(target_sfreq)
-                
-            message("info", f"Data successfully resampled to {target_sfreq} Hz")
-            
-            # Update metadata
-            metadata = {
-                "resampling": {
-                    "creationDateTime": datetime.now().isoformat(),
-                    "original_sfreq": current_sfreq,
-                    "target_sfreq": target_sfreq,
-                    "data_type": "raw" if isinstance(data, mne.io.Raw) else "epochs"
-                }
-            }
-            
-            run_id = self.config.get("run_id")
-            manage_database(
-                operation="update", update_record={"run_id": run_id, "metadata": metadata}
-            )
-            
-            return resampled_data
-            
-        except Exception as e:
-            message("error", f"Error during resampling: {str(e)}")
-            raise RuntimeError(f"Failed to resample data: {str(e)}") from e

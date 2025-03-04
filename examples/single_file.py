@@ -4,7 +4,7 @@ from autoclean import Pipeline
 import mne
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean_resting_reg")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean_resting")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
@@ -22,5 +22,5 @@ file_path = Path("C:/Users/Gam9LG/Documents/DATA/n141_resting/raw/0199_rest.raw"
 # Process the file
 pipeline.process_file(
     file_path=file_path,
-    task="RestingEyesOpen",  # Choose appropriate task
+    task="RestingEyesOpenRev",  # Choose appropriate task
 )

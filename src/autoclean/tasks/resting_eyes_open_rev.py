@@ -3,7 +3,7 @@
 
 # Standard library imports
 from pathlib import Path
-from typing import Any, Dict, Union
+from typing import Any, Dict, Union, Optional
 
 # Third-party imports
 import mne
@@ -16,13 +16,7 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.step_functions.epochs import (
-    step_create_regular_epochs,
-    step_gfp_clean_epochs,
-    step_prepare_epochs_for_ica,
-)
 from autoclean.step_functions.io import (
-    save_epochs_to_set,
     save_raw_to_set,
     import_eeg
 )
@@ -43,20 +37,43 @@ class RestingEyesOpenRev(Task):
     
     This class extends the base Task class which now includes functionality from mixins,
     demonstrating a more modular approach to task implementation.
+    
+    Attributes:
+        raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline
+        pipeline (Any): PyLossless pipeline instance after preprocessing
+        epochs (mne.Epochs): Epoched data after processing
+        original_raw (mne.io.Raw): Original unprocessed raw data, preserved for comparison
     """
 
     def __init__(self, config: Dict[str, Any]):
-        self.raw = None
-        self.pipeline = None
-        self.cleaned_raw = None
-        self.epochs = None
+        """Initialize the resting state task.
+        
+        Args:
+            config: Configuration dictionary containing all settings.
+        """
+        self.raw: Optional[mne.io.Raw] = None
+        self.pipeline: Optional[Any] = None
+        self.epochs: Optional[mne.Epochs] = None
+        self.original_raw: Optional[mne.io.Raw] = None
         super().__init__(config)
 
     def run(self) -> None:
-        """ Pipeline Execution """
-
+        """Execute the complete resting state EEG processing pipeline.
+        
+        This method orchestrates the complete processing sequence including:
+        1. Data import
+        2. Preprocessing (resampling, filtering)
+        3. Artifact detection and rejection
+        4. Epoching
+        5. Report generation
+        
+        Raises:
+            RuntimeError: If data hasn't been imported successfully
+        """
         # Import and save raw EEG data
         self.raw = import_eeg(self.config)
+        
+        
         save_raw_to_set(self.raw, self.config, "post_import")
 
         # Check if data was imported successfully
@@ -74,6 +91,12 @@ class RestingEyesOpenRev(Task):
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
 
+        # Store a copy of the pre-cleaned raw data for comparison in reports
+        self.original_raw = self.raw.copy()
+
+        # Clean bad channels
+        self.clean_bad_channels()
+
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
@@ -81,18 +104,15 @@ class RestingEyesOpenRev(Task):
         self.pipeline, self.raw = step_run_pylossless(self.config)
         save_raw_to_set(self.raw, self.config, "post_pylossless")
 
-        # Clean bad channels
-        self.clean_bad_channels()
-
-        self.pipeline.raw = self.raw
-
-        # # Use PyLossless Rejection Policy
+        # Apply PyLossless Rejection Policy for artifact removal
         self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
 
+        # Detect and mark dense oscillatory artifacts
         self.detect_dense_oscillatory_artifacts()
 
+        # Detect and mark muscle artifacts in beta frequency range
         self.detect_muscle_beta_focus(self.raw)
 
         save_raw_to_set(self.raw, self.config, "post_artifact_detection")
@@ -111,43 +131,53 @@ class RestingEyesOpenRev(Task):
 
 
     def _generate_reports(self) -> None:
-        """Generate all visualization reports."""
-        if self.pipeline is None or self.cleaned_raw is None:
+        """Generate quality control visualizations and reports.
+        
+        Creates standard visualization reports including:
+        1. Raw vs cleaned data overlay
+        2. ICA components
+        3. ICA details
+        4. PSD topography
+        
+        The reports are saved in the debug directory specified
+        in the configuration.
+        
+        Note:
+            This is automatically called by run().
+        """
+        if self.pipeline is None or self.raw is None or self.original_raw is None:
             return
 
         # Plot raw vs cleaned overlay using mixin method
         self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.original_raw, self.raw, self.pipeline, self.config
         )
 
         # Plot ICA components using mixin method
         self.plot_ica_full(self.pipeline, self.config)
 
-        # # Generate ICA reports using mixin method
-        self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
-        )
+        # Generate ICA reports using mixin method
+        self.generate_ica_reports(self.pipeline, self.config)
 
-        # # Create PSD topography figure using mixin method
+        # Create PSD topography figure using mixin method
         self.psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.original_raw, self.raw, self.pipeline, self.config
         )
 
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        # """Validate resting state specific configuration.
+        """Validate resting state specific configuration.
 
-        # Args:
-        #     config: Configuration dictionary that has passed common validation
+        Args:
+            config: Configuration dictionary that has passed common validation
 
-        # Returns:
-        #     Validated configuration dictionary
+        Returns:
+            Validated configuration dictionary
 
-        # Raises:
-        #     ValueError: If required fields are missing or invalid
-        # """
-        # # Validate resting state specific fields
+        Raises:
+            ValueError: If required fields are missing or invalid
+        """
+        # Validate resting state specific fields
         required_fields = {
             "task": str,
             "eeg_system": str,
@@ -166,6 +196,9 @@ class RestingEyesOpenRev(Task):
             "post_prepipeline",
             "post_pylossless",
             "post_rejection_policy",
+            "post_artifact_detection",
+            "post_epochs",
+            "post_comp"
         ]
 
         for stage in required_stages:

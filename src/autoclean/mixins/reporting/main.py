@@ -30,7 +30,7 @@ from autoclean.mixins.reporting.visualization import VisualizationMixin
 from autoclean.mixins.reporting.ica import ICAReportingMixin
 from autoclean.mixins.reporting.reports import ReportGenerationMixin
 
-class ReportingMixin(object):
+class ReportingMixin(BaseReportingMixin, VisualizationMixin, ICAReportingMixin, ReportGenerationMixin):
     """Main mixin class that combines all reporting functionality.
     
     This class uses composition to integrate functionality from all specialized
@@ -56,21 +56,22 @@ class ReportingMixin(object):
        - JSON summaries
     """
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    # def __init__(self, *args, **kwargs):
+    #     super().__init__(*args, **kwargs)
         
-        # Initialize all mixins using composition instead of inheritance
-        self.base_mixin = BaseReportingMixin()
-        self.viz_mixin = VisualizationMixin()
-        self.ica_mixin = ICAReportingMixin()
-        self.report_mixin = ReportGenerationMixin()
+    #     # Initialize all mixins using composition instead of inheritance
+    #     self.base_mixin = BaseReportingMixin()
+    #     self.viz_mixin = VisualizationMixin()
+    #     self.ica_mixin = ICAReportingMixin()
+    #     self.report_mixin = ReportGenerationMixin()
         
-    # Delegate methods to the appropriate mixins
-    def __getattr__(self, name):
-        # Check each mixin for the attribute
-        for mixin in [self.viz_mixin, self.ica_mixin, self.report_mixin, self.base_mixin]:
-            if hasattr(mixin, name):
-                return getattr(mixin, name)
+    # # Delegate methods to the appropriate mixins
+    # def __getattr__(self, name):
+    #     # Check each mixin for the attribute
+    #     for mixin in [self.viz_mixin, self.ica_mixin, self.report_mixin, self.base_mixin]:
+    #         if hasattr(mixin, name):
+    #             return getattr(mixin, name)
         
-        # If not found, raise AttributeError
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+    #     # If not found, raise AttributeError
+    #     raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+    pass

@@ -49,7 +49,7 @@ from autoclean.mixins.reporting.base import ReportingMixin
 matplotlib.use("Agg")
 
 
-class VisualizationMixin(object):
+class VisualizationMixin:
     """Mixin providing visualization methods for EEG data.
     
     This mixin extends the base ReportingMixin with specialized methods for
@@ -741,12 +741,6 @@ class VisualizationMixin(object):
             - Outlier channels (z-score > 3) in each frequency band are identified
             - The resulting figure is saved as a high-resolution PNG (300 DPI)
         """
-        # Check if configuration checking is enabled and the step is enabled
-        if hasattr(self, '_check_step_enabled'):
-            is_enabled, _ = self._check_step_enabled("psd_topo_step")
-            if not is_enabled:
-                message("info", "✗ PSD/Topo figure generation is disabled in configuration")
-                return ""
                 
         # Define default frequency bands if none provided
         if bands is None:

@@ -67,6 +67,7 @@ from ulid import ULID
 
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
+from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set
 # NOTE: The following imports are using deprecated functions. 
 # They should eventually be migrated to use the ReportingMixin instead.
 from autoclean.step_functions.reports import (
@@ -325,6 +326,16 @@ class Pipeline:
             # Instantiate and run task processor
             task_object = self.TASK_REGISTRY[task.lower()](run_dict)
             task_object.run()
+
+            try:
+                if task_object.epochs:
+                    comp_data = task_object.epochs
+                    save_epochs_to_set(comp_data, run_dict, "post_comp")
+                else:
+                    comp_data = task_object.raw
+                    save_raw_to_set(comp_data, run_dict, "post_comp")
+            except Exception as e:
+                message("error", f"Failed to save completion data: {str(e)}")
 
             # Mark run as successful in database
             manage_database(
