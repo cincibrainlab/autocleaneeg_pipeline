@@ -2260,12 +2260,9 @@ def create_json_summary(run_id: str) -> None:
         pipeline = ll.LosslessPipeline(config_path)
         derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
         derivatives_dir = Path(derivatives_path.directory)
-        # derivatives_path = str(
-        #     derivatives_path.copy().update(suffix="report", extension=".pdf")
-        # )
     except Exception as e:
         message("error", f"Could not get derivatives path: {str(e)}")
-        return
+        return {}
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
 
@@ -2310,12 +2307,7 @@ def create_json_summary(run_id: str) -> None:
                         channel_dict[label] = []
                     channel_dict[label].append(channel)
 
-    # Deprecated for systems that don't use "E" nomenclature for channels
-    # Get unique sorted list of all removed channels, sorting by numeric value
-    # bad_channels = sorted(
-    #     set(channel for channels in channel_dict.values() for channel in channels),
-    #     key=lambda x: int(x.replace("E", "")),
-    # )
+    # Get all bad channels
     bad_channels = [
         channel for channels in channel_dict.values() for channel in channels
     ]
@@ -2334,7 +2326,7 @@ def create_json_summary(run_id: str) -> None:
         original_channel_count = int(metadata["import_eeg"]["channelCount"])
     else:
         message("error", "No import details found")
-        return
+        return {}
 
     processing_details = {}
     if "step_run_pylossless" in metadata:
@@ -2388,16 +2380,13 @@ def create_json_summary(run_id: str) -> None:
             make_fixed_length_epochs["tmax"],
         ]
 
-        # export_details["rejected_epochs"] = make_fixed_length_epochs["rejected_epochs"]
-        # export_details["rejection_percent"] = make_fixed_length_epochs["rejection_percent"]
-
     elif "step_create_eventid_epochs" in metadata:
         create_eventid_epochs = metadata["step_create_eventid_epochs"]
-        export_details["initial_n_epochs"] = create_eventid_epochs["number_of_events"]
-        export_details["initial_duration"] = create_eventid_epochs["total_duration"]
+        export_details["initial_n_epochs"] = create_eventid_epochs["initial_epoch_count"]
+        export_details["initial_duration"] = create_eventid_epochs["durationSec"]
         export_details["srate_post"] = (
-            create_eventid_epochs["samples_per_epoch"] - 1
-        ) / create_eventid_epochs["epoch_duration"]
+            create_eventid_epochs["single_epoch_samples"] - 1
+        ) / create_eventid_epochs["single_epoch_duration"]
         export_details["epoch_limits"] = [
             create_eventid_epochs["tmin"],
             create_eventid_epochs["tmax"],
@@ -2423,12 +2412,22 @@ def create_json_summary(run_id: str) -> None:
         "ica_details": ica_details,
         "channel_dict": channel_dict,
         "outputs": outputs,
-        "output_dir": output_dir,
-        "derivatives_dir": derivatives_dir,
+        "output_dir": str(output_dir),
+        "derivatives_dir": str(derivatives_dir),
     }
-
+    
+    message("success", f"Created JSON summary for run {run_id}")
+    
+    # Add metadata to database
+    manage_database(
+        operation="update",
+        update_record={
+            "run_id": run_id, 
+            "metadata": {"json_summary": {"timestamp": datetime.now().isoformat()}}
+        },
+    )
+    
     return summary_dict
-
 
 def generate_mmn_erp(
     epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]

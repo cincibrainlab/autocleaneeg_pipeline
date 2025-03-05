@@ -751,11 +751,11 @@ class ReportGenerationMixin(object):
 
         elif "step_create_eventid_epochs" in metadata:
             create_eventid_epochs = metadata["step_create_eventid_epochs"]
-            export_details["initial_n_epochs"] = create_eventid_epochs["number_of_events"]
-            export_details["initial_duration"] = create_eventid_epochs["total_duration"]
+            export_details["initial_n_epochs"] = create_eventid_epochs["initial_epoch_count"]
+            export_details["initial_duration"] = create_eventid_epochs["durationSec"]
             export_details["srate_post"] = (
-                create_eventid_epochs["samples_per_epoch"] - 1
-            ) / create_eventid_epochs["epoch_duration"]
+                create_eventid_epochs["single_epoch_samples"] - 1
+            ) / create_eventid_epochs["single_epoch_duration"]
             export_details["epoch_limits"] = [
                 create_eventid_epochs["tmin"],
                 create_eventid_epochs["tmax"],

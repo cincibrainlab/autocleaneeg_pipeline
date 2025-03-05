@@ -332,6 +332,8 @@ class FileSelector(QWidget):
 
         self.setGeometry(300, 300, 1200, 600)  # Wider default width
         self.setWindowTitle("Autoclean 1.0 - Manual Epoch Rejection")
+        # Set window state to be maximized on startup
+        self.setWindowState(Qt.WindowMaximized)
 
     def openCurrentFolder(self):
         if self.current_dir:
@@ -1060,7 +1062,7 @@ def run_autoclean_review(autoclean_dir):
     app = QApplication(sys.argv)
     app.setStyleSheet("")
     window = FileSelector(autoclean_dir)
-    window.show()
+    window.showMaximized()  # Start the application maximized instead of normal size
     sys.exit(app.exec_())
 
 

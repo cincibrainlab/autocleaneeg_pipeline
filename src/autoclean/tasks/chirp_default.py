@@ -118,7 +118,7 @@ class ChirpDefault(Task):
 
         self.gfp_clean_epochs()
 
-        self._generate_reports()
+        # self._generate_reports()
 
 
     def _generate_reports(self) -> None:

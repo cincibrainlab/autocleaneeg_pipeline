@@ -260,7 +260,7 @@ class EventIDEpochsMixin:
             metadata = {
                 "duration": tmax - tmin,
                 "reject_by_annotation": reject_by_annotation,
-                "initial_epoch_count": len(epochs),
+                "initial_epoch_count": len(events),
                 "final_epoch_count": len(epochs_clean),
                 "single_epoch_duration": epochs.times[-1] - epochs.times[0],
                 "single_epoch_samples": epochs.times.shape[0],
