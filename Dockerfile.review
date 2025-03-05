@@ -65,9 +65,11 @@ RUN mkdir -p /app/output && \
     chmod 777 /app/output
 
 # Create startup script for noVNC
-RUN echo '#!/bin/bash\nwebsockify --web=/usr/share/novnc 6080 localhost:5900 --wrap-mode=ignore' > /usr/local/bin/novnc-start && \
+RUN echo '#!/bin/bash\nwebsockify --web=/usr/share/novnc 6080 localhost:5900 --wrap-mode=ignore --heartbeat=30' > /usr/local/bin/novnc-start && \
     chmod +x /usr/local/bin/novnc-start && \
-    ln -s /usr/share/novnc/vnc_auto.html /usr/share/novnc/index.html
+    ln -s /usr/share/novnc/vnc_auto.html /usr/share/novnc/index.html && \
+    # Create a custom index.html with better default settings
+    echo '<html><head><meta http-equiv="refresh" content="0; url=vnc.html?autoconnect=true&resize=scale&view_only=false&quality=9&compression=0&reconnect=true&show_dot=true&bell=false&view_clip=false&shared=true"></head></html>' > /usr/share/novnc/index.html
 
 # Set up supervisord configuration
 RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
@@ -78,7 +80,7 @@ RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:xvfb]' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=1' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'command=Xvfb :99 -screen 0 1024x768x16' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=Xvfb :99 -screen 0 1600x900x24 -ac +extension GLX +render -noreset' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:openbox]' >> /etc/supervisor/conf.d/supervisord.conf && \
@@ -89,7 +91,7 @@ RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:x11vnc]' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=3' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'command=x11vnc -forever -shared -display :99' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=x11vnc -forever -shared -display :99 -noxdamage -noxfixes -noxrecord -rfbport 5900 -wait 5 -defer 10' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:novnc]' >> /etc/supervisor/conf.d/supervisord.conf && \

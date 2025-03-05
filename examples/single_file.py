@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from autoclean import Pipeline
 import mne
 
