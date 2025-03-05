@@ -72,7 +72,7 @@ class SegmentationMixin:
                 "duration": tmax - tmin
             }
             
-            self._update_metadata("crop_data", metadata)
+            self._update_metadata("step_crop_data", metadata)
             
             # Save the result if it's a Raw object
             if isinstance(result_data, mne.io.BaseRaw):
@@ -146,7 +146,7 @@ class SegmentationMixin:
                 "trimmed_duration": duration - 2 * trim_amount
             }
             
-            self._update_metadata("trim_data_edges", metadata)
+            self._update_metadata("step_trim_data_edges", metadata)
             
             # Save the result
             self._save_raw_result(result_raw, stage_name)

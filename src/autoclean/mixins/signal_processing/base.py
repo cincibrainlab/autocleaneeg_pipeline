@@ -210,3 +210,4 @@ class SignalProcessingMixin:
         
         if isinstance(result_data, mne.io.BaseRaw):
             save_raw_to_set(result_data, self.config, stage_name)
+

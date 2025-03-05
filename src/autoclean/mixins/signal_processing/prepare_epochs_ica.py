@@ -159,7 +159,7 @@ class PrepareEpochsICAMixin:
                 "channel_count": len(epochs.ch_names),
             }
             
-            self._update_metadata("prepare_epochs_for_ica", metadata)
+            self._update_metadata("step_prepare_epochs_for_ica", metadata)
             
             # Store epochs
             if hasattr(self, 'config') and self.config.get("run_id"):

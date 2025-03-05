@@ -66,7 +66,7 @@ class ChannelsMixin:
                 "channels_remaining": len(result_data.ch_names)
             }
             
-            self._update_metadata("drop_channels", metadata)
+            self._update_metadata("step_drop_channels", metadata)
             
             # Save the result if it's a Raw object
             if isinstance(result_data, mne.io.BaseRaw):
@@ -272,7 +272,7 @@ class ChannelsMixin:
                 "numberSamples": int(result_raw.n_times),
             }
             
-            self._update_metadata("clean_bad_channels", metadata)
+            self._update_metadata("step_clean_bad_channels", metadata)
             
             # Save the result
             self._save_raw_result(result_raw, stage_name)

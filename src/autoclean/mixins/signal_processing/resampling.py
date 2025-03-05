@@ -10,7 +10,7 @@ class ResamplingMixin:
     
     def resample_data(self, data: Union[mne.io.Raw, mne.Epochs, None] = None, 
                      target_sfreq: float = None, 
-                     stage_name: str = "resampled", 
+                     stage_name: str = "post_resample", 
                      use_epochs: bool = False) -> Union[mne.io.Raw, mne.Epochs]:
         """Resample raw or epoched data based on configuration settings.
         

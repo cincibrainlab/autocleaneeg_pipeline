@@ -104,7 +104,7 @@ class ArtifactsMixin:
                 "artifacts_detected": len(artifact_annotations)
             }
             
-            self._update_metadata("detect_dense_oscillatory_artifacts", metadata)
+            self._update_metadata("step_detect_dense_oscillatory_artifacts", metadata)
             
             # Save the result
             # self._save_raw_result(result_raw, stage_name)
@@ -278,7 +278,7 @@ class ArtifactsMixin:
             "annotation_description": annotation_description,
         }
         
-        self._update_metadata("detect_muscle_artifacts", metadata)
+        self._update_metadata("step_detect_muscle_artifacts", metadata)
         
         return None
     
@@ -386,7 +386,7 @@ class ArtifactsMixin:
                 "cleaned_duration": raw_cleaned.times[-1]
             }
             
-            self._update_metadata("reject_bad_segments", metadata)
+            self._update_metadata("step_reject_bad_segments", metadata)
             
             # Save the result
             self._save_raw_result(raw_cleaned, stage_name)

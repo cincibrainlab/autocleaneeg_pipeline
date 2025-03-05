@@ -16,11 +16,6 @@ from ..step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from ..step_functions.epochs import (
-    step_create_eventid_epochs,
-    step_gfp_clean_epochs,
-    step_prepare_epochs_for_ica,
-)
 from ..step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
 
 
@@ -87,8 +82,6 @@ class ChirpDefault(Task):
         self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
 
-        self.resample_data()
-
         # Note: step_pre_pipeline_processing will skip resampling if already done
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
@@ -119,7 +112,7 @@ class ChirpDefault(Task):
 
         save_raw_to_set(self.raw, self.config, "post_artifact_detection")
 
-        self.create_eventid_epochs()
+        self.create_eventid_epochs(reject_by_annotation=True)
 
         self.prepare_epochs_for_ica()
 
@@ -130,23 +123,21 @@ class ChirpDefault(Task):
 
     def _generate_reports(self) -> None:
         """Generate all visualization reports."""
-        if self.pipeline is None or self.cleaned_raw is None:
+        if self.pipeline is None or self.raw is None:
             return
 
         # Plot raw vs cleaned overlay using mixin method using mixin method
         self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.raw, self.original_raw, self.pipeline, self.config
         )
 
         # Plot ICA components using mixin method using mixin method
         self.plot_ica_full(self.pipeline, self.config)
 
         # # Generate ICA reports using mixin method using mixin method (uncomment if needed)
-        # self.plot_ica_components(
-        #     self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        # )
+        self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method using mixin method
         self.psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.raw, self.original_raw, self.pipeline, self.config
         )

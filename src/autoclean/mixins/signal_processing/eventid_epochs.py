@@ -175,6 +175,9 @@ class EventIDEpochsMixin:
             
             # Initialize metadata DataFrame
             epochs.metadata = pd.DataFrame(index=range(len(epochs)))
+
+            # Create a copy for dropping
+            epochs_clean = epochs.copy()
             
             # If not using reject_by_annotation, manually track bad annotations
             if not reject_by_annotation:
@@ -219,17 +222,15 @@ class EventIDEpochsMixin:
                         epochs.metadata.loc[idx, col_name] = True
                 
                 message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
+
+                epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
+            
             
             # Save epochs with bad epochs marked but not dropped
             from autoclean.step_functions.io import save_epochs_to_set
             if hasattr(self, 'config'):
                 save_epochs_to_set(epochs, self.config, stage_name)
-            
-            # Create a copy for dropping if using amplitude thresholds
-            epochs_clean = epochs.copy()
-            
-            # Drop bad epochs based on amplitude thresholds
-            epochs_clean.drop_bad()
+                
             
             # Analyze drop log to tally different annotation types
             drop_log = epochs_clean.drop_log
@@ -274,7 +275,7 @@ class EventIDEpochsMixin:
                 "event_id": event_id,
             }
             
-            self._update_metadata("create_eventid_epochs", metadata)
+            self._update_metadata("step_create_eventid_epochs", metadata)
             
             # Store epochs
             if hasattr(self, 'config') and self.config.get("run_id"):

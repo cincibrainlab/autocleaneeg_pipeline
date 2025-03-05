@@ -151,7 +151,7 @@ class AutoRejectEpochsMixin:
                 "n_jobs": n_jobs,
             }
             
-            self._update_metadata("apply_autoreject", metadata)
+            self._update_metadata("step_apply_autoreject", metadata)
             
             # Store epochs
             if hasattr(self, 'config') and self.config.get("run_id"):

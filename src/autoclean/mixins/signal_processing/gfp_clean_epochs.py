@@ -244,7 +244,7 @@ class GFPCleanEpochsMixin:
                 "requested_epochs_exceeded": requested_epochs_exceeded,
             }
             
-            self._update_metadata("gfp_clean_epochs", metadata)
+            self._update_metadata("step_gfp_clean_epochs", metadata)
             
             # Store epochs
             if hasattr(self, 'config') and self.config.get("run_id"):

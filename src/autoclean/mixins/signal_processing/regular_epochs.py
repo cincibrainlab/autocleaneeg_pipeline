@@ -236,7 +236,7 @@ class RegularEpochsMixin:
                 "tmax": tmax,
             }
             
-            self._update_metadata("create_regular_epochs", metadata)
+            self._update_metadata("step_create_regular_epochs", metadata)
             
             # Store epochs
             if hasattr(self, 'config') and self.config.get("run_id"):

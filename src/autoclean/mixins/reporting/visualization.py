@@ -698,50 +698,36 @@ class VisualizationMixin:
         autoclean_dict: Dict[str, Any],
         bands: Optional[List[Tuple[str, float, float]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """Generate and save a combined PSD and topographical map figure.
-        
-        This method creates a high-resolution image that includes:
-        
-        - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%)
-        - Topographical maps for multiple EEG frequency bands
-        - Pre and post cleaning comparisons
-        - Identification of outlier channels in each frequency band
-        
-        Args:
-            raw_original: Original raw EEG data before cleaning.
-            raw_cleaned: Cleaned EEG data after preprocessing.
-            pipeline: Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict: Dictionary containing metadata about the processing run.
-            bands: List of frequency bands to plot. Each tuple should contain 
-                (band_name, lower_freq, upper_freq). If None, default bands will be used.
-            metadata: Additional metadata to include in the JSON sidecar.
-            
-        Returns:
-            str: Path to the saved combined figure.
-            
-        Example:
-            ```python
-            # With default frequency bands
-            task.psd_topo_figure(raw_original, raw_cleaned, pipeline, autoclean_dict)
-            
-            # With custom frequency bands
-            custom_bands = [
-                ("Slow", 0.5, 2), 
-                ("Alpha", 8, 12),
-                ("Beta", 13, 30)
-            ]
-            task.psd_topo_figure(raw_original, raw_cleaned, pipeline, autoclean_dict, bands=custom_bands)
-            ```
-            
-        Notes:
-            - Default frequency bands if none provided: Delta (1-4 Hz), Theta (4-8 Hz), 
-              Alpha (8-12 Hz), Beta (12-30 Hz), Gamma1 (30-60 Hz), Gamma2 (60-80 Hz)
-            - The method respects configuration settings via the `psd_topo_step` config
-            - Outlier channels (z-score > 3) in each frequency band are identified
-            - The resulting figure is saved as a high-resolution PNG (300 DPI)
+    ) -> None:
         """
-                
+        Generate and save a single high-resolution image that includes:
+        - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
+        - Topographical maps for multiple EEG frequency bands arranged horizontally,
+        showing both pre and post cleaning.
+        - Annotations for average power and outlier channels.
+
+        Parameters:
+        -----------
+        raw_original : mne.io.Raw
+            Original raw EEG data before cleaning.
+        raw_cleaned : mne.io.Raw
+            Cleaned EEG data after preprocessing.
+        pipeline : pylossless.Pipeline
+            Pipeline object.
+        autoclean_dict : dict
+            Dictionary containing autoclean parameters and paths.
+        bands : list of tuple, optional
+            List of frequency bands to plot. Each tuple should contain
+            (band_name, lower_freq, upper_freq).
+        metadata : dict, optional
+            Additional metadata to include in the JSON sidecar.
+
+        Returns:
+        --------
+        image_path : str
+            Path to the saved combined figure.
+        """
+
         # Define default frequency bands if none provided
         if bands is None:
             bands = [
@@ -904,13 +890,12 @@ class VisualizationMixin:
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
-                "psd_topo_figure": Path(target_figure).name,
-                "band_powers": band_powers_metadata,
+                "plot_psd_topo_figure": Path(target_figure).name,
             }
         }
 
         self._update_metadata("psd_topo_figure", metadata)
-        
+
         return target_figure
         
     def _plot_psd(
@@ -976,454 +961,58 @@ class VisualizationMixin:
         raw_cleaned,
         outlier_channels_orig,
         outlier_channels_clean,
-    ) -> None:
-        """Helper function to create topographical maps.
-        
-        Parameters:
-        -----------
-        fig : matplotlib.figure.Figure
-            Figure object to plot on
-        gs : matplotlib.gridspec.GridSpec
-            GridSpec for organizing subplots
-        bands : list of tuples
-            List of frequency bands as (name, low_freq, high_freq)
-        band_powers_orig : list of numpy.ndarray
-            Original band powers for each frequency band
-        band_powers_clean : list of numpy.ndarray
-            Cleaned band powers for each frequency band
-        raw_original : mne.io.Raw
-            Original raw data
-        raw_cleaned : mne.io.Raw
-            Cleaned raw data
-        outlier_channels_orig : dict
-            Dictionary of outlier channels in original data
-        outlier_channels_clean : dict
-            Dictionary of outlier channels in cleaned data
-        """
-        for i, ((band_name, l_freq, h_freq), power_orig, power_clean) in enumerate(
-            zip(bands, band_powers_orig, band_powers_clean)
-        ):
-            # Calculate vmin and vmax for consistent scale across both plots
-            combined_powers = np.concatenate([power_orig, power_clean])
-            vmin = np.min(combined_powers)
-            vmax = np.max(combined_powers)
-
-            # Original data topomap
-            ax_orig = fig.add_subplot(gs[1, i])
+    ):
+        """Helper function to create topographical maps"""
+        # Second row: Topomaps for original data
+        for i, (band, power) in enumerate(zip(bands, band_powers_orig)):
+            band_name, l_freq, h_freq = band
+            ax = fig.add_subplot(gs[1, i])
             mne.viz.plot_topomap(
-                power_orig,
-                raw_original.info,
-                axes=ax_orig,
-                show=False,
-                vmin=vmin,
-                vmax=vmax,
-                cmap='viridis',
-                outlines='head',
-                contours=0,
+                power, raw_original.info, axes=ax, show=False, contours=0, cmap="jet"
             )
-            ax_orig.set_title(f"Original {band_name}\n{l_freq}-{h_freq} Hz")
-
-            # Cleaned data topomap
-            ax_clean = fig.add_subplot(gs[2, i])
-            im = mne.viz.plot_topomap(
-                power_clean,
-                raw_cleaned.info,
-                axes=ax_clean,
-                show=False,
-                vmin=vmin,
-                vmax=vmax,
-                cmap='viridis',
-                outlines='head',
-                contours=0,
+            mean_power = np.mean(power)
+            ax.set_title(
+                f"Original: {band_name}\n({l_freq}-{h_freq} Hz)\nMean Power: {mean_power:.2e} mV²",
+                fontsize=10,
             )
-            ax_clean.set_title(f"Cleaned {band_name}\n{l_freq}-{h_freq} Hz")
+            # Annotate outlier channels
+            outliers = outlier_channels_orig[band_name]
+            if outliers:
+                ax.annotate(
+                    f"Outliers:\n{', '.join(outliers)}",
+                    xy=(0.5, -0.15),
+                    xycoords="axes fraction",
+                    ha="center",
+                    va="top",
+                    fontsize=8,
+                    color="red",
+                )
 
-            # Add colorbar for this band
-            cbar_ax = fig.add_subplot(gs[3, i])
-            cbar = plt.colorbar(im, cax=cbar_ax, orientation='horizontal')
-            cbar.set_label('Power (mV²)', fontsize=10)
-
-            # Add text below with statistics
-            mean_orig = np.mean(power_orig)
-            mean_clean = np.mean(power_clean)
-            info_text = f"Orig: {mean_orig:.2f} mV²\nClean: {mean_clean:.2f} mV²"
-            if outlier_channels_orig[band_name] or outlier_channels_clean[band_name]:
-                info_text += "\nOutliers:\n"
-                if outlier_channels_orig[band_name]:
-                    info_text += f"Orig: {', '.join(outlier_channels_orig[band_name][:3])}"
-                    if len(outlier_channels_orig[band_name]) > 3:
-                        info_text += f" +{len(outlier_channels_orig[band_name])-3} more"
-                    info_text += "\n"
-                if outlier_channels_clean[band_name]:
-                    info_text += f"Clean: {', '.join(outlier_channels_clean[band_name][:3])}"
-                    if len(outlier_channels_clean[band_name]) > 3:
-                        info_text += f" +{len(outlier_channels_clean[band_name])-3} more"
-            cbar_ax.text(0.5, -1.2, info_text, ha='center', va='center', fontsize=8, transform=cbar_ax.transAxes)
-        
-    def generate_mmn_erp(
-        self,
-        epochs: mne.Epochs,
-        pipeline: Any,
-        autoclean_dict: Dict[str, Any]
-    ) -> None:
-        """Generate ERP plots for MMN paradigm."""
-        message("header", "generate_mmn_erp")
-        task = autoclean_dict["task"]
-        settings = autoclean_dict["tasks"][task]["settings"]
-        roi_channels = get_standard_set_in_montage(
-            "mmn_standard", settings["montage"]["value"]
-        )
-        roi_channels = validate_channel_set(roi_channels, epochs.ch_names)
-        
-        if not roi_channels:
-            message("error", "No valid ROI channels found in data")
-            return None
-        
-        # Get conditions
-        epoch_settings = settings["epoch_settings"]
-        event_id = epoch_settings.get("event_id")
-        
-        if event_id is None:
-            message("warning", "Event ID is not specified in epoch_settings (set to null)")
-            return None
-            
-        conditions = {
-            "standard": event_id.get("standard", "DIN2/1"),
-            "predeviant": event_id.get("predeviant", "DIN2/2"),
-            "deviant": event_id.get("deviant", "DIN2/3"),
-        }
-        
-        # Create evoked objects
-        try:
-            evoked_dict = {
-                "standard": epochs[conditions["standard"]].average(),
-                "deviant": epochs[conditions["deviant"]].average(),
-            }
-            
-            # Create difference wave (MMN = deviant - standard)
-            evoked_dict["mmn"] = mne.combine_evoked(
-                [evoked_dict["deviant"], evoked_dict["standard"]], weights=[1, -1]
+        # Third row: Topomaps for cleaned data
+        for i, (band, power) in enumerate(zip(bands, band_powers_clean)):
+            band_name, l_freq, h_freq = band
+            ax = fig.add_subplot(gs[2, i])
+            mne.viz.plot_topomap(
+                power, raw_cleaned.info, axes=ax, show=False, contours=0, cmap="jet"
             )
-        except Exception as e:
-            message("error", f"Error creating evoked objects: {str(e)}")
-            return None
-        
-        # Set up figure output
-        output_dir = Path(pipeline.run_path) / "derivatives" / "reports"
-        output_dir.mkdir(parents=True, exist_ok=True)
-        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_file = output_dir / f"mmn_erp_report_{timestamp}.pdf"
-        
-        # Create PDF report
-        with PdfPages(output_file) as pdf:
-            # Title page
-            fig = plt.figure(figsize=(12, 9))
-            plt.axis('off')
-            title = f"MMN ERP Analysis Report\n{pipeline.subject_id}"
-            plt.text(0.5, 0.8, title, ha='center', fontsize=20)
-            plt.text(0.5, 0.6, f"Task: {task}", ha='center', fontsize=16)
-            plt.text(0.5, 0.5, f"Report Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ha='center', fontsize=14)
-            plt.text(0.5, 0.4, f"ROI Channels: {', '.join(roi_channels)}", ha='center', fontsize=14)
-            pdf.savefig(fig)
-            plt.close()
-            
-            # Create ERP plots for each ROI channel
-            time_window = (-0.1, 0.5)  # -100 ms to 500 ms
-            for channel in roi_channels:
-                fig = plt.figure(figsize=(12, 9))
-                gs = GridSpec(3, 2, height_ratios=[1, 1, 1])
-                
-                # Plot standard response
-                ax1 = plt.subplot(gs[0, 0])
-                evoked_dict["standard"].plot(picks=channel, axes=ax1, time_unit='s', show=False)
-                ax1.set_title(f"Standard Response - {channel}")
-                
-                # Plot deviant response
-                ax2 = plt.subplot(gs[1, 0])
-                evoked_dict["deviant"].plot(picks=channel, axes=ax2, time_unit='s', show=False)
-                ax2.set_title(f"Deviant Response - {channel}")
-                
-                # Plot MMN (difference wave)
-                ax3 = plt.subplot(gs[2, 0])
-                evoked_dict["mmn"].plot(picks=channel, axes=ax3, time_unit='s', show=False)
-                ax3.set_title(f"MMN (Deviant - Standard) - {channel}")
-                
-                # Find MMN peak in 100-250 ms window
-                mmn_data = evoked_dict["mmn"].copy().pick(channel)
-                peak_window = (0.100, 0.250)  # 100-250 ms for MMN
-                peak_idx, peak_latency = mmn_data.get_peak(
-                    ch_type='eeg', tmin=peak_window[0], tmax=peak_window[1], mode='neg'
-                )
-                peak_amp = mmn_data.data[0, peak_idx]
-                
-                # Highlight MMN window on plot
-                ax3.axvspan(peak_window[0], peak_window[1], color='yellow', alpha=0.3)
-                ax3.axvline(peak_latency, color='red', linestyle='--')
-                ax3.text(
-                    peak_latency, peak_amp, 
-                    f"\n{peak_amp:.2f} μV\n{peak_latency*1000:.0f} ms",
-                    ha='center', va='bottom', color='red'
-                )
-                
-                # Plot topomaps
-                # Standard
-                ax4 = plt.subplot(gs[0, 1])
-                evoked_dict["standard"].plot_topomap(
-                    times=peak_latency, axes=ax4, show=False, time_unit='s'
-                )
-                ax4.set_title(f"Standard at {peak_latency*1000:.0f} ms")
-                
-                # Deviant
-                ax5 = plt.subplot(gs[1, 1])
-                evoked_dict["deviant"].plot_topomap(
-                    times=peak_latency, axes=ax5, show=False, time_unit='s'
-                )
-                ax5.set_title(f"Deviant at {peak_latency*1000:.0f} ms")
-                
-                # MMN
-                ax6 = plt.subplot(gs[2, 1])
-                evoked_dict["mmn"].plot_topomap(
-                    times=peak_latency, axes=ax6, show=False, time_unit='s'
-                )
-                ax6.set_title(f"MMN at {peak_latency*1000:.0f} ms")
-                
-                plt.tight_layout()
-                pdf.savefig(fig)
-                plt.close(fig)
-            
-            # Global field power analysis
-            fig = plt.figure(figsize=(12, 9))
-            gs = GridSpec(2, 1)
-            
-            # GFP for all conditions
-            ax1 = plt.subplot(gs[0, 0])
-            for cond, evoked in evoked_dict.items():
-                gfp = np.sqrt(np.mean(evoked.data ** 2, axis=0))
-                times = evoked.times
-                ax1.plot(times, gfp, label=cond.capitalize())
-            
-            ax1.set_title("Global Field Power")
-            ax1.set_xlabel("Time (s)")
-            ax1.set_ylabel("GFP (μV)")
-            ax1.axvline(0, color='k', linestyle='--')
-            ax1.legend()
-            ax1.grid(True)
-            
-            # Summary statistics
-            ax2 = plt.subplot(gs[1, 0])
-            ax2.axis('off')
-            
-            # Create a summary table
-            mmn_peak_table = {
-                "Channel": [],
-                "Peak Amplitude (μV)": [],
-                "Peak Latency (ms)": []
-            }
-            
-            for channel in roi_channels:
-                mmn_data = evoked_dict["mmn"].copy().pick(channel)
-                peak_idx, peak_latency = mmn_data.get_peak(
-                    ch_type='eeg', tmin=peak_window[0], tmax=peak_window[1], mode='neg'
-                )
-                peak_amp = mmn_data.data[0, peak_idx]
-                mmn_peak_table["Channel"].append(channel)
-                mmn_peak_table["Peak Amplitude (μV)"].append(f"{peak_amp:.2f}")
-                mmn_peak_table["Peak Latency (ms)"].append(f"{peak_latency*1000:.0f}")
-            
-            # Convert to string format
-            table_str = "MMN Peak Analysis (100-250 ms window):\n\n"
-            for i in range(len(mmn_peak_table["Channel"])):
-                ch = mmn_peak_table["Channel"][i]
-                amp = mmn_peak_table["Peak Amplitude (μV)"][i]
-                lat = mmn_peak_table["Peak Latency (ms)"][i]
-                table_str += f"{ch}: {amp} μV at {lat} ms\n"
-            
-            ax2.text(0.1, 0.9, table_str, fontsize=12, va='top')
-            
-            plt.tight_layout()
-            pdf.savefig(fig)
-            plt.close(fig)
-        
-        message("success", f"MMN ERP report saved to {output_file}")
-        
-        # Update pipeline metadata
-        pipeline.add_metadata({
-            "mmn_erp_analysis": {
-                "report_file": str(output_file),
-                "roi_channels": roi_channels,
-                "peak_window": peak_window,
-                "conditions": conditions
-            }
-        })
-
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict['bids_path'])
-        
-        # Target file path
-        target_pdf = str(
-            derivatives_path.copy().update(
-                suffix="mmn_erp_report", extension=".pdf", datatype="eeg"
+            mean_power = np.mean(power)
+            ax.set_title(
+                f"Cleaned: {band_name}\n({l_freq}-{h_freq} Hz)\nMean Power: {mean_power:.2e} mV²",
+                fontsize=10,
             )
-        )
-        
-        # Get channel info and validate standard 10-20 channel set
-        channel_names = epochs.ch_names
-        
-        # Validate if we have the standard channels needed for MMN analysis
-        standard_frontal_channels = ['Fz', 'FCz']
-        available_channels = [ch for ch in standard_frontal_channels if ch in channel_names]
-        
-        if not available_channels:
-            message("warning", f"No standard frontal channels found for MMN analysis. Looking for: {standard_frontal_channels}")
-            # Try to find alternative frontal channels
-            for ch in channel_names:
-                if ch.startswith('F') and len(ch) <= 3:
-                    available_channels.append(ch)
+            # Annotate outlier channels
+            outliers = outlier_channels_clean[band_name]
+            if outliers:
+                ax.annotate(
+                    f"Outliers:\n{', '.join(outliers)}",
+                    xy=(0.5, -0.15),
+                    xycoords="axes fraction",
+                    ha="center",
+                    va="top",
+                    fontsize=8,
+                    color="red",
+                )
             
-            if not available_channels:
-                message("error", "Cannot perform MMN analysis: no suitable frontal channels found.")
-                return
-                
-        message("info", f"Using channels for MMN analysis: {available_channels}")
-        
-        # Extract evoked responses
-        standard_evoked = epochs[standard_key].average()
-        deviant_evoked = epochs[deviant_key].average()
-        
-        # Create MMN (deviant - standard)
-        mmn_evoked = mne.combine_evoked([deviant_evoked, -standard_evoked], weights='equal')
-        mmn_evoked.comment = 'MMN (Deviant - Standard)'
-        
-        # Calculate MMN peak amplitude and latency
-        mmn_peak_window = (0.1, 0.25)  # 100-250 ms window for MMN
-        mmn_stats = {}
-        
-        for ch in available_channels:
-            ch_data = mmn_evoked.copy().pick(ch).data[0]
-            ch_times = mmn_evoked.times
-            
-            # Find peak latency and amplitude within window
-            peak_window_indices = np.where(
-                (ch_times >= mmn_peak_window[0]) & (ch_times <= mmn_peak_window[1])
-            )[0]
-            if len(peak_window_indices) == 0:
-                message("warning", f"No data points found in MMN window for channel {ch}")
-                continue
-                
-            peak_data = ch_data[peak_window_indices]
-            peak_times = ch_times[peak_window_indices]
-            
-            # Find the most negative peak (MMN is a negative component)
-            peak_idx = np.argmin(peak_data)
-            peak_latency = peak_times[peak_idx]
-            peak_amplitude = peak_data[peak_idx]
-            
-            mmn_stats[ch] = {
-                'peak_latency': float(peak_latency),
-                'peak_amplitude': float(peak_amplitude)
-            }
-            
-        # Create PDF report
-        with PdfPages(target_pdf) as pdf:
-            # 1. Title page
-            fig_title = plt.figure(figsize=(8.5, 11))
-            plt.axis('off')
-            plt.text(0.5, 0.8, "MMN ERP Analysis Report", ha='center', fontsize=20, weight='bold')
-            plt.text(0.5, 0.7, f"Subject: {autoclean_dict['bids_path'].subject}", ha='center', fontsize=14)
-            plt.text(0.5, 0.65, f"Session: {autoclean_dict['bids_path'].session}", ha='center', fontsize=14)
-            plt.text(0.5, 0.6, f"Run: {autoclean_dict['bids_path'].run}", ha='center', fontsize=14)
-            plt.text(0.5, 0.55, f"Task: {autoclean_dict['bids_path'].task}", ha='center', fontsize=14)
-            plt.text(0.5, 0.5, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ha='center', fontsize=12)
-            plt.text(0.5, 0.45, f"Channels used: {', '.join(available_channels)}", ha='center', fontsize=12)
-            
-            # Add MMN stats to title page
-            stats_text = "MMN Peak Statistics:\n"
-            for ch, stats in mmn_stats.items():
-                stats_text += f"\n{ch}: {stats['peak_amplitude']:.2f} µV at {stats['peak_latency']*1000:.0f} ms"
-            plt.text(0.5, 0.35, stats_text, ha='center', fontsize=12)
-            
-            pdf.savefig(fig_title)
-            plt.close(fig_title)
-            
-            # 2. ERP plots for key channels
-            for ch in available_channels:
-                fig_erp = plt.figure(figsize=(10, 8))
-                plt.suptitle(f"MMN ERP Analysis - Channel {ch}", fontsize=16)
-                
-                gs = GridSpec(2, 2, height_ratios=[2, 1])
-                
-                # Plot ERPs
-                ax_erp = fig_erp.add_subplot(gs[0, :])
-                times = standard_evoked.times * 1000  # Convert to ms
-                ax_erp.plot(times, standard_evoked.copy().pick(ch).data[0] * 1e6, 'b-', linewidth=2, label=standard_key)
-                ax_erp.plot(times, deviant_evoked.copy().pick(ch).data[0] * 1e6, 'r-', linewidth=2, label=deviant_key)
-                ax_erp.plot(times, mmn_evoked.copy().pick(ch).data[0] * 1e6, 'k-', linewidth=2, label='MMN Difference')
-                
-                # Highlight MMN window
-                ax_erp.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
-                
-                # Mark MMN peak
-                if ch in mmn_stats:
-                    peak_lat = mmn_stats[ch]['peak_latency'] * 1000  # Convert to ms
-                    peak_amp = mmn_stats[ch]['peak_amplitude'] * 1e6  # Convert to µV
-                    ax_erp.plot(peak_lat, peak_amp, 'ko', markersize=8)
-                    ax_erp.annotate(f"{peak_amp:.1f} µV", xy=(peak_lat, peak_amp), xytext=(peak_lat+20, peak_amp-5),
-                                     arrowprops=dict(arrowstyle="->", color='black'))
-                
-                ax_erp.set_xlabel('Time (ms)')
-                ax_erp.set_ylabel('Amplitude (µV)')
-                ax_erp.legend(loc='best')
-                ax_erp.grid(True)
-                ax_erp.set_title(f"Event-Related Potentials - Channel {ch}")
-                
-                # Plot topomaps at different time points
-                time_points = [0.1, 0.15, 0.2, 0.25]  # 100, 150, 200, 250 ms
-                for i, t in enumerate(time_points):
-                    ax_topo = fig_erp.add_subplot(gs[1, i//2])
-                    mne.viz.plot_topomap(mmn_evoked.copy().crop(t, t).data[:, 0], mmn_evoked.info,
-                                         axes=ax_topo, show=False, times=t,
-                                         cmap='RdBu_r', vmin=-3, vmax=3)
-                    ax_topo.set_title(f"{int(t*1000)} ms")
-                
-                pdf.savefig(fig_erp)
-                plt.close(fig_erp)
-                
-            # 3. Global field power plot
-            fig_gfp = plt.figure(figsize=(10, 6))
-            plt.suptitle("Global Field Power", fontsize=16)
-            
-            # Calculate GFP for each condition
-            gfp_standard = np.std(standard_evoked.data, axis=0) * 1e6
-            gfp_deviant = np.std(deviant_evoked.data, axis=0) * 1e6
-            gfp_mmn = np.std(mmn_evoked.data, axis=0) * 1e6
-            
-            plt.plot(times, gfp_standard, 'b-', linewidth=2, label=standard_key)
-            plt.plot(times, gfp_deviant, 'r-', linewidth=2, label=deviant_key)
-            plt.plot(times, gfp_mmn, 'k-', linewidth=2, label='MMN Difference')
-            
-            plt.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
-            plt.xlabel('Time (ms)')
-            plt.ylabel('Global Field Power (µV)')
-            plt.legend(loc='best')
-            plt.grid(True)
-            
-            pdf.savefig(fig_gfp)
-            plt.close(fig_gfp)
-            
-        message("info", f"MMN ERP report saved to {target_pdf}")
-        
-        # Update metadata
-        metadata = {
-            "mmn_erp_report": {
-                "creationDateTime": datetime.now().isoformat(),
-                "report_file": Path(target_pdf).name,
-                "channels_analyzed": available_channels,
-                "standard_condition": standard_key,
-                "deviant_condition": deviant_key,
-                "mmn_peak_stats": mmn_stats
-            }
-        }
-        
-        self._update_metadata("mmn_erp_report", metadata)
         
     def step_psd_topo_figure(
         self,
@@ -1464,3 +1053,368 @@ class VisualizationMixin:
             bands=bands,
             metadata=metadata
         )
+
+    # def generate_mmn_erp(
+    #     self,
+    #     epochs: mne.Epochs,
+    #     pipeline: Any,
+    #     autoclean_dict: Dict[str, Any]
+    # ) -> None:
+    #     """Generate ERP plots for MMN paradigm."""
+    #     message("header", "generate_mmn_erp")
+    #     task = autoclean_dict["task"]
+    #     settings = autoclean_dict["tasks"][task]["settings"]
+    #     roi_channels = get_standard_set_in_montage(
+    #         "mmn_standard", settings["montage"]["value"]
+    #     )
+    #     roi_channels = validate_channel_set(roi_channels, epochs.ch_names)
+        
+    #     if not roi_channels:
+    #         message("error", "No valid ROI channels found in data")
+    #         return None
+        
+    #     # Get conditions
+    #     epoch_settings = settings["epoch_settings"]
+    #     event_id = epoch_settings.get("event_id")
+        
+    #     if event_id is None:
+    #         message("warning", "Event ID is not specified in epoch_settings (set to null)")
+    #         return None
+            
+    #     conditions = {
+    #         "standard": event_id.get("standard", "DIN2/1"),
+    #         "predeviant": event_id.get("predeviant", "DIN2/2"),
+    #         "deviant": event_id.get("deviant", "DIN2/3"),
+    #     }
+        
+    #     # Create evoked objects
+    #     try:
+    #         evoked_dict = {
+    #             "standard": epochs[conditions["standard"]].average(),
+    #             "deviant": epochs[conditions["deviant"]].average(),
+    #         }
+            
+    #         # Create difference wave (MMN = deviant - standard)
+    #         evoked_dict["mmn"] = mne.combine_evoked(
+    #             [evoked_dict["deviant"], evoked_dict["standard"]], weights=[1, -1]
+    #         )
+    #     except Exception as e:
+    #         message("error", f"Error creating evoked objects: {str(e)}")
+    #         return None
+        
+    #     # Set up figure output
+    #     output_dir = Path(pipeline.run_path) / "derivatives" / "reports"
+    #     output_dir.mkdir(parents=True, exist_ok=True)
+    #     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    #     output_file = output_dir / f"mmn_erp_report_{timestamp}.pdf"
+        
+    #     # Create PDF report
+    #     with PdfPages(output_file) as pdf:
+    #         # Title page
+    #         fig = plt.figure(figsize=(12, 9))
+    #         plt.axis('off')
+    #         title = f"MMN ERP Analysis Report\n{pipeline.subject_id}"
+    #         plt.text(0.5, 0.8, title, ha='center', fontsize=20)
+    #         plt.text(0.5, 0.6, f"Task: {task}", ha='center', fontsize=16)
+    #         plt.text(0.5, 0.5, f"Report Date: {datetime.now().strftime('%Y-%m-%d %H:%M')}", ha='center', fontsize=14)
+    #         plt.text(0.5, 0.4, f"ROI Channels: {', '.join(roi_channels)}", ha='center', fontsize=14)
+    #         pdf.savefig(fig)
+    #         plt.close()
+            
+    #         # Create ERP plots for each ROI channel
+    #         time_window = (-0.1, 0.5)  # -100 ms to 500 ms
+    #         for channel in roi_channels:
+    #             fig = plt.figure(figsize=(12, 9))
+    #             gs = GridSpec(3, 2, height_ratios=[1, 1, 1])
+                
+    #             # Plot standard response
+    #             ax1 = plt.subplot(gs[0, 0])
+    #             evoked_dict["standard"].plot(picks=channel, axes=ax1, time_unit='s', show=False)
+    #             ax1.set_title(f"Standard Response - {channel}")
+                
+    #             # Plot deviant response
+    #             ax2 = plt.subplot(gs[1, 0])
+    #             evoked_dict["deviant"].plot(picks=channel, axes=ax2, time_unit='s', show=False)
+    #             ax2.set_title(f"Deviant Response - {channel}")
+                
+    #             # Plot MMN (difference wave)
+    #             ax3 = plt.subplot(gs[2, 0])
+    #             evoked_dict["mmn"].plot(picks=channel, axes=ax3, time_unit='s', show=False)
+    #             ax3.set_title(f"MMN (Deviant - Standard) - {channel}")
+                
+    #             # Find MMN peak in 100-250 ms window
+    #             mmn_data = evoked_dict["mmn"].copy().pick(channel)
+    #             peak_window = (0.100, 0.250)  # 100-250 ms for MMN
+    #             peak_idx, peak_latency = mmn_data.get_peak(
+    #                 ch_type='eeg', tmin=peak_window[0], tmax=peak_window[1], mode='neg'
+    #             )
+    #             peak_amp = mmn_data.data[0, peak_idx]
+                
+    #             # Highlight MMN window on plot
+    #             ax3.axvspan(peak_window[0], peak_window[1], color='yellow', alpha=0.3)
+    #             ax3.axvline(peak_latency, color='red', linestyle='--')
+    #             ax3.text(
+    #                 peak_latency, peak_amp, 
+    #                 f"\n{peak_amp:.2f} μV\n{peak_latency*1000:.0f} ms",
+    #                 ha='center', va='bottom', color='red'
+    #             )
+                
+    #             # Plot topomaps
+    #             # Standard
+    #             ax4 = plt.subplot(gs[0, 1])
+    #             evoked_dict["standard"].plot_topomap(
+    #                 times=peak_latency, axes=ax4, show=False, time_unit='s'
+    #             )
+    #             ax4.set_title(f"Standard at {peak_latency*1000:.0f} ms")
+                
+    #             # Deviant
+    #             ax5 = plt.subplot(gs[1, 1])
+    #             evoked_dict["deviant"].plot_topomap(
+    #                 times=peak_latency, axes=ax5, show=False, time_unit='s'
+    #             )
+    #             ax5.set_title(f"Deviant at {peak_latency*1000:.0f} ms")
+                
+    #             # MMN
+    #             ax6 = plt.subplot(gs[2, 1])
+    #             evoked_dict["mmn"].plot_topomap(
+    #                 times=peak_latency, axes=ax6, show=False, time_unit='s'
+    #             )
+    #             ax6.set_title(f"MMN at {peak_latency*1000:.0f} ms")
+                
+    #             plt.tight_layout()
+    #             pdf.savefig(fig)
+    #             plt.close(fig)
+            
+    #         # Global field power analysis
+    #         fig = plt.figure(figsize=(12, 9))
+    #         gs = GridSpec(2, 1)
+            
+    #         # GFP for all conditions
+    #         ax1 = plt.subplot(gs[0, 0])
+    #         for cond, evoked in evoked_dict.items():
+    #             gfp = np.sqrt(np.mean(evoked.data ** 2, axis=0))
+    #             times = evoked.times
+    #             ax1.plot(times, gfp, label=cond.capitalize())
+            
+    #         ax1.set_title("Global Field Power")
+    #         ax1.set_xlabel("Time (s)")
+    #         ax1.set_ylabel("GFP (μV)")
+    #         ax1.axvline(0, color='k', linestyle='--')
+    #         ax1.legend()
+    #         ax1.grid(True)
+            
+    #         # Summary statistics
+    #         ax2 = plt.subplot(gs[1, 0])
+    #         ax2.axis('off')
+            
+    #         # Create a summary table
+    #         mmn_peak_table = {
+    #             "Channel": [],
+    #             "Peak Amplitude (μV)": [],
+    #             "Peak Latency (ms)": []
+    #         }
+            
+    #         for channel in roi_channels:
+    #             mmn_data = evoked_dict["mmn"].copy().pick(channel)
+    #             peak_idx, peak_latency = mmn_data.get_peak(
+    #                 ch_type='eeg', tmin=peak_window[0], tmax=peak_window[1], mode='neg'
+    #             )
+    #             peak_amp = mmn_data.data[0, peak_idx]
+    #             mmn_peak_table["Channel"].append(channel)
+    #             mmn_peak_table["Peak Amplitude (μV)"].append(f"{peak_amp:.2f}")
+    #             mmn_peak_table["Peak Latency (ms)"].append(f"{peak_latency*1000:.0f}")
+            
+    #         # Convert to string format
+    #         table_str = "MMN Peak Analysis (100-250 ms window):\n\n"
+    #         for i in range(len(mmn_peak_table["Channel"])):
+    #             ch = mmn_peak_table["Channel"][i]
+    #             amp = mmn_peak_table["Peak Amplitude (μV)"][i]
+    #             lat = mmn_peak_table["Peak Latency (ms)"][i]
+    #             table_str += f"{ch}: {amp} μV at {lat} ms\n"
+            
+    #         ax2.text(0.1, 0.9, table_str, fontsize=12, va='top')
+            
+    #         plt.tight_layout()
+    #         pdf.savefig(fig)
+    #         plt.close(fig)
+        
+    #     message("success", f"MMN ERP report saved to {output_file}")
+        
+    #     # Update pipeline metadata
+    #     pipeline.add_metadata({
+    #         "mmn_erp_analysis": {
+    #             "report_file": str(output_file),
+    #             "roi_channels": roi_channels,
+    #             "peak_window": peak_window,
+    #             "conditions": conditions
+    #         }
+    #     })
+
+    #     derivatives_path = pipeline.get_derivative_path(autoclean_dict['bids_path'])
+        
+    #     # Target file path
+    #     target_pdf = str(
+    #         derivatives_path.copy().update(
+    #             suffix="mmn_erp_report", extension=".pdf", datatype="eeg"
+    #         )
+    #     )
+        
+    #     # Get channel info and validate standard 10-20 channel set
+    #     channel_names = epochs.ch_names
+        
+    #     # Validate if we have the standard channels needed for MMN analysis
+    #     standard_frontal_channels = ['Fz', 'FCz']
+    #     available_channels = [ch for ch in standard_frontal_channels if ch in channel_names]
+        
+    #     if not available_channels:
+    #         message("warning", f"No standard frontal channels found for MMN analysis. Looking for: {standard_frontal_channels}")
+    #         # Try to find alternative frontal channels
+    #         for ch in channel_names:
+    #             if ch.startswith('F') and len(ch) <= 3:
+    #                 available_channels.append(ch)
+            
+    #         if not available_channels:
+    #             message("error", "Cannot perform MMN analysis: no suitable frontal channels found.")
+    #             return
+                
+    #     message("info", f"Using channels for MMN analysis: {available_channels}")
+        
+    #     # Extract evoked responses
+    #     standard_evoked = epochs[standard_key].average()
+    #     deviant_evoked = epochs[deviant_key].average()
+        
+    #     # Create MMN (deviant - standard)
+    #     mmn_evoked = mne.combine_evoked([deviant_evoked, -standard_evoked], weights='equal')
+    #     mmn_evoked.comment = 'MMN (Deviant - Standard)'
+        
+    #     # Calculate MMN peak amplitude and latency
+    #     mmn_peak_window = (0.1, 0.25)  # 100-250 ms window for MMN
+    #     mmn_stats = {}
+        
+    #     for ch in available_channels:
+    #         ch_data = mmn_evoked.copy().pick(ch).data[0]
+    #         ch_times = mmn_evoked.times
+            
+    #         # Find peak latency and amplitude within window
+    #         peak_window_indices = np.where(
+    #             (ch_times >= mmn_peak_window[0]) & (ch_times <= mmn_peak_window[1])
+    #         )[0]
+    #         if len(peak_window_indices) == 0:
+    #             message("warning", f"No data points found in MMN window for channel {ch}")
+    #             continue
+                
+    #         peak_data = ch_data[peak_window_indices]
+    #         peak_times = ch_times[peak_window_indices]
+            
+    #         # Find the most negative peak (MMN is a negative component)
+    #         peak_idx = np.argmin(peak_data)
+    #         peak_latency = peak_times[peak_idx]
+    #         peak_amplitude = peak_data[peak_idx]
+            
+    #         mmn_stats[ch] = {
+    #             'peak_latency': float(peak_latency),
+    #             'peak_amplitude': float(peak_amplitude)
+    #         }
+            
+    #     # Create PDF report
+    #     with PdfPages(target_pdf) as pdf:
+    #         # 1. Title page
+    #         fig_title = plt.figure(figsize=(8.5, 11))
+    #         plt.axis('off')
+    #         plt.text(0.5, 0.8, "MMN ERP Analysis Report", ha='center', fontsize=20, weight='bold')
+    #         plt.text(0.5, 0.7, f"Subject: {autoclean_dict['bids_path'].subject}", ha='center', fontsize=14)
+    #         plt.text(0.5, 0.65, f"Session: {autoclean_dict['bids_path'].session}", ha='center', fontsize=14)
+    #         plt.text(0.5, 0.6, f"Run: {autoclean_dict['bids_path'].run}", ha='center', fontsize=14)
+    #         plt.text(0.5, 0.55, f"Task: {autoclean_dict['bids_path'].task}", ha='center', fontsize=14)
+    #         plt.text(0.5, 0.5, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ha='center', fontsize=12)
+    #         plt.text(0.5, 0.45, f"Channels used: {', '.join(available_channels)}", ha='center', fontsize=12)
+            
+    #         # Add MMN stats to title page
+    #         stats_text = "MMN Peak Statistics:\n"
+    #         for ch, stats in mmn_stats.items():
+    #             stats_text += f"\n{ch}: {stats['peak_amplitude']:.2f} µV at {stats['peak_latency']*1000:.0f} ms"
+    #         plt.text(0.5, 0.35, stats_text, ha='center', fontsize=12)
+            
+    #         pdf.savefig(fig_title)
+    #         plt.close(fig_title)
+            
+    #         # 2. ERP plots for key channels
+    #         for ch in available_channels:
+    #             fig_erp = plt.figure(figsize=(10, 8))
+    #             plt.suptitle(f"MMN ERP Analysis - Channel {ch}", fontsize=16)
+                
+    #             gs = GridSpec(2, 2, height_ratios=[2, 1])
+                
+    #             # Plot ERPs
+    #             ax_erp = fig_erp.add_subplot(gs[0, :])
+    #             times = standard_evoked.times * 1000  # Convert to ms
+    #             ax_erp.plot(times, standard_evoked.copy().pick(ch).data[0] * 1e6, 'b-', linewidth=2, label=standard_key)
+    #             ax_erp.plot(times, deviant_evoked.copy().pick(ch).data[0] * 1e6, 'r-', linewidth=2, label=deviant_key)
+    #             ax_erp.plot(times, mmn_evoked.copy().pick(ch).data[0] * 1e6, 'k-', linewidth=2, label='MMN Difference')
+                
+    #             # Highlight MMN window
+    #             ax_erp.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
+                
+    #             # Mark MMN peak
+    #             if ch in mmn_stats:
+    #                 peak_lat = mmn_stats[ch]['peak_latency'] * 1000  # Convert to ms
+    #                 peak_amp = mmn_stats[ch]['peak_amplitude'] * 1e6  # Convert to µV
+    #                 ax_erp.plot(peak_lat, peak_amp, 'ko', markersize=8)
+    #                 ax_erp.annotate(f"{peak_amp:.1f} µV", xy=(peak_lat, peak_amp), xytext=(peak_lat+20, peak_amp-5),
+    #                                  arrowprops=dict(arrowstyle="->", color='black'))
+                
+    #             ax_erp.set_xlabel('Time (ms)')
+    #             ax_erp.set_ylabel('Amplitude (µV)')
+    #             ax_erp.legend(loc='best')
+    #             ax_erp.grid(True)
+    #             ax_erp.set_title(f"Event-Related Potentials - Channel {ch}")
+                
+    #             # Plot topomaps at different time points
+    #             time_points = [0.1, 0.15, 0.2, 0.25]  # 100, 150, 200, 250 ms
+    #             for i, t in enumerate(time_points):
+    #                 ax_topo = fig_erp.add_subplot(gs[1, i//2])
+    #                 mne.viz.plot_topomap(mmn_evoked.copy().crop(t, t).data[:, 0], mmn_evoked.info,
+    #                                      axes=ax_topo, show=False, times=t,
+    #                                      cmap='RdBu_r', vmin=-3, vmax=3)
+    #                 ax_topo.set_title(f"{int(t*1000)} ms")
+                
+    #             pdf.savefig(fig_erp)
+    #             plt.close(fig_erp)
+                
+    #         # 3. Global field power plot
+    #         fig_gfp = plt.figure(figsize=(10, 6))
+    #         plt.suptitle("Global Field Power", fontsize=16)
+            
+    #         # Calculate GFP for each condition
+    #         gfp_standard = np.std(standard_evoked.data, axis=0) * 1e6
+    #         gfp_deviant = np.std(deviant_evoked.data, axis=0) * 1e6
+    #         gfp_mmn = np.std(mmn_evoked.data, axis=0) * 1e6
+            
+    #         plt.plot(times, gfp_standard, 'b-', linewidth=2, label=standard_key)
+    #         plt.plot(times, gfp_deviant, 'r-', linewidth=2, label=deviant_key)
+    #         plt.plot(times, gfp_mmn, 'k-', linewidth=2, label='MMN Difference')
+            
+    #         plt.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
+    #         plt.xlabel('Time (ms)')
+    #         plt.ylabel('Global Field Power (µV)')
+    #         plt.legend(loc='best')
+    #         plt.grid(True)
+            
+    #         pdf.savefig(fig_gfp)
+    #         plt.close(fig_gfp)
+            
+    #     message("info", f"MMN ERP report saved to {target_pdf}")
+        
+    #     # Update metadata
+    #     metadata = {
+    #         "mmn_erp_report": {
+    #             "creationDateTime": datetime.now().isoformat(),
+    #             "report_file": Path(target_pdf).name,
+    #             "channels_analyzed": available_channels,
+    #             "standard_condition": standard_key,
+    #             "deviant_condition": deviant_key,
+    #             "mmn_peak_stats": mmn_stats
+    #         }
+    #     }
+        
+    #     self._update_metadata("mmn_erp_report", metadata)

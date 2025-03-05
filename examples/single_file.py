@@ -4,7 +4,7 @@ from autoclean import Pipeline
 import mne
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean/2sec")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
@@ -16,7 +16,7 @@ pipeline = Pipeline(
 )
 
 # Example file path - modify this to point to your EEG file
-file_path = Path("C:/Users/Gam9LG/Documents/DATA/chirp/1820_chirp.set")
+file_path = Path("C:/Users/Gam9LG/Documents/DATA/chirp/grace/2274_chirp.set")
 
 
 # Process the file
