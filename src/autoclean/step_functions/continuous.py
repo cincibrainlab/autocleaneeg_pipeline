@@ -1,14 +1,22 @@
+"""Continuous preprocessing steps."""
+
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple, Union
+import re
+import os
+import json
+import numpy as np
 
 import mne
-import numpy as np
+import pandas as pd
 import pylossless as ll
 import yaml
 from matplotlib import pyplot as plt
 from mne_bids import read_raw_bids
 from pyprep.find_noisy_channels import NoisyChannels
+from scipy import stats
 
 from autoclean.step_functions.io import save_raw_to_set
 # NOTE: The following import is using a deprecated function.
@@ -416,6 +424,12 @@ def step_run_ll_rejection_policy(
     """Apply PyLossless rejection policy."""
     message("header", "step_run_ll_rejection_policy")
     rejection_policy = _get_rejection_policy(autoclean_dict)
+    
+    # Convert all channel flags to numpy arrays to avoid 'tolist' AttributeError
+    for key in pipeline.flags["ch"]:
+        if isinstance(pipeline.flags["ch"][key], list):
+            pipeline.flags["ch"][key] = np.array(pipeline.flags["ch"][key])
+    
     cleaned_raw = rejection_policy.apply(pipeline)
     cleaned_raw = _extended_BAD_LL_noisy_ICs_annotations(
         cleaned_raw, pipeline, autoclean_dict, extra_duration=1

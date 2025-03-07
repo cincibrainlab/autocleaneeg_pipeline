@@ -5,9 +5,9 @@ bridged_channels:
 epoching:
     epochs_args:
         baseline: null
-        tmax: 0.5
+        tmax: 1.5
         tmin: 0
-    overlap: 0
+    overlap: .5
 filtering:
     filter_args: # Arguments are directly passed into mne.io.Raw.filter()
         h_freq: 100
@@ -26,7 +26,7 @@ ica:
                 extended: true
             method: infomax
     noisy_ic_epochs:
-        flag_crit: 0.1
+        flag_crit: 0.2
         outlier_method: quantile
         outliers_kwargs:
             k: 4
@@ -52,7 +52,7 @@ noisy_channels:
         lower: 0.25
         upper: 0.75
 noisy_epochs:
-    flag_crit: 0.1
+    flag_crit: 0.15
     outlier_method: quantile
     outliers_kwargs:
         k: 4
@@ -63,14 +63,14 @@ nearest_neighbors:
     n_nbr_ch: 3
     n_nbr_epoch: 3
 uncorrelated_channels:
-    flag_crit: 0.2
+    flag_crit: 0.25
     outlier_method: quantile
     outliers_kwargs:
         k: 6
-        lower: 0.25
-        upper: 0.75
+        lower: 0.2
+        upper: 0.8
 uncorrelated_epochs:
-    flag_crit: 0.1
+    flag_crit: 0.15
     outlier_method: quantile
     outliers_kwargs:
         k: 6

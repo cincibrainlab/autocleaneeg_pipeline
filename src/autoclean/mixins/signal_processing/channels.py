@@ -3,6 +3,7 @@
 from typing import Union, Dict, List, Optional
 import mne
 from pyprep.find_noisy_channels import NoisyChannels
+import numpy as np
 
 from autoclean.utils.logging import message
 
@@ -153,13 +154,13 @@ class ChannelsMixin:
             message("error", f"Error during setting channel types: {str(e)}")
             raise RuntimeError(f"Failed to set channel types: {str(e)}") from e
             
-    def clean_bad_channels(self, data: Union[mne.io.BaseRaw, None] = None,
+    def clean_bad_channels(self, pipeline=None, data: Union[mne.io.BaseRaw, None] = None,
                            correlation_thresh: float = 0.35,
-                           deviation_thresh: float = 4.0,
-                           ransac_sample_prop: float = 0.25,
-                           ransac_corr_thresh: float = 0.7,
-                           ransac_frac_bad: float = 0.35,
-                           ransac_channel_wise: bool = True,
+                           deviation_thresh: float = 5.0,
+                           ransac_sample_prop: float = 0.35,
+                           ransac_corr_thresh: float = 0.65,
+                           ransac_frac_bad: float = 0.45,
+                           ransac_channel_wise: bool = False,
                            random_state: int = 1337,
                            stage_name: str = "post_bad_channels") -> mne.io.BaseRaw:
         """Detect and mark bad channels using various methods.
@@ -233,7 +234,6 @@ class ChannelsMixin:
             # Run noisy channels detection
             message("header", "Detecting bad channels...")
             cleaned_raw = NoisyChannels(result_raw, random_state=options["random_state"])
-            cleaned_raw.find_bad_by_SNR()
             cleaned_raw.find_bad_by_correlation(
                 correlation_secs=5.0,
                 correlation_threshold=options["correlation_thresh"],
@@ -255,7 +255,6 @@ class ChannelsMixin:
             result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_ransac"]])
             result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_deviation"]])
             result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
-            result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_SNR"]])
             
             # Remove duplicates
             result_raw.info["bads"] = list(set(result_raw.info["bads"]))
@@ -279,9 +278,16 @@ class ChannelsMixin:
             
             # Update self.raw if we're using it
             self._update_instance_data(data, result_raw)
-                
-            return result_raw
+
+            if pipeline is not None:
+                pipeline.flags["ch"].add_flag_cat(kind="noisy", bad_ch_names=np.array(bad_channels["bad_by_ransac"]))
+                pipeline.flags["ch"].add_flag_cat(kind="noisy", bad_ch_names=np.array(bad_channels["bad_by_deviation"]))
+                pipeline.flags["ch"].add_flag_cat(kind="uncorrelated", bad_ch_names=np.array(bad_channels["bad_by_correlation"]))
+                pipeline.raw = result_raw
+                message("info", "Added bad channels to pipeline flags")
+                return pipeline
             
+            return result_raw
         except Exception as e:
             message("error", f"Error during bad channel detection: {str(e)}")
             raise RuntimeError(f"Failed to detect bad channels: {str(e)}") from e

@@ -113,19 +113,21 @@ class RestingEyesOpenRev(Task):
 
         self.pipeline.flag_bridged_channels(data_r_ch)
 
-        #self.pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
+        # self.pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
 
         self.raw = self.pipeline.raw
 
-        self.clean_bad_channels() #not pylossless, flags bad chans, doesn't drop them this step
+        self.pipeline = self.clean_bad_channels(pipeline=self.pipeline) #not pylossless, flags bad chans, doesn't drop them this step
 
-        # self.raw.interpolate_bads(reset_bads=True)
+        # self.clean_bad_channels()
+
+        self.pipeline.raw = self.raw
+
+        self.raw.interpolate_bads(reset_bads=True)
 
         self.raw.set_eeg_reference()
 
         #Flag Bad Epochs 
-
-        self.pipeline.raw = self.raw
 
         self.pipeline.flag_noisy_epochs(message="Flagging Noisy Epochs")
 
@@ -139,7 +141,7 @@ class RestingEyesOpenRev(Task):
         # Detect and mark muscle artifacts in beta frequency range
         #self.detect_muscle_beta_focus()
 
-        save_raw_to_set(self.raw, self.config, "post_artifact_detection")  #bad chans have been interpolated in this output stage file
+        save_raw_to_set(self.raw, self.config, "post_artifact_detection")
 
         #self.reject_bad_segments()
 
@@ -148,9 +150,9 @@ class RestingEyesOpenRev(Task):
         if self.pipeline.config["ica"] is not None:
             self.pipeline.run_ica("run1", message="Running Initial ICA")
 
-            self.pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
-
             self.pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
+
+            self.pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
 
         save_raw_to_set(self.raw, self.config, "post_pylossless")
 
@@ -165,7 +167,6 @@ class RestingEyesOpenRev(Task):
         save_raw_to_set(self.raw, self.config, "post_rejection_policy")
 
 
-        #breakpoint()
         # Create regular epochs
         self.create_regular_epochs()
 
