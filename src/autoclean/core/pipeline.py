@@ -322,9 +322,12 @@ class Pipeline:
             )
 
             message("header", f"Starting processing for task: {task}")
-
             # Instantiate and run task processor
-            task_object = self.TASK_REGISTRY[task.lower()](run_dict)
+            try:
+                task_object = self.TASK_REGISTRY[task.lower()](run_dict)
+            except KeyError:
+                message("error", f"Task '{task}' not found in task registry. Class name in task file must match task name exactly.")
+                raise
             task_object.run()
 
             try:
