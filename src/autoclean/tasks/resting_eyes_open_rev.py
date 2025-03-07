@@ -15,6 +15,7 @@ from autoclean.step_functions.continuous import (
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
     step_run_pylossless,
+    step_get_pylossless_pipeline
 )
 from autoclean.step_functions.io import (
     save_raw_to_set,
@@ -73,7 +74,6 @@ class RestingEyesOpenRev(Task):
         # Import and save raw EEG data
         self.raw = import_eeg(self.config)
         
-        
         save_raw_to_set(self.raw, self.config, "post_import")
 
         # Check if data was imported successfully
@@ -94,29 +94,78 @@ class RestingEyesOpenRev(Task):
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
 
-        # Clean bad channels
-        self.clean_bad_channels()
+        # Clean bad channels (flags bad channels, does not drop them yet)
+        #self.clean_bad_channels()
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # Run PyLossless pipeline and save result
-        self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(self.raw, self.config, "post_pylossless")
+        ################## RUN PYLOSSLESS CUSTOM STEPS ##################
+        self.pipeline = step_get_pylossless_pipeline(self.config)
 
-        # Apply PyLossless Rejection Policy for artifact removal
-        self.pipeline, self.raw = step_run_ll_rejection_policy(
-            self.pipeline, self.config
-        )
+        self.pipeline.filter()
+
+        #Flag bad channels
+
+        self.pipeline.flag_noisy_channels()
+
+        data_r_ch = self.pipeline.flag_uncorrelated_channels()
+
+        self.pipeline.flag_bridged_channels(data_r_ch)
+
+        #self.pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
+
+        self.raw = self.pipeline.raw
+
+        self.clean_bad_channels() #not pylossless, flags bad chans, doesn't drop them this step
+
+        # self.raw.interpolate_bads(reset_bads=True)
+
+        self.raw.set_eeg_reference()
+
+        #Flag Bad Epochs 
+
+        self.pipeline.raw = self.raw
+
+        self.pipeline.flag_noisy_epochs(message="Flagging Noisy Epochs")
+
+        self.pipeline.flag_uncorrelated_epochs(message="Flagging Uncorrelated epochs")
+
+        self.raw = self.pipeline.raw
 
         # Detect and mark dense oscillatory artifacts
         self.detect_dense_oscillatory_artifacts()
 
         # Detect and mark muscle artifacts in beta frequency range
-        self.detect_muscle_beta_focus(self.raw)
+        #self.detect_muscle_beta_focus()
 
-        save_raw_to_set(self.raw, self.config, "post_artifact_detection")
+        save_raw_to_set(self.raw, self.config, "post_artifact_detection")  #bad chans have been interpolated in this output stage file
 
+        #self.reject_bad_segments()
+
+        self.pipeline.raw = self.raw
+
+        if self.pipeline.config["ica"] is not None:
+            self.pipeline.run_ica("run1", message="Running Initial ICA")
+
+            self.pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
+
+            self.pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
+
+        save_raw_to_set(self.raw, self.config, "post_pylossless")
+
+        ################## END PYLOSSLESS ##################
+
+        
+
+        # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
+        self.pipeline, self.raw = step_run_ll_rejection_policy(
+            self.pipeline, self.config
+        )
+        save_raw_to_set(self.raw, self.config, "post_rejection_policy")
+
+
+        #breakpoint()
         # Create regular epochs
         self.create_regular_epochs()
 

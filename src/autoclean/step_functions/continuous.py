@@ -273,16 +273,16 @@ def step_clean_bad_channels(
     # Run noisy channels detection
     cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
     cleaned_raw.find_bad_by_SNR()
-    cleaned_raw.find_bad_by_correlation(correlation_secs=5.0,correlation_threshold=0.35, frac_bad=0.1) #testing cs of 5 instead of 1
-    cleaned_raw.find_bad_by_deviation(deviation_threshold=6.0)  
+    cleaned_raw.find_bad_by_correlation(correlation_secs=1.0,correlation_threshold=0.2, frac_bad=0.01) #frac_bad refers to "bad" correlation window over whole recording
+    cleaned_raw.find_bad_by_deviation(deviation_threshold=4.0)  
 
     cleaned_raw.find_bad_by_ransac(
         n_samples=100,
         sample_prop=0.5,
         corr_thresh=0.5,
-        frac_bad=0.5,
+        frac_bad=0.25,
         corr_window_secs=4.0,
-        channel_wise=False, #GW changed to false
+        channel_wise=False, 
         max_chunk_size=None,
     )
     bad_channels = cleaned_raw.get_bads(as_dict=True)
@@ -363,6 +363,51 @@ def step_run_pylossless(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw
         raise e
 
     return pipeline, raw
+
+def step_get_pylossless_pipeline(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw]:
+    """Run PyLossless pipeline."""
+    message("header", "step_run_pylossless")
+    task = autoclean_dict["task"]
+    bids_path = autoclean_dict["bids_path"]
+    config_path = autoclean_dict["tasks"][task]["lossless_config"]
+    derivative_name = "pylossless"
+
+    try:
+        raw = read_raw_bids(bids_path, verbose="ERROR", extra_params={"preload": True})
+
+        pipeline = ll.LosslessPipeline(config_path)
+
+        pipeline.raw = raw
+
+        derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
+
+
+    except Exception as e:
+        message("error", f"Failed to run pylossless: {str(e)}")
+        raise e
+
+    try:
+        pylossless_config = yaml.safe_load(open(config_path))
+
+        metadata = {
+            "step_get_pylossless_pipeline": {
+                "creationDateTime": datetime.now().isoformat(),
+                "derivativeName": derivative_name,
+                "derivativePath": derivatives_path,
+                "configFile": str(config_path),
+                "pylossless_config": pylossless_config,
+            }
+        }
+        manage_database(
+            operation="update",
+            update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
+        )
+
+    except Exception as e:
+        message("error", f"Failed to load pylossless config: {str(e)}")
+        raise e
+
+    return pipeline
 
 
 def step_run_ll_rejection_policy(
@@ -451,6 +496,8 @@ def step_run_ll_rejection_policy(
     except Exception as e:
         raise RuntimeError(f"Failed to update database: {str(e)}")
 
+    ##remove annotations before saving
+    #cleaned_raw.set_annotations(None)
     save_raw_to_set(cleaned_raw, autoclean_dict, "post_rejection_policy")
 
     return pipeline, cleaned_raw

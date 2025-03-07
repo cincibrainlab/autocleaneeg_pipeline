@@ -184,7 +184,7 @@ class EventIDEpochsMixin:
                 # Find epochs that overlap with any "bad" or "BAD" annotations
                 bad_epochs = []
                 bad_annotations = {}  # To track which annotation affected each epoch
-                
+            
                 for ann in data.annotations:
                     # Check if annotation description starts with "bad" or "BAD"
                     if ann["description"].lower().startswith("bad"):
