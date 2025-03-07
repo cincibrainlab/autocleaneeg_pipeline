@@ -25,7 +25,7 @@ services:
       dockerfile: Dockerfile.review
     image: autoclean-review:latest
     volumes:
-      - C:/Users/Gam9LG/Documents/Autoclean:/app/output
+      - /mnt/srv2/RAWDATA/1_NBRT_LAB_STUDIES/Raw_P1_EEGs_n141/Rest_Autoclean_output/testing/:/app/output
     environment:
       - PYTHONUNBUFFERED=1
       - QT_QPA_PLATFORM=xcb

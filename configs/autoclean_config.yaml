@@ -94,7 +94,7 @@ tasks:
         value: 4            # Number of seconds to trim from start/end
       
       crop_step:
-        enabled: true
+        enabled: false
         value:
           start: 0          # Start time in seconds
           end: 60         # null means use entire recording, or specify time in seconds (e.g., 30.0)
@@ -117,7 +117,7 @@ tasks:
           enabled: false
           window: [null, 0]
         threshold_rejection:
-          enabled: true
+          enabled: false
           volt_threshold: 
             eeg: 150e-6
 
@@ -128,7 +128,7 @@ tasks:
       interpolate_bads_kwargs:
         method: "spline"                                    # Method for interpolating bad channels
       ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]  # Types of components to reject
-      ic_rejection_threshold: 0.3                              # Threshold for component rejection
+      ic_rejection_threshold: 0.2                              # Threshold for component rejection
       remove_flagged_ics: true          # Whether to remove marked components
                             
   
@@ -370,22 +370,23 @@ stage_files:
     enabled: false
     suffix: "_postcrop"
 
+
+  post_bad_channels:
+    enabled: true
+    suffix: "_postbadchannels"
+
   #PyLossless steps
   post_pylossless:
     enabled: true
     suffix: "_postpylossless"
 
-  post_bad_channels:
-    enabled: false
-    suffix: "_postbadchannels"
+  post_artifact_detection:
+    enabled: true
+    suffix: "_postartifactdetection"
 
   post_rejection_policy:
     enabled: true
     suffix: "_postrejection"
-
-  post_artifact_detection:
-    enabled: true
-    suffix: "_postartifactdetection"
 
   #Epochs steps
   post_epochs:
