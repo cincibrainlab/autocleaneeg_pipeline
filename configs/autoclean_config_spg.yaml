@@ -107,6 +107,7 @@ tasks:
         value:
           tmin: -0.5
           tmax: 1
+        event_id: null      # null means no triggers/events to use (disabled)
         remove_baseline: #Remove/Correct baseline
           enabled: false
           window: [null, 0]

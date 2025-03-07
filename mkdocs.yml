@@ -96,6 +96,9 @@ nav:
     - Tasks: user-guide/tasks.md
     - Step Functions: user-guide/step-functions.md
     - Configuration Files: user-guide/configuration-files.md
+    - Analysis:
+      - Overview: user-guide/analysis/index.md
+      - ASSR Analysis: user-guide/analysis/assr-analysis.md
     - Plugin System: plugin_system.md
     - Troubleshooting: user-guide/troubleshooting.md
   - API Reference:
