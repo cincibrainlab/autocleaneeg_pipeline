@@ -76,7 +76,7 @@ def load_config(config_file: Path) -> dict:
 
     with open(config_file) as f:
         config = yaml.safe_load(f)
-        breakpoint()
+
     autoclean_dict = config_schema.validate(config)
 
     # Validate signal processing parameters for each task
