@@ -240,15 +240,16 @@ class ChannelsMixin:
                 frac_bad=0.01
             )
             cleaned_raw.find_bad_by_deviation(deviation_threshold=options["deviation_thresh"])
-            cleaned_raw.find_bad_by_ransac(
-                n_samples=100,
-                sample_prop=options["ransac_sample_prop"],
-                corr_thresh=options["ransac_corr_thresh"],
-                frac_bad=options["ransac_frac_bad"],
-                corr_window_secs=5.0,
-                channel_wise=options["ransac_channel_wise"],
-                max_chunk_size=None,
-            )
+            if options["ransac_corr_thresh"] > 0:
+                cleaned_raw.find_bad_by_ransac(
+                    n_samples=100,
+                    sample_prop=options["ransac_sample_prop"],
+                    corr_thresh=options["ransac_corr_thresh"],
+                    frac_bad=options["ransac_frac_bad"],
+                    corr_window_secs=5.0,
+                    channel_wise=options["ransac_channel_wise"],
+                    max_chunk_size=None,
+                )
             
             # Get bad channels and add them to the raw object
             bad_channels = cleaned_raw.get_bads(as_dict=True)

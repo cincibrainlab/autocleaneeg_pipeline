@@ -413,3 +413,7 @@ stage_files:
     enabled: true
     suffix: "_postedit"
 
+  checkpoint:
+    enabled: true
+    suffix: "_checkpoint"
+

@@ -103,6 +103,7 @@ class RestingEyesOpenRev(Task):
         ################## RUN PYLOSSLESS CUSTOM STEPS ##################
         self.pipeline = step_get_pylossless_pipeline(self.config)
 
+
         self.pipeline.filter()
 
         #Flag bad channels
@@ -115,17 +116,11 @@ class RestingEyesOpenRev(Task):
 
         # self.pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
 
-        self.raw = self.pipeline.raw
+        bads = self.pipeline.flags['ch'].get_flagged()
+        self.pipeline.raw.info['bads'] = bads
+        self.pipeline.raw.interpolate_bads(reset_bads=True)
+        self.pipeline.raw.set_eeg_reference()
 
-        self.pipeline = self.clean_bad_channels(pipeline=self.pipeline) #not pylossless, flags bad chans, doesn't drop them this step
-
-        # self.clean_bad_channels()
-
-        self.pipeline.raw = self.raw
-
-        self.raw.interpolate_bads(reset_bads=True)
-
-        self.raw.set_eeg_reference()
 
         #Flag Bad Epochs 
 
@@ -154,11 +149,11 @@ class RestingEyesOpenRev(Task):
 
             self.pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
 
+        self.raw = self.pipeline.raw
+
         save_raw_to_set(self.raw, self.config, "post_pylossless")
 
         ################## END PYLOSSLESS ##################
-
-        
 
         # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
         self.pipeline, self.raw = step_run_ll_rejection_policy(
@@ -166,6 +161,11 @@ class RestingEyesOpenRev(Task):
         )
         save_raw_to_set(self.raw, self.config, "post_rejection_policy")
 
+        self.clean_bad_channels(deviation_thresh=3)
+
+        self.raw.interpolate_bads(reset_bads=True)
+
+        save_raw_to_set(self.raw, self.config, "checkpoint")
 
         # Create regular epochs
         self.create_regular_epochs()

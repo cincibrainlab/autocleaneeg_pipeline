@@ -3,7 +3,7 @@ from autoclean import Pipeline
 import mne
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean/1.5v11")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean/resting_post")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
