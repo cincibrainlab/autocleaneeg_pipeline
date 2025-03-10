@@ -1482,3 +1482,294 @@ def calculate_fooof_periodic(stc, freq_bands=None, n_jobs=10, output_dir=None, s
     print(f"Saved FOOOF periodic parameters to {file_path}")
     
     return periodic_df, file_path
+
+def calculate_vertex_peak_frequencies(stc, freq_range=(6, 12), alpha_range=(6, 12), n_jobs=10, output_dir=None, subject_id=None, smoothing_method='savitzky_golay'):
+    """
+    Calculate peak frequencies at the vertex level across the source space.
+    
+    Parameters
+    ----------
+    stc : instance of SourceEstimate
+        The source time course containing spectral data
+    freq_range : tuple
+        Frequency range for analysis (default: 6-12 Hz)
+    alpha_range : tuple
+        Alpha band range for peak finding (default: 6-12 Hz)
+    n_jobs : int
+        Number of parallel jobs to use for computation
+    output_dir : str | None
+        Directory to save output files
+    subject_id : str | None
+        Subject identifier for file naming
+    smoothing_method : str
+        Method for spectral smoothing ('savitzky_golay', 'moving_average', 'gaussian', 'median')
+        
+    Returns
+    -------
+    peaks_df : DataFrame
+        DataFrame containing peak frequencies and analysis parameters for each vertex
+    file_path : str
+        Path to the saved data file
+    """
+    import os
+    import numpy as np
+    import pandas as pd
+    from scipy import stats
+    from scipy.signal import find_peaks, savgol_filter
+    from scipy.optimize import curve_fit
+    from joblib import Parallel, delayed
+    import gc
+    
+    if output_dir is None:
+        output_dir = os.getcwd()
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if subject_id is None:
+        subject_id = 'unknown_subject'
+    
+    print(f"Calculating vertex-level peak frequencies for {subject_id}...")
+    
+    # Get data from stc
+    if hasattr(stc, 'data') and hasattr(stc, 'times'):
+        # Assuming stc.data contains PSDs and stc.times contains frequencies
+        psds = stc.data
+        freqs = stc.times
+    else:
+        raise ValueError("Input stc must have 'data' and 'times' attributes with PSDs and frequencies")
+    
+    # Check if frequencies are within the specified range
+    freq_mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
+    if not np.any(freq_mask):
+        raise ValueError(f"No frequencies found within the specified range {freq_range}")
+    
+    # Define Gaussian function for peak fitting
+    def gaussian(x, a, x0, sigma):
+        return a * np.exp(-(x - x0)**2 / (2 * sigma**2))
+    
+    # Define function to model 1/f trend
+    def model_1f_trend(frequencies, powers):
+        log_freq = np.log10(frequencies)
+        log_power = np.log10(powers)
+        slope, intercept, _, _, _ = stats.linregress(log_freq, log_power)
+        return slope * log_freq + intercept
+    
+    # Define smoothing function
+    def enhanced_smooth_spectrum(spectrum, method=smoothing_method):
+        if method == 'moving_average':
+            window_size = 3
+            return np.convolve(spectrum, np.ones(window_size)/window_size, mode='same')
+        
+        elif method == 'gaussian':
+            window_size = 3
+            sigma = 1.0
+            gaussian_window = np.exp(-(np.arange(window_size) - window_size//2)**2 / (2*sigma**2))
+            gaussian_window /= np.sum(gaussian_window)
+            return np.convolve(spectrum, gaussian_window, mode='same')
+        
+        elif method == 'savitzky_golay':
+            window_length = 5
+            poly_order = 2
+            return savgol_filter(spectrum, window_length, poly_order)
+        
+        elif method == 'median':
+            window_size = 3
+            return np.array([np.median(spectrum[max(0, i-window_size//2):min(len(spectrum), i+window_size//2+1)]) 
+                            for i in range(len(spectrum))])
+        
+        else:
+            return spectrum
+    
+    # Define function to find alpha peak using Dickinson method for a single vertex
+    def dickinson_method_vertex(powers, vertex_idx):
+        log_powers = np.log10(powers)
+        log_trend = model_1f_trend(freqs, powers)
+        detrended_log_powers_raw = log_powers - log_trend
+        detrended_log_powers = enhanced_smooth_spectrum(log_powers - log_trend)
+        
+        # Focus on alpha range
+        alpha_mask = (freqs >= freq_range[0]) & (freqs <= freq_range[1])
+        alpha_freqs = freqs[alpha_mask]
+        alpha_powers = detrended_log_powers[alpha_mask]
+        
+        if len(alpha_freqs) == 0:
+            return {"vertex": vertex_idx, "peak_freq": np.nan, "peak_power": np.nan, 
+                   "r_squared": np.nan, "status": "NO_DATA_IN_RANGE"}
+        
+        # Find peaks in the detrended spectrum
+        peaks, _ = find_peaks(alpha_powers, width=1)
+        
+        if len(peaks) == 0:
+            return {"vertex": vertex_idx, "peak_freq": np.nan, "peak_power": np.nan, 
+                   "r_squared": np.nan, "status": "NO_PEAKS_FOUND"}
+        
+        # Sort peaks by prominence
+        peak_prominences = alpha_powers[peaks] - np.min(alpha_powers)
+        sorted_peaks = [p for _, p in sorted(zip(peak_prominences, peaks), reverse=True)]
+        
+        # Try to fit Gaussian to each peak, starting with the most prominent
+        for peak_idx in sorted_peaks:
+            peak_freq = alpha_freqs[peak_idx]
+            if alpha_range[0] <= peak_freq <= alpha_range[1]:
+                try:
+                    p0 = [alpha_powers[peak_idx], peak_freq, 0.2]
+                    popt, pcov = curve_fit(gaussian, alpha_freqs, alpha_powers, p0=p0, maxfev=1000)
+                    
+                    if alpha_range[0] <= popt[1] <= alpha_range[1]:
+                        # Calculate R-squared for the fit
+                        fitted_curve = gaussian(alpha_freqs, *popt)
+                        ss_tot = np.sum((alpha_powers - np.mean(alpha_powers))**2)
+                        ss_res = np.sum((alpha_powers - fitted_curve)**2)
+                        r_squared = 1 - (ss_res / ss_tot) if ss_tot > 0 else 0
+                        
+                        return {"vertex": vertex_idx, "peak_freq": popt[1], "peak_power": popt[0],
+                               "peak_width": popt[2], "r_squared": r_squared, "status": "SUCCESS"}
+                except:
+                    continue
+        
+        # If no valid fit found, use the max peak in the alpha range
+        alpha_range_mask = (alpha_freqs >= alpha_range[0]) & (alpha_freqs <= alpha_range[1])
+        if np.any(alpha_range_mask):
+            max_idx = np.argmax(alpha_powers[alpha_range_mask])
+            max_peak_freq = alpha_freqs[alpha_range_mask][max_idx]
+            max_peak_power = alpha_powers[alpha_range_mask][max_idx]
+            
+            return {"vertex": vertex_idx, "peak_freq": max_peak_freq, "peak_power": max_peak_power,
+                   "peak_width": np.nan, "r_squared": np.nan, "status": "MAX_PEAK_USED"}
+        else:
+            return {"vertex": vertex_idx, "peak_freq": np.nan, "peak_power": np.nan, 
+                   "r_squared": np.nan, "status": "NO_VALID_PEAK"}
+    
+    # Process vertices in batches for memory efficiency
+    def process_batch(vertex_indices):
+        batch_results = []
+        for i in vertex_indices:
+            result = dickinson_method_vertex(psds[i], i)
+            batch_results.append(result)
+        return batch_results
+    
+    n_vertices = psds.shape[0]
+    print(f"Processing peak frequencies for {n_vertices} vertices...")
+    
+    # Create batches of vertices
+    batch_size = 2000  # Adjust based on memory constraints
+    vertex_batches = []
+    
+    for i in range(0, n_vertices, batch_size):
+        vertex_batches.append(range(i, min(i + batch_size, n_vertices)))
+    
+    # Process batches in parallel
+    all_results = Parallel(n_jobs=n_jobs)(
+        delayed(process_batch)(batch) for batch in vertex_batches
+    )
+    
+    # Flatten results
+    flat_results = [item for sublist in all_results for item in sublist]
+    
+    # Create DataFrame
+    peaks_df = pd.DataFrame(flat_results)
+    
+    # Add metadata
+    peaks_df['subject'] = subject_id
+    peaks_df['freq_range'] = f"{freq_range[0]}-{freq_range[1]}"
+    peaks_df['alpha_range'] = f"{alpha_range[0]}-{alpha_range[1]}"
+    peaks_df['analysis_date'] = pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # Save results
+    file_path = os.path.join(output_dir, f"{subject_id}_vertex_peak_frequencies.parquet")
+    peaks_df.to_csv(os.path.join(output_dir, f"{subject_id}_vertex_peak_frequencies.csv"), index=False)
+    peaks_df.to_parquet(file_path)
+    
+    print(f"Saved vertex-level peak frequencies to {file_path}")
+    
+    # Create summary statistics
+    success_rate = (peaks_df['status'] == 'SUCCESS').mean() * 100
+    avg_peak = peaks_df.loc[peaks_df['peak_freq'].notna(), 'peak_freq'].mean()
+    
+    print(f"Analysis complete: {success_rate:.1f}% of vertices with successful Gaussian fits")
+    print(f"Average peak frequency: {avg_peak:.2f} Hz")
+    
+    return peaks_df, file_path
+
+def visualize_peak_frequencies(peaks_df, stc_template, subjects_dir=None, 
+                               subject='fsaverage', output_dir=None, 
+                               colormap='viridis', vmin=None, vmax=None):
+    """
+    Visualize peak frequencies on a brain surface.
+    
+    Parameters
+    ----------
+    peaks_df : DataFrame
+        DataFrame with peak frequency results from calculate_vertex_peak_frequencies
+    stc_template : instance of SourceEstimate
+        Template source estimate to use for visualization
+    subjects_dir : str | None
+        Path to FreeSurfer subjects directory
+    subject : str
+        Subject name (default: 'fsaverage')
+    output_dir : str | None
+        Directory to save output files
+    colormap : str
+        Colormap for visualization
+    vmin, vmax : float | None
+        Minimum and maximum values for color scaling
+        
+    Returns
+    -------
+    brain : instance of Brain
+        The visualization object
+    """
+    import os
+    import numpy as np
+    import mne
+    
+    if output_dir is None:
+        output_dir = os.getcwd()
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Extract data
+    vertices = peaks_df['vertex'].values
+    peak_freqs = peaks_df['peak_freq'].values
+    
+    # Set default color limits if not provided
+    if vmin is None:
+        vmin = np.nanpercentile(peak_freqs, 5)
+    if vmax is None:
+        vmax = np.nanpercentile(peak_freqs, 95)
+    
+    # Create a data array of the right size, initialized with NaN
+    data = np.ones_like(stc_template.data[:, 0]) * np.nan
+    
+    # Fill in the peak frequency values
+    for vertex, freq in zip(vertices, peak_freqs):
+        if not np.isnan(freq):
+            data[vertex] = freq
+    
+    # Create a new SourceEstimate with peak frequency data
+    stc_viz = mne.SourceEstimate(
+        data[:, np.newaxis],
+        vertices=stc_template.vertices,
+        tmin=0,
+        tstep=1
+    )
+    
+    # Visualize
+    brain = stc_viz.plot(
+        subject=subject,
+        surface='pial',
+        hemi='both',
+        colormap=colormap,
+        clim=dict(kind='value', lims=[vmin, (vmin+vmax)/2, vmax]),
+        subjects_dir=subjects_dir,
+        title='Peak Frequency Distribution'
+    )
+    
+    # Add a colorbar
+    brain.add_annotation('aparc', borders=2, alpha=0.7)
+    
+    # Save images
+    brain.save_image(os.path.join(output_dir, 'peak_frequency_lateral.png'))
+    brain.show_view('medial')
+    brain.save_image(os.path.join(output_dir, 'peak_frequency_medial.png'))
+    
+    return brain
+
