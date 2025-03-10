@@ -588,6 +588,93 @@ def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
     ]
     return f"{enabled_stages.index(stage) + 1:02d}"
 
+def save_stc_to_file(
+    stc: mne.SourceEstimate,
+    autoclean_dict: Dict[str, Any],
+    stage: str = "post_source_localization",
+    output_path: Optional[Path] = None,
+) -> Path:
+    """Save source estimate (STC) data to file.
+
+    This function saves an MNE SourceEstimate object at a specified processing stage,
+    consistent with the pipeline's directory structure and configuration.
+
+    Args:
+        stc: SourceEstimate object to save
+        autoclean_dict: Configuration dictionary
+        stage: Processing stage identifier (default: "post_source_localization")
+        output_path: Optional custom output path. If None, uses config
+
+    Returns:
+        Path: Path to the saved file (stage path)
+
+    Raises:
+        ValueError: If stage is not configured
+        RuntimeError: If saving fails
+    """
+    # Validate stage configuration
+    if stage not in autoclean_dict["stage_files"]:
+        raise ValueError(f"Stage not configured: {stage}")
+        
+    if not autoclean_dict["stage_files"][stage]["enabled"]:
+        message("info", f"Saving disabled for stage: {stage}")
+        return None
+
+    # Extract configuration details
+    suffix = autoclean_dict["stage_files"][stage]["suffix"]
+    basename = Path(autoclean_dict["unprocessed_file"]).stem
+    stage_num = _get_stage_number(stage, autoclean_dict)
+
+    # Determine output path
+    if output_path is None:
+        output_path = autoclean_dict["stage_dir"]
+    subfolder = output_path / f"{stage_num}{suffix}"
+    subfolder.mkdir(exist_ok=True)
+    stage_path = subfolder / f"{basename}{suffix}-stc.h5"
+
+    # Handle dual saving for "post_comp" stage (if applicable)
+    paths = [stage_path]
+    if stage == "post_comp":
+        clean_path = autoclean_dict["clean_dir"] / f"{basename}{suffix}-stc.h5"
+        autoclean_dict["clean_dir"].mkdir(exist_ok=True)
+        paths.append(clean_path)
+
+    # Save the STC to all specified paths
+    for path in paths:
+        try:
+            stc.save(fname=path, ftype='h5', overwrite=True, verbose=False)
+            message("success", f"✓ Saved {stage} STC file to: {path}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to save {stage} STC file to {path}: {str(e)}")
+
+    # Create metadata for database logging
+    metadata = {
+        "save_stc_to_file": {
+            "creationDateTime": datetime.now().isoformat(),
+            "stage": stage,
+            "stage_number": stage_num,
+            "outputPaths": [str(p) for p in paths],
+            "suffix": suffix,
+            "basename": basename,
+            "format": "h5",
+            "n_vertices": stc.data.shape[0],
+            "n_times": stc.data.shape[1],
+            "tmin": stc.tmin,
+            "tstep": stc.tstep,
+        }
+    }
+
+    # Update database
+    run_id = autoclean_dict["run_id"]
+    manage_database(
+        operation="update", update_record={"run_id": run_id, "metadata": metadata}
+    )
+    manage_database(
+        operation="update_status",
+        update_record={"run_id": run_id, "status": f"{stage} completed"},
+    )
+
+    return paths[0]  # Return stage path for consistency
 
 def save_raw_to_set(
     raw: mne.io.Raw,
