@@ -94,9 +94,6 @@ class RestingEyesOpenRev(Task):
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
 
-        # Clean bad channels (flags bad channels, does not drop them yet)
-        #self.clean_bad_channels()
-
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
@@ -114,13 +111,17 @@ class RestingEyesOpenRev(Task):
 
         self.pipeline.flag_bridged_channels(data_r_ch)
 
-        # self.pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
+        self.pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
 
         bads = self.pipeline.flags['ch'].get_flagged()
+        eogs = self.config["tasks"]["RestingEyesOpenRev"]["settings"]["eog_step"]["value"]
+
+        bads = [b for b in bads if b not in eogs]
+
         self.pipeline.raw.info['bads'] = bads
         self.pipeline.raw.interpolate_bads(reset_bads=True)
+        self.pipeline.flags['ch'].clear()
         self.pipeline.raw.set_eeg_reference()
-
 
         #Flag Bad Epochs 
 
@@ -144,8 +145,14 @@ class RestingEyesOpenRev(Task):
 
         if self.pipeline.config["ica"] is not None:
             self.pipeline.run_ica("run1", message="Running Initial ICA")
+            # eog_indices, eog_scores = self.pipeline.ica1.find_bads_eog(self.raw, ch_name="E25")
+            # self.pipeline.ica1.exclude = eog_indices
+            # self.pipeline.ica1.apply(self.pipeline.raw)
 
             self.pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
+            # eog_indices, eog_scores = self.pipeline.ica2.find_bads_eog(self.raw, ch_name="E25")
+            # self.pipeline.ica2.exclude = eog_indices
+            # self.pipeline.ica2.apply(self.pipeline.raw)
 
             self.pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
 

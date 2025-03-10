@@ -1,7 +1,7 @@
 # aref_trim: 30
 bridged_channels:
     bridge_trim: 50
-    bridge_z: 16
+    bridge_z: 32
 epoching:
     epochs_args:
         baseline: null
@@ -23,8 +23,9 @@ ica:
         run2:
             # n_components: 64
             fit_params:
+                ortho: False
                 extended: true
-            method: infomax
+            method: picard
     noisy_ic_epochs:
         flag_crit: 0.2
         outlier_method: quantile
@@ -45,7 +46,7 @@ montage_info:
 - 11.5
 
 noisy_channels:
-    flag_crit: 0.3
+    flag_crit: 0.25
     outlier_method: quantile
     outliers_kwargs:
         k: 16
