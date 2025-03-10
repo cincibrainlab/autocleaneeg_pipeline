@@ -23,8 +23,14 @@ from autoclean.step_functions.epochs import (
 from autoclean.step_functions.io import (
     save_epochs_to_set,
     save_raw_to_set,
+    save_stc_to_file,
     import_eeg,
 )
+
+from autoclean.calc.source import estimate_source_function_raw
+
+import mne
+
 # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,
@@ -34,7 +40,7 @@ from autoclean.step_functions.io import (
 # )
 
 
-class resting_eyes_open_grael4k(Task):
+class resting_eyesopen_grael4k(Task):
     """Task implementation for resting state EEG preprocessing."""
 
     def __init__(self, config: Dict[str, Any]):
@@ -120,8 +126,8 @@ class resting_eyes_open_grael4k(Task):
         save_raw_to_set(self.raw, self.config, "post_pylossless")
 
         # Clean bad channels
-        self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-        save_raw_to_set(self.pipeline.raw, self.config, "post_bad_channels")
+        #self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
+        #save_raw_to_set(self.pipeline.raw, self.config, "post_bad_channels")
 
         # # Use PyLossless Rejection Policy
         self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
@@ -136,6 +142,8 @@ class resting_eyes_open_grael4k(Task):
             padding_ms=500,
         )
         save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
+
+        estimate_source_function_raw(self.cleaned_raw, self.config)
 
         # Generate visualization reports
         self._generate_reports()
@@ -176,13 +184,8 @@ class resting_eyes_open_grael4k(Task):
         # Plot ICA components using mixin method
         self.plot_ica_full(self.pipeline, self.config)
 
-        # # Generate ICA reports using mixin method
-        self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
-        )
-
         # # Create PSD topography figure using mixin method
         self.psd_topo_figure(
             self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
         )
+

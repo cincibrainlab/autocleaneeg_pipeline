@@ -7,7 +7,7 @@
 # Each task represents a different type of EEG recording (e.g., resting state, specific experiments)
 tasks:
   # RESTING STATE TASK (Eyes Open)
-  rest_eyesopen_grael4k:
+  resting_eyesopen_grael4k:
     mne_task: "rest"
     description: "Resting state with eyes open"
     lossless_config: configs/pylossless/lossless_config_spg.yaml    # Points to additional configuration settings
@@ -116,4 +116,7 @@ stage_files:
   post_edit:
     enabled: true
     suffix: "_postedit"
+  post_source_localization:
+    enabled: true
+    suffix: "_stc"
 

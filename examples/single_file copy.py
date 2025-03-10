@@ -4,7 +4,7 @@ import mne
 
 # Define paths - modify these to match your system
 EXAMPLE_OUTPUT_DIR = Path("/Users/ernie/Data/autoclean_v3")  # Where processed data will be stored
-CONFIG_FILE = Path("/Users/ernie/Documents/GitHub/autoclean_pipeline/configs/autoclean_config_spg.yaml")  # Path to config relative to working directory OR absolute path
+CONFIG_FILE = Path("/Users/ernie/Documents/GitHub/autoclean_pipeline/configs/autoclean_config_rest_4k.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
 # Create pipeline instance

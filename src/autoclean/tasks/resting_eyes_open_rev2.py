@@ -76,6 +76,8 @@ class RestingEyesOpenRev2(Task):
         
         save_raw_to_set(self.raw, self.config, "post_import")
 
+        breakpoint()
+
         # Check if data was imported successfully
         if self.raw is None:
             raise RuntimeError("No data has been imported")
