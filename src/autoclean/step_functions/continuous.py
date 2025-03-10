@@ -875,3 +875,176 @@ def step_reject_bad_segments(
     ]
     raw_cleaned = mne.concatenate_raws(raw_segments)
     return raw_cleaned
+
+
+def extend_annotations(
+    raw, pipeline, autoclean_dict, extra_duration=.5, label="BAD_LL_noisy_ICs"
+):
+    from collections import OrderedDict
+
+    # Extend each annotation by 1 second on each side
+    for ann in raw.annotations:
+        new_annotation = OrderedDict(
+            [
+                ("onset", np.float64(ann["onset"])),
+                ("duration", np.float64(ann["duration"])),
+                ("description", np.str_(ann["description"])),
+                ("orig_time", ann.get("orig_time", None)),
+            ]
+        )
+
+        # print(
+        #     f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}"
+        # )
+
+    from collections import OrderedDict
+
+    updated_annotations = []
+    for annotation in raw.annotations:
+        if annotation["description"] == label:
+            start = annotation["onset"]  # Extend start by 1 second
+            duration = (
+                annotation["duration"] + extra_duration
+            )  # Extend duration by extra_duration
+            new_ann = mne.Annotations(
+                onset=start, duration=duration, description=annotation["description"]
+            )
+            updated_annotations.append(new_ann)
+        else:
+            updated_annotations.append(annotation)  # Keep other annotations unchanged
+
+    # Create new annotation structure from updated_annotations list
+    combined_onset = []
+    combined_duration = []
+    combined_description = []
+    combined_orig_time = None
+
+    # Extract data from each annotation
+    for ann in updated_annotations:
+        if isinstance(ann, mne.Annotations):
+            # Handle single annotation objects
+            combined_onset.extend(ann.onset)
+            combined_duration.extend(ann.duration)
+            combined_description.extend(ann.description)
+            if combined_orig_time is None and hasattr(ann, "orig_time"):
+                combined_orig_time = ann.orig_time
+        else:
+            # Handle individual annotation entries
+            combined_onset.append(ann["onset"])
+            combined_duration.append(ann["duration"])
+            combined_description.append(ann["description"])
+            if combined_orig_time is None and "orig_time" in ann:
+                combined_orig_time = ann["orig_time"]
+
+    # Create new consolidated Annotations object
+    new_annotations = mne.Annotations(
+        onset=np.array(combined_onset),
+        duration=np.array(combined_duration),
+        description=np.array(combined_description),
+        orig_time=combined_orig_time,
+    )
+
+    raw.set_annotations(new_annotations)
+
+    # Extract indices and info for annotations
+    bad_indices = np.where(raw.annotations.description == label)[0]
+    n_segments = len(bad_indices)
+
+    if n_segments > 0:
+        # Create figure with subplots for each segment
+        fig, axes = plt.subplots(
+            n_segments, 1, figsize=(15, 4 * n_segments), sharex=True
+        )
+        if n_segments == 1:
+            axes = [axes]  # Ensure axes is iterable
+
+        sfreq = raw.info["sfreq"]
+        for idx, i_ann in enumerate(bad_indices):
+            onset = raw.annotations.onset[i_ann]
+            duration = raw.annotations.duration[i_ann]
+
+            # Calculate start and end times with padding
+            start_time = max(onset - 5, raw.times[0])
+            end_time = min(onset + duration + 5, raw.times[-1])
+
+            # Convert times to sample indices
+            start_sample = raw.time_as_index(start_time)[0]
+            end_sample = raw.time_as_index(end_time)[0]
+
+            # Get data and corresponding times
+            data, times = raw.get_data(
+                start=start_sample, stop=end_sample, return_times=True
+            )
+
+            # Plot the data
+            axes[idx].plot(times, data.T, "k", linewidth=0.5, alpha=0.5)
+
+            # Highlight the annotation region
+            axes[idx].axvspan(
+                onset,
+                onset + duration,
+                color="red",
+                alpha=0.2,
+                label=label,
+            )
+
+            # Add vertical lines at annotation boundaries
+            axes[idx].axvline(onset, color="red", linestyle="--", alpha=0.5)
+            axes[idx].axvline(onset + duration, color="red", linestyle="--", alpha=0.5)
+
+            axes[idx].set_title(
+                f"Segment {idx + 1}: {onset:.1f}s - {(onset + duration):.1f}s",
+                fontsize=10,
+            )
+            axes[idx].set_ylabel("Amplitude")
+            axes[idx].legend(loc="upper right")
+
+        axes[-1].set_xlabel("Time (s)")
+
+        plt.tight_layout()
+
+        # Save figure
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+        target_figure = str(
+            derivatives_path.copy().update(
+                suffix=label, extension=".pdf", datatype="eeg"
+            )
+        )
+
+        fig.savefig(target_figure, dpi=300, bbox_inches="tight")
+        plt.close(fig)
+
+    # Add catalog of annotations to metadata
+    annotations_count = (
+        sum(
+            1
+            for ann in updated_annotations
+            if isinstance(ann, mne.Annotations)
+            and ann.description == label
+        )
+        if updated_annotations
+        else 0
+    )
+
+    # Initialize metadata with required fields
+    metadata = {
+        "extended_annotations": {
+            "creationDateTime": datetime.now().isoformat(),
+            "extended_annotations": True,
+            "extra_duration": extra_duration,
+            "annotations_count": annotations_count,  # Count of annotations
+        }
+    }
+
+    # Only add figure info if it was generated
+    if "target_figure" in locals():
+        metadata["extended_annotations"][
+            "extended_annotations_figure"
+        ] = Path(target_figure).name
+
+    manage_database(
+        operation="update",
+        update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
+    )
+
+    return raw

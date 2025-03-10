@@ -15,7 +15,8 @@ from autoclean.step_functions.continuous import (
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
     step_run_pylossless,
-    step_get_pylossless_pipeline
+    step_get_pylossless_pipeline,
+    extend_annotations
 )
 from autoclean.step_functions.io import (
     save_raw_to_set,

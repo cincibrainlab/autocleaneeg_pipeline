@@ -53,7 +53,7 @@ noisy_channels:
         lower: 0.25
         upper: 0.75
 noisy_epochs:
-    flag_crit: 0.15
+    flag_crit: 0.1
     outlier_method: quantile
     outliers_kwargs:
         k: 4
