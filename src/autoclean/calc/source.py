@@ -1165,7 +1165,643 @@ def apply_spatial_smoothing(power_dict, stc, smoothing_steps=5, subject_id=None,
     
     return smoothed_dict, file_path
 
-def calculate_fooof_aperiodic(stc, freq_range=None, n_jobs=10, output_dir=None, subject_id=None, aperiodic_mode='knee'):
+def calculate_vertex_psd_for_fooof(stc, fmin=1.0, fmax=45.0, n_jobs=10, output_dir=None, subject_id=None):
+    """
+    Calculate full power spectral density at the vertex level for FOOOF analysis.
+    
+    Parameters
+    ----------
+    stc : instance of SourceEstimate
+        The source time course to calculate power from
+    fmin : float
+        Minimum frequency of interest
+    fmax : float
+        Maximum frequency of interest
+    n_jobs : int
+        Number of parallel jobs to use for computation
+    output_dir : str | None
+        Directory to save output files
+    subject_id : str | None
+        Subject identifier for file naming
+    
+    Returns
+    -------
+    stc_psd : instance of SourceEstimate
+        Source estimate containing PSD values with frequencies as time points
+    file_path : str
+        Path to the saved PSD file
+    """
+    import os
+    import numpy as np
+    import mne
+    from scipy import signal
+    from joblib import Parallel, delayed
+    
+    if output_dir is None:
+        output_dir = os.getcwd()
+    os.makedirs(output_dir, exist_ok=True)
+        
+    if subject_id is None:
+        subject_id = 'unknown_subject'
+    
+    # Get data and sampling frequency
+    data = stc.data
+    sfreq = stc.sfreq
+    n_vertices = data.shape[0]
+    
+    print(f"Calculating vertex-level PSD for FOOOF analysis - {subject_id}...")
+    print(f"Source data shape: {data.shape}")
+    
+    # Parameters for Welch's method
+    window_length = int(4 * sfreq)  # 4-second windows
+    n_overlap = window_length // 2  # 50% overlap
+    
+    # First, calculate the frequency axis (same for all vertices)
+    f, _ = signal.welch(
+        data[0], 
+        fs=sfreq, 
+        window='hann',
+        nperseg=window_length,
+        noverlap=n_overlap,
+        nfft=None
+    )
+    
+    # Filter to frequency range of interest
+    freq_mask = (f >= fmin) & (f <= fmax)
+    freqs = f[freq_mask]
+    n_freqs = len(freqs)
+    
+    print(f"Calculating PSD for {n_freqs} frequency points from {fmin} to {fmax} Hz")
+    
+    # Function to calculate PSD for a batch of vertices
+    def process_vertex_batch(vertex_indices):
+        batch_psd = np.zeros((len(vertex_indices), n_freqs))
+        
+        for i, vertex_idx in enumerate(vertex_indices):
+            # Calculate PSD using Welch's method
+            _, psd = signal.welch(
+                data[vertex_idx], 
+                fs=sfreq, 
+                window='hann',
+                nperseg=window_length,
+                noverlap=n_overlap,
+                nfft=None,
+                scaling='density'
+            )
+            
+            # Store PSD for frequencies in our range
+            batch_psd[i] = psd[freq_mask]
+        
+        return batch_psd
+    
+    # Process vertices in batches to manage memory
+    batch_size = 4000
+    n_batches = int(np.ceil(n_vertices / batch_size))
+    all_psds = np.zeros((n_vertices, n_freqs))
+    
+    print(f"Processing {n_vertices} vertices in {n_batches} batches...")
+    
+    for batch_idx in range(n_batches):
+        start_idx = batch_idx * batch_size
+        end_idx = min((batch_idx + 1) * batch_size, n_vertices)
+        vertex_batch = range(start_idx, end_idx)
+        
+        print(f"Processing batch {batch_idx+1}/{n_batches}, vertices {start_idx}-{end_idx}")
+        
+        # Calculate PSD for this batch
+        batch_psd = process_vertex_batch(vertex_batch)
+        
+        # Store in the full array
+        all_psds[start_idx:end_idx] = batch_psd
+    
+    # Create a source estimate with the PSD data
+    # This uses frequencies as time points for easy manipulation
+    stc_psd = mne.SourceEstimate(
+        all_psds, 
+        vertices=stc.vertices,
+        tmin=freqs[0], 
+        tstep=(freqs[-1] - freqs[0]) / (n_freqs - 1)
+    )
+    
+    # Save the PSD source estimate
+    file_path = os.path.join(output_dir, f"{subject_id}_psd-stc.h5")
+    stc_psd.save(file_path, overwrite=True)
+    
+    print(f"Saved vertex-level PSD to {file_path}")
+    print(f"PSD shape: {all_psds.shape}, frequency range: {freqs[0]:.1f}-{freqs[-1]:.1f} Hz")
+    
+    return stc_psd, file_path
+
+def calculate_fooof_aperiodic(stc_psd, subject_id, output_dir, n_jobs=10, aperiodic_mode='knee'):
+    """
+    Run FOOOF to model aperiodic parameters for all vertices with robust error handling.
+    
+    Parameters
+    ----------
+    stc_psd : instance of SourceEstimate
+        The source estimate containing PSD data
+    subject_id : str
+        Subject identifier for file naming
+    output_dir : str
+        Directory to save output files
+    n_jobs : int
+        Number of parallel jobs to use for computation
+    aperiodic_mode : str
+        Aperiodic mode for FOOOF ('fixed' or 'knee')
+    
+    Returns
+    -------
+    aperiodic_df : DataFrame
+        DataFrame with aperiodic parameters
+    file_path : str
+        Path to saved file
+    """
+    import os
+    import numpy as np
+    import pandas as pd
+    from fooof import FOOOFGroup
+    from joblib import Parallel, delayed
+    import gc
+    import warnings
+    
+    # Create output directory
+    os.makedirs(output_dir, exist_ok=True)
+    
+    print(f"Calculating FOOOF aperiodic parameters for {subject_id}...")
+    
+    # Get data from stc_psd
+    psds = stc_psd.data
+    freqs = stc_psd.times
+    
+    n_vertices = psds.shape[0]
+    print(f"Processing FOOOF analysis for {n_vertices} vertices...")
+    
+    # FOOOF parameters with fallback options
+    fooof_params = {
+        'peak_width_limits': [1, 8.0],
+        'max_n_peaks': 6,
+        'min_peak_height': 0.0,
+        'peak_threshold': 2.0,
+        'aperiodic_mode': aperiodic_mode,
+        'verbose': False
+    }
+    
+    fallback_params = {
+        'peak_width_limits': [1, 8.0],
+        'max_n_peaks': 3,
+        'min_peak_height': 0.1,
+        'peak_threshold': 2.5,
+        'aperiodic_mode': 'fixed',  # Fall back to fixed mode which is more stable
+        'verbose': False
+    }
+    
+    # Function to process a batch of vertices with error handling
+    def process_batch(vertices):
+        batch_psds = psds[vertices, :]
+        
+        # First attempt with primary parameters
+        with warnings.catch_warnings():
+            warnings.filterwarnings('ignore', category=RuntimeWarning)
+            
+            try:
+                fg = FOOOFGroup(**fooof_params)
+                fg.fit(freqs, batch_psds)
+                
+                # Check if fits were successful
+                if np.any(~fg.get_params('aperiodic_params')[:,0].astype(bool)):
+                    # Some fits failed, try fallback parameters
+                    raise RuntimeError("Some fits failed with primary parameters")
+                    
+            except Exception as e:
+                # Try again with fallback parameters
+                try:
+                    fg = FOOOFGroup(**fallback_params)
+                    fg.fit(freqs, batch_psds)
+                except Exception as e2:
+                    # Create dummy results for completely failed fits
+                    results = []
+                    for i, vertex_idx in enumerate(vertices):
+                        results.append({
+                            'vertex': vertex_idx,
+                            'offset': np.nan,
+                            'knee': np.nan,
+                            'exponent': np.nan,
+                            'r_squared': np.nan,
+                            'error': np.nan,
+                            'status': 'FITTING_FAILED'
+                        })
+                    return results
+        
+        # Extract aperiodic parameters
+        aperiodic_params = fg.get_params('aperiodic_params')
+        r_squared = fg.get_params('r_squared')
+        error = fg.get_params('error')
+        
+        # Process results
+        results = []
+        for i, vertex_idx in enumerate(vertices):
+            # Check for valid parameters
+            if np.any(np.isnan(aperiodic_params[i])) or np.any(np.isinf(aperiodic_params[i])):
+                results.append({
+                    'vertex': vertex_idx,
+                    'offset': np.nan,
+                    'knee': np.nan,
+                    'exponent': np.nan,
+                    'r_squared': np.nan,
+                    'error': np.nan,
+                    'status': 'NAN_PARAMS'
+                })
+                continue
+                
+            # Extract parameters based on aperiodic mode
+            if aperiodic_mode == 'knee':
+                offset = aperiodic_params[i, 0]
+                knee = aperiodic_params[i, 1]
+                exponent = aperiodic_params[i, 2]
+                
+                # Additional validation for knee mode
+                if knee <= 0 or exponent <= 0:
+                    results.append({
+                        'vertex': vertex_idx,
+                        'offset': np.nan,
+                        'knee': np.nan,
+                        'exponent': np.nan,
+                        'r_squared': np.nan,
+                        'error': np.nan,
+                        'status': 'INVALID_PARAMS'
+                    })
+                    continue
+            else:  # fixed mode
+                offset = aperiodic_params[i, 0]
+                knee = np.nan
+                exponent = aperiodic_params[i, 1]
+                
+                # Additional validation for fixed mode
+                if exponent <= 0:
+                    results.append({
+                        'vertex': vertex_idx,
+                        'offset': np.nan,
+                        'knee': np.nan,
+                        'exponent': np.nan,
+                        'r_squared': np.nan,
+                        'error': np.nan,
+                        'status': 'INVALID_EXPONENT'
+                    })
+                    continue
+            
+            # Add valid result
+            results.append({
+                'vertex': vertex_idx,
+                'offset': offset,
+                'knee': knee,
+                'exponent': exponent,
+                'r_squared': r_squared[i],
+                'error': error[i],
+                'status': 'SUCCESS'
+            })
+        
+        # Clear memory
+        del fg, batch_psds
+        gc.collect()
+        
+        return results
+    
+    # Process in batches
+    batch_size = 2000
+    n_batches = int(np.ceil(n_vertices / batch_size))
+    vertex_batches = []
+    
+    for i in range(0, n_vertices, batch_size):
+        vertex_batches.append(range(i, min(i + batch_size, n_vertices)))
+    
+    print(f"Processing {n_batches} batches with {n_jobs} parallel jobs...")
+    
+    # Run in parallel with warning suppression
+    with warnings.catch_warnings():
+        warnings.filterwarnings('ignore', category=RuntimeWarning)
+        
+        all_results = Parallel(n_jobs=n_jobs)(
+            delayed(process_batch)(batch) for batch in vertex_batches
+        )
+    
+    # Flatten results
+    flat_results = [item for sublist in all_results for item in sublist]
+    
+    # Create DataFrame
+    aperiodic_df = pd.DataFrame(flat_results)
+    
+    # Add subject_id
+    aperiodic_df.insert(0, 'subject', subject_id)
+    
+    # Save results
+    file_path = os.path.join(output_dir, f"{subject_id}_fooof_aperiodic.parquet")
+    aperiodic_df.to_csv(os.path.join(output_dir, f"{subject_id}_fooof_aperiodic.csv"), index=False)
+    aperiodic_df.to_parquet(file_path)
+    
+    # Calculate statistics for better reporting
+    success_count = (aperiodic_df['status'] == 'SUCCESS').sum()
+    success_rate = (success_count / len(aperiodic_df)) * 100
+    
+    print(f"Saved FOOOF aperiodic parameters to {file_path}")
+    print(f"Success rate: {success_rate:.1f}% ({success_count}/{len(aperiodic_df)} vertices)")
+    
+    # Report average values for successful fits
+    successful_fits = aperiodic_df[aperiodic_df['status'] == 'SUCCESS']
+    if len(successful_fits) > 0:
+        print(f"Average exponent: {successful_fits['exponent'].mean():.3f}")
+        if aperiodic_mode == 'knee':
+            print(f"Average knee: {successful_fits['knee'].mean():.3f}")
+        print(f"Average R²: {successful_fits['r_squared'].mean():.3f}")
+    
+    return aperiodic_df, file_path
+
+def visualize_fooof_results(aperiodic_df, stc_psd, peaks_df=None, subjects_dir=None, 
+                           subject='fsaverage', output_dir=None, subject_id=None, 
+                           plot_examples=True, plot_brain=True, use_log=False):
+    """
+    Create a comprehensive visualization of FOOOF analysis results.
+    
+    Parameters
+    ----------
+    aperiodic_df : DataFrame
+        DataFrame with aperiodic parameters from run_fooof_aperiodic_fit
+    stc_psd : instance of SourceEstimate
+        Source estimate containing PSD data
+    peaks_df : DataFrame | None
+        DataFrame with peak parameters from calculate_vertex_peak_frequencies
+    subjects_dir : str | None
+        Path to FreeSurfer subjects directory
+    subject : str
+        Subject name (default: 'fsaverage')
+    output_dir : str | None
+        Directory to save output files
+    subject_id : str | None
+        Subject identifier for file naming
+    plot_examples : bool
+        Whether to plot example fits (default: True)
+    plot_brain : bool
+        Whether to plot brain visualizations (default: True)
+    use_log : bool
+        Whether to use log scale for power (default: False)
+        
+    Returns
+    -------
+    fig : matplotlib Figure
+        The multi-panel figure
+    """
+    import os
+    import numpy as np
+    import pandas as pd
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    from matplotlib.colors import Normalize
+    from mpl_toolkits.axes_grid1 import make_axes_locatable
+    import seaborn as sns
+    from fooof import FOOOF
+    import mne
+    
+    if output_dir is None:
+        output_dir = os.getcwd()
+    os.makedirs(output_dir, exist_ok=True)
+    
+    if subject_id is None and 'subject' in aperiodic_df.columns:
+        subject_id = aperiodic_df['subject'].iloc[0]
+    elif subject_id is None:
+        subject_id = 'unknown_subject'
+    
+    # Filter to successful fits
+    success_df = aperiodic_df[aperiodic_df['status'] == 'SUCCESS'].copy()
+    
+    # Create figure with multiple panels
+    fig = plt.figure(figsize=(18, 12))
+    
+    # Create GridSpec for flexible panel arrangement
+    gs = gridspec.GridSpec(3, 4, figure=fig)
+    
+    # 1. Summary statistics panel
+    ax_stats = fig.add_subplot(gs[0, 0])
+    ax_stats.axis('off')
+    
+    # Calculate summary statistics
+    total_vertices = len(aperiodic_df)
+    success_count = len(success_df)
+    success_rate = (success_count / total_vertices) * 100
+    
+    summary_text = [
+        f"FOOOF Analysis Summary: {subject_id}",
+        f"Total vertices: {total_vertices}",
+        f"Successful fits: {success_count} ({success_rate:.1f}%)",
+        f"Average exponent: {success_df['exponent'].mean():.3f} ± {success_df['exponent'].std():.3f}",
+    ]
+    
+    if 'knee' in success_df.columns and not all(np.isnan(success_df['knee'])):
+        summary_text.append(f"Average knee: {success_df['knee'].dropna().mean():.3f} ± {success_df['knee'].dropna().std():.3f}")
+    
+    summary_text.append(f"Average R²: {success_df['r_squared'].mean():.3f} ± {success_df['r_squared'].std():.3f}")
+    
+    # Add peak information if available
+    if peaks_df is not None:
+        peaks_success = peaks_df[peaks_df['status'] == 'SUCCESS']
+        if len(peaks_success) > 0:
+            summary_text.append(f"Peak detection: {len(peaks_success)} vertices ({len(peaks_success)/total_vertices*100:.1f}%)")
+            summary_text.append(f"Average peak freq: {peaks_success['peak_freq'].mean():.2f} ± {peaks_success['peak_freq'].std():.2f} Hz")
+    
+    # Display statistics
+    ax_stats.text(0.05, 0.95, '\n'.join(summary_text), ha='left', va='top', fontsize=11,
+                 bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+    
+    # 2. Exponent distribution histogram
+    ax_exp = fig.add_subplot(gs[0, 1])
+    sns.histplot(success_df['exponent'], bins=30, kde=True, ax=ax_exp)
+    ax_exp.set_title('Aperiodic Exponent Distribution')
+    ax_exp.set_xlabel('Exponent')
+    ax_exp.set_ylabel('Count')
+    
+    # 3. Knee distribution histogram (if available)
+    if 'knee' in success_df.columns and not all(np.isnan(success_df['knee'])):
+        ax_knee = fig.add_subplot(gs[0, 2])
+        knee_values = success_df['knee'].dropna()
+        if len(knee_values) > 0:
+            sns.histplot(knee_values, bins=30, kde=True, ax=ax_knee)
+            ax_knee.set_title('Knee Parameter Distribution')
+            ax_knee.set_xlabel('Knee')
+            ax_knee.set_ylabel('Count')
+    
+    # 4. R² distribution histogram
+    ax_r2 = fig.add_subplot(gs[0, 3])
+    sns.histplot(success_df['r_squared'], bins=30, kde=True, ax=ax_r2)
+    ax_r2.set_title('R² Distribution')
+    ax_r2.set_xlabel('R²')
+    ax_r2.set_ylabel('Count')
+    
+    # 5. Status breakdown pie chart
+    ax_status = fig.add_subplot(gs[1, 0])
+    status_counts = aperiodic_df['status'].value_counts()
+    ax_status.pie(status_counts, labels=status_counts.index, autopct='%1.1f%%',
+                 shadow=True, startangle=90)
+    ax_status.set_title('Fitting Status Distribution')
+    
+    # 6. Example fits (if requested)
+    if plot_examples and len(success_df) > 0:
+        # Get data
+        psds = stc_psd.data
+        freqs = stc_psd.times
+        
+        # Create FOOOF model for visualization
+        fm = FOOOF(peak_width_limits=[1, 8.0], aperiodic_mode='knee' if 'knee' in success_df.columns else 'fixed')
+        
+        # Plot 3 examples: best fit, median fit, and worst fit (among successful)
+        r2_sorted = success_df.sort_values('r_squared', ascending=False)
+        best_idx = r2_sorted.iloc[0]['vertex']
+        median_idx = r2_sorted.iloc[len(r2_sorted)//2]['vertex']
+        worst_idx = r2_sorted.iloc[-1]['vertex']
+        
+        def plot_fit_custom(fm, ax, plt_log=use_log):
+            """Custom function to plot FOOOF fits on linear or log scale"""
+            # Get data from FOOOF model
+            ap_fit = fm._ap_fit
+            peak_fit = fm._peak_fit
+            model_fit = fm.fooofed_spectrum_
+            freq_range = fm.freq_range
+            freqs = fm.freqs
+            power_spectrum = fm.power_spectrum
+            
+            # Plot original spectrum
+            ax.plot(freqs, power_spectrum, 'k-', linewidth=2.0, label='Original Spectrum')
+            
+            # Plot model fit
+            ax.plot(freqs, model_fit, 'r-', linewidth=2.5, alpha=0.5, label='Full Model Fit')
+            
+            # Plot aperiodic fit
+            ax.plot(freqs, ap_fit, 'b--', linewidth=2.5, alpha=0.5, label='Aperiodic Fit')
+            
+            # Configure plot
+            ax.set_xlim([freqs.min(), freqs.max()])
+            if plt_log:
+                ax.set_ylabel('log(Power)')
+            else:
+                ax.set_ylabel('Power')
+            ax.set_xlabel('Frequency (Hz)')
+            ax.legend(fontsize='small')
+            
+            # Return axis
+            return ax
+        
+        # Best fit example
+        ax_best = fig.add_subplot(gs[1, 1])
+        fm.fit(freqs, psds[int(best_idx)])
+        plot_fit_custom(fm, ax_best)
+        ax_best.set_title(f'Best Fit (R²={r2_sorted.iloc[0]["r_squared"]:.3f})')
+        
+        # Median fit example
+        ax_median = fig.add_subplot(gs[1, 2])
+        fm.fit(freqs, psds[int(median_idx)])
+        plot_fit_custom(fm, ax_median)
+        ax_median.set_title(f'Median Fit (R²={r2_sorted.iloc[len(r2_sorted)//2]["r_squared"]:.3f})')
+        
+        # Worst fit example
+        ax_worst = fig.add_subplot(gs[1, 3])
+        fm.fit(freqs, psds[int(worst_idx)])
+        plot_fit_custom(fm, ax_worst)
+        ax_worst.set_title(f'Worst Successful Fit (R²={r2_sorted.iloc[-1]["r_squared"]:.3f})')
+    
+    # 7. Brain maps of parameters (if requested)
+    if plot_brain and subjects_dir is not None:
+        # Create source estimates for visualization
+        vertices = stc_psd.vertices
+        
+        # A) Exponent brain map
+        exponent_data = np.ones(total_vertices) * np.nan
+        for _, row in success_df.iterrows():
+            exponent_data[int(row['vertex'])] = row['exponent']
+        
+        exponent_stc = mne.SourceEstimate(
+            exponent_data[:, np.newaxis],
+            vertices=vertices,
+            tmin=0,
+            tstep=1
+        )
+        
+        # Plot exponent brain map
+        brain_exp = exponent_stc.plot(
+            subject=subject,
+            surface='pial',
+            hemi='both',
+            colormap='viridis',
+            clim=dict(kind='value', 
+                     lims=[np.nanpercentile(exponent_data, 5),
+                           np.nanpercentile(exponent_data, 50),
+                           np.nanpercentile(exponent_data, 95)]),
+            subjects_dir=subjects_dir,
+            title='Aperiodic Exponent',
+            background='white',
+            size=(800, 600)
+        )
+        
+        # Save the brain visualization
+        brain_exp.save_image(os.path.join(output_dir, f"{subject_id}_exponent_brain.png"))
+        
+        # Add the brain image to the figure
+        img = plt.imread(os.path.join(output_dir, f"{subject_id}_exponent_brain.png"))
+        ax_brain_exp = fig.add_subplot(gs[2, :2])
+        ax_brain_exp.imshow(img)
+        ax_brain_exp.set_title('Aperiodic Exponent Brain Map')
+        ax_brain_exp.axis('off')
+        
+        # B) Peak frequency brain map (if available)
+        if peaks_df is not None:
+            peaks_success = peaks_df[peaks_df['status'] == 'SUCCESS']
+            if len(peaks_success) > 0:
+                peak_data = np.ones(total_vertices) * np.nan
+                for _, row in peaks_success.iterrows():
+                    peak_data[int(row['vertex'])] = row['peak_freq']
+                
+                peak_stc = mne.SourceEstimate(
+                    peak_data[:, np.newaxis],
+                    vertices=vertices,
+                    tmin=0,
+                    tstep=1
+                )
+                
+                # Plot peak frequency brain map
+                brain_peak = peak_stc.plot(
+                    subject=subject,
+                    surface='pial',
+                    hemi='both',
+                    colormap='plasma',
+                    clim=dict(kind='value', 
+                             lims=[np.nanpercentile(peak_data, 5),
+                                   np.nanpercentile(peak_data, 50),
+                                   np.nanpercentile(peak_data, 95)]),
+                    subjects_dir=subjects_dir,
+                    title='Peak Frequency',
+                    background='white',
+                    size=(800, 600)
+                )
+                
+                # Save the brain visualization
+                brain_peak.save_image(os.path.join(output_dir, f"{subject_id}_peak_freq_brain.png"))
+                
+                # Add the brain image to the figure
+                img = plt.imread(os.path.join(output_dir, f"{subject_id}_peak_freq_brain.png"))
+                ax_brain_peak = fig.add_subplot(gs[2, 2:])
+                ax_brain_peak.imshow(img)
+                ax_brain_peak.set_title('Peak Frequency Brain Map')
+                ax_brain_peak.axis('off')
+    
+    # Adjust layout and save
+    plt.tight_layout()
+    scale_type = "log" if use_log else "linear"
+    fig.savefig(os.path.join(output_dir, f"{subject_id}_fooof_summary_{scale_type}.png"), dpi=300, bbox_inches='tight')
+    fig.savefig(os.path.join(output_dir, f"{subject_id}_fooof_summary_{scale_type}.pdf"), bbox_inches='tight')
+    
+    print(f"Visualization saved to {os.path.join(output_dir, f'{subject_id}_fooof_summary_{scale_type}.png')}")
+    
+    return fig
+
+
+
+def calculate_fooof_aperiodic_old(stc, freq_range=None, n_jobs=10, output_dir=None, subject_id=None, aperiodic_mode='knee'):
     """
     Calculate FOOOF aperiodic parameters from source-localized data and save results.
     
