@@ -226,7 +226,7 @@ class RegularEpochsMixin:
                 "final_epoch_count": len(epochs_clean),
                 "single_epoch_duration": epochs.times[-1] - epochs.times[0],
                 "single_epoch_samples": epochs.times.shape[0],
-                "durationSec": (epochs.times[-1] - epochs.times[0]) * len(epochs_clean),
+                "initial_duration": (epochs.times[-1] - epochs.times[0]) * len(epochs_clean),
                 "numberSamples": epochs.times.shape[0] * len(epochs_clean),
                 "channelCount": len(epochs.ch_names),
                 "annotation_types": annotation_types,

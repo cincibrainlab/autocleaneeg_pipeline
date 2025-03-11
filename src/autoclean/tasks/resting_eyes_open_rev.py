@@ -83,10 +83,6 @@ class RestingEyesOpenRev(Task):
         
         message("header", "\nRunning preprocessing steps")
         
-        # Use the resample_data mixin method instead of relying on step_pre_pipeline_processing
-        # to handle resampling
-        self.resample_data(stage_name="post_resample")
-        
         # Continue with other preprocessing steps
         # Note: step_pre_pipeline_processing will skip resampling if already done
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
@@ -98,70 +94,11 @@ class RestingEyesOpenRev(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        ################## RUN PYLOSSLESS CUSTOM STEPS ##################
-        self.pipeline = step_get_pylossless_pipeline(self.config)
+        #Run PyLossless Pipeline
+        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
 
-
-        self.pipeline.filter()
-
-        #Flag bad channels
-
-        self.pipeline.flag_noisy_channels()
-
-        data_r_ch = self.pipeline.flag_uncorrelated_channels()
-
-        self.pipeline.flag_bridged_channels(data_r_ch)
-
-        self.pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
-
-        bads = self.pipeline.flags['ch'].get_flagged()
-        eogs = self.config["tasks"]["RestingEyesOpenRev"]["settings"]["eog_step"]["value"]
-
-        bads = [b for b in bads if b not in eogs]
-
-        self.pipeline.raw.info['bads'] = bads
-        self.pipeline.raw.interpolate_bads(reset_bads=True)
-        self.pipeline.flags['ch'].clear()
-        self.pipeline.raw.set_eeg_reference()
-
-        #Flag Bad Epochs 
-
-        self.pipeline.flag_noisy_epochs(message="Flagging Noisy Epochs")
-
-        self.pipeline.flag_uncorrelated_epochs(message="Flagging Uncorrelated epochs")
-
-        self.raw = self.pipeline.raw
-
-        # Detect and mark dense oscillatory artifacts
+        #Add more artifact detection steps
         self.detect_dense_oscillatory_artifacts()
-
-        # Detect and mark muscle artifacts in beta frequency range
-        #self.detect_muscle_beta_focus()
-
-        save_raw_to_set(self.raw, self.config, "post_artifact_detection")
-
-        #self.reject_bad_segments()
-
-        self.pipeline.raw = self.raw
-
-        if self.pipeline.config["ica"] is not None:
-            self.pipeline.run_ica("run1", message="Running Initial ICA")
-            eog_indices, eog_scores = self.pipeline.ica1.find_bads_eog(self.raw, ch_name="E25")
-            self.pipeline.ica1.exclude = eog_indices
-            self.pipeline.ica1.apply(self.pipeline.raw)
-
-            self.pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
-            eog_indices, eog_scores = self.pipeline.ica2.find_bads_eog(self.raw, ch_name="E25")
-            self.pipeline.ica2.exclude = eog_indices
-            self.pipeline.ica2.apply(self.pipeline.raw)
-
-            self.pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
-
-        self.raw = self.pipeline.raw
-
-        save_raw_to_set(self.raw, self.config, "post_pylossless")
-
-        ################## END PYLOSSLESS ##################
 
         # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
         self.pipeline, self.raw = step_run_ll_rejection_policy(
@@ -169,6 +106,7 @@ class RestingEyesOpenRev(Task):
         )
         save_raw_to_set(self.raw, self.config, "post_rejection_policy")
 
+        #Clean bad channels post ICA
         self.clean_bad_channels(deviation_thresh=3)
 
         self.raw.interpolate_bads(reset_bads=True)

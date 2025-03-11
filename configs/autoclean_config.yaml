@@ -37,7 +37,8 @@ tasks:
           start: 0          # Start time in seconds
           end: 60         # null means use entire recording, or specify time in seconds (e.g., 30.0)
       
-      reference_step:
+
+      reference_step: #If enabled rereferencing will be done during step_prepipeline_processing. Otherwise it will be done during step_pylossless.
         enabled: false
         value: "average"    # Type of EEG reference to use
       

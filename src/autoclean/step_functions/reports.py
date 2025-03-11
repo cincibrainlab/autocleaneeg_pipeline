@@ -2186,7 +2186,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
                     df.loc[
                         df["subj_basename"] == subj_basename,
                         list(details.keys()),
-                    ] = pd.Series(details)
+                    ] = list(details.values())  # Use list of values instead of pd.Series which can cause index mismatch
                 else:
                     # Append new entry
                     df = pd.concat([df, pd.DataFrame([details])], ignore_index=True)
@@ -2288,6 +2288,11 @@ def create_json_summary(run_id: str) -> None:
             "bads"
         ]
 
+    if "step_custom_pylossless_pipeline" in metadata:
+        channel_dict["step_custom_pylossless_pipeline"] = metadata["step_custom_pylossless_pipeline"][
+            "bads"
+        ]
+
     flagged_chs_file = None
     for file_name in outputs:
         if file_name.endswith("FlaggedChs.tsv"):
@@ -2331,6 +2336,13 @@ def create_json_summary(run_id: str) -> None:
     processing_details = {}
     if "step_run_pylossless" in metadata:
         pylossless_info = metadata["step_run_pylossless"]["pylossless_config"]
+    elif "step_custom_pylossless_pipeline" in metadata:
+        pylossless_info = metadata["step_get_pylossless_pipeline"]["pylossless_config"]
+    else:
+        message("warning", "No pylossless info found. Processing details may be missing")
+        pylossless_info = None
+    
+    if pylossless_info is not None:
         processing_details["h_freq"] = pylossless_info["filtering"]["filter_args"][
             "h_freq"
         ]
@@ -2346,6 +2358,7 @@ def create_json_summary(run_id: str) -> None:
             ]["notch_widths"]
         else:
             processing_details["notch_widths"] = "notch_freqs/200"
+    
 
     # FIND EXPORT DETAILS
     export_details = {}
@@ -2363,33 +2376,25 @@ def create_json_summary(run_id: str) -> None:
             export_details["net_nbchan_post"] = original_channel_count
 
     if "step_create_regular_epochs" in metadata:
-        make_fixed_length_epochs = metadata["step_create_regular_epochs"]
-        export_details["initial_n_epochs"] = make_fixed_length_epochs[
+        epoch_metadata = metadata["step_create_regular_epochs"]
+    elif "step_create_eventid_epochs" in metadata:
+        epoch_metadata = metadata["step_create_eventid_epochs"]
+    else:
+        message("warning", "No epoch creation details found. Processing details may be missing")
+        epoch_metadata = None
+    
+    if epoch_metadata is not None:
+        export_details["initial_n_epochs"] = epoch_metadata[
             "initial_epoch_count"
         ]
-        export_details["initial_duration"] = (
-            make_fixed_length_epochs["initial_epoch_count"]
-            * make_fixed_length_epochs["duration"]
-        )
+        export_details["initial_duration"] = epoch_metadata["initial_duration"]
         export_details["srate_post"] = (
-            make_fixed_length_epochs["single_epoch_samples"]
-            // make_fixed_length_epochs["duration"]
+            (epoch_metadata["single_epoch_samples"] -1)
+            // epoch_metadata["single_epoch_duration"]
         )
         export_details["epoch_limits"] = [
-            make_fixed_length_epochs["tmin"],
-            make_fixed_length_epochs["tmax"],
-        ]
-
-    elif "step_create_eventid_epochs" in metadata:
-        create_eventid_epochs = metadata["step_create_eventid_epochs"]
-        export_details["initial_n_epochs"] = create_eventid_epochs["initial_epoch_count"]
-        export_details["initial_duration"] = create_eventid_epochs["durationSec"]
-        export_details["srate_post"] = (
-            create_eventid_epochs["single_epoch_samples"] - 1
-        ) / create_eventid_epochs["single_epoch_duration"]
-        export_details["epoch_limits"] = [
-            create_eventid_epochs["tmin"],
-            create_eventid_epochs["tmax"],
+            epoch_metadata["tmin"],
+            epoch_metadata["tmax"],
         ]
 
     ica_details = {}
