@@ -64,6 +64,7 @@ dependencies = [
     "networkx>=3.4.2",
     "bctpy>=0.6.1",
     "fooof>=1.1.0",
+    "python-picard==0.8",
 ]
 
 [project.urls]

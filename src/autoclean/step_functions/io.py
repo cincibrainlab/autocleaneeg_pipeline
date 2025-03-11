@@ -17,6 +17,7 @@ import mne
 import numpy as np
 import pandas as pd
 import scipy.io as sio
+import picard
 
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message

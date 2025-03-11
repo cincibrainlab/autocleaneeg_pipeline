@@ -11,10 +11,10 @@ epoching:
 filtering:
     filter_args: # Arguments are directly passed into mne.io.Raw.filter()
         h_freq: 100
-        l_freq: 1
+        l_freq: 2
     notch_filter_args: # Arguments are directly passed into mne.io.Raw.notch_filter()
         freqs: [60, 120]
-        notch_widths: 3
+        notch_widths: 5
 find_breaks: null
 ica:
     ica_args:
@@ -46,7 +46,7 @@ montage_info:
 - 11.5
 
 noisy_channels:
-    flag_crit: 0.25
+    flag_crit: 0.2
     outlier_method: quantile
     outliers_kwargs:
         k: 16
@@ -64,14 +64,14 @@ nearest_neighbors:
     n_nbr_ch: 3
     n_nbr_epoch: 3
 uncorrelated_channels:
-    flag_crit: 0.25
+    flag_crit: 0.1
     outlier_method: quantile
     outliers_kwargs:
         k: 6
         lower: 0.2
         upper: 0.8
 uncorrelated_epochs:
-    flag_crit: 0.15
+    flag_crit: 0.1
     outlier_method: quantile
     outliers_kwargs:
         k: 6

@@ -146,14 +146,14 @@ class RestingEyesOpenRev(Task):
 
         if self.pipeline.config["ica"] is not None:
             self.pipeline.run_ica("run1", message="Running Initial ICA")
-            # eog_indices, eog_scores = self.pipeline.ica1.find_bads_eog(self.raw, ch_name="E25")
-            # self.pipeline.ica1.exclude = eog_indices
-            # self.pipeline.ica1.apply(self.pipeline.raw)
+            eog_indices, eog_scores = self.pipeline.ica1.find_bads_eog(self.raw, ch_name="E25")
+            self.pipeline.ica1.exclude = eog_indices
+            self.pipeline.ica1.apply(self.pipeline.raw)
 
             self.pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
-            # eog_indices, eog_scores = self.pipeline.ica2.find_bads_eog(self.raw, ch_name="E25")
-            # self.pipeline.ica2.exclude = eog_indices
-            # self.pipeline.ica2.apply(self.pipeline.raw)
+            eog_indices, eog_scores = self.pipeline.ica2.find_bads_eog(self.raw, ch_name="E25")
+            self.pipeline.ica2.exclude = eog_indices
+            self.pipeline.ica2.apply(self.pipeline.raw)
 
             self.pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
 
