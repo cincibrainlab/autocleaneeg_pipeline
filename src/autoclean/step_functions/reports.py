@@ -2166,8 +2166,13 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
                 
                 if bad_channels_count > 0 and float(total_channels) > 0:
                     bad_channels_pct = (bad_channels_count / float(total_channels)) * 100
-                    if bad_channels_pct > 20:
+                    if bad_channels_pct > 1:
                         flags.append(f"WARNING: {bad_channels_pct:.1f}% of channels rejected (>{bad_channels_count})")
+
+            ref_artifacts = str(safe_get(summary_dict, "processing_details", "ref_artifacts", default=""))
+            if int(ref_artifacts) > 2:
+                flags.append(f"WARNING: {ref_artifacts} potential reference artifacts detected")
+                
         except Exception as e:
             message("warning", f"Error calculating flags: {str(e)}")
         
@@ -2183,7 +2188,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             "subj_basename": Path(summary_dict.get("basename", "")).stem,
             "bids_subject": summary_dict.get("bids_subject", ""),
             "task": summary_dict.get("task", ""),
-            "flagged": flagged,  # Add the new flagged column
+            "flags": flagged,  # Add the new flagged column
             "net_nbchan_orig": str(safe_get(summary_dict, "import_details", "net_nbchan_orig", default="")),
             "net_nbchan_post": str(safe_get(summary_dict, "export_details", "net_nbchan_post", default="")),
             "proc_badchans": str(safe_get(summary_dict, "channel_dict", "removed_channels", default="")),
@@ -2195,11 +2200,6 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             "proc_sRate1": str(safe_get(summary_dict, "export_details", "srate_post", default="")),
             "proc_xmax_raw": str(safe_get(summary_dict, "import_details", "duration", default="")),
             "proc_xmax_post": str(safe_get(summary_dict, "export_details", "final_duration", default="")),
-            "proc_nComps": str(safe_get(summary_dict, "ica_details", "proc_nComps", default="")),
-            "proc_removeComps": str(safe_get(summary_dict, "ica_details", "proc_removeComps", default="")),
-            "proc_epochs_orig": str(safe_get(summary_dict, "export_details", "initial_n_epochs", default="")),
-            "proc_epochs_post": str(safe_get(summary_dict, "export_details", "final_n_epochs", default="")),
-            "exclude_category": summary_dict.get("exclude_category", ""),
         }
         
         # Add calculated fields
@@ -2219,6 +2219,12 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
                 safe_get(summary_dict, "export_details", "final_n_epochs", default=""),
                 safe_get(summary_dict, "export_details", "initial_n_epochs", default=""),
             ),
+        })
+
+        details.update({
+            "proc_nComps": str(safe_get(summary_dict, "ica_details", "proc_nComps", default="")),
+            "proc_removeComps": str(safe_get(summary_dict, "ica_details", "proc_removeComps", default="")),
+            "exclude_category": summary_dict.get("exclude_category", ""),
         })
         
         # Handle CSV operations with appropriate error handling
@@ -2455,6 +2461,10 @@ def create_json_summary(run_id: str) -> None:
         ll_rejection_policy = metadata["step_run_ll_rejection_policy"]
         ica_details["proc_removeComps"] = ll_rejection_policy["ica_components"]
         ica_details["proc_nComps"] = ll_rejection_policy["n_components"]
+
+    if "step_detect_dense_oscillatory_artifacts" in metadata:
+        ref_artifacts = metadata["step_detect_dense_oscillatory_artifacts"]["artifacts_detected"]
+        processing_details["ref_artifacts"] = ref_artifacts
 
     summary_dict = {
         "run_id": run_id,
