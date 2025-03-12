@@ -1327,49 +1327,64 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         )
         return
 
-    else:
-        try:
-            if autoclean_dict:
-                try:
-                    bids_path = None
-                    bids_path = autoclean_dict["bids_path"]
-                except Exception:
-                    message(
-                        "warning",
-                        "Failed to get BIDS path from autoclean_dict: Trying metadata",
-                    )
-            if not bids_path and "step_convert_to_bids" in run_record["metadata"]:
-                bids_info = run_record["metadata"]["step_convert_to_bids"]
-                if bids_info:
-                    # Reconstruct BIDSPath object
-                    bids_path = BIDSPath(
-                        subject=bids_info["bids_subject"],
-                        session=bids_info["bids_session"],
-                        task=bids_info["bids_task"],
-                        run=bids_info["bids_run"],
-                        datatype=bids_info["bids_datatype"],
-                        root=bids_info["bids_root"],
-                        suffix=bids_info["bids_suffix"],
-                        extension=bids_info["bids_extension"],
-                    )
+    # Check if JSON summary exists and use it if available
+    json_summary = None
+    if "json_summary" in run_record["metadata"]:
+        json_summary = run_record["metadata"]["json_summary"]
+        message("info", "Using JSON summary for report generation")
+    
+    # If no JSON summary, create it
+    if not json_summary:
+        message("info", "No JSON summary found, creating one")
+        json_summary = create_json_summary(run_id)
+    
+    # Set up BIDS path
+    bids_path = None
+    try:
+        if autoclean_dict:
+            try:
+                bids_path = autoclean_dict["bids_path"]
+            except Exception:
+                message(
+                    "warning",
+                    "Failed to get BIDS path from autoclean_dict: Trying metadata",
+                )
+        
+        if not bids_path:
+            if json_summary and "bids_subject" in json_summary:
+                # Try to reconstruct from JSON summary
+                if "step_convert_to_bids" in run_record["metadata"]:
+                    bids_info = run_record["metadata"]["step_convert_to_bids"]
+                    if bids_info:
+                        # Reconstruct BIDSPath object
+                        bids_path = BIDSPath(
+                            subject=bids_info["bids_subject"],
+                            session=bids_info["bids_session"],
+                            task=bids_info["bids_task"],
+                            run=bids_info["bids_run"],
+                            datatype=bids_info["bids_datatype"],
+                            root=bids_info["bids_root"],
+                            suffix=bids_info["bids_suffix"],
+                            extension=bids_info["bids_extension"],
+                        )
 
-            task = run_record["task"]
-            config_path = run_record["metadata"]["entrypoint"]["tasks"][task][
-                "lossless_config"
-            ]
-            derivative_name = "pylossless"
-            pipeline = ll.LosslessPipeline(config_path)
-            derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
-            derivatives_dir = Path(derivatives_path.directory)
-            derivatives_path = str(
-                derivatives_path.copy().update(suffix="report", extension=".pdf")
-            )
-        except Exception as e:
-            message(
-                "warning",
-                f"Failed to get BIDS path: {str(e)} : Saving only to metadata directory",
-            )
-            derivatives_path = None
+        task = run_record["task"]
+        config_path = run_record["metadata"]["entrypoint"]["tasks"][task][
+            "lossless_config"
+        ]
+        derivative_name = "pylossless"
+        pipeline = ll.LosslessPipeline(config_path)
+        derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
+        derivatives_dir = Path(derivatives_path.directory)
+        derivatives_path = str(
+            derivatives_path.copy().update(suffix="report", extension=".pdf")
+        )
+    except Exception as e:
+        message(
+            "warning",
+            f"Failed to get BIDS path: {str(e)} : Saving only to metadata directory",
+        )
+        derivatives_path = None
 
     # Get metadata directory from step_prepare_directories
     metadata_dir = Path(run_record["metadata"]["step_prepare_directories"]["metadata"])
@@ -1501,30 +1516,56 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
 
     # Left column: Import info with colored background
     try:
-        raw_info = run_record["metadata"].get("import_eeg", {})
-        if not raw_info:
-            raw_info = {"message": "Step import metadata not available"}
-
         import_info = []
-        # Get values and format them safely
-        duration = raw_info.get("durationSec")
-        duration_str = (
-            f"{duration:.1f} sec" if isinstance(duration, (int, float)) else "N/A"
-        )
+        
+        if json_summary and "import_details" in json_summary:
+            # Use data from JSON summary
+            import_details = json_summary["import_details"]
+            
+            # Get values and format them safely
+            duration = import_details.get("duration")
+            duration_str = (
+                f"{duration:.1f} sec" if isinstance(duration, (int, float)) else "N/A"
+            )
 
-        sample_rate = raw_info.get("sampleRate")
-        sample_rate_str = (
-            f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "N/A"
-        )
+            sample_rate = import_details.get("sample_rate")
+            sample_rate_str = (
+                f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "N/A"
+            )
 
-        import_info.extend(
-            [
-                ["File", raw_info.get("unprocessedFile", "N/A")],
-                ["Duration", duration_str],
-                ["Sample Rate", sample_rate_str],
-                ["Channels", str(raw_info.get("channelCount", "N/A"))],
-            ]
-        )
+            import_info.extend(
+                [
+                    ["File", import_details.get("basename", "N/A")],
+                    ["Duration", duration_str],
+                    ["Sample Rate", sample_rate_str],
+                    ["Channels", str(import_details.get("net_nbchan_orig", "N/A"))],
+                ]
+            )
+        else:
+            # Fall back to direct metadata access
+            raw_info = run_record["metadata"].get("import_eeg", {})
+            if not raw_info:
+                raw_info = {"message": "Step import metadata not available"}
+
+            # Get values and format them safely
+            duration = raw_info.get("durationSec")
+            duration_str = (
+                f"{duration:.1f} sec" if isinstance(duration, (int, float)) else "N/A"
+            )
+
+            sample_rate = raw_info.get("sampleRate")
+            sample_rate_str = (
+                f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "N/A"
+            )
+
+            import_info.extend(
+                [
+                    ["File", raw_info.get("unprocessedFile", "N/A")],
+                    ["Duration", duration_str],
+                    ["Sample Rate", sample_rate_str],
+                    ["Channels", str(raw_info.get("channelCount", "N/A"))],
+                ]
+            )
 
         if not import_info:
             import_info = [["No import data available", "N/A"]]
@@ -1551,48 +1592,72 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     # Middle column: Preprocessing parameters
     preproc_info = []
     try:
-        if "entrypoint" in run_record["metadata"]:
-            task_config = run_record["metadata"]["entrypoint"]["tasks"][
-                run_record["metadata"]["entrypoint"]["task"]
-            ]["settings"]
+        if json_summary and "processing_details" in json_summary:
+            # Use data from JSON summary
+            processing_details = json_summary["processing_details"]
+            
             preproc_info.extend(
                 [
                     [
-                        "Resample",
-                        (
-                            f"{task_config['resample_step']['value']} Hz"
-                            if task_config["resample_step"]["enabled"]
-                            else "Disabled"
-                        ),
+                        "Filter",
+                        f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
                     ],
                     [
-                        "Trim",
-                        (
-                            f"{task_config['trim_step']['value']} sec"
-                            if task_config["trim_step"]["enabled"]
-                            else "Disabled"
-                        ),
-                    ],
-                    [
-                        "Reference",
-                        (
-                            str(task_config["reference_step"]["value"])
-                            if isinstance(task_config["reference_step"]["value"], str)
-                            else (
-                                ", ".join(task_config["reference_step"]["value"])
-                                if isinstance(
-                                    task_config["reference_step"]["value"], list
-                                )
-                                else (
-                                    "Disabled"
-                                    if task_config["reference_step"]["enabled"]
-                                    else "Disabled"
-                                )
-                            )
-                        ),
+                        "Notch",
+                        f"{processing_details.get('notch_freqs', ['N/A'])[0]} Hz",
                     ],
                 ]
             )
+            
+            # Add more preprocessing info if available in JSON summary
+            if "export_details" in json_summary:
+                export_details = json_summary["export_details"]
+                if "srate_post" in export_details:
+                    preproc_info.append(["Resampled", f"{export_details['srate_post']} Hz"])
+        else:
+            # Fall back to direct metadata access
+            if "entrypoint" in run_record["metadata"]:
+                task_config = run_record["metadata"]["entrypoint"]["tasks"][
+                    run_record["metadata"]["entrypoint"]["task"]
+                ]["settings"]
+                preproc_info.extend(
+                    [
+                        [
+                            "Resample",
+                            (
+                                f"{task_config['resample_step']['value']} Hz"
+                                if task_config["resample_step"]["enabled"]
+                                else "Disabled"
+                            ),
+                        ],
+                        [
+                            "Trim",
+                            (
+                                f"{task_config['trim_step']['value']} sec"
+                                if task_config["trim_step"]["enabled"]
+                                else "Disabled"
+                            ),
+                        ],
+                        [
+                            "Reference",
+                            (
+                                str(task_config["reference_step"]["value"])
+                                if isinstance(task_config["reference_step"]["value"], str)
+                                else (
+                                    ", ".join(task_config["reference_step"]["value"])
+                                    if isinstance(
+                                        task_config["reference_step"]["value"], list
+                                    )
+                                    else (
+                                        "Disabled"
+                                        if task_config["reference_step"]["enabled"]
+                                        else "Disabled"
+                                    )
+                                )
+                            ),
+                        ],
+                    ]
+                )
     except Exception as e:
         message("warning", f"Error processing preprocessing parameters: {str(e)}")
         preproc_info = [["Error processing parameters", "N/A"]]
@@ -1618,29 +1683,53 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     # Right column: Lossless settings
     lossless_info = []
     try:
-        if "step_run_pylossless" in run_record["metadata"]:
-            lossless_config = run_record["metadata"]["step_run_pylossless"].get(
-                "pylossless_config", {}
-            )
-            filter_args = lossless_config.get("filtering", {}).get("filter_args", {})
-            ica_args = lossless_config.get("ica", {}).get("ica_args", {})
+        if json_summary and "processing_details" in json_summary and "ica_details" in json_summary:
+            # Use data from JSON summary
+            processing_details = json_summary["processing_details"]
+            ica_details = json_summary["ica_details"]
+            
             lossless_info.extend(
                 [
                     [
                         "Filter",
-                        f"{filter_args.get('l_freq', 'N/A')}-{filter_args.get('h_freq', 'N/A')} Hz",
+                        f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
                     ],
                     [
                         "Notch",
-                        f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0]} Hz",
+                        f"{processing_details.get('notch_freqs', ['N/A'])[0]} Hz",
                     ],
-                    ["ICA", ica_args.get("run2", {}).get("method", "N/A")],
+                    ["ICA Method", ica_details.get("proc_method", "N/A")],
                     [
                         "Components",
-                        str(ica_args.get("run2", {}).get("n_components", "N/A")),
+                        str(ica_details.get("proc_nComps", "N/A")),
                     ],
                 ]
             )
+        else:
+            # Fall back to direct metadata access
+            if "step_run_pylossless" in run_record["metadata"]:
+                lossless_config = run_record["metadata"]["step_run_pylossless"].get(
+                    "pylossless_config", {}
+                )
+                filter_args = lossless_config.get("filtering", {}).get("filter_args", {})
+                ica_args = lossless_config.get("ica", {}).get("ica_args", {})
+                lossless_info.extend(
+                    [
+                        [
+                            "Filter",
+                            f"{filter_args.get('l_freq', 'N/A')}-{filter_args.get('h_freq', 'N/A')} Hz",
+                        ],
+                        [
+                            "Notch",
+                            f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0]} Hz",
+                        ],
+                        ["ICA", ica_args.get("run2", {}).get("method", "N/A")],
+                        [
+                            "Components",
+                            str(ica_args.get("run2", {}).get("n_components", "N/A")),
+                        ],
+                    ]
+                )
     except Exception as e:
         message("warning", f"Error processing lossless settings: {str(e)}")
         lossless_info = [["Error processing lossless data", "N/A"]]
@@ -1684,405 +1773,320 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     frame = ReportLabTable(frame_data, colWidths=[6.5 * inch])
     frame.setStyle(frame_style)
     story.append(frame)
-    story.append(Spacer(1, 15))
+    story.append(Spacer(1, 0.2 * inch))
 
-    # Get final export details from step_gfp_clean_epochs and save_epochs_to_set
-    export_info = []
-    annotation_info = []
+    # Processing Steps Section
+    story.append(Paragraph("Processing Steps", heading_style))
 
+    # Get processing steps from metadata
+    steps_data = []
     try:
-        metadata = run_record.get("metadata", {})
-        gfp_info = metadata.get("step_gfp_clean_epochs", {})
-        fixed_epochs_info = metadata.get("make_fixed_length_epochs", {})
-        eventid_info = metadata.get("step_create_eventid_epochs", {})
-        save_epochs_info = metadata.get("save_epochs_to_set", {})
-
-        if any([gfp_info, fixed_epochs_info, eventid_info, save_epochs_info]):
-            # Main export details
-            export_info.extend(
-                [
-                    [
-                        "Post-Epoch Duration",
-                        (
-                            f"{eventid_info.get('total_duration', 'N/A'):.1f} sec"
-                            if isinstance(
-                                eventid_info.get("total_duration"), (int, float)
-                            )
-                            else "N/A"
-                        ),
-                    ],
-                    [
-                        "Final Duration",
-                        (
-                            f"{gfp_info.get('total_duration_sec', 'N/A'):.1f} sec"
-                            if isinstance(
-                                gfp_info.get("total_duration_sec"), (int, float)
-                            )
-                            else "N/A"
-                        ),
-                    ],
-                    [
-                        "Sample Rate",
-                        (
-                            f"{int(gfp_info.get('total_samples', 0) / gfp_info.get('total_duration_sec', 1)):.0f} Hz"
-                            if gfp_info.get("total_samples")
-                            and gfp_info.get("total_duration_sec")
-                            else "N/A"
-                        ),
-                    ],
-                    ["Channels", str(gfp_info.get("channel_count", "N/A"))],
-                    [
-                        "Initial Epochs",
-                        str(eventid_info.get("number_of_epochs", "N/A")),
-                    ],
-                    ["Final Epochs", str(save_epochs_info.get("n_epochs", "N/A"))],
-                    [
-                        "Epoch Length",
-                        (
-                            f"[{save_epochs_info.get('tmin', 'N/A')}, {save_epochs_info.get('tmax', 'N/A')}] sec"
-                            if isinstance(save_epochs_info.get("tmin"), (int, float))
-                            and isinstance(save_epochs_info.get("tmax"), (int, float))
-                            else "N/A"
-                        ),
-                    ],
-                ]
-            )
-
-            # Annotation counts
-            if "annotation_types" in gfp_info:
-                annotations = gfp_info["annotation_types"]
-                for key, value in annotations.items():
-                    annotation_info.append([f"Anno: {key}", str(value)])
-
+        # Fall back to metadata for steps
+        for step_name, step_data in run_record["metadata"].items():
+            if step_name.startswith("step_") and step_name not in [
+                "step_prepare_directories",
+            ]:
+                # Format step name for display
+                display_name = step_name.replace("step_", "").replace("_", " ").title()
+                steps_data.append([display_name])
     except Exception as e:
-        message("warning", f"Error processing export details: {str(e)}")
-        export_info = [["Error processing export details", "N/A"]]
-        annotation_info = [["Error processing annotations", "N/A"]]
+        message("warning", f"Error processing steps data: {str(e)}")
+        steps_data = [["Error processing steps"]]
 
-    # Ensure we have at least one row in each table
-    if not export_info:
-        export_info = [["No export data available", "N/A"]]
-    if not annotation_info:
-        annotation_info = [["No annotation data available", "N/A"]]
+    if not steps_data:
+        steps_data = [["No processing steps data available"]]
 
-    # Create export details table with two columns
-    export_data = [[Paragraph("Export Details", heading_style)]]
-
-    # Create tables for each column
-    export_left_table = ReportLabTable(export_info, colWidths=[1.5 * inch, 1.5 * inch])
-    export_left_table.setStyle(
-        TableStyle(
-            [
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8F9F9")),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-            ]
-        )
-    )
-
-    export_right_table = ReportLabTable(
-        annotation_info, colWidths=[1.5 * inch, 1.5 * inch]
-    )
-    export_right_table.setStyle(
-        TableStyle(
-            [
-                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F8F9F9")),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-            ]
-        )
-    )
-
-    export_data.append([export_left_table, export_right_table])
-
-    # Create the main export table
-    export_table = ReportLabTable(export_data, colWidths=[3.25 * inch, 3.25 * inch])
-    export_table.setStyle(
-        TableStyle(
-            [
-                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-                ("SPAN", (0, 0), (1, 0)),  # Make the header span both columns
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 0),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 0),
-                ("TOPPADDING", (0, 0), (-1, 0), 0),
-                ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-            ]
-        )
-    )
-
-    # Add export table in a frame
-    export_frame = ReportLabTable([[export_table]], colWidths=[6.5 * inch])
-    export_frame.setStyle(frame_style)
-    story.append(export_frame)
-    story.append(Spacer(1, 15))
-
-    # Add processing steps and bad channels in a two-column table
-    story.append(Paragraph("Processing Summary", heading_style))
-    story.append(Spacer(1, 4))
-
-    # Get steps from metadata and bad channels info
-    steps = []
-    for key in run_record["metadata"].keys():
-        if key.startswith("step_"):
-            steps.append(key)
-
-    bad_channels = []
-    if "step_clean_bad_channels" in run_record["metadata"]:
-        try:
-            bads = run_record["metadata"]["step_clean_bad_channels"].get("bads", [])
-            if bads:
-                # Sort bad channels by numerical value after "E" prefix
-                bad_channels = sorted(
-                    bads, key=lambda x: int(x.replace("E", "")), reverse=True
-                )
-        except (KeyError, ValueError) as e:
-            message("warning", f"Error processing bad channels information: {str(e)}")
-
-    # Create three-column table data
-    summary_data = [["Processing Steps", "Bad Channels", "Artifact Reports"]]
-
-    # Create a paragraph style with line breaks
-    steps_style = ParagraphStyle(
-        "Steps",
-        parent=normal_style,
-        fontSize=8,
-        leading=12,  # Line spacing
-        spaceBefore=2,
-        spaceAfter=2,
-    )
-
-    # Format steps and bad channels as bullet points with <br/> tags
-    steps_text = "<br/>".join([f"• {step}" for step in steps])
-    channels_text = (
-        "<br/>".join([f"• {ch}" for ch in bad_channels])
-        if bad_channels
-        else "No bad channels detected"
-    )
-
-    # Gather artifact report details
-    artifact_details = []
-    if "artifact_reports" in run_record["metadata"]:
-        try:
-            artifact_reports = run_record["metadata"]["artifact_reports"]
-            if isinstance(artifact_reports, list):
-                for report in artifact_reports:
-                    for key, value in report.items():
-                        if key != "creationDateTime":
-                            artifact_details.append(f"• {key}")
-            elif isinstance(artifact_reports, dict):
-                for key, value in artifact_reports.items():
-                    if key != "creationDateTime":
-                        artifact_details.append(f"• {key}")
-        except (KeyError, TypeError, AttributeError) as e:
-            message("warning", f"Error reading artifact reports: {str(e)}")
-            artifact_details.append("• Error reading artifact reports")
-
-    artifact_text = (
-        "<br/>".join(artifact_details)
-        if artifact_details
-        else "No artifact reports available"
-    )
-
-    summary_data.append(
+    # Create steps table with background styling
+    steps_table = ReportLabTable(
         [
-            Paragraph(steps_text, steps_style),
-            Paragraph(channels_text, steps_style),
-            Paragraph(artifact_text, steps_style),
-        ]
+            [Paragraph("Processing Step", heading_style)]
+        ] + steps_data, 
+        colWidths=[6 * inch]
     )
-
-    # Create and style the summary table
-    summary_table = ReportLabTable(
-        summary_data, colWidths=[2.2 * inch, 2.2 * inch, 2.1 * inch]
-    )
-    summary_table.setStyle(
+    steps_table.setStyle(
         TableStyle(
             [
-                (
-                    "GRID",
-                    (0, 0),
-                    (-1, -1),
-                    0.5,
-                    colors.HexColor("#BDC3C7"),
-                ),  # Light gray border
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, 0),
-                    colors.HexColor("#F5F6FA"),
-                ),  # Very light blue header
-                (
-                    "BACKGROUND",
-                    (0, 1),
-                    (-1, -1),
-                    colors.HexColor("#F8F9F9"),
-                ),  # Very light gray rows
-                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                ("LEADING", (0, 1), (-1, -1), 12),  # Add spacing between lines
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F8F9F9")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
             ]
         )
     )
+    
+    story.append(steps_table)
+    story.append(Spacer(1, 0.2 * inch))
+    
+    # Bad Channels Section
+    story.append(Paragraph("Bad Channels", heading_style))
 
-    story.append(summary_table)
-    story.append(Spacer(1, 15))
-
-    # Add Generated Files Section
-    story.append(Paragraph("Generated Files", heading_style))
-    story.append(Spacer(1, 4))
-
+    # Get bad channels from metadata
+    bad_channels_data = []
     try:
-        files_data = [["Type", "File Name", "Size"]]
-
-        if derivatives_dir.exists():
-            files = list(derivatives_dir.glob("**/*"))
-
-            if files:
-                # Get and sort files
-                sorted_files = sorted(
-                    [f for f in files if f.is_file()], key=lambda x: (x.suffix, x.name)
-                )
-
-                # Process each file
-                for file in sorted_files:
-                    file_type = file.suffix.upper()[1:] if file.suffix else "Unknown"
-
-                    # Format file size
-                    size_bytes = file.stat().st_size
-                    size_str = (
-                        f"{size_bytes} B"
-                        if size_bytes < 1024
-                        else (
-                            f"{size_bytes/1024:.1f} KB"
-                            if size_bytes < 1024 * 1024
-                            else f"{size_bytes/(1024*1024):.1f} MB"
-                        )
+        # First try to get bad channels from JSON summary
+        if json_summary and "channel_dict" in json_summary:
+            channel_dict = json_summary["channel_dict"]
+            
+            # Add each category of bad channels
+            for category, channels in channel_dict.items():
+                if category != "removed_channels" and channels:  # Skip the combined list
+                    display_category = category.replace("step_", "").replace("_", " ").title()
+                    bad_channels_data.append([display_category, ", ".join(channels)])
+            
+            # Add total count
+            if "removed_channels" in channel_dict:
+                total_removed = len(channel_dict["removed_channels"])
+                if "import_details" in json_summary and "net_nbchan_orig" in json_summary["import_details"]:
+                    total_channels = json_summary["import_details"]["net_nbchan_orig"]
+                    percentage = (total_removed / total_channels) * 100 if total_channels else 0
+                    bad_channels_data.append(
+                        ["Total Removed", f"{total_removed} / {total_channels} ({percentage:.1f}%)"]
                     )
-
-                    files_data.append([file_type, file.name, size_str])
-
-                # Create table if files were found
-                if len(files_data) > 1:
-                    story.append(
-                        Paragraph(f"Directory: {derivatives_dir}", normal_style)
-                    )
-                    story.append(Spacer(1, 4))
-
-                    files_table = ReportLabTable(
-                        files_data, colWidths=[1.0 * inch, 4.0 * inch, 1.5 * inch]
-                    )
-                    files_table.setStyle(
-                        TableStyle(
-                            [
-                                (
-                                    "GRID",
-                                    (0, 0),
-                                    (-1, -1),
-                                    0.5,
-                                    colors.HexColor("#BDC3C7"),
-                                ),
-                                (
-                                    "BACKGROUND",
-                                    (0, 0),
-                                    (-1, 0),
-                                    colors.HexColor("#F5F6FA"),
-                                ),
-                                (
-                                    "BACKGROUND",
-                                    (0, 1),
-                                    (-1, -1),
-                                    colors.HexColor("#F8F9F9"),
-                                ),
-                                (
-                                    "TEXTCOLOR",
-                                    (0, 0),
-                                    (-1, 0),
-                                    colors.HexColor("#2C3E50"),
-                                ),
-                                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                                ("FONTSIZE", (0, 0), (-1, -1), 8),
-                                ("TOPPADDING", (0, 0), (-1, -1), 4),
-                                ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-                                ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                            ]
-                        )
-                    )
-                    story.append(files_table)
                 else:
-                    story.append(
-                        Paragraph(
-                            "No files found in derivatives directory", normal_style
-                        )
-                    )
-            else:
-                story.append(
-                    Paragraph("No files found in derivatives directory", normal_style)
-                )
+                    bad_channels_data.append(["Total Removed", str(total_removed)])
         else:
-            story.append(
-                Paragraph(
-                    f"Derivatives directory not found: {derivatives_dir}", normal_style
-                )
-            )
+            # Fall back to metadata
+            # Look for bad channels in various metadata sections
+            for step_name, step_data in run_record["metadata"].items():
+                if isinstance(step_data, dict) and "bads" in step_data:
+                    display_name = step_name.replace("step_", "").replace("_", " ").title()
+                    if isinstance(step_data["bads"], list) and step_data["bads"]:
+                        bad_channels_data.append(
+                            [display_name, ", ".join(step_data["bads"])]
+                        )
     except Exception as e:
-        message(
-            "warning", f"Error processing derivatives directory information: {str(e)}"
-        )
-        story.append(
-            Paragraph(f"Error listing derivatives files: {str(e)}", normal_style)
-        )
+        message("warning", f"Error processing bad channels data: {str(e)}")
+        bad_channels_data = [["Error processing bad channels", "N/A"]]
 
-    story.append(Spacer(1, 15))
+    if not bad_channels_data:
+        bad_channels_data = [["No bad channels data available", "N/A"]]
+
+    # Create bad channels table with background styling
+    bad_channels_table = ReportLabTable(
+        [
+            [Paragraph("Source", heading_style), Paragraph("Bad Channels", heading_style)]
+        ] + bad_channels_data, 
+        colWidths=[3 * inch, 3 * inch]
+    )
+    bad_channels_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#EFF8F9")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    
+    story.append(bad_channels_table)
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Results Summary Section
+    story.append(Paragraph("Results Summary", heading_style))
+
+    # Get results summary from metadata
+    results_data = []
+    try:
+        # First try to get results from JSON summary
+        if json_summary:
+            # Add processing state
+            if "proc_state" in json_summary:
+                results_data.append(["Processing State", json_summary["proc_state"]])
+            
+            # Add exclusion category if any
+            if "exclude_category" in json_summary and json_summary["exclude_category"]:
+                results_data.append(["Exclusion Category", json_summary["exclude_category"]])
+            
+            # Add export details
+            if "export_details" in json_summary:
+                export_details = json_summary["export_details"]
+                
+                if "initial_n_epochs" in export_details and "final_n_epochs" in export_details:
+                    initial = export_details["initial_n_epochs"]
+                    final = export_details["final_n_epochs"]
+                    percentage = (final / initial) * 100 if initial else 0
+                    results_data.append(
+                        ["Epochs Retained", f"{final} / {initial} ({percentage:.1f}%)"]
+                    )
+                
+                # For duration, use the actual epoch duration values
+                if "initial_duration" in export_details and "final_duration" in export_details:
+                    initial = export_details["initial_duration"]
+                    final = export_details["final_duration"]
+                    
+                    # Calculate the actual duration based on epochs and epoch length
+                    if "epoch_length" in export_details:
+                        epoch_length = export_details["epoch_length"]
+                        if "initial_n_epochs" in export_details and "final_n_epochs" in export_details:
+                            initial_epochs = export_details["initial_n_epochs"]
+                            final_epochs = export_details["final_n_epochs"]
+                            
+                            # Recalculate durations based on epoch count and length
+                            initial_duration = initial_epochs * epoch_length
+                            final_duration = final_epochs * epoch_length
+                            
+                            percentage = (final_duration / initial_duration) * 100 if initial_duration else 0
+                            results_data.append(
+                                ["Duration Retained", f"{final_duration:.1f}s / {initial_duration:.1f}s ({percentage:.1f}%)"]
+                            )
+                    else:
+                        # Use the values directly from export_details if epoch_length is not available
+                        percentage = (final / initial) * 100 if initial else 0
+                        results_data.append(
+                            ["Duration Retained", f"{final:.1f}s / {initial:.1f}s ({percentage:.1f}%)"]
+                        )
+            
+            # Add ICA details
+            if "ica_details" in json_summary:
+                ica_details = json_summary["ica_details"]
+                if "proc_removeComps" in ica_details:
+                    removed_comps = ica_details["proc_removeComps"]
+                    if isinstance(removed_comps, list):
+                        results_data.append(
+                            ["Removed ICA Components", ", ".join(map(str, removed_comps))]
+                        )
+        else:
+            # Fall back to metadata
+            # Add any available results data from metadata
+            if "step_run_ll_rejection_policy" in run_record["metadata"]:
+                rejection_data = run_record["metadata"]["step_run_ll_rejection_policy"]
+                if "ica_components" in rejection_data:
+                    components = rejection_data["ica_components"]
+                    if isinstance(components, list):
+                        results_data.append(
+                            ["Removed ICA Components", ", ".join(map(str, components))]
+                        )
+    except Exception as e:
+        message("warning", f"Error processing results data: {str(e)}")
+        results_data = [["Error processing results", "N/A"]]
+
+    if not results_data:
+        results_data = [["No results data available", "N/A"]]
+
+    # Create results table with background styling
+    results_table = ReportLabTable(
+        [
+            [Paragraph("Metric", heading_style), Paragraph("Value", heading_style)]
+        ] + results_data, 
+        colWidths=[3 * inch, 3 * inch]
+    )
+    results_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F5EEF8")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    
+    story.append(results_table)
+    story.append(Spacer(1, 0.2 * inch))
+    
+    # Output Files Section
+    story.append(Paragraph("Output Files", heading_style))
+    
+    # Get output files from JSON summary
+    output_files_data = []
+    try:
+        if json_summary and "outputs" in json_summary:
+            outputs = json_summary["outputs"]
+            for output_file in outputs:
+                output_files_data.append([output_file])
+        elif derivatives_dir and derivatives_dir.exists():
+            # If no JSON summary, try to get files directly from derivatives directory
+            files = list(derivatives_dir.glob("*"))
+            for file in files:
+                if file.is_file():
+                    output_files_data.append([file.name])
+    except Exception as e:
+        message("warning", f"Error processing output files: {str(e)}")
+        output_files_data = [["Error processing output files"]]
+    
+    if not output_files_data:
+        output_files_data = [["No output files available"]]
+    
+    # Create output files table with background styling
+    output_files_table = ReportLabTable(
+        [
+            [Paragraph("File Name", heading_style)]
+        ] + output_files_data, 
+        colWidths=[6 * inch]
+    )
+    output_files_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#EFF8F9")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    
+    story.append(output_files_table)
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Add footer with run information
+    footer_style = ParagraphStyle(
+        "Footer",
+        parent=normal_style,
+        fontSize=6,
+        textColor=colors.HexColor("#7F8C8D"),
+        alignment=1,
+        spaceBefore=12,
+    )
+    footer_text = (
+        f"Run ID: {run_id} | "
+        f"Task: {run_record.get('task', 'N/A')} | "
+        f"Timestamp: {run_record.get('timestamp', 'N/A')}"
+    )
+    story.append(Paragraph(footer_text, footer_style))
 
     # Build the PDF
-    try:
-        # First build in metadata directory
-        doc.build(story)
-        message("success", f"Run report generated in metadata directory: {pdf_path}")
+    doc.build(story)
 
-        # Update metadata with pdf path
-        metadata = {
-            "create_run_report": {
-                "creationDateTime": datetime.now().isoformat(),
-                "metadata_report_path": str(pdf_path),
-            }
-        }
+    message("success", f"Report saved to {pdf_path}")
 
-        # Create a copy in derivatives
-        if derivatives_path:
-            shutil.copy2(pdf_path, derivatives_path)
-            message("success", f"Run report added to derivatives: {derivatives_path}")
-            metadata["create_run_report"]["derivatives_report_path"] = str(
-                derivatives_path
-            )
+    # If derivatives path is available, also save there
+    if derivatives_path:
+        try:
+            shutil.copy(pdf_path, derivatives_path)
+            message("success", f"Report also saved to {derivatives_path}")
+        except Exception as e:
+            message("warning", f"Could not save to derivatives: {str(e)}")
 
-        # Update database with metadata
-        manage_database(
-            operation="update", update_record={"run_id": run_id, "metadata": metadata}
-        )
-
-    except Exception as e:
-        message("error", f"Failed to generate or copy report: {str(e)}")
+    return pdf_path
 
 def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
     """Update the task-specific processing log CSV file with details about the current file.
@@ -2124,6 +2128,52 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             except (ValueError, TypeError):
                 return default
         
+        # Generate flags for quality control
+        flags = []
+        
+        # Check for epochs/duration dropped
+        initial_epochs = safe_get(summary_dict, "export_details", "initial_n_epochs", default=0)
+        final_epochs = safe_get(summary_dict, "export_details", "final_n_epochs", default=0)
+        initial_duration = safe_get(summary_dict, "export_details", "initial_duration", default=0)
+        final_duration = safe_get(summary_dict, "export_details", "final_duration", default=0)
+        
+        try:
+            # Check epochs retention
+            if initial_epochs and final_epochs:
+                epochs_retained_pct = (float(final_epochs) / float(initial_epochs)) * 100
+                if epochs_retained_pct < 50:
+                    flags.append(f"WARNING: Only {epochs_retained_pct:.1f}% of epochs retained")
+            
+            # Check duration retention
+            if initial_duration and final_duration:
+                duration_retained_pct = (float(final_duration) / float(initial_duration)) * 100
+                if duration_retained_pct < 50:
+                    flags.append(f"WARNING: Only {duration_retained_pct:.1f}% of duration retained")
+            
+            # Check for short initial duration
+            if initial_duration and float(initial_duration) < 60:
+                flags.append(f"WARNING: Initial duration ({float(initial_duration):.1f}s) less than 1 minute")
+            
+            # Check for excessive channel rejection
+            total_channels = safe_get(summary_dict, "import_details", "net_nbchan_orig", default=0)
+            removed_channels = safe_get(summary_dict, "channel_dict", "removed_channels", default=[])
+            
+            if total_channels and removed_channels:
+                if isinstance(removed_channels, list):
+                    bad_channels_count = len(removed_channels)
+                else:
+                    bad_channels_count = 0
+                
+                if bad_channels_count > 0 and float(total_channels) > 0:
+                    bad_channels_pct = (bad_channels_count / float(total_channels)) * 100
+                    if bad_channels_pct > 20:
+                        flags.append(f"WARNING: {bad_channels_pct:.1f}% of channels rejected (>{bad_channels_count})")
+        except Exception as e:
+            message("warning", f"Error calculating flags: {str(e)}")
+        
+        # Combine flags into a single string
+        flagged = "; ".join(flags) if flags else ""
+        
         # Extract details from summary_dict with safe access
         details = {
             "timestamp": summary_dict.get("timestamp", ""),
@@ -2133,6 +2183,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             "subj_basename": Path(summary_dict.get("basename", "")).stem,
             "bids_subject": summary_dict.get("bids_subject", ""),
             "task": summary_dict.get("task", ""),
+            "flagged": flagged,  # Add the new flagged column
             "net_nbchan_orig": str(safe_get(summary_dict, "import_details", "net_nbchan_orig", default="")),
             "net_nbchan_post": str(safe_get(summary_dict, "export_details", "net_nbchan_post", default="")),
             "proc_badchans": str(safe_get(summary_dict, "channel_dict", "removed_channels", default="")),
@@ -2144,30 +2195,32 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             "proc_sRate1": str(safe_get(summary_dict, "export_details", "srate_post", default="")),
             "proc_xmax_raw": str(safe_get(summary_dict, "import_details", "duration", default="")),
             "proc_xmax_post": str(safe_get(summary_dict, "export_details", "final_duration", default="")),
+            "proc_nComps": str(safe_get(summary_dict, "ica_details", "proc_nComps", default="")),
+            "proc_removeComps": str(safe_get(summary_dict, "ica_details", "proc_removeComps", default="")),
+            "proc_epochs_orig": str(safe_get(summary_dict, "export_details", "initial_n_epochs", default="")),
+            "proc_epochs_post": str(safe_get(summary_dict, "export_details", "final_n_epochs", default="")),
+            "exclude_category": summary_dict.get("exclude_category", ""),
         }
-        
-        # Calculate percentages safely
-        raw_duration = safe_get(summary_dict, "import_details", "duration", default="0")
-        final_duration = safe_get(summary_dict, "export_details", "final_duration", default="0")
-        initial_epochs = safe_get(summary_dict, "export_details", "initial_n_epochs", default="0")
-        final_epochs = safe_get(summary_dict, "export_details", "final_n_epochs", default="0")
         
         # Add calculated fields
         details.update({
-            "proc_xmax_percent": safe_percentage(final_duration, raw_duration),
+            "proc_xmax_percent": safe_percentage(
+                safe_get(summary_dict, "export_details", "final_duration", default=""),
+                safe_get(summary_dict, "import_details", "duration", default=""),
+            ),
             "epoch_length": str(safe_get(summary_dict, "export_details", "epoch_length", default="")),
             "epoch_limits": str(safe_get(summary_dict, "export_details", "epoch_limits", default="")),
-            "epoch_trials": str(initial_epochs),
-            "epoch_badtrials": safe_percentage(
-                float(initial_epochs) - float(final_epochs) if initial_epochs and final_epochs else "0", 
-                "1"
+            "epoch_trials": str(safe_get(summary_dict, "export_details", "initial_n_epochs", default="")),
+            "epoch_badtrials": str(
+                int(safe_get(summary_dict, "export_details", "initial_n_epochs", default=0)) - 
+                int(safe_get(summary_dict, "export_details", "final_n_epochs", default=0))
             ),
-            "epoch_percent": safe_percentage(final_epochs, initial_epochs),
-            "proc_nComps": str(safe_get(summary_dict, "ica_details", "proc_nComps", default="")),
-            "proc_removeComps": str(safe_get(summary_dict, "ica_details", "proc_removeComps", default="")),
-            "exclude_category": summary_dict.get("exclude_category", ""),
+            "epoch_percent": safe_percentage(
+                safe_get(summary_dict, "export_details", "final_n_epochs", default=""),
+                safe_get(summary_dict, "export_details", "initial_n_epochs", default=""),
+            ),
         })
-
+        
         # Handle CSV operations with appropriate error handling
         if csv_path.exists():
             try:
@@ -2428,7 +2481,7 @@ def create_json_summary(run_id: str) -> None:
         operation="update",
         update_record={
             "run_id": run_id, 
-            "metadata": {"json_summary": {"timestamp": datetime.now().isoformat()}}
+            "metadata": {"json_summary": summary_dict}
         },
     )
     

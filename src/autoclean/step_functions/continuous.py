@@ -203,12 +203,17 @@ def step_create_bids_path(
     config_file = autoclean_dict["config_file"]
 
     try:
+        line_freq = autoclean_dict["filtering"]["notch_filter_args"]["freqs"][0]
+    except:
+        line_freq = 60.0
+
+    try:
         bids_path = step_convert_to_bids(
             raw,
             output_dir=str(bids_dir),
             task=mne_task,
             participant_id=None,
-            line_freq=60.0,
+            line_freq=line_freq,
             overwrite=True,
             study_name=unprocessed_file.stem,
         )
@@ -229,7 +234,7 @@ def step_create_bids_path(
                 "bids_root": str(bids_path.root),
                 "eegSystem": eeg_system,
                 "configFile": str(config_file),
-                "line_freq": 60.0,
+                "line_freq": line_freq,
             }
         }
 

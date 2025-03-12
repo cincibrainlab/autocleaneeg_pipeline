@@ -59,6 +59,7 @@ def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):
     if config is not None:
         save_stc_to_file(stc, config, stage="post_source_localization")
 
+    matplotlib.use("Agg")
     return stc
 
 def calculate_source_psd(stc, subjects_dir=None, subject='fsaverage', n_jobs=4, output_dir=None, subject_id=None):

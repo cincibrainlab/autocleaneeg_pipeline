@@ -64,6 +64,7 @@ import matplotlib
 import mne
 from tqdm import tqdm
 from ulid import ULID
+import yaml
 
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
@@ -160,7 +161,6 @@ class Pipeline:
         # Convert paths to absolute Path objects
         self.autoclean_dir = Path(autoclean_dir).absolute()
         self.autoclean_config = Path(autoclean_config).absolute()
-
         # Configure logging first with output directory
         self.verbose = verbose
         configure_logger(verbose, output_dir=self.autoclean_dir)
@@ -312,8 +312,11 @@ class Pipeline:
                 "ll_config_b64": b64_ll_config,
             }
 
+            lossless_config_path = self.autoclean_dict["tasks"][task]["lossless_config"]
+            lossless_config = yaml.safe_load(open(lossless_config_path))
+
             # Merge task-specific config with base config
-            run_dict = {**run_dict, **self.autoclean_dict}
+            run_dict = {**run_dict, **self.autoclean_dict, **lossless_config}
 
             # Record full run configuration
             manage_database(
@@ -331,7 +334,7 @@ class Pipeline:
             task_object.run()
 
             try:
-                if task_object.epochs:
+                if task_object.epochs is not None:
                     comp_data = task_object.epochs
                     save_epochs_to_set(comp_data, run_dict, "post_comp")
                 else:
@@ -355,13 +358,14 @@ class Pipeline:
             # Get final run record for report generation
             run_record = get_run_record(run_id)
 
-            # Export run metadata to JSON
+            #Create a run summary in JSON format
+            json_summary = create_json_summary(run_id)
+
+            # Export run metadata to JSON file
             json_file = metadata_dir / run_record["json_file"]
             with open(json_file, "w") as f:
                 json.dump(run_record, f, indent=4)
             message("success", f"✓ Run record exported to {json_file}")
-
-            json_summary = create_json_summary(run_id)
             
             # Only proceed with processing log update if we have a valid summary
             if json_summary:

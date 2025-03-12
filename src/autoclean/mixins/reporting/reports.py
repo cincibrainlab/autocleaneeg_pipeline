@@ -55,6 +55,7 @@ from autoclean.utils.logging import message
 from autoclean.utils.database import get_run_record, manage_database
 from autoclean.mixins.reporting.base import ReportingMixin
 
+"""NOT USED WILL BE DEPRECATED"""
 
 class ReportGenerationMixin(object):
     """Mixin providing report generation functionality for EEG data.
