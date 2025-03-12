@@ -156,10 +156,10 @@ class ChannelsMixin:
             
     def clean_bad_channels(self, pipeline=None, data: Union[mne.io.BaseRaw, None] = None,
                            correlation_thresh: float = 0.35,
-                           deviation_thresh: float = 5.0,
+                           deviation_thresh: float = 2.5,
                            ransac_sample_prop: float = 0.35,
                            ransac_corr_thresh: float = 0.65,
-                           ransac_frac_bad: float = 0.45,
+                           ransac_frac_bad: float = 0.25,
                            ransac_channel_wise: bool = False,
                            random_state: int = 1337,
                            stage_name: str = "post_bad_channels") -> mne.io.BaseRaw:

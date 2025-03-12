@@ -101,12 +101,23 @@ stage_files:
   post_rejection_policy:
     enabled: true
     suffix: "_postrejection"
-  post_clean_raw:
+  post_source_localization:
     enabled: true
+    suffix: "_stc"
+  post_clean_raw:
+    enabled: false
     suffix: "_postcleanraw"
   post_epochs:
     enabled: true
     suffix: "_postepochs"
+  post_drop_bad_epochs:
+    enabled: true
+    suffix: "_postdropbadepochs"
+
+  post_gfp_clean:
+    enabled: true
+    suffix: "_postgfpclean"
+
   post_comp:
     enabled: true
     suffix: "_postcomp"
@@ -116,7 +127,5 @@ stage_files:
   post_edit:
     enabled: true
     suffix: "_postedit"
-  post_source_localization:
-    enabled: true
-    suffix: "_stc"
+
 

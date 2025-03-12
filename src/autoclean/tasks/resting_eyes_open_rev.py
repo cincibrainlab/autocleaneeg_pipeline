@@ -22,15 +22,7 @@ from autoclean.step_functions.io import (
     save_raw_to_set,
     import_eeg
 )
-# # Import the reporting functions directly from the Task class via mixins
-# # # Import the reporting functions directly from the Task class via mixins
-# # from autoclean.step_functions.reports import (
-# #     step_generate_ica_reports,
-#     step_plot_ica_full,
-#     step_plot_raw_vs_cleaned_overlay,
-#     step_psd_topo_figure,
 
-# )
 from autoclean.utils.logging import message
 
 
@@ -81,7 +73,7 @@ class RestingEyesOpenRev(Task):
         if self.raw is None:
             raise RuntimeError("No data has been imported")
         
-        message("header", "\nRunning preprocessing steps")
+        message("header", "Running preprocessing steps")
         
         # Continue with other preprocessing steps
         # Note: step_pre_pipeline_processing will skip resampling if already done
@@ -110,8 +102,6 @@ class RestingEyesOpenRev(Task):
         self.clean_bad_channels(deviation_thresh=3)
 
         self.raw.interpolate_bads(reset_bads=True)
-
-        save_raw_to_set(self.raw, self.config, "checkpoint")
 
         # Create regular epochs
         self.create_regular_epochs()

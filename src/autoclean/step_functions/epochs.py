@@ -13,6 +13,10 @@ from autoclean.step_functions.io import save_epochs_to_set
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 
+# Force non-interactive matplotlib backend
+import matplotlib
+matplotlib.use('Agg')  # Ensure non-interactive backend for all plots
+
 __all__ = [
     "step_create_regular_epochs",
     "step_create_eventid_epochs",

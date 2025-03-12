@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 from mne.io.constants import FIFF
 from mne_bids import BIDSPath, update_sidecar_json, write_raw_bids
+import traceback
 
 from ..utils.logging import message
 
@@ -107,6 +108,7 @@ def step_convert_to_bids(
 
     # Write BIDS data
     try:
+        # breakpoint()
         write_raw_bids(**bids_kwargs)
         message("success", f"Converted {fif_file.name} to BIDS format.")
         entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
@@ -114,6 +116,8 @@ def step_convert_to_bids(
         update_sidecar_json(bids_path=sidecar_path, entries=entries)
     except Exception as e:
         message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
+        print(f"Detailed error: {str(e)}")
+        traceback.print_exc()
         sys.exit(1)
 
     # Update participants.tsv

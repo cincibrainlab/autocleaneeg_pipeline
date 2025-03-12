@@ -2,11 +2,11 @@ from pathlib import Path
 from autoclean import Pipeline
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("/Users/ernie/Data/autoclean_v3")  # Where processed data will be stored
-CONFIG_FILE = Path("/Users/ernie/Documents/GitHub/autoclean_pipeline/configs/autoclean_config_rest_4k.yaml")  # Path to config
+EXAMPLE_OUTPUT_DIR = Path("/srv2/RAWDATA/3_From_Collaborators/SPG302-ALS-001/BioTrials/SET_QEEG/Autoclean_output")  # Where processed data will be stored
+CONFIG_FILE = Path("configs/autoclean_config_rest_4k.yaml")  # Path to config
 
 # Base directory for resolving relative paths
-BASE_DATA_DIR = Path("/Users/ernie/Data/results/")
+BASE_DATA_DIR = Path("/srv2/RAWDATA/3_From_Collaborators/SPG302-ALS-001/BioTrials/SET_QEEG/RAW")
 
 # CSV-like data as a string
 file_list = """filename,subject,cycle,day,eyes_state,relative_path,full_path
