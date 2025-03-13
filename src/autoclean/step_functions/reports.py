@@ -2166,7 +2166,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
                 
                 if bad_channels_count > 0 and float(total_channels) > 0:
                     bad_channels_pct = (bad_channels_count / float(total_channels)) * 100
-                    if bad_channels_pct > 1:
+                    if bad_channels_pct > 15:
                         flags.append(f"WARNING: {bad_channels_pct:.1f}% of channels rejected (>{bad_channels_count})")
 
             ref_artifacts = str(safe_get(summary_dict, "processing_details", "ref_artifacts", default=""))
