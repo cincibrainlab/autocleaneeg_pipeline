@@ -1,0 +1,145 @@
+# =================================================================
+# AUTOCLEAN CONFIGURATION FILE
+# This file controls how EEG data is automatically processed and cleaned
+# =================================================================
+
+# TASK CONFIGURATION
+# Each task represents a different type of EEG recording (e.g., resting state, specific experiments)
+tasks:
+  #Mismatch Negativity task
+  HBCD_MMN:
+    mne_task: "MMN"
+    description: "HBCD Mismatch Negativity task"
+    lossless_config: configs/pylossless/lossless_config_hbcd.yaml
+    settings:
+      resample_step:
+        enabled: true
+        value: 1000
+      drop_outerlayer:
+        enabled: true
+        value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
+                "E120", "E121", "E56", "E63", "E68", "E73", "E81", "E88", "E94",
+                "E99", "E107" ]
+      eog_step:
+        enabled: false
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
+      trim_step:
+        enabled: true
+        value: 4
+      crop_step:
+        enabled: false
+        value:
+          start: 0
+          end: 60 # null uses full duration
+      reference_step:
+        enabled: true
+        value: ["E129"]
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-124"
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: -0.1
+          tmax: 0.5
+        event_id: {'DIN2'}  # Event ID to use for epoching
+        remove_baseline: #Remove/Correct baseline
+          enabled: true
+          window: [null, 0]
+        threshold_rejection: #Remove artifact laden epoch based on voltage threshold
+          enabled: true
+          volt_threshold: 
+            eeg: 200e-6
+
+    rejection_policy:
+      ch_flags_to_reject: ["noisy", "uncorrelated"]
+      ch_cleaning_mode: "interpolate"
+      interpolate_bads_kwargs:
+        method: "spline"
+      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
+      ic_rejection_threshold: 0.2
+      remove_flagged_ics: true  
+
+# OUTPUT FILE CONFIGURATION
+# Controls which processing stages save intermediate files
+# Useful for quality checking and troubleshooting
+stage_files:
+  post_import:
+    enabled: true          # Set to true to save file after this stage
+    suffix: "_postimport"  # This text will be added to the filename
+
+  post_prepipeline:
+    enabled: true
+    suffix: "_postprepipeline"
+
+  #Prepipeline steps
+  post_resample:
+    enabled: false
+    suffix: "_postresample"
+
+  post_outerlayer:
+    enabled: false
+    suffix: "_postouterlayer"
+
+  post_trim:
+    enabled: false
+    suffix: "_posttrim"
+
+  post_crop:
+    enabled: false
+    suffix: "_postcrop"
+
+  #PyLossless steps
+  post_pylossless:
+    enabled: true
+    suffix: "_postpylossless"
+
+  post_artifact_detection:
+    enabled: false
+    suffix: "_postartifactdetection"
+
+  post_reference:
+    enabled: false
+    suffix: "_postreference"
+
+  post_rejection_policy:
+    enabled: true
+    suffix: "_postrejection"
+  
+  post_bad_channels:
+    enabled: true
+    suffix: "_postbadchannels"
+
+  post_clean_raw:
+    enabled: true
+    suffix: "_postcleanraw"
+
+  #Epochs steps
+  post_epochs:
+    enabled: true
+    suffix: "_postepochs"
+
+  post_drop_bad_epochs:
+    enabled: true
+    suffix: "_postdropbadepochs"
+
+  post_gfp_clean:
+    enabled: true
+    suffix: "_postgfpclean"
+
+  post_autoreject:
+    enabled: false
+    suffix: "_postautoreject"
+
+  post_comp:
+    enabled: true
+    suffix: "_postcomp"
+
+  post_edit:
+    enabled: true
+    suffix: "_postedit"
+
+  checkpoint:
+    enabled: true
+    suffix: "_checkpoint"
+

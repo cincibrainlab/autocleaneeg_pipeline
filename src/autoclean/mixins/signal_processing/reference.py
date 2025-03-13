@@ -11,7 +11,7 @@ class ReferenceMixin:
     def set_eeg_reference(self, data: Union[mne.io.BaseRaw, None] = None,
                           ref_type: str = "average", 
                           projection: bool = False,
-                          stage_name: str = "reference") -> mne.io.BaseRaw:
+                          stage_name: str = "post_reference") -> mne.io.BaseRaw:
         """Apply EEG reference to the data.
         
         This method applies a reference to the EEG data, such as average reference.
@@ -39,7 +39,7 @@ class ReferenceMixin:
             
         # Get reference type from config if available
         if config_value is not None:
-            ref_type = config_value
+            ref_type = config_value["value"]
             
         # Determine which data to use
         data = self._get_data_object(data)
@@ -64,7 +64,7 @@ class ReferenceMixin:
                 "projection": projection
             }
             
-            self._update_metadata("set_eeg_reference", metadata)
+            self._update_metadata("step_set_eeg_reference", metadata)
             
             # Save the result
             self._save_raw_result(result_raw, stage_name)

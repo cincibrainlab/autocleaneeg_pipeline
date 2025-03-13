@@ -154,7 +154,7 @@ class ChannelsMixin:
             message("error", f"Error during setting channel types: {str(e)}")
             raise RuntimeError(f"Failed to set channel types: {str(e)}") from e
             
-    def clean_bad_channels(self, pipeline=None, data: Union[mne.io.BaseRaw, None] = None,
+    def clean_bad_channels(self, pylossless_pipeline=None, data: Union[mne.io.BaseRaw, None] = None,
                            correlation_thresh: float = 0.35,
                            deviation_thresh: float = 2.5,
                            ransac_sample_prop: float = 0.35,
@@ -162,6 +162,8 @@ class ChannelsMixin:
                            ransac_frac_bad: float = 0.25,
                            ransac_channel_wise: bool = False,
                            random_state: int = 1337,
+                           cleaning_method: Union[str, None] = None,
+                           reset_bads: bool = False,
                            stage_name: str = "post_bad_channels") -> mne.io.BaseRaw:
         """Detect and mark bad channels using various methods.
         
@@ -169,16 +171,20 @@ class ChannelsMixin:
         correlation, deviation, and RANSAC methods.
         
         Args:
+            pipeline: Optional pipeline object. If None, does not add flags to pylosslesspipeline
             data: Optional MNE Raw object. If None, uses self.raw
             correlation_thresh: Threshold for correlation-based detection
             deviation_thresh: Threshold for deviation-based detection
+            ransac_sample_prop: Proportion of samples to use for RANSAC
             ransac_corr_thresh: Threshold for RANSAC-based detection
+            ransac_frac_bad: Fraction of bad channels to use for RANSAC
             ransac_channel_wise: Whether to use channel-wise RANSAC
             random_state: Random state for reproducibility
+            cleaning_method: Method to use for cleaning bad channels. Options are 'interpolate' or 'drop' or None(default).
             stage_name: Name for saving and metadata
             
         Returns:
-            The raw data object with bad channels marked
+            The raw data object with bad channels marked or cleaned
             
         Raises:
             AttributeError: If self.raw doesn't exist when needed
@@ -258,15 +264,22 @@ class ChannelsMixin:
             result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
             
             # Remove duplicates
-            result_raw.info["bads"] = list(set(result_raw.info["bads"]))
-            
+            bads = list(set(result_raw.info["bads"]))
+            result_raw.info["bads"] = bads
+
+            if cleaning_method == 'interpolate':
+                result_raw.interpolate_bads(reset_bads=reset_bads)
+            if cleaning_method == 'drop':
+                result_raw.drop_channels(result_raw.info["bads"])
+                result_raw.info["bads"] = []
+
             message("info", f"Detected {len(result_raw.info['bads'])} bad channels: {result_raw.info['bads']}")
             
             # Update metadata
             metadata = {
                 "method": "NoisyChannels",
                 "options": options,
-                "bads": result_raw.info["bads"],
+                "bads": bads,
                 "channelCount": len(result_raw.ch_names),
                 "durationSec": int(result_raw.n_times) / result_raw.info["sfreq"],
                 "numberSamples": int(result_raw.n_times),
@@ -280,13 +293,13 @@ class ChannelsMixin:
             # Update self.raw if we're using it
             self._update_instance_data(data, result_raw)
 
-            if pipeline is not None:
-                pipeline.flags["ch"].add_flag_cat(kind="noisy", bad_ch_names=np.array(bad_channels["bad_by_ransac"]))
-                pipeline.flags["ch"].add_flag_cat(kind="noisy", bad_ch_names=np.array(bad_channels["bad_by_deviation"]))
-                pipeline.flags["ch"].add_flag_cat(kind="uncorrelated", bad_ch_names=np.array(bad_channels["bad_by_correlation"]))
-                pipeline.raw = result_raw
+            if pylossless_pipeline is not None:
+                pylossless_pipeline.flags["ch"].add_flag_cat(kind="noisy", bad_ch_names=np.array(bad_channels["bad_by_ransac"]))
+                pylossless_pipeline.flags["ch"].add_flag_cat(kind="noisy", bad_ch_names=np.array(bad_channels["bad_by_deviation"]))
+                pylossless_pipeline.flags["ch"].add_flag_cat(kind="uncorrelated", bad_ch_names=np.array(bad_channels["bad_by_correlation"]))
+                pylossless_pipeline.raw = result_raw
                 message("info", "Added bad channels to pipeline flags")
-                return pipeline
+                return pylossless_pipeline
             
             return result_raw
         except Exception as e:

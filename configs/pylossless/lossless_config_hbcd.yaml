@@ -1,33 +1,36 @@
 # aref_trim: 30
-
+bridged_channels:
+    bridge_trim: 50
+    bridge_z: 32
 epoching:
     epochs_args:
         baseline: null
-        tmax: 2
+        tmax: 1.5
         tmin: 0
-    overlap: 0
+    overlap: .5
 filtering:
     filter_args: # Arguments are directly passed into mne.io.Raw.filter()
-        h_freq: 50
-        l_freq: 1
+        h_freq: 100
+        l_freq: 2
     notch_filter_args: # Arguments are directly passed into mne.io.Raw.notch_filter()
         freqs: [60, 120]
-        notch_widths: 3
+        notch_widths: 5
 find_breaks: null
 ica:
     ica_args:
         run1:
             method: fastica
         run2:
-            n_components: 20
+            # n_components: 64
             fit_params:
+                ortho: False
                 extended: true
-            method: infomax
+            method: picard
     noisy_ic_epochs:
-        flag_crit: 0.15
+        flag_crit: 0.2
         outlier_method: quantile
         outliers_kwargs:
-            k: 5
+            k: 4
             lower: 0.25
             upper: 0.75
 in_path: []
@@ -42,40 +45,39 @@ montage_info:
 - 11.5
 - 11.5
 
-bridged_channels:
-    bridge_trim: 50
-    bridge_z: 16
-nearest_neighbors:
-    n_nbr_ch: 3
-    n_nbr_epoch: 3
 noisy_channels:
-    flag_crit: 0.3
+    flag_crit: 0.2
     outlier_method: quantile
     outliers_kwargs:
         k: 16
         lower: 0.25
         upper: 0.75
 noisy_epochs:
-    flag_crit: 0.15
+    flag_crit: 0.1
     outlier_method: quantile
     outliers_kwargs:
-        k: 5
+        k: 4
         lower: 0.25
         upper: 0.75
+
+nearest_neighbors:
+    n_nbr_ch: 3
+    n_nbr_epoch: 3
 uncorrelated_channels:
-    flag_crit: 0.2
+    flag_crit: 0.1
     outlier_method: quantile
     outliers_kwargs:
         k: 6
-        lower: 0.25
-        upper: 0.75
+        lower: 0.2
+        upper: 0.8
 uncorrelated_epochs:
-    flag_crit: 0.25
+    flag_crit: 0.1
     outlier_method: quantile
     outliers_kwargs:
         k: 6
         lower: 0.25
         upper: 0.75
+
 
 order: 1
 out_path: derivatives/EEG-IP-L

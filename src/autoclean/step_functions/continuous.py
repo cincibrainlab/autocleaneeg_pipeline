@@ -131,16 +131,16 @@ def step_pre_pipeline_processing(
         message("info", "  - EOG channels assigned")
         metadata["pre_pipeline_processing"]["EOGChannels"] = eog_channels
 
-    # Average Reference
-    if apply_average_reference_toggle:
-        message("header", "Applying average reference...")
-        ref_type = autoclean_dict["tasks"][task]["settings"]["reference_step"]["value"]
-        if ref_type == "average":
-            raw = raw.set_eeg_reference(ref_type, projection=False)
-        else:
-            raw = raw.set_eeg_reference(ref_type)
-        message("info", "  - Average reference applied")
-        save_raw_to_set(raw, autoclean_dict, "post_reference")
+    # # Average Reference
+    # if apply_average_reference_toggle:
+    #     message("header", "Applying average reference...")
+    #     ref_type = autoclean_dict["tasks"][task]["settings"]["reference_step"]["value"]
+    #     if ref_type == "average":
+    #         raw = raw.set_eeg_reference(ref_type, projection=False)
+    #     else:
+    #         raw = raw.set_eeg_reference(ref_type)
+    #     message("info", "  - Average reference applied")
+    #     save_raw_to_set(raw, autoclean_dict, "post_reference")
 
     # Trim Edges
     if apply_trim_toggle:

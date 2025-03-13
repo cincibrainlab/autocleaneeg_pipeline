@@ -6,6 +6,7 @@ from mne_bids import read_raw_bids
 import pylossless as ll
 import yaml
 from autoclean.utils.logging import message
+from autoclean.mixins.signal_processing.reference import ReferenceMixin
 
 
 
@@ -13,7 +14,7 @@ class PyLosslessMixin:
     """Mixin class providing PyLossless functionality for autoclean tasks."""
 
     def step_custom_pylossless_pipeline(self, config: Dict[str, Any],
-                                   eog_channel: str = "E25", stage_name: str = "post_pylossless") -> Tuple[Any, mne.io.Raw]:
+                                   eog_channel: Union[str, None] = "E25", stage_name: str = "post_pylossless") -> Tuple[Any, mne.io.Raw]:
         """Run PyLossless pipeline on the data.
 
         This method runs the PyLossless pipeline on the input data.
@@ -62,7 +63,7 @@ class PyLosslessMixin:
         pipeline.flags['ch'].clear()
 
         message("debug", "referencing data")
-        pipeline.raw.set_eeg_reference()
+        pipeline.raw = ReferenceMixin.set_eeg_reference(self, pipeline.raw)
 
         #Flag Bad Epochs 
         message("debug", "flagging noisy epochs")
@@ -75,16 +76,19 @@ class PyLosslessMixin:
         if pipeline.config["ica"] is not None:
             message("debug", "running initial ICA")
             pipeline.run_ica("run1", message="Running Initial ICA")
-            message("info", f"Running EOG detection on {eog_channel}")
-            eog_indices, eog_scores = pipeline.ica1.find_bads_eog(pipeline.raw, ch_name=eog_channel)
-            pipeline.ica1.exclude = eog_indices
-            pipeline.ica1.apply(pipeline.raw)
+            if eog_channel is not None:
+                message("info", f"Running first EOG detection on {eog_channel}")
+                eog_indices, eog_scores = pipeline.ica1.find_bads_eog(pipeline.raw, ch_name=eog_channel)
+                pipeline.ica1.exclude = eog_indices
+                pipeline.ica1.apply(pipeline.raw)
 
             message("debug", "running final ICA")
             pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
-            eog_indices, eog_scores = pipeline.ica2.find_bads_eog(pipeline.raw, ch_name=eog_channel)
-            pipeline.ica2.exclude = eog_indices
-            pipeline.ica2.apply(pipeline.raw)
+            if eog_channel is not None:
+                message("info", f"Running second EOG detection on {eog_channel}")
+                eog_indices, eog_scores = pipeline.ica2.find_bads_eog(pipeline.raw, ch_name=eog_channel)
+                pipeline.ica2.exclude = eog_indices
+                pipeline.ica2.apply(pipeline.raw)
 
             message("debug", "flagging noisy ICs")
             pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
