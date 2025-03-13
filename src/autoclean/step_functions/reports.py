@@ -2380,17 +2380,30 @@ def create_json_summary(run_id: str) -> None:
     if "step_prepare_directories" in metadata:
         output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
 
+
+
     # FIND IMPORT DETAILS
     import_details = {}
+    dropped_channels = 0
+    if "pre_pipeline_processing" in metadata:
+        try:
+            dropped_channels = metadata["pre_pipeline_processing"]["OuterLayerChannels"]
+            import_details["dropped_channels"] = dropped_channels
+        except:
+            pass
+
+
     if "import_eeg" in metadata:
         import_details["sample_rate"] = metadata["import_eeg"]["sampleRate"]
         import_details["net_nbchan_orig"] = metadata["import_eeg"]["channelCount"]
         import_details["duration"] = metadata["import_eeg"]["durationSec"]
         import_details["basename"] = metadata["import_eeg"]["unprocessedFile"]
-        original_channel_count = int(metadata["import_eeg"]["channelCount"])
+        original_channel_count = int(metadata["import_eeg"]["channelCount"]) - int(len(dropped_channels))
     else:
         message("error", "No import details found")
         return {}
+    
+
 
     processing_details = {}
     if "step_run_pylossless" in metadata:

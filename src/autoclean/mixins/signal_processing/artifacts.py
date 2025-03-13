@@ -11,11 +11,11 @@ class ArtifactsMixin:
     
     def detect_dense_oscillatory_artifacts(self, data: Union[mne.io.BaseRaw, None] = None,
                                          window_size_ms: int = 100, 
-                                         channel_threshold_uv: float = 50,
+                                         channel_threshold_uv: float = 45,
                                          min_channels: int = 75, 
                                          padding_ms: float = 500,
                                          annotation_label: str = "BAD_REF_AF",
-                                         stage_name: str = "post_artifact_detection") -> mne.io.BaseRaw:
+                                         ) -> mne.io.BaseRaw:
         """Detect smaller, dense oscillatory multichannel artifacts.
         
         This method identifies oscillatory artifacts that affect multiple channels simultaneously,

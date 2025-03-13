@@ -220,7 +220,7 @@ class HBCD_MMN(Task):
             return False
 
     def run(self) -> None:
-        """Run the complete processing pipeline for this task.
+        """Run the complete processing pipeline for this task
 
         This method orchestrates the complete processing sequence:
         1. Import raw data
@@ -239,138 +239,84 @@ class HBCD_MMN(Task):
             the database. You can monitor progress through the logging
             messages and final report.
         """
-        file_path = Path(self.config["unprocessed_file"])
-        self.import_data(file_path)
-        self.preprocess()
-        self.process()
-
-    def import_data(self, file_path: Path) -> None:
-        """Import raw EEG data for this task.
-
-        This method should handle:
-        1. Loading the raw EEG data file
-        2. Basic data validation
-        3. Any task-specific import preprocessing
-        4. Saving the imported data if configured
-
-        Args:
-            file_path: Path to the EEG data file
-
-        Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If file format is invalid
-            RuntimeError: If import fails
-
-        Note:
-            The imported data should be stored in self.raw as an MNE Raw object.
-            Use save_raw_to_set() to save intermediate results if needed.
-        """
-        # Import raw data using standard function
+        # Import and save raw EEG data
         self.raw = import_eeg(self.config)
-
-        # Verify initial annotations
-        self._verify_annotations(self.raw, "post_import")
-
-        # Save imported data if configured
+        
         save_raw_to_set(self.raw, self.config, "post_import")
 
-    def preprocess(self) -> None:
-        """Run standard preprocessing pipeline.
-
-        Raises:
-            RuntimeError: If no data has been imported
-            ValueError: If preprocessing parameters are invalid
-            RuntimeError: If any preprocessing step fails
-
-        Note:
-            The preprocessing parameters are read from the task's
-            configuration. Modify the config file to adjust parameters.
-        """
+        # Check if data was imported successfully
         if self.raw is None:
             raise RuntimeError("No data has been imported")
+        
+        message("header", "Running preprocessing steps")
 
-        # Run preprocessing pipeline and save result
+        # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        # self._verify_annotations(self.raw, "post_prepipeline")
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
+
+        # Store a copy of the pre-cleaned raw data for comparison in reports
+        self.original_raw = self.raw.copy()
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # Run PyLossless pipeline
-        self.pipeline, pipeline_raw = step_run_pylossless(self.config)
-        # self._verify_annotations(pipeline_raw, "post_pylossless")
-        save_raw_to_set(pipeline_raw, self.config, "post_pylossless")
+        #Run PyLossless Pipeline
+        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config, eog_channel="E25")
 
-        self.raw = step_clean_bad_channels(self.raw, self.config)
+        #Add more artifact detection steps
+        self.detect_dense_oscillatory_artifacts()
 
-        # Apply rejection policy
-        self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
+        # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
+        self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
-        self._verify_annotations(self.cleaned_raw, "post_rejection_policy")
+        save_raw_to_set(self.raw, self.config, "post_rejection_policy")
 
-        self.cleaned_raw = step_detect_dense_oscillatory_artifacts(
-            self.cleaned_raw,
-            window_size_ms=100,
-            channel_threshold_uv=50,
-            min_channels=75,
-            padding_ms=500,
-        )
-        save_raw_to_set(self.cleaned_raw, self.config, "post_clean_raw")
+        self.detect_dense_oscillatory_artifacts()
 
-        # Generate visualization reports
-        # self._generate_reports()
+        #Clean bad channels post ICA
+        self.clean_bad_channels()
 
-    def process(self) -> None:
-        """Process the MMN task data."""
-        if self.cleaned_raw is None:
-            raise RuntimeError("Preprocessing must be completed first")
+        self.raw.interpolate_bads(reset_bads=True)
 
-        """Implement task-specific processing steps."""
-        self.epochs = step_create_eventid_epochs(
-            self.cleaned_raw, self.pipeline, self.config
-        )
-        save_epochs_to_set(self.epochs, self.config, "post_epochs")
-        if self.epochs is None:
-            message("error", "Failed to create epochs")
-            return
+        save_raw_to_set(self.raw, self.config, "post_clean_raw")
 
-        # Run MMN analysis
-        generate_mmn_erp(self.epochs, self.pipeline, self.config)
+        self.create_eventid_epochs()
 
-        # Save final epochs
-        save_epochs_to_set(self.epochs, self.config, "post_comp")
+        self._generate_reports()
+
 
     def _generate_reports(self) -> None:
-        """Generate quality control visualizations.
-
+        """Generate quality control visualizations and reports.
+        
         Creates standard visualization reports including:
         1. Raw vs cleaned data overlay
         2. ICA components
         3. ICA details
         4. PSD topography
-
+        
         The reports are saved in the debug directory specified
         in the configuration.
-
+        
         Note:
-            This is automatically called by preprocess().
-            Override this method if you need custom visualizations.
+            This is automatically called by run().
         """
-        if self.pipeline is None or self.cleaned_raw is None:
+        if self.pipeline is None or self.raw is None or self.original_raw is None:
             return
+
+        # Plot raw vs cleaned overlay using mixin method
+        self.plot_raw_vs_cleaned_overlay(
+            self.original_raw, self.raw, self.pipeline, self.config
+        )
 
         # Plot ICA components using mixin method
         self.plot_ica_full(self.pipeline, self.config)
 
         # Generate ICA reports using mixin method
-        self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
-        )
+        self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
         self.psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.original_raw, self.raw, self.pipeline, self.config
         )
+
