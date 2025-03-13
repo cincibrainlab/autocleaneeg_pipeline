@@ -72,10 +72,10 @@ tasks:
 # Useful for quality checking and troubleshooting
 stage_files:
   post_import:
-    enabled: true          # Set to true to save file after this stage
+    enabled: false          # Set to true to save file after this stage
     suffix: "_postimport"  # This text will be added to the filename
   post_prepipeline:
-    enabled: true
+    enabled: false
     suffix: "_postprepipeline"
   post_resample:
     enabled: false
@@ -96,26 +96,26 @@ stage_files:
     enabled: false
     suffix: "_postbadchannels"
   post_pylossless:
-    enabled: true
+    enabled: false
     suffix: "_postpylossless"
   post_rejection_policy:
     enabled: true
     suffix: "_postrejection"
   post_source_localization:
-    enabled: true
+    enabled: false
     suffix: "_stc"
   post_clean_raw:
-    enabled: false
+    enabled: true
     suffix: "_postcleanraw"
   post_epochs:
-    enabled: true
+    enabled: false
     suffix: "_postepochs"
   post_drop_bad_epochs:
     enabled: true
     suffix: "_postdropbadepochs"
 
   post_gfp_clean:
-    enabled: true
+    enabled: false
     suffix: "_postgfpclean"
 
   post_comp:

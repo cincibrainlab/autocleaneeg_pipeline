@@ -131,7 +131,9 @@ class resting_eyesopen_grael4k(Task):
 
         self.raw.interpolate_bads(reset_bads=True)
 
-        #estimate_source_function_raw(self.raw, self.config)
+        save_raw_to_set(self.raw, self.config, "post_clean_raw")
+
+        estimate_source_function_raw(self.raw, self.config)
 
         # Create regular epochs
         self.create_regular_epochs()
