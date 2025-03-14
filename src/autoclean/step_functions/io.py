@@ -682,6 +682,7 @@ def save_raw_to_set(
     autoclean_dict: Dict[str, Any],
     stage: str = "post_import",
     output_path: Optional[Path] = None,
+    flagged: bool = False,
 ) -> Path:
     """Save raw EEG data to file.
 
@@ -692,7 +693,7 @@ def save_raw_to_set(
         autoclean_dict: Configuration dictionary
         stage: Processing stage identifier (e.g., "post_import")
         output_path: Optional custom output path. If None, uses config
-
+        flagged: Whether to save to flagged directory
     Returns:
         Path: Path to the saved file (stage path)
 
@@ -700,6 +701,18 @@ def save_raw_to_set(
         ValueError: If stage is not configured
         RuntimeError: If saving fails
     """
+
+    if flagged:
+        subfolder = autoclean_dict["autoclean_dir"] / "flagged"
+        basename = Path(autoclean_dict["unprocessed_file"]).stem
+        subfolder.mkdir(exist_ok=True)
+        full_path = subfolder / f"{basename}_raw.set"
+        raw.export(full_path, fmt="eeglab", overwrite=True)
+        message("success", f"✓ Saved flagged raw file to: {full_path}")
+        return
+
+
+
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
         
@@ -714,6 +727,7 @@ def save_raw_to_set(
     # Save to stage directory
     if output_path is None:
         output_path = autoclean_dict["stage_dir"]
+        subfolder = output_path / f"{stage_num}{suffix}"
     subfolder = output_path / f"{stage_num}{suffix}"
     subfolder.mkdir(exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_raw.set"
@@ -763,6 +777,7 @@ def save_epochs_to_set(
     autoclean_dict: Dict[str, Any],
     stage: str = "post_clean_epochs",
     output_path: Optional[Path] = None,
+    flagged: bool = False,
 ) -> Path:
     """Save epoched EEG data to file.
 
@@ -773,7 +788,7 @@ def save_epochs_to_set(
         autoclean_dict: Configuration dictionary
         stage: Processing stage identifier (default: "post_clean_epochs")
         output_path: Optional custom output path. If None, uses config
-
+        flagged: Whether to save to flagged directory
     Returns:
         Path: Path to the saved file (stage path)
 
@@ -781,6 +796,17 @@ def save_epochs_to_set(
         ValueError: If stage is not configured
         RuntimeError: If saving fails
     """
+
+    if flagged:
+        task_name = autoclean_dict["task"]
+        subfolder = autoclean_dict["autoclean_dir"] / task_name / "flagged"
+        basename = Path(autoclean_dict["unprocessed_file"]).stem
+        subfolder.mkdir(exist_ok=True)
+        full_path = subfolder / f"{basename}_epo.set"
+        epochs.export(full_path, fmt="eeglab", overwrite=True)
+        message("success", f"✓ Saved flagged epochs file to: {full_path}")
+        return
+    
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
         

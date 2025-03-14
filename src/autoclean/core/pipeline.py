@@ -370,7 +370,13 @@ class Pipeline:
             # Only proceed with processing log update if we have a valid summary
             if json_summary:
                 # Update processing log
-                update_task_processing_log(json_summary)
+                flagged = update_task_processing_log(json_summary)
+                if flagged:
+                    message("info", "Saving flagged data to additional folder")
+                    if task_object.epochs is not None:
+                        save_epochs_to_set(task_object.epochs, run_dict, flagged=True)
+                    else:
+                        save_raw_to_set(task_object.raw, run_dict, flagged=True)
             else:
                 message("warning", "Could not create JSON summary, processing log will not be updated")
 
@@ -397,7 +403,13 @@ class Pipeline:
             # Try to update processing log even in error case
             if json_summary:
                 try:
-                    update_task_processing_log(json_summary)
+                    flagged = update_task_processing_log(json_summary)
+                    if flagged:
+                        message("info", "Saving flagged data to additional folder")
+                        if task_object.epochs is not None:
+                            save_epochs_to_set(task_object.epochs, run_dict, flagged=True)
+                        else:
+                            save_raw_to_set(task_object.raw, run_dict, flagged=True)
                 except Exception as log_error:
                     message("warning", f"Failed to update processing log: {str(log_error)}")
             else:

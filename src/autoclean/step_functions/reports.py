@@ -2282,12 +2282,24 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
                 operation="update",
                 update_record={"run_id": summary_dict.get("run_id", ""), "metadata": metadata},
             )
+
+            if flags is not None:
+                return True
+            else:
+                return False
         except Exception as db_err:
             message("error", f"Error updating database: {str(db_err)}")
+            if flags is not None:
+                return True
+            else:
+                return False
 
     except Exception as e:
         message("error", f"Error updating processing log: {str(e)}\n{traceback.format_exc()}")
-        return
+        if flags is not None:
+            return True
+        else:
+            return False
 
 def create_json_summary(run_id: str) -> None:
     run_record = get_run_record(run_id)
