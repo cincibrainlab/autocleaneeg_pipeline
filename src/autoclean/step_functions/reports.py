@@ -1335,8 +1335,8 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     
     # If no JSON summary, create it
     if not json_summary:
-        message("info", "No JSON summary found, creating one")
-        json_summary = create_json_summary(run_id)
+        message("warning", "No json summary found, run report may be missing or incomplete")
+        json_summary = {}
     
     # Set up BIDS path
     bids_path = None
@@ -2326,13 +2326,17 @@ def create_json_summary(run_id: str) -> None:
                     extension=bids_info["bids_extension"],
                 )
 
-        config_path = run_record["lossless_config"]
-        derivative_name = "pylossless"
-        pipeline = ll.LosslessPipeline(config_path)
-        derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
-        derivatives_dir = Path(derivatives_path.directory)
+                config_path = run_record["lossless_config"]
+                derivative_name = "pylossless"
+                pipeline = ll.LosslessPipeline(config_path)
+                derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
+                derivatives_dir = Path(derivatives_path.directory)
+        else:
+            message("warning", "Failed to create json summary -> Could not find bids info in metadata.")
+            return {}
+        
     except Exception as e:
-        message("error", f"Could not get derivatives path: {str(e)}")
+        message("error", f"Failed to get derivatives path: {str(e)}")
         return {}
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
