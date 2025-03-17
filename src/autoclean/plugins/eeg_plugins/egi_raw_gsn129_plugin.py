@@ -34,14 +34,19 @@ class EGIRawGSN129Plugin(BaseEEGPlugin):
         message("info", f"Loading EGI .raw file with GSN-HydroCel-129 montage: {file_path}")
         
         try:
-            # Step 1: Import the .raw file
+            # Step 1: Import the .raw file with all events included
             raw = mne.io.read_raw_egi(
                 input_fname=file_path,
                 preload=preload,
                 events_as_annotations=True,
+                exclude=None,  # Don't exclude any events
                 verbose=True
             )
-            message("success", "Successfully loaded .raw file")
+            message("success", "Successfully loaded .raw file with all events")
+            
+            # Log detected event types
+            event_types = set(raw.annotations.description)
+            message("info", f"Detected event types: {event_types}")
             
             # Step 2: Configure the GSN-HydroCel-129 montage
             message("info", "Configuring GSN-HydroCel-129 montage")
@@ -58,11 +63,7 @@ class EGIRawGSN129Plugin(BaseEEGPlugin):
             
             message("success", "Successfully configured GSN-HydroCel-129 montage")
             
-            # Step 3: Process events
-            # EGI .raw files have events stored as TTL pulses in the recording
-            # These are converted to annotations by mne when loading the file
-            
-            # Step 4: Apply task-specific processing if needed
+            # Step 3: Apply task-specific processing if needed
             task = autoclean_dict.get("task", None)
             if task:
                 if task == "p300_grael4k":
@@ -118,8 +119,18 @@ class EGIRawGSN129Plugin(BaseEEGPlugin):
                     'id': events[:, 2],
                     'type': [event_id.get(str(id), f"Unknown-{id}") for id in events[:, 2]]
                 })
+                
+                # Log event information
+                unique_event_types = events_df['type'].unique()
+                message("info", f"Found {len(events)} events of {len(unique_event_types)} unique types: {unique_event_types}")
+                
+                # Count events by type
+                event_counts = events_df['type'].value_counts().to_dict()
+                message("info", f"Event counts: {event_counts}")
+                
                 return events, event_id, events_df
             else:
+                message("warning", "No events found in the raw data")
                 return None, None, None
                 
         except Exception as e:
