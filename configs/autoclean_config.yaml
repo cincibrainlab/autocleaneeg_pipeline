@@ -311,7 +311,7 @@ tasks:
         value:
           tmin: -0.5
           tmax: 2.5
-        event_id: {'DIN8'}  # Event ID to use for epoching
+        event_id: null  # Event ID to use for epoching
         remove_baseline:
           enabled: false
           window: [null, 0]

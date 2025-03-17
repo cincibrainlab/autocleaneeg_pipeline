@@ -28,7 +28,7 @@ class EGIRawGSN129Plugin(BaseEEGPlugin):
     def supports_format_montage(cls, format_id: str, montage_name: str) -> bool:
         """Check if this plugin supports the given format and montage combination."""
         return format_id == "EGI_RAW" and montage_name == "GSN-HydroCel-129"
-    
+        
     def import_and_configure(self, file_path: Path, autoclean_dict: dict, preload: bool = True):
         """Import EGI .raw file and configure GSN-HydroCel-129 montage."""
         message("info", f"Loading EGI .raw file with GSN-HydroCel-129 montage: {file_path}")
@@ -39,10 +39,13 @@ class EGIRawGSN129Plugin(BaseEEGPlugin):
                 input_fname=file_path,
                 preload=preload,
                 events_as_annotations=True,
-                exclude=None,  # Don't exclude any events
+                exclude=[],  # Explicitly include all events, no exclusions
                 verbose=True
             )
             message("success", "Successfully loaded .raw file with all events")
+            
+            # Debug: Print annotations to verify events are loaded
+            message("debug", f"Annotations after loading: {raw.annotations.description}")
             
             # Log detected event types
             event_types = set(raw.annotations.description)
