@@ -708,10 +708,6 @@ def save_raw_to_set(
         subfolder.mkdir(exist_ok=True)
         full_path = subfolder / f"{basename}_raw.set"
         raw.export(full_path, fmt="eeglab", overwrite=True)
-        
-        # Extract events from annotations and add them to the EEGLAB file
-        _add_events_to_eeglab_file(raw, full_path)
-        
         message("success", f"✓ Saved flagged raw file to: {full_path}")
         return
 
@@ -748,10 +744,6 @@ def save_raw_to_set(
     for path in paths:
         try:
             raw.export(path, fmt="eeglab", overwrite=True)
-            
-            # Extract events from annotations and add them to the EEGLAB file
-            _add_events_to_eeglab_file(raw, path)
-            
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
             raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}")
@@ -778,70 +770,6 @@ def save_raw_to_set(
     )
 
     return paths[0]  # Return stage path for consistency
-
-
-def _add_events_to_eeglab_file(raw: mne.io.Raw, file_path: Path) -> None:
-    """Add events from MNE annotations to an EEGLAB .set file.
-    
-    This function extracts events from MNE annotations and adds them to the 
-    EEGLAB .set file, ensuring that events are preserved even when event 
-    processing is disabled in the configuration.
-    
-    Args:
-        raw: Raw EEG data with annotations
-        file_path: Path to the EEGLAB .set file
-    """
-    if len(raw.annotations) == 0:
-        message("info", "No annotations found to convert to EEGLAB events")
-        return
-    
-    try:
-        # Extract events from annotations
-        events, event_id = mne.events_from_annotations(raw)
-        
-        if events is None or len(events) == 0:
-            message("info", "No events could be extracted from annotations")
-            return
-        
-        # Load the EEGLAB file
-        EEG = sio.loadmat(file_path, struct_as_record=False, squeeze_me=True)
-        
-        # Create EEGLAB event structure
-        eeglab_events = []
-        for i, event in enumerate(events):
-            event_type = event[2]
-            event_desc = next((k for k, v in event_id.items() if v == event_type), f"event_{event_type}")
-            
-            # Create event dictionary
-            event_dict = {
-                'type': event_desc,
-                'latency': float(event[0] + 1),  # EEGLAB uses 1-based indexing
-                'urevent': i + 1,
-                'duration': 0
-            }
-            eeglab_events.append(event_dict)
-        
-        # Convert to MATLAB structure
-        from scipy.io.matlab.mio5_params import mat_struct
-        
-        # Create event array for EEGLAB
-        if len(eeglab_events) > 0:
-            event_struct = []
-            for evt in eeglab_events:
-                event_obj = mat_struct()
-                for key, val in evt.items():
-                    setattr(event_obj, key, val)
-                event_struct.append(event_obj)
-            
-            # Add events to EEG structure
-            EEG['EEG'].event = event_struct
-            
-            # Save the modified file
-            sio.savemat(file_path, EEG, do_compression=False)
-            message("success", f"✓ Added {len(eeglab_events)} events to EEGLAB file")
-        
-    except Exception as e:
-        message("warning", f"Failed to add events to EEGLAB file: {str(e)}")
 
 
 def save_epochs_to_set(
@@ -876,13 +804,6 @@ def save_epochs_to_set(
         subfolder.mkdir(exist_ok=True)
         full_path = subfolder / f"{basename}_epo.set"
         epochs.export(full_path, fmt="eeglab", overwrite=True)
-        
-        # Add run_id to the file
-        _add_run_id_to_eeglab_file(full_path, autoclean_dict["run_id"])
-        
-        # Ensure events are preserved
-        _add_events_to_eeglab_epochs_file(epochs, full_path)
-        
         message("success", f"✓ Saved flagged epochs file to: {full_path}")
         return
     
@@ -917,13 +838,11 @@ def save_epochs_to_set(
     for path in paths:
         try:
             epochs.export(path, fmt="eeglab", overwrite=True)
-            
             # Add run_id to each file
-            _add_run_id_to_eeglab_file(path, autoclean_dict["run_id"])
-            
-            # Ensure events are preserved
-            _add_events_to_eeglab_epochs_file(epochs, path)
-            
+            EEG = sio.loadmat(path)
+            EEG["etc"] = {}
+            EEG["etc"]["run_id"] = autoclean_dict["run_id"]
+            sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
             raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}")
@@ -953,85 +872,6 @@ def save_epochs_to_set(
     )
 
     return paths[0]  # Return stage path for consistency
-
-
-def _add_run_id_to_eeglab_file(file_path: Path, run_id: str) -> None:
-    """Add run_id to EEGLAB file.
-    
-    Args:
-        file_path: Path to the EEGLAB .set file
-        run_id: Run ID to add
-    """
-    try:
-        EEG = sio.loadmat(file_path)
-        if "etc" not in EEG:
-            EEG["etc"] = {}
-        EEG["etc"]["run_id"] = run_id
-        sio.savemat(file_path, EEG, do_compression=False)
-    except Exception as e:
-        message("warning", f"Failed to add run_id to EEGLAB file: {str(e)}")
-
-
-def _add_events_to_eeglab_epochs_file(epochs: mne.Epochs, file_path: Path) -> None:
-    """Add events from MNE Epochs to an EEGLAB .set file.
-    
-    This function extracts events from MNE Epochs and adds them to the 
-    EEGLAB .set file, ensuring that events are preserved.
-    
-    Args:
-        epochs: Epoched EEG data with events
-        file_path: Path to the EEGLAB .set file
-    """
-    try:
-        # Get events from epochs
-        events = epochs.events
-        event_id = epochs.event_id
-        
-        if events is None or len(events) == 0:
-            message("info", "No events found in epochs")
-            return
-        
-        # Load the EEGLAB file
-        EEG = sio.loadmat(file_path, struct_as_record=False, squeeze_me=True)
-        
-        # Create EEGLAB event structure
-        eeglab_events = []
-        for i, event in enumerate(events):
-            event_type = event[2]
-            event_desc = next((k for k, v in event_id.items() if v == event_type), f"event_{event_type}")
-            
-            # Create event dictionary
-            event_dict = {
-                'type': event_desc,
-                'latency': float(i + 1),  # For epochs, latency is the epoch index (1-based)
-                'epoch': i + 1,
-                'urevent': i + 1,
-                'duration': 0
-            }
-            eeglab_events.append(event_dict)
-        
-        # Convert to MATLAB structure
-        from scipy.io.matlab.mio5_params import mat_struct
-        
-        # Create event array for EEGLAB
-        if len(eeglab_events) > 0:
-            event_struct = []
-            for evt in eeglab_events:
-                event_obj = mat_struct()
-                for key, val in evt.items():
-                    setattr(event_obj, key, val)
-                event_struct.append(event_obj)
-            
-            # Add events to EEG structure
-            EEG['EEG'].event = event_struct
-            
-            # Save the modified file
-            sio.savemat(file_path, EEG, do_compression=False)
-            message("success", f"✓ Added {len(eeglab_events)} events to EEGLAB epochs file")
-        
-    except Exception as e:
-        message("warning", f"Failed to add events to EEGLAB epochs file: {str(e)}")
-
 
 def step_import():
     pass
