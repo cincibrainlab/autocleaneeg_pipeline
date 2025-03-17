@@ -2160,7 +2160,12 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             
             if total_channels and removed_channels:
                 if isinstance(removed_channels, list):
-                    bad_channels_count = len(removed_channels)
+                    # Ensure we're counting unique channels
+                    unique_removed_channels = []
+                    for channel in removed_channels:
+                        if channel not in unique_removed_channels:
+                            unique_removed_channels.append(channel)
+                    bad_channels_count = len(unique_removed_channels)
                 else:
                     bad_channels_count = 0
                 
@@ -2391,7 +2396,12 @@ def create_json_summary(run_id: str) -> None:
     bad_channels = [
         channel for channels in channel_dict.values() for channel in channels
     ]
-    channel_dict["removed_channels"] = bad_channels
+    # Remove duplicates while preserving order
+    unique_bad_channels = []
+    for channel in bad_channels:
+        if channel not in unique_bad_channels:
+            unique_bad_channels.append(channel)
+    channel_dict["removed_channels"] = unique_bad_channels
 
     if "step_prepare_directories" in metadata:
         output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
