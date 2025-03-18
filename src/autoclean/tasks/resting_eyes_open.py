@@ -109,7 +109,7 @@ class RestingEyesOpen(Task):
         self.gfp_clean_epochs()
 
         # Generate visualization reports
-        # self._generate_reports()
+        self._generate_reports()
 
 
     def _generate_reports(self) -> None:
