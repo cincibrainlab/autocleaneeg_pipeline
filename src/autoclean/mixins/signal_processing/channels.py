@@ -258,7 +258,11 @@ class ChannelsMixin:
                 )
             
             # Get bad channels and add them to the raw object
+            uncorrelated_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_correlation"]
+            deviation_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_deviation"]
+            ransac_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_ransac"]
             bad_channels = cleaned_raw.get_bads(as_dict=True)
+
             result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_ransac"]])
             result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_deviation"]])
             result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
@@ -273,16 +277,19 @@ class ChannelsMixin:
                 result_raw.drop_channels(result_raw.info["bads"])
                 result_raw.info["bads"] = []
 
-            message("info", f"Detected {len(result_raw.info['bads'])} bad channels: {result_raw.info['bads']}")
+            message("info", f"Detected {len(bads)} bad channels: {bads}")
             
             # Update metadata
             metadata = {
                 "method": "NoisyChannels",
                 "options": options,
-                "bads": bads,
                 "channelCount": len(result_raw.ch_names),
                 "durationSec": int(result_raw.n_times) / result_raw.info["sfreq"],
                 "numberSamples": int(result_raw.n_times),
+                "bads": bads,
+                "uncorrelated_channels": uncorrelated_channels,
+                "deviation_channels": deviation_channels,
+                "ransac_channels": ransac_channels,
             }
             
             self._update_metadata("step_clean_bad_channels", metadata)

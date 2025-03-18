@@ -75,6 +75,7 @@ from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,
     update_task_processing_log,
+    generate_bad_channels_tsv,
 )
 from autoclean.tasks import task_registry
 from autoclean.utils.config import (
@@ -377,6 +378,10 @@ class Pipeline:
                         save_epochs_to_set(task_object.epochs, run_dict, flagged=True)
                     else:
                         save_raw_to_set(task_object.raw, run_dict, flagged=True)
+                try:
+                    generate_bad_channels_tsv(json_summary)
+                except Exception as tsv_error:
+                    message("warning", f"Failed to generate bad channels tsv: {str(tsv_error)}")
             else:
                 message("warning", "Could not create JSON summary, processing log will not be updated")
 
@@ -412,6 +417,10 @@ class Pipeline:
                             save_raw_to_set(task_object.raw, run_dict, flagged=True)
                 except Exception as log_error:
                     message("warning", f"Failed to update processing log: {str(log_error)}")
+                try:
+                    generate_bad_channels_tsv(json_summary)
+                except Exception as tsv_error:
+                    message("warning", f"Failed to generate bad channels tsv: {str(tsv_error)}")
             else:
                 message("warning", "Could not create JSON summary for error case")
 

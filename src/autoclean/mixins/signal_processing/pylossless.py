@@ -45,11 +45,15 @@ class PyLosslessMixin:
 
         message("info", "Removing eog channels from flagged bads")
         bads = pipeline.flags['ch'].get_flagged()
+        noisy_channels = list(pipeline.flags['ch']['noisy'])
+        uncorrelated_channels = list(pipeline.flags['ch']['uncorrelated'])
+        bridged_channels = list(pipeline.flags['ch']['bridged'])
+        rank_channels = list(pipeline.flags['ch']['rank'])
         task = config["task"]
         try:
             eogs = config["tasks"][task]["settings"]["eog_step"]["value"]
         except Exception as e:
-            message("warning", f"Failed to get eog channel (run_custom_pylossless_pipeline): {str(e)}")
+            message("warning", f"Failed to get eog channel (run_custom_pylossless_pipeline)")
             eogs = []
 
         message("debug", f"Removing eog channels from flagged bads: {eogs}")
@@ -99,6 +103,10 @@ class PyLosslessMixin:
             "durationSec": int(pipeline.raw.n_times) / pipeline.raw.info["sfreq"],
             "numberSamples": int(pipeline.raw.n_times),
             "bads": bads,
+            "noisy_channels": noisy_channels,
+            "uncorrelated_channels": uncorrelated_channels,
+            "bridged_channels": bridged_channels,
+            "rank_channels": rank_channels,
         }
 
         self._update_metadata("step_custom_pylossless_pipeline", metadata)

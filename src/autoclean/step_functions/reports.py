@@ -46,7 +46,7 @@ __all__ = [
     "create_run_report",
     "update_task_processing_log",
     "create_json_summary",
-    "generate_mmn_erp",
+    "generate_bad_channels_tsv",
 ]
 
 # Force matplotlib to use non-interactive backend for async operations
@@ -2367,10 +2367,32 @@ def create_json_summary(run_id: str) -> None:
         channel_dict["step_clean_bad_channels"] = metadata["step_clean_bad_channels"][
             "bads"
         ]
+        channel_dict["uncorrelated_channels"] = metadata["step_clean_bad_channels"][
+            "uncorrelated_channels"
+        ]
+        channel_dict["deviation_channels"] = metadata["step_clean_bad_channels"][
+            "deviation_channels"
+        ]
+        channel_dict["ransac_channels"] = metadata["step_clean_bad_channels"][
+            "ransac_channels"
+        ]
+        
 
     if "step_custom_pylossless_pipeline" in metadata:
         channel_dict["step_custom_pylossless_pipeline"] = metadata["step_custom_pylossless_pipeline"][
             "bads"
+        ]
+        channel_dict["noisy_channels"] = metadata["step_custom_pylossless_pipeline"][
+            "noisy_channels"
+        ]
+        channel_dict["uncorrelated_channels"] = metadata["step_custom_pylossless_pipeline"][
+            "uncorrelated_channels"
+        ]
+        channel_dict["bridged_channels"] = metadata["step_custom_pylossless_pipeline"][
+            "bridged_channels"
+        ]
+        channel_dict["rank_channels"] = metadata["step_custom_pylossless_pipeline"][
+            "rank_channels"
         ]
 
     flagged_chs_file = None
@@ -2410,10 +2432,12 @@ def create_json_summary(run_id: str) -> None:
 
     # FIND IMPORT DETAILS
     import_details = {}
-    dropped_channels = 0
+    dropped_channels = []
     if "pre_pipeline_processing" in metadata:
         try:
             dropped_channels = metadata["pre_pipeline_processing"]["OuterLayerChannels"]
+            if dropped_channels is None:
+                dropped_channels = []
             import_details["dropped_channels"] = dropped_channels
         except:
             pass
@@ -2536,156 +2560,192 @@ def create_json_summary(run_id: str) -> None:
     
     return summary_dict
 
-def generate_mmn_erp(
-    epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]
-) -> None:
-    """Generate ERP plots for MMN paradigm."""
-    message("header", "generate_mmn_erp")
-    task = autoclean_dict["task"]
-    settings = autoclean_dict["tasks"][task]["settings"]
-    roi_channels = get_standard_set_in_montage(
-        "mmn_standard", settings["montage"]["value"]
-    )
-    roi_channels = validate_channel_set(roi_channels, epochs.ch_names)
-
-    if not roi_channels:
-        message("error", "No valid ROI channels found in data")
-        return None
-
-    # Get conditions
-    epoch_settings = settings["epoch_settings"]
-    event_id = epoch_settings.get("event_id")
+def generate_bad_channels_tsv(summary_dict: Dict[str, Any])->None:
+    try: 
+        channel_dict = summary_dict["channel_dict"]
+    except:
+        message("warning", "Could not generate bad channels tsv -> No channel dict found in summary dict")
+        return
     
-    if event_id is None:
-        message("warning", "Event ID is not specified in epoch_settings (set to null)")
-        return None
-        
-    conditions = {
-        "standard": event_id.get("standard", "DIN2/1"),
-        "predeviant": event_id.get("predeviant", "DIN2/2"),
-        "deviant": event_id.get("deviant", "DIN2/3"),
-    }
-
-    # Create evoked objects
     try:
-        evoked_dict = {
-            "standard": epochs[conditions["standard"]].average(),
-            "predeviant": epochs[conditions["predeviant"]].average(),
-            "deviant": epochs[conditions["deviant"]].average(),
-        }
+        noisy_channels = channel_dict["noisy_channels"]
+        uncorrelated_channels = channel_dict["uncorrelated_channels"]
+        deviation_channels = channel_dict["deviation_channels"]
+        bridged_channels = channel_dict["bridged_channels"]
+        rank_channels = channel_dict["rank_channels"]
+        ransac_channels = channel_dict["ransac_channels"]
+    except:
+        message("warning", "Could not generate bad channels tsv -> Failed to fetch bad channels")
+        return
+    
+    message("info", f"Generating bad channels tsv for {summary_dict['run_id']}")
+    
+    with open(summary_dict["derivatives_dir"] / "FlaggedChs.tsv", "w") as f:
+        f.write("label\tchannel\n")
+        for channel in noisy_channels:
+            f.write("Noisy\t" + channel + "\n")
+        for channel in uncorrelated_channels:
+            f.write("Uncorrelated\t" + channel + "\n")
+        for channel in deviation_channels:
+            f.write("Deviation\t" + channel + "\n")
+        for channel in ransac_channels:
+            f.write("Ransac\t" + channel + "\n")
+        for channel in bridged_channels:
+            f.write("Bridged\t" + channel + "\n")
+        for channel in rank_channels:
+            f.write("Rank\t" + channel + "\n")
 
-        # Add difference waves
-        evoked_dict["mmn"] = mne.combine_evoked(
-            [evoked_dict["deviant"], evoked_dict["standard"]], weights=[1, -1]
-        )
-        evoked_dict["mmn_pre"] = mne.combine_evoked(
-            [evoked_dict["deviant"], evoked_dict["predeviant"]], weights=[1, -1]
-        )
-    except KeyError as e:
-        message("error", f"Could not find condition: {e}")
-        message("info", f"Available conditions: {epochs.event_id}")
-        return None
 
-    # Create output paths
-    derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-    pdf_path = str(
-        derivatives_path.copy().update(suffix="erp-report", extension=".pdf")
-    )
+# def generate_mmn_erp(
+#     epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]
+# ) -> None:
+#     """Generate ERP plots for MMN paradigm."""
+#     message("header", "generate_mmn_erp")
+#     task = autoclean_dict["task"]
+#     settings = autoclean_dict["tasks"][task]["settings"]
+#     roi_channels = get_standard_set_in_montage(
+#         "mmn_standard", settings["montage"]["value"]
+#     )
+#     roi_channels = validate_channel_set(roi_channels, epochs.ch_names)
 
-    # Remove existing file
-    if os.path.exists(pdf_path):
-        os.remove(pdf_path)
+#     if not roi_channels:
+#         message("error", "No valid ROI channels found in data")
+#         return None
 
-    with PdfPages(pdf_path) as pdf:
-        # Plot ERPs - using non-interactive method
-        fig = plt.figure(figsize=(12, 8))
-        ax = fig.add_subplot(111)
+#     # Get conditions
+#     epoch_settings = settings["epoch_settings"]
+#     event_id = epoch_settings.get("event_id")
+    
+#     if event_id is None:
+#         message("warning", "Event ID is not specified in epoch_settings (set to null)")
+#         return None
+        
+#     conditions = {
+#         "standard": event_id.get("standard", "DIN2/1"),
+#         "predeviant": event_id.get("predeviant", "DIN2/2"),
+#         "deviant": event_id.get("deviant", "DIN2/3"),
+#     }
 
-        times = epochs.times * 1000  # Convert to milliseconds
-        for condition, color in [
-            ("standard", "black"),
-            ("predeviant", "blue"),
-            ("deviant", "red"),
-        ]:
-            data = evoked_dict[condition].get_data(picks=roi_channels).mean(axis=0)
-            ax.plot(
-                times,
-                data * 1e6,
-                color=color,
-                linewidth=2,
-                label=condition.capitalize(),
-            )
+#     # Create evoked objects
+#     try:
+#         evoked_dict = {
+#             "standard": epochs[conditions["standard"]].average(),
+#             "predeviant": epochs[conditions["predeviant"]].average(),
+#             "deviant": epochs[conditions["deviant"]].average(),
+#         }
 
-        ax.set_xlabel("Time (ms)")
-        ax.set_ylabel("Amplitude (μV)")
-        ax.set_title("ERPs by Condition")
-        ax.legend()
-        ax.grid(True)
-        plt.tight_layout()
-        pdf.savefig()
-        plt.close()
+#         # Add difference waves
+#         evoked_dict["mmn"] = mne.combine_evoked(
+#             [evoked_dict["deviant"], evoked_dict["standard"]], weights=[1, -1]
+#         )
+#         evoked_dict["mmn_pre"] = mne.combine_evoked(
+#             [evoked_dict["deviant"], evoked_dict["predeviant"]], weights=[1, -1]
+#         )
+#     except KeyError as e:
+#         message("error", f"Could not find condition: {e}")
+#         message("info", f"Available conditions: {epochs.event_id}")
+#         return None
 
-        # Plot difference waves - using non-interactive method
-        fig = plt.figure(figsize=(12, 8))
-        ax = fig.add_subplot(111)
+#     # Create output paths
+#     derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+#     pdf_path = str(
+#         derivatives_path.copy().update(suffix="erp-report", extension=".pdf")
+#     )
 
-        data = evoked_dict["mmn"].get_data(picks=roi_channels).mean(axis=0)
-        ax.plot(times, data * 1e6, color="red", linewidth=2)
-        ax.set_xlabel("Time (ms)")
-        ax.set_ylabel("Amplitude (μV)")
-        ax.set_title("MMN (Deviant - Standard)")
-        ax.grid(True)
-        plt.tight_layout()
-        pdf.savefig()
-        plt.close()
+#     # Remove existing file
+#     if os.path.exists(pdf_path):
+#         os.remove(pdf_path)
 
-        # Plot topographies at key time points
-        times = [0.100, 0.200, 0.300]  # N1, MMN, P3
-        time_labels = ["N1 (100 ms)", "MMN (200 ms)", "P3 (300 ms)"]
-        for condition in ["standard", "predeviant", "deviant", "mmn"]:
-            fig = plt.figure(figsize=(12, 4))
-            for idx, (time, label) in enumerate(zip(times, time_labels), 1):
-                ax = fig.add_subplot(1, 3, idx)
-                evoked_dict[condition].plot_topomap(
-                    times=time, axes=ax, show=False, colorbar=False, time_unit="ms"
-                )
-                ax.set_title(label)
-            plt.suptitle(f"{condition.upper()} Topography")
-            plt.tight_layout()
-            pdf.savefig(fig)
-            plt.close()
+#     with PdfPages(pdf_path) as pdf:
+#         # Plot ERPs - using non-interactive method
+#         fig = plt.figure(figsize=(12, 8))
+#         ax = fig.add_subplot(111)
 
-    # Save data
-    np.savez(
-        str(derivatives_path.copy().update(suffix="erp-data", extension=".csv")),
-        times=epochs.times,
-        standard=evoked_dict["standard"].data,
-        predeviant=evoked_dict["predeviant"].data,
-        deviant=evoked_dict["deviant"].data,
-        mmn=evoked_dict["mmn"].data,
-        mmn_pre=evoked_dict["mmn_pre"].data,
-        channels=epochs.ch_names,
-        roi_channels=roi_channels,
-    )
+#         times = epochs.times * 1000  # Convert to milliseconds
+#         for condition, color in [
+#             ("standard", "black"),
+#             ("predeviant", "blue"),
+#             ("deviant", "red"),
+#         ]:
+#             data = evoked_dict[condition].get_data(picks=roi_channels).mean(axis=0)
+#             ax.plot(
+#                 times,
+#                 data * 1e6,
+#                 color=color,
+#                 linewidth=2,
+#                 label=condition.capitalize(),
+#             )
 
-    # Add metadata
-    metadata = {
-        "step_analyze_mmn": {
-            "creationDateTime": datetime.now().isoformat(),
-            "roi_channels": roi_channels,
-            "epoch_counts": {
-                "standard": len(epochs[conditions["standard"]]),
-                "predeviant": len(epochs[conditions["predeviant"]]),
-                "deviant": len(epochs[conditions["deviant"]]),
-            },
-            "report_path": pdf_path,
-            "data_path": str(
-                derivatives_path.copy().update(suffix="erp-data", extension=".csv")
-            ),
-        }
-    }
+#         ax.set_xlabel("Time (ms)")
+#         ax.set_ylabel("Amplitude (μV)")
+#         ax.set_title("ERPs by Condition")
+#         ax.legend()
+#         ax.grid(True)
+#         plt.tight_layout()
+#         pdf.savefig()
+#         plt.close()
 
-    manage_database(
-        operation="update",
-        update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
-    )
+#         # Plot difference waves - using non-interactive method
+#         fig = plt.figure(figsize=(12, 8))
+#         ax = fig.add_subplot(111)
+
+#         data = evoked_dict["mmn"].get_data(picks=roi_channels).mean(axis=0)
+#         ax.plot(times, data * 1e6, color="red", linewidth=2)
+#         ax.set_xlabel("Time (ms)")
+#         ax.set_ylabel("Amplitude (μV)")
+#         ax.set_title("MMN (Deviant - Standard)")
+#         ax.grid(True)
+#         plt.tight_layout()
+#         pdf.savefig()
+#         plt.close()
+
+#         # Plot topographies at key time points
+#         times = [0.100, 0.200, 0.300]  # N1, MMN, P3
+#         time_labels = ["N1 (100 ms)", "MMN (200 ms)", "P3 (300 ms)"]
+#         for condition in ["standard", "predeviant", "deviant", "mmn"]:
+#             fig = plt.figure(figsize=(12, 4))
+#             for idx, (time, label) in enumerate(zip(times, time_labels), 1):
+#                 ax = fig.add_subplot(1, 3, idx)
+#                 evoked_dict[condition].plot_topomap(
+#                     times=time, axes=ax, show=False, colorbar=False, time_unit="ms"
+#                 )
+#                 ax.set_title(label)
+#             plt.suptitle(f"{condition.upper()} Topography")
+#             plt.tight_layout()
+#             pdf.savefig(fig)
+#             plt.close()
+
+#     # Save data
+#     np.savez(
+#         str(derivatives_path.copy().update(suffix="erp-data", extension=".csv")),
+#         times=epochs.times,
+#         standard=evoked_dict["standard"].data,
+#         predeviant=evoked_dict["predeviant"].data,
+#         deviant=evoked_dict["deviant"].data,
+#         mmn=evoked_dict["mmn"].data,
+#         mmn_pre=evoked_dict["mmn_pre"].data,
+#         channels=epochs.ch_names,
+#         roi_channels=roi_channels,
+#     )
+
+#     # Add metadata
+#     metadata = {
+#         "step_analyze_mmn": {
+#             "creationDateTime": datetime.now().isoformat(),
+#             "roi_channels": roi_channels,
+#             "epoch_counts": {
+#                 "standard": len(epochs[conditions["standard"]]),
+#                 "predeviant": len(epochs[conditions["predeviant"]]),
+#                 "deviant": len(epochs[conditions["deviant"]]),
+#             },
+#             "report_path": pdf_path,
+#             "data_path": str(
+#                 derivatives_path.copy().update(suffix="erp-data", extension=".csv")
+#             ),
+#         }
+#     }
+
+#     manage_database(
+#         operation="update",
+#         update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
+#     )
