@@ -2268,7 +2268,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             csv_path.parent.mkdir(parents=True, exist_ok=True)
             df.to_csv(csv_path, index=False)
             message(
-                "info",
+                "success",
                 f"Updated processing log for {details['subj_basename']} in {csv_path}",
             )
         except Exception as save_err:
@@ -2578,9 +2578,7 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any])->None:
         message("warning", "Could not generate bad channels tsv -> Failed to fetch bad channels")
         return
     
-    message("info", f"Generating bad channels tsv for {summary_dict['run_id']}")
-    
-    with open(summary_dict["derivatives_dir"] / "FlaggedChs.tsv", "w") as f:
+    with open(f"{summary_dict['derivatives_dir']}/FlaggedChs.tsv", "w") as f:
         f.write("label\tchannel\n")
         for channel in noisy_channels:
             f.write("Noisy\t" + channel + "\n")
@@ -2594,6 +2592,8 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any])->None:
             f.write("Bridged\t" + channel + "\n")
         for channel in rank_channels:
             f.write("Rank\t" + channel + "\n")
+
+    message("success", f"Bad channels tsv generated for {summary_dict['run_id']}")
 
 
 # def generate_mmn_erp(

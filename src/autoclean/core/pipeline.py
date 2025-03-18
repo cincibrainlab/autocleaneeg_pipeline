@@ -356,11 +356,11 @@ class Pipeline:
 
             message("success", f"✓ Task {task} completed successfully")
 
-            # Get final run record for report generation
-            run_record = get_run_record(run_id)
-
             #Create a run summary in JSON format
             json_summary = create_json_summary(run_id)
+
+            # Get final run record for report generation
+            run_record = get_run_record(run_id)
 
             # Export run metadata to JSON file
             json_file = metadata_dir / run_record["json_file"]
