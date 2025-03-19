@@ -195,7 +195,22 @@ class SignalProcessingMixin:
         manage_database(
             operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
+
+    def _update_flagged_status(self, flagged: bool, reason: str) -> None:
+        """Update the flagged status and reasons.
         
+        Args:
+            flagged: Boolean indicating if the data is flagged
+            reason: Reason for flagging the data
+        """
+        if not hasattr(self, 'flagged'):
+            self.flagged = flagged
+            self.flagged_reasons = [reason]
+        else:
+            self.flagged = flagged
+            self.flagged_reasons.append(reason)
+        
+
     def _save_raw_result(self, result_data: mne.io.BaseRaw, stage_name: str) -> None:
         """Save the raw result data to a file.
         

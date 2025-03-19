@@ -40,6 +40,7 @@ Example:
 # Standard library imports
 from abc import ABC, abstractmethod
 from pathlib import Path
+from struct import Struct
 from typing import Any, Dict, Optional
 
 # Third-party imports
@@ -102,9 +103,8 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         # These will be populated during the processing pipeline
         self.raw: Optional[mne.io.Raw] = None  # Holds continuous EEG data
         self.epochs: Optional[mne.Epochs] = None  # Holds epoched data segments
-
-        # Dictionary to track processing history, metrics, and state changes
-        self.pipeline_results: Dict[str, Any] = {}
+        self.flagged = False
+        self.flagged_reasons = []
 
     def import_data(self, file_path: Path) -> None:
         """Import raw EEG data for processing.
@@ -231,3 +231,32 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         pass
 
 
+    def get_flagged_status(self) -> bool:
+        """Get the flagged status of the task.
+
+        Returns:
+            bool: True if the task is flagged, False otherwise.
+        """
+        return self.flagged, self.flagged_reasons
+    
+    def get_raw(self) -> Optional[mne.io.Raw]:
+        """Get the raw data of the task.
+
+        Returns:
+            Optional[mne.io.Raw]: The raw data of the task.
+        """
+        if self.raw is None:
+            raise ValueError("Raw data is not available.")
+        return self.raw
+    
+    def get_epochs(self) -> Optional[mne.Epochs]:
+        """Get the epochs of the task.
+
+        Returns:
+            Optional[mne.Epochs]: The epochs of the task.   
+        """
+        if self.epochs is None:
+            raise ValueError("Epochs are not available.")
+        return self.epochs
+    
+    

@@ -41,11 +41,9 @@ class RestingEyesOpen(Task):
         Args:
             config: Configuration dictionary containing all settings.
         """
-        self.raw: Optional[mne.io.Raw] = None
         self.pipeline: Optional[Any] = None
-        self.epochs: Optional[mne.Epochs] = None
         self.original_raw: Optional[mne.io.Raw] = None
-        super().__init__(config)
+        super().__init__(config) # Initialize the base class
 
     def run(self) -> None:
         """Execute the complete resting state EEG processing pipeline.
