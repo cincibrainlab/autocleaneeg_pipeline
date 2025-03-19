@@ -251,9 +251,7 @@ class GFPCleanEpochsMixin:
                 self.epochs = epochs_final
                 
             # Save epochs
-            from autoclean.step_functions.io import save_epochs_to_set
-            if hasattr(self, 'config'):
-                save_epochs_to_set(epochs_final, self.config, stage_name)
+            self._save_epochs_result(epochs_final, stage_name)
                 
             message("info", "Epoch GFP cleaning process completed")
             return epochs_final

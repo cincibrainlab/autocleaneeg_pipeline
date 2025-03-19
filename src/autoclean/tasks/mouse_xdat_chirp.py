@@ -165,14 +165,14 @@ class MouseXdatChirp(Task):
 
         # Run preprocessing pipeline and save result
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
         # Run PyLossless pipeline
         self.pipeline, pipeline_raw = step_run_pylossless(self.config)
-        save_raw_to_set(pipeline_raw, self.config, "post_pylossless")
+        save_raw_to_set(raw = pipeline_raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
 
         # # Apply rejection policy
         # self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
@@ -183,10 +183,10 @@ class MouseXdatChirp(Task):
         self.epochs = step_create_eventid_epochs(
             self.pipeline.raw, self.pipeline, self.config
         )
-        save_epochs_to_set(self.epochs, self.config, "post_epochs")
+        save_epochs_to_set(epochs = self.epochs, autoclean_dict = self.config, stage = "post_epochs", flagged = self.flagged)
 
         self.epochs = step_apply_autoreject(self.epochs, self.pipeline, self.config)
-        save_epochs_to_set(self.epochs, self.config, "post_autoreject")
+        save_epochs_to_set(epochs = self.epochs, autoclean_dict = self.config, stage = "post_autoreject", flagged = self.flagged)
 
         # Generate visualization reports
         self._generate_reports()

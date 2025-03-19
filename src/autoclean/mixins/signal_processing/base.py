@@ -12,6 +12,7 @@ functionality across different task types.
 """
 
 from typing import Any, Dict, Optional, Tuple, Union
+from autoclean.utils.logging import message
 import mne
 
 class SignalProcessingMixin:
@@ -38,6 +39,11 @@ class SignalProcessingMixin:
         configuration settings via the `config` attribute and data objects via
         the `raw` and/or `epochs` attributes.
     """
+
+    #FLAG CRITERIA
+    EPOCH_RETENTION_THRESHOLD = 0.5 #Flag if less than 50% of epochs are kept
+    REFERENCE_ARTIFACT_THRESHOLD = 5 #Flag if more than 5 reference artifacts are detected
+    BAD_CHANNEL_THRESHOLD = 0.15 #Flag if more than 15% of channels are bad
     
     def _check_step_enabled(self, step_name: str) -> Tuple[bool, Optional[Any]]:
         """Check if a processing step is enabled in the configuration.
@@ -195,7 +201,24 @@ class SignalProcessingMixin:
         manage_database(
             operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
+
+    def _update_flagged_status(self, flagged: bool, reason: str) -> None:
+        """Update the flagged status and reasons.
         
+        Args:
+            flagged: Boolean indicating if the data is flagged
+            reason: Reason for flagging the data
+        """
+        if not hasattr(self, 'flagged'):
+            self.flagged = flagged
+            self.flagged_reasons = [reason]
+        else:
+            self.flagged = flagged
+            self.flagged_reasons.append(reason)
+
+        message("warning", reason)
+        
+
     def _save_raw_result(self, result_data: mne.io.BaseRaw, stage_name: str) -> None:
         """Save the raw result data to a file.
         
@@ -209,5 +232,20 @@ class SignalProcessingMixin:
         from autoclean.step_functions.io import save_raw_to_set
         
         if isinstance(result_data, mne.io.BaseRaw):
-            save_raw_to_set(result_data, self.config, stage_name)
+            save_raw_to_set(raw = result_data, autoclean_dict = self.config, stage = stage_name, flagged = self.flagged)
+
+    def _save_epochs_result(self, result_data: mne.Epochs, stage_name: str) -> None:
+        """Save the epochs result data to a file.
+        
+        Args:
+            result_data: Epochs data to save
+            stage_name: Name of the processing stage
+        """
+        if not hasattr(self, 'config'):
+            return
+            
+        from autoclean.step_functions.io import save_epochs_to_set
+        
+        if isinstance(result_data, mne.Epochs):
+            save_epochs_to_set(epochs = result_data, autoclean_dict = self.config, stage = stage_name, flagged = self.flagged)
 

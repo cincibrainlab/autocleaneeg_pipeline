@@ -158,9 +158,7 @@ class AutoRejectEpochsMixin:
                 self.epochs = epochs_clean
                 
             # Save epochs
-            from autoclean.step_functions.io import save_epochs_to_set
-            if hasattr(self, 'config'):
-                save_epochs_to_set(epochs_clean, self.config, "post_autoreject")
+            self._save_epochs_result(epochs_clean, stage_name)
                 
             return epochs_clean
             

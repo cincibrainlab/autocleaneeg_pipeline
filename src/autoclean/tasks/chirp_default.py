@@ -79,12 +79,11 @@ class ChirpDefault(Task):
     def run(self) -> None:
         """Run the complete chirp processing pipeline."""
         # Import and save raw EEG data
-        self.raw = import_eeg(self.config)
-        save_raw_to_set(self.raw, self.config, "post_import")
+        self.import_raw()
 
         # Note: step_pre_pipeline_processing will skip resampling if already done
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -97,7 +96,7 @@ class ChirpDefault(Task):
 
         # Run PyLossless pipeline and save result
         self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(self.raw, self.config, "post_pylossless")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
 
         # Apply PyLossless Rejection Policy for artifact removal
         self.pipeline, self.raw = step_run_ll_rejection_policy(
@@ -110,7 +109,7 @@ class ChirpDefault(Task):
         # Detect and mark muscle artifacts in beta frequency range
         self.detect_muscle_beta_focus(self.raw)
 
-        save_raw_to_set(self.raw, self.config, "post_artifact_detection")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_artifact_detection", flagged = self.flagged)
 
         self.create_eventid_epochs(reject_by_annotation=True)
 

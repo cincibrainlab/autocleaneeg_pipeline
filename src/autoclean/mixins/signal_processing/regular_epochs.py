@@ -189,11 +189,8 @@ class RegularEpochsMixin:
                 epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
             
             # Save epochs with bad epochs marked but not dropped
-            from autoclean.step_functions.io import save_epochs_to_set
-            if hasattr(self, 'config'):
-                save_epochs_to_set(epochs, self.config, stage_name)
+            self._save_epochs_result(result_data = epochs_clean, stage_name = stage_name)
         
-            
             # Analyze drop log to tally different annotation types
             drop_log = epochs_clean.drop_log
             total_epochs = len(drop_log)
@@ -213,6 +210,11 @@ class RegularEpochsMixin:
             message("info", f"Good epochs: {good_epochs}")
             for annotation, count in annotation_types.items():
                 message("info", f"Epochs with {annotation}: {count}")
+
+            # Add flags if needed
+            if (good_epochs/total_epochs) < self.EPOCH_RETENTION_THRESHOLD:
+                flagged_reason = f"WARNING: Only {good_epochs/total_epochs*100}% of epochs were kept"
+                self._update_flagged_status(flagged = True, reason = flagged_reason)
             
             # Add good and total to the annotation_types dictionary
             annotation_types["KEEP"] = good_epochs
@@ -243,8 +245,7 @@ class RegularEpochsMixin:
                 self.epochs = epochs_clean
 
             # Save epochs
-            if hasattr(self, 'config'):
-                save_epochs_to_set(epochs_clean, self.config, "post_drop_bad_epochs")
+            self._save_epochs_result(result_data = epochs_clean, stage_name = "post_drop_bad_epochs")
                 
             return epochs_clean
             

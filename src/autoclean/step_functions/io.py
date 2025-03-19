@@ -702,17 +702,6 @@ def save_raw_to_set(
         RuntimeError: If saving fails
     """
 
-    if flagged:
-        subfolder = autoclean_dict["autoclean_dir"] / "flagged"
-        basename = Path(autoclean_dict["unprocessed_file"]).stem
-        subfolder.mkdir(exist_ok=True)
-        full_path = subfolder / f"{basename}_raw.set"
-        raw.export(full_path, fmt="eeglab", overwrite=True)
-        message("success", f"✓ Saved flagged raw file to: {full_path}")
-        return
-
-
-
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
         
@@ -725,16 +714,18 @@ def save_raw_to_set(
     stage_num = _get_stage_number(stage, autoclean_dict)
 
     # Save to stage directory
-    if output_path is None:
+    if flagged:
+        output_path = autoclean_dict["flagged_dir"]
+        subfolder = output_path / f"{basename}"
+    elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
         subfolder = output_path / f"{stage_num}{suffix}"
-    subfolder = output_path / f"{stage_num}{suffix}"
     subfolder.mkdir(exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_raw.set"
 
     # Save to both locations for post_comp
     paths = [stage_path]
-    if stage == "post_comp":
+    if stage == "post_comp" and not flagged:
         clean_path = autoclean_dict["clean_dir"] / f"{basename}{suffix}.set"
         autoclean_dict["clean_dir"].mkdir(exist_ok=True)
         paths.append(clean_path)
@@ -796,16 +787,6 @@ def save_epochs_to_set(
         ValueError: If stage is not configured
         RuntimeError: If saving fails
     """
-
-    if flagged:
-        task_name = autoclean_dict["task"]
-        subfolder = autoclean_dict["autoclean_dir"] / task_name / "flagged"
-        basename = Path(autoclean_dict["unprocessed_file"]).stem
-        subfolder.mkdir(exist_ok=True)
-        full_path = subfolder / f"{basename}_epo.set"
-        epochs.export(full_path, fmt="eeglab", overwrite=True)
-        message("success", f"✓ Saved flagged epochs file to: {full_path}")
-        return
     
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
@@ -819,15 +800,18 @@ def save_epochs_to_set(
     stage_num = _get_stage_number(stage, autoclean_dict)
 
     # Save to stage directory
-    if output_path is None:
+    if flagged:
+        output_path = autoclean_dict["flagged_dir"]
+        subfolder = output_path / f"{basename}"
+    elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
-    subfolder = output_path / f"{stage_num}{suffix}"
+        subfolder = output_path / f"{stage_num}{suffix}"
     subfolder.mkdir(exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_epo.set"
 
     # Save to both locations for post_comp
     paths = [stage_path]
-    if stage == "post_comp":
+    if stage == "post_comp" and not flagged:
         clean_path = autoclean_dict["clean_dir"] / f"{basename}{suffix}.set"
         autoclean_dict["clean_dir"].mkdir(exist_ok=True)
         paths.append(clean_path)

@@ -277,6 +277,20 @@ class ChannelsMixin:
                 result_raw.drop_channels(result_raw.info["bads"])
                 result_raw.info["bads"] = []
 
+            if self.raw.bad_channels is not None:
+                total_bads = self.raw.bad_channels
+                total_bads.extend(bads)
+                total_bads = list(set(total_bads))
+                self.raw.bad_channels = total_bads
+            else:
+                self.raw.bad_channels = bads
+
+            if len(self.raw.bad_channels)/result_raw.info['nchan'] > self.BAD_CHANNEL_THRESHOLD:
+                self.flagged = True
+                warning = f"WARNING: {len(self.raw.bad_channels)/result_raw.info['nchan']:.2%} bad channels detected"
+                self.flagged_reasons.append(warning)
+                message("warning", f"Flagging: {warning}")
+
             message("info", f"Detected {len(bads)} bad channels: {bads}")
             
             # Update metadata

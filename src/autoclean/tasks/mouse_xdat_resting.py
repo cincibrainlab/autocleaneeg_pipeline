@@ -74,17 +74,16 @@ class MouseXdatResting(Task):
             messages and final report.
         """
 
-        self.raw = import_eeg(self.config)
-        save_raw_to_set(self.raw, self.config, "post_import")
+        self.import_raw()
 
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
 
         self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(self.raw, self.config, "post_pylossless")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
 
         self.create_regular_epochs()
-
+        
         self.apply_autoreject()
 
         self._generate_reports()

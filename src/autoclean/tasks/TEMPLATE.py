@@ -176,43 +176,32 @@ class TemplateTask(Task):
             messages and final report.
         """
         # Import raw data using standard function
-        self.raw = import_eeg(self.config)
+        self.import_raw()
         
         # Store a copy of the original raw data for comparison in reports
         self.original_raw = self.raw.copy()
 
-        # Save imported data if configured
-        save_raw_to_set(self.raw, self.config, "post_import")
-
-        # Verify data was imported successfully
-        if self.raw is None:
-            raise RuntimeError("No data has been imported")
-        
-        # Resample data to target frequency (from mixins.signal_processing.resampling)
-        self.resample_data()
 
         # Apply preprocessing steps (filtering, etc.)
-        # Note: step_pre_pipeline_processing will skip resampling if already done
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
         # Run PyLossless pipeline for artifact detection and save result
-        self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(self.raw, self.config, "post_pylossless")
+        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
 
         # Clean bad channels (from mixins.signal_processing.channels)
-        self.clean_bad_channels()
+        self.clean_bad_channels(cleaning_method="interpolate")
 
-        # Update pipeline with cleaned raw data
         self.pipeline.raw = self.raw
-
         # Apply PyLossless Rejection Policy for artifact removal
         self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
+        self.raw = self.pipeline.raw
 
         # Create event-based epochs (from mixins.signal_processing.eventid_epochs)
         self.create_eventid_epochs()
@@ -257,23 +246,17 @@ class TemplateTask(Task):
             return
 
         # Plot raw vs cleaned overlay using mixin method
-        # Shows the effect of preprocessing on the raw data
         self.plot_raw_vs_cleaned_overlay(
             self.original_raw, self.raw, self.pipeline, self.config
         )
 
         # Plot ICA components using mixin method
-        # Displays the independent components extracted during preprocessing
         self.plot_ica_full(self.pipeline, self.config)
 
         # Generate ICA reports using mixin method
-        # Shows detailed information about ICA components and their properties
-        self.plot_ica_components(
-            self.pipeline.ica2, self.raw, self.config, self.pipeline, duration=60
-        )
+        self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
-        # Shows power spectral density across the scalp before and after cleaning
         self.psd_topo_figure(
             self.original_raw, self.raw, self.pipeline, self.config
         )

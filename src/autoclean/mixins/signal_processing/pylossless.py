@@ -66,6 +66,14 @@ class PyLosslessMixin:
         pipeline.raw.interpolate_bads(reset_bads=True)
         pipeline.flags['ch'].clear()
 
+        if len(bads)/self.raw.info['nchan'] > self.BAD_CHANNEL_THRESHOLD:
+            self.flagged = True
+            warning = f"WARNING: {len(bads)/self.raw.info['nchan']:.2%} bad channels detected"
+            self.flagged_reasons.append(warning)
+            message("warning", f"Flagging: {warning}")
+
+        pipeline.raw.bad_channels = bads
+
         message("debug", "referencing data")
         pipeline.raw = ReferenceMixin.set_eeg_reference(self, pipeline.raw)
 

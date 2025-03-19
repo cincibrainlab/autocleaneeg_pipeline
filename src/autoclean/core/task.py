@@ -40,6 +40,7 @@ Example:
 # Standard library imports
 from abc import ABC, abstractmethod
 from pathlib import Path
+from struct import Struct
 from typing import Any, Dict, Optional
 
 # Third-party imports
@@ -102,31 +103,17 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         # These will be populated during the processing pipeline
         self.raw: Optional[mne.io.Raw] = None  # Holds continuous EEG data
         self.epochs: Optional[mne.Epochs] = None  # Holds epoched data segments
+        self.flagged = False
+        self.flagged_reasons = []
 
-        # Dictionary to track processing history, metrics, and state changes
-        self.pipeline_results: Dict[str, Any] = {}
-
-    def import_data(self, file_path: Path) -> None:
-        """Import raw EEG data for processing.
-
-        Defines interface for data import operations, ensuring consistent handling
-        of MNE Raw objects across tasks. Implementations must handle file I/O
-        and initial data validation.
-
-        Args:
-            file_path: Path to the EEG data file. The file format should match
-                      what's expected by the specific task implementation.
-
-        Raises:
-            FileNotFoundError: If the specified file doesn't exist.
-            ValueError: If the file format is invalid or data is corrupted.
-            RuntimeError: If there are problems reading the file.
-
-        Note:
-            This method typically sets self.raw with the imported MNE Raw object.
-            The exact format and preprocessing steps depend on the task type.
-        """
-        pass
+    def import_raw(self) -> None:
+        """Import the data."""
+        from autoclean.step_functions.io import import_eeg, save_raw_to_set
+        self.raw = import_eeg(self.config)
+        if self.raw.duration < 60:
+            self.flagged = True
+            self.flagged_reasons = [f"WARNING: Initial duration ({float(self.raw.duration):.1f}s) less than 1 minute"]
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_import", flagged = self.flagged)
 
     @abstractmethod
     def run(self) -> None:
@@ -231,3 +218,32 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         pass
 
 
+    def get_flagged_status(self) -> tuple[bool, list[str]]:
+        """Get the flagged status of the task.
+
+        Returns:
+            tuple[bool, list[str]]: A tuple containing a boolean flag and a list of reasons for flagging.
+        """
+        return self.flagged, self.flagged_reasons
+    
+    def get_raw(self) -> Optional[mne.io.Raw]:
+        """Get the raw data of the task.
+
+        Returns:
+            Optional[mne.io.Raw]: The raw data of the task.
+        """
+        if self.raw is None:
+            raise ValueError("Raw data is not available.")
+        return self.raw
+    
+    def get_epochs(self) -> Optional[mne.Epochs]:
+        """Get the epochs of the task.
+
+        Returns:
+            Optional[mne.Epochs]: The epochs of the task.   
+        """
+        if self.epochs is None:
+            raise ValueError("Epochs are not available.")
+        return self.epochs
+    
+    
