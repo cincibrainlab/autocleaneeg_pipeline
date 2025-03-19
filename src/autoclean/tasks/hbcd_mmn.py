@@ -240,19 +240,13 @@ class HBCD_MMN(Task):
             messages and final report.
         """
         # Import and save raw EEG data
-        self.raw = import_eeg(self.config)
-        
-        save_raw_to_set(self.raw, self.config, "post_import")
-
-        # Check if data was imported successfully
-        if self.raw is None:
-            raise RuntimeError("No data has been imported")
+        self.import_raw()
         
         message("header", "Running preprocessing steps")
 
         # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -270,16 +264,14 @@ class HBCD_MMN(Task):
         self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
-        save_raw_to_set(self.raw, self.config, "post_rejection_policy")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
 
         self.detect_dense_oscillatory_artifacts()
 
         #Clean bad channels post ICA
-        self.clean_bad_channels()
+        self.clean_bad_channels(cleaning_method="interpolate")
 
-        self.raw.interpolate_bads(reset_bads=True)
-
-        save_raw_to_set(self.raw, self.config, "post_clean_raw")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
 
         self.create_eventid_epochs()
 

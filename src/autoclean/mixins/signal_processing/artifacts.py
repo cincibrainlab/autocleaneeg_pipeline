@@ -93,6 +93,11 @@ class ArtifactsMixin:
                 message("info", f"Added {len(artifact_annotations)} artifact annotations")
             else:
                 message("info", "No reference artifacts detected")
+
+            # Add flags if needed
+            if len(artifact_annotations) > self.REFERENCE_ARTIFACT_THRESHOLD:
+                flagged_reason = f"WARNING: {len(artifact_annotations)} potential reference artifacts detected"
+                self._update_flagged_status(flagged = True, reason = flagged_reason)
                 
             # Update metadata
             metadata = {

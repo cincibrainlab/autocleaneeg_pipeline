@@ -716,9 +716,10 @@ def save_raw_to_set(
     # Save to stage directory
     if flagged:
         output_path = autoclean_dict["flagged_dir"]
+        subfolder = output_path / f"{basename}"
     elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
-    subfolder = output_path / f"{stage_num}{suffix}"
+        subfolder = output_path / f"{stage_num}{suffix}"
     subfolder.mkdir(exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_raw.set"
 
@@ -801,9 +802,10 @@ def save_epochs_to_set(
     # Save to stage directory
     if flagged:
         output_path = autoclean_dict["flagged_dir"]
+        subfolder = output_path / f"{basename}"
     elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
-    subfolder = output_path / f"{stage_num}{suffix}"
+        subfolder = output_path / f"{stage_num}{suffix}"
     subfolder.mkdir(exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_epo.set"
 

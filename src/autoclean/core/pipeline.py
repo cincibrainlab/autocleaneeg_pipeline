@@ -338,12 +338,13 @@ class Pipeline:
             task_object.run()
 
             try:
+                flagged, flagged_reasons = task_object.get_flagged_status()
                 comp_data = task_object.get_epochs()
                 if comp_data is not None:
-                    save_epochs_to_set(comp_data, run_dict, "post_comp")
+                    save_epochs_to_set(epochs = comp_data, autoclean_dict = run_dict, stage = "post_comp", flagged = flagged)
                 else:
                     comp_data = task_object.get_raw()
-                    save_raw_to_set(comp_data, run_dict, "post_comp")
+                    save_raw_to_set(raw = comp_data, autoclean_dict = run_dict, stage = "post_comp", flagged = flagged)
             except Exception as e:
                 message("error", f"Failed to save completion data: {str(e)}")
 
@@ -374,7 +375,7 @@ class Pipeline:
             # Only proceed with processing log update if we have a valid summary
             if json_summary:
                 # Update processing log
-                update_task_processing_log(json_summary)
+                update_task_processing_log(json_summary, flagged_reasons)
                 try:
                     generate_bad_channels_tsv(json_summary)
                 except Exception as tsv_error:
@@ -405,13 +406,8 @@ class Pipeline:
             # Try to update processing log even in error case
             if json_summary:
                 try:
-                    flagged = update_task_processing_log(json_summary)
-                    if flagged:
-                        message("info", "Saving flagged data to additional folder")
-                        if task_object.epochs is not None:
-                            save_epochs_to_set(task_object.epochs, run_dict, flagged=True)
-                        else:
-                            save_raw_to_set(task_object.raw, run_dict, flagged=True)
+                    flagged, flagged_reasons = task_object.get_flagged_status()
+                    update_task_processing_log(json_summary, flagged_reasons)
                 except Exception as log_error:
                     message("warning", f"Failed to update processing log: {str(log_error)}")
                 try:

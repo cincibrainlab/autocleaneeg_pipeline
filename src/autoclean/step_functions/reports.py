@@ -2088,11 +2088,13 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
 
     return pdf_path
 
-def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
+def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: list[str] = []) -> None:
     """Update the task-specific processing log CSV file with details about the current file.
 
     Args:
         summary_dict: The summary dictionary containing processing details
+        flagged: Whether the task is flagged
+        flagged_reasons: The reasons for flagging
     """
     try:
         # Validate required top-level keys
@@ -2128,61 +2130,9 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             except (ValueError, TypeError):
                 return default
         
-        # Generate flags for quality control
-        flags = []
-        
-        # Check for epochs/duration dropped
-        initial_epochs = safe_get(summary_dict, "export_details", "initial_n_epochs", default=0)
-        final_epochs = safe_get(summary_dict, "export_details", "final_n_epochs", default=0)
-        initial_duration = safe_get(summary_dict, "export_details", "initial_duration", default=0)
-        final_duration = safe_get(summary_dict, "export_details", "final_duration", default=0)
-        
-        try:
-            # Check epochs retention
-            if initial_epochs and final_epochs:
-                epochs_retained_pct = (float(final_epochs) / float(initial_epochs)) * 100
-                if epochs_retained_pct < 50:
-                    flags.append(f"WARNING: Only {epochs_retained_pct:.1f}% of epochs retained")
-            
-            # Check duration retention
-            if initial_duration and final_duration:
-                duration_retained_pct = (float(final_duration) / float(initial_duration)) * 100
-                if duration_retained_pct < 50:
-                    flags.append(f"WARNING: Only {duration_retained_pct:.1f}% of duration retained")
-            
-            # Check for short initial duration
-            if initial_duration and float(initial_duration) < 60:
-                flags.append(f"WARNING: Initial duration ({float(initial_duration):.1f}s) less than 1 minute")
-            
-            # Check for excessive channel rejection
-            total_channels = safe_get(summary_dict, "import_details", "net_nbchan_orig", default=0)
-            removed_channels = safe_get(summary_dict, "channel_dict", "removed_channels", default=[])
-            
-            if total_channels and removed_channels:
-                if isinstance(removed_channels, list):
-                    # Ensure we're counting unique channels
-                    unique_removed_channels = []
-                    for channel in removed_channels:
-                        if channel not in unique_removed_channels:
-                            unique_removed_channels.append(channel)
-                    bad_channels_count = len(unique_removed_channels)
-                else:
-                    bad_channels_count = 0
-                
-                if bad_channels_count > 0 and float(total_channels) > 0:
-                    bad_channels_pct = (bad_channels_count / float(total_channels)) * 100
-                    if bad_channels_pct > 15:
-                        flags.append(f"WARNING: {bad_channels_pct:.1f}% of channels rejected (>{bad_channels_count})")
-
-            ref_artifacts = str(safe_get(summary_dict, "processing_details", "ref_artifacts", default=""))
-            if int(ref_artifacts) > 2:
-                flags.append(f"WARNING: {ref_artifacts} potential reference artifacts detected")
-                
-        except Exception as e:
-            message("warning", f"Error calculating flags: {str(e)}")
         
         # Combine flags into a single string
-        flagged = "; ".join(flags) if flags else ""
+        flags = "; ".join(flagged_reasons) if flagged_reasons else ""
         
         # Extract details from summary_dict with safe access
         details = {
@@ -2193,7 +2143,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
             "subj_basename": Path(summary_dict.get("basename", "")).stem,
             "bids_subject": summary_dict.get("bids_subject", ""),
             "task": summary_dict.get("task", ""),
-            "flags": flagged,  # Add the new flagged column
+            "flags": flags,  # Add the new flagged column
             "net_nbchan_orig": str(safe_get(summary_dict, "import_details", "net_nbchan_orig", default="")),
             "net_nbchan_post": str(safe_get(summary_dict, "export_details", "net_nbchan_post", default="")),
             "proc_badchans": str(safe_get(summary_dict, "channel_dict", "removed_channels", default="")),
@@ -2288,23 +2238,12 @@ def update_task_processing_log(summary_dict: Dict[str, Any]) -> None:
                 update_record={"run_id": summary_dict.get("run_id", ""), "metadata": metadata},
             )
 
-            if flags is not None:
-                return True
-            else:
-                return False
         except Exception as db_err:
             message("error", f"Error updating database: {str(db_err)}")
-            if flags is not None:
-                return True
-            else:
-                return False
 
     except Exception as e:
         message("error", f"Error updating processing log: {str(e)}\n{traceback.format_exc()}")
-        if flags is not None:
-            return True
-        else:
-            return False
+
 
 def create_json_summary(run_id: str) -> None:
     run_record = get_run_record(run_id)
@@ -2490,9 +2429,9 @@ def create_json_summary(run_id: str) -> None:
         export_details["epoch_length"] = epoch_length
         export_details["final_n_epochs"] = save_epochs_to_set["n_epochs"]
         export_details["final_duration"] = epoch_length * save_epochs_to_set["n_epochs"]
-        if original_channel_count and bad_channels:
+        if original_channel_count and unique_bad_channels:
             export_details["net_nbchan_post"] = original_channel_count - len(
-                bad_channels
+                unique_bad_channels
             )
         else:
             export_details["net_nbchan_post"] = original_channel_count

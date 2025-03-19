@@ -57,18 +57,18 @@ class BB_Long(Task):
 
         # Run preprocessing pipeline and save intermediate result
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
         # Run PyLossless pipeline and save result
         self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(self.raw, self.config, "post_pylossless")
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
 
         # Clean bad channels
         self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-        save_raw_to_set(self.pipeline.raw, self.config, "post_bad_channels")
+        save_raw_to_set(raw = self.pipeline.raw, autoclean_dict = self.config, stage = "post_bad_channels", flagged = self.flagged)
 
         # # Use PyLossless Rejection Policy
         self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
@@ -82,10 +82,10 @@ class BB_Long(Task):
             min_channels=65,
             padding_ms=500,
         )
-        save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
+        save_raw_to_set(raw = self.cleaned_raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
 
         self.cleaned_raw = step_reject_bad_segments(self.cleaned_raw)
-        save_raw_to_set(self.cleaned_raw, self.config, "post_cleaned_raw")
+        save_raw_to_set(raw = self.cleaned_raw, autoclean_dict = self.config, stage = "post_cleaned_raw", flagged = self.flagged)
 
         # Generate visualization reports
         self._generate_reports()
