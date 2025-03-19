@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 03/19/2025
+ - Added robust system for flagging concerning behavior in processing
+ - Added customized pylossless pipeline function
+ - Added task for converting .raw to .set files
+ - Further optimizations and testing for ideal cleaning parameters
+
+[1.2.0]: https://github.com/cincibrainlab/autoclean_pipeline/releases/tag/v1.2.0
+
 ## [1.1.0] - 03/3/2025
 
 ### Added
