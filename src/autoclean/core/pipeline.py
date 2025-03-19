@@ -258,6 +258,7 @@ class Pipeline:
                 clean_dir,  # Cleaned data output
                 stage_dir,  # Intermediate processing stages
                 logs_dir,  # Debug information and logs
+                flagged_dir,  # Flagged data output
             ) = step_prepare_directories(task, self.autoclean_dir)
 
             # Update database with directory structure
@@ -272,6 +273,7 @@ class Pipeline:
                             "clean": str(clean_dir),
                             "logs": str(logs_dir),
                             "stage": str(stage_dir),
+                            "flagged": str(flagged_dir),
                         }
                     },
                 },
@@ -305,6 +307,7 @@ class Pipeline:
                 "clean_dir": clean_dir,
                 "logs_dir": logs_dir,
                 "stage_dir": stage_dir,
+                "flagged_dir": flagged_dir,
                 "config_hash": config_hash,
                 "config_b64": b64_config,
                 "task_hash": task_hash,
@@ -335,11 +338,11 @@ class Pipeline:
             task_object.run()
 
             try:
-                if task_object.epochs is not None:
-                    comp_data = task_object.epochs
+                comp_data = task_object.get_epochs()
+                if comp_data is not None:
                     save_epochs_to_set(comp_data, run_dict, "post_comp")
                 else:
-                    comp_data = task_object.raw
+                    comp_data = task_object.get_raw()
                     save_raw_to_set(comp_data, run_dict, "post_comp")
             except Exception as e:
                 message("error", f"Failed to save completion data: {str(e)}")
@@ -371,13 +374,7 @@ class Pipeline:
             # Only proceed with processing log update if we have a valid summary
             if json_summary:
                 # Update processing log
-                flagged = update_task_processing_log(json_summary)
-                if flagged:
-                    message("info", "Saving flagged data to additional folder")
-                    if task_object.epochs is not None:
-                        save_epochs_to_set(task_object.epochs, run_dict, flagged=True)
-                    else:
-                        save_raw_to_set(task_object.raw, run_dict, flagged=True)
+                update_task_processing_log(json_summary)
                 try:
                     generate_bad_channels_tsv(json_summary)
                 except Exception as tsv_error:

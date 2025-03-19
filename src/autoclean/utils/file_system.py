@@ -7,7 +7,7 @@ from autoclean.utils.logging import message
 
 def step_prepare_directories(
     task: str, autoclean_dir_str: Path
-) -> tuple[Path, Path, Path, Path, Path, Path, Path]:
+) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
     """Set up and validate directory structure for processing pipeline.
 
     Args:
@@ -37,6 +37,7 @@ def step_prepare_directories(
         "clean": autoclean_dir / task / "postcomps",
         "logs": autoclean_dir / task / "logs",
         "stage": autoclean_dir / task / "stage",
+        "flagged": autoclean_dir / task / "flagged",
     }
 
     # Create directories with error handling
@@ -65,4 +66,5 @@ def step_prepare_directories(
         dirs["clean"],
         dirs["stage"],
         dirs["logs"],
+        dirs["flagged"],
     )
