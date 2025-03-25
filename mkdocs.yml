@@ -28,8 +28,6 @@ theme:
   features:
     - navigation.instant
     - navigation.tracking
-    - navigation.sections
-    - navigation.expand
     - navigation.indexes
     - navigation.top
     - toc.follow
@@ -60,6 +58,16 @@ plugins:
             show_root_heading: true
             show_root_toc_entry: true
             heading_level: 2
+            members_order: source
+            docstring_section_style: table
+            line_length: 80
+            merge_init_into_class: true
+            show_signature_annotations: true
+            separate_signature: true
+            show_signature: true
+            show_category_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
 
 markdown_extensions:
   - tables
@@ -86,27 +94,32 @@ extra:
   generator: false
 
 nav:
-  - Home: index.md
+  - Overview: index.md
   - Getting Started:
-    - Installation: getting-started/installation.md
-    - Quick Start: getting-started/quick-start.md
-    - Configuration: getting-started/configuration.md
+      - Installation: getting-started/installation.md
+      - Quick Start: getting-started/quick-start.md
+      - Configuration: getting-started/configuration.md
   - User Guide:
-    - Pipeline Overview: user-guide/pipeline-overview.md
-    - Tasks: user-guide/tasks.md
-    - Step Functions: user-guide/step-functions.md
-    - Configuration Files: user-guide/configuration-files.md
-    - Analysis:
-      - Overview: user-guide/analysis/index.md
-      - ASSR Analysis: user-guide/analysis/assr-analysis.md
-    - Plugin System: plugin_system.md
-    - Troubleshooting: user-guide/troubleshooting.md
+      - Overview: user-guide/pipeline-overview.md
+      - Tasks: user-guide/tasks.md
+      - Step Functions: user-guide/step-functions.md
+      - Configuration Files: user-guide/configuration-files.md
+      - Analysis:
+          - Overview: user-guide/analysis/index.md
+          - ASSR Analysis: user-guide/analysis/assr-analysis.md
+      - Plugin System: plugin_system.md
+      - Troubleshooting: user-guide/troubleshooting.md
+  - Tutorials:
+      - Overview: tutorials/overview.md
+      - Tutorial 1: tutorials/tutorial-1.md
+      - Tutorial 2: tutorials/tutorial-2.md
   - API Reference:
-    - Pipeline: api-reference/pipeline.md
-    - Task: api-reference/task.md
-    - Step Functions: api-reference/step-functions.md
-    - Signal Processing Mixins: api-reference/signal-processing-mixins.md
-    - Reporting Mixins: api-reference/reporting-mixins.md
-    - Utils: api-reference/utils.md
+      - Template: api-reference/template.md
+      - Pipeline: api-reference/pipeline.md
+      - Task: api-reference/task.md
+      - Step Functions: api-reference/step-functions.md
+      - Signal Processing Mixins: api-reference/signal-processing-mixins.md
+      - Reporting Mixins: api-reference/reporting-mixins.md
+      - Utils: api-reference/utils.md
   - Contributing: CONTRIBUTING.md
   - Changelog: CHANGELOG.md 
