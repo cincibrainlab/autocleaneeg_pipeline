@@ -1,6 +1,0 @@
-﻿pydatautil.DataSet.\_\_init\_\_
-===============================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: DataSet.__init__

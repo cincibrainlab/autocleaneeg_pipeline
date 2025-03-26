@@ -1,6 +1,0 @@
-﻿pydatautil.Series.filter
-========================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: Series.filter

@@ -5,21 +5,9 @@ that can be shared across different task types.
 """
 
 from autoclean.mixins.signal_processing.main import SignalProcessingMixin
-from autoclean.mixins.signal_processing import (
-    ResamplingMixin,
-    ArtifactsMixin,
-    ChannelsMixin,
-    SegmentationMixin,
-    ReferenceMixin,
-    EpochsMixin,
-)
+from autoclean.mixins.reporting.main import ReportingMixin
 
 __all__ = [
     "SignalProcessingMixin",
-    "ResamplingMixin",
-    "ArtifactsMixin",
-    "ChannelsMixin",
-    "SegmentationMixin",
-    "ReferenceMixin",
-    "EpochsMixin",
+    "ReportingMixin",
 ]

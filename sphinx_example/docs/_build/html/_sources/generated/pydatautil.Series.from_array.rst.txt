@@ -1,6 +1,0 @@
-﻿pydatautil.Series.from\_array
-=============================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: Series.from_array

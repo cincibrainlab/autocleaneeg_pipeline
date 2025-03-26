@@ -1,6 +1,0 @@
-﻿pydatautil.Series.\_\_init\_\_
-==============================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: Series.__init__

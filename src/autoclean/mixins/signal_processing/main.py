@@ -6,8 +6,9 @@ from autoclean.mixins.signal_processing.artifacts import ArtifactsMixin
 from autoclean.mixins.signal_processing.channels import ChannelsMixin
 from autoclean.mixins.signal_processing.segmentation import SegmentationMixin
 from autoclean.mixins.signal_processing.reference import ReferenceMixin
-from autoclean.mixins.signal_processing.epochs import EpochsMixin
 from autoclean.mixins.signal_processing.pylossless import PyLosslessMixin
+from autoclean.mixins.signal_processing.eventid_epochs import EventIDEpochsMixin
+from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
 
 class SignalProcessingMixin(
     BaseSignalProcessingMixin,
@@ -16,8 +17,9 @@ class SignalProcessingMixin(
     ChannelsMixin,
     SegmentationMixin,
     ReferenceMixin,
-    EpochsMixin,
-    PyLosslessMixin
+    PyLosslessMixin,
+    EventIDEpochsMixin,
+    RegularEpochsMixin
 ):
     """Main mixin class that combines all signal processing functionality.
     

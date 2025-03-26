@@ -24,21 +24,7 @@ from autoclean.utils.logging import message
 
 class EventIDEpochsMixin:
     """Mixin class providing event ID based epochs creation functionality for EEG data.
-    
-    This mixin provides methods for creating epochs based on event markers in EEG data.
-    It includes functionality for artifact detection, specifically focusing on reference
-    and muscle artifacts that can contaminate the data.
-    
-    Event-based epochs are time segments centered around specific event markers that
-    represent stimuli, responses, or other experimental events of interest. This approach
-    is particularly useful for task-based EEG analysis, where the data needs to be
-    segmented around specific events for further processing.
-    
-    The mixin respects configuration settings from the autoclean_config.yaml file,
-    allowing users to customize the epoching parameters, event IDs, and artifact
-    detection thresholds.
     """
-    
     def create_eventid_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
                              event_id: Optional[Dict[str, int]] = None,
                              tmin: float = -0.5,
@@ -56,29 +42,30 @@ class EventIDEpochsMixin:
         If no event_id is provided, the method will attempt to extract event IDs from
         the configuration file.
         
-        Args:
-            data: Optional MNE Raw object. If None, uses self.raw
-            event_id: Dictionary mapping event names to event IDs (e.g., {"target": 1, "standard": 2})
-            tmin: Start time of the epoch relative to the event in seconds
-            tmax: End time of the epoch relative to the event in seconds
-            baseline: Baseline correction (tuple of start, end)
-            volt_threshold: Dictionary of channel types and thresholds for rejection
-            stage_name: Name for saving and metadata
+        Parameters:
+            * data: Optional MNE Raw object. If None, uses self.raw
+            * event_id: Dictionary mapping event names to event IDs (e.g., {"target": 1, "standard": 2})
+            * tmin: Start time of the epoch relative to the event in seconds
+            * tmax: End time of the epoch relative to the event in seconds
+            * baseline: Baseline correction (tuple of start, end)
+            * volt_threshold: Dictionary of channel types and thresholds for rejection
+            * stage_name: Name for saving and metadata
             
         Returns:
-            The created epochs object or None if disabled
+            instance of mne.Epochs or None if epoching is disabled
             
         Example:
             ```python
-            # Create epochs around target and standard events
-            epochs = self.create_eventid_epochs(
-                event_id={"target": 1, "standard": 2},
+            # Create epochs around target with parameters from autoclean_config.yaml
+            self.create_eventid_epochs()
+
+            # Create epochs around target with custom parameters
+            self.create_eventid_epochs(
                 tmin=-0.2,
-                tmax=0.5
+                tmax=0.5,
+                baseline=None,
+                volt_threshold={"eeg": 200e-6}
             )
-            
-            # Access specific event types
-            target_epochs = epochs["target"]
             ```
         """
         # Check if epoch_settings is enabled in the configuration

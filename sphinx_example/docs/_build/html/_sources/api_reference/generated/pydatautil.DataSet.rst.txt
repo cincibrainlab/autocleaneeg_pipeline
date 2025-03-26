@@ -1,6 +1,0 @@
-﻿pydatautil.DataSet
-==================
-
-.. currentmodule:: pydatautil
-
-.. autoclass:: DataSet

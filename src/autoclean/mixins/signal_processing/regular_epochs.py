@@ -27,22 +27,6 @@ from autoclean.utils.logging import message
 
 class RegularEpochsMixin:
     """Mixin class providing regular (fixed-length) epochs creation functionality for EEG data.
-    
-    This mixin provides methods for creating regular fixed-length epochs from continuous
-    EEG data. It includes functionality for handling annotations and amplitude-based artifact
-    rejection.
-    
-    Regular epochs are time segments of equal duration that are created at fixed intervals
-    throughout the recording, regardless of event markers. This approach is particularly
-    useful for resting-state data analysis, where there are no specific events of interest.
-    
-    The mixin respects configuration settings from the autoclean_config.yaml file,
-    allowing users to customize the epoching parameters and artifact detection thresholds.
-    
-    Methods:
-        create_regular_epochs: Create regular fixed-length epochs from raw data with options
-                              to either reject or just mark epochs with bad annotations.
-        detect_muscle_artifacts: Detect muscle artifacts in continuous Raw data and add annotations.
     """
     
     def create_regular_epochs(self, data: Union[mne.io.BaseRaw, None] = None,

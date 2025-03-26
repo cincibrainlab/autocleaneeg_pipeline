@@ -19,35 +19,36 @@ The Pipeline class handles:
    - Generating reports
    - Database logging
 
-Example:
-    Basic usage for processing a single file:
+Examples
+--------
+Basic usage for processing a single file:
 
-    >>> from autoclean import Pipeline
-    >>> pipeline = Pipeline(
-    ...     autoclean_dir="/path/to/output",
-    ...     autoclean_config="config.yaml"
-    ... )
-    >>> pipeline.process_file(
-    ...     file_path="/path/to/data.set",
-    ...     task="rest_eyesopen"
-    ... )
+>>> from autoclean import Pipeline
+>>> pipeline = Pipeline(
+...     autoclean_dir="/path/to/output",
+...     autoclean_config="config.yaml"
+... )
+>>> pipeline.process_file(
+...     file_path="/path/to/data.set",
+...     task="rest_eyesopen"
+... )
 
-    Processing multiple files:
+Processing multiple files:
 
-    >>> pipeline.process_directory(
-    ...     directory="/path/to/data",
-    ...     task="rest_eyesopen",
-    ...     pattern="*.raw"
-    ... )
+>>> pipeline.process_directory(
+...     directory="/path/to/data",
+...     task="rest_eyesopen",
+...     pattern="*.raw"
+... )
 
-    Async processing of multiple files:
+Async processing of multiple files:
 
-    >>> pipeline.process_directory_async(
-    ...     directory="/path/to/data",
-    ...     task="rest_eyesopen",
-    ...     pattern="*.raw",
-    ...     max_concurrent=5
-    ... )
+>>> pipeline.process_directory_async(
+...     directory="/path/to/data",
+...     task="rest_eyesopen",
+...     pattern="*.raw",
+...     max_concurrent=5
+... )
 """
 
 import asyncio
@@ -69,8 +70,7 @@ import yaml
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
 from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set
-# NOTE: The following imports are using deprecated functions. 
-# They should eventually be migrated to use the ReportingMixin instead.
+
 from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,
@@ -93,21 +93,7 @@ matplotlib.use("Agg")
 
 
 class Pipeline:
-    """
-    Main pipeline class for EEG processing.
-
-    This class serves as the primary interface for the autoclean package.
-    It manages the complete processing workflow including:
-
-    - Configuration loading and validation
-    - Directory structure setup
-    - Task instantiation and execution
-    - Progress tracking and error handling
-    - Results saving and report generation
-
-    The pipeline supports multiple EEG processing paradigms through its task registry,
-    allowing researchers to process different types of EEG recordings with appropriate
-    analysis pipelines.
+    """Pipeline class for EEG processing.
 
     Parameters
     ----------
@@ -118,20 +104,17 @@ class Pipeline:
         Path to the YAML configuration file that defines
         processing parameters for all tasks.
     verbose : bool, str, int, or None, optional
-        Controls logging verbosity. Can be:
-        - bool: True for INFO, False for WARNING
-        - str: One of 'debug', 'info', 'warning', 'error', or 'critical'
-        - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
-        - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
-
+        Controls logging verbosity, by default None.
+        
+        * bool: True for INFO, False for WARNING.
+        * str: One of 'debug', 'info', 'warning', 'error', or 'critical'.
+        * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
+        * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.
+        
     Attributes
     ----------
     TASK_REGISTRY : Dict[str, Type[Task]]
-        Available processing task types.
-        Current tasks include:
-        - 'rest_eyesopen': Resting state with eyes open
-        - 'assr_default': Auditory steady-state response
-        - 'chirp_default': Auditory chirp paradigm
+        Automatically generated dictionary of all task classes in the `autoclean.tasks` module.
         
     See Also
     --------
@@ -159,10 +142,6 @@ class Pipeline:
     ):
         """Initialize a new processing pipeline.
 
-        Establishes core pipeline state by initializing SQLite database connection,
-        loading YAML configuration into memory, and setting up filesystem paths.
-        Handles path normalization and validation of core dependencies.
-
         Parameters
         ----------
         autoclean_dir : str or Path
@@ -172,20 +151,21 @@ class Pipeline:
             Path to the YAML configuration file that defines
             processing parameters for all tasks.
         verbose : bool, str, int, or None, optional
-            Controls logging verbosity. Can be:
-            - bool: True for INFO, False for WARNING
-            - str: One of 'debug', 'info', 'warning', 'error', or 'critical'
-            - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
-            - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
+            Controls logging verbosity, by default None.
+            
+            * bool: True for INFO, False for WARNING.
+            * str: One of 'debug', 'info', 'warning', 'error', or 'critical'.
+            * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
+            * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.
 
         Raises
         ------
         FileNotFoundError
-            If config_file doesn't exist
+            If config_file doesn't exist.
         ValueError
-            If configuration is invalid
+            If configuration is invalid.
         PermissionError
-            If output directory is not writable
+            If output directory is not writable.
 
         Examples
         --------
@@ -223,31 +203,31 @@ class Pipeline:
     def _entrypoint(
         self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
     ) -> None:
-        """
-        Main processing entrypoint that orchestrates the complete pipeline.
-
-        Implements core processing logic with ACID-compliant database operations,
-        filesystem management, and error handling. Uses ULID for time-ordered
-        run tracking and maintains atomic operation guarantees.
+        """Main processing entrypoint that orchestrates the complete pipeline.
 
         Parameters
         ----------
         unprocessed_file : Path
-            Path to the raw EEG data file
+            Path to the raw EEG data file.
         task : str
-            Name of the processing task to run
+            Name of the processing task to run.
         run_id : str, optional
-            Optional identifier for the processing run. If not provided,
-            a unique ID will be generated.
+            Optional identifier for the processing run, by default None.
+            If not provided, a unique ID will be generated.
+
+        Returns
+        -------
+        str
+            The run identifier.
 
         Raises
         ------
         ValueError
-            If task is not registered or configuration is invalid
+            If task is not registered or configuration is invalid.
         FileNotFoundError
-            If input file doesn't exist
+            If input file doesn't exist.
         RuntimeError
-            If processing fails
+            If processing fails.
 
         Notes
         -----
@@ -484,18 +464,25 @@ class Pipeline:
     ) -> None:
         """Async version of _entrypoint for concurrent processing.
 
-        Wraps synchronous processing in asyncio thread pool to enable
-        non-blocking concurrent execution while maintaining database
-        and filesystem operation safety.
-
         Parameters
         ----------
         unprocessed_file : Path
-            Path to the raw EEG data file
+            Path to the raw EEG data file.
         task : str
-            Name of the processing task to run
+            Name of the processing task to run.
         run_id : str, optional
-            Optional identifier for the processing run
+            Optional identifier for the processing run, by default None.
+
+        Raises
+        ------
+        Exception
+            If processing fails.
+
+        Notes
+        -----
+        Wraps synchronous processing in asyncio thread pool to enable
+        non-blocking concurrent execution while maintaining database
+        and filesystem operation safety.
         """
         try:
             # Run the processing in a thread to avoid blocking
@@ -507,12 +494,7 @@ class Pipeline:
     def process_file(
         self, file_path: str | Path, task: str, run_id: Optional[str] = None
     ) -> None:
-        """
-        Single file processing of an EEG data file.
-        
-        Public interface for single-file processing that ensures proper path
-        handling and maintains processing state through database-backed run
-        tracking. Delegates core processing to _entrypoint.
+        """Process a single EEG data file.
 
         Parameters
         ----------
@@ -521,17 +503,17 @@ class Pipeline:
         task : str
             Name of the processing task to run (e.g., 'rest_eyesopen').
         run_id : str, optional
-            Optional identifier for the processing run. If not provided,
-            a unique ID will be generated.
+            Optional identifier for the processing run, by default None.
+            If not provided, a unique ID will be generated.
 
         Raises
         ------
         ValueError
-            If task is not registered or configuration is invalid
+            If task is not registered or configuration is invalid.
         FileNotFoundError
-            If input file doesn't exist
+            If input file doesn't exist.
         RuntimeError
-            If processing fails
+            If processing fails.
             
         See Also
         --------
@@ -554,10 +536,7 @@ class Pipeline:
         pattern: str = "*.set",
         recursive: bool = False,
     ) -> None:
-        """
-        Batch processing of all matching EEG files in a directory.
-
-        Batch processing of EEG files in a directory.
+        """Process all matching EEG files in a directory.
 
         Parameters
         ----------
@@ -566,18 +545,18 @@ class Pipeline:
         task : str
             Name of the processing task to run (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files (default: "*.raw").
+            Glob pattern to match files, by default "*.set".
         recursive : bool, optional
-            Whether to search in subdirectories (default: False).
+            Whether to search in subdirectories, by default False.
 
         Raises
         ------
         NotADirectoryError
-            If directory doesn't exist
+            If directory doesn't exist.
         ValueError
-            If task is not registered
+            If task is not registered.
         RuntimeError
-            If processing fails for any file
+            If processing fails for any file.
             
         See Also
         --------
@@ -633,34 +612,36 @@ class Pipeline:
     ) -> None:
         """Process all matching EEG files in a directory asynchronously.
 
-        Implements concurrent batch processing using asyncio semaphores
-        for resource management. Processes files in optimized batches
-        while maintaining progress tracking and error isolation.
-
         Parameters
         ----------
         directory : str or Path
-            Path to the directory containing EEG files
+            Path to the directory containing EEG files.
         task : str
-            Name of the processing task to run (e.g., 'RestingEyesOpen')
+            Name of the processing task to run (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files (default: "*.raw")
+            Glob pattern to match files, by default "*.raw".
         sub_directories : bool, optional
-            Whether to search in subdirectories (default: False)
+            Whether to search in subdirectories, by default False.
         max_concurrent : int, optional
-            Maximum number of files to process concurrently (default: 3)
+            Maximum number of files to process concurrently, by default 3.
 
         Raises
         ------
         NotADirectoryError
-            If directory doesn't exist
+            If directory doesn't exist.
         ValueError
-            If task is not registered
+            If task is not registered.
             
         See Also
         --------
-        process_file : Process a single file
-        process_directory : Process files synchronously
+        process_file : Process a single file.
+        process_directory : Process files synchronously.
+
+        Notes
+        -----
+        Implements concurrent batch processing using asyncio semaphores
+        for resource management. Processes files in optimized batches
+        while maintaining progress tracking and error isolation.
         """
         directory = Path(directory)
         if not directory.is_dir():
@@ -721,14 +702,16 @@ class Pipeline:
     def list_tasks(self) -> list[str]:
         """Get a list of available processing tasks.
 
+        Returns
+        -------
+        list of str
+            Names of all configured tasks.
+
+        Notes
+        -----
         Exposes configured tasks from YAML configuration, providing runtime
         introspection of available processing options. Used for validation
         and user interface integration.
-
-        Returns
-        -------
-        list[str]
-            Names of all configured tasks
 
         Examples
         --------
@@ -741,14 +724,14 @@ class Pipeline:
     def list_stage_files(self) -> list[str]:
         """Get a list of configured stage file types.
 
+        Returns
+        -------
+        list of str
+            Names of all configured stage file types.
+
         Provides access to intermediate processing stage definitions from
         configuration. Critical for understanding processing flow and
         debugging pipeline state.
-
-        Returns
-        -------
-        list[str]
-            Names of all configured stage file types
 
         Examples
         --------
@@ -761,13 +744,15 @@ class Pipeline:
     def start_autoclean_review(self):
         """Launch the AutoClean Review GUI tool.
         
-        This method requires the GUI dependencies to be installed.
-        Install them with: pip install autocleaneeg[gui]
-        
         Raises
         ------
         ImportError
-            If GUI dependencies are not installed
+            If GUI dependencies are not installed.
+            
+        Notes
+        -----
+        This method requires the GUI dependencies to be installed.
+        Install them with: pip install autocleaneeg[gui]
         """
         try:
             from autoclean.tools.autoclean_review import run_autoclean_review
@@ -780,24 +765,26 @@ class Pipeline:
     def _validate_task(self, task: str) -> str:
         """Validate that a task type is supported and properly configured.
 
-        Ensures task exists in configuration and has required parameters.
-        Acts as a guard clause for task instantiation, preventing invalid
-        task configurations from entering the processing pipeline.
-
         Parameters
         ----------
         task : str
-            Name of the task to validate (e.g., 'rest_eyesopen')
+            Name of the task to validate (e.g., 'rest_eyesopen').
 
         Returns
         -------
         str
-            The validated task name
+            The validated task name.
 
         Raises
         ------
         ValueError
-            If the task is not found in configuration
+            If the task is not found in configuration.
+
+        Notes
+        -----
+        Ensures task exists in configuration and has required parameters.
+        Acts as a guard clause for task instantiation, preventing invalid
+        task configurations from entering the processing pipeline.
 
         Examples
         --------
@@ -815,24 +802,26 @@ class Pipeline:
     def _validate_file(self, file_path: str | Path) -> Path:
         """Validate that an input file exists and is accessible.
 
-        Performs filesystem-level validation using pathlib, ensuring atomic
-        file operations can proceed. Normalizes paths for cross-platform
-        compatibility.
-
         Parameters
         ----------
         file_path : str or Path
-            Path to the EEG data file to validate
+            Path to the EEG data file to validate.
 
         Returns
         -------
         Path
-            The validated file path
+            The validated file path.
 
         Raises
         ------
         FileNotFoundError
-            If the file doesn't exist
+            If the file doesn't exist.
+            
+        Notes
+        -----
+        Performs filesystem-level validation using pathlib, ensuring atomic
+        file operations can proceed. Normalizes paths for cross-platform
+        compatibility.
 
         Examples
         --------
