@@ -1,0 +1,6 @@
+﻿pydatautil.read\_excel
+======================
+
+.. currentmodule:: pydatautil
+
+.. autofunction:: read_excel

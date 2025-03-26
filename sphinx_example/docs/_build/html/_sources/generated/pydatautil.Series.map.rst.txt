@@ -1,0 +1,6 @@
+﻿pydatautil.Series.map
+=====================
+
+.. currentmodule:: pydatautil
+
+.. automethod:: Series.map

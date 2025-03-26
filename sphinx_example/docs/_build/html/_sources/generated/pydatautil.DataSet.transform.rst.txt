@@ -1,0 +1,6 @@
+﻿pydatautil.DataSet.transform
+============================
+
+.. currentmodule:: pydatautil
+
+.. automethod:: DataSet.transform

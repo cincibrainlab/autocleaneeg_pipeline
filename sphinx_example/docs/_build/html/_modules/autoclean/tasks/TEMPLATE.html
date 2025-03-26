@@ -1,0 +1,796 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>autoclean.tasks.TEMPLATE &#8212; AutoClean 1.1.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=2a705162"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/autoclean/tasks/TEMPLATE';</script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="1.1.0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AutoClean</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Welcome to AutoClean’s documentation!
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../installation.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api_reference/index.html">
+    API Reference
+  </a>
+</li>
+
+            <li class="nav-item dropdown">
+                <button class="btn dropdown-toggle nav-item" type="button"
+                data-bs-toggle="dropdown" aria-expanded="false"
+                aria-controls="pst-nav-more-links">
+                    More
+                </button>
+                <ul id="pst-nav-more-links" class="dropdown-menu">
+                    
+<li class=" ">
+  <a class="nav-link dropdown-item nav-internal" href="../../../development/index.html">
+    Development
+  </a>
+</li>
+
+                </ul>
+            </li>
+            
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Welcome to AutoClean’s documentation!
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../installation.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api_reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../development/index.html">
+    Development
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item"><nav class="sidebar-indices-items" aria-labelledby="pst-indices-navigation-heading-2">
+  <p id="pst-indices-navigation-heading-2" class="sidebar-indices-items__title" role="heading" aria-level="1">Indices</p>
+  <ul class="indices-link">
+        <li class="toctree-l1">
+          <a class="reference internal"
+             href="../../../genindex.html"
+             accesskey="I">General Index</a>
+        </li>
+        <li class="toctree-l1">
+          <a class="reference internal" href="../../../py-modindex.html">Python Module Index</a>
+        </li>
+  </ul>
+</nav></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">autoclean.tasks.TEMPLATE</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for autoclean.tasks.TEMPLATE</h1><div class="highlight"><pre>
+<span></span><span class="c1"># src/autoclean/tasks/template_task.py</span>
+<span class="sd">&quot;&quot;&quot;Template for implementing new EEG processing tasks.</span>
+
+<span class="sd">This template provides a starting point for implementing new EEG processing tasks.</span>
+<span class="sd">It includes detailed documentation and examples for each required component.</span>
+
+<span class="sd">Task Implementation Guide:</span>
+<span class="sd">1. Copy this template to create your new task file (e.g., my_paradigm.py)</span>
+<span class="sd">2. Replace TemplateTask with your task name (e.g., MyParadigmTask)</span>
+<span class="sd">3. Implement the required methods</span>
+
+<span class="sd">Key Components:</span>
+<span class="sd">1. Task Configuration:</span>
+<span class="sd">   - Define processing steps in autoclean_config.yaml</span>
+<span class="sd">   - Each step has enabled/disabled flag and parameters</span>
+<span class="sd">   - Configure artifact rejection policies</span>
+<span class="sd">   </span>
+<span class="sd">2. Required Methods:</span>
+<span class="sd">   - __init__: Initialize task state</span>
+<span class="sd">   - run: Main processing pipeline</span>
+<span class="sd">   - _generate_reports: Create quality control visualizations</span>
+<span class="sd">   - _validate_task_config: Validate task settings</span>
+
+<span class="sd">3. Processing Flow:</span>
+<span class="sd">   a. Data Import:</span>
+<span class="sd">      - Load raw EEG data</span>
+<span class="sd">      - Apply montage</span>
+<span class="sd">      - Basic validation</span>
+<span class="sd">   b. Preprocessing:</span>
+<span class="sd">      - Resampling</span>
+<span class="sd">      - Filtering</span>
+<span class="sd">      - Bad channel detection</span>
+<span class="sd">   c. Artifact Rejection:</span>
+<span class="sd">      - ICA decomposition</span>
+<span class="sd">      - Component classification</span>
+<span class="sd">      - Bad segment detection</span>
+<span class="sd">   d. Task-Specific Processing:</span>
+<span class="sd">      - Epoching</span>
+<span class="sd">      - Baseline correction</span>
+<span class="sd">      - Additional analyses</span>
+<span class="sd">   e. Quality Control:</span>
+<span class="sd">      - Generate reports</span>
+<span class="sd">      - Save processed data</span>
+<span class="sd">      - Update processing log</span>
+
+<span class="sd">4. Best Practices:</span>
+<span class="sd">   - Use type hints for all methods</span>
+<span class="sd">   - Add comprehensive docstrings</span>
+<span class="sd">   - Include error handling</span>
+<span class="sd">   - Log processing steps</span>
+<span class="sd">   - Save intermediate results</span>
+<span class="sd">   - Generate quality control reports</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="c1"># Standard library imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
+
+<span class="c1"># Third-party imports</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mne</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="c1"># Local imports</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.core.task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.step_functions.continuous</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">step_create_bids_path</span><span class="p">,</span>
+    <span class="n">step_pre_pipeline_processing</span><span class="p">,</span>
+    <span class="n">step_run_ll_rejection_policy</span><span class="p">,</span>
+    <span class="n">step_run_pylossless</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.step_functions.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_raw_to_set</span><span class="p">,</span> <span class="n">import_eeg</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.utils.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">message</span>
+
+
+<div class="viewcode-block" id="TemplateTask">
+<a class="viewcode-back" href="../../../api_reference/tasks.html#autoclean.tasks.TEMPLATE.TemplateTask">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">TemplateTask</span><span class="p">(</span><span class="n">Task</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Template class for implementing new EEG processing tasks.</span>
+
+<span class="sd">    This class demonstrates how to implement a new task type in the autoclean package.</span>
+<span class="sd">    Each task must implement these key methods:</span>
+<span class="sd">    1. __init__ - Initialize task state and validate config</span>
+<span class="sd">    2. run - Main processing pipeline</span>
+<span class="sd">    3. _generate_reports - Create quality control visualizations</span>
+<span class="sd">    4. _validate_task_config - Validate task-specific settings</span>
+
+<span class="sd">    The task should handle a specific EEG paradigm (e.g., resting state, ASSR, MMN)</span>
+<span class="sd">    and implement appropriate processing steps for that paradigm.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline</span>
+<span class="sd">        pipeline (Any): PyLossless pipeline instance after preprocessing</span>
+<span class="sd">        epochs (mne.Epochs): Epoched data after processing</span>
+<span class="sd">        config (Dict[str, Any]): Task configuration dictionary containing all settings</span>
+<span class="sd">        original_raw (mne.io.Raw): Original unprocessed raw data, preserved for comparison</span>
+
+<span class="sd">    Example:</span>
+<span class="sd">        To use this template:</span>
+
+<span class="sd">        1. Create your configuration in autoclean_config.yaml:</span>
+<span class="sd">        ```yaml</span>
+<span class="sd">        # autoclean_config.yaml</span>
+<span class="sd">        tasks:</span>
+<span class="sd">          my_paradigm:</span>
+<span class="sd">            settings:</span>
+<span class="sd">              resample_step:</span>
+<span class="sd">                enabled: true</span>
+<span class="sd">                value: 250</span>
+<span class="sd">              # ... other settings ...</span>
+<span class="sd">        ```</span>
+
+<span class="sd">        2. Initialize and run your task:</span>
+<span class="sd">        ```python</span>
+<span class="sd">        &gt;&gt;&gt; from autoclean import Pipeline</span>
+<span class="sd">        &gt;&gt;&gt; pipeline = Pipeline(&quot;output/&quot;, &quot;autoclean_config.yaml&quot;)</span>
+<span class="sd">        &gt;&gt;&gt; pipeline.process_file(&quot;data.raw&quot;, &quot;my_paradigm&quot;)</span>
+<span class="sd">        ```</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a new task instance.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            config: Configuration dictionary containing all settings.</span>
+<span class="sd">                   See class docstring for configuration example.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            The parent class handles basic initialization and validation.</span>
+<span class="sd">            Task-specific setup should be added here if needed.</span>
+<span class="sd">            </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If required configuration fields are missing</span>
+<span class="sd">            TypeError: If configuration fields have incorrect types</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Initialize instance variables</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Any</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">original_raw</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
+
+        <span class="c1"># Call parent initialization with validated config</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">config</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TemplateTask.run">
+<a class="viewcode-back" href="../../../api_reference/tasks.html#autoclean.tasks.TEMPLATE.TemplateTask.run">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the complete processing pipeline for this task.</span>
+
+<span class="sd">        This method orchestrates the complete processing sequence:</span>
+<span class="sd">        1. Import raw data</span>
+<span class="sd">        2. Run preprocessing steps</span>
+<span class="sd">        3. Apply task-specific processing</span>
+<span class="sd">        4. Generate quality control reports</span>
+
+<span class="sd">        The results are automatically saved at each stage according to</span>
+<span class="sd">        the stage_files configuration.</span>
+
+<span class="sd">        Processing Steps:</span>
+<span class="sd">        1. Import and validate raw data</span>
+<span class="sd">        2. Resample data to target frequency</span>
+<span class="sd">        3. Apply preprocessing pipeline (filtering, etc.)</span>
+<span class="sd">        4. Create BIDS-compliant paths</span>
+<span class="sd">        5. Run PyLossless pipeline for artifact detection</span>
+<span class="sd">        6. Clean bad channels</span>
+<span class="sd">        7. Apply rejection policy for artifact removal</span>
+<span class="sd">        8. Create event-based epochs</span>
+<span class="sd">        9. Prepare epochs for ICA</span>
+<span class="sd">        10. Apply GFP-based cleaning to epochs</span>
+<span class="sd">        11. Generate quality control reports</span>
+<span class="sd">        12. Save processed data</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            FileNotFoundError: If input file doesn&#39;t exist</span>
+<span class="sd">            RuntimeError: If any processing step fails or if data hasn&#39;t been imported</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            Progress and errors are automatically logged and tracked in</span>
+<span class="sd">            the database. You can monitor progress through the logging</span>
+<span class="sd">            messages and final report.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Import raw data using standard function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">import_raw</span><span class="p">()</span>
+        
+        <span class="c1"># Store a copy of the original raw data for comparison in reports</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">original_raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
+
+        <span class="c1"># Apply preprocessing steps (filtering, etc.)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="n">step_pre_pipeline_processing</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">save_raw_to_set</span><span class="p">(</span><span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="n">autoclean_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">stage</span> <span class="o">=</span> <span class="s2">&quot;post_prepipeline&quot;</span><span class="p">,</span> <span class="n">flagged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flagged</span><span class="p">)</span>
+
+        <span class="c1"># Create BIDS-compliant paths and filenames</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span> <span class="o">=</span> <span class="n">step_create_bids_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># Run PyLossless pipeline for artifact detection and save result</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">step_custom_pylossless_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+        <span class="n">save_raw_to_set</span><span class="p">(</span><span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="n">autoclean_dict</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">stage</span> <span class="o">=</span> <span class="s2">&quot;post_pylossless&quot;</span><span class="p">,</span> <span class="n">flagged</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">flagged</span><span class="p">)</span>
+
+        <span class="c1"># Clean bad channels (from mixins.signal_processing.channels)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">clean_bad_channels</span><span class="p">(</span><span class="n">cleaning_method</span><span class="o">=</span><span class="s2">&quot;interpolate&quot;</span><span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span>
+        <span class="c1"># Apply PyLossless Rejection Policy for artifact removal</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="n">step_run_ll_rejection_policy</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+        <span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">raw</span>
+
+        <span class="c1"># Create event-based epochs (from mixins.signal_processing.eventid_epochs)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_eventid_epochs</span><span class="p">()</span>
+
+        <span class="c1"># Prepare epochs for ICA (from mixins.signal_processing.prepare_epochs_ica)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prepare_epochs_for_ica</span><span class="p">()</span>
+
+        <span class="c1"># Apply GFP-based cleaning to epochs (from mixins.signal_processing.gfp_clean_epochs)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">gfp_clean_epochs</span><span class="p">()</span>
+
+        <span class="c1"># Generate visualization reports</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_generate_reports</span><span class="p">()</span>
+
+        <span class="c1"># Save final cleaned data</span>
+        <span class="n">save_raw_to_set</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="s2">&quot;post_clean_raw&quot;</span><span class="p">)</span></div>
+
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_generate_reports</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate quality control visualizations and reports.</span>
+
+<span class="sd">        Creates standard visualization reports including:</span>
+<span class="sd">        1. Raw vs cleaned data overlay - Shows the effect of preprocessing</span>
+<span class="sd">        2. ICA components - Displays the independent components extracted</span>
+<span class="sd">        3. ICA details - Shows detailed information about ICA components</span>
+<span class="sd">        4. PSD topography - Power spectral density across the scalp</span>
+
+<span class="sd">        The reports are saved in the debug directory specified</span>
+<span class="sd">        in the configuration, with standardized naming conventions.</span>
+
+<span class="sd">        Note:</span>
+<span class="sd">            This is automatically called by run() method.</span>
+<span class="sd">            Override this method if you need custom visualizations.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            None: Reports are saved to disk, nothing is returned.</span>
+<span class="sd">            </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If pipeline or raw is None (silently returns instead)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Skip report generation if required data is missing</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="bp">self</span><span class="o">.</span><span class="n">original_raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span>
+
+        <span class="c1"># Plot raw vs cleaned overlay using mixin method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_raw_vs_cleaned_overlay</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">original_raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+        <span class="p">)</span>
+
+        <span class="c1"># Plot ICA components using mixin method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">plot_ica_full</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># Generate ICA reports using mixin method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">generate_ica_reports</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
+
+        <span class="c1"># Create PSD topography figure using mixin method</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">psd_topo_figure</span><span class="p">(</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">original_raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span>
+        <span class="p">)</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_task_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate task-specific configuration settings.</span>
+
+<span class="sd">        This method checks that all required settings for the task</span>
+<span class="sd">        are present and valid. The validation includes:</span>
+<span class="sd">        - Required fields exist</span>
+<span class="sd">        - Field types are correct</span>
+<span class="sd">        - Stage files configuration is properly structured</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            config: Configuration dictionary that has passed common validation.</span>
+<span class="sd">                   Contains all standard fields plus task-specific settings.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            Dict[str, Any]: The validated configuration dictionary.</span>
+<span class="sd">                           You can add derived settings or defaults here.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If any required settings are missing or invalid</span>
+<span class="sd">            TypeError: If settings are of wrong type</span>
+
+<span class="sd">        Example:</span>
+<span class="sd">            ```python</span>
+<span class="sd">            def _validate_task_config(self, config):</span>
+<span class="sd">                required_fields = {</span>
+<span class="sd">                    &#39;eeg_system&#39;: str,</span>
+<span class="sd">                    &#39;settings&#39;: dict,</span>
+<span class="sd">                }</span>
+<span class="sd">                for field, field_type in required_fields.items():</span>
+<span class="sd">                    if field not in config:</span>
+<span class="sd">                        raise ValueError(f&quot;Missing required field: {field}&quot;)</span>
+<span class="sd">                    if not isinstance(config[field], field_type):</span>
+<span class="sd">                        raise TypeError(f&quot;Field {field} must be {field_type}&quot;)</span>
+<span class="sd">                return config</span>
+<span class="sd">            ```</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Define required fields and their expected types</span>
+        <span class="n">required_fields</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;task&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="s2">&quot;eeg_system&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+            <span class="s2">&quot;tasks&quot;</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span>
+        <span class="p">}</span>
+
+        <span class="c1"># Validate required fields exist and have correct types</span>
+        <span class="k">for</span> <span class="n">field</span><span class="p">,</span> <span class="n">field_type</span> <span class="ow">in</span> <span class="n">required_fields</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">field</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing required field: </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">config</span><span class="p">[</span><span class="n">field</span><span class="p">],</span> <span class="n">field_type</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Field </span><span class="si">{</span><span class="n">field</span><span class="si">}</span><span class="s2"> must be </span><span class="si">{</span><span class="n">field_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+        <span class="c1"># Validate stage_files structure</span>
+        <span class="c1"># These are the processing stages where data can be saved</span>
+        <span class="n">required_stages</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;post_import&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;post_prepipeline&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;post_pylossless&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;post_rejection_policy&quot;</span><span class="p">,</span>
+        <span class="p">]</span>
+
+        <span class="c1"># Check each required stage has proper configuration</span>
+        <span class="k">for</span> <span class="n">stage</span> <span class="ow">in</span> <span class="n">required_stages</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">stage</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">]:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Missing stage in stage_files: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">stage_config</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">][</span><span class="n">stage</span><span class="p">]</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">stage_config</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> configuration must be a dictionary&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;enabled&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stage_config</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> must have &#39;enabled&#39; field&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="s2">&quot;suffix&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">stage_config</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stage </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> must have &#39;suffix&#39; field&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">config</span></div>
+
+        
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, AutoClean Team.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

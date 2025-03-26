@@ -93,7 +93,8 @@ matplotlib.use("Agg")
 
 
 class Pipeline:
-    """Main pipeline class for EEG processing.
+    """
+    Main pipeline class for EEG processing.
 
     This class serves as the primary interface for the autoclean package.
     It manages the complete processing workflow including:
@@ -108,16 +109,44 @@ class Pipeline:
     allowing researchers to process different types of EEG recordings with appropriate
     analysis pipelines.
 
-    Core orchestrator that maintains state through a SQLite-based run tracking system,
-    manages file system operations via pathlib, and coordinates task execution while
-    ensuring atomic operations and proper error handling.
+    Parameters
+    ----------
+    autoclean_dir : str or Path
+        Root directory where all processing outputs will be saved.
+        The pipeline will create subdirectories for each task.
+    autoclean_config : str or Path
+        Path to the YAML configuration file that defines
+        processing parameters for all tasks.
+    verbose : bool, str, int, or None, optional
+        Controls logging verbosity. Can be:
+        - bool: True for INFO, False for WARNING
+        - str: One of 'debug', 'info', 'warning', 'error', or 'critical'
+        - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
+        - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
 
-    Attributes:
-        TASK_REGISTRY (Dict[str, Type[Task]]): Available processing task types.
-            Current tasks include:
-            - 'rest_eyesopen': Resting state with eyes open
-            - 'assr_default': Auditory steady-state response
-            - 'chirp_default': Auditory chirp paradigm
+    Attributes
+    ----------
+    TASK_REGISTRY : Dict[str, Type[Task]]
+        Available processing task types.
+        Current tasks include:
+        - 'rest_eyesopen': Resting state with eyes open
+        - 'assr_default': Auditory steady-state response
+        - 'chirp_default': Auditory chirp paradigm
+        
+    See Also
+    --------
+    autoclean.core.task.Task : Base class for all processing tasks.
+    autoclean.step_functions.io : I/O functions for data loading and saving.
+    
+    Examples
+    --------
+    >>> from autoclean import Pipeline
+    >>> pipeline = Pipeline(
+    ...     autoclean_dir="results/",
+    ...     autoclean_config="configs/default.yaml",
+    ...     verbose="debug"  # Enable detailed logging
+    ... )
+    >>> pipeline.process_file('data/sub-01_task-rest_eeg.raw', 'rest_eyesopen')
     """
 
     TASK_REGISTRY: Dict[str, Type[Task]] = task_registry
@@ -134,30 +163,37 @@ class Pipeline:
         loading YAML configuration into memory, and setting up filesystem paths.
         Handles path normalization and validation of core dependencies.
 
-        Args:
-            autoclean_dir: Root directory where all processing outputs will be saved.
-                          The pipeline will create subdirectories for each task.
-            autoclean_config: Path to the YAML configuration file that defines
-                            processing parameters for all tasks.
-            use_async: Whether to use asynchronous processing. Currently not
-                      implemented, defaults to False.
-            verbose: Controls logging verbosity. Can be:
-                    - bool: True for INFO, False for WARNING
-                    - str: One of 'debug', 'info', 'warning', 'error', or 'critical'
-                    - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
-                    - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
+        Parameters
+        ----------
+        autoclean_dir : str or Path
+            Root directory where all processing outputs will be saved.
+            The pipeline will create subdirectories for each task.
+        autoclean_config : str or Path
+            Path to the YAML configuration file that defines
+            processing parameters for all tasks.
+        verbose : bool, str, int, or None, optional
+            Controls logging verbosity. Can be:
+            - bool: True for INFO, False for WARNING
+            - str: One of 'debug', 'info', 'warning', 'error', or 'critical'
+            - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
+            - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
 
-        Raises:
-            FileNotFoundError: If config_file doesn't exist
-            ValueError: If configuration is invalid
-            PermissionError: If output directory is not writable
+        Raises
+        ------
+        FileNotFoundError
+            If config_file doesn't exist
+        ValueError
+            If configuration is invalid
+        PermissionError
+            If output directory is not writable
 
-        Example:
-            >>> pipeline = Pipeline(
-            ...     autoclean_dir="results/",
-            ...     autoclean_config="configs/default.yaml",
-            ...     verbose="debug"  # Enable detailed logging
-            ... )
+        Examples
+        --------
+        >>> pipeline = Pipeline(
+        ...     autoclean_dir="results/",
+        ...     autoclean_config="configs/default.yaml",
+        ...     verbose="debug"  # Enable detailed logging
+        ... )
         """
         # Convert paths to absolute Path objects
         self.autoclean_dir = Path(autoclean_dir).absolute()
@@ -187,26 +223,36 @@ class Pipeline:
     def _entrypoint(
         self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
     ) -> None:
-        """Main processing entrypoint that orchestrates the complete pipeline.
+        """
+        Main processing entrypoint that orchestrates the complete pipeline.
 
         Implements core processing logic with ACID-compliant database operations,
         filesystem management, and error handling. Uses ULID for time-ordered
         run tracking and maintains atomic operation guarantees.
 
-        Args:
-            unprocessed_file: Path to the raw EEG data file
-            task: Name of the processing task to run
-            run_id: Optional identifier for the processing run. If not provided,
-                   a unique ID will be generated.
+        Parameters
+        ----------
+        unprocessed_file : Path
+            Path to the raw EEG data file
+        task : str
+            Name of the processing task to run
+        run_id : str, optional
+            Optional identifier for the processing run. If not provided,
+            a unique ID will be generated.
 
-        Raises:
-            ValueError: If task is not registered or configuration is invalid
-            FileNotFoundError: If input file doesn't exist
-            RuntimeError: If processing fails
+        Raises
+        ------
+        ValueError
+            If task is not registered or configuration is invalid
+        FileNotFoundError
+            If input file doesn't exist
+        RuntimeError
+            If processing fails
 
-        Note:
-            This is an internal method called by process_file and process_directory.
-            Users should not call this method directly.
+        Notes
+        -----
+        This is an internal method called by process_file and process_directory.
+        Users should not call this method directly.
         """
         task = self._validate_task(task)
         configure_logger(self.verbose, output_dir=self.autoclean_dir, task=task)
@@ -441,6 +487,15 @@ class Pipeline:
         Wraps synchronous processing in asyncio thread pool to enable
         non-blocking concurrent execution while maintaining database
         and filesystem operation safety.
+
+        Parameters
+        ----------
+        unprocessed_file : Path
+            Path to the raw EEG data file
+        task : str
+            Name of the processing task to run
+        run_id : str, optional
+            Optional identifier for the processing run
         """
         try:
             # Run the processing in a thread to avoid blocking
@@ -452,28 +507,43 @@ class Pipeline:
     def process_file(
         self, file_path: str | Path, task: str, run_id: Optional[str] = None
     ) -> None:
-        """Process a single EEG data file.
-
+        """
+        Single file processing of an EEG data file.
+        
         Public interface for single-file processing that ensures proper path
         handling and maintains processing state through database-backed run
         tracking. Delegates core processing to _entrypoint.
 
-        Args:
-            file_path: Path to the raw EEG data file
-            task: Name of the processing task to run (e.g., 'rest_eyesopen')
-            run_id: Optional identifier for the processing run. If not provided,
-                   a unique ID will be generated.
+        Parameters
+        ----------
+        file_path : str or Path
+            Path to the raw EEG data file.
+        task : str
+            Name of the processing task to run (e.g., 'rest_eyesopen').
+        run_id : str, optional
+            Optional identifier for the processing run. If not provided,
+            a unique ID will be generated.
 
-        Raises:
-            ValueError: If task is not registered or configuration is invalid
-            FileNotFoundError: If input file doesn't exist
-            RuntimeError: If processing fails
+        Raises
+        ------
+        ValueError
+            If task is not registered or configuration is invalid
+        FileNotFoundError
+            If input file doesn't exist
+        RuntimeError
+            If processing fails
+            
+        See Also
+        --------
+        process_directory : Process multiple files in a directory.
+        process_directory_async : Process files asynchronously.
 
-        Example:
-            >>> pipeline.process_file(
-            ...     file_path='data/sub-01_task-rest_eeg.raw',
-            ...     task='rest_eyesopen'
-            ... )
+        Examples
+        --------
+        >>> pipeline.process_file(
+        ...     file_path='data/sub-01_task-rest_eeg.raw',
+        ...     task='rest_eyesopen'
+        ... )
         """
         self._entrypoint(Path(file_path), task, run_id)
 
@@ -484,34 +554,49 @@ class Pipeline:
         pattern: str = "*.set",
         recursive: bool = False,
     ) -> None:
-        """Process all matching EEG files in a directory.
+        """
+        Batch processing of all matching EEG files in a directory.
 
-        Implements fault-tolerant batch processing using pathlib for filesystem
-        operations. Maintains independent error handling per file to prevent
-        cascade failures in batch operations.
+        Batch processing of EEG files in a directory.
 
-        Args:
-            directory: Path to the directory containing EEG files
-            task: Name of the processing task to run (e.g., 'RestingEyesOpen')
-            pattern: Glob pattern to match files (default: "*.raw")
-            recursive: Whether to search in subdirectories (default: False)
+        Parameters
+        ----------
+        directory : str or Path
+            Path to the directory containing EEG files.
+        task : str
+            Name of the processing task to run (e.g., 'RestingEyesOpen').
+        pattern : str, optional
+            Glob pattern to match files (default: "*.raw").
+        recursive : bool, optional
+            Whether to search in subdirectories (default: False).
 
-        Raises:
-            NotADirectoryError: If directory doesn't exist
-            ValueError: If task is not registered
-            RuntimeError: If processing fails for any file
+        Raises
+        ------
+        NotADirectoryError
+            If directory doesn't exist
+        ValueError
+            If task is not registered
+        RuntimeError
+            If processing fails for any file
+            
+        See Also
+        --------
+        process_file : Process a single file.
+        process_directory_async : Process files asynchronously.
 
-        Example:
-            >>> pipeline.process_directory(
-            ...     directory='data/rest_state/',
-            ...     task='rest_eyesopen',
-            ...     pattern='*.raw',
-            ...     recursive=True
-            ... )
+        Notes
+        -----
+        If processing fails for one file, the pipeline will continue
+        with the remaining files and report all errors at the end.
 
-        Note:
-            If processing fails for one file, the pipeline will continue
-            with the remaining files and report all errors at the end.
+        Examples
+        --------
+        >>> pipeline.process_directory(
+        ...     directory='data/rest_state/',
+        ...     task='rest_eyesopen',
+        ...     pattern='*.raw',
+        ...     recursive=True
+        ... )
         """
         directory = Path(directory)
         if not directory.is_dir():
@@ -551,6 +636,31 @@ class Pipeline:
         Implements concurrent batch processing using asyncio semaphores
         for resource management. Processes files in optimized batches
         while maintaining progress tracking and error isolation.
+
+        Parameters
+        ----------
+        directory : str or Path
+            Path to the directory containing EEG files
+        task : str
+            Name of the processing task to run (e.g., 'RestingEyesOpen')
+        pattern : str, optional
+            Glob pattern to match files (default: "*.raw")
+        sub_directories : bool, optional
+            Whether to search in subdirectories (default: False)
+        max_concurrent : int, optional
+            Maximum number of files to process concurrently (default: 3)
+
+        Raises
+        ------
+        NotADirectoryError
+            If directory doesn't exist
+        ValueError
+            If task is not registered
+            
+        See Also
+        --------
+        process_file : Process a single file
+        process_directory : Process files synchronously
         """
         directory = Path(directory)
         if not directory.is_dir():
@@ -615,14 +725,17 @@ class Pipeline:
         introspection of available processing options. Used for validation
         and user interface integration.
 
-        Returns:
-            list[str]: Names of all configured tasks
+        Returns
+        -------
+        list[str]
+            Names of all configured tasks
 
-        Example:
-            >>> pipeline.list_tasks()
-            ['rest_eyesopen', 'assr_default', 'chirp_default']
+        Examples
+        --------
+        >>> pipeline.list_tasks()
+        ['rest_eyesopen', 'assr_default', 'chirp_default']
         """
-        return list(self.task_registry.keys())
+        return list(self.TASK_REGISTRY.keys())
 
 
     def list_stage_files(self) -> list[str]:
@@ -632,12 +745,15 @@ class Pipeline:
         configuration. Critical for understanding processing flow and
         debugging pipeline state.
 
-        Returns:
-            list[str]: Names of all configured stage file types
+        Returns
+        -------
+        list[str]
+            Names of all configured stage file types
 
-        Example:
-            >>> pipeline.list_stage_files()
-            ['post_import', 'post_prepipeline', 'post_clean']
+        Examples
+        --------
+        >>> pipeline.list_stage_files()
+        ['post_import', 'post_prepipeline', 'post_clean']
         """
         return list(self.autoclean_dict["stage_files"].keys())
 
@@ -647,6 +763,11 @@ class Pipeline:
         
         This method requires the GUI dependencies to be installed.
         Install them with: pip install autocleaneeg[gui]
+        
+        Raises
+        ------
+        ImportError
+            If GUI dependencies are not installed
         """
         try:
             from autoclean.tools.autoclean_review import run_autoclean_review
@@ -656,25 +777,32 @@ class Pipeline:
             message("error", "pip install autocleaneeg[gui]")
             raise
 
-    def _validate_task(self, task: str) -> None:
+    def _validate_task(self, task: str) -> str:
         """Validate that a task type is supported and properly configured.
 
         Ensures task exists in configuration and has required parameters.
         Acts as a guard clause for task instantiation, preventing invalid
         task configurations from entering the processing pipeline.
 
-        Args:
-            task: Name of the task to validate (e.g., 'rest_eyesopen')
+        Parameters
+        ----------
+        task : str
+            Name of the task to validate (e.g., 'rest_eyesopen')
 
-        Returns:
-            str: The validated task name
+        Returns
+        -------
+        str
+            The validated task name
 
-        Raises:
-            ValueError: If the task is not found in configuration
+        Raises
+        ------
+        ValueError
+            If the task is not found in configuration
 
-        Example:
-            >>> pipeline.validate_task('rest_eyesopen')
-            'rest_eyesopen'
+        Examples
+        --------
+        >>> pipeline._validate_task('rest_eyesopen')
+        'rest_eyesopen'
         """
         message("debug", "Validating task")
 
@@ -684,30 +812,38 @@ class Pipeline:
         message("success", f"✓ Task '{task}' found in configuration")
         return task
 
-    def _validate_file(self, file_path: str | Path) -> None:
+    def _validate_file(self, file_path: str | Path) -> Path:
         """Validate that an input file exists and is accessible.
 
         Performs filesystem-level validation using pathlib, ensuring atomic
         file operations can proceed. Normalizes paths for cross-platform
         compatibility.
 
-        Args:
-            file_path: Path to the EEG data file to validate
+        Parameters
+        ----------
+        file_path : str or Path
+            Path to the EEG data file to validate
 
-        Returns:
-            Path: The validated file path
+        Returns
+        -------
+        Path
+            The validated file path
 
-        Raises:
-            FileNotFoundError: If the file doesn't exist
+        Raises
+        ------
+        FileNotFoundError
+            If the file doesn't exist
 
-        Example:
-            >>> pipeline.validate_file('data/sub-01_task-rest_eeg.raw')
-            Path('data/sub-01_task-rest_eeg.raw')
+        Examples
+        --------
+        >>> pipeline._validate_file('data/sub-01_task-rest_eeg.raw')
+        Path('data/sub-01_task-rest_eeg.raw')
         """
         message("debug", "Validating file")
 
-        if not Path(file_path).exists():
+        path = Path(file_path)
+        if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
         message("success", f"✓ File '{file_path}' found")
-        return file_path
+        return path

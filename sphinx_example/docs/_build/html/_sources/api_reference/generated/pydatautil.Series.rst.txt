@@ -1,0 +1,6 @@
+﻿pydatautil.Series
+=================
+
+.. currentmodule:: pydatautil
+
+.. autoclass:: Series

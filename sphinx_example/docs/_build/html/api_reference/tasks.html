@@ -1,0 +1,833 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>Tasks &#8212; AutoClean 1.1.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../_static/documentation_options.js?v=2a705162"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/tasks';</script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Utility Modules" href="utils.html" />
+    <link rel="prev" title="Step Functions" href="step_functions.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="1.1.0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AutoClean</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../index.html">
+    Welcome to AutoClean’s documentation!
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../installation.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../index.html">
+    Welcome to AutoClean’s documentation!
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../installation.html">
+    Installation
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item current active">
+  <a class="nav-link nav-internal" href="index.html">
+    API Reference
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="core.html">Core API</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="core/pipeline.html">Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core/task.html">Task</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline.__init__.html">autoclean.Pipeline.__init__</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline.process_file.html">autoclean.Pipeline.process_file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline.process_directory.html">autoclean.Pipeline.process_directory</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline.process_directory_async.html">autoclean.Pipeline.process_directory_async</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline._entrypoint.html">autoclean.Pipeline._entrypoint</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline.list_tasks.html">autoclean.Pipeline.list_tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline.list_stage_files.html">autoclean.Pipeline.list_stage_files</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline.start_autoclean_review.html">autoclean.Pipeline.start_autoclean_review</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline._validate_task.html">autoclean.Pipeline._validate_task</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.Pipeline._validate_file.html">autoclean.Pipeline._validate_file</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task.__init__.html">autoclean.core.task.Task.__init__</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task.import_raw.html">autoclean.core.task.Task.import_raw</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task.run.html">autoclean.core.task.Task.run</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task.validate_config.html">autoclean.core.task.Task.validate_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task._validate_task_config.html">autoclean.core.task.Task._validate_task_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task.get_flagged_status.html">autoclean.core.task.Task.get_flagged_status</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task.get_raw.html">autoclean.core.task.Task.get_raw</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../generated/autoclean.core.task.Task.get_epochs.html">autoclean.core.task.Task.get_epochs</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1"><a class="reference internal" href="step_functions.html">Step Functions</a></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Tasks</a></li>
+<li class="toctree-l1"><a class="reference internal" href="utils.html">Utility Modules</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.Pipeline.html">autoclean.Pipeline</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.core.task.Task.html">autoclean.core.task.Task</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.step_functions.io.import_eeg.html">autoclean.step_functions.io.import_eeg</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.step_functions.io.save_raw_to_set.html">autoclean.step_functions.io.save_raw_to_set</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.step_functions.io.save_epochs_to_set.html">autoclean.step_functions.io.save_epochs_to_set</a></li>
+</ul>
+<ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.tasks.resting_eyes_open.RestingEyesOpen.html">autoclean.tasks.resting_eyes_open.RestingEyesOpen</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.tasks.assr_default.AssrDefault.html">autoclean.tasks.assr_default.AssrDefault</a></li>
+<li class="toctree-l1"><a class="reference internal" href="generated/autoclean.tasks.chirp_default.ChirpDefault.html">autoclean.tasks.chirp_default.ChirpDefault</a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item"><nav class="sidebar-indices-items" aria-labelledby="pst-indices-navigation-heading-2">
+  <p id="pst-indices-navigation-heading-2" class="sidebar-indices-items__title" role="heading" aria-level="1">Indices</p>
+  <ul class="indices-link">
+        <li class="toctree-l1">
+          <a class="reference internal"
+             href="../genindex.html"
+             accesskey="I">General Index</a>
+        </li>
+        <li class="toctree-l1">
+          <a class="reference internal" href="../py-modindex.html">Python Module Index</a>
+        </li>
+  </ul>
+</nav></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">API Reference</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Tasks</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="tasks">
+<span id="api-tasks"></span><h1>Tasks<a class="headerlink" href="#tasks" title="Link to this heading">#</a></h1>
+<p>This section covers the task implementations in AutoClean for specific EEG paradigms.</p>
+<section id="resting-state-tasks">
+<h2>Resting State Tasks<a class="headerlink" href="#resting-state-tasks" title="Link to this heading">#</a></h2>
+<p id="module-autoclean.tasks.resting_eyes_open">Revised task implementation for resting state EEG preprocessing using mixins.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoclean.tasks.resting_eyes_open.RestingEyesOpen">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.tasks.resting_eyes_open.</span></span><span class="sig-name descname"><span class="pre">RestingEyesOpen</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoclean/tasks/resting_eyes_open.html#RestingEyesOpen"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.resting_eyes_open.RestingEyesOpen" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="generated/autoclean.core.task.Task.html#autoclean.core.task.Task" title="autoclean.core.task.Task"><code class="xref py py-class docutils literal notranslate"><span class="pre">Task</span></code></a></p>
+<p>Revised task implementation for resting state EEG preprocessing.</p>
+<p>This class extends the base Task class which now includes functionality from mixins,
+demonstrating a more modular approach to task implementation.</p>
+<dl class="simple">
+<dt>Attributes:</dt><dd><p>raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline
+pipeline (Any): PyLossless pipeline instance after preprocessing
+epochs (mne.Epochs): Epoched data after processing
+original_raw (mne.io.Raw): Original unprocessed raw data, preserved for comparison</p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.tasks.resting_eyes_open.RestingEyesOpen.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/tasks/resting_eyes_open.html#RestingEyesOpen.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.resting_eyes_open.RestingEyesOpen.run" title="Link to this definition">#</a></dt>
+<dd><p>Execute the complete resting state EEG processing pipeline.</p>
+<p>This method orchestrates the complete processing sequence including:
+1. Data import
+2. Preprocessing (resampling, filtering)
+3. Artifact detection and rejection
+4. Epoching
+5. Report generation</p>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>RuntimeError: If data hasn’t been imported successfully</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="assr-tasks">
+<h2>ASSR Tasks<a class="headerlink" href="#assr-tasks" title="Link to this heading">#</a></h2>
+<p id="module-autoclean.tasks.assr_default">Task implementation for assr EEG preprocessing.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoclean.tasks.assr_default.AssrDefault">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.tasks.assr_default.</span></span><span class="sig-name descname"><span class="pre">AssrDefault</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoclean/tasks/assr_default.html#AssrDefault"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.assr_default.AssrDefault" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="generated/autoclean.core.task.Task.html#autoclean.core.task.Task" title="autoclean.core.task.Task"><code class="xref py py-class docutils literal notranslate"><span class="pre">Task</span></code></a></p>
+<p>Task implementation for assr EEG preprocessing.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.tasks.assr_default.AssrDefault.import_data">
+<span class="sig-name descname"><span class="pre">import_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_path</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/pathlib.html#pathlib.Path" title="(in Python v3.13)"><span class="pre">Path</span></a></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/tasks/assr_default.html#AssrDefault.import_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.assr_default.AssrDefault.import_data" title="Link to this definition">#</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.tasks.assr_default.AssrDefault.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/tasks/assr_default.html#AssrDefault.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.assr_default.AssrDefault.run" title="Link to this definition">#</a></dt>
+<dd><p>Run the complete assr processing pipeline.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="chirp-tasks">
+<h2>Chirp Tasks<a class="headerlink" href="#chirp-tasks" title="Link to this heading">#</a></h2>
+<p id="module-autoclean.tasks.chirp_default">Task implementation for chirp EEG preprocessing.</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoclean.tasks.chirp_default.ChirpDefault">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.tasks.chirp_default.</span></span><span class="sig-name descname"><span class="pre">ChirpDefault</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoclean/tasks/chirp_default.html#ChirpDefault"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.chirp_default.ChirpDefault" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="generated/autoclean.core.task.Task.html#autoclean.core.task.Task" title="autoclean.core.task.Task"><code class="xref py py-class docutils literal notranslate"><span class="pre">Task</span></code></a></p>
+<p>Task implementation for chirp EEG preprocessing.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.tasks.chirp_default.ChirpDefault.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/tasks/chirp_default.html#ChirpDefault.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.chirp_default.ChirpDefault.run" title="Link to this definition">#</a></dt>
+<dd><p>Run the complete chirp processing pipeline.</p>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="mmn-tasks">
+<h2>MMN Tasks<a class="headerlink" href="#mmn-tasks" title="Link to this heading">#</a></h2>
+<span class="target" id="module-autoclean.tasks.hbcd_mmn"></span><dl class="py class">
+<dt class="sig sig-object py" id="autoclean.tasks.hbcd_mmn.HBCD_MMN">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.tasks.hbcd_mmn.</span></span><span class="sig-name descname"><span class="pre">HBCD_MMN</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoclean/tasks/hbcd_mmn.html#HBCD_MMN"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.hbcd_mmn.HBCD_MMN" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="generated/autoclean.core.task.Task.html#autoclean.core.task.Task" title="autoclean.core.task.Task"><code class="xref py py-class docutils literal notranslate"><span class="pre">Task</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.tasks.hbcd_mmn.HBCD_MMN.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/tasks/hbcd_mmn.html#HBCD_MMN.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.hbcd_mmn.HBCD_MMN.run" title="Link to this definition">#</a></dt>
+<dd><p>Run the complete processing pipeline for this task</p>
+<p>This method orchestrates the complete processing sequence:
+1. Import raw data
+2. Run preprocessing steps
+3. Apply task-specific processing</p>
+<p>The results are automatically saved at each stage according to
+the stage_files configuration.</p>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>FileNotFoundError: If input file doesn’t exist
+RuntimeError: If any processing step fails</p>
+</dd>
+<dt>Note:</dt><dd><p>Progress and errors are automatically logged and tracked in
+the database. You can monitor progress through the logging
+messages and final report.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="mouse-tasks">
+<h2>Mouse Tasks<a class="headerlink" href="#mouse-tasks" title="Link to this heading">#</a></h2>
+<p id="module-autoclean.tasks.mouse_xdat_resting">Mouse XDAT Resting State Task</p>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoclean.tasks.mouse_xdat_resting.MouseXdatResting">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.tasks.mouse_xdat_resting.</span></span><span class="sig-name descname"><span class="pre">MouseXdatResting</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoclean/tasks/mouse_xdat_resting.html#MouseXdatResting"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.mouse_xdat_resting.MouseXdatResting" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="generated/autoclean.core.task.Task.html#autoclean.core.task.Task" title="autoclean.core.task.Task"><code class="xref py py-class docutils literal notranslate"><span class="pre">Task</span></code></a></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.tasks.mouse_xdat_resting.MouseXdatResting.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/tasks/mouse_xdat_resting.html#MouseXdatResting.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.mouse_xdat_resting.MouseXdatResting.run" title="Link to this definition">#</a></dt>
+<dd><p>Run the complete processing pipeline for this task.</p>
+<p>This method orchestrates the complete processing sequence:
+1. Import raw data
+2. Run preprocessing steps
+3. Apply task-specific processing</p>
+<p>The results are automatically saved at each stage according to
+the stage_files configuration.</p>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>FileNotFoundError: If input file doesn’t exist
+RuntimeError: If any processing step fails</p>
+</dd>
+<dt>Note:</dt><dd><p>Progress and errors are automatically logged and tracked in
+the database. You can monitor progress through the logging
+messages and final report.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+<section id="template-task">
+<h2>Template Task<a class="headerlink" href="#template-task" title="Link to this heading">#</a></h2>
+<p id="module-autoclean.tasks.TEMPLATE">Template for implementing new EEG processing tasks.</p>
+<p>This template provides a starting point for implementing new EEG processing tasks.
+It includes detailed documentation and examples for each required component.</p>
+<p>Task Implementation Guide:
+1. Copy this template to create your new task file (e.g., my_paradigm.py)
+2. Replace TemplateTask with your task name (e.g., MyParadigmTask)
+3. Implement the required methods</p>
+<p>Key Components:
+1. Task Configuration:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Define processing steps in autoclean_config.yaml</p></li>
+<li><p>Each step has enabled/disabled flag and parameters</p></li>
+<li><p>Configure artifact rejection policies</p></li>
+</ul>
+</div></blockquote>
+<ol class="arabic" start="2">
+<li><p>Required Methods:
+- __init__: Initialize task state
+- run: Main processing pipeline
+- _generate_reports: Create quality control visualizations
+- _validate_task_config: Validate task settings</p></li>
+<li><p>Processing Flow:
+a. Data Import:</p>
+<blockquote>
+<div><ul class="simple">
+<li><p>Load raw EEG data</p></li>
+<li><p>Apply montage</p></li>
+<li><p>Basic validation</p></li>
+</ul>
+</div></blockquote>
+<ol class="loweralpha simple" start="2">
+<li><p>Preprocessing:
+- Resampling
+- Filtering
+- Bad channel detection</p></li>
+<li><p>Artifact Rejection:
+- ICA decomposition
+- Component classification
+- Bad segment detection</p></li>
+<li><p>Task-Specific Processing:
+- Epoching
+- Baseline correction
+- Additional analyses</p></li>
+<li><p>Quality Control:
+- Generate reports
+- Save processed data
+- Update processing log</p></li>
+</ol>
+</li>
+<li><p>Best Practices:
+- Use type hints for all methods
+- Add comprehensive docstrings
+- Include error handling
+- Log processing steps
+- Save intermediate results
+- Generate quality control reports</p></li>
+</ol>
+<dl class="py class">
+<dt class="sig sig-object py" id="autoclean.tasks.TEMPLATE.TemplateTask">
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.tasks.TEMPLATE.</span></span><span class="sig-name descname"><span class="pre">TemplateTask</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/autoclean/tasks/TEMPLATE.html#TemplateTask"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.TEMPLATE.TemplateTask" title="Link to this definition">#</a></dt>
+<dd><p>Bases: <a class="reference internal" href="generated/autoclean.core.task.Task.html#autoclean.core.task.Task" title="autoclean.core.task.Task"><code class="xref py py-class docutils literal notranslate"><span class="pre">Task</span></code></a></p>
+<p>Template class for implementing new EEG processing tasks.</p>
+<p>This class demonstrates how to implement a new task type in the autoclean package.
+Each task must implement these key methods:
+1. __init__ - Initialize task state and validate config
+2. run - Main processing pipeline
+3. _generate_reports - Create quality control visualizations
+4. _validate_task_config - Validate task-specific settings</p>
+<p>The task should handle a specific EEG paradigm (e.g., resting state, ASSR, MMN)
+and implement appropriate processing steps for that paradigm.</p>
+<dl>
+<dt>Attributes:</dt><dd><p>raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline
+pipeline (Any): PyLossless pipeline instance after preprocessing
+epochs (mne.Epochs): Epoched data after processing
+config (Dict[str, Any]): Task configuration dictionary containing all settings
+original_raw (mne.io.Raw): Original unprocessed raw data, preserved for comparison</p>
+</dd>
+<dt>Example:</dt><dd><p>To use this template:</p>
+<p>1. Create your configuration in autoclean_config.yaml:
+<a href="#id1"><span class="problematic" id="id2">``</span></a><a href="#id3"><span class="problematic" id="id4">`</span></a>yaml
+# autoclean_config.yaml
+tasks:</p>
+<blockquote>
+<div><dl>
+<dt>my_paradigm:</dt><dd><dl>
+<dt>settings:</dt><dd><dl class="simple">
+<dt>resample_step:</dt><dd><p>enabled: true
+value: 250</p>
+</dd>
+</dl>
+<p># … other settings …</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</div></blockquote>
+<p><a href="#id5"><span class="problematic" id="id6">``</span></a><a href="#id7"><span class="problematic" id="id8">`</span></a></p>
+<p>2. Initialize and run your task:
+<code class="docutils literal notranslate"><span class="pre">`python</span>
+<span class="pre">&gt;&gt;&gt;</span> <span class="pre">from</span> <span class="pre">autoclean</span> <span class="pre">import</span> <span class="pre">Pipeline</span>
+<span class="pre">&gt;&gt;&gt;</span> <span class="pre">pipeline</span> <span class="pre">=</span> <span class="pre">Pipeline(&quot;output/&quot;,</span> <span class="pre">&quot;autoclean_config.yaml&quot;)</span>
+<span class="pre">&gt;&gt;&gt;</span> <span class="pre">pipeline.process_file(&quot;data.raw&quot;,</span> <span class="pre">&quot;my_paradigm&quot;)</span>
+<span class="pre">`</span></code></p>
+</dd>
+</dl>
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.tasks.TEMPLATE.TemplateTask.run">
+<span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/tasks/TEMPLATE.html#TemplateTask.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.tasks.TEMPLATE.TemplateTask.run" title="Link to this definition">#</a></dt>
+<dd><p>Run the complete processing pipeline for this task.</p>
+<p>This method orchestrates the complete processing sequence:
+1. Import raw data
+2. Run preprocessing steps
+3. Apply task-specific processing
+4. Generate quality control reports</p>
+<p>The results are automatically saved at each stage according to
+the stage_files configuration.</p>
+<p>Processing Steps:
+1. Import and validate raw data
+2. Resample data to target frequency
+3. Apply preprocessing pipeline (filtering, etc.)
+4. Create BIDS-compliant paths
+5. Run PyLossless pipeline for artifact detection
+6. Clean bad channels
+7. Apply rejection policy for artifact removal
+8. Create event-based epochs
+9. Prepare epochs for ICA
+10. Apply GFP-based cleaning to epochs
+11. Generate quality control reports
+12. Save processed data</p>
+<dl class="simple">
+<dt>Raises:</dt><dd><p>FileNotFoundError: If input file doesn’t exist
+RuntimeError: If any processing step fails or if data hasn’t been imported</p>
+</dd>
+<dt>Note:</dt><dd><p>Progress and errors are automatically logged and tracked in
+the database. You can monitor progress through the logging
+messages and final report.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#resting-state-tasks">Resting State Tasks</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.resting_eyes_open.RestingEyesOpen"><code class="docutils literal notranslate"><span class="pre">RestingEyesOpen</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.resting_eyes_open.RestingEyesOpen.run"><code class="docutils literal notranslate"><span class="pre">RestingEyesOpen.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#assr-tasks">ASSR Tasks</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.assr_default.AssrDefault"><code class="docutils literal notranslate"><span class="pre">AssrDefault</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.assr_default.AssrDefault.import_data"><code class="docutils literal notranslate"><span class="pre">AssrDefault.import_data()</span></code></a></li>
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.assr_default.AssrDefault.run"><code class="docutils literal notranslate"><span class="pre">AssrDefault.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#chirp-tasks">Chirp Tasks</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.chirp_default.ChirpDefault"><code class="docutils literal notranslate"><span class="pre">ChirpDefault</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.chirp_default.ChirpDefault.run"><code class="docutils literal notranslate"><span class="pre">ChirpDefault.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mmn-tasks">MMN Tasks</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.hbcd_mmn.HBCD_MMN"><code class="docutils literal notranslate"><span class="pre">HBCD_MMN</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.hbcd_mmn.HBCD_MMN.run"><code class="docutils literal notranslate"><span class="pre">HBCD_MMN.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#mouse-tasks">Mouse Tasks</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.mouse_xdat_resting.MouseXdatResting"><code class="docutils literal notranslate"><span class="pre">MouseXdatResting</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.mouse_xdat_resting.MouseXdatResting.run"><code class="docutils literal notranslate"><span class="pre">MouseXdatResting.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#template-task">Template Task</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.TEMPLATE.TemplateTask"><code class="docutils literal notranslate"><span class="pre">TemplateTask</span></code></a><ul class="nav section-nav flex-column">
+<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.tasks.TEMPLATE.TemplateTask.run"><code class="docutils literal notranslate"><span class="pre">TemplateTask.run()</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2023-2025, AutoClean Team.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

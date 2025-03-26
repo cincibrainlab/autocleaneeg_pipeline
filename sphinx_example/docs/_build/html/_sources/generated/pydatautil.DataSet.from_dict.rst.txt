@@ -1,0 +1,6 @@
+﻿pydatautil.DataSet.from\_dict
+=============================
+
+.. currentmodule:: pydatautil
+
+.. automethod:: DataSet.from_dict
