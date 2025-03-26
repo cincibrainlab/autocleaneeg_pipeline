@@ -1,6 +1,0 @@
-﻿pydatautil.DataSet.plot
-=======================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: DataSet.plot

@@ -155,23 +155,6 @@
   </a>
 </li>
 
-            <li class="nav-item dropdown">
-                <button class="btn dropdown-toggle nav-item" type="button"
-                data-bs-toggle="dropdown" aria-expanded="false"
-                aria-controls="pst-nav-more-links">
-                    More
-                </button>
-                <ul id="pst-nav-more-links" class="dropdown-menu">
-                    
-<li class=" ">
-  <a class="nav-link dropdown-item nav-internal" href="../../../development/index.html">
-    Development
-  </a>
-</li>
-
-                </ul>
-            </li>
-            
   </ul>
 </nav></div>
       
@@ -285,13 +268,6 @@
   </a>
 </li>
 
-
-<li class="nav-item ">
-  <a class="nav-link nav-internal" href="../../../development/index.html">
-    Development
-  </a>
-</li>
-
   </ul>
 </nav></div>
           
@@ -331,9 +307,6 @@
           <a class="reference internal"
              href="../../../genindex.html"
              accesskey="I">General Index</a>
-        </li>
-        <li class="toctree-l1">
-          <a class="reference internal" href="../../../py-modindex.html">Python Module Index</a>
         </li>
   </ul>
 </nav></div>
@@ -405,35 +378,36 @@
 <span class="sd">   - Generating reports</span>
 <span class="sd">   - Database logging</span>
 
-<span class="sd">Example:</span>
-<span class="sd">    Basic usage for processing a single file:</span>
+<span class="sd">Examples</span>
+<span class="sd">--------</span>
+<span class="sd">Basic usage for processing a single file:</span>
 
-<span class="sd">    &gt;&gt;&gt; from autoclean import Pipeline</span>
-<span class="sd">    &gt;&gt;&gt; pipeline = Pipeline(</span>
-<span class="sd">    ...     autoclean_dir=&quot;/path/to/output&quot;,</span>
-<span class="sd">    ...     autoclean_config=&quot;config.yaml&quot;</span>
-<span class="sd">    ... )</span>
-<span class="sd">    &gt;&gt;&gt; pipeline.process_file(</span>
-<span class="sd">    ...     file_path=&quot;/path/to/data.set&quot;,</span>
-<span class="sd">    ...     task=&quot;rest_eyesopen&quot;</span>
-<span class="sd">    ... )</span>
+<span class="sd">&gt;&gt;&gt; from autoclean import Pipeline</span>
+<span class="sd">&gt;&gt;&gt; pipeline = Pipeline(</span>
+<span class="sd">...     autoclean_dir=&quot;/path/to/output&quot;,</span>
+<span class="sd">...     autoclean_config=&quot;config.yaml&quot;</span>
+<span class="sd">... )</span>
+<span class="sd">&gt;&gt;&gt; pipeline.process_file(</span>
+<span class="sd">...     file_path=&quot;/path/to/data.set&quot;,</span>
+<span class="sd">...     task=&quot;rest_eyesopen&quot;</span>
+<span class="sd">... )</span>
 
-<span class="sd">    Processing multiple files:</span>
+<span class="sd">Processing multiple files:</span>
 
-<span class="sd">    &gt;&gt;&gt; pipeline.process_directory(</span>
-<span class="sd">    ...     directory=&quot;/path/to/data&quot;,</span>
-<span class="sd">    ...     task=&quot;rest_eyesopen&quot;,</span>
-<span class="sd">    ...     pattern=&quot;*.raw&quot;</span>
-<span class="sd">    ... )</span>
+<span class="sd">&gt;&gt;&gt; pipeline.process_directory(</span>
+<span class="sd">...     directory=&quot;/path/to/data&quot;,</span>
+<span class="sd">...     task=&quot;rest_eyesopen&quot;,</span>
+<span class="sd">...     pattern=&quot;*.raw&quot;</span>
+<span class="sd">... )</span>
 
-<span class="sd">    Async processing of multiple files:</span>
+<span class="sd">Async processing of multiple files:</span>
 
-<span class="sd">    &gt;&gt;&gt; pipeline.process_directory_async(</span>
-<span class="sd">    ...     directory=&quot;/path/to/data&quot;,</span>
-<span class="sd">    ...     task=&quot;rest_eyesopen&quot;,</span>
-<span class="sd">    ...     pattern=&quot;*.raw&quot;,</span>
-<span class="sd">    ...     max_concurrent=5</span>
-<span class="sd">    ... )</span>
+<span class="sd">&gt;&gt;&gt; pipeline.process_directory_async(</span>
+<span class="sd">...     directory=&quot;/path/to/data&quot;,</span>
+<span class="sd">...     task=&quot;rest_eyesopen&quot;,</span>
+<span class="sd">...     pattern=&quot;*.raw&quot;,</span>
+<span class="sd">...     max_concurrent=5</span>
+<span class="sd">... )</span>
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
@@ -455,8 +429,7 @@
 <span class="c1"># IMPORT TASKS HERE</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.core.task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.step_functions.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_epochs_to_set</span><span class="p">,</span> <span class="n">save_raw_to_set</span>
-<span class="c1"># NOTE: The following imports are using deprecated functions. </span>
-<span class="c1"># They should eventually be migrated to use the ReportingMixin instead.</span>
+
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.step_functions.reports</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
     <span class="n">create_json_summary</span><span class="p">,</span>
     <span class="n">create_run_report</span><span class="p">,</span>
@@ -479,23 +452,9 @@
 
 
 <div class="viewcode-block" id="Pipeline">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.Pipeline.html#autoclean.Pipeline">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">Pipeline</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Main pipeline class for EEG processing.</span>
-
-<span class="sd">    This class serves as the primary interface for the autoclean package.</span>
-<span class="sd">    It manages the complete processing workflow including:</span>
-
-<span class="sd">    - Configuration loading and validation</span>
-<span class="sd">    - Directory structure setup</span>
-<span class="sd">    - Task instantiation and execution</span>
-<span class="sd">    - Progress tracking and error handling</span>
-<span class="sd">    - Results saving and report generation</span>
-
-<span class="sd">    The pipeline supports multiple EEG processing paradigms through its task registry,</span>
-<span class="sd">    allowing researchers to process different types of EEG recordings with appropriate</span>
-<span class="sd">    analysis pipelines.</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Pipeline class for EEG processing.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -506,20 +465,17 @@
 <span class="sd">        Path to the YAML configuration file that defines</span>
 <span class="sd">        processing parameters for all tasks.</span>
 <span class="sd">    verbose : bool, str, int, or None, optional</span>
-<span class="sd">        Controls logging verbosity. Can be:</span>
-<span class="sd">        - bool: True for INFO, False for WARNING</span>
-<span class="sd">        - str: One of &#39;debug&#39;, &#39;info&#39;, &#39;warning&#39;, &#39;error&#39;, or &#39;critical&#39;</span>
-<span class="sd">        - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)</span>
-<span class="sd">        - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO</span>
-
+<span class="sd">        Controls logging verbosity, by default None.</span>
+<span class="sd">        </span>
+<span class="sd">        * bool: True for INFO, False for WARNING.</span>
+<span class="sd">        * str: One of &#39;debug&#39;, &#39;info&#39;, &#39;warning&#39;, &#39;error&#39;, or &#39;critical&#39;.</span>
+<span class="sd">        * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).</span>
+<span class="sd">        * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.</span>
+<span class="sd">        </span>
 <span class="sd">    Attributes</span>
 <span class="sd">    ----------</span>
 <span class="sd">    TASK_REGISTRY : Dict[str, Type[Task]]</span>
-<span class="sd">        Available processing task types.</span>
-<span class="sd">        Current tasks include:</span>
-<span class="sd">        - &#39;rest_eyesopen&#39;: Resting state with eyes open</span>
-<span class="sd">        - &#39;assr_default&#39;: Auditory steady-state response</span>
-<span class="sd">        - &#39;chirp_default&#39;: Auditory chirp paradigm</span>
+<span class="sd">        Automatically generated dictionary of all task classes in the `autoclean.tasks` module.</span>
 <span class="sd">        </span>
 <span class="sd">    See Also</span>
 <span class="sd">    --------</span>
@@ -540,7 +496,7 @@
     <span class="n">TASK_REGISTRY</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Type</span><span class="p">[</span><span class="n">Task</span><span class="p">]]</span> <span class="o">=</span> <span class="n">task_registry</span>
 
 <div class="viewcode-block" id="Pipeline.__init__">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline.__init__.html#autoclean.Pipeline.__init__">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">autoclean_dir</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
@@ -548,10 +504,6 @@
         <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize a new processing pipeline.</span>
-
-<span class="sd">        Establishes core pipeline state by initializing SQLite database connection,</span>
-<span class="sd">        loading YAML configuration into memory, and setting up filesystem paths.</span>
-<span class="sd">        Handles path normalization and validation of core dependencies.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -562,20 +514,21 @@
 <span class="sd">            Path to the YAML configuration file that defines</span>
 <span class="sd">            processing parameters for all tasks.</span>
 <span class="sd">        verbose : bool, str, int, or None, optional</span>
-<span class="sd">            Controls logging verbosity. Can be:</span>
-<span class="sd">            - bool: True for INFO, False for WARNING</span>
-<span class="sd">            - str: One of &#39;debug&#39;, &#39;info&#39;, &#39;warning&#39;, &#39;error&#39;, or &#39;critical&#39;</span>
-<span class="sd">            - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)</span>
-<span class="sd">            - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO</span>
+<span class="sd">            Controls logging verbosity, by default None.</span>
+<span class="sd">            </span>
+<span class="sd">            * bool: True for INFO, False for WARNING.</span>
+<span class="sd">            * str: One of &#39;debug&#39;, &#39;info&#39;, &#39;warning&#39;, &#39;error&#39;, or &#39;critical&#39;.</span>
+<span class="sd">            * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).</span>
+<span class="sd">            * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        FileNotFoundError</span>
-<span class="sd">            If config_file doesn&#39;t exist</span>
+<span class="sd">            If config_file doesn&#39;t exist.</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If configuration is invalid</span>
+<span class="sd">            If configuration is invalid.</span>
 <span class="sd">        PermissionError</span>
-<span class="sd">            If output directory is not writable</span>
+<span class="sd">            If output directory is not writable.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -611,36 +564,34 @@
         <span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="Pipeline._entrypoint">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline._entrypoint.html#autoclean.Pipeline._entrypoint">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">_entrypoint</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">unprocessed_file</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Main processing entrypoint that orchestrates the complete pipeline.</span>
-
-<span class="sd">        Implements core processing logic with ACID-compliant database operations,</span>
-<span class="sd">        filesystem management, and error handling. Uses ULID for time-ordered</span>
-<span class="sd">        run tracking and maintains atomic operation guarantees.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Main processing entrypoint that orchestrates the complete pipeline.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        unprocessed_file : Path</span>
-<span class="sd">            Path to the raw EEG data file</span>
+<span class="sd">            Path to the raw EEG data file.</span>
 <span class="sd">        task : str</span>
-<span class="sd">            Name of the processing task to run</span>
+<span class="sd">            Name of the processing task to run.</span>
 <span class="sd">        run_id : str, optional</span>
-<span class="sd">            Optional identifier for the processing run. If not provided,</span>
-<span class="sd">            a unique ID will be generated.</span>
+<span class="sd">            Optional identifier for the processing run, by default None.</span>
+<span class="sd">            If not provided, a unique ID will be generated.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        str</span>
+<span class="sd">            The run identifier.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered or configuration is invalid</span>
+<span class="sd">            If task is not registered or configuration is invalid.</span>
 <span class="sd">        FileNotFoundError</span>
-<span class="sd">            If input file doesn&#39;t exist</span>
+<span class="sd">            If input file doesn&#39;t exist.</span>
 <span class="sd">        RuntimeError</span>
-<span class="sd">            If processing fails</span>
+<span class="sd">            If processing fails.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -870,26 +821,32 @@
             <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Run </span><span class="si">{</span><span class="n">run_record</span><span class="p">[</span><span class="s1">&#39;run_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2"> Pipeline failed: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             <span class="k">raise</span>
 
-        <span class="k">return</span> <span class="n">run_record</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span></div>
-
+        <span class="k">return</span> <span class="n">run_record</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
     
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">_entrypoint_async</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">unprocessed_file</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Async version of _entrypoint for concurrent processing.</span>
 
-<span class="sd">        Wraps synchronous processing in asyncio thread pool to enable</span>
-<span class="sd">        non-blocking concurrent execution while maintaining database</span>
-<span class="sd">        and filesystem operation safety.</span>
-
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        unprocessed_file : Path</span>
-<span class="sd">            Path to the raw EEG data file</span>
+<span class="sd">            Path to the raw EEG data file.</span>
 <span class="sd">        task : str</span>
-<span class="sd">            Name of the processing task to run</span>
+<span class="sd">            Name of the processing task to run.</span>
 <span class="sd">        run_id : str, optional</span>
-<span class="sd">            Optional identifier for the processing run</span>
+<span class="sd">            Optional identifier for the processing run, by default None.</span>
+
+<span class="sd">        Raises</span>
+<span class="sd">        ------</span>
+<span class="sd">        Exception</span>
+<span class="sd">            If processing fails.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Wraps synchronous processing in asyncio thread pool to enable</span>
+<span class="sd">        non-blocking concurrent execution while maintaining database</span>
+<span class="sd">        and filesystem operation safety.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="c1"># Run the processing in a thread to avoid blocking</span>
@@ -899,16 +856,11 @@
             <span class="k">raise</span>
 
 <div class="viewcode-block" id="Pipeline.process_file">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline.process_file.html#autoclean.Pipeline.process_file">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.process_file">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">process_file</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">run_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Single file processing of an EEG data file.</span>
-<span class="sd">        </span>
-<span class="sd">        Public interface for single-file processing that ensures proper path</span>
-<span class="sd">        handling and maintains processing state through database-backed run</span>
-<span class="sd">        tracking. Delegates core processing to _entrypoint.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process a single EEG data file.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -917,17 +869,17 @@
 <span class="sd">        task : str</span>
 <span class="sd">            Name of the processing task to run (e.g., &#39;rest_eyesopen&#39;).</span>
 <span class="sd">        run_id : str, optional</span>
-<span class="sd">            Optional identifier for the processing run. If not provided,</span>
-<span class="sd">            a unique ID will be generated.</span>
+<span class="sd">            Optional identifier for the processing run, by default None.</span>
+<span class="sd">            If not provided, a unique ID will be generated.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered or configuration is invalid</span>
+<span class="sd">            If task is not registered or configuration is invalid.</span>
 <span class="sd">        FileNotFoundError</span>
-<span class="sd">            If input file doesn&#39;t exist</span>
+<span class="sd">            If input file doesn&#39;t exist.</span>
 <span class="sd">        RuntimeError</span>
-<span class="sd">            If processing fails</span>
+<span class="sd">            If processing fails.</span>
 <span class="sd">            </span>
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -945,7 +897,7 @@
 
 
 <div class="viewcode-block" id="Pipeline.process_directory">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline.process_directory.html#autoclean.Pipeline.process_directory">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.process_directory">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">process_directory</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
@@ -953,10 +905,7 @@
         <span class="n">pattern</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;*.set&quot;</span><span class="p">,</span>
         <span class="n">recursive</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Batch processing of all matching EEG files in a directory.</span>
-
-<span class="sd">        Batch processing of EEG files in a directory.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process all matching EEG files in a directory.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -965,18 +914,18 @@
 <span class="sd">        task : str</span>
 <span class="sd">            Name of the processing task to run (e.g., &#39;RestingEyesOpen&#39;).</span>
 <span class="sd">        pattern : str, optional</span>
-<span class="sd">            Glob pattern to match files (default: &quot;*.raw&quot;).</span>
+<span class="sd">            Glob pattern to match files, by default &quot;*.set&quot;.</span>
 <span class="sd">        recursive : bool, optional</span>
-<span class="sd">            Whether to search in subdirectories (default: False).</span>
+<span class="sd">            Whether to search in subdirectories, by default False.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        NotADirectoryError</span>
-<span class="sd">            If directory doesn&#39;t exist</span>
+<span class="sd">            If directory doesn&#39;t exist.</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered</span>
+<span class="sd">            If task is not registered.</span>
 <span class="sd">        RuntimeError</span>
-<span class="sd">            If processing fails for any file</span>
+<span class="sd">            If processing fails for any file.</span>
 <span class="sd">            </span>
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -1024,7 +973,7 @@
 
 
 <div class="viewcode-block" id="Pipeline.process_directory_async">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline.process_directory_async.html#autoclean.Pipeline.process_directory_async">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.process_directory_async">[docs]</a>
     <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">process_directory_async</span><span class="p">(</span>
         <span class="bp">self</span><span class="p">,</span>
         <span class="n">directory</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">,</span>
@@ -1035,34 +984,36 @@
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Process all matching EEG files in a directory asynchronously.</span>
 
-<span class="sd">        Implements concurrent batch processing using asyncio semaphores</span>
-<span class="sd">        for resource management. Processes files in optimized batches</span>
-<span class="sd">        while maintaining progress tracking and error isolation.</span>
-
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        directory : str or Path</span>
-<span class="sd">            Path to the directory containing EEG files</span>
+<span class="sd">            Path to the directory containing EEG files.</span>
 <span class="sd">        task : str</span>
-<span class="sd">            Name of the processing task to run (e.g., &#39;RestingEyesOpen&#39;)</span>
+<span class="sd">            Name of the processing task to run (e.g., &#39;RestingEyesOpen&#39;).</span>
 <span class="sd">        pattern : str, optional</span>
-<span class="sd">            Glob pattern to match files (default: &quot;*.raw&quot;)</span>
+<span class="sd">            Glob pattern to match files, by default &quot;*.raw&quot;.</span>
 <span class="sd">        sub_directories : bool, optional</span>
-<span class="sd">            Whether to search in subdirectories (default: False)</span>
+<span class="sd">            Whether to search in subdirectories, by default False.</span>
 <span class="sd">        max_concurrent : int, optional</span>
-<span class="sd">            Maximum number of files to process concurrently (default: 3)</span>
+<span class="sd">            Maximum number of files to process concurrently, by default 3.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        NotADirectoryError</span>
-<span class="sd">            If directory doesn&#39;t exist</span>
+<span class="sd">            If directory doesn&#39;t exist.</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered</span>
+<span class="sd">            If task is not registered.</span>
 <span class="sd">            </span>
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
-<span class="sd">        process_file : Process a single file</span>
-<span class="sd">        process_directory : Process files synchronously</span>
+<span class="sd">        process_file : Process a single file.</span>
+<span class="sd">        process_directory : Process files synchronously.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Implements concurrent batch processing using asyncio semaphores</span>
+<span class="sd">        for resource management. Processes files in optimized batches</span>
+<span class="sd">        while maintaining progress tracking and error isolation.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">directory</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">directory</span><span class="p">)</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">directory</span><span class="o">.</span><span class="n">is_dir</span><span class="p">():</span>
@@ -1122,18 +1073,20 @@
 
 
 <div class="viewcode-block" id="Pipeline.list_tasks">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline.list_tasks.html#autoclean.Pipeline.list_tasks">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.list_tasks">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">list_tasks</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a list of available processing tasks.</span>
 
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of str</span>
+<span class="sd">            Names of all configured tasks.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
 <span class="sd">        Exposes configured tasks from YAML configuration, providing runtime</span>
 <span class="sd">        introspection of available processing options. Used for validation</span>
 <span class="sd">        and user interface integration.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        list[str]</span>
-<span class="sd">            Names of all configured tasks</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -1145,18 +1098,18 @@
 
 
 <div class="viewcode-block" id="Pipeline.list_stage_files">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline.list_stage_files.html#autoclean.Pipeline.list_stage_files">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.list_stage_files">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">list_stage_files</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Get a list of configured stage file types.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        list of str</span>
+<span class="sd">            Names of all configured stage file types.</span>
 
 <span class="sd">        Provides access to intermediate processing stage definitions from</span>
 <span class="sd">        configuration. Critical for understanding processing flow and</span>
 <span class="sd">        debugging pipeline state.</span>
-
-<span class="sd">        Returns</span>
-<span class="sd">        -------</span>
-<span class="sd">        list[str]</span>
-<span class="sd">            Names of all configured stage file types</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -1168,17 +1121,19 @@
 
 
 <div class="viewcode-block" id="Pipeline.start_autoclean_review">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline.start_autoclean_review.html#autoclean.Pipeline.start_autoclean_review">[docs]</a>
+<a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.start_autoclean_review">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">start_autoclean_review</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Launch the AutoClean Review GUI tool.</span>
-<span class="sd">        </span>
-<span class="sd">        This method requires the GUI dependencies to be installed.</span>
-<span class="sd">        Install them with: pip install autocleaneeg[gui]</span>
 <span class="sd">        </span>
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ImportError</span>
-<span class="sd">            If GUI dependencies are not installed</span>
+<span class="sd">            If GUI dependencies are not installed.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method requires the GUI dependencies to be installed.</span>
+<span class="sd">        Install them with: pip install autocleaneeg[gui]</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.tools.autoclean_review</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_autoclean_review</span>
@@ -1189,29 +1144,29 @@
             <span class="k">raise</span></div>
 
 
-<div class="viewcode-block" id="Pipeline._validate_task">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline._validate_task.html#autoclean.Pipeline._validate_task">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_task</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate that a task type is supported and properly configured.</span>
-
-<span class="sd">        Ensures task exists in configuration and has required parameters.</span>
-<span class="sd">        Acts as a guard clause for task instantiation, preventing invalid</span>
-<span class="sd">        task configurations from entering the processing pipeline.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        task : str</span>
-<span class="sd">            Name of the task to validate (e.g., &#39;rest_eyesopen&#39;)</span>
+<span class="sd">            Name of the task to validate (e.g., &#39;rest_eyesopen&#39;).</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
-<span class="sd">            The validated task name</span>
+<span class="sd">            The validated task name.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        ValueError</span>
-<span class="sd">            If the task is not found in configuration</span>
+<span class="sd">            If the task is not found in configuration.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Ensures task exists in configuration and has required parameters.</span>
+<span class="sd">        Acts as a guard clause for task instantiation, preventing invalid</span>
+<span class="sd">        task configurations from entering the processing pipeline.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -1224,32 +1179,31 @@
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Task &#39;</span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&#39; not found in configuration&quot;</span><span class="p">)</span>
 
         <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;✓ Task &#39;</span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&#39; found in configuration&quot;</span><span class="p">)</span>
-        <span class="k">return</span> <span class="n">task</span></div>
+        <span class="k">return</span> <span class="n">task</span>
 
-
-<div class="viewcode-block" id="Pipeline._validate_file">
-<a class="viewcode-back" href="../../../generated/autoclean.Pipeline._validate_file.html#autoclean.Pipeline._validate_file">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">_validate_file</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">file_path</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Validate that an input file exists and is accessible.</span>
-
-<span class="sd">        Performs filesystem-level validation using pathlib, ensuring atomic</span>
-<span class="sd">        file operations can proceed. Normalizes paths for cross-platform</span>
-<span class="sd">        compatibility.</span>
 
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        file_path : str or Path</span>
-<span class="sd">            Path to the EEG data file to validate</span>
+<span class="sd">            Path to the EEG data file to validate.</span>
 
 <span class="sd">        Returns</span>
 <span class="sd">        -------</span>
 <span class="sd">        Path</span>
-<span class="sd">            The validated file path</span>
+<span class="sd">            The validated file path.</span>
 
 <span class="sd">        Raises</span>
 <span class="sd">        ------</span>
 <span class="sd">        FileNotFoundError</span>
-<span class="sd">            If the file doesn&#39;t exist</span>
+<span class="sd">            If the file doesn&#39;t exist.</span>
+<span class="sd">            </span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        Performs filesystem-level validation using pathlib, ensuring atomic</span>
+<span class="sd">        file operations can proceed. Normalizes paths for cross-platform</span>
+<span class="sd">        compatibility.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -1264,7 +1218,6 @@
 
         <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;✓ File &#39;</span><span class="si">{</span><span class="n">file_path</span><span class="si">}</span><span class="s2">&#39; found&quot;</span><span class="p">)</span>
         <span class="k">return</span> <span class="n">path</span></div>
-</div>
 
 </pre></div>
 

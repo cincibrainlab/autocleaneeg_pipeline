@@ -1,6 +1,0 @@
-﻿pydatautil.DataSet.filter
-=========================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: DataSet.filter

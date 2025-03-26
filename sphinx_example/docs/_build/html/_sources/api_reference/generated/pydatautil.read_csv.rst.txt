@@ -1,6 +1,0 @@
-﻿pydatautil.read\_csv
-====================
-
-.. currentmodule:: pydatautil
-
-.. autofunction:: read_csv

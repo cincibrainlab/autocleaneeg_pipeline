@@ -1,6 +1,0 @@
-﻿pydatautil.Series.to\_numpy
-===========================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: Series.to_numpy

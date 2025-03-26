@@ -1,6 +1,0 @@
-﻿pydatautil.col
-==============
-
-.. currentmodule:: pydatautil
-
-.. autofunction:: col

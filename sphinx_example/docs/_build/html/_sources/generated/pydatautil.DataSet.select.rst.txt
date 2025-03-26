@@ -1,6 +1,0 @@
-﻿pydatautil.DataSet.select
-=========================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: DataSet.select

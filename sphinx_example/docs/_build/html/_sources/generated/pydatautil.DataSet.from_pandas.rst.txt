@@ -1,6 +1,0 @@
-﻿pydatautil.DataSet.from\_pandas
-===============================
-
-.. currentmodule:: pydatautil
-
-.. automethod:: DataSet.from_pandas

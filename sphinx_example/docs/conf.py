@@ -71,9 +71,11 @@ numpydoc_xref_aliases = {
 numpydoc_show_inherited_class_members = False
 numpydoc_attributes_as_param_list = False
 numpydoc_use_blockquotes = False
-
-# Disable strict validation to allow the build to complete
+numpydoc_use_plots = False
 numpydoc_validate = False  # Disable validation for now to allow the build to complete
+
+# Improve list rendering
+numpydoc_xref_ignore = {'optional', 'type', 'of'}
 
 # Remove conflicting validation checks when validation is disabled
 # numpydoc_validation_checks = {"all"}
@@ -119,7 +121,7 @@ html_theme_options = {
     'navbar_end': ['navbar-icon-links'],
     'navigation_depth': 4,
     'collapse_navigation': False,
-    'show_nav_level': 1,
+    'show_nav_level': 2,
     'primary_sidebar_end': ["indices.html"],
     'secondary_sidebar_items': ["page-toc"],
     'navbar_align': "content",
@@ -128,7 +130,7 @@ html_theme_options = {
     'footer_items': ["copyright", "sphinx-version"],
     'globaltoc_collapse': True,
     'globaltoc_includehidden': True,
-    'globaltoc_maxdepth': 2,
+    'globaltoc_maxdepth': 3,
 }
 
 # Add any paths that contain custom static files

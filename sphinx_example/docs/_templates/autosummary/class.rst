@@ -3,34 +3,10 @@
 .. currentmodule:: {{ module }}
 
 .. autoclass:: {{ objname }}
+   :special-members: __contains__,__getitem__,__iter__,__len__,__add__,__sub__,__mul__,__div__,__neg__
    :members:
-   :inherited-members:
-   :exclude-members: __weakref__
-   
-   {% block methods %}
-   .. rubric:: Methods
-   
-   .. autosummary::
-      :nosignatures:
-      
-      {% for item in methods %}
-      {%- if item not in inherited_members %}
-      ~{{ name }}.{{ item }}
-      {%- endif %}
-      {%- endfor %}
-   {% endblock %}
-   
-   {% block attributes %}
-   {% if attributes %}
-   .. rubric:: Attributes
-   
-   .. autosummary::
-      :nosignatures:
-      
-      {% for item in attributes %}
-      {%- if item not in inherited_members %}
-      ~{{ name }}.{{ item }}
-      {%- endif %}
-      {%- endfor %}
-   {% endif %}
-   {% endblock %} 
+
+.. _sphx_glr_backreferences_{{ fullname }}:
+
+.. minigallery:: {{ fullname }}
+    :add-heading:

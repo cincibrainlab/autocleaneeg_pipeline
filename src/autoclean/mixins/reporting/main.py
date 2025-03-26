@@ -28,9 +28,8 @@ Example:
 from autoclean.mixins.reporting.base import ReportingMixin as BaseReportingMixin
 from autoclean.mixins.reporting.visualization import VisualizationMixin
 from autoclean.mixins.reporting.ica import ICAReportingMixin
-from autoclean.mixins.reporting.reports import ReportGenerationMixin
 
-class ReportingMixin(BaseReportingMixin, VisualizationMixin, ICAReportingMixin, ReportGenerationMixin):
+class ReportingMixin(BaseReportingMixin, VisualizationMixin, ICAReportingMixin):
     """Main mixin class that combines all reporting functionality.
     
     This class uses composition to integrate functionality from all specialized
