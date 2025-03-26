@@ -1,0 +1,167 @@
+/* Custom styles for AutoClean documentation */
+
+/* Adjust the main font */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue", Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    color: #404040;
+}
+
+/* Make main content area text smaller */
+.bd-main {
+    font-size: 13px;
+}
+
+/* Ensure all content in main area is appropriately sized */
+.bd-main li,
+.bd-main dt,
+.bd-main dd,
+.bd-main .docutils,
+.bd-main .admonition,
+.bd-main .field-list {
+    font-size: inherit;
+}
+
+/* Scale down code samples */
+.bd-main .highlight pre {
+    font-size: 12px;
+}
+
+/* Adjust paragraph spacing */
+p {
+    margin-bottom: 0.8em;
+}
+
+/* Make headings stand out */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    color: #2c3e50;
+    margin-top: 1.2em;
+    margin-bottom: 0.5em;
+}
+
+h1 {
+    font-size: 1.8em;
+    border-bottom: 1px solid #e1e4e5;
+    padding-bottom: 0.3em;
+}
+
+h2 {
+    font-size: 1.4em;
+    border-bottom: 1px solid #e1e4e5;
+    padding-bottom: 0.3em;
+}
+
+h3 {
+    font-size: 1.2em;
+}
+
+h4 {
+    font-size: 1.1em;
+}
+
+/* Enhance code blocks */
+.highlight {
+    background: #f8f8f8;
+    border-radius: 4px;
+    margin: 1em 0;
+}
+
+.highlight pre {
+    padding: 1em;
+    font-size: 0.5em;
+    line-height: 1.5;
+    overflow-x: auto;
+}
+
+/* Style for class and function signatures */
+dl.class > dt, dl.function > dt, dl.method > dt, dl.attribute > dt {
+    background-color: #f8f8f8;
+    border-left: 3px solid #2980b9;
+    padding: 0.5em;
+    margin-bottom: 1em;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Parameter lists */
+dl.field-list {
+    margin-bottom: 1em;
+}
+
+dl.field-list > dt {
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+/* Examples */
+.doctest {
+    background-color: #f8f8f8;
+    padding: 0.5em;
+    margin: 1em 0;
+    border-radius: 4px;
+}
+
+/* Notes and warnings */
+.admonition {
+    padding: 0.5em 1em;
+    margin-bottom: 1em;
+    border-radius: 4px;
+}
+
+.admonition.note {
+    background-color: #e7f2fa;
+    border-left: 4px solid #2980b9;
+}
+
+.admonition.warning {
+    background-color: #ffedcc;
+    border-left: 4px solid #f0b37e;
+}
+
+/* Table styling */
+table.docutils {
+    border-collapse: collapse;
+    margin: 1em 0;
+    width: 100%;
+}
+
+table.docutils th, table.docutils td {
+    padding: 0.5em;
+    border: 1px solid #e1e4e5;
+}
+
+table.docutils th {
+    background-color: #f8f8f8;
+}
+
+/* Reduce spacing between sections */
+.section {
+    margin-bottom: 1.2em;
+}
+
+/* Sidebar adjustments */
+.bd-sidebar {
+    font-size: 13px;
+}
+
+.bd-sidebar .nav-link {
+    padding: 0.25rem 0.5rem;
+    margin: 0.1rem 0;
+}
+
+.bd-sidebar .caption {
+    font-size: 0.95em;
+    font-weight: 600;
+    margin-top: 1em;
+}
+
+/* Table of contents adjustments */
+.bd-toc {
+    font-size: 12px;
+}
+
+/* Footer adjustments */
+footer {
+    font-size: 12px;
+} 

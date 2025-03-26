@@ -1,0 +1,6 @@
+﻿pydatautil.\_\_init\_\_
+=======================
+
+.. currentmodule:: pydatautil
+
+.. autodata:: __init__

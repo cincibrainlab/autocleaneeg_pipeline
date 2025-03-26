@@ -1,0 +1,192 @@
+Series Manipulation
+==================
+
+This tutorial shows how to effectively work with the ``Series`` class in PyDataUtil.
+
+Creating Series Objects
+---------------------
+
+There are multiple ways to create a ``Series`` object:
+
+.. code-block:: python
+
+    from pydatautil.core import Series
+    import numpy as np
+    
+    # From a list
+    series1 = Series([1, 2, 3, 4, 5])
+    
+    # From a NumPy array
+    array = np.array([10, 20, 30, 40])
+    series2 = Series.from_array(array)
+    
+    # With a custom index
+    series3 = Series([100, 200, 300], index=["A", "B", "C"])
+    
+    # From a dictionary (keys become the index)
+    series4 = Series({"first": 1, "second": 2, "third": 3})
+
+Accessing Elements
+----------------
+
+You can access elements of a ``Series`` in several ways:
+
+.. code-block:: python
+
+    # Create a sample Series
+    s = Series([10, 20, 30, 40, 50], index=["a", "b", "c", "d", "e"])
+    
+    # Access by index label
+    print(s["a"])  # 10
+    
+    # Access by position
+    print(s[0])    # 10
+    
+    # Slicing by index labels
+    print(s["b":"d"])  # Series with elements at "b", "c", "d"
+    
+    # Slicing by position
+    print(s[1:4])      # Series with elements at positions 1, 2, 3
+
+Basic Operations
+--------------
+
+Operations on ``Series`` objects:
+
+.. code-block:: python
+
+    # Arithmetic operations
+    s1 = Series([1, 2, 3])
+    s2 = Series([4, 5, 6])
+    
+    addition = s1 + s2
+    subtraction = s2 - s1
+    multiplication = s1 * 2
+    division = s2 / s1
+    
+    # Statistical methods
+    s = Series([1, 2, 3, 4, 5])
+    print(s.mean())
+    print(s.median())
+    print(s.std())
+    print(s.min())
+    print(s.max())
+    
+    # Summary statistics
+    print(s.describe())
+
+Transforming Series
+-----------------
+
+Apply transformations to your data:
+
+.. code-block:: python
+
+    s = Series([1, 2, 3, 4, 5])
+    
+    # Apply a function to each element
+    squared = s.map(lambda x: x**2)
+    print(squared)
+    
+    # Filter elements
+    evens = s.filter(lambda x: x % 2 == 0)
+    print(evens)
+    
+    # Sort values
+    unsorted = Series([3, 1, 4, 2])
+    print(unsorted.sort_values())
+    
+    # Sort index
+    s_unsorted_idx = Series([10, 20, 30], index=["c", "a", "b"])
+    print(s_unsorted_idx.sort_index())
+
+Handling Missing Data
+-------------------
+
+Techniques for dealing with missing values:
+
+.. code-block:: python
+
+    from pydatautil.core import Series
+    
+    # Create a Series with missing values
+    s = Series([1, None, 3, None, 5])
+    
+    # Check for missing values
+    print(s.is_null())
+    
+    # Drop missing values
+    print(s.dropna())
+    
+    # Fill missing values with a constant
+    print(s.fillna(0))
+    
+    # Fill with the mean
+    print(s.fillna(s.mean()))
+    
+    # Forward fill
+    print(s.fillna(method="ffill"))
+    
+    # Backward fill
+    print(s.fillna(method="bfill"))
+
+Visualization
+------------
+
+Visualize your Series data with built-in plotting methods:
+
+.. code-block:: python
+
+    s = Series([10, 25, 15, 30, 20], index=["A", "B", "C", "D", "E"])
+    
+    # Line plot
+    s.plot(title="Series Line Plot")
+    
+    # Bar plot
+    s.plot(kind="bar", color="green")
+    
+    # Horizontal bar plot
+    s.plot(kind="barh", color="orange")
+    
+    # Custom styling
+    s.plot(
+        kind="bar",
+        title="Sales by Region",
+        xlabel="Region",
+        ylabel="Sales (thousands)",
+        figsize=(10, 6),
+        color="purple",
+        grid=True
+    )
+
+Advanced Usage
+------------
+
+Some more advanced techniques:
+
+.. code-block:: python
+
+    # Working with datetime indices
+    from datetime import datetime, timedelta
+    
+    dates = [datetime(2023, 1, 1) + timedelta(days=i) for i in range(5)]
+    s_time = Series([100, 120, 115, 130, 125], index=dates)
+    
+    # Resampling time series data
+    daily_data = s_time.resample("D").mean()  # Daily average
+    monthly_data = s_time.resample("M").sum()  # Monthly sum
+    
+    # Custom aggregation
+    from pydatautil.core import Series
+    
+    s = Series([1, 2, 3, 4, 5])
+    result = s.agg(["sum", "mean", "std", "min", "max"])
+    print(result)
+    
+    # Custom aggregation with a dictionary
+    result = s.agg({
+        "sum": "sum",
+        "average": "mean",
+        "minimum": "min"
+    })
+    print(result) 

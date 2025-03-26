@@ -1,0 +1,6 @@
+﻿pydatautil.read\_json
+=====================
+
+.. currentmodule:: pydatautil
+
+.. autofunction:: read_json

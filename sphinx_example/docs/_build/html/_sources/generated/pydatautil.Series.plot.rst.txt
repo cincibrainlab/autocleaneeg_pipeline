@@ -1,0 +1,6 @@
+﻿pydatautil.Series.plot
+======================
+
+.. currentmodule:: pydatautil
+
+.. automethod:: Series.plot

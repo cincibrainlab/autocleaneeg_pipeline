@@ -1,0 +1,6 @@
+﻿pydatautil.parse\_date
+======================
+
+.. currentmodule:: pydatautil
+
+.. autofunction:: parse_date

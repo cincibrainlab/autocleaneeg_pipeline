@@ -1,0 +1,6 @@
+﻿pydatautil.Series.describe
+==========================
+
+.. currentmodule:: pydatautil
+
+.. automethod:: Series.describe

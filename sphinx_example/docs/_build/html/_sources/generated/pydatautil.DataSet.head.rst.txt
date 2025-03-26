@@ -1,0 +1,6 @@
+﻿pydatautil.DataSet.head
+=======================
+
+.. currentmodule:: pydatautil
+
+.. automethod:: DataSet.head
