@@ -32,7 +32,7 @@ jobs:
           pip install sphinx numpydoc pydata-sphinx-theme
       - name: Build docs
         run: |
-          cd /docs
+          cd docs
           make html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
