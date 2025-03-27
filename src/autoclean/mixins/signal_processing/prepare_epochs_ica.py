@@ -50,41 +50,40 @@ class PrepareEpochsICAMixin:
         specified threshold in any measure.
         
         The statistical measures used for outlier detection include:
-        - Mean amplitude across channels
-        - Variance across channels
-        - Maximum amplitude difference (range)
-        - Mean gradient (rate of change)
+        * Mean amplitude across channels
+        * Variance across channels
+        * Maximum amplitude difference (range)
+        * Mean gradient (rate of change)
         
         This implementation is based on the Python implementation of the FASTER algorithm
         from Marijn van Vliet (https://gist.github.com/wmvanvliet/d883c3fe1402c7ced6fc).
         
         Parameters
         ----------
-        epochs: Optional
+        epochs : mne.Epochs, Optional
             The epochs object to prepare for ICA. If None, uses self.epochs.
-        threshold: float, Optional
+        threshold : float, Optional
             The z-score threshold for outlier detection (default: 3.0).
-        stage_name: str, Optional
-            Name for saving and metadata tracking.
             
-        Returns:
-            inst : instance of mne.Epochs
+        Returns
+        -------
+        epochs_clean : instance of mne.Epochs
             The epochs object with outlier epochs marked as bad
             
             
-        Example:
-            ```python
-            # Prepare epochs for ICA with default parameters
-            clean_epochs = self.prepare_epochs_for_ica()
+        Examples
+        --------
+        >>> # Prepare epochs for ICA with default parameters
+        >>> clean_epochs = self.prepare_epochs_for_ica()
+        
+        >>> # Prepare epochs with a stricter threshold
+        >>> clean_epochs = self.prepare_epochs_for_ica(threshold=2.5)
             
-            # Prepare epochs with a stricter threshold
-            clean_epochs = self.prepare_epochs_for_ica(threshold=2.5)
+        >>> # Check how many epochs were marked as bad
+        >>> n_good = len(clean_epochs)
+        >>> n_bad = len(clean_epochs.drop_log) - n_good
+        >>> print(f"Marked {n_bad} epochs as bad out of {n_good + n_bad} total")
             
-            # Check how many epochs were marked as bad
-            n_good = len(clean_epochs)
-            n_bad = len(clean_epochs.drop_log) - n_good
-            print(f"Marked {n_bad} epochs as bad out of {n_good + n_bad} total")
-            ```
         """
         # Check if this step is enabled in the configuration
         # is_enabled, config_value = self._check_step_enabled("prepare_epochs_ica")

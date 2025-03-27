@@ -56,7 +56,7 @@ class EventIDEpochsMixin:
 
         Returns
         -------
-        inst : instance of mne.Epochs | None
+        epochs_clean : instance of mne.Epochs | None
             The created epochs or None if epoching is disabled. 
 
         Notes

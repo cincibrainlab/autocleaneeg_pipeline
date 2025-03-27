@@ -58,7 +58,7 @@ class RegularEpochsMixin:
 
         Returns
         -------
-        inst: mne.Epochs
+        epochs_clean: mne.Epochs
             The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)
         
         Notes

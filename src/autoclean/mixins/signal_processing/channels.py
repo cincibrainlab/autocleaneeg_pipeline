@@ -53,8 +53,9 @@ class ChannelsMixin:
         stage_name : str, Optional
             Name for saving and metadata.
             
-        Returns:
-            inst : instance of mne.io.Raw
+        Returns
+        -------
+        result_raw : instance of mne.io.Raw
             The raw data object with bad channels marked or cleaned
             
         See Also
@@ -216,8 +217,9 @@ class ChannelsMixin:
         use_epochs : bool, Optional
             If True and data is None, uses self.epochs instead of self.raw.
             
-        Returns:
-            inst : instance of mne.io.Raw or mne.Epochs
+        Returns
+        -------
+        result_data : instance of mne.io.Raw or mne.Epochs
             The data object with channels dropped
             
         See Also
@@ -293,8 +295,9 @@ class ChannelsMixin:
         use_epochs : bool, Optional
             If True and data is None, uses self.epochs instead of self.raw.
             
-        Returns:
-            inst : instance of mne.io.Raw or mne.Epochs
+        Returns
+        -------
+        result_data : instance of mne.io.Raw or mne.Epochs
             The data object with updated channel types
             
         """

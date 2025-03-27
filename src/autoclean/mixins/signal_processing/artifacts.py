@@ -38,8 +38,9 @@ class ArtifactsMixin:
         stage_name : str, Optional
             Name for saving and metadata, by default "detect_dense_oscillatory_artifacts".
             
-        Returns:
-            inst : instance of mne.io.Raw
+        Returns
+        -------
+        result_raw : instance of mne.io.Raw
             The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
 
         Examples
@@ -164,8 +165,9 @@ class ArtifactsMixin:
             Overlap between windows as a fraction (0-1), by default 0.5.
         annotation_description : str, Optional
             Description for the annotations, by default "BAD_MOVEMENT".
-        Returns:
-            inst : instance of mne.io.Raw
+        Returns
+        -------
+        results_raw : instance of mne.io.Raw
             The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
 
         Examples
@@ -322,7 +324,8 @@ class ArtifactsMixin:
         Args:
             windows : List of tuples (start_time, end_time) in seconds
             
-        Returns:
+        Returns
+        -------
             List of merged tuples (start_time, end_time) with no overlaps
         """
         if not windows:
@@ -365,9 +368,10 @@ class ArtifactsMixin:
         stage_name : str, Optional
             Name for saving and metadata, by default "bad_segment_rejection".
             
-        Returns:
-            inst : instance of mne.io.Raw
-            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
+        Returns
+        -------
+        raw_cleaned : instance of mne.io.Raw
+            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*.
 
         Examples
         --------
