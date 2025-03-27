@@ -31,6 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -402,73 +403,116 @@
 <p>Mixin class providing artifact detection and rejection functionality for EEG data.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts">
-<span class="sig-name descname"><span class="pre">detect_dense_oscillatory_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_threshold_uv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">45</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'BAD_REF_AF'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.detect_dense_oscillatory_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">detect_dense_oscillatory_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_threshold_uv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">45</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'BAD_REF_AF'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.detect_dense_oscillatory_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts" title="Link to this definition">#</a></dt>
 <dd><p>Detect smaller, dense oscillatory multichannel artifacts.</p>
 <p>This method identifies oscillatory artifacts that affect multiple channels simultaneously,
-while excluding large single deflections. It adds annotations to the raw data.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-window_size_ms: Window size in milliseconds for artifact detection
-channel_threshold_uv: Threshold for peak-to-peak amplitude in microvolts
-min_channels: Minimum number of channels that must exhibit oscillations
-padding_ms: Amount of padding in milliseconds to add before and after each detected artifact
-annotation_label: Label to use for the annotations
-stage_name: Name for saving and metadata</p>
+while excluding large single deflections.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>data</strong><span class="classifier"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>The raw data to detect artifacts from. If None, uses self.raw.</p>
 </dd>
-<dt>Returns:</dt><dd><p>The raw data object with updated artifact annotations</p>
+<dt><strong>window_size_ms</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Window size in milliseconds for artifact detection, by default 100.</p>
 </dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If artifact detection fails</p>
+<dt><strong>channel_threshold_uv</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Threshold for peak-to-peak amplitude in microvolts, by default 45.</p>
+</dd>
+<dt><strong>min_channels</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">int</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Minimum number of channels that must exhibit oscillations, by default 75.</p>
+</dd>
+<dt><strong>padding_ms</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Amount of padding in milliseconds to add before and after each detected artifact, by default 500.</p>
+</dd>
+<dt><strong>annotation_label</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Label to use for the annotations, by default “BAD_REF_AF”.</p>
+</dd>
+<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Name for saving and metadata, by default “detect_dense_oscillatory_artifacts”.</p>
+</dd>
+<dt><strong>Returns:</strong></dt><dd><p>inst : instance of mne.io.Raw
+The raw data object with updated artifact annotations. <em>Note the self.raw is updated in place. So the return value is optional.</em></p>
 </dd>
 </dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
+<p>This method is intended to find reference artifacts but may also be triggered by other artifacts.</p>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1">#Inside a task class that uses the autoclean framework</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">detect_dense_oscillatory_artifacts</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1">#Or with custom parameters</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">detect_dense_oscillatory_artifacts</span><span class="p">(</span><span class="n">window_size_ms</span><span class="o">=</span><span class="mi">200</span><span class="p">,</span> <span class="n">channel_threshold_uv</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">min_channels</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">padding_ms</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span> <span class="n">annotation_label</span><span class="o">=</span><span class="s2">&quot;BAD_CUSTOM_ARTIFACT&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_muscle_beta_focus">
-<span class="sig-name descname"><span class="pre">detect_muscle_beta_focus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_band</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(20,</span> <span class="pre">30)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_factor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_overlap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation_description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'BAD_MOVEMENT'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.detect_muscle_beta_focus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_muscle_beta_focus" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">detect_muscle_beta_focus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_band</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(20,</span> <span class="pre">30)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_factor</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_overlap</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation_description</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'BAD_MOVEMENT'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.detect_muscle_beta_focus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_muscle_beta_focus" title="Link to this definition">#</a></dt>
 <dd><p>Detect muscle artifacts in continuous Raw data and add annotations.</p>
 <p>This method detects muscle artifacts in continuous EEG data by analyzing 
 high-frequency activity in peripheral electrodes. It automatically adds 
 annotations to the Raw object marking segments with detected artifacts.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: MNE Raw object. If None, uses self.raw
-freq_band: Frequency band for filtering (min, max)
-scale_factor: Scale factor for threshold calculation
-window_length: Length of sliding window in seconds
-window_overlap: Overlap between windows as a fraction (0-1)
-annotation_description: Description for the annotations</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>data</strong><span class="classifier"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>The raw data to detect artifacts from. If None, uses self.raw.</p>
 </dd>
-<dt>Returns:</dt><dd><p>None (annotations added directly to Raw object)</p>
+<dt><strong>freq_band</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">tuple</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Frequency band for filtering (min, max), by default (20, 30).</p>
+</dd>
+<dt><strong>scale_factor</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Scale factor for threshold calculation, by default 3.0.</p>
+</dd>
+<dt><strong>window_length</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Length of sliding window in seconds, by default 1.0.</p>
+</dd>
+<dt><strong>window_overlap</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Overlap between windows as a fraction (0-1), by default 0.5.</p>
+</dd>
+<dt><strong>annotation_description</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Description for the annotations, by default “BAD_MOVEMENT”.</p>
+</dd>
+<dt><strong>Returns:</strong></dt><dd><p>inst : instance of mne.io.Raw
+The raw data object with updated artifact annotations. <em>Note the self.raw is updated in place. So the return value is optional.</em></p>
 </dd>
 </dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1">#Inside a task class that uses the autoclean framework</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">detect_muscle_beta_focus</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1">#Or with custom parameters</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">detect_muscle_beta_focus</span><span class="p">(</span><span class="n">freq_band</span><span class="o">=</span><span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span> <span class="n">scale_factor</span><span class="o">=</span><span class="mf">4.0</span><span class="p">,</span> <span class="n">window_length</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span> <span class="n">window_overlap</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">annotation_description</span><span class="o">=</span><span class="s2">&quot;BAD_CUSTOM_ARTIFACT&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.reject_bad_segments">
-<span class="sig-name descname"><span class="pre">reject_bad_segments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bad_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'bad_segment_rejection'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.reject_bad_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.reject_bad_segments" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">reject_bad_segments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bad_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'bad_segment_rejection'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.reject_bad_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.reject_bad_segments" title="Link to this definition">#</a></dt>
 <dd><p>Remove all time spans annotated with a specific label or all ‘BAD’ segments.</p>
 <p>This method removes segments marked as bad and concatenates the remaining good segments.</p>
-<dl>
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-bad_label: Specific label of annotations to reject. If None, rejects all segments</p>
-<blockquote>
-<div><p>where description starts with ‘BAD’</p>
-</div></blockquote>
-<p>stage_name: Name for saving and metadata</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>data</strong><span class="classifier"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>The raw data to detect artifacts from. If None, uses self.raw.</p>
 </dd>
-<dt>Returns:</dt><dd><p>A new Raw object with the bad segments removed</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If segment rejection fails</p>
+<dt><strong>bad_label</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><dl class="simple">
+<dt>Specific label of annotations to reject. If None, rejects all segments</dt><dd><p>where description starts with ‘BAD’</p>
 </dd>
 </dl>
+</dd>
+<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Name for saving and metadata, by default “bad_segment_rejection”.</p>
+</dd>
+<dt><strong>Returns:</strong></dt><dd><p>inst : instance of mne.io.Raw
+The raw data object with updated artifact annotations. <em>Note the self.raw is updated in place. So the return value is optional.</em></p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Examples</p>
+<div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1">#Inside a task class that uses the autoclean framework</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">reject_bad_segments</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="c1">#Or with custom label</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">reject_bad_segments</span><span class="p">(</span><span class="n">bad_label</span><span class="o">=</span><span class="s2">&quot;BAD_CUSTOM_ARTIFACT&quot;</span><span class="p">)</span>
+</pre></div>
+</div>
 </dd></dl>
 
 </dd></dl>
 
-<span class="target" id="sphx-glr-backreferences-autoclean-mixins-signal-processing-artifacts-artifactsmixin"></span></section>
+</section>
 
 
                 </article>

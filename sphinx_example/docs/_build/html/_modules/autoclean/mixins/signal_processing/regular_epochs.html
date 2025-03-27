@@ -30,6 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -392,7 +393,7 @@
     
 <div class="viewcode-block" id="RegularEpochsMixin.create_regular_epochs">
 <a class="viewcode-back" href="../../../../api_reference/generated/autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.html#autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.create_regular_epochs">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_regular_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_regular_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                              <span class="n">tmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
                              <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span>
                              <span class="n">baseline</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">tuple</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
@@ -400,34 +401,41 @@
                              <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post_epochs&quot;</span><span class="p">,</span>
                              <span class="n">reject_by_annotation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create regular fixed-length epochs from raw data.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        data : mne.io.Raw, optional</span>
+<span class="sd">            The raw data to create epochs from. If None, uses self.raw.</span>
+<span class="sd">        tmin : float, optional</span>
+<span class="sd">            The start time of the epoch in seconds. Default is -1.</span>
+<span class="sd">        tmax : float, optional</span>
+<span class="sd">            The end time of the epoch in seconds. Default is 1.</span>
+<span class="sd">        baseline : tuple of float, optional</span>
+<span class="sd">            The time interval to apply baseline correction. Default is None.</span>
+<span class="sd">        volt_threshold : dict, optional</span>
+<span class="sd">            Dictionary of channel types and thresholds for rejection, by default None.</span>
+<span class="sd">        stage_name : str, optional</span>
+<span class="sd">            Name for saving and metadata tracking. Default is &quot;post_epochs&quot;.</span>
+<span class="sd">        reject_by_annotation : bool, optional</span>
+<span class="sd">            Whether to automatically reject epochs that overlap with bad annotations,</span>
+<span class="sd">            or just mark them in the metadata for later processing. Default is False.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        inst: mne.Epochs</span>
+<span class="sd">            The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)</span>
 <span class="sd">        </span>
-<span class="sd">        This method creates fixed-length epochs from continuous EEG data at regular</span>
-<span class="sd">        intervals. It supports optional baseline correction and amplitude-based artifact</span>
-<span class="sd">        rejection.</span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        If reject_by_annotation is False, an intermediate file with bad epochs marked but not dropped is saved. </span>
 <span class="sd">        </span>
 <span class="sd">        The epoching parameters can be customized through the configuration file</span>
 <span class="sd">        (autoclean_config.yaml) under the &quot;epoch_settings&quot; section. If enabled, the</span>
 <span class="sd">        configuration values will override the default parameters.</span>
-<span class="sd">        </span>
-<span class="sd">        Args:</span>
-<span class="sd">            data: Optional MNE Raw object. If None, uses self.raw</span>
-<span class="sd">            tmin: Start time of the epoch in seconds</span>
-<span class="sd">            tmax: End time of the epoch in seconds</span>
-<span class="sd">            baseline: Baseline correction (tuple of start, end)</span>
-<span class="sd">            volt_threshold: Dictionary mapping channel types to rejection thresholds in microvolts</span>
-<span class="sd">                           (e.g., {&quot;eeg&quot;: 100, &quot;eog&quot;: 200})</span>
-<span class="sd">            stage_name: Name for saving and metadata tracking</span>
-<span class="sd">            reject_by_annotation: Whether to automatically reject epochs that overlap with</span>
-<span class="sd">                                 annotations starting with &quot;bad&quot; or &quot;BAD&quot;, or just mark them</span>
-<span class="sd">                                 in the metadata for later processing</span>
-<span class="sd">            </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            mne.Epochs: The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)</span>
-<span class="sd">            </span>
-<span class="sd">        Raises:</span>
-<span class="sd">            AttributeError: If self.raw doesn&#39;t exist when needed</span>
-<span class="sd">            TypeError: If data is not a Raw object</span>
-<span class="sd">            RuntimeError: If epoch creation fails</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        create_eventid_epochs : For creating epochs based on specific event markers.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Check if this step is enabled in the configuration</span>
         <span class="n">is_enabled</span><span class="p">,</span> <span class="n">config_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_step_enabled</span><span class="p">(</span><span class="s2">&quot;epoch_settings&quot;</span><span class="p">)</span>
@@ -462,7 +470,7 @@
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_object</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         
         <span class="c1"># Type checking</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Data must be an MNE Raw object for epoch creation&quot;</span><span class="p">)</span>
             
         <span class="k">try</span><span class="p">:</span>

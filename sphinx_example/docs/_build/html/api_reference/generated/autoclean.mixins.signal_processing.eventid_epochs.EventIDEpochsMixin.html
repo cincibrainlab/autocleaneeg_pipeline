@@ -31,6 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -402,44 +403,45 @@
 <p>Mixin class providing event ID based epochs creation functionality for EEG data.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.create_eventid_epochs">
-<span class="sig-name descname"><span class="pre">create_eventid_epochs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(None,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">volt_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reject_by_annotation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post_epochs'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><span class="pre">Epochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/eventid_epochs.html#EventIDEpochsMixin.create_eventid_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.create_eventid_epochs" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">create_eventid_epochs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">-0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">(None,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">volt_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reject_by_annotation</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'post_epochs'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/eventid_epochs.html#EventIDEpochsMixin.create_eventid_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.create_eventid_epochs" title="Link to this definition">#</a></dt>
 <dd><p>Create epochs based on event IDs from raw data.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>data</strong><span class="classifier"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>The raw data to create epochs from. If None, uses self.raw.</p>
+</dd>
+<dt><strong>event_id</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Dictionary mapping event names to event IDs (e.g., {“target”: 1, “standard”: 2}).</p>
+</dd>
+<dt><strong>tmin</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Start time of the epoch relative to the event in seconds, by default -0.5.</p>
+</dd>
+<dt><strong>tmax</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>End time of the epoch relative to the event in seconds, by default 2.</p>
+</dd>
+<dt><strong>baseline</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">tuple</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Baseline correction (tuple of start, end), by default (None, 0).</p>
+</dd>
+<dt><strong>volt_threshold</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Dictionary of channel types and thresholds for rejection, by default None.</p>
+</dd>
+<dt><strong>reject_by_annotation</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bltin-boolean-values" title="(in Python v3.13)"><span class="xref std std-ref">bool</span></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Whether to reject epochs by annotation, by default False.</p>
+</dd>
+<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Name for saving and metadata, by default “post_epochs”.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>inst</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">instance</span></code> of <a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.Epochs</span></code></a> | <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">None</span></code></a></span></dt><dd><p>The created epochs or None if epoching is disabled.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<p class="rubric">Notes</p>
 <p>This method creates epochs centered around specific event IDs in the raw data.
 It is useful for event-related potential (ERP) analysis where you want to
 extract segments of data time-locked to specific events.</p>
-<p>If no event_id is provided, the method will attempt to extract event IDs from
-the configuration file.</p>
-<dl>
-<dt>Parameters:</dt><dd><ul class="simple">
-<li><p>data: Optional MNE Raw object. If None, uses self.raw</p></li>
-<li><p>event_id: Dictionary mapping event names to event IDs (e.g., {“target”: 1, “standard”: 2})</p></li>
-<li><p>tmin: Start time of the epoch relative to the event in seconds</p></li>
-<li><p>tmax: End time of the epoch relative to the event in seconds</p></li>
-<li><p>baseline: Baseline correction (tuple of start, end)</p></li>
-<li><p>volt_threshold: Dictionary of channel types and thresholds for rejection</p></li>
-<li><p>stage_name: Name for saving and metadata</p></li>
-</ul>
-</dd>
-<dt>Returns:</dt><dd><p>instance of mne.Epochs or None if epoching is disabled</p>
-</dd>
-<dt>Example:</dt><dd><p><a href="#id1"><span class="problematic" id="id2">``</span></a><a href="#id3"><span class="problematic" id="id4">`</span></a>python
-# Create epochs around target with parameters from autoclean_config.yaml
-self.create_eventid_epochs()</p>
-<p># Create epochs around target with custom parameters
-self.create_eventid_epochs(</p>
-<blockquote>
-<div><p>tmin=-0.2,
-tmax=0.5,
-baseline=None,
-volt_threshold={“eeg”: 200e-6}</p>
-</div></blockquote>
-</dd>
-</dl>
 </dd></dl>
 
 </dd></dl>
 
-<span class="target" id="sphx-glr-backreferences-autoclean-mixins-signal-processing-eventid-epochs-eventidepochsmixin"></span></section>
+</section>
 
 
                 </article>

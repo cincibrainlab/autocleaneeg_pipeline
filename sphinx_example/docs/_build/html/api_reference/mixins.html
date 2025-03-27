@@ -31,6 +31,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -44,6 +45,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/mixins';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="autoclean.mixins.signal_processing.resampling.ResamplingMixin" href="generated/autoclean.mixins.signal_processing.resampling.ResamplingMixin.html" />
     <link rel="prev" title="Task" href="core/task.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -313,7 +315,19 @@
 <li class="toctree-l2"><a class="reference internal" href="core/task.html">Task</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active"><a class="current reference internal" href="#">Mixins</a></li>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">Mixins</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.resampling.ResamplingMixin.html">autoclean.mixins.signal_processing.resampling.ResamplingMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html">autoclean.mixins.signal_processing.artifacts.ArtifactsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.channels.ChannelsMixin.html">autoclean.mixins.signal_processing.channels.ChannelsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.segmentation.SegmentationMixin.html">autoclean.mixins.signal_processing.segmentation.SegmentationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.reference.ReferenceMixin.html">autoclean.mixins.signal_processing.reference.ReferenceMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html">autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.html">autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.html">autoclean.mixins.signal_processing.pylossless.PyLosslessMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.reporting.visualization.VisualizationMixin.html">autoclean.mixins.reporting.visualization.VisualizationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.reporting.ica.ICAReportingMixin.html">autoclean.mixins.reporting.ica.ICAReportingMixin</a></li>
+</ul>
+</details></li>
 </ul>
 </div>
 </nav></div>
@@ -380,567 +394,51 @@
   <section id="mixins">
 <span id="api-mixins"></span><h1>Mixins<a class="headerlink" href="#mixins" title="Link to this heading">#</a></h1>
 <p>This section covers the mixin classes that provide reusable functionality for EEG data processing in AutoClean.</p>
-<section id="signal-processing">
-<h2>Signal Processing<a class="headerlink" href="#signal-processing" title="Link to this heading">#</a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.resampling.ResamplingMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.resampling.</span></span><span class="sig-name descname"><span class="pre">ResamplingMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/resampling.html#ResamplingMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.resampling.ResamplingMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing resampling functionality for EEG data.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.resampling.ResamplingMixin.resample_data">
-<span class="sig-name descname"><span class="pre">resample_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><span class="pre">Epochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">target_sfreq</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post_resample'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_epochs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><span class="pre">Epochs</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/resampling.html#ResamplingMixin.resample_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.resampling.ResamplingMixin.resample_data" title="Link to this definition">#</a></dt>
-<dd><p>Resample raw or epoched data based on configuration settings.</p>
-<p>This method can work with self.raw, self.epochs, or a provided data object.
-It checks the resample_step toggle in the configuration if no target_sfreq is provided.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw or Epochs object to resample. If None, uses self.raw or self.epochs
-target_sfreq: Optional target sampling frequency. If None, reads from config
-stage_name: Name for saving the resampled data (default: “resampled”)
-use_epochs: If True and data is None, uses self.epochs instead of self.raw</p>
-</dd>
-<dt>Returns:</dt><dd><p>The resampled data object (same type as input)</p>
-</dd>
-<dt>Raises:</dt><dd><p>TypeError: If data is not a Raw or Epochs object
-RuntimeError: If resampling fails
-AttributeError: If self.raw or self.epochs doesn’t exist when needed</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.artifacts.</span></span><span class="sig-name descname"><span class="pre">ArtifactsMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing artifact detection and rejection functionality for EEG data.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts">
-<span class="sig-name descname"><span class="pre">detect_dense_oscillatory_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_threshold_uv</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">45</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_ms</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'BAD_REF_AF'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.detect_dense_oscillatory_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts" title="Link to this definition">#</a></dt>
-<dd><p>Detect smaller, dense oscillatory multichannel artifacts.</p>
-<p>This method identifies oscillatory artifacts that affect multiple channels simultaneously,
-while excluding large single deflections. It adds annotations to the raw data.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-window_size_ms: Window size in milliseconds for artifact detection
-channel_threshold_uv: Threshold for peak-to-peak amplitude in microvolts
-min_channels: Minimum number of channels that must exhibit oscillations
-padding_ms: Amount of padding in milliseconds to add before and after each detected artifact
-annotation_label: Label to use for the annotations
-stage_name: Name for saving and metadata</p>
-</dd>
-<dt>Returns:</dt><dd><p>The raw data object with updated artifact annotations</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If artifact detection fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_muscle_beta_focus">
-<span class="sig-name descname"><span class="pre">detect_muscle_beta_focus</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">freq_band</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(20,</span> <span class="pre">30)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">scale_factor</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">3.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_length</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_overlap</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation_description</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'BAD_MOVEMENT'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.detect_muscle_beta_focus"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_muscle_beta_focus" title="Link to this definition">#</a></dt>
-<dd><p>Detect muscle artifacts in continuous Raw data and add annotations.</p>
-<p>This method detects muscle artifacts in continuous EEG data by analyzing 
-high-frequency activity in peripheral electrodes. It automatically adds 
-annotations to the Raw object marking segments with detected artifacts.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: MNE Raw object. If None, uses self.raw
-freq_band: Frequency band for filtering (min, max)
-scale_factor: Scale factor for threshold calculation
-window_length: Length of sliding window in seconds
-window_overlap: Overlap between windows as a fraction (0-1)
-annotation_description: Description for the annotations</p>
-</dd>
-<dt>Returns:</dt><dd><p>None (annotations added directly to Raw object)</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.reject_bad_segments">
-<span class="sig-name descname"><span class="pre">reject_bad_segments</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bad_label</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'bad_segment_rejection'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.reject_bad_segments"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.reject_bad_segments" title="Link to this definition">#</a></dt>
-<dd><p>Remove all time spans annotated with a specific label or all ‘BAD’ segments.</p>
-<p>This method removes segments marked as bad and concatenates the remaining good segments.</p>
-<dl>
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-bad_label: Specific label of annotations to reject. If None, rejects all segments</p>
-<blockquote>
-<div><p>where description starts with ‘BAD’</p>
-</div></blockquote>
-<p>stage_name: Name for saving and metadata</p>
-</dd>
-<dt>Returns:</dt><dd><p>A new Raw object with the bad segments removed</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If segment rejection fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.channels.ChannelsMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.channels.</span></span><span class="sig-name descname"><span class="pre">ChannelsMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/channels.html#ChannelsMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing channel operations functionality for EEG data.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.channels.ChannelsMixin.drop_channels">
-<span class="sig-name descname"><span class="pre">drop_channels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.BaseEpochs.html#mne.BaseEpochs" title="(in MNE v1.9)"><span class="pre">BaseEpochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channels</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.13)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'drop_channels'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_epochs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.BaseEpochs.html#mne.BaseEpochs" title="(in MNE v1.9)"><span class="pre">BaseEpochs</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/channels.html#ChannelsMixin.drop_channels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin.drop_channels" title="Link to this definition">#</a></dt>
-<dd><p>Drop specified channels from the data.</p>
-<p>This method removes specified channels from the data.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
-channels: List of channel names to drop
-stage_name: Name for saving and metadata
-use_epochs: If True and data is None, uses self.epochs instead of self.raw</p>
-</dd>
-<dt>Returns:</dt><dd><p>The data object with channels dropped</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw or self.epochs doesn’t exist when needed
-TypeError: If data is not a Raw or Epochs object
-ValueError: If channels is None or empty
-RuntimeError: If channel dropping fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.channels.ChannelsMixin.set_channel_types">
-<span class="sig-name descname"><span class="pre">set_channel_types</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.BaseEpochs.html#mne.BaseEpochs" title="(in MNE v1.9)"><span class="pre">BaseEpochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ch_types_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'set_channel_types'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_epochs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.BaseEpochs.html#mne.BaseEpochs" title="(in MNE v1.9)"><span class="pre">BaseEpochs</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/channels.html#ChannelsMixin.set_channel_types"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin.set_channel_types" title="Link to this definition">#</a></dt>
-<dd><p>Set channel types for specific channels.</p>
-<p>This method sets the type of specific channels (e.g., marking channels as EOG).</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
-ch_types_dict: Dictionary mapping channel names to types (e.g., {‘E1’: ‘eog’})
-stage_name: Name for saving and metadata
-use_epochs: If True and data is None, uses self.epochs instead of self.raw</p>
-</dd>
-<dt>Returns:</dt><dd><p>The data object with updated channel types</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw or self.epochs doesn’t exist when needed
-TypeError: If data is not a Raw or Epochs object
-ValueError: If ch_types_dict is None or empty
-RuntimeError: If setting channel types fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.channels.ChannelsMixin.clean_bad_channels">
-<span class="sig-name descname"><span class="pre">clean_bad_channels</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pylossless_pipeline</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">correlation_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">deviation_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ransac_sample_prop</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.35</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ransac_corr_thresh</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.65</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ransac_frac_bad</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0.25</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ransac_channel_wise</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">random_state</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1337</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cleaning_method</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reset_bads</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post_bad_channels'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/channels.html#ChannelsMixin.clean_bad_channels"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin.clean_bad_channels" title="Link to this definition">#</a></dt>
-<dd><p>Detect and mark bad channels using various methods.</p>
-<p>This method uses the MNE NoisyChannels class to detect bad channels using SNR,
-correlation, deviation, and RANSAC methods.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>pipeline: Optional pipeline object. If None, does not add flags to pylosslesspipeline
-data: Optional MNE Raw object. If None, uses self.raw
-correlation_thresh: Threshold for correlation-based detection
-deviation_thresh: Threshold for deviation-based detection
-ransac_sample_prop: Proportion of samples to use for RANSAC
-ransac_corr_thresh: Threshold for RANSAC-based detection
-ransac_frac_bad: Fraction of bad channels to use for RANSAC
-ransac_channel_wise: Whether to use channel-wise RANSAC
-random_state: Random state for reproducibility
-cleaning_method: Method to use for cleaning bad channels. Options are ‘interpolate’ or ‘drop’ or None(default).
-stage_name: Name for saving and metadata</p>
-</dd>
-<dt>Returns:</dt><dd><p>The raw data object with bad channels marked or cleaned</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If bad channel detection fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.segmentation.SegmentationMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.segmentation.</span></span><span class="sig-name descname"><span class="pre">SegmentationMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/segmentation.html#SegmentationMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing segmentation operations functionality for EEG data.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.segmentation.SegmentationMixin.crop_data">
-<span class="sig-name descname"><span class="pre">crop_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.BaseEpochs.html#mne.BaseEpochs" title="(in MNE v1.9)"><span class="pre">BaseEpochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'crop'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_epochs</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.BaseEpochs.html#mne.BaseEpochs" title="(in MNE v1.9)"><span class="pre">BaseEpochs</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/segmentation.html#SegmentationMixin.crop_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin.crop_data" title="Link to this definition">#</a></dt>
-<dd><p>Crop data to a specific time range.</p>
-<p>This method crops the data to a specific time range.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
-tmin: Start time in seconds
-tmax: End time in seconds
-stage_name: Name for saving and metadata
-use_epochs: If True and data is None, uses self.epochs instead of self.raw</p>
-</dd>
-<dt>Returns:</dt><dd><p>The cropped data object</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw or self.epochs doesn’t exist when needed
-TypeError: If data is not a Raw or Epochs object
-RuntimeError: If cropping fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.segmentation.SegmentationMixin.trim_data_edges">
-<span class="sig-name descname"><span class="pre">trim_data_edges</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trim_amount</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'trim'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/segmentation.html#SegmentationMixin.trim_data_edges"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin.trim_data_edges" title="Link to this definition">#</a></dt>
-<dd><p>Trim a specified amount of time from the beginning and end of the data.</p>
-<p>This method trims the specified amount of time from both the beginning and end of the data.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-trim_amount: Amount of time in seconds to trim from both beginning and end
-stage_name: Name for saving and metadata</p>
-</dd>
-<dt>Returns:</dt><dd><p>The trimmed raw data object</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If trimming fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.reference.ReferenceMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.reference.</span></span><span class="sig-name descname"><span class="pre">ReferenceMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/reference.html#ReferenceMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.reference.ReferenceMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing reference operations functionality for EEG data.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.reference.ReferenceMixin.set_eeg_reference">
-<span class="sig-name descname"><span class="pre">set_eeg_reference</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">ref_type</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'average'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">projection</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post_reference'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/reference.html#ReferenceMixin.set_eeg_reference"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.reference.ReferenceMixin.set_eeg_reference" title="Link to this definition">#</a></dt>
-<dd><p>Apply EEG reference to the data.</p>
-<p>This method applies a reference to the EEG data, such as average reference.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-ref_type: Type of reference to apply (e.g., ‘average’)
-projection: Whether to use projection (for average reference)
-stage_name: Name for saving and metadata</p>
-</dd>
-<dt>Returns:</dt><dd><p>The raw data object with reference applied</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If reference application fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.eventid_epochs.</span></span><span class="sig-name descname"><span class="pre">EventIDEpochsMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/eventid_epochs.html#EventIDEpochsMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing event ID based epochs creation functionality for EEG data.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.create_eventid_epochs">
-<span class="sig-name descname"><span class="pre">create_eventid_epochs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_id</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-0.5</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">2</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">(None,</span> <span class="pre">0)</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">volt_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reject_by_annotation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post_epochs'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><span class="pre">Epochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/eventid_epochs.html#EventIDEpochsMixin.create_eventid_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.create_eventid_epochs" title="Link to this definition">#</a></dt>
-<dd><p>Create epochs based on event IDs from raw data.</p>
-<p>This method creates epochs centered around specific event IDs in the raw data.
-It is useful for event-related potential (ERP) analysis where you want to
-extract segments of data time-locked to specific events.</p>
-<p>If no event_id is provided, the method will attempt to extract event IDs from
-the configuration file.</p>
-<dl>
-<dt>Parameters:</dt><dd><ul class="simple">
-<li><p>data: Optional MNE Raw object. If None, uses self.raw</p></li>
-<li><p>event_id: Dictionary mapping event names to event IDs (e.g., {“target”: 1, “standard”: 2})</p></li>
-<li><p>tmin: Start time of the epoch relative to the event in seconds</p></li>
-<li><p>tmax: End time of the epoch relative to the event in seconds</p></li>
-<li><p>baseline: Baseline correction (tuple of start, end)</p></li>
-<li><p>volt_threshold: Dictionary of channel types and thresholds for rejection</p></li>
-<li><p>stage_name: Name for saving and metadata</p></li>
-</ul>
-</dd>
-<dt>Returns:</dt><dd><p>instance of mne.Epochs or None if epoching is disabled</p>
-</dd>
-<dt>Example:</dt><dd><p><a href="#id1"><span class="problematic" id="id2">``</span></a><a href="#id3"><span class="problematic" id="id4">`</span></a>python
-# Create epochs around target with parameters from autoclean_config.yaml
-self.create_eventid_epochs()</p>
-<p># Create epochs around target with custom parameters
-self.create_eventid_epochs(</p>
-<blockquote>
-<div><p>tmin=-0.2,
-tmax=0.5,
-baseline=None,
-volt_threshold={“eeg”: 200e-6}</p>
-</div></blockquote>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.regular_epochs.</span></span><span class="sig-name descname"><span class="pre">RegularEpochsMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/regular_epochs.html#RegularEpochsMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing regular (fixed-length) epochs creation functionality for EEG data.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.create_regular_epochs">
-<span class="sig-name descname"><span class="pre">create_regular_epochs</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.BaseRaw.html#mne.io.BaseRaw" title="(in MNE v1.9)"><span class="pre">BaseRaw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmin</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">-1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">1</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">baseline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">volt_threshold</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post_epochs'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reject_by_annotation</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><span class="pre">Epochs</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/regular_epochs.html#RegularEpochsMixin.create_regular_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.create_regular_epochs" title="Link to this definition">#</a></dt>
-<dd><p>Create regular fixed-length epochs from raw data.</p>
-<p>This method creates fixed-length epochs from continuous EEG data at regular
-intervals. It supports optional baseline correction and amplitude-based artifact
-rejection.</p>
-<p>The epoching parameters can be customized through the configuration file
-(autoclean_config.yaml) under the “epoch_settings” section. If enabled, the
-configuration values will override the default parameters.</p>
-<dl>
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-tmin: Start time of the epoch in seconds
-tmax: End time of the epoch in seconds
-baseline: Baseline correction (tuple of start, end)
-volt_threshold: Dictionary mapping channel types to rejection thresholds in microvolts</p>
-<blockquote>
-<div><p>(e.g., {“eeg”: 100, “eog”: 200})</p>
-</div></blockquote>
-<p>stage_name: Name for saving and metadata tracking
-reject_by_annotation: Whether to automatically reject epochs that overlap with</p>
-<blockquote>
-<div><p>annotations starting with “bad” or “BAD”, or just mark them
-in the metadata for later processing</p>
-</div></blockquote>
-</dd>
-<dt>Returns:</dt><dd><p>mne.Epochs: The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)</p>
-</dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If epoch creation fails</p>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.pylossless.PyLosslessMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.pylossless.</span></span><span class="sig-name descname"><span class="pre">PyLosslessMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/pylossless.html#PyLosslessMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing PyLossless functionality for autoclean tasks.</p>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_custom_pylossless_pipeline">
-<span class="sig-name descname"><span class="pre">step_custom_pylossless_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">eog_channel</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'E25'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">'post_pylossless'</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/pylossless.html#PyLosslessMixin.step_custom_pylossless_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_custom_pylossless_pipeline" title="Link to this definition">#</a></dt>
-<dd><p>Run PyLossless pipeline on the data.</p>
-<p>This method runs the PyLossless pipeline on the input data.
-It includes steps for filtering, flagging bad channels, and flagging bad epochs.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_get_pylossless_pipeline">
-<span class="sig-name descname"><span class="pre">step_get_pylossless_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../_modules/autoclean/mixins/signal_processing/pylossless.html#PyLosslessMixin.step_get_pylossless_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_get_pylossless_pipeline" title="Link to this definition">#</a></dt>
-<dd><p>Run PyLossless pipeline.</p>
-</dd></dl>
-
-</dd></dl>
-
+<section id="signalprocessingmixin">
+<h2>SignalProcessingMixin<a class="headerlink" href="#signalprocessingmixin" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.resampling.ResamplingMixin.html#autoclean.mixins.signal_processing.resampling.ResamplingMixin" title="autoclean.mixins.signal_processing.resampling.ResamplingMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">resampling.ResamplingMixin</span></code></a></p></td>
+<td><p>Mixin class providing resampling functionality for EEG data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin" title="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">artifacts.ArtifactsMixin</span></code></a></p></td>
+<td><p>Mixin class providing artifact detection and rejection functionality for EEG data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.channels.ChannelsMixin.html#autoclean.mixins.signal_processing.channels.ChannelsMixin" title="autoclean.mixins.signal_processing.channels.ChannelsMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">channels.ChannelsMixin</span></code></a></p></td>
+<td><p>Mixin class providing channel operations functionality for EEG data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.segmentation.SegmentationMixin.html#autoclean.mixins.signal_processing.segmentation.SegmentationMixin" title="autoclean.mixins.signal_processing.segmentation.SegmentationMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">segmentation.SegmentationMixin</span></code></a></p></td>
+<td><p>Mixin class providing segmentation operations functionality for EEG data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.reference.ReferenceMixin.html#autoclean.mixins.signal_processing.reference.ReferenceMixin" title="autoclean.mixins.signal_processing.reference.ReferenceMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">reference.ReferenceMixin</span></code></a></p></td>
+<td><p>Mixin class providing reference operations functionality for EEG data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin" title="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">eventid_epochs.EventIDEpochsMixin</span></code></a></p></td>
+<td><p>Mixin class providing event ID based epochs creation functionality for EEG data.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.html#autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin" title="autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">regular_epochs.RegularEpochsMixin</span></code></a></p></td>
+<td><p>Mixin class providing regular (fixed-length) epochs creation functionality for EEG data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.html#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin" title="autoclean.mixins.signal_processing.pylossless.PyLosslessMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pylossless.PyLosslessMixin</span></code></a></p></td>
+<td><p>Mixin class providing PyLossless functionality for autoclean tasks.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
-<section id="reporting">
-<h2>Reporting<a class="headerlink" href="#reporting" title="Link to this heading">#</a></h2>
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.visualization.VisualizationMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.reporting.visualization.</span></span><span class="sig-name descname"><span class="pre">VisualizationMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/visualization.html#VisualizationMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.visualization.VisualizationMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin providing visualization methods for EEG data.</p>
-<p>This mixin extends the base ReportingMixin with specialized methods for
-generating plots and visualizations of EEG data. It provides a comprehensive
-set of visualization tools for assessing data quality and understanding the
-effects of preprocessing steps.</p>
-<p>All visualization methods respect configuration toggles from <cite>autoclean_config.yaml</cite>,
-checking if their corresponding step is enabled before execution. Each method
-can be individually enabled or disabled via configuration.</p>
-<p>Available visualization methods include:</p>
-<ul class="simple">
-<li><p><cite>plot_raw_vs_cleaned_overlay</cite>: Overlay of original and cleaned EEG data</p></li>
-<li><p><cite>plot_bad_channels_with_topography</cite>: Bad channel visualization with topographies</p></li>
-<li><p><cite>psd_topo_figure</cite>: Combined PSD and topographical maps for frequency bands</p></li>
-<li><p><cite>generate_mmn_erp</cite>: MMN ERP analysis for standard/deviant paradigms</p></li>
-<li><p><cite>step_psd_topo_figure</cite>: Wrapper for backwards compatibility</p></li>
-</ul>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.visualization.VisualizationMixin.plot_raw_vs_cleaned_overlay">
-<span class="sig-name descname"><span class="pre">plot_raw_vs_cleaned_overlay</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_original</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_cleaned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">suffix</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">''</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/visualization.html#VisualizationMixin.plot_raw_vs_cleaned_overlay"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.plot_raw_vs_cleaned_overlay" title="Link to this definition">#</a></dt>
-<dd><p>Plot raw data channels over the full duration, overlaying the original and cleaned data.</p>
-<p>This method creates a time series plot showing all EEG channels with original data 
-overlaid with cleaned data for visual comparison. Original data is plotted in red, 
-cleaned data in black. The method checks configuration settings to determine if this
-visualization is enabled.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>raw_original: Original raw EEG data before cleaning.
-raw_cleaned: Cleaned raw EEG data after preprocessing.
-pipeline: Pipeline object containing pipeline metadata and utility functions.
-autoclean_dict: Dictionary containing metadata about the processing run.
-suffix: Optional suffix to append to the output filename.</p>
-</dd>
-<dt>Returns:</dt><dd><p>None</p>
-</dd>
-<dt>Raises:</dt><dd><p>ValueError: If channel names or time vectors don’t match between original and cleaned data.</p>
-</dd>
-<dt>Example:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">`python</span>
-<span class="pre">task</span> <span class="pre">=</span> <span class="pre">MyEEGTask()</span>
-<span class="pre">#</span> <span class="pre">After</span> <span class="pre">processing</span> <span class="pre">data</span>
-<span class="pre">task.plot_raw_vs_cleaned_overlay(raw_original,</span> <span class="pre">raw_cleaned,</span> <span class="pre">pipeline,</span> <span class="pre">autoclean_dict)</span>
-<span class="pre">`</span></code></p>
-</dd>
-<dt>Notes:</dt><dd><ul class="simple">
-<li><p>The method downsamples the data for plotting to reduce file size</p></li>
-<li><p>The resulting plot is saved to the derivatives directory with appropriate naming</p></li>
-<li><p>Metadata about the plot is stored in the processing database</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.visualization.VisualizationMixin.plot_bad_channels_with_topography">
-<span class="sig-name descname"><span class="pre">plot_bad_channels_with_topography</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_original</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_cleaned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_duration</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">30</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom_start</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/visualization.html#VisualizationMixin.plot_bad_channels_with_topography"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.plot_bad_channels_with_topography" title="Link to this definition">#</a></dt>
-<dd><p>Plot bad channels with a topographical map and time series overlays.</p>
-<p>This method creates a comprehensive visualization of bad channels including:</p>
-<ol class="arabic simple">
-<li><p>A topographical map showing the locations of bad channels</p></li>
-<li><p>Time series plots comparing original and cleaned data for bad channels</p></li>
-<li><p>Both full duration and zoomed-in views of the data</p></li>
-</ol>
-<p>The visualization helps to validate the detection and interpolation of bad channels
-during preprocessing.</p>
-<dl>
-<dt>Args:</dt><dd><p>raw_original: Original raw EEG data before cleaning.
-raw_cleaned: Cleaned raw EEG data after interpolation of bad channels.
-pipeline: Pipeline object containing pipeline metadata and utility functions.
-autoclean_dict: Dictionary containing metadata about the processing run.
-zoom_duration: Duration in seconds for the zoomed-in time series plot.
-zoom_start: Start time in seconds for the zoomed-in window.</p>
-</dd>
-<dt>Returns:</dt><dd><p>None</p>
-</dd>
-<dt>Example:</dt><dd><p><a href="#id5"><span class="problematic" id="id6">``</span></a><a href="#id7"><span class="problematic" id="id8">`</span></a>python
-task = MyEEGTask()
-# After identifying bad channels and interpolating them
-task.plot_bad_channels_with_topography(</p>
-<blockquote>
-<div><p>raw_original, 
-raw_cleaned, 
-pipeline, 
-autoclean_dict,
-zoom_duration=30,
-zoom_start=60  # Start zoomed view at 1 minute</p>
-</div></blockquote>
-</dd>
-<dt>Notes:</dt><dd><ul class="simple">
-<li><p>If no bad channels are found, the method returns without creating a plot</p></li>
-<li><p>The method respects configuration settings via the <cite>bad_channel_report_step</cite> config</p></li>
-<li><p>The resulting plot is saved to the derivatives directory</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.visualization.VisualizationMixin.psd_topo_figure">
-<span class="sig-name descname"><span class="pre">psd_topo_figure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_original</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_cleaned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.13)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/visualization.html#VisualizationMixin.psd_topo_figure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.psd_topo_figure" title="Link to this definition">#</a></dt>
-<dd><p>Generate and save a single high-resolution image that includes:
-- Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
-- Topographical maps for multiple EEG frequency bands arranged horizontally,
-showing both pre and post cleaning.
-- Annotations for average power and outlier channels.</p>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.visualization.VisualizationMixin.step_psd_topo_figure">
-<span class="sig-name descname"><span class="pre">step_psd_topo_figure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_original</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_cleaned</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.List" title="(in Python v3.13)"><span class="pre">List</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Tuple" title="(in Python v3.13)"><span class="pre">Tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><span class="pre">float</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">metadata</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/visualization.html#VisualizationMixin.step_psd_topo_figure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.step_psd_topo_figure" title="Link to this definition">#</a></dt>
-<dd><p>Generate and save PSD and topographical maps.</p>
-<p>This is a wrapper around psd_topo_figure method to maintain compatibility with
-the original step_psd_topo_figure function in reports.py.</p>
-<dl>
-<dt>Args:</dt><dd><p>raw_original: Original raw EEG data before cleaning.
-raw_cleaned: Cleaned EEG data after preprocessing.
-pipeline: Pipeline object containing pipeline metadata and utility functions.
-autoclean_dict: Dictionary containing metadata about the processing run.
-bands: List of frequency bands to plot. Each tuple should contain</p>
-<blockquote>
-<div><p>(band_name, lower_freq, upper_freq). If None, default bands will be used.</p>
-</div></blockquote>
-<p>metadata: Additional metadata to include in the JSON sidecar.</p>
-</dd>
-<dt>Returns:</dt><dd><p>str: Path to the saved combined figure.</p>
-</dd>
-<dt>Notes:</dt><dd><ul class="simple">
-<li><p>This is a compatibility wrapper that simply calls <cite>psd_topo_figure</cite> with the same parameters</p></li>
-<li><p>For detailed documentation, see the <cite>psd_topo_figure</cite> method</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-</dd></dl>
-
-<dl class="py class">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.ica.ICAReportingMixin">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.reporting.ica.</span></span><span class="sig-name descname"><span class="pre">ICAReportingMixin</span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/ica.html#ICAReportingMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.ica.ICAReportingMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin providing ICA reporting functionality for EEG data.</p>
-<p>This mixin extends the base ReportingMixin with specialized methods for
-generating visualizations and reports of ICA results. It provides tools for
-assessing component properties, visualizing component activations, and
-documenting component rejection decisions.</p>
-<p>All reporting methods respect configuration toggles from <cite>autoclean_config.yaml</cite>,
-checking if their corresponding step is enabled before execution. Each method
-can be individually enabled or disabled via configuration.</p>
-<p>Available ICA reporting methods include:</p>
-<ul class="simple">
-<li><p><cite>plot_ica_full</cite>: Plot all ICA components over the full recording duration</p></li>
-<li><p><cite>plot_ica_components</cite>: Generate plots of ICA components with properties</p></li>
-<li><p><cite>plot_ica_sources</cite>: Plot ICA sources with EOG channel overlay</p></li>
-<li><p><cite>generate_ica_report</cite>: Create a comprehensive report of ICA decomposition results</p></li>
-</ul>
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.ica.ICAReportingMixin.plot_ica_full">
-<span class="sig-name descname"><span class="pre">plot_ica_full</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.1)"><span class="pre">Figure</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/ica.html#ICAReportingMixin.plot_ica_full"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.ica.ICAReportingMixin.plot_ica_full" title="Link to this definition">#</a></dt>
-<dd><p>Plot ICA components over the full duration with their labels and probabilities.</p>
-<p>This method creates a figure showing each ICA component’s time course over the full
-recording duration. Components are color-coded by their classification/rejection status,
-and probability scores are indicated for each component.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>pipeline: Pipeline object containing raw data and fitted ICA object.
-autoclean_dict: Dictionary containing metadata about the processing run.</p>
-</dd>
-<dt>Returns:</dt><dd><p>matplotlib.figure.Figure: The generated figure with ICA components.</p>
-</dd>
-<dt>Raises:</dt><dd><p>ValueError: If no ICA object is found in the pipeline.</p>
-</dd>
-<dt>Example:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">`python</span>
-<span class="pre">#</span> <span class="pre">After</span> <span class="pre">performing</span> <span class="pre">ICA</span>
-<span class="pre">fig</span> <span class="pre">=</span> <span class="pre">task.plot_ica_full(pipeline,</span> <span class="pre">autoclean_dict)</span>
-<span class="pre">plt.show()</span>
-<span class="pre">`</span></code></p>
-</dd>
-<dt>Notes:</dt><dd><ul class="simple">
-<li><p>Components classified as artifacts are highlighted in red</p></li>
-<li><p>Classification probabilities are shown for each component</p></li>
-<li><p>The method respects configuration settings via the <cite>ica_full_plot_step</cite> config</p></li>
-</ul>
-</dd>
-</dl>
-</dd></dl>
-
-<dl class="py method">
-<dt class="sig sig-object py" id="autoclean.mixins.reporting.ica.ICAReportingMixin.generate_ica_reports">
-<span class="sig-name descname"><span class="pre">generate_ica_reports</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><span class="pre">int</span></a></span><span class="w"> </span><span class="o"><span class="pre">=</span></span><span class="w"> </span><span class="default_value"><span class="pre">60</span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../_modules/autoclean/mixins/reporting/ica.html#ICAReportingMixin.generate_ica_reports"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.ica.ICAReportingMixin.generate_ica_reports" title="Link to this definition">#</a></dt>
-<dd><p>Generate comprehensive ICA reports.</p>
-<p>Generates two reports:
-1. All ICA components with properties and activations
-2. Only the rejected ICA components with their properties</p>
-</dd></dl>
-
-</dd></dl>
-
+<section id="reportingmixin">
+<h2>ReportingMixin<a class="headerlink" href="#reportingmixin" title="Link to this heading">#</a></h2>
+<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.mixins.reporting.visualization.VisualizationMixin.html#autoclean.mixins.reporting.visualization.VisualizationMixin" title="autoclean.mixins.reporting.visualization.VisualizationMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">visualization.VisualizationMixin</span></code></a></p></td>
+<td><p>Mixin providing visualization methods for EEG data.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.mixins.reporting.ica.ICAReportingMixin.html#autoclean.mixins.reporting.ica.ICAReportingMixin" title="autoclean.mixins.reporting.ica.ICAReportingMixin"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ica.ICAReportingMixin</span></code></a></p></td>
+<td><p>Mixin providing ICA reporting functionality for EEG data.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
 </section>
 </section>
 
@@ -967,62 +465,8 @@ autoclean_dict: Dictionary containing metadata about the processing run.</p>
   </div>
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signal-processing">Signal Processing</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.resampling.ResamplingMixin"><code class="docutils literal notranslate"><span class="pre">ResamplingMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.resampling.ResamplingMixin.resample_data"><code class="docutils literal notranslate"><span class="pre">ResamplingMixin.resample_data()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin"><code class="docutils literal notranslate"><span class="pre">ArtifactsMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts"><code class="docutils literal notranslate"><span class="pre">ArtifactsMixin.detect_dense_oscillatory_artifacts()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_muscle_beta_focus"><code class="docutils literal notranslate"><span class="pre">ArtifactsMixin.detect_muscle_beta_focus()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.reject_bad_segments"><code class="docutils literal notranslate"><span class="pre">ArtifactsMixin.reject_bad_segments()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin"><code class="docutils literal notranslate"><span class="pre">ChannelsMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin.drop_channels"><code class="docutils literal notranslate"><span class="pre">ChannelsMixin.drop_channels()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin.set_channel_types"><code class="docutils literal notranslate"><span class="pre">ChannelsMixin.set_channel_types()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.channels.ChannelsMixin.clean_bad_channels"><code class="docutils literal notranslate"><span class="pre">ChannelsMixin.clean_bad_channels()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin"><code class="docutils literal notranslate"><span class="pre">SegmentationMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin.crop_data"><code class="docutils literal notranslate"><span class="pre">SegmentationMixin.crop_data()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin.trim_data_edges"><code class="docutils literal notranslate"><span class="pre">SegmentationMixin.trim_data_edges()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.reference.ReferenceMixin"><code class="docutils literal notranslate"><span class="pre">ReferenceMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.reference.ReferenceMixin.set_eeg_reference"><code class="docutils literal notranslate"><span class="pre">ReferenceMixin.set_eeg_reference()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin"><code class="docutils literal notranslate"><span class="pre">EventIDEpochsMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.create_eventid_epochs"><code class="docutils literal notranslate"><span class="pre">EventIDEpochsMixin.create_eventid_epochs()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin"><code class="docutils literal notranslate"><span class="pre">RegularEpochsMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.create_regular_epochs"><code class="docutils literal notranslate"><span class="pre">RegularEpochsMixin.create_regular_epochs()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin"><code class="docutils literal notranslate"><span class="pre">PyLosslessMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_custom_pylossless_pipeline"><code class="docutils literal notranslate"><span class="pre">PyLosslessMixin.step_custom_pylossless_pipeline()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_get_pylossless_pipeline"><code class="docutils literal notranslate"><span class="pre">PyLosslessMixin.step_get_pylossless_pipeline()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reporting">Reporting</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.visualization.VisualizationMixin"><code class="docutils literal notranslate"><span class="pre">VisualizationMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.plot_raw_vs_cleaned_overlay"><code class="docutils literal notranslate"><span class="pre">VisualizationMixin.plot_raw_vs_cleaned_overlay()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.plot_bad_channels_with_topography"><code class="docutils literal notranslate"><span class="pre">VisualizationMixin.plot_bad_channels_with_topography()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.psd_topo_figure"><code class="docutils literal notranslate"><span class="pre">VisualizationMixin.psd_topo_figure()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.step_psd_topo_figure"><code class="docutils literal notranslate"><span class="pre">VisualizationMixin.step_psd_topo_figure()</span></code></a></li>
-</ul>
-</li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.ica.ICAReportingMixin"><code class="docutils literal notranslate"><span class="pre">ICAReportingMixin</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.ica.ICAReportingMixin.plot_ica_full"><code class="docutils literal notranslate"><span class="pre">ICAReportingMixin.plot_ica_full()</span></code></a></li>
-<li class="toc-h4 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.reporting.ica.ICAReportingMixin.generate_ica_reports"><code class="docutils literal notranslate"><span class="pre">ICAReportingMixin.generate_ica_reports()</span></code></a></li>
-</ul>
-</li>
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#signalprocessingmixin">SignalProcessingMixin</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#reportingmixin">ReportingMixin</a></li>
 </ul>
   </nav></div>
 

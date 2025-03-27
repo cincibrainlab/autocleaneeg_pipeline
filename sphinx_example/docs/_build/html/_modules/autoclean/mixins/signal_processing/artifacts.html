@@ -30,6 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -372,40 +373,55 @@
     
 <div class="viewcode-block" id="ArtifactsMixin.detect_dense_oscillatory_artifacts">
 <a class="viewcode-back" href="../../../../api_reference/generated/autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">detect_dense_oscillatory_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">detect_dense_oscillatory_artifacts</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                                          <span class="n">window_size_ms</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100</span><span class="p">,</span> 
                                          <span class="n">channel_threshold_uv</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">45</span><span class="p">,</span>
                                          <span class="n">min_channels</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">75</span><span class="p">,</span> 
                                          <span class="n">padding_ms</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">500</span><span class="p">,</span>
                                          <span class="n">annotation_label</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;BAD_REF_AF&quot;</span><span class="p">,</span>
-                                         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">:</span>
+                                         <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Detect smaller, dense oscillatory multichannel artifacts.</span>
 <span class="sd">        </span>
 <span class="sd">        This method identifies oscillatory artifacts that affect multiple channels simultaneously,</span>
-<span class="sd">        while excluding large single deflections. It adds annotations to the raw data.</span>
+<span class="sd">        while excluding large single deflections.</span>
 <span class="sd">        </span>
-<span class="sd">        Args:</span>
-<span class="sd">            data: Optional MNE Raw object. If None, uses self.raw</span>
-<span class="sd">            window_size_ms: Window size in milliseconds for artifact detection</span>
-<span class="sd">            channel_threshold_uv: Threshold for peak-to-peak amplitude in microvolts</span>
-<span class="sd">            min_channels: Minimum number of channels that must exhibit oscillations</span>
-<span class="sd">            padding_ms: Amount of padding in milliseconds to add before and after each detected artifact</span>
-<span class="sd">            annotation_label: Label to use for the annotations</span>
-<span class="sd">            stage_name: Name for saving and metadata</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        data : mne.io.Raw, Optional</span>
+<span class="sd">            The raw data to detect artifacts from. If None, uses self.raw.</span>
+<span class="sd">        window_size_ms : int, Optional</span>
+<span class="sd">            Window size in milliseconds for artifact detection, by default 100.</span>
+<span class="sd">        channel_threshold_uv : float, Optional</span>
+<span class="sd">            Threshold for peak-to-peak amplitude in microvolts, by default 45.</span>
+<span class="sd">        min_channels : int, Optional</span>
+<span class="sd">            Minimum number of channels that must exhibit oscillations, by default 75.</span>
+<span class="sd">        padding_ms : float, Optional</span>
+<span class="sd">            Amount of padding in milliseconds to add before and after each detected artifact, by default 500.</span>
+<span class="sd">        annotation_label : str, Optional</span>
+<span class="sd">            Label to use for the annotations, by default &quot;BAD_REF_AF&quot;.</span>
+<span class="sd">        stage_name : str, Optional</span>
+<span class="sd">            Name for saving and metadata, by default &quot;detect_dense_oscillatory_artifacts&quot;.</span>
 <span class="sd">            </span>
 <span class="sd">        Returns:</span>
-<span class="sd">            The raw data object with updated artifact annotations</span>
+<span class="sd">            inst : instance of mne.io.Raw</span>
+<span class="sd">            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; #Inside a task class that uses the autoclean framework</span>
+<span class="sd">        &gt;&gt;&gt; self.detect_dense_oscillatory_artifacts()</span>
+<span class="sd">        &gt;&gt;&gt; #Or with custom parameters</span>
+<span class="sd">        &gt;&gt;&gt; self.detect_dense_oscillatory_artifacts(window_size_ms=200, channel_threshold_uv=50, min_channels=100, padding_ms=1000, annotation_label=&quot;BAD_CUSTOM_ARTIFACT&quot;)</span>
 <span class="sd">            </span>
-<span class="sd">        Raises:</span>
-<span class="sd">            AttributeError: If self.raw doesn&#39;t exist when needed</span>
-<span class="sd">            TypeError: If data is not a Raw object</span>
-<span class="sd">            RuntimeError: If artifact detection fails</span>
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method is intended to find reference artifacts but may also be triggered by other artifacts.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Determine which data to use</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_object</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         
         <span class="c1"># Type checking</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Data must be an MNE Raw object for artifact detection&quot;</span><span class="p">)</span>
             
         <span class="k">try</span><span class="p">:</span>
@@ -489,34 +505,48 @@
         
 <div class="viewcode-block" id="ArtifactsMixin.detect_muscle_beta_focus">
 <a class="viewcode-back" href="../../../../api_reference/generated/autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_muscle_beta_focus">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">detect_muscle_beta_focus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">detect_muscle_beta_focus</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                                <span class="n">freq_band</span><span class="p">:</span> <span class="nb">tuple</span> <span class="o">=</span> <span class="p">(</span><span class="mi">20</span><span class="p">,</span> <span class="mi">30</span><span class="p">),</span>
                                <span class="n">scale_factor</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
                                <span class="n">window_length</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">,</span>
                                <span class="n">window_overlap</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.5</span><span class="p">,</span>
-                               <span class="n">annotation_description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;BAD_MOVEMENT&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+                               <span class="n">annotation_description</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;BAD_MOVEMENT&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Detect muscle artifacts in continuous Raw data and add annotations.</span>
 <span class="sd">        </span>
 <span class="sd">        This method detects muscle artifacts in continuous EEG data by analyzing </span>
 <span class="sd">        high-frequency activity in peripheral electrodes. It automatically adds </span>
 <span class="sd">        annotations to the Raw object marking segments with detected artifacts.</span>
 <span class="sd">        </span>
-<span class="sd">        Args:</span>
-<span class="sd">            data: MNE Raw object. If None, uses self.raw</span>
-<span class="sd">            freq_band: Frequency band for filtering (min, max)</span>
-<span class="sd">            scale_factor: Scale factor for threshold calculation</span>
-<span class="sd">            window_length: Length of sliding window in seconds</span>
-<span class="sd">            window_overlap: Overlap between windows as a fraction (0-1)</span>
-<span class="sd">            annotation_description: Description for the annotations</span>
-<span class="sd">            </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        data : mne.io.Raw, Optional</span>
+<span class="sd">            The raw data to detect artifacts from. If None, uses self.raw.</span>
+<span class="sd">        freq_band : tuple, Optional</span>
+<span class="sd">            Frequency band for filtering (min, max), by default (20, 30).</span>
+<span class="sd">        scale_factor : float, Optional</span>
+<span class="sd">            Scale factor for threshold calculation, by default 3.0.</span>
+<span class="sd">        window_length : float, Optional</span>
+<span class="sd">            Length of sliding window in seconds, by default 1.0.</span>
+<span class="sd">        window_overlap : float, Optional</span>
+<span class="sd">            Overlap between windows as a fraction (0-1), by default 0.5.</span>
+<span class="sd">        annotation_description : str, Optional</span>
+<span class="sd">            Description for the annotations, by default &quot;BAD_MOVEMENT&quot;.</span>
 <span class="sd">        Returns:</span>
-<span class="sd">            None (annotations added directly to Raw object)</span>
+<span class="sd">            inst : instance of mne.io.Raw</span>
+<span class="sd">            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; #Inside a task class that uses the autoclean framework</span>
+<span class="sd">        &gt;&gt;&gt; self.detect_muscle_beta_focus()</span>
+<span class="sd">        &gt;&gt;&gt; #Or with custom parameters</span>
+<span class="sd">        &gt;&gt;&gt; self.detect_muscle_beta_focus(freq_band=(20, 30), scale_factor=4.0, window_length=2.0, window_overlap=0.7, annotation_description=&quot;BAD_CUSTOM_ARTIFACT&quot;)</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Determine which data to use</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_object</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         
         <span class="c1"># Type checking</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Data must be an MNE Raw object for muscle artifact detection&quot;</span><span class="p">)</span>
             
         <span class="c1"># Ensure data is loaded</span>
@@ -651,14 +681,14 @@
         
         <span class="bp">self</span><span class="o">.</span><span class="n">_update_metadata</span><span class="p">(</span><span class="s2">&quot;step_detect_muscle_artifacts&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
         
-        <span class="k">return</span> <span class="kc">None</span></div>
+        <span class="k">return</span> <span class="n">results_raw</span></div>
 
     
     <span class="k">def</span><span class="w"> </span><span class="nf">_merge_overlapping_windows</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">windows</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Merge overlapping time windows.</span>
 <span class="sd">        </span>
 <span class="sd">        Args:</span>
-<span class="sd">            windows: List of tuples (start_time, end_time) in seconds</span>
+<span class="sd">            windows : List of tuples (start_time, end_time) in seconds</span>
 <span class="sd">            </span>
 <span class="sd">        Returns:</span>
 <span class="sd">            List of merged tuples (start_time, end_time) with no overlaps</span>
@@ -688,32 +718,40 @@
             
 <div class="viewcode-block" id="ArtifactsMixin.reject_bad_segments">
 <a class="viewcode-back" href="../../../../api_reference/generated/autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.reject_bad_segments">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">reject_bad_segments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">reject_bad_segments</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                             <span class="n">bad_label</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
-                            <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bad_segment_rejection&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">:</span>
+                            <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;bad_segment_rejection&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Remove all time spans annotated with a specific label or all &#39;BAD&#39; segments.</span>
 <span class="sd">        </span>
 <span class="sd">        This method removes segments marked as bad and concatenates the remaining good segments.</span>
 <span class="sd">        </span>
-<span class="sd">        Args:</span>
-<span class="sd">            data: Optional MNE Raw object. If None, uses self.raw</span>
-<span class="sd">            bad_label: Specific label of annotations to reject. If None, rejects all segments</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        data : mne.io.Raw, Optional</span>
+<span class="sd">            The raw data to detect artifacts from. If None, uses self.raw.</span>
+<span class="sd">        bad_label : str, Optional</span>
+<span class="sd">            Specific label of annotations to reject. If None, rejects all segments</span>
 <span class="sd">                      where description starts with &#39;BAD&#39;</span>
-<span class="sd">            stage_name: Name for saving and metadata</span>
+<span class="sd">        stage_name : str, Optional</span>
+<span class="sd">            Name for saving and metadata, by default &quot;bad_segment_rejection&quot;.</span>
 <span class="sd">            </span>
 <span class="sd">        Returns:</span>
-<span class="sd">            A new Raw object with the bad segments removed</span>
+<span class="sd">            inst : instance of mne.io.Raw</span>
+<span class="sd">            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*</span>
+
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; #Inside a task class that uses the autoclean framework</span>
+<span class="sd">        &gt;&gt;&gt; self.reject_bad_segments()</span>
+<span class="sd">        &gt;&gt;&gt; #Or with custom label</span>
+<span class="sd">        &gt;&gt;&gt; self.reject_bad_segments(bad_label=&quot;BAD_CUSTOM_ARTIFACT&quot;)</span>
 <span class="sd">            </span>
-<span class="sd">        Raises:</span>
-<span class="sd">            AttributeError: If self.raw doesn&#39;t exist when needed</span>
-<span class="sd">            TypeError: If data is not a Raw object</span>
-<span class="sd">            RuntimeError: If segment rejection fails</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Determine which data to use</span>
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_object</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         
         <span class="c1"># Type checking</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Data must be an MNE Raw object for segment rejection&quot;</span><span class="p">)</span>
             
         <span class="k">try</span><span class="p">:</span>

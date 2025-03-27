@@ -30,6 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -388,7 +389,7 @@
 <span class="sd">    &quot;&quot;&quot;</span>
 <div class="viewcode-block" id="EventIDEpochsMixin.create_eventid_epochs">
 <a class="viewcode-back" href="../../../../api_reference/generated/autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html#autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.create_eventid_epochs">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="nf">create_eventid_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">create_eventid_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                              <span class="n">event_id</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
                              <span class="n">tmin</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span><span class="p">,</span>
                              <span class="n">tmax</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
@@ -397,39 +398,36 @@
                              <span class="n">reject_by_annotation</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
                              <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post_epochs&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">]:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Create epochs based on event IDs from raw data.</span>
-<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        data : mne.io.Raw, optional</span>
+<span class="sd">            The raw data to create epochs from. If None, uses self.raw.</span>
+<span class="sd">        event_id : dict, optional</span>
+<span class="sd">            Dictionary mapping event names to event IDs (e.g., {&quot;target&quot;: 1, &quot;standard&quot;: 2}).</span>
+<span class="sd">        tmin : float, optional</span>
+<span class="sd">            Start time of the epoch relative to the event in seconds, by default -0.5.</span>
+<span class="sd">        tmax : float, optional</span>
+<span class="sd">            End time of the epoch relative to the event in seconds, by default 2.</span>
+<span class="sd">        baseline : tuple, optional</span>
+<span class="sd">            Baseline correction (tuple of start, end), by default (None, 0).</span>
+<span class="sd">        volt_threshold : dict, optional</span>
+<span class="sd">            Dictionary of channel types and thresholds for rejection, by default None.</span>
+<span class="sd">        reject_by_annotation : bool, optional</span>
+<span class="sd">            Whether to reject epochs by annotation, by default False.</span>
+<span class="sd">        stage_name : str, optional</span>
+<span class="sd">            Name for saving and metadata, by default &quot;post_epochs&quot;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        inst : instance of mne.Epochs | None</span>
+<span class="sd">            The created epochs or None if epoching is disabled. </span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
 <span class="sd">        This method creates epochs centered around specific event IDs in the raw data.</span>
 <span class="sd">        It is useful for event-related potential (ERP) analysis where you want to</span>
 <span class="sd">        extract segments of data time-locked to specific events.</span>
-<span class="sd">        </span>
-<span class="sd">        If no event_id is provided, the method will attempt to extract event IDs from</span>
-<span class="sd">        the configuration file.</span>
-<span class="sd">        </span>
-<span class="sd">        Parameters:</span>
-<span class="sd">            * data: Optional MNE Raw object. If None, uses self.raw</span>
-<span class="sd">            * event_id: Dictionary mapping event names to event IDs (e.g., {&quot;target&quot;: 1, &quot;standard&quot;: 2})</span>
-<span class="sd">            * tmin: Start time of the epoch relative to the event in seconds</span>
-<span class="sd">            * tmax: End time of the epoch relative to the event in seconds</span>
-<span class="sd">            * baseline: Baseline correction (tuple of start, end)</span>
-<span class="sd">            * volt_threshold: Dictionary of channel types and thresholds for rejection</span>
-<span class="sd">            * stage_name: Name for saving and metadata</span>
-<span class="sd">            </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            instance of mne.Epochs or None if epoching is disabled</span>
-<span class="sd">            </span>
-<span class="sd">        Example:</span>
-<span class="sd">            ```python</span>
-<span class="sd">            # Create epochs around target with parameters from autoclean_config.yaml</span>
-<span class="sd">            self.create_eventid_epochs()</span>
-
-<span class="sd">            # Create epochs around target with custom parameters</span>
-<span class="sd">            self.create_eventid_epochs(</span>
-<span class="sd">                tmin=-0.2,</span>
-<span class="sd">                tmax=0.5,</span>
-<span class="sd">                baseline=None,</span>
-<span class="sd">                volt_threshold={&quot;eeg&quot;: 200e-6}</span>
-<span class="sd">            )</span>
-<span class="sd">            ```</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Check if epoch_settings is enabled in the configuration</span>
         <span class="n">is_enabled</span><span class="p">,</span> <span class="n">epoch_config</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_check_step_enabled</span><span class="p">(</span><span class="s2">&quot;epoch_settings&quot;</span><span class="p">)</span>
@@ -466,7 +464,7 @@
         <span class="n">data</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_object</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
         
         <span class="c1"># Type checking</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">BaseRaw</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">):</span>
             <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Data must be an MNE Raw object for epoch creation&quot;</span><span class="p">)</span>
             
         <span class="k">try</span><span class="p">:</span>

@@ -58,26 +58,27 @@ class PrepareEpochsICAMixin:
         This implementation is based on the Python implementation of the FASTER algorithm
         from Marijn van Vliet (https://gist.github.com/wmvanvliet/d883c3fe1402c7ced6fc).
         
-        Args:
-            epochs: Optional MNE Epochs object. If None, uses self.epochs
-            threshold: Z-score threshold for outlier detection (default: 3.0)
-            stage_name: Name for saving and metadata tracking
+        Parameters
+        ----------
+        epochs: Optional
+            The epochs object to prepare for ICA. If None, uses self.epochs.
+        threshold: float, Optional
+            The z-score threshold for outlier detection (default: 3.0).
+        stage_name: str, Optional
+            Name for saving and metadata tracking.
             
         Returns:
-            mne.Epochs: The epochs object with outlier epochs marked as bad
+            inst : instance of mne.Epochs
+            The epochs object with outlier epochs marked as bad
             
-        Raises:
-            AttributeError: If self.epochs doesn't exist when needed
-            TypeError: If epochs is not an Epochs object
-            RuntimeError: If preparation fails
             
         Example:
             ```python
             # Prepare epochs for ICA with default parameters
-            clean_epochs = task.prepare_epochs_for_ica()
+            clean_epochs = self.prepare_epochs_for_ica()
             
             # Prepare epochs with a stricter threshold
-            clean_epochs = task.prepare_epochs_for_ica(threshold=2.5)
+            clean_epochs = self.prepare_epochs_for_ica(threshold=2.5)
             
             # Check how many epochs were marked as bad
             n_good = len(clean_epochs)
@@ -162,9 +163,7 @@ class PrepareEpochsICAMixin:
             self._update_metadata("step_prepare_epochs_for_ica", metadata)
             
             # Store epochs
-            if hasattr(self, 'config') and self.config.get("run_id"):
-                self.epochs = epochs_clean
-                
+            self._update_instance_data(epochs, epochs_clean, use_epochs=True)
                 
             return epochs_clean
             

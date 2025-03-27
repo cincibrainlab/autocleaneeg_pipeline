@@ -8,11 +8,11 @@ from autoclean.utils.logging import message
 class SegmentationMixin:
     """Mixin class providing segmentation operations functionality for EEG data."""
     
-    def crop_data(self, data: Union[mne.io.BaseRaw, mne.BaseEpochs, None] = None,
+    def crop_data(self, data: Union[mne.io.Raw, mne.Epochs, None] = None,
                  tmin: Optional[float] = None,
                  tmax: Optional[float] = None,
                  stage_name: str = "crop",
-                 use_epochs: bool = False) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
+                 use_epochs: bool = False) -> Union[mne.io.Raw, mne.Epochs]:
         """Crop data to a specific time range.
         
         This method crops the data to a specific time range.
@@ -56,7 +56,7 @@ class SegmentationMixin:
         data = self._get_data_object(data, use_epochs)
         
         # Type checking
-        if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
+        if not isinstance(data, (mne.io.Raw, mne.Epochs)):
             raise TypeError("Data must be an MNE Raw or Epochs object for cropping")
             
         try:
@@ -75,7 +75,7 @@ class SegmentationMixin:
             self._update_metadata("step_crop_data", metadata)
             
             # Save the result if it's a Raw object
-            if isinstance(result_data, mne.io.BaseRaw):
+            if isinstance(result_data, mne.io.Raw):
                 self._save_raw_result(result_data, stage_name)
             
             # Update self.raw or self.epochs
@@ -87,9 +87,9 @@ class SegmentationMixin:
             message("error", f"Error during cropping: {str(e)}")
             raise RuntimeError(f"Failed to crop data: {str(e)}") from e
             
-    def trim_data_edges(self, data: Union[mne.io.BaseRaw, None] = None,
+    def trim_data_edges(self, data: Union[mne.io.Raw, None] = None,
                         trim_amount: float = 1.0,
-                        stage_name: str = "trim") -> mne.io.BaseRaw:
+                        stage_name: str = "trim") -> mne.io.Raw:
         """Trim a specified amount of time from the beginning and end of the data.
         
         This method trims the specified amount of time from both the beginning and end of the data.
@@ -122,7 +122,7 @@ class SegmentationMixin:
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for trimming")
             
         try:

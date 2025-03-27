@@ -9,152 +9,8 @@ from autoclean.utils.logging import message
 
 class ChannelsMixin:
     """Mixin class providing channel operations functionality for EEG data."""
-    
-    def drop_channels(self, data: Union[mne.io.BaseRaw, mne.BaseEpochs, None] = None,
-                      channels: List[str] = None,
-                      stage_name: str = "drop_channels",
-                      use_epochs: bool = False) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
-        """Drop specified channels from the data.
-        
-        This method removes specified channels from the data.
-        
-        Args:
-            data: Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
-            channels: List of channel names to drop
-            stage_name: Name for saving and metadata
-            use_epochs: If True and data is None, uses self.epochs instead of self.raw
-            
-        Returns:
-            The data object with channels dropped
-            
-        Raises:
-            AttributeError: If self.raw or self.epochs doesn't exist when needed
-            TypeError: If data is not a Raw or Epochs object
-            ValueError: If channels is None or empty
-            RuntimeError: If channel dropping fails
-        """
-        # Check if channels is provided
-        if channels is None:
-            is_enabled, config_value = self._check_step_enabled("drop_outerlayer")
-                
-            if not is_enabled:
-                message("info", "Channel dropping is disabled in configuration")
-                return data
-                
-            # Get channels from config
-            channels = config_value
-                
-            if not channels:
-                message("warning", "No channels specified for dropping in config")
-                return data
-            
-        # Determine which data to use
-        data = self._get_data_object(data, use_epochs)
-        
-        # Type checking
-        if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
-            raise TypeError("Data must be an MNE Raw or Epochs object for dropping channels")
-            
-        try:
-            # Drop channels
-            message("header", "Dropping channels...")
-            result_data = data.copy().drop_channels(channels)
-            message("info", f"Dropped {len(channels)} channels: {channels}")
-            
-            # Update metadata
-            metadata = {
-                "channels_dropped": channels,
-                "channels_remaining": len(result_data.ch_names)
-            }
-            
-            self._update_metadata("step_drop_channels", metadata)
-            
-            # Save the result if it's a Raw object
-            if isinstance(result_data, mne.io.BaseRaw):
-                self._save_raw_result(result_data, stage_name)
-            
-            # Update self.raw or self.epochs
-            self._update_instance_data(data, result_data, use_epochs)
-                
-            return result_data
-            
-        except Exception as e:
-            message("error", f"Error during channel dropping: {str(e)}")
-            raise RuntimeError(f"Failed to drop channels: {str(e)}") from e
-            
-    def set_channel_types(self, data: Union[mne.io.BaseRaw, mne.BaseEpochs, None] = None,
-                           ch_types_dict: Dict[str, str] = None,
-                           stage_name: str = "set_channel_types",
-                           use_epochs: bool = False) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
-        """Set channel types for specific channels.
-        
-        This method sets the type of specific channels (e.g., marking channels as EOG).
-        
-        Args:
-            data: Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
-            ch_types_dict: Dictionary mapping channel names to types (e.g., {'E1': 'eog'})
-            stage_name: Name for saving and metadata
-            use_epochs: If True and data is None, uses self.epochs instead of self.raw
-            
-        Returns:
-            The data object with updated channel types
-            
-        Raises:
-            AttributeError: If self.raw or self.epochs doesn't exist when needed
-            TypeError: If data is not a Raw or Epochs object
-            ValueError: If ch_types_dict is None or empty
-            RuntimeError: If setting channel types fails
-        """
-        # Check if ch_types_dict is provided
-        if ch_types_dict is None or len(ch_types_dict) == 0:
-            # Check if eog_step is enabled in configuration
-            is_enabled, config_value = self._check_step_enabled("eog_step")
-                
-            if not is_enabled:
-                message("info", "Channel type setting is disabled in configuration")
-                return data
-                
-            # Get channel types from config
-            ch_types_dict = config_value
-                
-            if not ch_types_dict:
-                message("warning", "No channel types specified in config")
-                return data
-            
-        # Determine which data to use
-        data = self._get_data_object(data, use_epochs)
-        
-        # Type checking
-        if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
-            raise TypeError("Data must be an MNE Raw or Epochs object for setting channel types")
-            
-        try:
-            # Set channel types
-            message("header", "Setting channel types...")
-            result_data = data.copy().set_channel_types(ch_types_dict)
-            message("info", f"Set types for {len(ch_types_dict)} channels")
-            
-            # Update metadata
-            metadata = {
-                "channel_types": ch_types_dict
-            }
-            
-            self._update_metadata("set_channel_types", metadata)
-            
-            # Save the result if it's a Raw object
-            if isinstance(result_data, mne.io.BaseRaw):
-                self._save_raw_result(result_data, stage_name)
-            
-            # Update self.raw or self.epochs
-            self._update_instance_data(data, result_data, use_epochs)
-                
-            return result_data
-            
-        except Exception as e:
-            message("error", f"Error during setting channel types: {str(e)}")
-            raise RuntimeError(f"Failed to set channel types: {str(e)}") from e
-            
-    def clean_bad_channels(self, pylossless_pipeline=None, data: Union[mne.io.BaseRaw, None] = None,
+
+    def clean_bad_channels(self, pylossless_pipeline=None, data: Union[mne.io.Raw, None] = None,
                            correlation_thresh: float = 0.35,
                            deviation_thresh: float = 2.5,
                            ransac_sample_prop: float = 0.35,
@@ -164,38 +20,52 @@ class ChannelsMixin:
                            random_state: int = 1337,
                            cleaning_method: Union[str, None] = None,
                            reset_bads: bool = False,
-                           stage_name: str = "post_bad_channels") -> mne.io.BaseRaw:
+                           stage_name: str = "post_bad_channels") -> mne.io.Raw:
         """Detect and mark bad channels using various methods.
         
         This method uses the MNE NoisyChannels class to detect bad channels using SNR,
         correlation, deviation, and RANSAC methods.
         
-        Args:
-            pipeline: Optional pipeline object. If None, does not add flags to pylosslesspipeline
-            data: Optional MNE Raw object. If None, uses self.raw
-            correlation_thresh: Threshold for correlation-based detection
-            deviation_thresh: Threshold for deviation-based detection
-            ransac_sample_prop: Proportion of samples to use for RANSAC
-            ransac_corr_thresh: Threshold for RANSAC-based detection
-            ransac_frac_bad: Fraction of bad channels to use for RANSAC
-            ransac_channel_wise: Whether to use channel-wise RANSAC
-            random_state: Random state for reproducibility
-            cleaning_method: Method to use for cleaning bad channels. Options are 'interpolate' or 'drop' or None(default).
-            stage_name: Name for saving and metadata
+        Parameters
+        ----------
+        pipeline : Optional
+            The pipeline object to add flags to. If None, does not add flags to pylosslesspipeline.
+        data : mne.io.Raw, Optional
+            The data object to detect bad channels from. If None, uses self.raw.
+        correlation_thresh : float, Optional
+            Threshold for correlation-based detection.
+        deviation_thresh : float, Optional
+            Threshold for deviation-based detection.
+        ransac_sample_prop : float, Optional
+            Proportion of samples to use for RANSAC.
+        ransac_corr_thresh : float, Optional
+            Threshold for RANSAC-based detection.
+        ransac_frac_bad : float, Optional
+            Fraction of bad channels to use for RANSAC.
+        ransac_channel_wise : bool, Optional
+            Whether to use channel-wise RANSAC.
+        random_state : int, Optional
+            Random state for reproducibility.
+        cleaning_method : str, Optional
+            Method to use for cleaning bad channels. Options are 'interpolate' or 'drop' or None(default).
+        reset_bads : bool, Optional
+            Whether to reset bad channels.
+        stage_name : str, Optional
+            Name for saving and metadata.
             
         Returns:
+            inst : instance of mne.io.Raw
             The raw data object with bad channels marked or cleaned
             
-        Raises:
-            AttributeError: If self.raw doesn't exist when needed
-            TypeError: If data is not a Raw object
-            RuntimeError: If bad channel detection fails
+        See Also
+        --------
+        :py:func:`pyprep.find_noisy_channels.NoisyChannels` : For more information on the NoisyChannels class
         """
         # Determine which data to use
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for bad channel detection")
             
         # Check configuration for rejection policy
@@ -326,3 +196,155 @@ class ChannelsMixin:
         except Exception as e:
             message("error", f"Error during bad channel detection: {str(e)}")
             raise RuntimeError(f"Failed to detect bad channels: {str(e)}") from e
+    
+    def drop_channels(self, data: Union[mne.io.Raw, mne.Epochs, None] = None,
+                      channels: List[str] = None,
+                      stage_name: str = "drop_channels",
+                      use_epochs: bool = False) -> Union[mne.io.Raw, mne.Epochs]:
+        """Drop specified channels from the data.
+        
+        This method removes specified channels from the data.
+        
+        Parameters
+        ----------
+        data : mne.io.Raw or mne.Epochs, Optional
+            The data object to drop channels from. If None, uses self.raw or self.epochs.
+        channels : List[str], Optional
+            List of channel names to drop.
+        stage_name : str, Optional
+            Name for saving and metadata.
+        use_epochs : bool, Optional
+            If True and data is None, uses self.epochs instead of self.raw.
+            
+        Returns:
+            inst : instance of mne.io.Raw or mne.Epochs
+            The data object with channels dropped
+            
+        See Also
+        --------
+        :py:func:`mne.io.Raw.drop_channels` : For MNE's raw data channel dropping functionality
+        :py:func:`mne.Epochs.drop_channels` : For MNE's epochs channel dropping functionality
+        """
+        # Check if channels is provided
+        if channels is None:
+            is_enabled, config_value = self._check_step_enabled("drop_outerlayer")
+                
+            if not is_enabled:
+                message("info", "Channel dropping is disabled in configuration")
+                return data
+                
+            # Get channels from config
+            channels = config_value
+                
+            if not channels:
+                message("warning", "No channels specified for dropping in config")
+                return data
+            
+        # Determine which data to use
+        data = self._get_data_object(data, use_epochs)
+        
+        # Type checking
+        if not isinstance(data, (mne.io.Raw, mne.Epochs)):
+            raise TypeError("Data must be an MNE Raw or Epochs object for dropping channels")
+            
+        try:
+            # Drop channels
+            message("header", "Dropping channels...")
+            result_data = data.copy().drop_channels(channels)
+            message("info", f"Dropped {len(channels)} channels: {channels}")
+            
+            # Update metadata
+            metadata = {
+                "channels_dropped": channels,
+                "channels_remaining": len(result_data.ch_names)
+            }
+            
+            self._update_metadata("step_drop_channels", metadata)
+            
+            # Save the result if it's a Raw object
+            if isinstance(result_data, mne.io.Raw):
+                self._save_raw_result(result_data, stage_name)
+            
+            # Update self.raw or self.epochs
+            self._update_instance_data(data, result_data, use_epochs)
+                
+            return result_data
+            
+        except Exception as e:
+            message("error", f"Error during channel dropping: {str(e)}")
+            raise RuntimeError(f"Failed to drop channels: {str(e)}") from e
+            
+    def set_channel_types(self, data: Union[mne.io.Raw, mne.Epochs, None] = None,
+                           ch_types_dict: Dict[str, str] = None,
+                           stage_name: str = "set_channel_types",
+                           use_epochs: bool = False) -> Union[mne.io.Raw, mne.Epochs]:
+        """Set channel types for specific channels.
+        
+        This method sets the type of specific channels (e.g., marking channels as EOG).
+        
+        Parameters
+        ----------
+        data : mne.io.Raw or mne.Epochs, Optional
+            The data object to set channel types for. If None, uses self.raw or self.epochs.
+        ch_types_dict : dict, Optional
+            Dictionary mapping channel names to types (e.g., {'E1': 'eog'})
+        stage_name : str, Optional
+            Name for saving and metadata.
+        use_epochs : bool, Optional
+            If True and data is None, uses self.epochs instead of self.raw.
+            
+        Returns:
+            inst : instance of mne.io.Raw or mne.Epochs
+            The data object with updated channel types
+            
+        """
+        # Check if ch_types_dict is provided
+        if ch_types_dict is None or len(ch_types_dict) == 0:
+            # Check if eog_step is enabled in configuration
+            is_enabled, config_value = self._check_step_enabled("eog_step")
+                
+            if not is_enabled:
+                message("info", "Channel type setting is disabled in configuration")
+                return data
+                
+            # Get channel types from config
+            ch_types_dict = config_value
+                
+            if not ch_types_dict:
+                message("warning", "No channel types specified in config")
+                return data
+            
+        # Determine which data to use
+        data = self._get_data_object(data, use_epochs)
+        
+        # Type checking
+        if not isinstance(data, (mne.io.Raw, mne.Epochs)):
+            raise TypeError("Data must be an MNE Raw or Epochs object for setting channel types")
+            
+        try:
+            # Set channel types
+            message("header", "Setting channel types...")
+            result_data = data.copy().set_channel_types(ch_types_dict)
+            message("info", f"Set types for {len(ch_types_dict)} channels")
+            
+            # Update metadata
+            metadata = {
+                "channel_types": ch_types_dict
+            }
+            
+            self._update_metadata("set_channel_types", metadata)
+            
+            # Save the result if it's a Raw object
+            if isinstance(result_data, mne.io.Raw):
+                self._save_raw_result(result_data, stage_name)
+            
+            # Update self.raw or self.epochs
+            self._update_instance_data(data, result_data, use_epochs)
+                
+            return result_data
+            
+        except Exception as e:
+            message("error", f"Error during setting channel types: {str(e)}")
+            raise RuntimeError(f"Failed to set channel types: {str(e)}") from e
+            
+

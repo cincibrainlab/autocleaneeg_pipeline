@@ -52,9 +52,13 @@ extensions = [
 autodoc_default_options = {
     'members': True,
     'undoc-members': False,
-    'show-inheritance': True,
+    'show-inheritance': False,
     'member-order': 'bysource',
 }
+
+# Hide type hints in signatures
+autodoc_typehints = 'none'
+autodoc_typehints_format = 'short'
 
 # Configure autosummary
 autosummary_generate = True
@@ -134,7 +138,12 @@ html_theme_options = {
 }
 
 # Add any paths that contain custom static files
-html_static_path = []  # Empty to avoid warnings
+html_static_path = ['_static']  # Updated to include custom CSS
+
+# Add custom CSS files
+html_css_files = [
+    'css/custom.css',
+]
 
 # -- Options for LaTeX output ------------------------------------------------
 latex_elements = {

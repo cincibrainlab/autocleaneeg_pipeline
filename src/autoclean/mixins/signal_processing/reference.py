@@ -8,27 +8,30 @@ from autoclean.utils.logging import message
 class ReferenceMixin:
     """Mixin class providing reference operations functionality for EEG data."""
     
-    def set_eeg_reference(self, data: Union[mne.io.BaseRaw, None] = None,
+    def set_eeg_reference(self, data: Union[mne.io.Raw, None] = None,
                           ref_type: str = "average", 
                           projection: bool = False,
-                          stage_name: str = "post_reference") -> mne.io.BaseRaw:
+                          stage_name: str = "post_reference") -> mne.io.Raw:
         """Apply EEG reference to the data.
         
-        This method applies a reference to the EEG data, such as average reference.
-        
-        Args:
-            data: Optional MNE Raw object. If None, uses self.raw
-            ref_type: Type of reference to apply (e.g., 'average')
-            projection: Whether to use projection (for average reference)
-            stage_name: Name for saving and metadata
+        Parameters
+        ----------
+        data : Optional
+            The raw data to apply the reference to. If None, uses self.raw.
+        ref_type : str, Optional
+            The type of reference to apply (e.g., 'average').
+        projection : bool, Optional
+            Whether to use projection (for average reference).
+        stage_name : str, Optional
+            Name for saving and metadata, by default "post_reference".
             
         Returns:
+            inst : instance of mne.io.Raw
             The raw data object with reference applied
-            
-        Raises:
-            AttributeError: If self.raw doesn't exist when needed
-            TypeError: If data is not a Raw object
-            RuntimeError: If reference application fails
+
+        See Also
+        --------
+        :py:func:`mne.set_eeg_reference` : For MNE's reference setting functionality
         """
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("reference_step")
@@ -45,7 +48,7 @@ class ReferenceMixin:
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for referencing")
             
         try:

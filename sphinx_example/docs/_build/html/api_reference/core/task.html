@@ -31,6 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -398,7 +399,7 @@
 <p>The Task class is an abstract base class that defines the interface for all EEG processing tasks in AutoClean.</p>
 <dl class="py class">
 <dt class="sig sig-object py" id="autoclean.core.task.Task">
-<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.core.task.</span></span><span class="sig-name descname"><span class="pre">Task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.core.task.</span></span><span class="sig-name descname"><span class="pre">Task</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task" title="Link to this definition">#</a></dt>
 <dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/abc.html#abc.ABC" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">ABC</span></code></a>, <code class="xref py py-class docutils literal notranslate"><span class="pre">SignalProcessingMixin</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ReportingMixin</span></code></p>
 <p>Base class for all EEG processing tasks.</p>
 <p>This class defines the interface that all specific EEG tasks must implement.
@@ -416,7 +417,7 @@ MNE objects (Raw and Epochs) while maintaining processing history in a dictionar
 <p class="rubric">Initialization</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.core.task.Task.__init__">
-<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.__init__" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.__init__" title="Link to this definition">#</a></dt>
 <dd><p>Initialize a new task instance.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -430,12 +431,6 @@ Must include:</p>
 <li><p>tasks (dict): Task-specific settings</p></li>
 <li><p>stage_files (dict): Configuration for saving intermediate results</p></li>
 </ul>
-</dd>
-</dl>
-</dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If the configuration is missing required fields or contains invalid values.</p>
 </dd>
 </dl>
 </dd>
@@ -456,20 +451,8 @@ Must include:</p>
 <p class="rubric">Core Methods</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.core.task.Task.run">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.run" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.run" title="Link to this definition">#</a></dt>
 <dd><p>Run the standard EEG preprocessing pipeline.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></dt><dd><p>If no data has been imported (self.raw is None).</p>
-</dd>
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If preprocessing parameters are invalid.</p>
-</dd>
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></dt><dd><p>If any preprocessing step fails.</p>
-</dd>
-</dl>
-</dd>
-</dl>
 <p class="rubric">Notes</p>
 <p>Defines interface for MNE-based preprocessing operations including filtering,
 resampling, and artifact detection. Maintains processing state through
@@ -480,16 +463,8 @@ defined in the task configuration and validated before use.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.core.task.Task.import_raw">
-<span class="sig-name descname"><span class="pre">import_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.import_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.import_raw" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">import_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.import_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.import_raw" title="Link to this definition">#</a></dt>
 <dd><p>Import the raw EEG data from file.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></dt><dd><p>If the import fails or the file cannot be read.</p>
-</dd>
-</dl>
-</dd>
-</dl>
 <p class="rubric">Notes</p>
 <p>Imports data using the configured import function and flags files with
 duration less than 60 seconds. Saves the imported data as a post-import
@@ -498,7 +473,7 @@ stage file.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.core.task.Task.validate_config">
-<span class="sig-name descname"><span class="pre">validate_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.validate_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.validate_config" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">validate_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.validate_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.validate_config" title="Link to this definition">#</a></dt>
 <dd><p>Validate the complete task configuration.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -512,14 +487,6 @@ See __init__ docstring for required fields.</p>
 <dd class="field-even"><dl class="simple">
 <dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">Dict</span></code>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Any</span></code>]</dt><dd><p>The validated configuration dictionary.
 May contain additional fields added during validation.</p>
-</dd>
-</dl>
-</dd>
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If any required fields are missing or invalid.</p>
-</dd>
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TypeError</span></code></a></dt><dd><p>If any fields are of the wrong type.</p>
 </dd>
 </dl>
 </dd>
@@ -539,7 +506,7 @@ configuration integrity before processing begins.</p>
 <p class="rubric">Getter Methods</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.core.task.Task.get_raw">
-<span class="sig-name descname"><span class="pre">get_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.get_raw" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.get_raw" title="Link to this definition">#</a></dt>
 <dd><p>Get the raw data of the task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -548,18 +515,12 @@ configuration integrity before processing begins.</p>
 </dd>
 </dl>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If raw data is not available.</p>
-</dd>
-</dl>
-</dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.core.task.Task.get_epochs">
-<span class="sig-name descname"><span class="pre">get_epochs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><span class="pre">Epochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.get_epochs" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_epochs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.get_epochs" title="Link to this definition">#</a></dt>
 <dd><p>Get the epochs of the task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -568,18 +529,12 @@ configuration integrity before processing begins.</p>
 </dd>
 </dl>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If epochs are not available.</p>
-</dd>
-</dl>
-</dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.core.task.Task.get_flagged_status">
-<span class="sig-name descname"><span class="pre">get_flagged_status</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_flagged_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.get_flagged_status" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_flagged_status</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_flagged_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.core.task.Task.get_flagged_status" title="Link to this definition">#</a></dt>
 <dd><p>Get the flagged status of the task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -593,7 +548,7 @@ configuration integrity before processing begins.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="id0">
-<span class="sig-name descname"><span class="pre">get_epochs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><span class="pre">Epochs</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_epochs</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_epochs"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id0" title="Link to this definition">#</a></dt>
 <dd><p>Get the epochs of the task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -602,18 +557,12 @@ configuration integrity before processing begins.</p>
 </dd>
 </dl>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If epochs are not available.</p>
-</dd>
-</dl>
-</dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="id1">
-<span class="sig-name descname"><span class="pre">get_flagged_status</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#tuple" title="(in Python v3.13)"><span class="pre">tuple</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/functions.html#bool" title="(in Python v3.13)"><span class="pre">bool</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#list" title="(in Python v3.13)"><span class="pre">list</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">]</span></span><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_flagged_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_flagged_status</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_flagged_status"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id1" title="Link to this definition">#</a></dt>
 <dd><p>Get the flagged status of the task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -627,7 +576,7 @@ configuration integrity before processing begins.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="id2">
-<span class="sig-name descname"><span class="pre">get_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><span class="pre">Raw</span></a><span class="w"> </span><span class="p"><span class="pre">|</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id2" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">get_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.get_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id2" title="Link to this definition">#</a></dt>
 <dd><p>Get the raw data of the task.</p>
 <dl class="field-list simple">
 <dt class="field-odd">Returns<span class="colon">:</span></dt>
@@ -636,27 +585,13 @@ configuration integrity before processing begins.</p>
 </dd>
 </dl>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If raw data is not available.</p>
-</dd>
-</dl>
-</dd>
 </dl>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="id3">
-<span class="sig-name descname"><span class="pre">import_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.import_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id3" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">import_raw</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.import_raw"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id3" title="Link to this definition">#</a></dt>
 <dd><p>Import the raw EEG data from file.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></dt><dd><p>If the import fails or the file cannot be read.</p>
-</dd>
-</dl>
-</dd>
-</dl>
 <p class="rubric">Notes</p>
 <p>Imports data using the configured import function and flags files with
 duration less than 60 seconds. Saves the imported data as a post-import
@@ -665,20 +600,8 @@ stage file.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="id4">
-<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><span class="pre">None</span></a></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id4" title="Link to this definition">#</a></dt>
+<em class="property"><span class="pre">abstract</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">run</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.run"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id4" title="Link to this definition">#</a></dt>
 <dd><p>Run the standard EEG preprocessing pipeline.</p>
-<dl class="field-list simple">
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></dt><dd><p>If no data has been imported (self.raw is None).</p>
-</dd>
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If preprocessing parameters are invalid.</p>
-</dd>
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#RuntimeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">RuntimeError</span></code></a></dt><dd><p>If any preprocessing step fails.</p>
-</dd>
-</dl>
-</dd>
-</dl>
 <p class="rubric">Notes</p>
 <p>Defines interface for MNE-based preprocessing operations including filtering,
 resampling, and artifact detection. Maintains processing state through
@@ -689,7 +612,7 @@ defined in the task configuration and validated before use.</p>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="id5">
-<span class="sig-name descname"><span class="pre">validate_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="n"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></em><span class="sig-paren">)</span> <span class="sig-return"><span class="sig-return-icon">&#x2192;</span> <span class="sig-return-typehint"><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Dict" title="(in Python v3.13)"><span class="pre">Dict</span></a><span class="p"><span class="pre">[</span></span><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><span class="pre">str</span></a><span class="p"><span class="pre">,</span></span><span class="w"> </span><a class="reference external" href="https://docs.python.org/3/library/typing.html#typing.Any" title="(in Python v3.13)"><span class="pre">Any</span></a><span class="p"><span class="pre">]</span></span></span></span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.validate_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id5" title="Link to this definition">#</a></dt>
+<span class="sig-name descname"><span class="pre">validate_config</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">config</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/core/task.html#Task.validate_config"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#id5" title="Link to this definition">#</a></dt>
 <dd><p>Validate the complete task configuration.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
@@ -703,14 +626,6 @@ See __init__ docstring for required fields.</p>
 <dd class="field-even"><dl class="simple">
 <dt><code class="xref py py-obj docutils literal notranslate"><span class="pre">Dict</span></code>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Any</span></code>]</dt><dd><p>The validated configuration dictionary.
 May contain additional fields added during validation.</p>
-</dd>
-</dl>
-</dd>
-<dt class="field-odd">Raises<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If any required fields are missing or invalid.</p>
-</dd>
-<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#TypeError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">TypeError</span></code></a></dt><dd><p>If any fields are of the wrong type.</p>
 </dd>
 </dl>
 </dd>

@@ -37,4 +37,3 @@ ReportingMixin
    
    visualization.VisualizationMixin
    ica.ICAReportingMixin
-   reports.ReportGenerationMixin

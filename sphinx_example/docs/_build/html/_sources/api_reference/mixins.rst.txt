@@ -6,68 +6,34 @@ Mixins
 
 This section covers the mixin classes that provide reusable functionality for EEG data processing in AutoClean.
 
-Signal Processing
----------------
+.. currentmodule:: autoclean.mixins.signal_processing
 
-.. autoclass:: autoclean.mixins.signal_processing.resampling.ResamplingMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
+SignalProcessingMixin
+-------------------
 
-.. autoclass:: autoclean.mixins.signal_processing.artifacts.ArtifactsMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
+.. autosummary::
+   :toctree: generated/
+   :template: autosummary/class.rst
+   :nosignatures:
+   
+   resampling.ResamplingMixin
+   artifacts.ArtifactsMixin
+   channels.ChannelsMixin
+   segmentation.SegmentationMixin
+   reference.ReferenceMixin
+   eventid_epochs.EventIDEpochsMixin
+   regular_epochs.RegularEpochsMixin
+   pylossless.PyLosslessMixin
 
-.. autoclass:: autoclean.mixins.signal_processing.channels.ChannelsMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
+.. currentmodule:: autoclean.mixins.reporting
 
-.. autoclass:: autoclean.mixins.signal_processing.segmentation.SegmentationMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
+ReportingMixin
+------------
 
-.. autoclass:: autoclean.mixins.signal_processing.reference.ReferenceMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
-
-.. autoclass:: autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
-
-.. autoclass:: autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
-
-.. autoclass:: autoclean.mixins.signal_processing.pylossless.PyLosslessMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
-
-Reporting
---------
-
-.. autoclass:: autoclean.mixins.reporting.visualization.VisualizationMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
-
-.. autoclass:: autoclean.mixins.reporting.ica.ICAReportingMixin
-   :members:
-   :undoc-members:
-   :special-members: __init__
-   :show-inheritance:
+.. autosummary::
+   :toctree: generated/
+   :template: autosummary/class.rst
+   :nosignatures:
+   
+   visualization.VisualizationMixin
+   ica.ICAReportingMixin

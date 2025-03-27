@@ -9,40 +9,55 @@ from autoclean.utils.logging import message
 class ArtifactsMixin:
     """Mixin class providing artifact detection and rejection functionality for EEG data."""
     
-    def detect_dense_oscillatory_artifacts(self, data: Union[mne.io.BaseRaw, None] = None,
+    def detect_dense_oscillatory_artifacts(self, data: Union[mne.io.Raw, None] = None,
                                          window_size_ms: int = 100, 
                                          channel_threshold_uv: float = 45,
                                          min_channels: int = 75, 
                                          padding_ms: float = 500,
                                          annotation_label: str = "BAD_REF_AF",
-                                         ) -> mne.io.BaseRaw:
+                                         ) -> mne.io.Raw:
         """Detect smaller, dense oscillatory multichannel artifacts.
         
         This method identifies oscillatory artifacts that affect multiple channels simultaneously,
-        while excluding large single deflections. It adds annotations to the raw data.
+        while excluding large single deflections.
         
-        Args:
-            data: Optional MNE Raw object. If None, uses self.raw
-            window_size_ms: Window size in milliseconds for artifact detection
-            channel_threshold_uv: Threshold for peak-to-peak amplitude in microvolts
-            min_channels: Minimum number of channels that must exhibit oscillations
-            padding_ms: Amount of padding in milliseconds to add before and after each detected artifact
-            annotation_label: Label to use for the annotations
-            stage_name: Name for saving and metadata
+        Parameters
+        ----------
+        data : mne.io.Raw, Optional
+            The raw data to detect artifacts from. If None, uses self.raw.
+        window_size_ms : int, Optional
+            Window size in milliseconds for artifact detection, by default 100.
+        channel_threshold_uv : float, Optional
+            Threshold for peak-to-peak amplitude in microvolts, by default 45.
+        min_channels : int, Optional
+            Minimum number of channels that must exhibit oscillations, by default 75.
+        padding_ms : float, Optional
+            Amount of padding in milliseconds to add before and after each detected artifact, by default 500.
+        annotation_label : str, Optional
+            Label to use for the annotations, by default "BAD_REF_AF".
+        stage_name : str, Optional
+            Name for saving and metadata, by default "detect_dense_oscillatory_artifacts".
             
         Returns:
-            The raw data object with updated artifact annotations
+            inst : instance of mne.io.Raw
+            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
+
+        Examples
+        --------
+        >>> #Inside a task class that uses the autoclean framework
+        >>> self.detect_dense_oscillatory_artifacts()
+        >>> #Or with custom parameters
+        >>> self.detect_dense_oscillatory_artifacts(window_size_ms=200, channel_threshold_uv=50, min_channels=100, padding_ms=1000, annotation_label="BAD_CUSTOM_ARTIFACT")
             
-        Raises:
-            AttributeError: If self.raw doesn't exist when needed
-            TypeError: If data is not a Raw object
-            RuntimeError: If artifact detection fails
+        Notes
+        -----
+        This method is intended to find reference artifacts but may also be triggered by other artifacts.
         """
         # Determine which data to use
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for artifact detection")
             
         try:
@@ -123,34 +138,48 @@ class ArtifactsMixin:
             message("error", f"Error during artifact detection: {str(e)}")
             raise RuntimeError(f"Failed to detect artifacts: {str(e)}") from e
         
-    def detect_muscle_beta_focus(self, data: Union[mne.io.BaseRaw, None] = None,
+    def detect_muscle_beta_focus(self, data: Union[mne.io.Raw, None] = None,
                                freq_band: tuple = (20, 30),
                                scale_factor: float = 3.0,
                                window_length: float = 1.0,
                                window_overlap: float = 0.5,
-                               annotation_description: str = "BAD_MOVEMENT") -> None:
+                               annotation_description: str = "BAD_MOVEMENT") -> mne.io.Raw:
         """Detect muscle artifacts in continuous Raw data and add annotations.
         
         This method detects muscle artifacts in continuous EEG data by analyzing 
         high-frequency activity in peripheral electrodes. It automatically adds 
         annotations to the Raw object marking segments with detected artifacts.
         
-        Args:
-            data: MNE Raw object. If None, uses self.raw
-            freq_band: Frequency band for filtering (min, max)
-            scale_factor: Scale factor for threshold calculation
-            window_length: Length of sliding window in seconds
-            window_overlap: Overlap between windows as a fraction (0-1)
-            annotation_description: Description for the annotations
-            
+        Parameters
+        ----------
+        data : mne.io.Raw, Optional
+            The raw data to detect artifacts from. If None, uses self.raw.
+        freq_band : tuple, Optional
+            Frequency band for filtering (min, max), by default (20, 30).
+        scale_factor : float, Optional
+            Scale factor for threshold calculation, by default 3.0.
+        window_length : float, Optional
+            Length of sliding window in seconds, by default 1.0.
+        window_overlap : float, Optional
+            Overlap between windows as a fraction (0-1), by default 0.5.
+        annotation_description : str, Optional
+            Description for the annotations, by default "BAD_MOVEMENT".
         Returns:
-            None (annotations added directly to Raw object)
+            inst : instance of mne.io.Raw
+            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
+
+        Examples
+        --------
+        >>> #Inside a task class that uses the autoclean framework
+        >>> self.detect_muscle_beta_focus()
+        >>> #Or with custom parameters
+        >>> self.detect_muscle_beta_focus(freq_band=(20, 30), scale_factor=4.0, window_length=2.0, window_overlap=0.7, annotation_description="BAD_CUSTOM_ARTIFACT")
         """
         # Determine which data to use
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for muscle artifact detection")
             
         # Ensure data is loaded
@@ -285,13 +314,13 @@ class ArtifactsMixin:
         
         self._update_metadata("step_detect_muscle_artifacts", metadata)
         
-        return None
+        return results_raw
     
     def _merge_overlapping_windows(self, windows):
         """Merge overlapping time windows.
         
         Args:
-            windows: List of tuples (start_time, end_time) in seconds
+            windows : List of tuples (start_time, end_time) in seconds
             
         Returns:
             List of merged tuples (start_time, end_time) with no overlaps
@@ -319,32 +348,40 @@ class ArtifactsMixin:
 
 
             
-    def reject_bad_segments(self, data: Union[mne.io.BaseRaw, None] = None,
+    def reject_bad_segments(self, data: Union[mne.io.Raw, None] = None,
                             bad_label: Optional[str] = None,
-                            stage_name: str = "bad_segment_rejection") -> mne.io.BaseRaw:
+                            stage_name: str = "bad_segment_rejection") -> mne.io.Raw:
         """Remove all time spans annotated with a specific label or all 'BAD' segments.
         
         This method removes segments marked as bad and concatenates the remaining good segments.
         
-        Args:
-            data: Optional MNE Raw object. If None, uses self.raw
-            bad_label: Specific label of annotations to reject. If None, rejects all segments
+        Parameters
+        ----------
+        data : mne.io.Raw, Optional
+            The raw data to detect artifacts from. If None, uses self.raw.
+        bad_label : str, Optional
+            Specific label of annotations to reject. If None, rejects all segments
                       where description starts with 'BAD'
-            stage_name: Name for saving and metadata
+        stage_name : str, Optional
+            Name for saving and metadata, by default "bad_segment_rejection".
             
         Returns:
-            A new Raw object with the bad segments removed
+            inst : instance of mne.io.Raw
+            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
+
+        Examples
+        --------
+        >>> #Inside a task class that uses the autoclean framework
+        >>> self.reject_bad_segments()
+        >>> #Or with custom label
+        >>> self.reject_bad_segments(bad_label="BAD_CUSTOM_ARTIFACT")
             
-        Raises:
-            AttributeError: If self.raw doesn't exist when needed
-            TypeError: If data is not a Raw object
-            RuntimeError: If segment rejection fails
         """
         # Determine which data to use
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for segment rejection")
             
         try:
