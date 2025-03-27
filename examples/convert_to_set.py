@@ -4,7 +4,7 @@ from pathlib import Path
 from autoclean import Pipeline
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("/srv/Analysis/Gavin_Projects/Autoclean2")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("/path/to/output/directory")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to this example
 
 EXAMPLE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -15,7 +15,7 @@ pipeline = Pipeline(
     verbose='debug'
 )
 
-directory = Path("/srv2/RAWDATA/1_NBRT_LAB_STUDIES/Raw_P1_EEGs_n141/Rest_RAW")
+directory = Path("/path/to/input/directory")
 
 pipeline.process_directory(
     directory = directory,

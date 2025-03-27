@@ -42,18 +42,22 @@ Quick Example
 
 .. toctree::
    :maxdepth: 2
+   :caption: Getting Started
+   
+   getting_started
+   tutorial
+
+.. toctree::
+   :maxdepth: 2
    :caption: API Reference
    
    api_reference/index
 
 .. toctree::
    :maxdepth: 2
-   :caption: Getting Started
+   :caption: Development
    
-   installation
-   getting_started
-   tutorial
-
+   development
 
 
 Indices and tables
