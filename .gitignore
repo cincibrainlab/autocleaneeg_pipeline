@@ -20,12 +20,6 @@ wheels/
 .installed.cfg
 *.egg
 
-# Test data - ignore generated files but keep samples
-tests/test_data/*
-!tests/test_data/sample_eeg/
-!tests/test_data/sample_eeg/*.fif
-!tests/test_data/sample_eeg/*.set
-!tests/test_data/sample_eeg/*.fdt
 
 # Coverage
 .coverage
@@ -35,6 +29,7 @@ htmlcov/
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 
@@ -59,9 +54,5 @@ data/pipeline.db
 uv.lock
 codefetch/codebase.md
 examples/batch_run.py
-examples/batch_run.py
 examples/single_file.py
 
-#mkdocs
-site/
-examples/single_file.py
