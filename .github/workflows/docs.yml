@@ -22,6 +22,11 @@
            run: |
              cd sphinx_example/docs
              make html
+         - name: Debug - List files
+           run: |
+             echo "Checking build directory contents:"
+             ls -la ./sphinx_example/docs/_build/html
+           continue-on-error: true
          - name: Deploy
            uses: peaceiris/actions-gh-pages@v3
            with:
