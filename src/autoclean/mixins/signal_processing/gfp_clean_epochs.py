@@ -66,19 +66,20 @@ class GFPCleanEpochsMixin:
         
         Parameters
         ----------
-        epochs: Optional
+        epochs: mne.Epochs, Optional
             The epochs object to clean. If None, uses self.epochs.
-        gfp_threshold: float, Optional
+        gfp_threshold: float
             The z-score threshold for GFP-based outlier detection (default: 3.0).
-        number_of_epochs: int, Optional
+        number_of_epochs: int
             If specified, randomly selects this number of epochs from the cleaned data.
-        random_seed: int, Optional
+        random_seed: int
             Seed for random number generator when selecting epochs.
-        stage_name: str, Optional
-            Name for saving and metadata tracking.
+        stage_name: str
+            Name for saving and metadata tracking. By default "post_gfp_clean".
             
-        Returns:
-            inst : instance of mne.Epochs
+        Returns
+        -------
+        epochs_final : instance of mne.Epochs
             The cleaned epochs object with outlier epochs removed
             
         See Also

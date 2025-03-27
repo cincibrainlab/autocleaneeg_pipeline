@@ -80,35 +80,29 @@ class VisualizationMixin:
     ) -> None:
         """Plot raw data channels over the full duration, overlaying the original and cleaned data.
         
-        This method creates a time series plot showing all EEG channels with original data 
-        overlaid with cleaned data for visual comparison. Original data is plotted in red, 
-        cleaned data in black. The method checks configuration settings to determine if this
-        visualization is enabled.
-        
-        Args:
-            raw_original: Original raw EEG data before cleaning.
-            raw_cleaned: Cleaned raw EEG data after preprocessing.
-            pipeline: Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict: Dictionary containing metadata about the processing run.
-            suffix: Optional suffix to append to the output filename.
+        Parameters
+        ----------
+            raw_original : mne.io.Raw
+                Original raw EEG data before cleaning.
+            raw_cleaned : mne.io.Raw
+                Cleaned raw EEG data after preprocessing.
+            pipeline : Any
+                Pipeline object containing pipeline metadata and utility functions.
+            autoclean_dict : Dict[str, Any]
+                Dictionary containing metadata about the processing run.
+            suffix : str, optional
+                Optional suffix to append to the output filename.
             
-        Returns:
+        Returns
+        -------
             None
             
-        Raises:
-            ValueError: If channel names or time vectors don't match between original and cleaned data.
-            
-        Example:
-            ```python
-            task = MyEEGTask()
-            # After processing data
-            task.plot_raw_vs_cleaned_overlay(raw_original, raw_cleaned, pipeline, autoclean_dict)
-            ```
-            
-        Notes:
+        Notes
+        -----
             - The method downsamples the data for plotting to reduce file size
             - The resulting plot is saved to the derivatives directory with appropriate naming
             - Metadata about the plot is stored in the processing database
+            - Original data is plotted in red, cleaned data in black.
         """
         # Ensure that the original and cleaned data have the same channels and times
         if raw_original.ch_names != raw_cleaned.ch_names:
@@ -263,34 +257,28 @@ class VisualizationMixin:
         The visualization helps to validate the detection and interpolation of bad channels
         during preprocessing.
         
-        Args:
-            raw_original: Original raw EEG data before cleaning.
-            raw_cleaned: Cleaned raw EEG data after interpolation of bad channels.
-            pipeline: Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict: Dictionary containing metadata about the processing run.
-            zoom_duration: Duration in seconds for the zoomed-in time series plot.
-            zoom_start: Start time in seconds for the zoomed-in window.
+        Parameters
+        ----------
+            raw_original: mne.io.Raw
+                Original raw EEG data before cleaning.
+            raw_cleaned: mne.io.Raw
+                Cleaned raw EEG data after interpolation of bad channels.
+            pipeline: Any
+                Pipeline object containing pipeline metadata and utility functions.
+            autoclean_dict: Dict[str, Any]
+                Dictionary containing metadata about the processing run.
+            zoom_duration: float, Optional
+                Duration in seconds for the zoomed-in time series plot.
+            zoom_start: float, Optional
+                Start time in seconds for the zoomed-in window.
             
-        Returns:
+        Returns
+        -------
             None
             
-        Example:
-            ```python
-            task = MyEEGTask()
-            # After identifying bad channels and interpolating them
-            task.plot_bad_channels_with_topography(
-                raw_original, 
-                raw_cleaned, 
-                pipeline, 
-                autoclean_dict,
-                zoom_duration=30,
-                zoom_start=60  # Start zoomed view at 1 minute
-            )
-            ```
-            
-        Notes:
+        Notes
+        -----
             - If no bad channels are found, the method returns without creating a plot
-            - The method respects configuration settings via the `bad_channel_report_step` config
             - The resulting plot is saved to the derivatives directory
         """
         # Check if this step is enabled in the configuration
@@ -597,8 +585,8 @@ class VisualizationMixin:
     def _plot_bad_channels_topo(self, raw: mne.io.Raw, bad_channels: List[str], ax) -> None:
         """Plot topographical map highlighting bad channels.
         
-        Parameters:
-        -----------
+        Parameters
+        ----------
         raw : mne.io.Raw
             Raw EEG data with channel information.
         bad_channels : list of str
@@ -690,24 +678,23 @@ class VisualizationMixin:
         # Add grid
         ax.grid(True, linestyle='--', alpha=0.6)
         
-    def psd_topo_figure(
+    def step_psd_topo_figure(
         self,
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
         pipeline: Any,
         autoclean_dict: Dict[str, Any],
         bands: Optional[List[Tuple[str, float, float]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
     ) -> None:
-        """
-        Generate and save a single high-resolution image that includes:
+        """ Generate and save a single high-resolution image that includes:
+       
         - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
         - Topographical maps for multiple EEG frequency bands arranged horizontally,
         showing both pre and post cleaning.
         - Annotations for average power and outlier channels.
 
-        Parameters:
-        -----------
+        Parameters
+        ----------
         raw_original : mne.io.Raw
             Original raw EEG data before cleaning.
         raw_cleaned : mne.io.Raw
@@ -719,11 +706,9 @@ class VisualizationMixin:
         bands : list of tuple, optional
             List of frequency bands to plot. Each tuple should contain
             (band_name, lower_freq, upper_freq).
-        metadata : dict, optional
-            Additional metadata to include in the JSON sidecar.
 
-        Returns:
-        --------
+        Returns
+        -------
         image_path : str
             Path to the saved combined figure.
         """
@@ -894,7 +879,7 @@ class VisualizationMixin:
             }
         }
 
-        self._update_metadata("psd_topo_figure", metadata)
+        self._update_metadata("step_psd_topo_figure", metadata)
 
         return target_figure
         
@@ -1013,46 +998,6 @@ class VisualizationMixin:
                     color="red",
                 )
             
-        
-    def step_psd_topo_figure(
-        self,
-        raw_original: mne.io.Raw,
-        raw_cleaned: mne.io.Raw,
-        pipeline: Any,
-        autoclean_dict: Dict[str, Any],
-        bands: Optional[List[Tuple[str, float, float]]] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> str:
-        """Generate and save PSD and topographical maps.
-        
-        This is a wrapper around psd_topo_figure method to maintain compatibility with
-        the original step_psd_topo_figure function in reports.py.
-        
-        Args:
-            raw_original: Original raw EEG data before cleaning.
-            raw_cleaned: Cleaned EEG data after preprocessing.
-            pipeline: Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict: Dictionary containing metadata about the processing run.
-            bands: List of frequency bands to plot. Each tuple should contain 
-                (band_name, lower_freq, upper_freq). If None, default bands will be used.
-            metadata: Additional metadata to include in the JSON sidecar.
-            
-        Returns:
-            str: Path to the saved combined figure.
-            
-        Notes:
-            - This is a compatibility wrapper that simply calls `psd_topo_figure` with the same parameters
-            - For detailed documentation, see the `psd_topo_figure` method
-        """
-        # Simply call the psd_topo_figure method
-        return self.psd_topo_figure(
-            raw_original=raw_original,
-            raw_cleaned=raw_cleaned,
-            pipeline=pipeline,
-            autoclean_dict=autoclean_dict,
-            bands=bands,
-            metadata=metadata
-        )
 
     # def generate_mmn_erp(
     #     self,
