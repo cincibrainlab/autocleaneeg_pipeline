@@ -32,12 +32,12 @@ jobs:
           pip install sphinx numpydoc pydata-sphinx-theme
       - name: Build docs
         run: |
-          cd sphinx_example/docs
+          cd /docs
           make html
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: './sphinx_example/docs/_build/html'
+          path: './docs/_build/html'
   
   deploy:
     environment:
