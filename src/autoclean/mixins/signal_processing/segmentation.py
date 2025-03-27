@@ -17,20 +17,27 @@ class SegmentationMixin:
         
         This method crops the data to a specific time range.
         
-        Args:
-            data: Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
-            tmin: Start time in seconds
-            tmax: End time in seconds
-            stage_name: Name for saving and metadata
-            use_epochs: If True and data is None, uses self.epochs instead of self.raw
+        Parameters
+        ----------
+        data : mne.io.Raw or mne.Epochs, Optional
+            Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
+        tmin : float, Optional
+            Start time in seconds
+        tmax : float, Optional
+            End time in seconds
+        stage_name : str, Optional
+            Name for saving and metadata
+        use_epochs : bool, Optional
+            If True and data is None, uses self.epochs instead of self.raw
             
         Returns:
+            inst : mne.io.Raw or mne.Epochs
             The cropped data object
             
-        Raises:
-            AttributeError: If self.raw or self.epochs doesn't exist when needed
-            TypeError: If data is not a Raw or Epochs object
-            RuntimeError: If cropping fails
+        See Also
+        --------
+        :py:meth:`mne.io.Raw.crop` : For MNE's raw data cropping functionality
+        :py:meth:`mne.Epochs.crop` : For MNE's epochs cropping functionality
         """
         # Check if tmin and tmax are provided
         if tmin is None or tmax is None:
@@ -94,18 +101,22 @@ class SegmentationMixin:
         
         This method trims the specified amount of time from both the beginning and end of the data.
         
-        Args:
-            data: Optional MNE Raw object. If None, uses self.raw
-            trim_amount: Amount of time in seconds to trim from both beginning and end
-            stage_name: Name for saving and metadata
+        Parameters
+        ----------
+        data : mne.io.Raw, Optional
+            Optional MNE Raw object. If None, uses self.raw
+        trim_amount : float, Optional
+            Amount of time in seconds to trim from both beginning and end
+        stage_name : str, Optional
+            Name for saving and metadata
             
         Returns:
+            inst : mne.io.Raw
             The trimmed raw data object
             
-        Raises:
-            AttributeError: If self.raw doesn't exist when needed
-            TypeError: If data is not a Raw object
-            RuntimeError: If trimming fails
+        See Also
+        --------
+        :py:meth:`mne.io.Raw.crop` : For MNE's raw data cropping functionality
         """
         # Check if trim_amount is provided via config
         is_enabled, config_value = self._check_step_enabled("trim_step")

@@ -92,6 +92,8 @@ intersphinx_mapping = {
     'matplotlib': ('https://matplotlib.org/stable/', None),
     'mne': ('https://mne.tools/stable/', None),
     'scipy': ('https://docs.scipy.org/doc/scipy/', None),
+    'pyprep': ('https://pyprep.readthedocs.io/en/latest/', None),
+    'pylossless': ('https://pylossless.readthedocs.io/en/latest/', None),
 }
 
 # Add any paths that contain templates here

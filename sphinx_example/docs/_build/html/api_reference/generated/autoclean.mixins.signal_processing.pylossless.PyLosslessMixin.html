@@ -407,12 +407,68 @@
 <dd><p>Run PyLossless pipeline on the data.</p>
 <p>This method runs the PyLossless pipeline on the input data.
 It includes steps for filtering, flagging bad channels, and flagging bad epochs.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>config</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>The configuration dictionary for the autoclean pipeline.</p>
+</dd>
+<dt><strong>eog_channel</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a> | <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">None</span></code></a>, optional</span></dt><dd><p>The channel name of the EOG channel. Default is “E25”. This parameter is used to specify the channel referenced for eog specific ICA. 
+If None, no EOG channel will be used.</p>
+</dd>
+<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, optional</span></dt><dd><p>The name of the stage for saving and metadata. Default is “post_pylossless”.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>pipeline</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">instance</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">ll.LosslessPipeline</span></code></span></dt><dd><p>The PyLossless pipeline object.</p>
+</dd>
+<dt><strong>pipeline.raw</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">instance</span></code> of <a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a></span></dt><dd><p>The raw data object with PyLossless processing applied.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference external" href="https://pylossless.readthedocs.io/en/latest/API/lossless_class.html#pylossless.LosslessPipeline" title="(in pyLossless)"><code class="xref py py-class docutils literal notranslate"><span class="pre">pylossless.LosslessPipeline</span></code></a></dt><dd><p>For more information on the PyLossless pipeline</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Notes</p>
+<p>This method is a wrapper around the PyLossless pipeline.
+It includes a mixture of Pylossless and Autoclean functions in order to provide a comprehensive pipeline.</p>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_get_pylossless_pipeline">
 <span class="sig-name descname"><span class="pre">step_get_pylossless_pipeline</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/pylossless.html#PyLosslessMixin.step_get_pylossless_pipeline"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_get_pylossless_pipeline" title="Link to this definition">#</a></dt>
-<dd><p>Run PyLossless pipeline.</p>
+<dd><p>Create a PyLossless pipeline object.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>autoclean_dict</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>The configuration dictionary for the autoclean pipeline.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>pipeline</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">instance</span></code> of <code class="xref py py-obj docutils literal notranslate"><span class="pre">ll.LosslessPipeline</span></code></span></dt><dd><p>The PyLossless pipeline object.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference external" href="https://pylossless.readthedocs.io/en/latest/API/lossless_class.html#pylossless.LosslessPipeline" title="(in pyLossless)"><code class="xref py py-class docutils literal notranslate"><span class="pre">pylossless.LosslessPipeline</span></code></a></dt><dd><p>For more information on the PyLossless pipeline</p>
+</dd>
+</dl>
+</div>
+<p class="rubric">Notes</p>
+<p>This method is used as the first step in creating a custom PyLossless pipeline. 
+It will read the raw data in the BIDS path and create a PyLossless pipeline object. 
+So it is important that the save_to_bids step is run before this step.</p>
 </dd></dl>
 
 </dd></dl>

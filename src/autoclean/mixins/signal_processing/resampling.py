@@ -39,8 +39,8 @@ class ResamplingMixin:
 
         See Also
         --------
-        :py:func:`mne.io.Raw.resample` : For MNE's raw data resampling functionality
-        :py:func:`mne.Epochs.resample` : For MNE's epochs resampling functionality
+        :py:meth:`mne.io.Raw.resample` : For MNE's raw data resampling functionality
+        :py:meth:`mne.Epochs.resample` : For MNE's epochs resampling functionality
         """
         # Determine which data to use
         data = self._get_data_object(data, use_epochs)

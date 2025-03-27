@@ -1,4 +1,4 @@
-Welcome to AutoClean's documentation!
+Autoclean
 ====================================
 
 **AutoClean** is an automated EEG processing pipeline that leverages MNE and PyLossless to provide 
@@ -16,7 +16,7 @@ Features
 * **Database Integration**: Tracking of processing runs and results
 
 Quick Example
-------------
+-------------
 
 .. code-block:: python
 
@@ -42,20 +42,22 @@ Quick Example
 
 .. toctree::
    :maxdepth: 2
+   :caption: API Reference
+   
+   api_reference/index
+
+.. toctree::
+   :maxdepth: 2
    :caption: Getting Started
    
    installation
    getting_started
    tutorial
 
-.. toctree::
-   :maxdepth: 2
-   :caption: API Reference
-   
-   api_reference/index
+
 
 Indices and tables
-=================
+==================
 
 * :ref:`genindex`
 * :ref:`modindex`
