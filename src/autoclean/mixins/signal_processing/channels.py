@@ -59,7 +59,7 @@ class ChannelsMixin:
             
         See Also
         --------
-        :py:func:`pyprep.find_noisy_channels.NoisyChannels` : For more information on the NoisyChannels class
+        :py:class:`pyprep.find_noisy_channels.NoisyChannels` : For more information on the NoisyChannels class
         """
         # Determine which data to use
         data = self._get_data_object(data)
@@ -222,8 +222,8 @@ class ChannelsMixin:
             
         See Also
         --------
-        :py:func:`mne.io.Raw.drop_channels` : For MNE's raw data channel dropping functionality
-        :py:func:`mne.Epochs.drop_channels` : For MNE's epochs channel dropping functionality
+        :py:meth:`mne.io.Raw.drop_channels` : For MNE's raw data channel dropping functionality
+        :py:meth:`mne.Epochs.drop_channels` : For MNE's epochs channel dropping functionality
         """
         # Check if channels is provided
         if channels is None:

@@ -412,11 +412,11 @@ It checks the resample_step toggle in the configuration if no target_sfreq is pr
 <dd class="field-odd"><dl>
 <dt><strong>data</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>The raw data to resample. If None, uses self.raw or self.epochs.</p>
 </dd>
-<dt><strong>target_sfreq</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, optional</span></dt><dd><p>The target sampling frequency. If None, reads from config.</p>
+<dt><strong>target_sfreq</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>The target sampling frequency. If None, reads from config.</p>
 </dd>
-<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, optional</span></dt><dd><p>Name for saving the resampled data (default: “resampled”).</p>
+<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Name for saving the resampled data (default: “resampled”).</p>
 </dd>
-<dt><strong>use_epochs</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bltin-boolean-values" title="(in Python v3.13)"><span class="xref std std-ref">bool</span></a>, optional</span></dt><dd><p>If True and data is None, uses self.epochs instead of self.raw.</p>
+<dt><strong>use_epochs</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bltin-boolean-values" title="(in Python v3.13)"><span class="xref std std-ref">bool</span></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>If True and data is None, uses self.epochs instead of self.raw.</p>
 </dd>
 <dt><strong>Returns:</strong></dt><dd><p>inst : instance of mne.io.Raw or mne.io.Epochs
 The resampled data object (same type as input)</p>
@@ -427,9 +427,9 @@ The resampled data object (same type as input)</p>
 <div class="admonition seealso">
 <p class="admonition-title">See also</p>
 <dl class="simple">
-<dt><code class="xref py py-func docutils literal notranslate"><span class="pre">mne.io.Raw.resample()</span></code></dt><dd><p>For MNE’s raw data resampling functionality</p>
+<dt><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw.resample" title="(in MNE v1.9)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mne.io.Raw.resample()</span></code></a></dt><dd><p>For MNE’s raw data resampling functionality</p>
 </dd>
-<dt><code class="xref py py-func docutils literal notranslate"><span class="pre">mne.Epochs.resample()</span></code></dt><dd><p>For MNE’s epochs resampling functionality</p>
+<dt><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs.resample" title="(in MNE v1.9)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mne.Epochs.resample()</span></code></a></dt><dd><p>For MNE’s epochs resampling functionality</p>
 </dd>
 </dl>
 </div>

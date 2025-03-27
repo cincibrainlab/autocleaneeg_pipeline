@@ -406,20 +406,34 @@
 <span class="sig-name descname"><span class="pre">crop_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmin</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tmax</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'crop'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_epochs</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/segmentation.html#SegmentationMixin.crop_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin.crop_data" title="Link to this definition">#</a></dt>
 <dd><p>Crop data to a specific time range.</p>
 <p>This method crops the data to a specific time range.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs
-tmin: Start time in seconds
-tmax: End time in seconds
-stage_name: Name for saving and metadata
-use_epochs: If True and data is None, uses self.epochs instead of self.raw</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>data</strong><span class="classifier"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a> or <a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.Epochs</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Optional MNE Raw or Epochs object. If None, uses self.raw or self.epochs</p>
 </dd>
-<dt>Returns:</dt><dd><p>The cropped data object</p>
+<dt><strong>tmin</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Start time in seconds</p>
 </dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw or self.epochs doesn’t exist when needed
-TypeError: If data is not a Raw or Epochs object
-RuntimeError: If cropping fails</p>
+<dt><strong>tmax</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>End time in seconds</p>
+</dd>
+<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Name for saving and metadata</p>
+</dd>
+<dt><strong>use_epochs</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bltin-boolean-values" title="(in Python v3.13)"><span class="xref std std-ref">bool</span></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>If True and data is None, uses self.epochs instead of self.raw</p>
+</dd>
+<dt><strong>Returns:</strong></dt><dd><p>inst : mne.io.Raw or mne.Epochs
+The cropped data object</p>
 </dd>
 </dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw.crop" title="(in MNE v1.9)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mne.io.Raw.crop()</span></code></a></dt><dd><p>For MNE’s raw data cropping functionality</p>
+</dd>
+<dt><a class="reference external" href="https://mne.tools/stable/generated/mne.Epochs.html#mne.Epochs.crop" title="(in MNE v1.9)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mne.Epochs.crop()</span></code></a></dt><dd><p>For MNE’s epochs cropping functionality</p>
+</dd>
+</dl>
+</div>
 </dd></dl>
 
 <dl class="py method">
@@ -427,18 +441,28 @@ RuntimeError: If cropping fails</p>
 <span class="sig-name descname"><span class="pre">trim_data_edges</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">trim_amount</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">stage_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'trim'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/segmentation.html#SegmentationMixin.trim_data_edges"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.segmentation.SegmentationMixin.trim_data_edges" title="Link to this definition">#</a></dt>
 <dd><p>Trim a specified amount of time from the beginning and end of the data.</p>
 <p>This method trims the specified amount of time from both the beginning and end of the data.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>data: Optional MNE Raw object. If None, uses self.raw
-trim_amount: Amount of time in seconds to trim from both beginning and end
-stage_name: Name for saving and metadata</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>data</strong><span class="classifier"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Optional MNE Raw object. If None, uses self.raw</p>
 </dd>
-<dt>Returns:</dt><dd><p>The trimmed raw data object</p>
+<dt><strong>trim_amount</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Amount of time in seconds to trim from both beginning and end</p>
 </dd>
-<dt>Raises:</dt><dd><p>AttributeError: If self.raw doesn’t exist when needed
-TypeError: If data is not a Raw object
-RuntimeError: If trimming fails</p>
+<dt><strong>stage_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Optional</span></code></span></dt><dd><p>Name for saving and metadata</p>
+</dd>
+<dt><strong>Returns:</strong></dt><dd><p>inst : mne.io.Raw
+The trimmed raw data object</p>
 </dd>
 </dl>
+</dd>
+</dl>
+<div class="admonition seealso">
+<p class="admonition-title">See also</p>
+<dl class="simple">
+<dt><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw.crop" title="(in MNE v1.9)"><code class="xref py py-meth docutils literal notranslate"><span class="pre">mne.io.Raw.crop()</span></code></a></dt><dd><p>For MNE’s raw data cropping functionality</p>
+</dd>
+</dl>
+</div>
 </dd></dl>
 
 </dd></dl>

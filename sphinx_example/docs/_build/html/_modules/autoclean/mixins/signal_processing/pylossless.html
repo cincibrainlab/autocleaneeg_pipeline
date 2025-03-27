@@ -30,6 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -383,6 +384,32 @@
 <span class="sd">        This method runs the PyLossless pipeline on the input data.</span>
 <span class="sd">        It includes steps for filtering, flagging bad channels, and flagging bad epochs.</span>
 
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        config : dict</span>
+<span class="sd">            The configuration dictionary for the autoclean pipeline.</span>
+<span class="sd">        eog_channel : str | None, optional</span>
+<span class="sd">            The channel name of the EOG channel. Default is &quot;E25&quot;. This parameter is used to specify the channel referenced for eog specific ICA. </span>
+<span class="sd">            If None, no EOG channel will be used.</span>
+<span class="sd">        stage_name : str, optional</span>
+<span class="sd">            The name of the stage for saving and metadata. Default is &quot;post_pylossless&quot;.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pipeline : instance of ll.LosslessPipeline</span>
+<span class="sd">            The PyLossless pipeline object.</span>
+<span class="sd">        pipeline.raw : instance of mne.io.Raw</span>
+<span class="sd">            The raw data object with PyLossless processing applied.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method is a wrapper around the PyLossless pipeline.</span>
+<span class="sd">        It includes a mixture of Pylossless and Autoclean functions in order to provide a comprehensive pipeline.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        :py:class:`pylossless.LosslessPipeline` : For more information on the PyLossless pipeline</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">message</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="s2">&quot;Running PyLossless pipeline&quot;</span><span class="p">)</span>
 
@@ -493,7 +520,26 @@
 <div class="viewcode-block" id="PyLosslessMixin.step_get_pylossless_pipeline">
 <a class="viewcode-back" href="../../../../api_reference/generated/autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.html#autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.step_get_pylossless_pipeline">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">step_get_pylossless_pipeline</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Any</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">]:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Run PyLossless pipeline.&quot;&quot;&quot;</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create a PyLossless pipeline object.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        autoclean_dict : dict</span>
+<span class="sd">            The configuration dictionary for the autoclean pipeline.</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        pipeline : instance of ll.LosslessPipeline</span>
+<span class="sd">            The PyLossless pipeline object.</span>
+
+<span class="sd">        Notes</span>
+<span class="sd">        -----</span>
+<span class="sd">        This method is used as the first step in creating a custom PyLossless pipeline.</span>
+
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        :py:class:`pylossless.LosslessPipeline` : For more information on the PyLossless pipeline</span>
+<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">message</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="s2">&quot;Creating PyLossless Pipeline Object&quot;</span><span class="p">)</span>
         <span class="n">task</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;task&quot;</span><span class="p">]</span>
         <span class="n">bids_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;bids_path&quot;</span><span class="p">]</span>

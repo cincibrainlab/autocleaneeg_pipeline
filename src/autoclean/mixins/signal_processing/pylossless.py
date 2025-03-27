@@ -20,6 +20,32 @@ class PyLosslessMixin:
         This method runs the PyLossless pipeline on the input data.
         It includes steps for filtering, flagging bad channels, and flagging bad epochs.
 
+        Parameters
+        ----------
+        config : dict
+            The configuration dictionary for the autoclean pipeline.
+        eog_channel : str | None, optional
+            The channel name of the EOG channel. Default is "E25". This parameter is used to specify the channel referenced for eog specific ICA. 
+            If None, no EOG channel will be used.
+        stage_name : str, optional
+            The name of the stage for saving and metadata. Default is "post_pylossless".
+
+        Returns
+        -------
+        pipeline : instance of ll.LosslessPipeline
+            The PyLossless pipeline object.
+        pipeline.raw : instance of mne.io.Raw
+            The raw data object with PyLossless processing applied.
+
+        Notes
+        -----
+        This method is a wrapper around the PyLossless pipeline.
+        It includes a mixture of Pylossless and Autoclean functions in order to provide a comprehensive pipeline.
+
+        See Also
+        --------
+        :py:class:`pylossless.LosslessPipeline` : For more information on the PyLossless pipeline
+
         """
         message("header", "Running PyLossless pipeline")
 
@@ -127,7 +153,28 @@ class PyLosslessMixin:
 
 
     def step_get_pylossless_pipeline(self, autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw]:
-        """Run PyLossless pipeline."""
+        """Create a PyLossless pipeline object.
+
+        Parameters
+        ----------
+        autoclean_dict : dict
+            The configuration dictionary for the autoclean pipeline.
+
+        Returns
+        -------
+        pipeline : instance of ll.LosslessPipeline
+            The PyLossless pipeline object.
+
+        Notes
+        -----
+        This method is used as the first step in creating a custom PyLossless pipeline. 
+        It will read the raw data in the BIDS path and create a PyLossless pipeline object. 
+        So it is important that the save_to_bids step is run before this step.
+
+        See Also
+        --------
+        :py:class:`pylossless.LosslessPipeline` : For more information on the PyLossless pipeline
+        """
         message("header", "Creating PyLossless Pipeline Object")
         task = autoclean_dict["task"]
         bids_path = autoclean_dict["bids_path"]
