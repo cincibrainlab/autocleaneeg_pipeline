@@ -158,14 +158,6 @@ class Pipeline:
             * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
             * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.
 
-        Raises
-        ------
-        FileNotFoundError
-            If config_file doesn't exist.
-        ValueError
-            If configuration is invalid.
-        PermissionError
-            If output directory is not writable.
 
         Examples
         --------
@@ -219,15 +211,6 @@ class Pipeline:
         -------
         str
             The run identifier.
-
-        Raises
-        ------
-        ValueError
-            If task is not registered or configuration is invalid.
-        FileNotFoundError
-            If input file doesn't exist.
-        RuntimeError
-            If processing fails.
 
         Notes
         -----
@@ -473,11 +456,6 @@ class Pipeline:
         run_id : str, optional
             Optional identifier for the processing run, by default None.
 
-        Raises
-        ------
-        Exception
-            If processing fails.
-
         Notes
         -----
         Wraps synchronous processing in asyncio thread pool to enable
@@ -505,15 +483,6 @@ class Pipeline:
         run_id : str, optional
             Optional identifier for the processing run, by default None.
             If not provided, a unique ID will be generated.
-
-        Raises
-        ------
-        ValueError
-            If task is not registered or configuration is invalid.
-        FileNotFoundError
-            If input file doesn't exist.
-        RuntimeError
-            If processing fails.
             
         See Also
         --------
@@ -548,15 +517,6 @@ class Pipeline:
             Glob pattern to match files, by default "*.set".
         recursive : bool, optional
             Whether to search in subdirectories, by default False.
-
-        Raises
-        ------
-        NotADirectoryError
-            If directory doesn't exist.
-        ValueError
-            If task is not registered.
-        RuntimeError
-            If processing fails for any file.
             
         See Also
         --------
@@ -624,13 +584,6 @@ class Pipeline:
             Whether to search in subdirectories, by default False.
         max_concurrent : int, optional
             Maximum number of files to process concurrently, by default 3.
-
-        Raises
-        ------
-        NotADirectoryError
-            If directory doesn't exist.
-        ValueError
-            If task is not registered.
             
         See Also
         --------
@@ -743,16 +696,13 @@ class Pipeline:
 
     def start_autoclean_review(self):
         """Launch the AutoClean Review GUI tool.
-        
-        Raises
-        ------
-        ImportError
-            If GUI dependencies are not installed.
             
         Notes
         -----
         This method requires the GUI dependencies to be installed.
         Install them with: pip install autocleaneeg[gui]
+
+        Note: The ideal use of the Review tool is as a docker container. 
         """
         try:
             from autoclean.tools.autoclean_review import run_autoclean_review
@@ -774,11 +724,6 @@ class Pipeline:
         -------
         str
             The validated task name.
-
-        Raises
-        ------
-        ValueError
-            If the task is not found in configuration.
 
         Notes
         -----
@@ -811,11 +756,6 @@ class Pipeline:
         -------
         Path
             The validated file path.
-
-        Raises
-        ------
-        FileNotFoundError
-            If the file doesn't exist.
             
         Notes
         -----

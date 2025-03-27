@@ -47,11 +47,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
             - tasks (dict): Task-specific settings
             - stage_files (dict): Configuration for saving intermediate results
 
-        Raises
-        ------
-        ValueError
-            If the configuration is missing required fields or contains invalid values.
-
         Examples
         --------
         >>> config = {
@@ -81,11 +76,7 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         Imports data using the configured import function and flags files with
         duration less than 60 seconds. Saves the imported data as a post-import
         stage file.
-        
-        Raises
-        ------
-        RuntimeError
-            If the import fails or the file cannot be read.
+
         """
         from autoclean.step_functions.io import import_eeg, save_raw_to_set
         self.raw = import_eeg(self.config)
@@ -97,15 +88,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
     @abstractmethod
     def run(self) -> None:
         """Run the standard EEG preprocessing pipeline.
-
-        Raises
-        ------
-        RuntimeError
-            If no data has been imported (self.raw is None).
-        ValueError
-            If preprocessing parameters are invalid.
-        RuntimeError
-            If any preprocessing step fails.
 
         Notes
         -----
@@ -132,13 +114,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         Dict[str, Any]
             The validated configuration dictionary.
             May contain additional fields added during validation.
-
-        Raises
-        ------
-        ValueError
-            If any required fields are missing or invalid.
-        TypeError
-            If any fields are of the wrong type.
 
         Notes
         -----
@@ -195,13 +170,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
             The validated configuration dictionary, potentially modified
             to include derived or default values.
 
-        Raises
-        ------
-        ValueError
-            If task-specific configuration is invalid.
-        TypeError
-            If task-specific fields are of wrong type.
-
         Notes
         -----
         This is an abstract method that must be implemented by all task classes.
@@ -234,11 +202,7 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         -------
         mne.io.Raw
             The raw data of the task.
-            
-        Raises
-        ------
-        ValueError
-            If raw data is not available.
+
         """
         if self.raw is None:
             raise ValueError("Raw data is not available.")
@@ -251,11 +215,7 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         -------
         mne.Epochs
             The epochs of the task.
-            
-        Raises
-        ------
-        ValueError
-            If epochs are not available.
+
         """
         if self.epochs is None:
             raise ValueError("Epochs are not available.")

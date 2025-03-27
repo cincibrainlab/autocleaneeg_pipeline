@@ -30,6 +30,7 @@
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -410,11 +411,6 @@
 <span class="sd">            - tasks (dict): Task-specific settings</span>
 <span class="sd">            - stage_files (dict): Configuration for saving intermediate results</span>
 
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If the configuration is missing required fields or contains invalid values.</span>
-
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
 <span class="sd">        &gt;&gt;&gt; config = {</span>
@@ -447,11 +443,7 @@
 <span class="sd">        Imports data using the configured import function and flags files with</span>
 <span class="sd">        duration less than 60 seconds. Saves the imported data as a post-import</span>
 <span class="sd">        stage file.</span>
-<span class="sd">        </span>
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        RuntimeError</span>
-<span class="sd">            If the import fails or the file cannot be read.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.step_functions.io</span><span class="w"> </span><span class="kn">import</span> <span class="n">import_eeg</span><span class="p">,</span> <span class="n">save_raw_to_set</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="n">import_eeg</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
@@ -466,15 +458,6 @@
     <span class="nd">@abstractmethod</span>
     <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Run the standard EEG preprocessing pipeline.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        RuntimeError</span>
-<span class="sd">            If no data has been imported (self.raw is None).</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If preprocessing parameters are invalid.</span>
-<span class="sd">        RuntimeError</span>
-<span class="sd">            If any preprocessing step fails.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -504,13 +487,6 @@
 <span class="sd">        Dict[str, Any]</span>
 <span class="sd">            The validated configuration dictionary.</span>
 <span class="sd">            May contain additional fields added during validation.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If any required fields are missing or invalid.</span>
-<span class="sd">        TypeError</span>
-<span class="sd">            If any fields are of the wrong type.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -568,13 +544,6 @@
 <span class="sd">            The validated configuration dictionary, potentially modified</span>
 <span class="sd">            to include derived or default values.</span>
 
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If task-specific configuration is invalid.</span>
-<span class="sd">        TypeError</span>
-<span class="sd">            If task-specific fields are of wrong type.</span>
-
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        This is an abstract method that must be implemented by all task classes.</span>
@@ -612,11 +581,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        mne.io.Raw</span>
 <span class="sd">            The raw data of the task.</span>
-<span class="sd">            </span>
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If raw data is not available.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Raw data is not available.&quot;</span><span class="p">)</span>
@@ -632,11 +597,7 @@
 <span class="sd">        -------</span>
 <span class="sd">        mne.Epochs</span>
 <span class="sd">            The epochs of the task.</span>
-<span class="sd">            </span>
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If epochs are not available.</span>
+
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">epochs</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Epochs are not available.&quot;</span><span class="p">)</span>

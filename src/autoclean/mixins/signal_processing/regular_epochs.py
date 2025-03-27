@@ -29,7 +29,7 @@ class RegularEpochsMixin:
     """Mixin class providing regular (fixed-length) epochs creation functionality for EEG data.
     """
     
-    def create_regular_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
+    def create_regular_epochs(self, data: Union[mne.io.Raw, None] = None,
                              tmin: float = -1,
                              tmax: float = 1,
                              baseline: Optional[tuple] = None,
@@ -37,34 +37,41 @@ class RegularEpochsMixin:
                              stage_name: str = "post_epochs",
                              reject_by_annotation: bool = False) -> mne.Epochs:
         """Create regular fixed-length epochs from raw data.
+
+        Parameters
+        ----------
+        data : mne.io.Raw, Optional
+            The raw data to create epochs from. If None, uses self.raw.
+        tmin : float, Optional
+            The start time of the epoch in seconds. Default is -1.
+        tmax : float, Optional
+            The end time of the epoch in seconds. Default is 1.
+        baseline : tuple of float, Optional
+            The time interval to apply baseline correction. Default is None.
+        volt_threshold : dict, Optional
+            Dictionary of channel types and thresholds for rejection, by default None.
+        stage_name : str, Optional
+            Name for saving and metadata tracking. Default is "post_epochs".
+        reject_by_annotation : bool, Optional
+            Whether to automatically reject epochs that overlap with bad annotations,
+            or just mark them in the metadata for later processing. Default is False.
+
+        Returns
+        -------
+        inst: mne.Epochs
+            The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)
         
-        This method creates fixed-length epochs from continuous EEG data at regular
-        intervals. It supports optional baseline correction and amplitude-based artifact
-        rejection.
+        Notes
+        -----
+        If reject_by_annotation is False, an intermediate file with bad epochs marked but not dropped is saved. 
         
         The epoching parameters can be customized through the configuration file
         (autoclean_config.yaml) under the "epoch_settings" section. If enabled, the
         configuration values will override the default parameters.
-        
-        Args:
-            data: Optional MNE Raw object. If None, uses self.raw
-            tmin: Start time of the epoch in seconds
-            tmax: End time of the epoch in seconds
-            baseline: Baseline correction (tuple of start, end)
-            volt_threshold: Dictionary mapping channel types to rejection thresholds in microvolts
-                           (e.g., {"eeg": 100, "eog": 200})
-            stage_name: Name for saving and metadata tracking
-            reject_by_annotation: Whether to automatically reject epochs that overlap with
-                                 annotations starting with "bad" or "BAD", or just mark them
-                                 in the metadata for later processing
-            
-        Returns:
-            mne.Epochs: The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)
-            
-        Raises:
-            AttributeError: If self.raw doesn't exist when needed
-            TypeError: If data is not a Raw object
-            RuntimeError: If epoch creation fails
+
+        See Also
+        --------
+        create_eventid_epochs : For creating epochs based on specific event markers.
         """
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("epoch_settings")
@@ -99,7 +106,7 @@ class RegularEpochsMixin:
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for epoch creation")
             
         try:

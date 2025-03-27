@@ -17,25 +17,36 @@ class ResamplingMixin:
         This method can work with self.raw, self.epochs, or a provided data object.
         It checks the resample_step toggle in the configuration if no target_sfreq is provided.
         
-        Args:
-            data: Optional MNE Raw or Epochs object to resample. If None, uses self.raw or self.epochs
-            target_sfreq: Optional target sampling frequency. If None, reads from config
-            stage_name: Name for saving the resampled data (default: "resampled")
-            use_epochs: If True and data is None, uses self.epochs instead of self.raw
+        Parameters
+        ----------
+        data : Optional
+            The raw data to resample. If None, uses self.raw or self.epochs.
+        target_sfreq : float, Optional
+            The target sampling frequency. If None, reads from config.
+        stage_name : str, Optional
+            Name for saving the resampled data (default: "resampled").
+        use_epochs : bool, Optional
+            If True and data is None, uses self.epochs instead of self.raw.
             
         Returns:
+            inst : instance of mne.io.Raw or mne.io.Epochs
             The resampled data object (same type as input)
             
-        Raises:
-            TypeError: If data is not a Raw or Epochs object
-            RuntimeError: If resampling fails
-            AttributeError: If self.raw or self.epochs doesn't exist when needed
+        Examples
+        --------
+        >>> #Inside a task class that uses the autoclean framework
+        >>> self.resample_data()
+
+        See Also
+        --------
+        :py:func:`mne.io.Raw.resample` : For MNE's raw data resampling functionality
+        :py:func:`mne.Epochs.resample` : For MNE's epochs resampling functionality
         """
         # Determine which data to use
         data = self._get_data_object(data, use_epochs)
         
         # Type checking
-        if not isinstance(data, (mne.io.BaseRaw, mne.BaseEpochs)):
+        if not isinstance(data, (mne.io.Raw, mne.Epochs)):
             raise TypeError("Data must be an MNE Raw or Epochs object")
             
         # Access configuration if needed

@@ -132,8 +132,8 @@ class SignalProcessingMixin:
                 status = "✓" if is_enabled else "✗"
                 message("info", f"{status} {step_name}")
                 
-    def _get_data_object(self, data: Union[mne.io.BaseRaw, mne.BaseEpochs, None],
-                        use_epochs: bool = False) -> Union[mne.io.BaseRaw, mne.BaseEpochs]:
+    def _get_data_object(self, data: Union[mne.io.Raw, mne.Epochs, None],
+                        use_epochs: bool = False) -> Union[mne.io.Raw, mne.Epochs]:
         """Get the appropriate data object based on the parameters.
         
         Args:
@@ -158,8 +158,8 @@ class SignalProcessingMixin:
                 raise AttributeError("No raw data available")
             return self.raw
             
-    def _update_instance_data(self, data: Union[mne.io.BaseRaw, mne.BaseEpochs, None],
-                             result_data: Union[mne.io.BaseRaw, mne.BaseEpochs],
+    def _update_instance_data(self, data: Union[mne.io.Raw, mne.Epochs, None],
+                             result_data: Union[mne.io.Raw, mne.Epochs],
                              use_epochs: bool = False) -> None:
         """Update the instance data attribute with the result data.
         
@@ -219,7 +219,7 @@ class SignalProcessingMixin:
         message("warning", reason)
         
 
-    def _save_raw_result(self, result_data: mne.io.BaseRaw, stage_name: str) -> None:
+    def _save_raw_result(self, result_data: mne.io.Raw, stage_name: str) -> None:
         """Save the raw result data to a file.
         
         Args:
@@ -231,7 +231,7 @@ class SignalProcessingMixin:
             
         from autoclean.step_functions.io import save_raw_to_set
         
-        if isinstance(result_data, mne.io.BaseRaw):
+        if isinstance(result_data, mne.io.Raw):
             save_raw_to_set(raw = result_data, autoclean_dict = self.config, stage = stage_name, flagged = self.flagged)
 
     def _save_epochs_result(self, result_data: mne.Epochs, stage_name: str) -> None:

@@ -64,20 +64,26 @@ class GFPCleanEpochsMixin:
         The method generates visualization plots showing the GFP distribution and outliers,
         which are saved to the output directory if a run_id is specified in the configuration.
         
-        Args:
-            epochs: Optional MNE Epochs object. If None, uses self.epochs
-            gfp_threshold: Z-score threshold for GFP-based outlier detection (default: 3.0)
-            number_of_epochs: If specified, randomly selects this number of epochs from the cleaned data
-            random_seed: Seed for random number generator when selecting epochs
-            stage_name: Name for saving and metadata tracking
+        Parameters
+        ----------
+        epochs: Optional
+            The epochs object to clean. If None, uses self.epochs.
+        gfp_threshold: float, Optional
+            The z-score threshold for GFP-based outlier detection (default: 3.0).
+        number_of_epochs: int, Optional
+            If specified, randomly selects this number of epochs from the cleaned data.
+        random_seed: int, Optional
+            Seed for random number generator when selecting epochs.
+        stage_name: str, Optional
+            Name for saving and metadata tracking.
             
         Returns:
-            mne.Epochs: The cleaned epochs object with outlier epochs removed
+            inst : instance of mne.Epochs
+            The cleaned epochs object with outlier epochs removed
             
-        Raises:
-            AttributeError: If self.epochs doesn't exist when needed
-            TypeError: If epochs is not an Epochs object
-            RuntimeError: If cleaning fails
+        See Also
+        --------
+        'MNE Epochs' : https://mne.tools/stable/generated/mne.Epochs.html
             
         Example:
             ```python
@@ -246,9 +252,7 @@ class GFPCleanEpochsMixin:
             
             self._update_metadata("step_gfp_clean_epochs", metadata)
             
-            # Store epochs
-            if hasattr(self, 'config') and self.config.get("run_id"):
-                self.epochs = epochs_final
+            self._update_instance_data(epochs, epochs_final, use_epochs=True)
                 
             # Save epochs
             self._save_epochs_result(epochs_final, stage_name)

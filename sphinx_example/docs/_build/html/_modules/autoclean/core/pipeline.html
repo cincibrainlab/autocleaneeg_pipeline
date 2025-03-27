@@ -30,6 +30,7 @@
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=2578ddb1" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -521,14 +522,6 @@
 <span class="sd">            * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).</span>
 <span class="sd">            * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.</span>
 
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        FileNotFoundError</span>
-<span class="sd">            If config_file doesn&#39;t exist.</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If configuration is invalid.</span>
-<span class="sd">        PermissionError</span>
-<span class="sd">            If output directory is not writable.</span>
 
 <span class="sd">        Examples</span>
 <span class="sd">        --------</span>
@@ -583,15 +576,6 @@
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
 <span class="sd">            The run identifier.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered or configuration is invalid.</span>
-<span class="sd">        FileNotFoundError</span>
-<span class="sd">            If input file doesn&#39;t exist.</span>
-<span class="sd">        RuntimeError</span>
-<span class="sd">            If processing fails.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -837,11 +821,6 @@
 <span class="sd">        run_id : str, optional</span>
 <span class="sd">            Optional identifier for the processing run, by default None.</span>
 
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        Exception</span>
-<span class="sd">            If processing fails.</span>
-
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        Wraps synchronous processing in asyncio thread pool to enable</span>
@@ -871,15 +850,6 @@
 <span class="sd">        run_id : str, optional</span>
 <span class="sd">            Optional identifier for the processing run, by default None.</span>
 <span class="sd">            If not provided, a unique ID will be generated.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered or configuration is invalid.</span>
-<span class="sd">        FileNotFoundError</span>
-<span class="sd">            If input file doesn&#39;t exist.</span>
-<span class="sd">        RuntimeError</span>
-<span class="sd">            If processing fails.</span>
 <span class="sd">            </span>
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -917,15 +887,6 @@
 <span class="sd">            Glob pattern to match files, by default &quot;*.set&quot;.</span>
 <span class="sd">        recursive : bool, optional</span>
 <span class="sd">            Whether to search in subdirectories, by default False.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        NotADirectoryError</span>
-<span class="sd">            If directory doesn&#39;t exist.</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered.</span>
-<span class="sd">        RuntimeError</span>
-<span class="sd">            If processing fails for any file.</span>
 <span class="sd">            </span>
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -996,13 +957,6 @@
 <span class="sd">            Whether to search in subdirectories, by default False.</span>
 <span class="sd">        max_concurrent : int, optional</span>
 <span class="sd">            Maximum number of files to process concurrently, by default 3.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        NotADirectoryError</span>
-<span class="sd">            If directory doesn&#39;t exist.</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If task is not registered.</span>
 <span class="sd">            </span>
 <span class="sd">        See Also</span>
 <span class="sd">        --------</span>
@@ -1124,16 +1078,13 @@
 <a class="viewcode-back" href="../../../api_reference/core/pipeline.html#autoclean.Pipeline.start_autoclean_review">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="nf">start_autoclean_review</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Launch the AutoClean Review GUI tool.</span>
-<span class="sd">        </span>
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ImportError</span>
-<span class="sd">            If GUI dependencies are not installed.</span>
 <span class="sd">            </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
 <span class="sd">        This method requires the GUI dependencies to be installed.</span>
 <span class="sd">        Install them with: pip install autocleaneeg[gui]</span>
+
+<span class="sd">        Note: The ideal use of the Review tool is as a docker container. </span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.tools.autoclean_review</span><span class="w"> </span><span class="kn">import</span> <span class="n">run_autoclean_review</span>
@@ -1156,11 +1107,6 @@
 <span class="sd">        -------</span>
 <span class="sd">        str</span>
 <span class="sd">            The validated task name.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        ValueError</span>
-<span class="sd">            If the task is not found in configuration.</span>
 
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>
@@ -1193,11 +1139,6 @@
 <span class="sd">        -------</span>
 <span class="sd">        Path</span>
 <span class="sd">            The validated file path.</span>
-
-<span class="sd">        Raises</span>
-<span class="sd">        ------</span>
-<span class="sd">        FileNotFoundError</span>
-<span class="sd">            If the file doesn&#39;t exist.</span>
 <span class="sd">            </span>
 <span class="sd">        Notes</span>
 <span class="sd">        -----</span>

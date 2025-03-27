@@ -25,7 +25,7 @@ from autoclean.utils.logging import message
 class EventIDEpochsMixin:
     """Mixin class providing event ID based epochs creation functionality for EEG data.
     """
-    def create_eventid_epochs(self, data: Union[mne.io.BaseRaw, None] = None,
+    def create_eventid_epochs(self, data: Union[mne.io.Raw, None] = None,
                              event_id: Optional[Dict[str, int]] = None,
                              tmin: float = -0.5,
                              tmax: float = 2,
@@ -34,39 +34,36 @@ class EventIDEpochsMixin:
                              reject_by_annotation: bool = False,
                              stage_name: str = "post_epochs") -> Optional[mne.Epochs]:
         """Create epochs based on event IDs from raw data.
-        
+
+        Parameters
+        ----------
+        data : mne.io.Raw, Optional
+            The raw data to create epochs from. If None, uses self.raw.
+        event_id : dict, Optional
+            Dictionary mapping event names to event IDs (e.g., {"target": 1, "standard": 2}).
+        tmin : float, Optional
+            Start time of the epoch relative to the event in seconds, by default -0.5.
+        tmax : float, Optional
+            End time of the epoch relative to the event in seconds, by default 2.
+        baseline : tuple, Optional
+            Baseline correction (tuple of start, end), by default (None, 0).
+        volt_threshold : dict, Optional
+            Dictionary of channel types and thresholds for rejection, by default None.
+        reject_by_annotation : bool, Optional
+            Whether to reject epochs by annotation, by default False.
+        stage_name : str, Optional
+            Name for saving and metadata, by default "post_epochs".
+
+        Returns
+        -------
+        inst : instance of mne.Epochs | None
+            The created epochs or None if epoching is disabled. 
+
+        Notes
+        -----
         This method creates epochs centered around specific event IDs in the raw data.
         It is useful for event-related potential (ERP) analysis where you want to
         extract segments of data time-locked to specific events.
-        
-        If no event_id is provided, the method will attempt to extract event IDs from
-        the configuration file.
-        
-        Parameters:
-            * data: Optional MNE Raw object. If None, uses self.raw
-            * event_id: Dictionary mapping event names to event IDs (e.g., {"target": 1, "standard": 2})
-            * tmin: Start time of the epoch relative to the event in seconds
-            * tmax: End time of the epoch relative to the event in seconds
-            * baseline: Baseline correction (tuple of start, end)
-            * volt_threshold: Dictionary of channel types and thresholds for rejection
-            * stage_name: Name for saving and metadata
-            
-        Returns:
-            instance of mne.Epochs or None if epoching is disabled
-            
-        Example:
-            ```python
-            # Create epochs around target with parameters from autoclean_config.yaml
-            self.create_eventid_epochs()
-
-            # Create epochs around target with custom parameters
-            self.create_eventid_epochs(
-                tmin=-0.2,
-                tmax=0.5,
-                baseline=None,
-                volt_threshold={"eeg": 200e-6}
-            )
-            ```
         """
         # Check if epoch_settings is enabled in the configuration
         is_enabled, epoch_config = self._check_step_enabled("epoch_settings")
@@ -103,7 +100,7 @@ class EventIDEpochsMixin:
         data = self._get_data_object(data)
         
         # Type checking
-        if not isinstance(data, mne.io.BaseRaw):
+        if not isinstance(data, mne.io.Raw):
             raise TypeError("Data must be an MNE Raw object for epoch creation")
             
         try:
