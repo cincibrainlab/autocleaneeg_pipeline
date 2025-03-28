@@ -12,7 +12,7 @@ class ReferenceMixin:
                           ref_type: str = "average", 
                           projection: bool = False,
                           stage_name: str = "post_reference") -> mne.io.Raw:
-        """Apply EEG reference to the data.
+        """Apply EEG reference to the data. 
         
         Parameters
         ----------
@@ -25,8 +25,9 @@ class ReferenceMixin:
         stage_name : str, Optional
             Name for saving and metadata, by default "post_reference".
             
-        Returns:
-            inst : instance of mne.io.Raw
+        Returns
+        -------
+        result_raw : instance of mne.io.Raw
             The raw data object with reference applied
 
         See Also

@@ -31,7 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=2578ddb1" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=69c62948" />
   
   <!-- So that users can add custom icons -->
   <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -401,8 +401,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.artifacts.</span></span><span class="sig-name descname"><span class="pre">ArtifactsMixin</span></span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin class providing artifact detection and rejection functionality for EEG data.</p>
+<dd><p>Mixin class providing artifact detection and rejection functionality for EEG data.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts">
 <span class="sig-name descname"><span class="pre">detect_dense_oscillatory_artifacts</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">window_size_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">channel_threshold_uv</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">45</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">min_channels</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">75</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">padding_ms</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">annotation_label</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'BAD_REF_AF'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/artifacts.html#ArtifactsMixin.detect_dense_oscillatory_artifacts"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.detect_dense_oscillatory_artifacts" title="Link to this definition">#</a></dt>

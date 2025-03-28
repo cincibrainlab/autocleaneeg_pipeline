@@ -74,14 +74,14 @@ class PrepareEpochsICAMixin:
         Examples
         --------
         >>> # Prepare epochs for ICA with default parameters
-        >>> clean_epochs = self.prepare_epochs_for_ica()
+        >>> self.prepare_epochs_for_ica() #Modifies self.epochs
         
         >>> # Prepare epochs with a stricter threshold
-        >>> clean_epochs = self.prepare_epochs_for_ica(threshold=2.5)
+        >>> self.prepare_epochs_for_ica(threshold=2.5) #Modifies self.epochs
             
         >>> # Check how many epochs were marked as bad
-        >>> n_good = len(clean_epochs)
-        >>> n_bad = len(clean_epochs.drop_log) - n_good
+        >>> n_good = len(self.epochs)
+        >>> n_bad = len(self.epochs.drop_log) - n_good
         >>> print(f"Marked {n_bad} epochs as bad out of {n_good + n_bad} total")
             
         """

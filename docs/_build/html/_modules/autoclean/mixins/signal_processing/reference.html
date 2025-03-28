@@ -30,7 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=2578ddb1" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=69c62948" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -376,7 +376,7 @@
                           <span class="n">ref_type</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;average&quot;</span><span class="p">,</span> 
                           <span class="n">projection</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
                           <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post_reference&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply EEG reference to the data.</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Apply EEG reference to the data. </span>
 <span class="sd">        </span>
 <span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
@@ -389,8 +389,9 @@
 <span class="sd">        stage_name : str, Optional</span>
 <span class="sd">            Name for saving and metadata, by default &quot;post_reference&quot;.</span>
 <span class="sd">            </span>
-<span class="sd">        Returns:</span>
-<span class="sd">            inst : instance of mne.io.Raw</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        result_raw : instance of mne.io.Raw</span>
 <span class="sd">            The raw data object with reference applied</span>
 
 <span class="sd">        See Also</span>

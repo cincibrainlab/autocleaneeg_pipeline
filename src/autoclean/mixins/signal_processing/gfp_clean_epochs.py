@@ -73,7 +73,7 @@ class GFPCleanEpochsMixin:
         number_of_epochs: int
             If specified, randomly selects this number of epochs from the cleaned data.
         random_seed: int
-            Seed for random number generator when selecting epochs.
+            Seed for random number generator when selecting epochs. 
         stage_name: str
             Name for saving and metadata tracking. By default "post_gfp_clean".
             

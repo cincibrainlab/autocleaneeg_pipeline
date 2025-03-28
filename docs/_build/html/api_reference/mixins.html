@@ -31,7 +31,7 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=2578ddb1" />
+    <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=69c62948" />
   
   <!-- So that users can add custom icons -->
   <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -395,7 +395,23 @@
                   
   <section id="mixins">
 <span id="api-mixins"></span><h1>Mixins<a class="headerlink" href="#mixins" title="Link to this heading">#</a></h1>
-<p>This section covers the mixin classes that provide reusable functionality for EEG data processing in AutoClean.</p>
+<p>This section covers the mixin classes that provide reusable functionality for EEG data processing in AutoClean.
+Mixins are the prefered way to add functions to your tasks in autoclean and act as a replacement to step functions.
+They are designed as a class that is added to the base task class in order that functions may be natively accessible from any task implementation.
+This simplifies the process of creating new tasks as you do not need to worry about manually importing each processing function.</p>
+<p>Mixins should be designed to be used in task implementations as such:</p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.core.task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
+<span class="c1">#Mixins are imported inside the Task base class</span>
+
+<span class="k">class</span><span class="w"> </span><span class="nc">MyTask</span><span class="p">(</span><span class="n">Task</span><span class="p">):</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="c1">#Calling a mixin function</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">create_regular_epochs</span><span class="p">()</span> <span class="c1">#Modifies self.epochs</span>
+</pre></div>
+</div>
+<p><em>Note:</em> Most mixins may have a return value or a data parameter but are designed to use and update the task object and it’s data attributes in place.
+If you decide to use both mixin functions and non-mixin functions be careful to update your tasks data attributes accordingly.</p>
+<p><em>Example:</em></p>
 <section id="signalprocessingmixin">
 <h2>SignalProcessingMixin<a class="headerlink" href="#signalprocessingmixin" title="Link to this heading">#</a></h2>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">

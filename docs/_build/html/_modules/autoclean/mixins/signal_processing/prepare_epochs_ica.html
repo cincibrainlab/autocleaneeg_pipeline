@@ -30,7 +30,7 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=2578ddb1" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=69c62948" />
   
   <!-- So that users can add custom icons -->
   <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -435,19 +435,19 @@
 <span class="sd">            The epochs object with outlier epochs marked as bad</span>
 <span class="sd">            </span>
 <span class="sd">            </span>
-<span class="sd">        Example:</span>
-<span class="sd">            ```python</span>
-<span class="sd">            # Prepare epochs for ICA with default parameters</span>
-<span class="sd">            clean_epochs = self.prepare_epochs_for_ica()</span>
+<span class="sd">        Examples</span>
+<span class="sd">        --------</span>
+<span class="sd">        &gt;&gt;&gt; # Prepare epochs for ICA with default parameters</span>
+<span class="sd">        &gt;&gt;&gt; clean_epochs = self.prepare_epochs_for_ica()</span>
+<span class="sd">        </span>
+<span class="sd">        &gt;&gt;&gt; # Prepare epochs with a stricter threshold</span>
+<span class="sd">        &gt;&gt;&gt; clean_epochs = self.prepare_epochs_for_ica(threshold=2.5)</span>
 <span class="sd">            </span>
-<span class="sd">            # Prepare epochs with a stricter threshold</span>
-<span class="sd">            clean_epochs = self.prepare_epochs_for_ica(threshold=2.5)</span>
+<span class="sd">        &gt;&gt;&gt; # Check how many epochs were marked as bad</span>
+<span class="sd">        &gt;&gt;&gt; n_good = len(clean_epochs)</span>
+<span class="sd">        &gt;&gt;&gt; n_bad = len(clean_epochs.drop_log) - n_good</span>
+<span class="sd">        &gt;&gt;&gt; print(f&quot;Marked {n_bad} epochs as bad out of {n_good + n_bad} total&quot;)</span>
 <span class="sd">            </span>
-<span class="sd">            # Check how many epochs were marked as bad</span>
-<span class="sd">            n_good = len(clean_epochs)</span>
-<span class="sd">            n_bad = len(clean_epochs.drop_log) - n_good</span>
-<span class="sd">            print(f&quot;Marked {n_bad} epochs as bad out of {n_good + n_bad} total&quot;)</span>
-<span class="sd">            ```</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="c1"># Check if this step is enabled in the configuration</span>
         <span class="c1"># is_enabled, config_value = self._check_step_enabled(&quot;prepare_epochs_ica&quot;)</span>

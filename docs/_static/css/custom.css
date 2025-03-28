@@ -96,38 +96,41 @@ div[id^="examples-using-"] h2 {
     word-break: break-word;
 }
 
-/* Make function signature and documentation text smaller */
+/* Don't know */
 dl.py.method, dl.py.function {
-    font-size: 0.9rem;
+    font-size: 5rem;
 }
 
-dl.py.method dt, dl.py.function dt {
-    font-size: 0.95rem;
+/* Function and method headers */
+dl.py.method dt, dl.py.function dt { 
+    font-size: 0.8rem;
     font-weight: bold;
 }
 
+/* Function parameter descriptions */
 dl.py.method dd, dl.py.function dd {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
-/* Parameter tables in smaller text */
+/* Class parameter headers */
 dl.field-list dt {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: bold;
 }
 
+/* Class parameter descriptions */
 dl.field-list dd {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
 }
 
 /* Examples in smaller text */
 div.rubric:contains("Examples") + div.highlight-default {
-    font-size: 0.85rem;
+    font-size: 0.7rem;
 }
 
 /* Examples in smaller text - using a more widely supported approach */
 .highlight-default {
-    font-size: 0.85rem;
+    font-size: 0.7rem;
 }
 
 /* *********************************************** pydata-sphinx-theme fixes */
@@ -475,4 +478,39 @@ div.sphx-glr-animation video {
     padding: 2px 4px;
     border-radius: 3px;
     font-size: 0.9em;
+}
+
+/* Improve function spacing and hierarchy */
+dl.py.class > dt {
+    font-size: 0.95rem; /* Keep class names slightly larger */
+    margin-bottom: 0.5rem;
+}
+
+/* Add spacing between functions */
+dl.py.method, dl.py.function {
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--pst-color-border);
+}
+
+/* Improve function parameter spacing */
+dl.field-list > dt {
+    margin-top: 0.3rem;
+}
+
+dl.field-list > dd {
+    margin-bottom: 0.5rem;
+}
+
+/* Make function names stand out */
+dl.py.method .sig-name, dl.py.function .sig-name {
+    font-weight: bold;
+    color: var(--pst-color-primary);
+}
+
+/* Make method/function qualifiers (like static, classmethod) visually distinct */
+dl.py.method .property, dl.py.function .property {
+    font-style: italic;
+    font-size: 0.75rem;
+    color: var(--pst-color-text-muted);
 }
