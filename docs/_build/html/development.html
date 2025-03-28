@@ -31,7 +31,7 @@
 <link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=2578ddb1" />
+    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=69c62948" />
   
   <!-- So that users can add custom icons -->
   <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -45,6 +45,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'development';</script>
     <link rel="index" title="Index" href="genindex.html" />
     <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Contributing" href="development/contributing.html" />
     <link rel="prev" title="autoclean.mixins.reporting.ica.ICAReportingMixin" href="api_reference/generated/autoclean.mixins.reporting.ica.ICAReportingMixin.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -209,6 +210,10 @@
   
 
   
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
 </div>
 
     </header>
@@ -304,7 +309,11 @@
 <nav class="bd-docs-nav bd-links"
      aria-label="Section Navigation">
   <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
-  <div class="bd-toc-item navbar-nav"></div>
+  <div class="bd-toc-item navbar-nav"><ul class="nav bd-sidenav">
+<li class="toctree-l1"><a class="reference internal" href="development/contributing.html">Contributing</a></li>
+<li class="toctree-l1"><a class="reference internal" href="development/changelog.html">Changelog</a></li>
+</ul>
+</div>
 </nav></div>
     </div>
   
@@ -365,7 +374,115 @@
                   
   <section id="development">
 <h1>Development<a class="headerlink" href="#development" title="Link to this heading">#</a></h1>
-<p>Under Construction</p>
+<p>This guide provides information for developers who want to contribute to or extend AutoClean EEG.</p>
+<section id="setting-up-development-environment">
+<h2>Setting Up Development Environment<a class="headerlink" href="#setting-up-development-environment" title="Link to this heading">#</a></h2>
+<p>Prerequisites:</p>
+<ul class="simple">
+<li><p>Python 3.10 or higher</p></li>
+<li><p>Git</p></li>
+</ul>
+<ol class="arabic">
+<li><p>Clone the repository:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/cincibrainlab/autoclean_pipeline
+<span class="nb">cd</span><span class="w"> </span>autoclean_pipeline
+</pre></div>
+</div>
+</li>
+<li><p>Create a virtual environment:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>python<span class="w"> </span>-m<span class="w"> </span>venv<span class="w"> </span>.venv
+<span class="nb">source</span><span class="w"> </span>.venv/bin/activate<span class="w">  </span><span class="c1"># On Windows: .venv\Scripts\activate</span>
+</pre></div>
+</div>
+</li>
+<li><p>Install development dependencies:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
+</pre></div>
+</div>
+</li>
+</ol>
+</section>
+<section id="project-structure">
+<h2>Project Structure<a class="headerlink" href="#project-structure" title="Link to this heading">#</a></h2>
+<p>The project is organized as follows:</p>
+<ul class="simple">
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">src/autoclean/core/</span></code>: Core classes and functionality</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">pipeline.py</span></code>: Main entry point for the API</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">task.py</span></code>: Base class for all task implementations</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">src/autoclean/step_functions/</span></code>: Modular processing functions</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">io.py</span></code>: Input/output operations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">steps.py</span></code>: Core preprocessing steps</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">reports.py</span></code>: Reporting and visualization</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">src/autoclean/tasks/</span></code>: Task implementations</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">resting_eyes_open.py</span></code>: Resting state task</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">assr_default.py</span></code>: ASSR task</p></li>
+<li><p>And others…</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><dl class="simple">
+<dt><code class="docutils literal notranslate"><span class="pre">src/autoclean/utils/</span></code>: Utility functions</dt><dd><ul>
+<li><p><code class="docutils literal notranslate"><span class="pre">config.py</span></code>: Configuration handling</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">database.py</span></code>: Database operations</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">logging.py</span></code>: Logging functionality</p></li>
+</ul>
+</dd>
+</dl>
+</li>
+<li><p><code class="docutils literal notranslate"><span class="pre">configs/</span></code>: Configuration templates</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">tests/</span></code>: Unit and integration tests</p></li>
+</ul>
+</section>
+<section id="architecture">
+<h2>Architecture<a class="headerlink" href="#architecture" title="Link to this heading">#</a></h2>
+<p>AutoClean follows a modular architecture with several key components:</p>
+<ol class="arabic simple">
+<li><p><strong>Pipeline Class</strong>: Central coordinator that manages configuration, processing, and output.</p></li>
+<li><p><strong>Task Classes</strong>: Implementations for specific EEG paradigms (resting state, ASSR, etc.).</p></li>
+<li><p><strong>Step Functions</strong>: Modular processing operations that can be combined into workflows.</p></li>
+<li><p><strong>Database Tracking</strong>: Database-backed tracking of processing runs.</p></li>
+</ol>
+<p>The architecture uses a combination of:</p>
+<ul class="simple">
+<li><p><strong>Abstract Base Classes</strong>: For extensibility and consistent interfaces</p></li>
+<li><p><strong>Mixins</strong>: For shared functionality across tasks</p></li>
+<li><p><strong>Asynchronous Processing</strong>: For parallel file processing</p></li>
+<li><p><strong>YAML Configuration</strong>: For reproducible processing parameters</p></li>
+</ul>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="development/contributing.html">Contributing</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#development-process">Development Process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#development-setup">Development Setup</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#code-style">Code Style</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#testing">Testing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#documentation">Documentation</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#pull-request-process">Pull Request Process</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#licensing">Licensing</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/contributing.html#bug-reports">Bug Reports</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="development/changelog.html">Changelog</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="development/changelog.html#id1">[1.2.0] - 03/19/2025</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/changelog.html#id3">[1.1.0] - 03/3/2025</a></li>
+<li class="toctree-l2"><a class="reference internal" href="development/changelog.html#id5">[1.0.0] - 02/28/2025</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
 </section>
 
 
@@ -378,6 +495,26 @@
             </div>
             
             
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#setting-up-development-environment">Setting Up Development Environment</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#project-structure">Project Structure</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#architecture">Architecture</a></li>
+</ul>
+  </nav></div>
+
+</div></div>
               
             
           </div>

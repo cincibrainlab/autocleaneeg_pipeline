@@ -31,7 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=2578ddb1" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=69c62948" />
   
   <!-- So that users can add custom icons -->
   <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -401,8 +401,7 @@
 <dl class="py class">
 <dt class="sig sig-object py" id="autoclean.mixins.reporting.visualization.VisualizationMixin">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.reporting.visualization.</span></span><span class="sig-name descname"><span class="pre">VisualizationMixin</span></span><a class="reference internal" href="../../_modules/autoclean/mixins/reporting/visualization.html#VisualizationMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.visualization.VisualizationMixin" title="Link to this definition">#</a></dt>
-<dd><p>Bases: <a class="reference external" href="https://docs.python.org/3/library/functions.html#object" title="(in Python v3.13)"><code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></a></p>
-<p>Mixin providing visualization methods for EEG data.</p>
+<dd><p>Mixin providing visualization methods for EEG data.</p>
 <p>This mixin extends the base ReportingMixin with specialized methods for
 generating plots and visualizations of EEG data. It provides a comprehensive
 set of visualization tools for assessing data quality and understanding the
@@ -497,10 +496,12 @@ during preprocessing.</p>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.reporting.visualization.VisualizationMixin.step_psd_topo_figure">
 <span class="sig-name descname"><span class="pre">step_psd_topo_figure</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw_original</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">raw_cleaned</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pipeline</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bands</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/reporting/visualization.html#VisualizationMixin.step_psd_topo_figure"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.reporting.visualization.VisualizationMixin.step_psd_topo_figure" title="Link to this definition">#</a></dt>
-<dd><p>Generate and save a single high-resolution image that includes:
-- Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
-- Topographical maps for multiple EEG frequency bands arranged horizontally,
-showing both pre and post cleaning.
+<dd><p>Generate and save a single high-resolution image that includes:</p>
+<ul class="simple">
+<li><p>Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).</p></li>
+<li><p>Topographical maps for multiple EEG frequency bands arranged horizontally,</p></li>
+</ul>
+<p>showing both pre and post cleaning.
 - Annotations for average power and outlier channels.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>

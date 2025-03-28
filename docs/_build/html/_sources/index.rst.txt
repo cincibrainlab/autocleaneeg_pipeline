@@ -58,11 +58,3 @@ Quick Example
    :caption: Development
    
    development
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search` 
