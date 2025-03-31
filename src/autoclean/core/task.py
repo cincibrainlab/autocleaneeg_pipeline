@@ -9,7 +9,7 @@ import mne  # Core EEG processing library for data containers and processing
 
 # Local imports
 from autoclean.mixins.signal_processing.main import SignalProcessingMixin
-from autoclean.mixins.reporting.main import ReportingMixin
+from autoclean.mixins.viz.main import ReportingMixin
 
 
 class Task(ABC, SignalProcessingMixin, ReportingMixin):

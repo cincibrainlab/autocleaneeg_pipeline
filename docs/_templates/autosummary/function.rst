@@ -1,5 +1,5 @@
 {% if 'autoclean' in fullname %}
-{{ (fullname.split('.')[-1:] | join('.')) | escape | underline }}
+{{ (fullname.split('.')[-2:] | join('.')) | escape | underline }}
 {% else %}
 {{ fullname | escape | underline }}
 {% endif %}

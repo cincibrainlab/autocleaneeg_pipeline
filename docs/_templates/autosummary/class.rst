@@ -1,5 +1,5 @@
-{% if 'autoclean.mixins' in fullname %}
-{{ (fullname.split('.')[-1:] | join('.')) | escape | underline }}
+{% if 'autoclean.' in fullname %}
+{{ (fullname.split('.')[-2:] | join('.')) | escape | underline }}
 {% else %}
 {{ fullname | escape | underline }}
 {% endif %}
