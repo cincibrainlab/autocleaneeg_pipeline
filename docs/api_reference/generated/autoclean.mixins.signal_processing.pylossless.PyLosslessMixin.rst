@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.pylossless.PyLosslessMixin
-==============================================================
+﻿
+PyLosslessMixin
+===============
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.pylossless
 

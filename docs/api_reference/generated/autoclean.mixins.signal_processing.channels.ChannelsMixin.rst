@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.channels.ChannelsMixin
-==========================================================
+﻿
+ChannelsMixin
+=============
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.channels
 

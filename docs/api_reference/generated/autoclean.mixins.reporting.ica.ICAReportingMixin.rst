@@ -1,5 +1,7 @@
-﻿autoclean.mixins.reporting.ica.ICAReportingMixin
-================================================
+﻿
+ICAReportingMixin
+=================
+
 
 .. currentmodule:: autoclean.mixins.reporting.ica
 

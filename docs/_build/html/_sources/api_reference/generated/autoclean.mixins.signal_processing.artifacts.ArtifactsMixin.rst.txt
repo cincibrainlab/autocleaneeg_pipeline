@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.artifacts.ArtifactsMixin
-============================================================
+﻿
+ArtifactsMixin
+==============
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.artifacts
 

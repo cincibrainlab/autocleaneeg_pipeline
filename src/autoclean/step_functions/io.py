@@ -255,20 +255,19 @@ def get_plugin_for_combination(format_id: str, montage_name: str) -> BaseEEGPlug
 def import_eeg(autoclean_dict: dict, preload: bool = True) -> Union[mne.io.Raw, mne.Epochs]:
     """Import EEG data using the appropriate plugin.
     
-    This function replaces the original import_eeg function but uses a 
-    unified plugin-based architecture.
+    This function uses a unified plugin-based architecture to import EEG data.
     
-    Args:
-        autoclean_dict: Configuration dictionary
-        preload: Whether to load data into memory
+    Parameters
+    ----------
+        autoclean_dict : dict
+            Configuration dictionary
+        preload : bool
+            Whether to load data into memory
         
-    Returns:
+    Returns
+    -------
         mne.io.Raw or mne.Epochs: Imported and configured EEG data
         
-    Raises:
-        FileNotFoundError: If input file doesn't exist
-        ValueError: If no suitable plugin is found
-        RuntimeError: If loading or validation fails
     """
     unprocessed_file = Path(autoclean_dict["unprocessed_file"])
     
@@ -600,18 +599,22 @@ def save_stc_to_file(
     This function saves an MNE SourceEstimate object at a specified processing stage,
     consistent with the pipeline's directory structure and configuration.
 
-    Args:
-        stc: SourceEstimate object to save
-        autoclean_dict: Configuration dictionary
-        stage: Processing stage identifier (default: "post_source_localization")
-        output_path: Optional custom output path. If None, uses config
+    Parameters
+    ----------
+        stc : mne.SourceEstimate
+            SourceEstimate object to save
+        autoclean_dict : dict
+            Configuration dictionary
+        stage : str
+            Processing stage identifier (default: "post_source_localization")
+        output_path : Optional[Path]
+            Optional custom output path. If None, uses config
 
-    Returns:
-        Path: Path to the saved file (stage path)
+    Returns
+    -------
+        Path: Path
+            Path to the saved file (stage path)
 
-    Raises:
-        ValueError: If stage is not configured
-        RuntimeError: If saving fails
     """
     # Validate stage configuration
     if stage not in autoclean_dict["stage_files"]:
@@ -684,22 +687,28 @@ def save_raw_to_set(
     output_path: Optional[Path] = None,
     flagged: bool = False,
 ) -> Path:
-    """Save raw EEG data to file.
+    """Save continuous EEG data to file.
 
     This function saves raw EEG data at various processing stages.
     
-    Args:
-        raw: Raw EEG data to save
-        autoclean_dict: Configuration dictionary
-        stage: Processing stage identifier (e.g., "post_import")
-        output_path: Optional custom output path. If None, uses config
-        flagged: Whether to save to flagged directory
-    Returns:
-        Path: Path to the saved file (stage path)
+    Parameters
+    ----------
+        raw : mne.io.Raw
+            Raw EEG data to save
+        autoclean_dict : dict
+            Configuration dictionary
+        stage : str
+            Processing stage identifier (e.g., "post_import")
+        output_path : Optional[Path]
+            Optional custom output path. If None, uses config
+        flagged : bool
+            Whether to save to flagged directory
 
-    Raises:
-        ValueError: If stage is not configured
-        RuntimeError: If saving fails
+    Returns
+    -------
+        Path: Path
+            Path to the saved file (stage path)
+
     """
 
     if stage not in autoclean_dict["stage_files"]:
@@ -774,18 +783,24 @@ def save_epochs_to_set(
 
     This function saves epoched EEG data, typically after processing.
     
-    Args:
-        epochs: Epoched EEG data to save
-        autoclean_dict: Configuration dictionary
-        stage: Processing stage identifier (default: "post_clean_epochs")
-        output_path: Optional custom output path. If None, uses config
-        flagged: Whether to save to flagged directory
-    Returns:
-        Path: Path to the saved file (stage path)
+    Parameters
+    ----------
+        epochs : mne.Epochs
+            Epoched EEG data to save
+        autoclean_dict : dict
+            Configuration dictionary
+        stage : str
+            Processing stage identifier (default: "post_clean_epochs")
+        output_path : Optional[Path]
+            Optional custom output path. If None, uses config
+        flagged : bool
+            Whether to save to flagged directory
 
-    Raises:
-        ValueError: If stage is not configured
-        RuntimeError: If saving fails
+    Returns
+    -------
+        Path: Path
+            Path to the saved file (stage path)
+
     """
     
     if stage not in autoclean_dict["stage_files"]:

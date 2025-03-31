@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.regular\_epochs.RegularEpochsMixin
-======================================================================
+﻿
+RegularEpochsMixin
+==================
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.regular_epochs
 

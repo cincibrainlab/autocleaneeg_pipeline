@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.segmentation.SegmentationMixin
-==================================================================
+﻿
+SegmentationMixin
+=================
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.segmentation
 

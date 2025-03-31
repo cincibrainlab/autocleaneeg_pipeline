@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.reference.ReferenceMixin
-============================================================
+﻿
+ReferenceMixin
+==============
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.reference
 

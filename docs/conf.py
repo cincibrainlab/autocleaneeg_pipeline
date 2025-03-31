@@ -21,12 +21,12 @@ except ImportError as e:
 
 # -- Project information -----------------------------------------------------
 project = 'AutoClean'
-copyright = f'2023-{date.today().year}, AutoClean Team'
+copyright = f'2025-{date.today().year}, AutoClean Team'
 author = 'Gavin Gammoh, Ernest Pedapati'
 
 # The full version, including alpha/beta/rc tags
 # from autoclean import __version__ as version
-version = '1.1.0'  # Hardcoded to avoid import errors
+version = '1.2.0'  # Hardcoded to avoid import errors
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -71,6 +71,7 @@ numpydoc_xref_param_type = True
 numpydoc_xref_aliases = {
     'ndarray': 'numpy.ndarray',
     'DataFrame': 'pandas.DataFrame',
+    'Path': 'pathlib.Path',
 }
 numpydoc_show_inherited_class_members = False
 numpydoc_attributes_as_param_list = False
@@ -160,7 +161,7 @@ todo_include_todos = True
 # Mock imports for autodoc
 autodoc_mock_imports = [
     'numpy', 'pandas', 'matplotlib', 'scipy', 'mne', 'pylossless', 
-    'rich', 'dotenv', 'pyyaml', 'schema', 'mne_bids', 'pathlib', 
+    'rich', 'dotenv', 'pyyaml', 'schema', 'mne_bids', 
     'pybv', 'torch', 'pyprep', 'eeglabio', 'autoreject', 'ulid',
     'unqlite', 'loguru', 'reportlab', 'pyqt5', 'pyvistaqt',
     'tqdm', 'yaml', 'asyncio', 'json', 'datetime',
