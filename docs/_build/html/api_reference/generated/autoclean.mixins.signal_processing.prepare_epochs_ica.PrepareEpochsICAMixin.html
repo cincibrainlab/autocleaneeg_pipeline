@@ -31,7 +31,7 @@
 <link href="../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=69c62948" />
+    <link rel="stylesheet" type="text/css" href="../../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
   <script src="../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -445,16 +445,16 @@ from Marijn van Vliet (<a class="reference external" href="https://gist.github.c
 </dl>
 <p class="rubric">Examples</p>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Prepare epochs for ICA with default parameters</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">clean_epochs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_epochs_for_ica</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">prepare_epochs_for_ica</span><span class="p">()</span> <span class="c1">#Modifies self.epochs</span>
 </pre></div>
 </div>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Prepare epochs with a stricter threshold</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">clean_epochs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prepare_epochs_for_ica</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="bp">self</span><span class="o">.</span><span class="n">prepare_epochs_for_ica</span><span class="p">(</span><span class="n">threshold</span><span class="o">=</span><span class="mf">2.5</span><span class="p">)</span> <span class="c1">#Modifies self.epochs</span>
 </pre></div>
 </div>
 <div class="doctest highlight-default notranslate"><div class="highlight"><pre><span></span><span class="gp">&gt;&gt;&gt; </span><span class="c1"># Check how many epochs were marked as bad</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">n_good</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">clean_epochs</span><span class="p">)</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">n_bad</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">clean_epochs</span><span class="o">.</span><span class="n">drop_log</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_good</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n_good</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">n_bad</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">epochs</span><span class="o">.</span><span class="n">drop_log</span><span class="p">)</span> <span class="o">-</span> <span class="n">n_good</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Marked </span><span class="si">{</span><span class="n">n_bad</span><span class="si">}</span><span class="s2"> epochs as bad out of </span><span class="si">{</span><span class="n">n_good</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="n">n_bad</span><span class="si">}</span><span class="s2"> total&quot;</span><span class="p">)</span>
 </pre></div>
 </div>

@@ -24,7 +24,8 @@ Quick Start
 Basic Usage
 ^^^^^^^^^^
 
-The most straightforward way to use AutoClean is through the ``Pipeline`` class:
+In order to run a task on a dataset you will use the ``Pipeline`` class.
+
 
 .. code-block:: python
 
@@ -41,6 +42,7 @@ The most straightforward way to use AutoClean is through the ``Pipeline`` class:
        file_path="/path/to/data.set",
        task="RestingEyesOpen"
    )
+
 
 Processing Multiple Files
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -65,6 +67,24 @@ AutoClean supports batch processing of files, with both synchronous and asynchro
        pattern="*.raw",
        max_concurrent=3  # Process up to 3 files simultaneously
    ))
+
+**Note:** The inputted task name must match the name in the configuration file and the task class.
+
+
+*For example:*
+
+.. code-block:: python
+
+    #src/autoclean/tasks/resting_eyes_open.py
+    class RestingEyesOpenTask(Task):
+
+
+.. code-block:: yaml
+
+   #configs/autoclean_config.yaml
+   tasks:
+     RestingEyesOpen:
+
 
 Docker Usage
 -----------
