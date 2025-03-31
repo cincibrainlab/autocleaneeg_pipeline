@@ -49,28 +49,6 @@ class ReportingMixin(BaseReportingMixin, VisualizationMixin, ICAReportingMixin):
        - Rejected component reports
        - Component activation plots
        
-    3. Report generation:
-       - Processing summary reports (PDF)
-       - Log updates
-       - JSON summaries
     """
     
-    # def __init__(self, *args, **kwargs):
-    #     super().__init__(*args, **kwargs)
-        
-    #     # Initialize all mixins using composition instead of inheritance
-    #     self.base_mixin = BaseReportingMixin()
-    #     self.viz_mixin = VisualizationMixin()
-    #     self.ica_mixin = ICAReportingMixin()
-    #     self.report_mixin = ReportGenerationMixin()
-        
-    # # Delegate methods to the appropriate mixins
-    # def __getattr__(self, name):
-    #     # Check each mixin for the attribute
-    #     for mixin in [self.viz_mixin, self.ica_mixin, self.report_mixin, self.base_mixin]:
-    #         if hasattr(mixin, name):
-    #             return getattr(mixin, name)
-        
-    #     # If not found, raise AttributeError
-    #     raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
     pass

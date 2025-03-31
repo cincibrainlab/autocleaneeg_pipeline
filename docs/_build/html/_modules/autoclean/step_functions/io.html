@@ -1,0 +1,1316 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>autoclean.step_functions.io &#8212; AutoClean 1.2.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=cf960141" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../_static/documentation_options.js?v=872021ae"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/autoclean/step_functions/io';</script>
+    <link rel="index" title="Index" href="../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="1.2.0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AutoClean</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Autoclean
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api_reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../development.html">
+    Development
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../index.html">
+    Autoclean
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../api_reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../development.html">
+    Development
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item"><nav class="sidebar-indices-items" aria-labelledby="pst-indices-navigation-heading-2">
+  <p id="pst-indices-navigation-heading-2" class="sidebar-indices-items__title" role="heading" aria-level="1">Indices</p>
+  <ul class="indices-link">
+        <li class="toctree-l1">
+          <a class="reference internal"
+             href="../../../genindex.html"
+             accesskey="I">General Index</a>
+        </li>
+  </ul>
+</nav></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">autoclean.step_functions.io</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for autoclean.step_functions.io</h1><div class="highlight"><pre>
+<span></span><span class="c1"># src/autoclean/step_functions/io.py</span>
+<span class="sd">&quot;&quot;&quot;Input/Output functions for EEG data.</span>
+
+<span class="sd">This module provides a unified plugin-based architecture for loading and processing EEG data.</span>
+<span class="sd">Each plugin handles both the data import and montage configuration as a single unit,</span>
+<span class="sd">making it easier to extend functionality without modifying core code.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">abc</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">importlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pkgutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">Type</span><span class="p">,</span> <span class="n">Union</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">mne</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scipy.io</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">picard</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.utils.database</span><span class="w"> </span><span class="kn">import</span> <span class="n">manage_database</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.utils.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">message</span>
+
+<span class="n">__all__</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="s2">&quot;import_eeg&quot;</span><span class="p">,</span> 
+    <span class="s2">&quot;save_raw_to_set&quot;</span><span class="p">,</span> 
+    <span class="s2">&quot;save_epochs_to_set&quot;</span><span class="p">,</span> 
+    <span class="s2">&quot;register_plugin&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;BaseEEGPlugin&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;register_format&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;BaseEventProcessor&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;register_event_processor&quot;</span><span class="p">,</span>
+    <span class="s2">&quot;get_event_processor_for_task&quot;</span>
+<span class="p">]</span>
+
+<span class="c1"># Registry to store format mappings and plugins</span>
+<span class="n">_FORMAT_REGISTRY</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Maps extensions to format IDs</span>
+<span class="n">_PLUGIN_REGISTRY</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Maps (format_id, montage_name) tuples to plugin classes</span>
+
+<span class="c1"># Core built-in formats</span>
+<span class="n">_CORE_FORMATS</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s1">&#39;set&#39;</span><span class="p">:</span> <span class="s1">&#39;EEGLAB_SET&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;raw&#39;</span><span class="p">:</span> <span class="s1">&#39;EGI_RAW&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;fif&#39;</span><span class="p">:</span> <span class="s1">&#39;GENERIC_FIF&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;vhdr&#39;</span><span class="p">:</span> <span class="s1">&#39;BRAINVISION_VHDR&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;bdf&#39;</span><span class="p">:</span> <span class="s1">&#39;BIOSEMI_BDF&#39;</span><span class="p">,</span>
+    <span class="s1">&#39;cnt&#39;</span><span class="p">:</span> <span class="s1">&#39;NEUROSCAN_CNT&#39;</span>
+<span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">register_format</span><span class="p">(</span><span class="n">extension</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">format_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a new file format.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        extension: File extension without dot (e.g., &#39;xyz&#39;)</span>
+<span class="sd">        format_id: Unique identifier for the format (e.g., &#39;XYZ_FORMAT&#39;)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">extension</span> <span class="o">=</span> <span class="n">extension</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">extension</span> <span class="ow">in</span> <span class="n">_FORMAT_REGISTRY</span> <span class="ow">or</span> <span class="n">extension</span> <span class="ow">in</span> <span class="n">_CORE_FORMATS</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Overriding existing format for extension: </span><span class="si">{</span><span class="n">extension</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="n">_FORMAT_REGISTRY</span><span class="p">[</span><span class="n">extension</span><span class="p">]</span> <span class="o">=</span> <span class="n">format_id</span>
+    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Registered file format: </span><span class="si">{</span><span class="n">format_id</span><span class="si">}</span><span class="s2"> for extension .</span><span class="si">{</span><span class="n">extension</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_format_from_extension</span><span class="p">(</span><span class="n">extension</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get format ID from file extension.&quot;&quot;&quot;</span>
+    <span class="n">extension</span> <span class="o">=</span> <span class="n">extension</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="o">.</span><span class="n">lstrip</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)</span>
+    <span class="n">formats</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">_CORE_FORMATS</span><span class="p">,</span> <span class="o">**</span><span class="n">_FORMAT_REGISTRY</span><span class="p">}</span>
+    <span class="k">return</span> <span class="n">formats</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">extension</span><span class="p">)</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseEEGPlugin</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for unified EEG data plugins.</span>
+<span class="sd">    </span>
+<span class="sd">    Each plugin handles both importing data and configuring the montage</span>
+<span class="sd">    for a specific combination of file format and EEG system.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">supports_format_montage</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">format_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if this plugin supports the given format and montage combination.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            format_id: Format identifier</span>
+<span class="sd">            montage_name: Name of the EEG montage/system</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if this plugin can handle the combination, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+    
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">import_and_configure</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                           <span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">,</span> 
+                           <span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> 
+                           <span class="n">preload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Import data and configure montage in a single step.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            file_path: Path to the EEG data file</span>
+<span class="sd">            autoclean_dict: Configuration dictionary</span>
+<span class="sd">            preload: Whether to load data into memory</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            mne.io.Raw or mne.Epochs: Processed EEG data</span>
+<span class="sd">            </span>
+<span class="sd">        Raises:</span>
+<span class="sd">            RuntimeError: If processing fails</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                     <span class="n">raw</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> 
+                     <span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span> 
+                                                   <span class="n">Optional</span><span class="p">[</span><span class="n">Dict</span><span class="p">],</span> 
+                                                   <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process events and annotations in the EEG data.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            raw: Raw EEG data</span>
+<span class="sd">            autoclean_dict: Configuration dictionary</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple: (events, event_id, events_df) - processed events information</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Default implementation - override for format-specific event processing</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;Using default event processing&quot;</span><span class="p">)</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">events</span><span class="p">,</span> <span class="n">event_id</span> <span class="o">=</span> <span class="n">mne</span><span class="o">.</span><span class="n">events_from_annotations</span><span class="p">(</span><span class="n">raw</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">events</span><span class="p">,</span> <span class="n">event_id</span><span class="p">,</span> <span class="kc">None</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Default event processing failed: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span><span class="p">,</span> <span class="kc">None</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_metadata</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get additional metadata about this plugin.</span>
+<span class="sd">        </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            dict: Additional metadata to include in the import record</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Default implementation - override to add custom metadata</span>
+        <span class="k">return</span> <span class="p">{</span>
+            <span class="s2">&quot;plugin_name&quot;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+            <span class="s2">&quot;plugin_version&quot;</span><span class="p">:</span> <span class="nb">getattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s2">&quot;VERSION&quot;</span><span class="p">,</span> <span class="s2">&quot;1.0.0&quot;</span><span class="p">)</span>
+        <span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">register_plugin</span><span class="p">(</span><span class="n">plugin_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseEEGPlugin</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a new EEG plugin.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        plugin_class: Plugin class to register (must inherit from BaseEEGPlugin)</span>
+<span class="sd">    </span>
+<span class="sd">    Raises:</span>
+<span class="sd">        TypeError: If plugin_class is not a subclass of BaseEEGPlugin</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">plugin_class</span><span class="p">,</span> <span class="n">BaseEEGPlugin</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Plugin must inherit from BaseEEGPlugin, got </span><span class="si">{</span><span class="n">plugin_class</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Create an instance to test supported combinations</span>
+    <span class="n">plugin_instance</span> <span class="o">=</span> <span class="n">plugin_class</span><span class="p">()</span>
+    
+    <span class="c1"># Check each format and montage combination</span>
+    <span class="k">for</span> <span class="n">format_id</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">_CORE_FORMATS</span><span class="o">.</span><span class="n">values</span><span class="p">())</span> <span class="o">+</span> <span class="nb">list</span><span class="p">(</span><span class="n">_FORMAT_REGISTRY</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+        <span class="c1"># Test some common montages plus check any custom ones that might be registered</span>
+        <span class="c1"># In a real implementation, we might want a more systematic way to enumerate supported montages</span>
+        <span class="n">test_montages</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="s2">&quot;GSN-HydroCel-129&quot;</span><span class="p">,</span> <span class="s2">&quot;GSN-HydroCel-124&quot;</span><span class="p">,</span> <span class="s2">&quot;standard_1020&quot;</span><span class="p">,</span> <span class="s2">&quot;biosemi64&quot;</span><span class="p">,</span> 
+            <span class="s2">&quot;MEA30&quot;</span><span class="p">,</span> <span class="s2">&quot;BioSemi-256&quot;</span><span class="p">,</span> <span class="s2">&quot;CustomCap-64&quot;</span>
+        <span class="p">]</span>
+        
+        <span class="k">for</span> <span class="n">montage_name</span> <span class="ow">in</span> <span class="n">test_montages</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">plugin_class</span><span class="o">.</span><span class="n">supports_format_montage</span><span class="p">(</span><span class="n">format_id</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">):</span>
+                <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">format_id</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_PLUGIN_REGISTRY</span><span class="p">:</span>
+                    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Overriding existing plugin for </span><span class="si">{</span><span class="n">format_id</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">_PLUGIN_REGISTRY</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">plugin_class</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Registered </span><span class="si">{</span><span class="n">plugin_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> for </span><span class="si">{</span><span class="n">format_id</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">discover_plugins</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Discover and register all available plugins.&quot;&quot;&quot;</span>
+    <span class="c1"># Discover format registrations</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">autoclean.plugins.formats</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">formats_pkg</span>
+        
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">is_pkg</span> <span class="ow">in</span> <span class="n">pkgutil</span><span class="o">.</span><span class="n">iter_modules</span><span class="p">(</span><span class="n">formats_pkg</span><span class="o">.</span><span class="n">__path__</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_pkg</span><span class="p">:</span>
+                <span class="c1"># Simply importing the module will trigger the format registrations</span>
+                <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;autoclean.plugins.formats.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;No format registration plugins found&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Discover plugins</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">autoclean.plugins.eeg_plugins</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plugins_pkg</span>
+        
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">is_pkg</span> <span class="ow">in</span> <span class="n">pkgutil</span><span class="o">.</span><span class="n">iter_modules</span><span class="p">(</span><span class="n">plugins_pkg</span><span class="o">.</span><span class="n">__path__</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_pkg</span><span class="p">:</span>
+                <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;autoclean.plugins.eeg_plugins.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">item_name</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+                    <span class="n">item</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">item_name</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span> <span class="ow">and</span> 
+                        <span class="nb">issubclass</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">BaseEEGPlugin</span><span class="p">)</span> <span class="ow">and</span> 
+                        <span class="n">item</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">BaseEEGPlugin</span><span class="p">):</span>
+                        <span class="n">register_plugin</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;No EEG plugins package found, using built-in plugins only&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_plugin_for_combination</span><span class="p">(</span><span class="n">format_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">BaseEEGPlugin</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get appropriate plugin for the given format and montage.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        format_id: Format identifier</span>
+<span class="sd">        montage_name: Name of the EEG montage/system</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        BaseEEGPlugin: An instance of the appropriate plugin class</span>
+<span class="sd">        </span>
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If no suitable plugin is found</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Ensure plugins are discovered</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_PLUGIN_REGISTRY</span><span class="p">:</span>
+        <span class="n">discover_plugins</span><span class="p">()</span>
+    
+    <span class="c1"># Try to get an exact match</span>
+    <span class="n">key</span> <span class="o">=</span> <span class="p">(</span><span class="n">format_id</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">_PLUGIN_REGISTRY</span><span class="p">:</span>
+        <span class="n">plugin_class</span> <span class="o">=</span> <span class="n">_PLUGIN_REGISTRY</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">plugin_class</span><span class="p">()</span>
+    
+    <span class="c1"># If no exact match, look for plugins that claim they can handle this combination</span>
+    <span class="k">for</span> <span class="n">plugin_class</span> <span class="ow">in</span> <span class="nb">set</span><span class="p">(</span><span class="n">_PLUGIN_REGISTRY</span><span class="o">.</span><span class="n">values</span><span class="p">()):</span>
+        <span class="k">if</span> <span class="n">plugin_class</span><span class="o">.</span><span class="n">supports_format_montage</span><span class="p">(</span><span class="n">format_id</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">plugin_class</span><span class="p">()</span>
+    
+    <span class="c1"># If still no match, try to find a plugin that supports this format with any montage</span>
+    <span class="n">format_plugins</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">plugin_class</span> <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">plugin_class</span> <span class="ow">in</span> <span class="n">_PLUGIN_REGISTRY</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> 
+        <span class="k">if</span> <span class="n">key</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="n">format_id</span>
+    <span class="p">]</span>
+    
+    <span class="k">if</span> <span class="n">format_plugins</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;No exact plugin match for </span><span class="si">{</span><span class="n">format_id</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">. Using compatible format plugin.&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">format_plugins</span><span class="p">[</span><span class="mi">0</span><span class="p">]()</span>
+    
+    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;No plugin found for format &#39;</span><span class="si">{</span><span class="n">format_id</span><span class="si">}</span><span class="s2">&#39; and montage &#39;</span><span class="si">{</span><span class="n">montage_name</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="import_eeg">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.step_functions.io.import_eeg.html#autoclean.step_functions.io.import_eeg">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">import_eeg</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">preload</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Import EEG data using the appropriate plugin.</span>
+<span class="sd">    </span>
+<span class="sd">    This function uses a unified plugin-based architecture to import EEG data.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        autoclean_dict : dict</span>
+<span class="sd">            Configuration dictionary</span>
+<span class="sd">        preload : bool</span>
+<span class="sd">            Whether to load data into memory</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        mne.io.Raw or mne.Epochs: Imported and configured EEG data</span>
+<span class="sd">        </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">unprocessed_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;unprocessed_file&quot;</span><span class="p">])</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">unprocessed_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Input file not found: </span><span class="si">{</span><span class="n">unprocessed_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Determine file format</span>
+        <span class="n">format_id</span> <span class="o">=</span> <span class="n">get_format_from_extension</span><span class="p">(</span><span class="n">unprocessed_file</span><span class="o">.</span><span class="n">suffix</span><span class="p">)</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">format_id</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unsupported file format: </span><span class="si">{</span><span class="n">unprocessed_file</span><span class="o">.</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Get montage name from configuration</span>
+        <span class="n">montage_name</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;eeg_system&quot;</span><span class="p">]</span>
+                
+        <span class="c1"># Get appropriate plugin</span>
+        <span class="n">plugin</span> <span class="o">=</span> <span class="n">get_plugin_for_combination</span><span class="p">(</span><span class="n">format_id</span><span class="p">,</span> <span class="n">montage_name</span><span class="p">)</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Using plugin: </span><span class="si">{</span><span class="n">plugin</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Import and configure the data</span>
+        <span class="n">eeg_data</span> <span class="o">=</span> <span class="n">plugin</span><span class="o">.</span><span class="n">import_and_configure</span><span class="p">(</span><span class="n">unprocessed_file</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">,</span> <span class="n">preload</span><span class="p">)</span>
+        
+        <span class="c1"># Determine if we have Raw or Epochs</span>
+        <span class="n">is_epochs</span> <span class="o">=</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">eeg_data</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">)</span>
+        
+        <span class="c1"># Process events if we have Raw data</span>
+        <span class="n">events</span> <span class="o">=</span> <span class="n">event_dict</span> <span class="o">=</span> <span class="n">events_df</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_epochs</span><span class="p">:</span>
+            <span class="c1"># Basic event extraction from annotations</span>
+            <span class="n">events</span><span class="p">,</span> <span class="n">event_dict</span><span class="p">,</span> <span class="n">events_df</span> <span class="o">=</span> <span class="n">plugin</span><span class="o">.</span><span class="n">process_events</span><span class="p">(</span><span class="n">eeg_data</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">)</span>
+            
+            <span class="c1"># Apply task-specific event processing if specified</span>
+            <span class="k">if</span> <span class="s2">&quot;task&quot;</span> <span class="ow">in</span> <span class="n">autoclean_dict</span> <span class="ow">and</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;task&quot;</span><span class="p">]:</span>
+                <span class="n">task</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;task&quot;</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Applying task-specific event processing for: </span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">eeg_data</span> <span class="o">=</span> <span class="n">_apply_task_specific_processing</span><span class="p">(</span><span class="n">eeg_data</span><span class="p">,</span> <span class="n">events</span><span class="p">,</span> <span class="n">events_df</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">)</span>
+        
+        <span class="c1"># Get plugin metadata</span>
+        <span class="n">plugin_metadata</span> <span class="o">=</span> <span class="n">plugin</span><span class="o">.</span><span class="n">get_metadata</span><span class="p">()</span>
+        
+        <span class="c1"># Prepare metadata</span>
+        <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s2">&quot;import_eeg&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;import_function&quot;</span><span class="p">:</span> <span class="s2">&quot;import_eeg&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;plugin_used&quot;</span><span class="p">:</span> <span class="n">plugin</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span>
+                <span class="s2">&quot;file_format&quot;</span><span class="p">:</span> <span class="n">format_id</span><span class="p">,</span>
+                <span class="s2">&quot;montage_name&quot;</span><span class="p">:</span> <span class="n">montage_name</span><span class="p">,</span>
+                <span class="s2">&quot;creationDateTime&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+                <span class="s2">&quot;unprocessedFile&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">unprocessed_file</span><span class="o">.</span><span class="n">name</span><span class="p">),</span>
+                <span class="s2">&quot;eegSystem&quot;</span><span class="p">:</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;eeg_system&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;sampleRate&quot;</span><span class="p">:</span> <span class="n">eeg_data</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;sfreq&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;channelCount&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">eeg_data</span><span class="o">.</span><span class="n">ch_names</span><span class="p">),</span>
+                <span class="s2">&quot;data_type&quot;</span><span class="p">:</span> <span class="s2">&quot;epochs&quot;</span> <span class="k">if</span> <span class="n">is_epochs</span> <span class="k">else</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span>
+                <span class="o">**</span><span class="n">plugin_metadata</span>  <span class="c1"># Include any plugin-specific metadata</span>
+            <span class="p">}</span>
+        <span class="p">}</span>
+        
+        <span class="c1"># Add additional metadata for Raw data</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">is_epochs</span><span class="p">:</span>
+            <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;import_eeg&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                <span class="s2">&quot;durationSec&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">eeg_data</span><span class="o">.</span><span class="n">n_times</span><span class="p">)</span> <span class="o">/</span> <span class="n">eeg_data</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;sfreq&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;numberSamples&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">eeg_data</span><span class="o">.</span><span class="n">n_times</span><span class="p">),</span>
+                <span class="s2">&quot;hasEvents&quot;</span><span class="p">:</span> <span class="n">events</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">,</span>
+            <span class="p">})</span>
+            
+            <span class="c1"># Add event information to metadata if present</span>
+            <span class="k">if</span> <span class="n">events</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;import_eeg&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                    <span class="s2">&quot;event_dict&quot;</span><span class="p">:</span> <span class="n">event_dict</span><span class="p">,</span>
+                    <span class="s2">&quot;event_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">),</span>
+                    <span class="s2">&quot;unique_event_types&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">events</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">])),</span>
+                <span class="p">})</span>
+                
+            <span class="k">if</span> <span class="n">events_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;import_eeg&quot;</span><span class="p">][</span><span class="s2">&quot;additional_event_info&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s2">&quot;variables&quot;</span><span class="p">:</span> <span class="nb">list</span><span class="p">(</span><span class="n">events_df</span><span class="o">.</span><span class="n">columns</span><span class="p">),</span>
+                    <span class="s2">&quot;event_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">events_df</span><span class="p">)</span>
+                <span class="p">}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Add epoch-specific metadata</span>
+            <span class="n">metadata</span><span class="p">[</span><span class="s2">&quot;import_eeg&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">update</span><span class="p">({</span>
+                <span class="s2">&quot;n_epochs&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">eeg_data</span><span class="p">),</span>
+                <span class="s2">&quot;tmin&quot;</span><span class="p">:</span> <span class="n">eeg_data</span><span class="o">.</span><span class="n">tmin</span><span class="p">,</span>
+                <span class="s2">&quot;tmax&quot;</span><span class="p">:</span> <span class="n">eeg_data</span><span class="o">.</span><span class="n">tmax</span><span class="p">,</span>
+                <span class="s2">&quot;baseline&quot;</span><span class="p">:</span> <span class="n">eeg_data</span><span class="o">.</span><span class="n">baseline</span>
+            <span class="p">})</span>
+            
+        <span class="c1"># Update database</span>
+        <span class="n">manage_database</span><span class="p">(</span>
+            <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update&quot;</span><span class="p">,</span>
+            <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">],</span> <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">},</span>
+        <span class="p">)</span>
+        
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;✓ EEG data imported successfully as </span><span class="si">{</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;import_eeg&#39;</span><span class="p">][</span><span class="s1">&#39;data_type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">eeg_data</span>
+        
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to import EEG data: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span></div>
+
+
+
+<span class="c1"># Event processor plugin system</span>
+<span class="n">_EVENT_PROCESSOR_REGISTRY</span> <span class="o">=</span> <span class="p">{}</span>  <span class="c1"># Maps task names to event processor classes</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">BaseEventProcessor</span><span class="p">(</span><span class="n">abc</span><span class="o">.</span><span class="n">ABC</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Abstract base class for event processing plugins.</span>
+<span class="sd">    </span>
+<span class="sd">    Each plugin handles task-specific event processing logic for a particular</span>
+<span class="sd">    experimental paradigm or data format.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="nd">@classmethod</span>
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">supports_task</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if this processor supports the given task.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            task_name: Name of the task</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if this processor can handle the task, False otherwise</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">_check_config_enabled</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">step_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">default</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Check if a specific processing step is enabled in configuration.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            step_name: Name of the step in configuration</span>
+<span class="sd">            autoclean_dict: Configuration dictionary</span>
+<span class="sd">            default: Default value if not specified in config</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if enabled, False if disabled</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Configuration can be specified in several ways, check all of them</span>
+        <span class="k">if</span> <span class="n">step_name</span> <span class="ow">in</span> <span class="n">autoclean_dict</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="n">step_name</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="s2">&quot;processing_steps&quot;</span> <span class="ow">in</span> <span class="n">autoclean_dict</span> <span class="ow">and</span> <span class="n">step_name</span> <span class="ow">in</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;processing_steps&quot;</span><span class="p">]:</span>
+            <span class="k">return</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;processing_steps&quot;</span><span class="p">][</span><span class="n">step_name</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">default</span>
+    
+    <span class="nd">@abc</span><span class="o">.</span><span class="n">abstractmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
+                     <span class="n">raw</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span>
+                     <span class="n">events</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">],</span>
+                     <span class="n">events_df</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">],</span>
+                     <span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process events for a specific task.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            raw: Raw EEG data</span>
+<span class="sd">            events: Event array from MNE</span>
+<span class="sd">            events_df: DataFrame containing event information</span>
+<span class="sd">            autoclean_dict: Configuration dictionary</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            mne.io.Raw: Raw data with processed events/annotations</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">pass</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">register_event_processor</span><span class="p">(</span><span class="n">processor_class</span><span class="p">:</span> <span class="n">Type</span><span class="p">[</span><span class="n">BaseEventProcessor</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Register a new event processor plugin.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        processor_class: Event processor class to register (must inherit from BaseEventProcessor)</span>
+<span class="sd">    </span>
+<span class="sd">    Raises:</span>
+<span class="sd">        TypeError: If processor_class is not a subclass of BaseEventProcessor</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="nb">issubclass</span><span class="p">(</span><span class="n">processor_class</span><span class="p">,</span> <span class="n">BaseEventProcessor</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Event processor must inherit from BaseEventProcessor, got </span><span class="si">{</span><span class="n">processor_class</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Create an instance to test supported tasks</span>
+    <span class="n">processor_instance</span> <span class="o">=</span> <span class="n">processor_class</span><span class="p">()</span>
+    
+    <span class="c1"># Test with known tasks</span>
+    <span class="n">test_tasks</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;p300_grael4k&quot;</span><span class="p">,</span> <span class="s2">&quot;hbcd_mmn&quot;</span><span class="p">,</span> <span class="s2">&quot;resting_eyes_open&quot;</span><span class="p">,</span> <span class="s2">&quot;custom_task&quot;</span><span class="p">,</span> 
+        <span class="s2">&quot;bb_long&quot;</span><span class="p">,</span> <span class="s2">&quot;mouse_xdat_assr&quot;</span><span class="p">,</span> <span class="s2">&quot;mouse_xdat_chirp&quot;</span>
+    <span class="p">]</span>
+    
+    <span class="k">for</span> <span class="n">task_name</span> <span class="ow">in</span> <span class="n">test_tasks</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">processor_class</span><span class="o">.</span><span class="n">supports_task</span><span class="p">(</span><span class="n">task_name</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">task_name</span> <span class="ow">in</span> <span class="n">_EVENT_PROCESSOR_REGISTRY</span><span class="p">:</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Overriding existing event processor for task: </span><span class="si">{</span><span class="n">task_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">_EVENT_PROCESSOR_REGISTRY</span><span class="p">[</span><span class="n">task_name</span><span class="p">]</span> <span class="o">=</span> <span class="n">processor_class</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Registered </span><span class="si">{</span><span class="n">processor_class</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2"> for task: </span><span class="si">{</span><span class="n">task_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">discover_event_processors</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Discover and register all available event processor plugins.&quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="kn">import</span><span class="w"> </span><span class="nn">autoclean.plugins.event_processors</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">processors_pkg</span>
+        
+        <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">is_pkg</span> <span class="ow">in</span> <span class="n">pkgutil</span><span class="o">.</span><span class="n">iter_modules</span><span class="p">(</span><span class="n">processors_pkg</span><span class="o">.</span><span class="n">__path__</span><span class="p">):</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">is_pkg</span><span class="p">:</span>
+                <span class="n">module</span> <span class="o">=</span> <span class="n">importlib</span><span class="o">.</span><span class="n">import_module</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;autoclean.plugins.event_processors.</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">for</span> <span class="n">item_name</span> <span class="ow">in</span> <span class="nb">dir</span><span class="p">(</span><span class="n">module</span><span class="p">):</span>
+                    <span class="n">item</span> <span class="o">=</span> <span class="nb">getattr</span><span class="p">(</span><span class="n">module</span><span class="p">,</span> <span class="n">item_name</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="nb">type</span><span class="p">)</span> <span class="ow">and</span> 
+                        <span class="nb">issubclass</span><span class="p">(</span><span class="n">item</span><span class="p">,</span> <span class="n">BaseEventProcessor</span><span class="p">)</span> <span class="ow">and</span> 
+                        <span class="n">item</span> <span class="ow">is</span> <span class="ow">not</span> <span class="n">BaseEventProcessor</span><span class="p">):</span>
+                        <span class="n">register_event_processor</span><span class="p">(</span><span class="n">item</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">ImportError</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;No event processor plugins found, using built-in processors only&quot;</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">get_event_processor_for_task</span><span class="p">(</span><span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Optional</span><span class="p">[</span><span class="n">BaseEventProcessor</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get appropriate event processor for the given task.</span>
+<span class="sd">    </span>
+<span class="sd">    Args:</span>
+<span class="sd">        task_name: Name of the task</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">        BaseEventProcessor or None: An instance of the appropriate processor class, or None if not found</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Ensure processors are discovered</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">_EVENT_PROCESSOR_REGISTRY</span><span class="p">:</span>
+        <span class="n">discover_event_processors</span><span class="p">()</span>
+    
+    <span class="c1"># Try to get an exact match</span>
+    <span class="k">if</span> <span class="n">task_name</span> <span class="ow">in</span> <span class="n">_EVENT_PROCESSOR_REGISTRY</span><span class="p">:</span>
+        <span class="n">processor_class</span> <span class="o">=</span> <span class="n">_EVENT_PROCESSOR_REGISTRY</span><span class="p">[</span><span class="n">task_name</span><span class="p">]</span>
+        <span class="k">return</span> <span class="n">processor_class</span><span class="p">()</span>
+    
+    <span class="c1"># If no exact match, try to find a processor that supports the task</span>
+    <span class="k">for</span> <span class="n">processor_class</span> <span class="ow">in</span> <span class="n">_EVENT_PROCESSOR_REGISTRY</span><span class="o">.</span><span class="n">values</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">processor_class</span><span class="o">.</span><span class="n">supports_task</span><span class="p">(</span><span class="n">task_name</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">processor_class</span><span class="p">()</span>
+    
+    <span class="k">return</span> <span class="kc">None</span>
+
+
+<span class="c1"># Built-in event processors</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">P300EventProcessor</span><span class="p">(</span><span class="n">BaseEventProcessor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Event processor for P300 tasks.&quot;&quot;&quot;</span>
+    
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">supports_task</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">task_name</span> <span class="o">==</span> <span class="s2">&quot;p300_grael4k&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">events</span><span class="p">,</span> <span class="n">events_df</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">):</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;Processing P300 task-specific annotations...&quot;</span><span class="p">)</span>
+        <span class="n">mapping</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;13&quot;</span><span class="p">:</span> <span class="s2">&quot;Standard&quot;</span><span class="p">,</span> <span class="s2">&quot;14&quot;</span><span class="p">:</span> <span class="s2">&quot;Target&quot;</span><span class="p">}</span>
+        <span class="n">raw</span><span class="o">.</span><span class="n">annotations</span><span class="o">.</span><span class="n">rename</span><span class="p">(</span><span class="n">mapping</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">raw</span>
+
+
+<span class="k">class</span><span class="w"> </span><span class="nc">HBCDMMNEventProcessor</span><span class="p">(</span><span class="n">BaseEventProcessor</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Event processor for HBCD MMN tasks.&quot;&quot;&quot;</span>
+    
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">supports_task</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">task_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">task_name</span> <span class="o">==</span> <span class="s2">&quot;hbcd_mmn&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_events</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">raw</span><span class="p">,</span> <span class="n">events</span><span class="p">,</span> <span class="n">events_df</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">):</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;Processing HBCD MMN task-specific annotations...&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">events_df</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">subset_events_df</span> <span class="o">=</span> <span class="n">events_df</span><span class="p">[[</span><span class="s2">&quot;Task&quot;</span><span class="p">,</span> <span class="s2">&quot;type&quot;</span><span class="p">,</span> <span class="s2">&quot;onset&quot;</span><span class="p">,</span> <span class="s2">&quot;Condition&quot;</span><span class="p">]]</span>
+            <span class="n">new_annotations</span> <span class="o">=</span> <span class="n">mne</span><span class="o">.</span><span class="n">Annotations</span><span class="p">(</span>
+                <span class="n">onset</span><span class="o">=</span><span class="n">subset_events_df</span><span class="p">[</span><span class="s2">&quot;onset&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">,</span>
+                <span class="n">duration</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">subset_events_df</span><span class="p">)),</span>
+                <span class="n">description</span><span class="o">=</span><span class="p">[</span>
+                    <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Task&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;type&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;Condition&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">subset_events_df</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()</span>
+                <span class="p">],</span>
+            <span class="p">)</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">set_annotations</span><span class="p">(</span><span class="n">new_annotations</span><span class="p">)</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="s2">&quot;Successfully processed HBCD MMN annotations&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">raw</span>
+
+
+<span class="c1"># Register built-in processors</span>
+<span class="n">register_event_processor</span><span class="p">(</span><span class="n">P300EventProcessor</span><span class="p">)</span>
+<span class="n">register_event_processor</span><span class="p">(</span><span class="n">HBCDMMNEventProcessor</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_apply_task_specific_processing</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">events</span><span class="p">,</span> <span class="n">events_df</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Apply task-specific processing to raw data using the plugin system.</span>
+<span class="sd">    </span>
+<span class="sd">    This function respects configuration toggles from autoclean_config.yaml.</span>
+<span class="sd">    If &#39;event_processing_step&#39; is set to False in the config, event processing</span>
+<span class="sd">    will be skipped.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Check if event processing is enabled in config</span>
+    <span class="n">event_processing_enabled</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;event_processing_step&quot;</span><span class="p">,</span> <span class="kc">True</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">event_processing_enabled</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;✗ Event processing disabled in configuration&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">raw</span>
+    
+    <span class="c1"># Check if task is specified</span>
+    <span class="k">if</span> <span class="s2">&quot;task&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">autoclean_dict</span> <span class="ow">or</span> <span class="ow">not</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;task&quot;</span><span class="p">]:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;No task specified for event processing&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">raw</span>
+        
+    <span class="n">task</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;task&quot;</span><span class="p">]</span>
+    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;✓ Processing events for task: </span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Try to get a task-specific processor</span>
+    <span class="n">processor</span> <span class="o">=</span> <span class="n">get_event_processor_for_task</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">processor</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Using event processor: </span><span class="si">{</span><span class="n">processor</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">processor</span><span class="o">.</span><span class="n">process_events</span><span class="p">(</span><span class="n">raw</span><span class="p">,</span> <span class="n">events</span><span class="p">,</span> <span class="n">events_df</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;No event processor found for task: </span><span class="si">{</span><span class="n">task</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">raw</span>
+
+
+<span class="c1"># Keep the existing save functions with minor updates to ensure backward compatibility</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">_get_stage_number</span><span class="p">(</span><span class="n">stage</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get two-digit number based on enabled stages order.&quot;&quot;&quot;</span>
+    <span class="n">enabled_stages</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="n">s</span> <span class="k">for</span> <span class="n">s</span><span class="p">,</span> <span class="n">cfg</span> <span class="ow">in</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> <span class="k">if</span> <span class="n">cfg</span><span class="p">[</span><span class="s2">&quot;enabled&quot;</span><span class="p">]</span>
+    <span class="p">]</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">enabled_stages</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">stage</span><span class="p">)</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">:</span><span class="s2">02d</span><span class="si">}</span><span class="s2">&quot;</span>
+
+<div class="viewcode-block" id="save_stc_to_file">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.step_functions.io.save_stc_to_file.html#autoclean.step_functions.io.save_stc_to_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_stc_to_file</span><span class="p">(</span>
+    <span class="n">stc</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">SourceEstimate</span><span class="p">,</span>
+    <span class="n">autoclean_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">stage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post_source_localization&quot;</span><span class="p">,</span>
+    <span class="n">output_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save source estimate (STC) data to file.</span>
+
+<span class="sd">    This function saves an MNE SourceEstimate object at a specified processing stage,</span>
+<span class="sd">    consistent with the pipeline&#39;s directory structure and configuration.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        stc : mne.SourceEstimate</span>
+<span class="sd">            SourceEstimate object to save</span>
+<span class="sd">        autoclean_dict : dict</span>
+<span class="sd">            Configuration dictionary</span>
+<span class="sd">        stage : str</span>
+<span class="sd">            Processing stage identifier (default: &quot;post_source_localization&quot;)</span>
+<span class="sd">        output_path : Optional[Path]</span>
+<span class="sd">            Optional custom output path. If None, uses config</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        Path: Path</span>
+<span class="sd">            Path to the saved file (stage path)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Validate stage configuration</span>
+    <span class="k">if</span> <span class="n">stage</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stage not configured: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">][</span><span class="n">stage</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Saving disabled for stage: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="c1"># Extract configuration details</span>
+    <span class="n">suffix</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">][</span><span class="n">stage</span><span class="p">][</span><span class="s2">&quot;suffix&quot;</span><span class="p">]</span>
+    <span class="n">basename</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;unprocessed_file&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">stem</span>
+    <span class="n">stage_num</span> <span class="o">=</span> <span class="n">_get_stage_number</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">)</span>
+
+    <span class="c1"># Determine output path</span>
+    <span class="k">if</span> <span class="n">output_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_dir&quot;</span><span class="p">]</span>
+    <span class="n">subfolder</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stage_num</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">subfolder</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">stage_path</span> <span class="o">=</span> <span class="n">subfolder</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">-stc.h5&quot;</span>
+
+    <span class="c1"># Handle dual saving for &quot;post_comp&quot; stage (if applicable)</span>
+    <span class="n">paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">stage_path</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&quot;post_comp&quot;</span><span class="p">:</span>
+        <span class="n">clean_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;clean_dir&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">-stc.h5&quot;</span>
+        <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;clean_dir&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clean_path</span><span class="p">)</span>
+
+    <span class="c1"># Save the STC to all specified paths</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">stc</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">fname</span><span class="o">=</span><span class="n">path</span><span class="p">,</span> <span class="n">ftype</span><span class="o">=</span><span class="s1">&#39;h5&#39;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;✓ Saved </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> STC file to: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> STC file to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Create metadata for database logging</span>
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;save_stc_to_file&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;creationDateTime&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="n">stage</span><span class="p">,</span>
+            <span class="s2">&quot;stage_number&quot;</span><span class="p">:</span> <span class="n">stage_num</span><span class="p">,</span>
+            <span class="s2">&quot;outputPaths&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">],</span>
+            <span class="s2">&quot;suffix&quot;</span><span class="p">:</span> <span class="n">suffix</span><span class="p">,</span>
+            <span class="s2">&quot;basename&quot;</span><span class="p">:</span> <span class="n">basename</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;h5&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n_vertices&quot;</span><span class="p">:</span> <span class="n">stc</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+            <span class="s2">&quot;n_times&quot;</span><span class="p">:</span> <span class="n">stc</span><span class="o">.</span><span class="n">data</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span>
+            <span class="s2">&quot;tmin&quot;</span><span class="p">:</span> <span class="n">stc</span><span class="o">.</span><span class="n">tmin</span><span class="p">,</span>
+            <span class="s2">&quot;tstep&quot;</span><span class="p">:</span> <span class="n">stc</span><span class="o">.</span><span class="n">tstep</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="c1"># Update database</span>
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
+    <span class="n">manage_database</span><span class="p">(</span>
+        <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update&quot;</span><span class="p">,</span> <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">manage_database</span><span class="p">(</span>
+        <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update_status&quot;</span><span class="p">,</span>
+        <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> completed&quot;</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Return stage path for consistency</span></div>
+
+
+<div class="viewcode-block" id="save_raw_to_set">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.step_functions.io.save_raw_to_set.html#autoclean.step_functions.io.save_raw_to_set">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_raw_to_set</span><span class="p">(</span>
+    <span class="n">raw</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">io</span><span class="o">.</span><span class="n">Raw</span><span class="p">,</span>
+    <span class="n">autoclean_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">stage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post_import&quot;</span><span class="p">,</span>
+    <span class="n">output_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">flagged</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save continuous EEG data to file.</span>
+
+<span class="sd">    This function saves raw EEG data at various processing stages.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        raw : mne.io.Raw</span>
+<span class="sd">            Raw EEG data to save</span>
+<span class="sd">        autoclean_dict : dict</span>
+<span class="sd">            Configuration dictionary</span>
+<span class="sd">        stage : str</span>
+<span class="sd">            Processing stage identifier (e.g., &quot;post_import&quot;)</span>
+<span class="sd">        output_path : Optional[Path]</span>
+<span class="sd">            Optional custom output path. If None, uses config</span>
+<span class="sd">        flagged : bool</span>
+<span class="sd">            Whether to save to flagged directory</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        Path: Path</span>
+<span class="sd">            Path to the saved file (stage path)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">stage</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stage not configured: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">][</span><span class="n">stage</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Saving disabled for stage: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">suffix</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">][</span><span class="n">stage</span><span class="p">][</span><span class="s2">&quot;suffix&quot;</span><span class="p">]</span>
+    <span class="n">basename</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;unprocessed_file&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">stem</span>
+    <span class="n">stage_num</span> <span class="o">=</span> <span class="n">_get_stage_number</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">)</span>
+
+    <span class="c1"># Save to stage directory</span>
+    <span class="k">if</span> <span class="n">flagged</span><span class="p">:</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;flagged_dir&quot;</span><span class="p">]</span>
+        <span class="n">subfolder</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">elif</span> <span class="n">output_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_dir&quot;</span><span class="p">]</span>
+        <span class="n">subfolder</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stage_num</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">subfolder</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">stage_path</span> <span class="o">=</span> <span class="n">subfolder</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">_raw.set&quot;</span>
+
+    <span class="c1"># Save to both locations for post_comp</span>
+    <span class="n">paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">stage_path</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&quot;post_comp&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">flagged</span><span class="p">:</span>
+        <span class="n">clean_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;clean_dir&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">.set&quot;</span>
+        <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;clean_dir&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clean_path</span><span class="p">)</span>
+
+    <span class="c1"># Save to all paths</span>
+    <span class="n">raw</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;description&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">raw</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;eeglab&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;✓ Saved </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> file to: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> file to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;save_raw_to_set&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;creationDateTime&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="n">stage</span><span class="p">,</span>
+            <span class="s2">&quot;stage_number&quot;</span><span class="p">:</span> <span class="n">stage_num</span><span class="p">,</span>
+            <span class="s2">&quot;outputPath&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">stage_path</span><span class="p">),</span>
+            <span class="s2">&quot;suffix&quot;</span><span class="p">:</span> <span class="n">suffix</span><span class="p">,</span>
+            <span class="s2">&quot;basename&quot;</span><span class="p">:</span> <span class="n">basename</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;eeglab&quot;</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
+    <span class="n">manage_database</span><span class="p">(</span>
+        <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update&quot;</span><span class="p">,</span> <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">manage_database</span><span class="p">(</span>
+        <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update_status&quot;</span><span class="p">,</span>
+        <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> completed&quot;</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Return stage path for consistency</span></div>
+
+
+
+<div class="viewcode-block" id="save_epochs_to_set">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.step_functions.io.save_epochs_to_set.html#autoclean.step_functions.io.save_epochs_to_set">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_epochs_to_set</span><span class="p">(</span>
+    <span class="n">epochs</span><span class="p">:</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">,</span>
+    <span class="n">autoclean_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
+    <span class="n">stage</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post_clean_epochs&quot;</span><span class="p">,</span>
+    <span class="n">output_path</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Path</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+    <span class="n">flagged</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Path</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save epoched EEG data to file.</span>
+
+<span class="sd">    This function saves epoched EEG data, typically after processing.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        epochs : mne.Epochs</span>
+<span class="sd">            Epoched EEG data to save</span>
+<span class="sd">        autoclean_dict : dict</span>
+<span class="sd">            Configuration dictionary</span>
+<span class="sd">        stage : str</span>
+<span class="sd">            Processing stage identifier (default: &quot;post_clean_epochs&quot;)</span>
+<span class="sd">        output_path : Optional[Path]</span>
+<span class="sd">            Optional custom output path. If None, uses config</span>
+<span class="sd">        flagged : bool</span>
+<span class="sd">            Whether to save to flagged directory</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">        Path: Path</span>
+<span class="sd">            Path to the saved file (stage path)</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">if</span> <span class="n">stage</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Stage not configured: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">][</span><span class="n">stage</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Saving disabled for stage: </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="kc">None</span>
+
+    <span class="n">suffix</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_files&quot;</span><span class="p">][</span><span class="n">stage</span><span class="p">][</span><span class="s2">&quot;suffix&quot;</span><span class="p">]</span>
+    <span class="n">basename</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;unprocessed_file&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">stem</span>
+    <span class="n">stage_num</span> <span class="o">=</span> <span class="n">_get_stage_number</span><span class="p">(</span><span class="n">stage</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">)</span>
+
+    <span class="c1"># Save to stage directory</span>
+    <span class="k">if</span> <span class="n">flagged</span><span class="p">:</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;flagged_dir&quot;</span><span class="p">]</span>
+        <span class="n">subfolder</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">elif</span> <span class="n">output_path</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">output_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;stage_dir&quot;</span><span class="p">]</span>
+        <span class="n">subfolder</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stage_num</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="n">subfolder</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">stage_path</span> <span class="o">=</span> <span class="n">subfolder</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">_epo.set&quot;</span>
+
+    <span class="c1"># Save to both locations for post_comp</span>
+    <span class="n">paths</span> <span class="o">=</span> <span class="p">[</span><span class="n">stage_path</span><span class="p">]</span>
+    <span class="k">if</span> <span class="n">stage</span> <span class="o">==</span> <span class="s2">&quot;post_comp&quot;</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">flagged</span><span class="p">:</span>
+        <span class="n">clean_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;clean_dir&quot;</span><span class="p">]</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}{</span><span class="n">suffix</span><span class="si">}</span><span class="s2">.set&quot;</span>
+        <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;clean_dir&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clean_path</span><span class="p">)</span>
+
+    <span class="c1"># Save to all paths</span>
+    <span class="n">epochs</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;description&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
+    <span class="n">epochs</span><span class="o">.</span><span class="n">apply_proj</span><span class="p">()</span>
+    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">epochs</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;eeglab&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1"># Add run_id to each file</span>
+            <span class="n">EEG</span> <span class="o">=</span> <span class="n">sio</span><span class="o">.</span><span class="n">loadmat</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+            <span class="n">EEG</span><span class="p">[</span><span class="s2">&quot;etc&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">EEG</span><span class="p">[</span><span class="s2">&quot;etc&quot;</span><span class="p">][</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
+            <span class="n">sio</span><span class="o">.</span><span class="n">savemat</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">EEG</span><span class="p">,</span> <span class="n">do_compression</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;✓ Saved </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> file to: </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to save </span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> file to </span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;save_epochs_to_set&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;creationDateTime&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="s2">&quot;stage&quot;</span><span class="p">:</span> <span class="n">stage</span><span class="p">,</span>
+            <span class="s2">&quot;stage_number&quot;</span><span class="p">:</span> <span class="n">stage_num</span><span class="p">,</span>
+            <span class="s2">&quot;outputPaths&quot;</span><span class="p">:</span> <span class="p">[</span><span class="nb">str</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">],</span>
+            <span class="s2">&quot;suffix&quot;</span><span class="p">:</span> <span class="n">suffix</span><span class="p">,</span>
+            <span class="s2">&quot;basename&quot;</span><span class="p">:</span> <span class="n">basename</span><span class="p">,</span>
+            <span class="s2">&quot;format&quot;</span><span class="p">:</span> <span class="s2">&quot;eeglab&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;n_epochs&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="p">),</span>
+            <span class="s2">&quot;tmin&quot;</span><span class="p">:</span> <span class="n">epochs</span><span class="o">.</span><span class="n">tmin</span><span class="p">,</span>
+            <span class="s2">&quot;tmax&quot;</span><span class="p">:</span> <span class="n">epochs</span><span class="o">.</span><span class="n">tmax</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
+    <span class="n">manage_database</span><span class="p">(</span>
+        <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update&quot;</span><span class="p">,</span> <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">}</span>
+    <span class="p">)</span>
+    <span class="n">manage_database</span><span class="p">(</span>
+        <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update_status&quot;</span><span class="p">,</span>
+        <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">stage</span><span class="si">}</span><span class="s2"> completed&quot;</span><span class="p">},</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Return stage path for consistency</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">step_import</span><span class="p">():</span>
+    <span class="k">pass</span>
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025-2025, AutoClean Team.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

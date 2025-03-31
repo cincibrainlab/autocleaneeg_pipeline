@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.gfp\_clean\_epochs.GFPCleanEpochsMixin
-==========================================================================
+﻿
+GFPCleanEpochsMixin
+===================
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.gfp_clean_epochs
 

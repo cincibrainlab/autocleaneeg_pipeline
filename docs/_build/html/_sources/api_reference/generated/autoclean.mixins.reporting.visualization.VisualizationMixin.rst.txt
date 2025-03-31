@@ -1,5 +1,7 @@
-﻿autoclean.mixins.reporting.visualization.VisualizationMixin
-===========================================================
+﻿
+VisualizationMixin
+==================
+
 
 .. currentmodule:: autoclean.mixins.reporting.visualization
 

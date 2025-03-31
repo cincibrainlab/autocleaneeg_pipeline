@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin &#8212; AutoClean 1.1.0 documentation</title>
+    <title>RegularEpochsMixin &#8212; AutoClean 1.2.0 documentation</title>
   
   
   
@@ -39,17 +39,17 @@
   <link rel="preload" as="script" href="../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
 <link rel="preload" as="script" href="../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
 
-    <script src="../../_static/documentation_options.js?v=2a705162"></script>
+    <script src="../../_static/documentation_options.js?v=872021ae"></script>
     <script src="../../_static/doctools.js?v=9bcbadda"></script>
     <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/generated/autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="autoclean.mixins.signal_processing.prepare_epochs_ica.PrepareEpochsICAMixin" href="autoclean.mixins.signal_processing.prepare_epochs_ica.PrepareEpochsICAMixin.html" />
-    <link rel="prev" title="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin" href="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html" />
+    <link rel="next" title="PrepareEpochsICAMixin" href="autoclean.mixins.signal_processing.prepare_epochs_ica.PrepareEpochsICAMixin.html" />
+    <link rel="prev" title="EventIDEpochsMixin" href="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
-  <meta name="docsearch:version" content="1.1.0" />
+  <meta name="docsearch:version" content="1.2.0" />
   </head>
   
   
@@ -315,19 +315,26 @@
 <li class="toctree-l2"><a class="reference internal" href="../core/task.html">Task</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="reference internal" href="../mixins.html">Mixins</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.segmentation.SegmentationMixin.html">autoclean.mixins.signal_processing.segmentation.SegmentationMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.reference.ReferenceMixin.html">autoclean.mixins.signal_processing.reference.ReferenceMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.resampling.ResamplingMixin.html">autoclean.mixins.signal_processing.resampling.ResamplingMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.html">autoclean.mixins.signal_processing.pylossless.PyLosslessMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.channels.ChannelsMixin.html">autoclean.mixins.signal_processing.channels.ChannelsMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html">autoclean.mixins.signal_processing.artifacts.ArtifactsMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html">autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin</a></li>
-<li class="toctree-l2 current active"><a class="current reference internal" href="#">autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.prepare_epochs_ica.PrepareEpochsICAMixin.html">autoclean.mixins.signal_processing.prepare_epochs_ica.PrepareEpochsICAMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin.html">autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.reporting.visualization.VisualizationMixin.html">autoclean.mixins.reporting.visualization.VisualizationMixin</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.reporting.ica.ICAReportingMixin.html">autoclean.mixins.reporting.ica.ICAReportingMixin</a></li>
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../mixins.html">Mixins <em>(autoclean.mixins)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.segmentation.SegmentationMixin.html">SegmentationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.reference.ReferenceMixin.html">ReferenceMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.resampling.ResamplingMixin.html">ResamplingMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.html">PyLosslessMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.channels.ChannelsMixin.html">ChannelsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html">ArtifactsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html">EventIDEpochsMixin</a></li>
+<li class="toctree-l2 current active"><a class="current reference internal" href="#">RegularEpochsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.prepare_epochs_ica.PrepareEpochsICAMixin.html">PrepareEpochsICAMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin.html">GFPCleanEpochsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.reporting.visualization.VisualizationMixin.html">VisualizationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.mixins.reporting.ica.ICAReportingMixin.html">ICAReportingMixin</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../io.html">IO</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.step_functions.io.import_eeg.html">import_eeg</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.step_functions.io.save_raw_to_set.html">save_raw_to_set</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.step_functions.io.save_epochs_to_set.html">save_epochs_to_set</a></li>
+<li class="toctree-l2"><a class="reference internal" href="autoclean.step_functions.io.save_stc_to_file.html">save_stc_to_file</a></li>
 </ul>
 </details></li>
 </ul>
@@ -377,9 +384,9 @@
     <li class="breadcrumb-item"><a href="../index.html" class="nav-link">API Reference</a></li>
     
     
-    <li class="breadcrumb-item"><a href="../mixins.html" class="nav-link">Mixins</a></li>
+    <li class="breadcrumb-item"><a href="../mixins.html" class="nav-link">Mixins <em>(autoclean.mixins)</em></a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">RegularEpochsMixin</span></li>
   </ul>
 </nav>
 </div>
@@ -396,8 +403,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="autoclean-mixins-signal-processing-regular-epochs-regularepochsmixin">
-<h1>autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin<a class="headerlink" href="#autoclean-mixins-signal-processing-regular-epochs-regularepochsmixin" title="Link to this heading">#</a></h1>
+  <section id="regularepochsmixin">
+<h1>RegularEpochsMixin<a class="headerlink" href="#regularepochsmixin" title="Link to this heading">#</a></h1>
 <dl class="py class">
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.regular_epochs.</span></span><span class="sig-name descname"><span class="pre">RegularEpochsMixin</span></span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/regular_epochs.html#RegularEpochsMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin" title="Link to this definition">#</a></dt>
@@ -506,7 +513,7 @@ configuration values will override the default parameters.</p>
 
   <p class="copyright">
     
-      © Copyright 2023-2025, AutoClean Team.
+      © Copyright 2025-2025, AutoClean Team.
       <br/>
     
   </p>

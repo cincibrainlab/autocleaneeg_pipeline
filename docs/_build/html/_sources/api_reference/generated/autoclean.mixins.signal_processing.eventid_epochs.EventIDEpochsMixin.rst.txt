@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.eventid\_epochs.EventIDEpochsMixin
-======================================================================
+﻿
+EventIDEpochsMixin
+==================
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.eventid_epochs
 

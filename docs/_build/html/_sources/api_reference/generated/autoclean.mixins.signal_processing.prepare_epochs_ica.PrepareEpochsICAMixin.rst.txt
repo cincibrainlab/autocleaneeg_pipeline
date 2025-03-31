@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.prepare\_epochs\_ica.PrepareEpochsICAMixin
-==============================================================================
+﻿
+PrepareEpochsICAMixin
+=====================
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.prepare_epochs_ica
 

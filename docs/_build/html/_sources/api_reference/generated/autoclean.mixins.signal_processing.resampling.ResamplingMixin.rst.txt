@@ -1,5 +1,7 @@
-﻿autoclean.mixins.signal\_processing.resampling.ResamplingMixin
-==============================================================
+﻿
+ResamplingMixin
+===============
+
 
 .. currentmodule:: autoclean.mixins.signal_processing.resampling
 
