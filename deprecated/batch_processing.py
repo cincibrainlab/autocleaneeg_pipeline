@@ -329,7 +329,6 @@ def create_simulated_data(output_dir, n_files=5):
     from mne import create_info
     from mne.io import RawArray
     from mne.channels import make_standard_montage
-    from mne.simulation import simulate_raw
     
     # Create output directory if it doesn't exist
     sim_dir = Path(output_dir) / 'simulated_data'

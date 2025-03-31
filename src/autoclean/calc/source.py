@@ -1,4 +1,4 @@
-from autoclean.step_functions.io import (
+from autoclean.io.export import (
     save_stc_to_file,
 )
 import matplotlib

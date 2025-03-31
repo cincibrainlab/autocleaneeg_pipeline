@@ -229,7 +229,7 @@ class SignalProcessingMixin:
         if not hasattr(self, 'config'):
             return
             
-        from autoclean.step_functions.io import save_raw_to_set
+        from autoclean.io.export import save_raw_to_set
         
         if isinstance(result_data, mne.io.Raw):
             save_raw_to_set(raw = result_data, autoclean_dict = self.config, stage = stage_name, flagged = self.flagged)
@@ -244,7 +244,7 @@ class SignalProcessingMixin:
         if not hasattr(self, 'config'):
             return
             
-        from autoclean.step_functions.io import save_epochs_to_set
+        from autoclean.io.export import save_epochs_to_set
         
         if isinstance(result_data, mne.Epochs):
             save_epochs_to_set(epochs = result_data, autoclean_dict = self.config, stage = stage_name, flagged = self.flagged)

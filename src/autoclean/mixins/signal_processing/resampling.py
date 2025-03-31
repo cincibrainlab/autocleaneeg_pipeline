@@ -73,7 +73,7 @@ class ResamplingMixin:
         
         try:
             # Resample based on data type
-            if isinstance(data, mne.io.Raw):
+            if isinstance(data, mne.io.Raw) or isinstance(data, mne.io.base.BaseRaw):
                 resampled_data = data.copy().resample(target_sfreq)
                 # Save resampled raw data if it's a Raw object
                 self._save_raw_result(resampled_data, stage_name)
@@ -86,7 +86,7 @@ class ResamplingMixin:
             metadata = {
                 "original_sfreq": current_sfreq,
                 "target_sfreq": target_sfreq,
-                "data_type": "raw" if isinstance(data, mne.io.Raw) else "epochs"
+                "data_type": "raw" if isinstance(data, mne.io.Raw) or isinstance(data, mne.io.base.BaseRaw) else "epochs"
             }
             
             self._update_metadata("resample_data", metadata)

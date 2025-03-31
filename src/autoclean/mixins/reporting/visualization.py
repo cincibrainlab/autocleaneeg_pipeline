@@ -43,13 +43,13 @@ from matplotlib.lines import Line2D
 
 from autoclean.utils.logging import message
 from autoclean.utils.montage import get_standard_set_in_montage, validate_channel_set
-from autoclean.mixins.reporting.base import ReportingMixin
+from autoclean.mixins.reporting.base import BaseVizMixin
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
 
 
-class VisualizationMixin:
+class VisualizationMixin(BaseVizMixin):
     """Mixin providing visualization methods for EEG data.
     
     This mixin extends the base ReportingMixin with specialized methods for
@@ -66,7 +66,6 @@ class VisualizationMixin:
     - `plot_raw_vs_cleaned_overlay`: Overlay of original and cleaned EEG data
     - `plot_bad_channels_with_topography`: Bad channel visualization with topographies
     - `psd_topo_figure`: Combined PSD and topographical maps for frequency bands
-    - `generate_mmn_erp`: MMN ERP analysis for standard/deviant paradigms
     - `step_psd_topo_figure`: Wrapper for backwards compatibility
     """
     

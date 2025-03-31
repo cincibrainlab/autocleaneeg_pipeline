@@ -10,7 +10,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 
-from autoclean.step_functions.io import BaseEEGPlugin
+from autoclean.io.import_ import BaseEEGPlugin
 from autoclean.utils.logging import message
 
 

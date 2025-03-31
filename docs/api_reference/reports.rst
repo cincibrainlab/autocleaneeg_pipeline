@@ -8,12 +8,12 @@ This section covers the report classes that provide functionality for generating
 
 .. currentmodule:: autoclean.step_functions.reports
 
-Pipeline Reports
+Report Functions
 --------------
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/class.rst
+   :template: autosummary/function.rst
    :nosignatures:
    
 

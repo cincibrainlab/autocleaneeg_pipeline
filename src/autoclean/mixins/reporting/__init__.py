@@ -40,4 +40,4 @@ from autoclean.mixins.reporting.main import ReportingMixin
 from autoclean.mixins.reporting.visualization import VisualizationMixin
 from autoclean.mixins.reporting.ica import ICAReportingMixin
 
-__all__ = ["ReportingMixin", "VisualizationMixin", "ICAReportingMixin", "ReportGenerationMixin"]
+__all__ = ["ReportingMixin", "VisualizationMixin", "ICAReportingMixin"]

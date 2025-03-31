@@ -17,7 +17,7 @@ from . import eeg_plugins
 from . import event_processors
 
 # Import all plugins to ensure they are registered
-from autoclean.step_functions.io import register_plugin, register_event_processor
+from autoclean.io.import_ import register_plugin, register_event_processor
 
 # Import built-in plugins
 

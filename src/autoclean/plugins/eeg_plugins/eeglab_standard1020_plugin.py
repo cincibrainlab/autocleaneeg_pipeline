@@ -11,7 +11,7 @@ import pandas as pd
 import scipy.io as sio
 from pathlib import Path
 
-from autoclean.step_functions.io import BaseEEGPlugin
+from autoclean.io.import_ import BaseEEGPlugin
 from autoclean.utils.logging import message
 
 

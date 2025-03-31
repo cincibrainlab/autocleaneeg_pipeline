@@ -41,13 +41,13 @@ import numpy as np
 from matplotlib.gridspec import GridSpec
 
 from autoclean.utils.logging import message
-from autoclean.mixins.reporting.base import ReportingMixin
+from autoclean.mixins.reporting.base import BaseVizMixin
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
 
 
-class ICAReportingMixin(object):
+class ICAReportingMixin(BaseVizMixin):
     """Mixin providing ICA reporting functionality for EEG data.
     
     This mixin extends the base ReportingMixin with specialized methods for

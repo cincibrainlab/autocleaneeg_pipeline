@@ -27,7 +27,7 @@ To create a new event processor:
 Example:
 
 ```python
-from autoclean.step_functions.io import BaseEventProcessor
+from autoclean.io.import_ import BaseEventProcessor
 
 class MyTaskEventProcessor(BaseEventProcessor):
     """Event processor for My custom task."""
