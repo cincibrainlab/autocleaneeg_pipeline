@@ -31,7 +31,7 @@
 <link href="_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=8f2a1f02" />
-    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=69c62948" />
+    <link rel="stylesheet" type="text/css" href="_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
   <script src="_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
@@ -387,7 +387,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 <h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h2>
 <section id="basic-usage">
 <h3>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">#</a></h3>
-<p>The most straightforward way to use AutoClean is through the <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> class:</p>
+<p>In order to run a task on a dataset you will use the <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> class.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">autoclean</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
 
 <span class="c1"># Initialize the pipeline with configuration</span>
@@ -423,6 +423,17 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
     <span class="n">pattern</span><span class="o">=</span><span class="s2">&quot;*.raw&quot;</span><span class="p">,</span>
     <span class="n">max_concurrent</span><span class="o">=</span><span class="mi">3</span>  <span class="c1"># Process up to 3 files simultaneously</span>
 <span class="p">))</span>
+</pre></div>
+</div>
+<p><strong>Note:</strong> The inputted task name must match the name in the configuration file and the task class.</p>
+<p><em>For example:</em></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1">#src/autoclean/tasks/resting_eyes_open.py</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RestingEyesOpenTask</span><span class="p">(</span><span class="n">Task</span><span class="p">):</span>
+</pre></div>
+</div>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1">#configs/autoclean_config.yaml</span>
+<span class="nt">tasks</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">RestingEyesOpen</span><span class="p">:</span>
 </pre></div>
 </div>
 </section>

@@ -96,18 +96,18 @@ div[id^="examples-using-"] h2 {
     word-break: break-word;
 }
 
-/*Class stuff? */
+/* Don't know */
 dl.py.method, dl.py.function {
     font-size: 5rem;
 }
 
-/* Headers */
+/* Function and method headers */
 dl.py.method dt, dl.py.function dt { 
     font-size: 0.8rem;
     font-weight: bold;
 }
 
-/* Descriptions */
+/* Function parameter descriptions */
 dl.py.method dd, dl.py.function dd {
     font-size: 0.8rem;
 }
