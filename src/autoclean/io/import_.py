@@ -262,7 +262,8 @@ def import_eeg(autoclean_dict: dict, preload: bool = True) -> Union[mne.io.Raw, 
         
     Returns
     -------
-        mne.io.Raw or mne.Epochs: Imported and configured EEG data
+        eeg_data : mne.io.Raw or mne.Epochs
+            Imported and configured EEG data
         
     """
     unprocessed_file = Path(autoclean_dict["unprocessed_file"])

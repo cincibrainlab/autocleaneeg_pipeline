@@ -1,0 +1,784 @@
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../../../../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>autoclean.mixins.signal_processing.gfp_clean_epochs &#8212; AutoClean 1.2.0 documentation</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../../../../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=cf960141" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../../../../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+    <script src="../../../../_static/documentation_options.js?v=872021ae"></script>
+    <script src="../../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '_modules/autoclean/mixins/signal_processing/gfp_clean_epochs';</script>
+    <link rel="index" title="Index" href="../../../../genindex.html" />
+    <link rel="search" title="Search" href="../../../../search.html" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="1.2.0" />
+  </head>
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../../../../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../../../../index.html">
+  
+  
+  
+  
+  
+  
+    <p class="title logo__title">AutoClean</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../index.html">
+    Autoclean
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../development.html">
+    Development
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+        
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+        
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+<nav>
+  <ul class="bd-navbar-elements navbar-nav">
+    
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../index.html">
+    Autoclean
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../getting_started.html">
+    Getting Started
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../tutorial.html">
+    Tutorials
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../api_reference/index.html">
+    API Reference
+  </a>
+</li>
+
+
+<li class="nav-item ">
+  <a class="nav-link nav-internal" href="../../../../development.html">
+    Development
+  </a>
+</li>
+
+  </ul>
+</nav></div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item"><ul class="navbar-icon-links"
+    aria-label="Icon Links">
+        <li class="nav-item">
+          
+          
+          
+          
+          
+          
+          
+          
+          <a href="https://github.com/cincibrainlab/autoclean_complete" title="GitHub" class="nav-link pst-navbar-icon" rel="noopener" target="_blank" data-bs-toggle="tooltip" data-bs-placement="bottom"><i class="fab fa-github-square fa-lg" aria-hidden="true"></i>
+            <span class="sr-only">GitHub</span></a>
+        </li>
+</ul></div>
+        
+      </div>
+    
+  </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+      <div class="sidebar-primary-item"><nav class="sidebar-indices-items" aria-labelledby="pst-indices-navigation-heading-2">
+  <p id="pst-indices-navigation-heading-2" class="sidebar-indices-items__title" role="heading" aria-level="1">Indices</p>
+  <ul class="indices-link">
+        <li class="toctree-l1">
+          <a class="reference internal"
+             href="../../../../genindex.html"
+             accesskey="I">General Index</a>
+        </li>
+  </ul>
+</nav></div>
+  </div>
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../../../../index.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../../../index.html" class="nav-link">Module code</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">autoclean.mixins.signal_processing.gfp_clean_epochs</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <h1>Source code for autoclean.mixins.signal_processing.gfp_clean_epochs</h1><div class="highlight"><pre>
+<span></span><span class="sd">&quot;&quot;&quot;GFP-based epoch cleaning mixin for autoclean tasks.</span>
+
+<span class="sd">This module provides functionality for cleaning epochs based on Global Field Power (GFP),</span>
+<span class="sd">a measure of the spatial standard deviation across all electrodes at each time point.</span>
+<span class="sd">GFP is a useful metric for identifying epochs with abnormal activity patterns that</span>
+<span class="sd">may represent artifacts.</span>
+
+<span class="sd">The GFPCleanEpochsMixin class implements methods for calculating GFP values for each</span>
+<span class="sd">epoch, identifying outliers based on statistical thresholds, and optionally creating</span>
+<span class="sd">visualization plots to help understand the distribution of GFP values across epochs.</span>
+
+<span class="sd">GFP-based cleaning is particularly useful for removing epochs with widespread artifacts</span>
+<span class="sd">that affect multiple channels simultaneously, such as movement artifacts, muscle activity,</span>
+<span class="sd">or other global disturbances in the EEG signal.</span>
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Union</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Tuple</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">mne</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">datetime</span><span class="w"> </span><span class="kn">import</span> <span class="n">datetime</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.utils.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">message</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.utils.database</span><span class="w"> </span><span class="kn">import</span> <span class="n">manage_database</span>
+
+<div class="viewcode-block" id="GFPCleanEpochsMixin">
+<a class="viewcode-back" href="../../../../api_reference/generated/autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin.html#autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GFPCleanEpochsMixin</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Mixin class providing functionality to clean epochs based on Global Field Power (GFP).</span>
+<span class="sd">    </span>
+<span class="sd">    This mixin provides methods for cleaning epochs using Global Field Power (GFP), which</span>
+<span class="sd">    is a measure of the spatial standard deviation across all electrodes at each time point.</span>
+<span class="sd">    GFP quantifies the overall variability in the electric field across the scalp and is</span>
+<span class="sd">    sensitive to both signal strength and spatial complexity.</span>
+<span class="sd">    </span>
+<span class="sd">    The cleaning process involves calculating GFP for each epoch, identifying epochs with</span>
+<span class="sd">    abnormally high or low GFP values (outliers), and optionally creating visualization</span>
+<span class="sd">    plots to help understand the distribution of GFP values. The mixin focuses on scalp</span>
+<span class="sd">    electrodes for GFP calculation, excluding non-EEG channels like EOG or reference</span>
+<span class="sd">    electrodes.</span>
+<span class="sd">    </span>
+<span class="sd">    The mixin respects configuration settings from the autoclean_config.yaml file,</span>
+<span class="sd">    allowing users to customize the GFP threshold, number of epochs to retain, and</span>
+<span class="sd">    other parameters.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">gfp_clean_epochs</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epochs</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">gfp_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">3.0</span><span class="p">,</span>
+                        <span class="n">number_of_epochs</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">random_seed</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">int</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                        <span class="n">stage_name</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;post_gfp_clean&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean an MNE Epochs object by removing outlier epochs based on Global Field Power.</span>
+<span class="sd">        </span>
+<span class="sd">        This method calculates the Global Field Power (GFP) for each epoch, identifies</span>
+<span class="sd">        epochs with abnormal GFP values (outliers), and removes them from the dataset.</span>
+<span class="sd">        GFP is calculated as the standard deviation across all scalp electrodes at each</span>
+<span class="sd">        time point, providing a measure of the spatial variability of the electric field.</span>
+<span class="sd">        </span>
+<span class="sd">        The method focuses on scalp electrodes for GFP calculation, excluding non-EEG</span>
+<span class="sd">        channels like EOG or reference electrodes. It can also optionally select a random</span>
+<span class="sd">        subset of the cleaned epochs, which is useful for ensuring a consistent number</span>
+<span class="sd">        of epochs across subjects or conditions.</span>
+<span class="sd">        </span>
+<span class="sd">        The method generates visualization plots showing the GFP distribution and outliers,</span>
+<span class="sd">        which are saved to the output directory if a run_id is specified in the configuration.</span>
+<span class="sd">        </span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        epochs: mne.Epochs, Optional</span>
+<span class="sd">            The epochs object to clean. If None, uses self.epochs.</span>
+<span class="sd">        gfp_threshold: float</span>
+<span class="sd">            The z-score threshold for GFP-based outlier detection (default: 3.0).</span>
+<span class="sd">        number_of_epochs: int</span>
+<span class="sd">            If specified, randomly selects this number of epochs from the cleaned data.</span>
+<span class="sd">        random_seed: int</span>
+<span class="sd">            Seed for random number generator when selecting epochs. </span>
+<span class="sd">        stage_name: str</span>
+<span class="sd">            Name for saving and metadata tracking. By default &quot;post_gfp_clean&quot;.</span>
+<span class="sd">            </span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        epochs_final : instance of mne.Epochs</span>
+<span class="sd">            The cleaned epochs object with outlier epochs removed</span>
+<span class="sd">            </span>
+<span class="sd">        See Also</span>
+<span class="sd">        --------</span>
+<span class="sd">        &#39;MNE Epochs&#39; : https://mne.tools/stable/generated/mne.Epochs.html</span>
+<span class="sd">            </span>
+<span class="sd">        Example:</span>
+<span class="sd">            ```python</span>
+<span class="sd">            # Clean epochs with default parameters</span>
+<span class="sd">            clean_epochs = task.gfp_clean_epochs()</span>
+<span class="sd">            </span>
+<span class="sd">            # Clean epochs with custom parameters and select a specific number of epochs</span>
+<span class="sd">            clean_epochs = task.gfp_clean_epochs(</span>
+<span class="sd">                gfp_threshold=2.5,</span>
+<span class="sd">                number_of_epochs=40,</span>
+<span class="sd">                random_seed=42</span>
+<span class="sd">            )</span>
+<span class="sd">            ```</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="c1"># Check if this step is enabled in the configuration</span>
+        <span class="c1"># is_enabled, config_value = self._check_step_enabled(&quot;gfp_clean_epochs&quot;)</span>
+            
+        <span class="c1"># if not is_enabled:</span>
+        <span class="c1">#     message(&quot;info&quot;, &quot;GFP clean epochs step is disabled in configuration&quot;)</span>
+        <span class="c1">#     return None</span>
+            
+        <span class="c1"># # Get parameters from config if available</span>
+        <span class="c1"># if config_value and isinstance(config_value, dict):</span>
+        <span class="c1">#     gfp_threshold = config_value.get(&quot;gfp_threshold&quot;, gfp_threshold)</span>
+        <span class="c1">#     number_of_epochs = config_value.get(&quot;number_of_epochs&quot;, number_of_epochs)</span>
+        <span class="c1">#     random_seed = config_value.get(&quot;random_seed&quot;, random_seed)</span>
+        
+        <span class="c1"># Determine which data to use</span>
+        <span class="n">epochs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_get_data_object</span><span class="p">(</span><span class="n">epochs</span><span class="p">,</span> <span class="n">use_epochs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        
+        <span class="c1"># Type checking</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">epochs</span><span class="p">,</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">):</span>
+            <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Data must be an MNE Epochs object for GFP cleaning&quot;</span><span class="p">)</span>
+            
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="s2">&quot;Cleaning epochs based on Global Field Power (GFP)&quot;</span><span class="p">)</span>
+            
+            <span class="kn">import</span><span class="w"> </span><span class="nn">random</span>
+            
+            <span class="c1"># Force preload to avoid RuntimeError</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">epochs</span><span class="o">.</span><span class="n">preload</span><span class="p">:</span>
+                <span class="n">epochs</span><span class="o">.</span><span class="n">load_data</span><span class="p">()</span>
+                
+            <span class="c1"># Create a copy to work with</span>
+            <span class="n">epochs_clean</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            
+            <span class="c1"># Define non-scalp electrodes to exclude</span>
+            <span class="n">channel_region_map</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;E17&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E38&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E43&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E44&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E48&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E49&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E56&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E73&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E81&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E88&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E94&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E107&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E113&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E114&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E119&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E120&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E121&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E125&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E126&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E127&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;E128&quot;</span><span class="p">:</span> <span class="s2">&quot;OTHER&quot;</span><span class="p">,</span>
+            <span class="p">}</span>
+            
+            <span class="c1"># Get scalp electrode indices (all channels except those in channel_region_map)</span>
+            <span class="n">non_scalp_channels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">channel_region_map</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+            <span class="n">all_channels</span> <span class="o">=</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">ch_names</span>
+            <span class="n">scalp_channels</span> <span class="o">=</span> <span class="p">[</span><span class="n">ch</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">all_channels</span> <span class="k">if</span> <span class="n">ch</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">non_scalp_channels</span><span class="p">]</span>
+            <span class="n">scalp_indices</span> <span class="o">=</span> <span class="p">[</span><span class="n">epochs_clean</span><span class="o">.</span><span class="n">ch_names</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ch</span><span class="p">)</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">scalp_channels</span> <span class="k">if</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">ch_names</span><span class="p">]</span>
+            
+            <span class="c1"># Calculate Global Field Power (GFP) only for scalp electrodes</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;Calculating Global Field Power (GFP) for each epoch using only scalp electrodes&quot;</span><span class="p">)</span>
+            <span class="n">gfp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span>
+                <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">epochs_clean</span><span class="o">.</span><span class="n">get_data</span><span class="p">()[:,</span> <span class="n">scalp_indices</span><span class="p">,</span> <span class="p">:]</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">))</span>
+            <span class="p">)</span>  <span class="c1"># Shape: (n_epochs,)</span>
+            
+            <span class="c1"># Epoch Statistics</span>
+            <span class="n">epoch_stats</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+                <span class="p">{</span>
+                    <span class="s2">&quot;epoch&quot;</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">gfp</span><span class="p">)),</span>
+                    <span class="s2">&quot;gfp&quot;</span><span class="p">:</span> <span class="n">gfp</span><span class="p">,</span>
+                    <span class="s2">&quot;mean_amplitude&quot;</span><span class="p">:</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">get_data</span><span class="p">()[:,</span> <span class="n">scalp_indices</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+                    <span class="s2">&quot;max_amplitude&quot;</span><span class="p">:</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">get_data</span><span class="p">()[:,</span> <span class="n">scalp_indices</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+                    <span class="s2">&quot;min_amplitude&quot;</span><span class="p">:</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">get_data</span><span class="p">()[:,</span> <span class="n">scalp_indices</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">min</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+                    <span class="s2">&quot;std_amplitude&quot;</span><span class="p">:</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">get_data</span><span class="p">()[:,</span> <span class="n">scalp_indices</span><span class="p">,</span> <span class="p">:]</span><span class="o">.</span><span class="n">std</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">)),</span>
+                <span class="p">}</span>
+            <span class="p">)</span>
+            
+            <span class="c1"># Remove Outlier Epochs based on GFP</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;Removing outlier epochs based on GFP z-scores&quot;</span><span class="p">)</span>
+            <span class="n">gfp_mean</span> <span class="o">=</span> <span class="n">epoch_stats</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+            <span class="n">gfp_std</span> <span class="o">=</span> <span class="n">epoch_stats</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">std</span><span class="p">()</span>
+            <span class="n">z_scores</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">((</span><span class="n">epoch_stats</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">]</span> <span class="o">-</span> <span class="n">gfp_mean</span><span class="p">)</span> <span class="o">/</span> <span class="n">gfp_std</span><span class="p">)</span>
+            <span class="n">good_epochs_mask</span> <span class="o">=</span> <span class="n">z_scores</span> <span class="o">&lt;</span> <span class="n">gfp_threshold</span>
+            <span class="n">removed_by_gfp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="o">~</span><span class="n">good_epochs_mask</span><span class="p">)</span>
+            <span class="n">epochs_final</span> <span class="o">=</span> <span class="n">epochs_clean</span><span class="p">[</span><span class="n">good_epochs_mask</span><span class="p">]</span>
+            <span class="n">epoch_stats_final</span> <span class="o">=</span> <span class="n">epoch_stats</span><span class="p">[</span><span class="n">good_epochs_mask</span><span class="p">]</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Outlier epochs removed based on GFP: </span><span class="si">{</span><span class="n">removed_by_gfp</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Handle epoch selection with warning if needed</span>
+            <span class="n">requested_epochs_exceeded</span> <span class="o">=</span> <span class="kc">False</span>
+            <span class="k">if</span> <span class="n">number_of_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">number_of_epochs</span><span class="p">:</span>
+                    <span class="n">warning_msg</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;Requested number_of_epochs=</span><span class="si">{</span><span class="n">number_of_epochs</span><span class="si">}</span><span class="s2"> exceeds the available cleaned epochs=</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">)</span><span class="si">}</span><span class="s2">. Using all available epochs.&quot;</span>
+                    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="n">warning_msg</span><span class="p">)</span>
+                    <span class="n">requested_epochs_exceeded</span> <span class="o">=</span> <span class="kc">True</span>
+                    <span class="n">number_of_epochs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">)</span>
+                
+                <span class="k">if</span> <span class="n">random_seed</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="n">random</span><span class="o">.</span><span class="n">seed</span><span class="p">(</span><span class="n">random_seed</span><span class="p">)</span>
+                <span class="n">selected_indices</span> <span class="o">=</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">)),</span> <span class="n">number_of_epochs</span><span class="p">)</span>
+                <span class="n">epochs_final</span> <span class="o">=</span> <span class="n">epochs_final</span><span class="p">[</span><span class="n">selected_indices</span><span class="p">]</span>
+                <span class="n">epoch_stats_final</span> <span class="o">=</span> <span class="n">epoch_stats_final</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">selected_indices</span><span class="p">]</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Selected </span><span class="si">{</span><span class="n">number_of_epochs</span><span class="si">}</span><span class="s2"> epochs from the cleaned data&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Analyze drop log to tally different annotation types</span>
+            <span class="n">drop_log</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">drop_log</span>
+            <span class="n">total_epochs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">drop_log</span><span class="p">)</span>
+            <span class="n">good_epochs</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="mi">1</span> <span class="k">for</span> <span class="n">log</span> <span class="ow">in</span> <span class="n">drop_log</span> <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">log</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span>
+            
+            <span class="c1"># Dynamically collect all unique annotation types</span>
+            <span class="n">annotation_types</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="k">for</span> <span class="n">log</span> <span class="ow">in</span> <span class="n">drop_log</span><span class="p">:</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">log</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># If epoch was dropped</span>
+                    <span class="k">for</span> <span class="n">annotation</span> <span class="ow">in</span> <span class="n">log</span><span class="p">:</span>
+                        <span class="c1"># Convert numpy string to regular string if needed</span>
+                        <span class="n">annotation</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">annotation</span><span class="p">)</span>
+                        <span class="n">annotation_types</span><span class="p">[</span><span class="n">annotation</span><span class="p">]</span> <span class="o">=</span> <span class="n">annotation_types</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">annotation</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+            
+            <span class="c1"># Add good and total to the annotation_types dictionary</span>
+            <span class="n">annotation_types</span><span class="p">[</span><span class="s2">&quot;KEEP&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">good_epochs</span>
+            <span class="n">annotation_types</span><span class="p">[</span><span class="s2">&quot;TOTAL&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_epochs</span>
+            
+            <span class="c1"># Create GFP barplot if we have a pipeline with a derivative path</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;pipeline&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;config&#39;</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_create_gfp_plots</span><span class="p">(</span><span class="n">epochs</span><span class="p">,</span> <span class="n">epoch_stats</span><span class="p">,</span> <span class="n">epoch_stats_final</span><span class="p">)</span>
+            
+            <span class="c1"># Update metadata</span>
+            <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;initial_epochs&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="p">),</span>
+                <span class="s2">&quot;final_epochs&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">),</span>
+                <span class="s2">&quot;removed_by_gfp&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">removed_by_gfp</span><span class="p">),</span>
+                <span class="s2">&quot;mean_amplitude&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">epoch_stats_final</span><span class="p">[</span><span class="s2">&quot;mean_amplitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="s2">&quot;max_amplitude&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">epoch_stats_final</span><span class="p">[</span><span class="s2">&quot;max_amplitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">max</span><span class="p">()),</span>
+                <span class="s2">&quot;min_amplitude&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">epoch_stats_final</span><span class="p">[</span><span class="s2">&quot;min_amplitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()),</span>
+                <span class="s2">&quot;std_amplitude&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">epoch_stats_final</span><span class="p">[</span><span class="s2">&quot;std_amplitude&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="s2">&quot;mean_gfp&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">epoch_stats_final</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mean</span><span class="p">()),</span>
+                <span class="s2">&quot;gfp_threshold&quot;</span><span class="p">:</span> <span class="nb">float</span><span class="p">(</span><span class="n">gfp_threshold</span><span class="p">),</span>
+                <span class="s2">&quot;removed_total&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">removed_by_gfp</span><span class="p">),</span>
+                <span class="s2">&quot;annotation_types&quot;</span><span class="p">:</span> <span class="n">annotation_types</span><span class="p">,</span>
+                <span class="s2">&quot;epoch_duration&quot;</span><span class="p">:</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="s2">&quot;samples_per_epoch&quot;</span><span class="p">:</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
+                <span class="s2">&quot;total_duration_sec&quot;</span><span class="p">:</span> <span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">),</span>
+                <span class="s2">&quot;total_samples&quot;</span><span class="p">:</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">),</span>
+                <span class="s2">&quot;channel_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">ch_names</span><span class="p">),</span>
+                <span class="s2">&quot;scalp_channels_used&quot;</span><span class="p">:</span> <span class="n">scalp_channels</span><span class="p">,</span>
+                <span class="s2">&quot;requested_epochs_exceeded&quot;</span><span class="p">:</span> <span class="n">requested_epochs_exceeded</span><span class="p">,</span>
+            <span class="p">}</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_metadata</span><span class="p">(</span><span class="s2">&quot;step_gfp_clean_epochs&quot;</span><span class="p">,</span> <span class="n">metadata</span><span class="p">)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">_update_instance_data</span><span class="p">(</span><span class="n">epochs</span><span class="p">,</span> <span class="n">epochs_final</span><span class="p">,</span> <span class="n">use_epochs</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                
+            <span class="c1"># Save epochs</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">_save_epochs_result</span><span class="p">(</span><span class="n">epochs_final</span><span class="p">,</span> <span class="n">stage_name</span><span class="p">)</span>
+                
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="s2">&quot;Epoch GFP cleaning process completed&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">epochs_final</span>
+            
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Error during GFP epoch cleaning: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Failed to clean epochs using GFP: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> <span class="kn">from</span><span class="w"> </span><span class="nn">e</span>
+            
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_gfp_plots</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">epochs</span><span class="p">,</span> <span class="n">epoch_stats</span><span class="p">,</span> <span class="n">epoch_stats_final</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Create GFP plots and save them to the derivatives path.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            epochs: Original epochs object</span>
+<span class="sd">            epoch_stats: DataFrame with statistics for all epochs</span>
+<span class="sd">            epoch_stats_final: DataFrame with statistics for kept epochs</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Get derivative path</span>
+            <span class="n">derivatives_path</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pipeline</span><span class="o">.</span><span class="n">get_derivative_path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;bids_path&quot;</span><span class="p">])</span>
+            
+            <span class="c1"># Create GFP barplot</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">4</span><span class="p">))</span>
+            
+            <span class="c1"># Plot all epochs in red first (marking removed epochs)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">epoch_stats</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">epoch_stats</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">],</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+            
+            <span class="c1"># Then overlay kept epochs in blue</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">bar</span><span class="p">(</span><span class="n">epoch_stats_final</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="n">epoch_stats_final</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">],</span> <span class="n">width</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">)</span>
+            
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Epoch Number&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Global Field Power (GFP)&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;GFP Values by Epoch (Red = Removed, Blue = Kept)&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Save plot</span>
+            <span class="n">plot_fname</span> <span class="o">=</span> <span class="n">derivatives_path</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;gfp&quot;</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;png&quot;</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">plot_fname</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">150</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            
+            <span class="c1"># Create GFP heatmap with larger figure size and improved readability</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">30</span><span class="p">,</span> <span class="mi">18</span><span class="p">))</span>
+            
+            <span class="c1"># Calculate number of rows and columns for grid layout</span>
+            <span class="n">n_epochs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">epoch_stats</span><span class="p">)</span>
+            <span class="n">n_cols</span> <span class="o">=</span> <span class="mi">8</span>  <span class="c1"># Reduced number of columns for larger cells</span>
+            <span class="n">n_rows</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">ceil</span><span class="p">(</span><span class="n">n_epochs</span> <span class="o">/</span> <span class="n">n_cols</span><span class="p">))</span>
+            
+            <span class="c1"># Create a grid of values</span>
+            <span class="n">grid</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">full</span><span class="p">((</span><span class="n">n_rows</span><span class="p">,</span> <span class="n">n_cols</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">nan</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">gfp</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_stats</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+                <span class="n">row</span> <span class="o">=</span> <span class="n">i</span> <span class="o">//</span> <span class="n">n_cols</span>
+                <span class="n">col</span> <span class="o">=</span> <span class="n">i</span> <span class="o">%</span> <span class="n">n_cols</span>
+                <span class="n">grid</span><span class="p">[</span><span class="n">row</span><span class="p">,</span> <span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">gfp</span>
+            
+            <span class="c1"># Create heatmap with larger spacing between cells</span>
+            <span class="n">im</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">grid</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;RdYlBu_r&quot;</span><span class="p">,</span> <span class="n">aspect</span><span class="o">=</span><span class="s2">&quot;auto&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">colorbar</span><span class="p">(</span><span class="n">im</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s2">&quot;GFP Value (×10⁻⁶)&quot;</span><span class="p">,</span> <span class="n">fraction</span><span class="o">=</span><span class="mf">0.02</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.04</span><span class="p">)</span>
+            
+            <span class="c1"># Add text annotations with increased font size and spacing</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">idx</span><span class="p">,</span> <span class="n">gfp</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_stats</span><span class="p">[</span><span class="s2">&quot;gfp&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+                <span class="n">row</span> <span class="o">=</span> <span class="n">i</span> <span class="o">//</span> <span class="n">n_cols</span>
+                <span class="n">col</span> <span class="o">=</span> <span class="n">i</span> <span class="o">%</span> <span class="n">n_cols</span>
+                <span class="n">kept</span> <span class="o">=</span> <span class="n">idx</span> <span class="ow">in</span> <span class="n">epoch_stats_final</span><span class="o">.</span><span class="n">index</span>
+                <span class="n">color</span> <span class="o">=</span> <span class="s2">&quot;black&quot;</span> <span class="k">if</span> <span class="n">kept</span> <span class="k">else</span> <span class="s2">&quot;red&quot;</span>
+                <span class="n">plt</span><span class="o">.</span><span class="n">text</span><span class="p">(</span>
+                    <span class="n">col</span><span class="p">,</span>
+                    <span class="n">row</span><span class="p">,</span>
+                    <span class="sa">f</span><span class="s2">&quot;ID: </span><span class="si">{</span><span class="n">idx</span><span class="si">}</span><span class="se">\n</span><span class="s2">GFP: </span><span class="si">{</span><span class="n">gfp</span><span class="si">:</span><span class="s2">.1e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                    <span class="n">ha</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+                    <span class="n">va</span><span class="o">=</span><span class="s2">&quot;center&quot;</span><span class="p">,</span>
+                    <span class="n">color</span><span class="o">=</span><span class="n">color</span><span class="p">,</span>
+                    <span class="n">fontsize</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+                    <span class="n">bbox</span><span class="o">=</span><span class="nb">dict</span><span class="p">(</span><span class="n">facecolor</span><span class="o">=</span><span class="s2">&quot;white&quot;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mf">0.8</span><span class="p">),</span>
+                <span class="p">)</span>
+            
+            <span class="c1"># Improve title and labels with larger font sizes</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s2">&quot;GFP Heatmap by Epoch (Red = Removed, Black = Kept)&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">14</span><span class="p">,</span> <span class="n">pad</span><span class="o">=</span><span class="mi">20</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s2">&quot;Column&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">labelpad</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s2">&quot;Row&quot;</span><span class="p">,</span> <span class="n">fontsize</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span> <span class="n">labelpad</span><span class="o">=</span><span class="mi">10</span><span class="p">)</span>
+            
+            <span class="c1"># Adjust layout to prevent text overlap</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+            
+            <span class="c1"># Save heatmap plot with higher DPI for better quality</span>
+            <span class="n">plot_fname</span> <span class="o">=</span> <span class="n">derivatives_path</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+                <span class="n">suffix</span><span class="o">=</span><span class="s2">&quot;gfp-heatmap&quot;</span><span class="p">,</span> <span class="n">extension</span><span class="o">=</span><span class="s2">&quot;png&quot;</span><span class="p">,</span> <span class="n">check</span><span class="o">=</span><span class="kc">False</span>
+            <span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">Path</span><span class="p">(</span><span class="n">plot_fname</span><span class="p">),</span> <span class="n">dpi</span><span class="o">=</span><span class="mi">300</span><span class="p">,</span> <span class="n">bbox_inches</span><span class="o">=</span><span class="s2">&quot;tight&quot;</span><span class="p">)</span>
+            <span class="n">plt</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+            
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Could not create GFP plots: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+            <span class="c1"># Continue without plots</span>
+</pre></div>
+
+                </article>
+              
+              
+              
+              
+              
+            </div>
+            
+            
+              
+            
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../../../../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../../../../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+
+  <p class="copyright">
+    
+      © Copyright 2025-2025, AutoClean Team.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item">
+
+  <p class="sphinx-version">
+    Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 8.1.3.
+    <br/>
+  </p>
+</div>
+      
+    </div>
+  
+  
+  
+    <div class="footer-items__end">
+      
+        <div class="footer-item">
+<p class="theme-version">
+  <!-- # L10n: Setting the PST URL as an argument as this does not need to be localized -->
+  Built with the <a href="https://pydata-sphinx-theme.readthedocs.io/en/stable/index.html">PyData Sphinx Theme</a> 0.16.1.
+</p></div>
+      
+    </div>
+  
+</div>
+
+  </footer>
+  </body>
+</html>

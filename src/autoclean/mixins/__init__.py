@@ -5,7 +5,7 @@ that can be shared across different task types.
 """
 
 from autoclean.mixins.signal_processing.main import SignalProcessingMixin
-from autoclean.mixins.reporting.main import ReportingMixin
+from autoclean.mixins.viz.main import ReportingMixin
 
 __all__ = [
     "SignalProcessingMixin",
