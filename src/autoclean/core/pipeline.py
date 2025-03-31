@@ -69,7 +69,7 @@ import yaml
 
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
-from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 
 from autoclean.step_functions.reports import (
     create_json_summary,
@@ -119,7 +119,7 @@ class Pipeline:
     See Also
     --------
     autoclean.core.task.Task : Base class for all processing tasks.
-    autoclean.step_functions.io : I/O functions for data loading and saving.
+    autoclean.io.import_ : I/O functions for data loading and saving.
     
     Examples
     --------

@@ -20,7 +20,8 @@ from autoclean.step_functions.epochs import (
     step_apply_autoreject,
     step_create_eventid_epochs,
 )
-from autoclean.step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.import_ import import_eeg
 # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,

@@ -25,18 +25,19 @@ Example:
     ```
 """
 
-from autoclean.mixins.reporting.base import ReportingMixin as BaseReportingMixin
+from autoclean.mixins.reporting.base import BaseVizMixin
 from autoclean.mixins.reporting.visualization import VisualizationMixin
 from autoclean.mixins.reporting.ica import ICAReportingMixin
 
-class ReportingMixin(BaseReportingMixin, VisualizationMixin, ICAReportingMixin):
+
+class ReportingMixin(VisualizationMixin, ICAReportingMixin):
     """Main mixin class that combines all reporting functionality.
     
-    This class uses composition to integrate functionality from all specialized
-    reporting mixins, providing a unified interface for generating visualizations,
-    reports, and summaries from EEG data processing results.
+    This class inherits from all specialized reporting mixins, providing a unified
+    interface for generating visualizations, reports, and summaries from EEG data
+    processing results.
     
-    The ReportingMixin provides the following capabilities through delegation:
+    The ReportingMixin provides the following capabilities:
     
     1. EEG data visualizations:
        - Raw vs. cleaned data overlays

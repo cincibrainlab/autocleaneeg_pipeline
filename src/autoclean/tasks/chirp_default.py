@@ -16,7 +16,8 @@ from ..step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from ..step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
+from ..io.export import save_epochs_to_set, save_raw_to_set
+from ..io.import_ import import_eeg
 
 
 class ChirpDefault(Task):

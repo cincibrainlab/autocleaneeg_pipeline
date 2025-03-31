@@ -22,7 +22,7 @@ from mne_bids import BIDSPath
 from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database
 
-class ReportingMixin:
+class BaseVizMixin:
     """Base mixin class providing reporting functionality for EEG data.
     
     This mixin serves as the foundation for all reporting operations in the

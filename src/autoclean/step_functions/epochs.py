@@ -9,7 +9,7 @@ from autoreject import AutoReject
 from matplotlib import pyplot as plt
 from mne.preprocessing import bads
 
-from autoclean.step_functions.io import save_epochs_to_set
+from autoclean.io.export import save_epochs_to_set
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 

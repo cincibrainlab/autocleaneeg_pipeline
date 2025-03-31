@@ -64,7 +64,7 @@ from PyQt5.QtWidgets import (
     QScrollArea,
 )
 
-from autoclean.step_functions.io import save_epochs_to_set
+from autoclean.io.export import save_epochs_to_set
 from autoclean.utils.database import get_run_record
 from autoclean.utils.logging import message
 

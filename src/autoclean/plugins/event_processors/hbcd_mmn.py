@@ -6,7 +6,7 @@ import mne
 import numpy as np
 import pandas as pd
 
-from autoclean.step_functions.io import BaseEventProcessor
+from autoclean.io.import_ import BaseEventProcessor
 from autoclean.utils.logging import message
 
 

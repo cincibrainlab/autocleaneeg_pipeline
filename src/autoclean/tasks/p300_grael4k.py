@@ -11,7 +11,8 @@ import matplotlib
 from datetime import datetime
 # Local imports
 from autoclean.core.task import Task
-from autoclean.step_functions.io import save_epochs_to_set, import_eeg, save_raw_to_set
+from autoclean.io.import_ import import_eeg
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.utils.logging import message
 from autoclean.utils.database import manage_database
 # Import the reporting functions directly from the Task class via mixins
@@ -22,7 +23,6 @@ from autoclean.utils.database import manage_database
 #     generate_mmn_erp,
 # )
 from autoclean.step_functions.continuous import (
-    step_detect_dense_oscillatory_artifacts,
     step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,

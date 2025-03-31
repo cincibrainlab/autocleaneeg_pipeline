@@ -1,5 +1,6 @@
 # src/autoclean/tasks/resting_eyes_open.py
 """Task implementation for resting state EEG preprocessing."""
+#TODO
 
 # Standard library imports
 from pathlib import Path
@@ -10,16 +11,12 @@ from autoclean.core.task import Task
 from autoclean.step_functions.continuous import (
     step_clean_bad_channels,
     step_create_bids_path,
-    step_detect_dense_oscillatory_artifacts,
     step_pre_pipeline_processing,
-    step_reject_bad_segments,
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.step_functions.io import (
-    save_raw_to_set,
-    import_eeg,
-)
+from autoclean.io.import_ import import_eeg
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,
@@ -75,17 +72,7 @@ class BB_Long(Task):
             self.pipeline, self.config
         )
 
-        self.cleaned_raw = step_detect_dense_oscillatory_artifacts(
-            self.cleaned_raw,
-            window_size_ms=100,
-            channel_threshold_uv=50,
-            min_channels=65,
-            padding_ms=500,
-        )
         save_raw_to_set(raw = self.cleaned_raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
-
-        self.cleaned_raw = step_reject_bad_segments(self.cleaned_raw)
-        save_raw_to_set(raw = self.cleaned_raw, autoclean_dict = self.config, stage = "post_cleaned_raw", flagged = self.flagged)
 
         # Generate visualization reports
         self._generate_reports()

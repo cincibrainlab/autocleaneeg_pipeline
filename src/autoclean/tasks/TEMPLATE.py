@@ -69,7 +69,8 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.step_functions.io import save_raw_to_set, import_eeg
+from autoclean.io.import_ import import_eeg
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.utils.logging import message
 
 

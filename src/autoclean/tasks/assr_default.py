@@ -17,7 +17,8 @@ from ..step_functions.epochs import (
     step_gfp_clean_epochs,
     step_prepare_epochs_for_ica,
 )
-from ..step_functions.io import save_epochs_to_set, save_raw_to_set, import_eeg
+from autoclean.io.import_ import import_eeg
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 
 
 class AssrDefault(Task):

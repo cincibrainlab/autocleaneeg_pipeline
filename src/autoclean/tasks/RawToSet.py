@@ -7,7 +7,8 @@ import mne
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.step_functions.io import save_raw_to_set, import_eeg
+from autoclean.io.import_ import import_eeg
+from autoclean.io.export import save_raw_to_set
 
 
 class RawToSet(Task):

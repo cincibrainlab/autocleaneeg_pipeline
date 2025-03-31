@@ -78,7 +78,8 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         stage file.
 
         """
-        from autoclean.step_functions.io import import_eeg, save_raw_to_set
+        from autoclean.io.import_ import import_eeg
+        from autoclean.io.export import save_raw_to_set
         self.raw = import_eeg(self.config)
         if self.raw.duration < 60:
             self.flagged = True

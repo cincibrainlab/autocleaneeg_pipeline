@@ -1,10 +1,7 @@
 # src/autoclean/step_functions/reports.py
 """Visualization and reporting functions.
 
-The functionality from this module has been moved to:
-- `autoclean.mixins.reporting.visualization.VisualizationMixin`
-- `autoclean.mixins.reporting.ica.ICAReportingMixin`
-- `autoclean.mixins.reporting.reports.ReportGenerationMixin`
+
 
 The reporting mixins provide the same functionality with improved integration 
 with the Task class and better configuration handling.

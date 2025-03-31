@@ -5,7 +5,7 @@ This module registers additional file formats that aren't included
 in the core package.
 """
 
-from autoclean.step_functions.io import register_format
+from autoclean.io.import_ import register_format
 
 # Register additional file formats
 register_format('xdf', 'XDF_FORMAT')  # XDF files (BIDS format)
