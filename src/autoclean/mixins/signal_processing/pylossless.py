@@ -5,6 +5,7 @@ import mne
 from mne_bids import read_raw_bids
 import pylossless as ll
 import yaml
+from autoclean.io.export import save_ica_to_fif
 from autoclean.utils.logging import message
 from autoclean.mixins.signal_processing.reference import ReferenceMixin
 
@@ -109,6 +110,8 @@ class PyLosslessMixin:
 
         pipeline.flag_uncorrelated_epochs(message="Flagging Uncorrelated epochs")
 
+        pre_ica_raw = pipeline.raw.copy()
+
         #Run ICA
         message("debug", "running ICA")
         if pipeline.config["ica"] is not None:
@@ -130,6 +133,8 @@ class PyLosslessMixin:
 
             message("debug", "flagging noisy ICs")
             pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
+
+            save_ica_to_fif(pipeline, self.config, pre_ica_raw)
 
         metadata = {
             "creationDateTime": datetime.now().isoformat(),
