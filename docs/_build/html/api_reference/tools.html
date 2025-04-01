@@ -31,6 +31,10 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
@@ -45,6 +49,8 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/tools';</script>
     <link rel="index" title="Index" href="../genindex.html" />
     <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="Development" href="../development.html" />
+    <link rel="prev" title="montage.validate_channel_set" href="generated/autoclean.utils.montage.validate_channel_set.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="1.2.0" />
@@ -144,7 +150,7 @@
 </li>
 
 
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="index.html">
     API Reference
   </a>
@@ -222,10 +228,8 @@
       
       
       
-        
-      
       <dialog id="pst-primary-sidebar-modal"></dialog>
-      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar hide-on-wide">
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
         
 
   
@@ -261,7 +265,7 @@
 </li>
 
 
-<li class="nav-item ">
+<li class="nav-item current active">
   <a class="nav-link nav-internal" href="index.html">
     API Reference
   </a>
@@ -304,6 +308,82 @@
     
   </div>
   
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+<nav class="bd-docs-nav bd-links"
+     aria-label="Section Navigation">
+  <p class="bd-links__title" role="heading" aria-level="1">Section Navigation</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 has-children"><a class="reference internal" href="core.html">Core Classes</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="core/pipeline.html">Pipeline</a></li>
+<li class="toctree-l2"><a class="reference internal" href="core/task.html">Task</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="mixins.html">Mixins <em>(autoclean.mixins)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.segmentation.SegmentationMixin.html">segmentation.SegmentationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.reference.ReferenceMixin.html">reference.ReferenceMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.resampling.ResamplingMixin.html">resampling.ResamplingMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.pylossless.PyLosslessMixin.html">pylossless.PyLosslessMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.channels.ChannelsMixin.html">channels.ChannelsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.artifacts.ArtifactsMixin.html">artifacts.ArtifactsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.eventid_epochs.EventIDEpochsMixin.html">eventid_epochs.EventIDEpochsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.regular_epochs.RegularEpochsMixin.html">regular_epochs.RegularEpochsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.prepare_epochs_ica.PrepareEpochsICAMixin.html">prepare_epochs_ica.PrepareEpochsICAMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin.html">gfp_clean_epochs.GFPCleanEpochsMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.viz.visualization.VisualizationMixin.html">visualization.VisualizationMixin</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.viz.ica.ICAReportingMixin.html">ica.ICAReportingMixin</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="io.html">IO <em>(autoclean.io)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.import_.import_eeg.html">import_.import_eeg</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.export.save_raw_to_set.html">export.save_raw_to_set</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.export.save_epochs_to_set.html">export.save_epochs_to_set</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.export.save_stc_to_file.html">export.save_stc_to_file</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reports.html">Reports <em>(autoclean.step_functions)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.create_run_report.html">reports.create_run_report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.update_task_processing_log.html">reports.update_task_processing_log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.create_json_summary.html">reports.create_json_summary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.generate_bad_channels_tsv.html">reports.generate_bad_channels_tsv</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="utils.html">Utils <em>(autoclean.utils)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.bids.step_convert_to_bids.html">bids.step_convert_to_bids</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.bids.step_sanitize_id.html">bids.step_sanitize_id</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.bids.step_create_dataset_desc.html">bids.step_create_dataset_desc</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.bids.step_create_participants_json.html">bids.step_create_participants_json</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.config.load_config.html">config.load_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.config.validate_pylossless_config.html">config.validate_pylossless_config</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.config.validate_signal_processing_params.html">config.validate_signal_processing_params</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.config.validate_eeg_system.html">config.validate_eeg_system</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.config.hash_and_encode_yaml.html">config.hash_and_encode_yaml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.config.decode_compressed_yaml.html">config.decode_compressed_yaml</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.manage_database.html">database.manage_database</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.message.html">logging.message</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.LogLevel.html">logging.LogLevel</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.convert_channel_names.html">montage.convert_channel_names</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.get_standard_set_in_montage.html">montage.get_standard_set_in_montage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.validate_channel_set.html">montage.validate_channel_set</a></li>
+</ul>
+</details></li>
+<li class="toctree-l1 current active"><a class="current reference internal" href="#">Tools <em>(autoclean.tools)</em></a></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
   
   <div class="sidebar-primary-items__end sidebar-primary__section">
       <div class="sidebar-primary-item"><nav class="sidebar-indices-items" aria-labelledby="pst-indices-navigation-heading-2">
@@ -342,6 +422,9 @@
         <i class="fa-solid fa-home"></i>
       </a>
     </li>
+    
+    <li class="breadcrumb-item"><a href="index.html" class="nav-link">API Reference</a></li>
+    
     <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">Tools <em>(autoclean.tools)</em></span></li>
   </ul>
 </nav>
@@ -363,6 +446,11 @@
 <h1>Tools <em>(autoclean.tools)</em><a class="headerlink" href="#tools-autoclean-tools" title="Link to this heading">#</a></h1>
 <section id="available-tools">
 <h2>Available Tools<a class="headerlink" href="#available-tools" title="Link to this heading">#</a></h2>
+<p>This section covers the utility tools that provide additional functionality for EEG data processing in AutoClean.</p>
+</section>
+<section id="autoclean-review-gui">
+<h2>AutoClean Review GUI<a class="headerlink" href="#autoclean-review-gui" title="Link to this heading">#</a></h2>
+<p>The AutoClean Review GUI is a graphical user interface tool that allows researchers to review and manually edit the results of automated EEG processing. It provides an interactive environment for visualizing EEG data, inspecting processing results, and making manual adjustments when necessary. This tool is particularly useful for quality control and fine-tuning the automated processing outcomes.</p>
 </section>
 </section>
 
@@ -390,6 +478,7 @@
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-tools">Available Tools</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean-review-gui">AutoClean Review GUI</a></li>
 </ul>
   </nav></div>
 

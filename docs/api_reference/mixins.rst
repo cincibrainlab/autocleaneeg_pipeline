@@ -1,8 +1,8 @@
 .. _api_mixins:
 
-=============
+===============================
 Mixins *(autoclean.mixins)*
-=============
+===============================
 
 This section covers the mixin classes that provide reusable functionality for EEG data processing in AutoClean.
 Mixins are the preferred way to add functions to your tasks in autoclean and act as a replacement for step functions. 
@@ -36,13 +36,13 @@ If you decide to use both mixin functions and non-mixin functions, be careful to
    self.create_regular_epochs()  # Modifies self.epochs
 
 Available Mixins
----------------
+-----------------
 
 
 .. currentmodule:: autoclean.mixins.signal_processing
 
 SignalProcessingMixin
--------------------
+---------------------
 
 .. autosummary::
    :toctree: generated/
@@ -65,7 +65,7 @@ SignalProcessingMixin
 .. currentmodule:: autoclean.mixins.viz
 
 ReportingMixin
-------------
+--------------
 
 .. autosummary::
    :toctree: generated/

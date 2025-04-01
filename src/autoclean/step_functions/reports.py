@@ -65,11 +65,14 @@ from autoclean.utils.montage import get_standard_set_in_montage, validate_channe
 
 def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     """
-    Creates a scientific report in PDF format using ReportLab based on the run metadata.
+    Creates a pdf report summarizing the run.
 
-    Args:
-        run_id (str): The run ID to generate a report for
-        Optional: autoclean_dict (dict): The autoclean dictionary
+    Parameters
+    ----------
+    run_id : str
+        The run ID to generate a report for
+    autoclean_dict : dict
+        The autoclean dictionary
     """
     if not run_id:
         message("error", "No run ID provided")
@@ -856,12 +859,26 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     return pdf_path
 
 def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: list[str] = []) -> None:
-    """Update the task-specific processing log CSV file with details about the current file.
+    """Update the task-specific processing log CSV file with processing details.
 
-    Args:
-        summary_dict: The summary dictionary containing processing details
-        flagged: Whether the task is flagged
-        flagged_reasons: The reasons for flagging
+
+    This function is called by the Pipeline upon exiting the run. 
+
+
+    Parameters
+    ----------
+    summary_dict : dict
+        The summary dictionary containing processing details
+    flagged_reasons : list
+        Any flags found during the run. Flags are stored in the task instance.
+
+    See Also
+    --------
+    autoclean.step_functions.reports.create_json_summary : Create a JSON summary of the run metadata
+
+    Notes
+    -----
+    Although there are safeguards to ensure updates even upon run failure, it may still fail.
     """
     try:
         # Validate required top-level keys
@@ -1012,7 +1029,20 @@ def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: li
         message("error", f"Error updating processing log: {str(e)}\n{traceback.format_exc()}")
 
 
-def create_json_summary(run_id: str) -> None:
+def create_json_summary(run_id: str) -> dict:
+    """
+    Creates a JSON summary of the run metadata. The main purpose of this is to create a summary of the run for the autoclean report.
+
+    Parameters
+    ----------
+    run_id : str
+        The run ID to create a JSON summary for
+
+    Returns
+    -------
+    summary_dict : dict
+        The JSON summary of the run metadata
+    """
     run_record = get_run_record(run_id)
     if not run_record:
         message("error", f"No run record found for run ID: {run_id}")
@@ -1267,6 +1297,14 @@ def create_json_summary(run_id: str) -> None:
     return summary_dict
 
 def generate_bad_channels_tsv(summary_dict: Dict[str, Any])->None:
+    """
+    Generates a tsv file containing the bad channels and reasons for flagging for the run.
+
+    Parameters
+    ----------
+    summary_dict : dict
+        The summary dictionary containing the run metadata
+    """
     try: 
         channel_dict = summary_dict["channel_dict"]
     except:

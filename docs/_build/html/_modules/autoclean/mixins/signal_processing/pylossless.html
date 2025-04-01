@@ -30,6 +30,10 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
@@ -365,6 +369,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">mne_bids</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_raw_bids</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pylossless</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ll</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">yaml</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.io.export</span><span class="w"> </span><span class="kn">import</span> <span class="n">save_ica_to_fif</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.utils.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">message</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.mixins.signal_processing.reference</span><span class="w"> </span><span class="kn">import</span> <span class="n">ReferenceMixin</span>
 
@@ -473,6 +478,8 @@
 
         <span class="n">pipeline</span><span class="o">.</span><span class="n">flag_uncorrelated_epochs</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Flagging Uncorrelated epochs&quot;</span><span class="p">)</span>
 
+        <span class="n">pre_ica_raw</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">raw</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+
         <span class="c1">#Run ICA</span>
         <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="s2">&quot;running ICA&quot;</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s2">&quot;ica&quot;</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -494,6 +501,8 @@
 
             <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="s2">&quot;flagging noisy ICs&quot;</span><span class="p">)</span>
             <span class="n">pipeline</span><span class="o">.</span><span class="n">flag_noisy_ics</span><span class="p">(</span><span class="n">message</span><span class="o">=</span><span class="s2">&quot;Flagging time periods with noisy IC&#39;s.&quot;</span><span class="p">)</span>
+
+            <span class="n">save_ica_to_fif</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">,</span> <span class="n">pre_ica_raw</span><span class="p">)</span>
 
         <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
             <span class="s2">&quot;creationDateTime&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>

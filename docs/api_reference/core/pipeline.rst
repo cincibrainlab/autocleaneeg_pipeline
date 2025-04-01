@@ -43,7 +43,7 @@ analysis pipelines.
    .. automethod:: start_autoclean_review
 
 Usage Examples
--------------
+----------------
 
 .. code-block:: python
 

@@ -30,6 +30,10 @@
 <link href="../../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
@@ -1055,11 +1059,11 @@
         <span class="n">autoclean_dict</span><span class="p">:</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Any</span><span class="p">],</span>
         <span class="n">bands</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-<span class="w">        </span><span class="sd">&quot;&quot;&quot; Generate and save a single high-resolution image that includes:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate and save a single high-resolution image that includes:</span>
 <span class="sd">       </span>
 <span class="sd">        - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).</span>
 <span class="sd">        - Topographical maps for multiple EEG frequency bands arranged horizontally,</span>
-<span class="sd">        showing both pre and post cleaning.</span>
+<span class="sd">          showing both pre and post cleaning.</span>
 <span class="sd">        - Annotations for average power and outlier channels.</span>
 
 <span class="sd">        Parameters</span>
