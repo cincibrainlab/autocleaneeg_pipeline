@@ -39,6 +39,9 @@ RUN apt-get update && \
     supervisor \
     evince \
     firefox-esr \
+    net-tools \
+    curl \
+    procps \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app directory and virtual environment
@@ -64,12 +67,11 @@ RUN uv pip install -e ".[gui]"
 RUN mkdir -p /app/output && \
     chmod 777 /app/output
 
-# Create startup script for noVNC
-RUN echo '#!/bin/bash\nwebsockify --web=/usr/share/novnc 6080 localhost:5900 --wrap-mode=ignore --heartbeat=30' > /usr/local/bin/novnc-start && \
+# Create startup script for noVNC with better options
+RUN echo '#!/bin/bash\nset -e\necho "Starting noVNC on port 6080..."\nwebsockify --web=/usr/share/novnc 6080 localhost:5900 --wrap-mode=ignore --heartbeat=30 --verbose' > /usr/local/bin/novnc-start && \
     chmod +x /usr/local/bin/novnc-start && \
-    ln -s /usr/share/novnc/vnc_auto.html /usr/share/novnc/index.html && \
-    # Create a custom index.html with better default settings
-    echo '<html><head><meta http-equiv="refresh" content="0; url=vnc.html?autoconnect=true&resize=scale&view_only=false&quality=9&compression=0&reconnect=true&show_dot=true&bell=false&view_clip=false&shared=true"></head></html>' > /usr/share/novnc/index.html
+    # Create a simpler, more compatible index page
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=vnc.html?host=localhost&port=6080&autoconnect=true&resize=scale"></head><body>Redirecting to noVNC client...</body></html>' > /usr/share/novnc/index.html
 
 # Set up supervisord configuration
 RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
@@ -82,22 +84,30 @@ RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=1' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'command=Xvfb :99 -screen 0 1600x900x24 -ac +extension GLX +render -noreset' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/var/log/supervisor/xvfb.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/var/log/supervisor/xvfb.err' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:openbox]' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=2' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'command=openbox' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'environment=DISPLAY=:99' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/var/log/supervisor/openbox.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/var/log/supervisor/openbox.err' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:x11vnc]' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=3' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'command=x11vnc -forever -shared -display :99 -noxdamage -noxfixes -noxrecord -rfbport 5900 -wait 5 -defer 10' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=x11vnc -forever -shared -display :99 -noxdamage -noxfixes -noxrecord -rfbport 5900 -wait 5 -defer 10 -nopw' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/var/log/supervisor/x11vnc.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/var/log/supervisor/x11vnc.err' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:novnc]' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=4' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'command=/usr/local/bin/novnc-start' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/var/log/supervisor/novnc.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/var/log/supervisor/novnc.err' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:autoclean]' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=5' >> /etc/supervisor/conf.d/supervisord.conf && \
@@ -113,8 +123,19 @@ RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
 RUN mkdir -p /var/log/supervisor && \
     chmod -R 777 /var/log/supervisor
 
+# Create healthcheck script
+RUN echo '#!/bin/bash' > /usr/local/bin/healthcheck.sh && \
+    echo 'curl -f http://localhost:6080/ || exit 1' >> /usr/local/bin/healthcheck.sh && \
+    echo 'pgrep Xvfb || exit 1' >> /usr/local/bin/healthcheck.sh && \
+    echo 'pgrep x11vnc || exit 1' >> /usr/local/bin/healthcheck.sh && \
+    echo 'pgrep websockify || exit 1' >> /usr/local/bin/healthcheck.sh && \
+    chmod +x /usr/local/bin/healthcheck.sh
+
 # Expose noVNC port
 EXPOSE 6080
+
+# Healthcheck
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 CMD ["/usr/local/bin/healthcheck.sh"]
 
 # Set the startup command
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

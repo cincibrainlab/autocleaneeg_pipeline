@@ -1,53 +1,96 @@
-# src/autoclean/tasks/resting_eyes_open.py
-"""Task implementation for resting state EEG preprocessing."""
-
+# src/autoclean/tasks/hbcd_VEP.py
 # Standard library imports
-from pathlib import Path
 from typing import Any, Dict
+
+# Third-party imports
+import mne
+import numpy as np
 
 # Local imports
 from autoclean.core.task import Task
 from autoclean.step_functions.continuous import (
-    step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
-    step_run_pylossless,
 )
 
-from autoclean.io.import_ import import_eeg
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set, save_stc_to_file
+from autoclean.io.export import save_raw_to_set
 
-from autoclean.calc.source import estimate_source_function_raw
-
-import mne
 
 from autoclean.utils.logging import message
 
 
-class resting_eyesopen_grael4k(Task):
-    """Task implementation for resting state EEG preprocessing."""
+class HBCD_VEP(Task):
 
     def __init__(self, config: Dict[str, Any]):
+        """Initialize a new task instance.
+
+        Args:
+            config: Configuration dictionary containing all settings.
+                   See class docstring for configuration example.
+
+        Note:
+            The parent class handles basic initialization and validation.
+            Task-specific setup should be added here if needed.
+        """
+        # Initialize instance variables
         self.raw = None
         self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
+
+        # Call parent initialization
         super().__init__(config)
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        # """Validate resting state specific configuration.
+        """Validate task-specific configuration settings.
 
-        # Args:
-        #     config: Configuration dictionary that has passed common validation
+        This method should check that all required settings for your task
+        are present and valid. Common validations include:
+        - Required fields exist
+        - Field types are correct
+        - Values are within valid ranges
+        - File paths exist and are accessible
+        - Settings are compatible with each other
 
-        # Returns:
-        #     Validated configuration dictionary
+        Args:
+            config: Configuration dictionary that has passed common validation.
+                   Contains all standard fields plus task-specific settings.
 
-        # Raises:
-        #     ValueError: If required fields are missing or invalid
-        # """
-        # # Validate resting state specific fields
+        Returns:
+            Dict[str, Any]: The validated configuration dictionary.
+                           You can add derived settings or defaults.
+
+        Raises:
+            ValueError: If any required settings are missing or invalid.
+            TypeError: If settings are of wrong type.
+
+        Example:
+            ```python
+            def _validate_task_config(self, config):
+                # Check required fields
+                required_fields = {
+                    'eeg_system': str,
+                    'settings': dict,
+                }
+
+                for field, field_type in required_fields.items():
+                    if field not in config:
+                        raise ValueError(f"Missing required field: {field}")
+                    if not isinstance(config[field], field_type):
+                        raise TypeError(f"Field {field} must be {field_type}")
+
+                # Validate specific settings
+                settings = config['settings']
+                if 'epoch_length' in settings:
+                    if settings['epoch_length'] <= 0:
+                        raise ValueError("epoch_length must be positive")
+
+                return config
+            ```
+        """
+        # Add your validation logic here
+        # This is just an example - customize for your needs
         required_fields = {
             "task": str,
             "eeg_system": str,
@@ -58,7 +101,7 @@ class resting_eyesopen_grael4k(Task):
             if field not in config:
                 raise ValueError(f"Missing required field: {field}")
             if not isinstance(config[field], field_type):
-                raise ValueError(f"Field {field} must be of type {field_type}")
+                raise TypeError(f"Field {field} must be {field_type}")
 
         # Validate stage_files structure
         required_stages = [
@@ -80,14 +123,33 @@ class resting_eyesopen_grael4k(Task):
                 raise ValueError(f"Stage {stage} must have 'suffix' field")
 
         return config
+    
 
     def run(self) -> None:
-        """Run the complete resting state processing pipeline."""
+        """Run the complete processing pipeline for this task
 
+        This method orchestrates the complete processing sequence:
+        1. Import raw data
+        2. Run preprocessing steps
+        3. Apply task-specific processing
+
+        The results are automatically saved at each stage according to
+        the stage_files configuration.
+
+        Raises:
+            FileNotFoundError: If input file doesn't exist
+            RuntimeError: If any processing step fails
+
+        Note:
+            Progress and errors are automatically logged and tracked in
+            the database. You can monitor progress through the logging
+            messages and final report.
+        """
+        # Import and save raw EEG data
         self.import_raw()
         
         message("header", "Running preprocessing steps")
-        
+
         # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
@@ -99,79 +161,27 @@ class resting_eyesopen_grael4k(Task):
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
         #Run PyLossless Pipeline
-        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config, eog_channel="VEOG")
+        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config, eog_channel="E25")
 
         #Add more artifact detection steps
         self.detect_dense_oscillatory_artifacts()
 
-        # Update pipeline with annotated raw data
-        self.pipeline.raw = self.raw
-
         # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
         self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
-        )   
-        self.raw = self.pipeline.raw
-
+        )
         save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
 
+        self.detect_dense_oscillatory_artifacts()
+
         #Clean bad channels post ICA
-        self.clean_bad_channels(deviation_thresh=3, cleaning_method="interpolate")
+        self.clean_bad_channels(cleaning_method="interpolate")
 
         save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
 
-        estimate_source_function_raw(self.raw, self.config)
+        self.create_eventid_epochs()
 
-        # Create regular epochs
-        self.create_regular_epochs()
-
-        # Prepare epochs for ICA
-        self.prepare_epochs_for_ica()
-
-        # Clean epochs using GFP
-        self.gfp_clean_epochs()
-
-        # Generate visualization reports
         self._generate_reports()
-
-    # def preprocess(self) -> None:
-    #     """Run preprocessing steps on the raw data."""
-    #     if self.raw is None:
-    #         raise RuntimeError("No data has been imported")
-
-    #     # Run preprocessing pipeline and save intermediate result
-    #     self.raw = step_pre_pipeline_processing(self.raw, self.config)
-    #     save_raw_to_set(self.raw, self.config, "post_prepipeline")
-
-    #     # Create BIDS-compliant paths and filenames
-    #     self.raw, self.config = step_create_bids_path(self.raw, self.config)
-
-    #     # Run PyLossless pipeline and save result
-    #     self.pipeline, self.raw = step_run_pylossless(self.config)
-    #     save_raw_to_set(self.raw, self.config, "post_pylossless")
-
-    #     # Clean bad channels
-    #     #self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-    #     #save_raw_to_set(self.pipeline.raw, self.config, "post_bad_channels")
-
-    #     # # Use PyLossless Rejection Policy
-    #     self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
-    #         self.pipeline, self.config
-    #     )
-
-    #     self.cleaned_raw = step_detect_dense_oscillatory_artifacts(
-    #         self.cleaned_raw,
-    #         window_size_ms=100,
-    #         channel_threshold_uv=50,
-    #         min_channels=65,
-    #         padding_ms=500,
-    #     )
-    #     save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
-
-    #     estimate_source_function_raw(self.cleaned_raw, self.config)
-
-    #     # Generate visualization reports
-    #     # self._generate_reports()
 
 
     def _generate_reports(self) -> None:
@@ -204,7 +214,7 @@ class resting_eyesopen_grael4k(Task):
         self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
+        self.step_psd_topo_figure(
             self.original_raw, self.raw, self.pipeline, self.config
         )
 
