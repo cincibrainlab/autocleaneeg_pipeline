@@ -29,9 +29,6 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-# from autoclean.step_functions.epochs import (
-#     step_create_eventid_epochs_p300,
-# )
 from autoclean.types.task_models import ImportMetadata, ProcessingMetadata
 
 from typing import Optional

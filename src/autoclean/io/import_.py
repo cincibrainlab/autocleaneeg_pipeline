@@ -516,33 +516,52 @@ class P300EventProcessor(BaseEventProcessor):
         return raw
 
 
-class HBCDMMNEventProcessor(BaseEventProcessor):
-    """Event processor for HBCD MMN tasks."""
+class HBCDEventProcessor(BaseEventProcessor):
+    """Event processor for HBCD paradigm tasks."""
     
     @classmethod
     def supports_task(cls, task_name: str) -> bool:
-        return task_name == "hbcd_mmn"
+        # Support all HBCD tasks including MMN, VEP, etc.
+        task_name = task_name.lower()
+        return task_name.startswith("hbcd_") or task_name in ["mmn", "vep"]
     
     def process_events(self, raw, events, events_df, autoclean_dict):
-        message("info", "Processing HBCD MMN task-specific annotations...")
-        if events_df is not None:
-            subset_events_df = events_df[["Task", "type", "onset", "Condition"]]
-            new_annotations = mne.Annotations(
-                onset=subset_events_df["onset"].values,
-                duration=np.zeros(len(subset_events_df)),
-                description=[
-                    f"{row['Task']}/{row['type']}/{row['Condition']}"
-                    for _, row in subset_events_df.iterrows()
-                ],
-            )
-            raw.set_annotations(new_annotations)
-            message("success", "Successfully processed HBCD MMN annotations")
+        task = autoclean_dict.get("task", "").lower()
+        message("info", f"Processing {task} task-specific annotations...")
+        
+        # For backwards compatibility, direct to the dedicated processor
+        # This will be removed once the full implementation is completed
+        message("info", f"Using generic HBCD event processor for {task}")
+        
+        # Import the dedicated processor to avoid circular imports
+        try:
+            from autoclean.plugins.event_processors.hbcd_processor import HBCDEventProcessor as DedicatedProcessor
+            processor = DedicatedProcessor()
+            return processor.process_events(raw, events, events_df, autoclean_dict)
+        except ImportError:
+            message("warning", f"Could not import dedicated HBCD processor, using legacy implementation")
+            
+            # Legacy implementation for MMN
+            if events_df is not None and "hbcd_mmn" in task:
+                if all(col in events_df.columns for col in ["Task", "type", "onset", "Condition"]):
+                    subset_events_df = events_df[["Task", "type", "onset", "Condition"]]
+                    new_annotations = mne.Annotations(
+                        onset=subset_events_df["onset"].values,
+                        duration=np.zeros(len(subset_events_df)),
+                        description=[
+                            f"{row['Task']}/{row['type']}/{row['Condition']}"
+                            for _, row in subset_events_df.iterrows()
+                        ],
+                    )
+                    raw.set_annotations(new_annotations)
+                    message("success", "Successfully processed HBCD annotations using legacy method")
+                
         return raw
 
 
 # Register built-in processors
 register_event_processor(P300EventProcessor)
-register_event_processor(HBCDMMNEventProcessor)
+register_event_processor(HBCDEventProcessor)
 
 
 def _apply_task_specific_processing(raw, events, events_df, autoclean_dict):

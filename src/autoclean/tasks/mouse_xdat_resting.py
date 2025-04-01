@@ -13,10 +13,7 @@ from autoclean.step_functions.continuous import (
     step_pre_pipeline_processing,
     step_run_pylossless,
 )
-from autoclean.step_functions.epochs import (
-    step_apply_autoreject,
-    step_create_regular_epochs,
-)
+
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.io.import_ import import_eeg
 # Import the reporting functions directly from the Task class via mixins

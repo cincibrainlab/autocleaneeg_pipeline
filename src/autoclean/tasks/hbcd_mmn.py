@@ -1,6 +1,5 @@
 # src/autoclean/tasks/hbcd_mmn.py
 # Standard library imports
-from pathlib import Path
 from typing import Any, Dict
 
 # Third-party imports
@@ -10,25 +9,14 @@ import numpy as np
 # Local imports
 from autoclean.core.task import Task
 from autoclean.step_functions.continuous import (
-    step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
-    step_run_pylossless,
 )
-from autoclean.step_functions.epochs import (
-    step_create_eventid_epochs,
-)
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.io.import_ import import_eeg
-# Import the reporting functions directly from the Task class via mixins
-# from autoclean.step_functions.reports import (
-#     generate_mmn_erp,
-#     step_generate_ica_reports,
-#     step_plot_ica_full,
-#     step_psd_topo_figure,
 
-# )
+from autoclean.io.export import save_raw_to_set
+
+
 from autoclean.utils.logging import message
 
 
@@ -308,7 +296,7 @@ class HBCD_MMN(Task):
         self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
+        self.step_psd_topo_figure(
             self.original_raw, self.raw, self.pipeline, self.config
         )
 

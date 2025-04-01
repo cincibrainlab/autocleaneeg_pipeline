@@ -1,4 +1,3 @@
-
 services:
   autoclean:
     build: .
@@ -25,9 +24,15 @@ services:
       dockerfile: Dockerfile.review
     image: autoclean-review:latest
     volumes:
-      - C:\Users\Gam9LG\Documents\Autoclean:/app/output
+      - C:/Users/Gam9LG/Documents/Autoclean:/app/output
     environment:
       - PYTHONUNBUFFERED=1
       - QT_QPA_PLATFORM=xcb
+      - DISPLAY=:99
+      - NOVNC_HEARTBEAT=30
+      - NOVNC_RECONNECT=true
+      - NO_VNC_SHARED=true
+      - X11VNC_OPTS=-forever -shared -noxdamage -noxfixes -noxrecord -wait 5 -defer 10
     ports:
       - 6080:6080     # noVNC web interface
+    shm_size: '2gb'   # Add shared memory for the X server
