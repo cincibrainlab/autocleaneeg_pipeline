@@ -12,3 +12,4 @@ This page provides an overview of the AutoClean API.
    io
    reports
    utils
+   tools

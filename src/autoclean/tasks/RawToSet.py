@@ -30,9 +30,6 @@ class RawToSet(Task):
         """
         # Initialize instance variables
         self.raw: Optional[mne.io.Raw] = None
-        self.pipeline: Optional[Any] = None
-        self.epochs: Optional[mne.Epochs] = None
-        self.original_raw: Optional[mne.io.Raw] = None
 
         # Call parent initialization with validated config
         super().__init__(config)
@@ -47,41 +44,6 @@ class RawToSet(Task):
         exit 
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate task-specific configuration settings.
-
-        This method checks that all required settings for the task
-        are present and valid. The validation includes:
-        - Required fields exist
-        - Field types are correct
-        - Stage files configuration is properly structured
-        
-        Args:
-            config: Configuration dictionary that has passed common validation.
-                   Contains all standard fields plus task-specific settings.
-
-        Returns:
-            Dict[str, Any]: The validated configuration dictionary.
-                           You can add derived settings or defaults here.
-
-        Raises:
-            ValueError: If any required settings are missing or invalid
-            TypeError: If settings are of wrong type
-
-        Example:
-            ```python
-            def _validate_task_config(self, config):
-                required_fields = {
-                    'eeg_system': str,
-                    'settings': dict,
-                }
-                for field, field_type in required_fields.items():
-                    if field not in config:
-                        raise ValueError(f"Missing required field: {field}")
-                    if not isinstance(config[field], field_type):
-                        raise TypeError(f"Field {field} must be {field_type}")
-                return config
-            ```
-        """
         # Define required fields and their expected types
         required_fields = {
             "task": str,

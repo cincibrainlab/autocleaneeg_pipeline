@@ -45,8 +45,19 @@ extensions = [
     
     # External extensions
     'numpydoc',                   # Support for NumPy style docstrings
-    # 'sphinx_gallery.gen_gallery', # Generate gallery of examples
+    'sphinx_gallery.gen_gallery', # Generate gallery of examples
 ]
+
+# Configure sphinx-gallery
+sphinx_gallery_conf = {
+    'examples_dirs': [],  # No example directories
+    'gallery_dirs': [],   # No gallery directories
+    'backreferences_dir': None,
+    'doc_module': ('autoclean',),
+    'reference_url': {
+        'autoclean': None,
+    },
+}
 
 # Configure autodoc
 autodoc_default_options = {

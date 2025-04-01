@@ -30,6 +30,10 @@
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
@@ -456,27 +460,34 @@
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.validate_pylossless_config.html#autoclean.utils.config.validate_pylossless_config">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_pylossless_config</span><span class="p">(</span>
     <span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">config_file_path</span><span class="p">:</span> <span class="n">Path</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate and locate the pylossless configuration file for a given task.</span>
 
 <span class="sd">    This function checks if the pylossless configuration file exists at the specified path.</span>
 <span class="sd">    If not found at the absolute path, it attempts to find it relative to the main config</span>
 <span class="sd">    file directory. Updates the config dictionary with the full path if found.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        autoclean_dict: Configuration dictionary containing task settings</span>
-<span class="sd">        task: Name of the current processing task</span>
-<span class="sd">        config_file_path: Path to the main configuration file</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    autoclean_dict : dict</span>
+<span class="sd">        Configuration dictionary containing task settings</span>
+<span class="sd">    task : str</span>
+<span class="sd">        Name of the current processing task</span>
+<span class="sd">    config_file_path : Path</span>
+<span class="sd">        Path to the main configuration file</span>
 
-<span class="sd">    Returns:</span>
-<span class="sd">        dict: Updated configuration dictionary</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Updated configuration dictionary</span>
 
-<span class="sd">    Example:</span>
-<span class="sd">        &gt;&gt;&gt; validate_pylossless_config(</span>
-<span class="sd">        ...     autoclean_dict={&quot;tasks&quot;: {&quot;rest&quot;: {&quot;lossless_config&quot;: &quot;lossless.yaml&quot;}}},</span>
-<span class="sd">        ...     task=&quot;rest&quot;,</span>
-<span class="sd">        ...     config_file_path=Path(&quot;/path/to/config.yaml&quot;)</span>
-<span class="sd">        ... )</span>
+<span class="sd">    Examples</span>
+<span class="sd">    --------</span>
+<span class="sd">    &gt;&gt;&gt; validate_pylossless_config(</span>
+<span class="sd">    ...     autoclean_dict={&quot;tasks&quot;: {&quot;rest&quot;: {&quot;lossless_config&quot;: &quot;lossless.yaml&quot;}}},</span>
+<span class="sd">    ...     task=&quot;rest&quot;,</span>
+<span class="sd">    ...     config_file_path=Path(&quot;/path/to/config.yaml&quot;)</span>
+<span class="sd">    ... )</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">lossless_config_path</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;tasks&quot;</span><span class="p">][</span><span class="n">task</span><span class="p">][</span><span class="s2">&quot;lossless_config&quot;</span><span class="p">]</span>
     <span class="n">message</span><span class="p">(</span>
@@ -510,12 +521,18 @@
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.validate_signal_processing_params.html#autoclean.utils.config.validate_signal_processing_params">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_signal_processing_params</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate signal processing parameters for physical constraints.</span>
-<span class="sd">    Args:</span>
-<span class="sd">        autoclean_dict: Configuration dictionary</span>
-<span class="sd">        task: Current processing task</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    autoclean_dict : dict</span>
+<span class="sd">        Configuration dictionary</span>
+<span class="sd">    task : str</span>
+<span class="sd">        Current processing task</span>
 
-<span class="sd">    Raises:</span>
-<span class="sd">        ValueError: If parameters violate signal processing constraints</span>
+<span class="sd">    Raises</span>
+<span class="sd">    ------</span>
+<span class="sd">    ValueError</span>
+<span class="sd">        If parameters violate signal processing constraints</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># # Get sampling rate</span>
     <span class="c1"># resample_settings = autoclean_dict[&quot;tasks&quot;][task][&quot;settings&quot;][&quot;resample_step&quot;]</span>
@@ -599,6 +616,8 @@
 
 
 
+<div class="viewcode-block" id="hash_and_encode_yaml">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.hash_and_encode_yaml.html#autoclean.utils.config.hash_and_encode_yaml">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">hash_and_encode_yaml</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">is_file</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">is_file</span><span class="p">:</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
@@ -616,13 +635,17 @@
     <span class="n">compressed</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">compress</span><span class="p">(</span><span class="n">canonical_yaml</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">))</span>
     <span class="n">compressed_encoded</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64encode</span><span class="p">(</span><span class="n">compressed</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">file_hash</span><span class="p">,</span> <span class="n">compressed_encoded</span>
+    <span class="k">return</span> <span class="n">file_hash</span><span class="p">,</span> <span class="n">compressed_encoded</span></div>
 
 
+
+<div class="viewcode-block" id="decode_compressed_yaml">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.decode_compressed_yaml.html#autoclean.utils.config.decode_compressed_yaml">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">decode_compressed_yaml</span><span class="p">(</span><span class="n">encoded_str</span><span class="p">):</span>
     <span class="n">compressed_data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded_str</span><span class="p">)</span>
     <span class="n">yaml_str</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">compressed_data</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">yaml_str</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">yaml_str</span><span class="p">)</span></div>
+
 </pre></div>
 
                 </article>

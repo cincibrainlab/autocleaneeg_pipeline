@@ -685,11 +685,11 @@ class VisualizationMixin(BaseVizMixin):
         autoclean_dict: Dict[str, Any],
         bands: Optional[List[Tuple[str, float, float]]] = None,
     ) -> None:
-        """ Generate and save a single high-resolution image that includes:
+        """Generate and save a single high-resolution image that includes:
        
         - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
         - Topographical maps for multiple EEG frequency bands arranged horizontally,
-        showing both pre and post cleaning.
+          showing both pre and post cleaning.
         - Annotations for average power and outlier channels.
 
         Parameters

@@ -30,6 +30,10 @@
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
@@ -390,20 +394,32 @@
 
 
 
+<div class="viewcode-block" id="DatabaseError">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.DatabaseError.html#autoclean.utils.database.DatabaseError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DatabaseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom exception for database operations.&quot;&quot;&quot;</span>
 
+<div class="viewcode-block" id="DatabaseError.__init__">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.DatabaseError.html#autoclean.utils.database.DatabaseError.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span></div>
+</div>
 
 
+
+<div class="viewcode-block" id="RecordNotFoundError">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.RecordNotFoundError.html#autoclean.utils.database.RecordNotFoundError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">RecordNotFoundError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom exception for when a database record is not found.&quot;&quot;&quot;</span>
 
+<div class="viewcode-block" id="RecordNotFoundError.__init__">
+<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.RecordNotFoundError.html#autoclean.utils.database.RecordNotFoundError.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span></div>
+</div>
+
 
 
 <div class="viewcode-block" id="get_run_record">

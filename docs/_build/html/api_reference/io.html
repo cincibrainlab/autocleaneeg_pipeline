@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>IO &#8212; AutoClean 1.2.0 documentation</title>
+    <title>IO (autoclean.io) &#8212; AutoClean 1.2.0 documentation</title>
   
   
   
@@ -31,6 +31,10 @@
 <link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
@@ -330,14 +334,20 @@
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.mixins.viz.ica.ICAReportingMixin.html">ica.ICAReportingMixin</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">IO</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l1 current active has-children"><a class="current reference internal" href="#">IO <em>(autoclean.io)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.import_.import_eeg.html">import_.import_eeg</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.export.save_raw_to_set.html">export.save_raw_to_set</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.export.save_epochs_to_set.html">export.save_epochs_to_set</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.io.export.save_stc_to_file.html">export.save_stc_to_file</a></li>
 </ul>
 </details></li>
-<li class="toctree-l1"><a class="reference internal" href="reports.html">Reports</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="reports.html">Reports <em>(autoclean.step_functions)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.create_run_report.html">reports.create_run_report</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.update_task_processing_log.html">reports.update_task_processing_log</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.create_json_summary.html">reports.create_json_summary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.step_functions.reports.generate_bad_channels_tsv.html">reports.generate_bad_channels_tsv</a></li>
+</ul>
+</details></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="utils.html">Utils <em>(autoclean.utils)</em></a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.bids.step_convert_to_bids.html">bids.step_convert_to_bids</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.bids.step_sanitize_id.html">bids.step_sanitize_id</a></li>
@@ -368,6 +378,7 @@
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.validate_channel_set.html">montage.validate_channel_set</a></li>
 </ul>
 </details></li>
+<li class="toctree-l1"><a class="reference internal" href="tools.html">Tools <em>(autoclean.tools)</em></a></li>
 </ul>
 </div>
 </nav></div>
@@ -414,7 +425,7 @@
     
     <li class="breadcrumb-item"><a href="index.html" class="nav-link">API Reference</a></li>
     
-    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">IO</span></li>
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis">IO <em>(autoclean.io)</em></span></li>
   </ul>
 </nav>
 </div>
@@ -431,8 +442,8 @@
 <div id="searchbox"></div>
                 <article class="bd-article">
                   
-  <section id="io">
-<span id="api-io"></span><h1>IO<a class="headerlink" href="#io" title="Link to this heading">#</a></h1>
+  <section id="io-autoclean-io">
+<span id="api-io"></span><h1>IO <em>(autoclean.io)</em><a class="headerlink" href="#io-autoclean-io" title="Link to this heading">#</a></h1>
 <p>This section covers the input/output classes that provide functionality for reading and writing data in AutoClean.</p>
 <p><em>Note</em> These IO functions may not have to be used directly by the user as most mixin functions will use an internal function to save the result of the mixin function.
 However, they are still useful if you need to save data at a specific stage of the pipeline.</p>

@@ -91,27 +91,34 @@ def load_config(config_file: Path) -> dict:
 
 def validate_pylossless_config(
     autoclean_dict: dict, task: str, config_file_path: Path
-) -> None:
+) -> dict:
     """Validate and locate the pylossless configuration file for a given task.
 
     This function checks if the pylossless configuration file exists at the specified path.
     If not found at the absolute path, it attempts to find it relative to the main config
     file directory. Updates the config dictionary with the full path if found.
 
-    Args:
-        autoclean_dict: Configuration dictionary containing task settings
-        task: Name of the current processing task
-        config_file_path: Path to the main configuration file
+    Parameters
+    ----------
+    autoclean_dict : dict
+        Configuration dictionary containing task settings
+    task : str
+        Name of the current processing task
+    config_file_path : Path
+        Path to the main configuration file
 
-    Returns:
-        dict: Updated configuration dictionary
+    Returns
+    -------
+    dict
+        Updated configuration dictionary
 
-    Example:
-        >>> validate_pylossless_config(
-        ...     autoclean_dict={"tasks": {"rest": {"lossless_config": "lossless.yaml"}}},
-        ...     task="rest",
-        ...     config_file_path=Path("/path/to/config.yaml")
-        ... )
+    Examples
+    --------
+    >>> validate_pylossless_config(
+    ...     autoclean_dict={"tasks": {"rest": {"lossless_config": "lossless.yaml"}}},
+    ...     task="rest",
+    ...     config_file_path=Path("/path/to/config.yaml")
+    ... )
     """
     lossless_config_path = autoclean_dict["tasks"][task]["lossless_config"]
     message(
@@ -142,12 +149,18 @@ def validate_pylossless_config(
 
 def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
     """Validate signal processing parameters for physical constraints.
-    Args:
-        autoclean_dict: Configuration dictionary
-        task: Current processing task
+    
+    Parameters
+    ----------
+    autoclean_dict : dict
+        Configuration dictionary
+    task : str
+        Current processing task
 
-    Raises:
-        ValueError: If parameters violate signal processing constraints
+    Raises
+    ------
+    ValueError
+        If parameters violate signal processing constraints
     """
     # # Get sampling rate
     # resample_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]

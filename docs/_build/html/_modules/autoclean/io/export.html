@@ -30,6 +30,10 @@
 <link href="../../../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
 
     <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery.css?v=d2d258e8" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-binder.css?v=f4aeca0c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-dataframe.css?v=2082cf3c" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sg_gallery-rendered-html.css?v=1277b6f3" />
     <link rel="stylesheet" type="text/css" href="../../../_static/css/custom.css?v=cf960141" />
   
   <!-- So that users can add custom icons -->
@@ -667,6 +671,58 @@
 
     <span class="k">return</span> <span class="n">paths</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>  <span class="c1"># Return stage path for consistency</span></div>
 
+
+<span class="k">def</span><span class="w"> </span><span class="nf">save_ica_to_fif</span><span class="p">(</span><span class="n">pipeline</span><span class="p">,</span> <span class="n">autoclean_dict</span><span class="p">,</span> <span class="n">pre_ica_raw</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Save ICA results to FIF files.</span>
+
+<span class="sd">    This function saves ICA results to FIF files in the derivatives directory.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">        pipeline : dict</span>
+<span class="sd">            Pipeline dictionary</span>
+<span class="sd">        autoclean_dict : dict</span>
+<span class="sd">            Autoclean dictionary</span>
+<span class="sd">        pre_ica_raw : mne.io.Raw</span>
+<span class="sd">            Raw data before ICA</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">derivatives_dir</span> <span class="o">=</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">get_derivative_path</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;bids_path&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">directory</span>
+        <span class="n">derivatives_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">basename</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;unprocessed_file&quot;</span><span class="p">])</span><span class="o">.</span><span class="n">stem</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to save ICA to FIF files: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">components</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">ica1</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ica1_path</span> <span class="o">=</span> <span class="n">derivatives_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}</span><span class="s2">ica1-ica.fif&quot;</span>
+        <span class="n">pipeline</span><span class="o">.</span><span class="n">ica1</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">ica1_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ch</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">ica1</span><span class="o">.</span><span class="n">exclude</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">ica2</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ica2_path</span> <span class="o">=</span> <span class="n">derivatives_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}</span><span class="s2">ica2-ica.fif&quot;</span>
+        <span class="n">pipeline</span><span class="o">.</span><span class="n">ica2</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">ica2_path</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="n">components</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ch</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">pipeline</span><span class="o">.</span><span class="n">ica2</span><span class="o">.</span><span class="n">exclude</span><span class="p">)</span>
+    <span class="n">pre_ica_path</span> <span class="o">=</span> <span class="n">derivatives_dir</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">basename</span><span class="si">}</span><span class="s2">_pre_ica.set&quot;</span>
+    <span class="n">pre_ica_raw</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">pre_ica_path</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;eeglab&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+
+
+    <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s2">&quot;save_ica_to_fif&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;creationDateTime&quot;</span><span class="p">:</span> <span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span><span class="o">.</span><span class="n">isoformat</span><span class="p">(),</span>
+            <span class="s2">&quot;components&quot;</span><span class="p">:</span> <span class="n">components</span><span class="p">,</span>
+            <span class="s2">&quot;ica1_path&quot;</span><span class="p">:</span> <span class="n">ica1_path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;ica2_path&quot;</span><span class="p">:</span> <span class="n">ica2_path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+            <span class="s2">&quot;pre_ica_path&quot;</span><span class="p">:</span> <span class="n">pre_ica_path</span><span class="o">.</span><span class="n">name</span><span class="p">,</span>
+        <span class="p">}</span>
+    <span class="p">}</span>
+
+    <span class="n">run_id</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
+
+    <span class="n">manage_database</span><span class="p">(</span>
+        <span class="n">operation</span><span class="o">=</span><span class="s2">&quot;update&quot;</span><span class="p">,</span> <span class="n">update_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">,</span> <span class="s2">&quot;metadata&quot;</span><span class="p">:</span> <span class="n">metadata</span><span class="p">}</span>
+    <span class="p">)</span>
 
 
 <span class="c1"># Keep the existing save functions with minor updates to ensure backward compatibility</span>

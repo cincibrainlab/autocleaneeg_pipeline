@@ -1,14 +1,14 @@
 .. _api_core:
 
-==========
+=============
 Core Classes
-==========
+=============
 
 This section covers the core classes for EEG data processing in AutoClean. These classes form the 
 foundation of the processing pipeline and define the main abstractions for tasks and data flow.
 
 Pipeline
--------
+--------
 
 The :class:`~autoclean.core.pipeline.Pipeline` class is the main entry point for using AutoClean. 
 It manages the processing of EEG data files through various tasks.

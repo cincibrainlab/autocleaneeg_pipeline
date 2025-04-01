@@ -128,10 +128,14 @@ def message(level: str, text: str, **kwargs) -> None:
     """
     Enhanced logging function with support for lazy evaluation and context.
 
-    Args:
-        level: Log level ('debug', 'info', 'warning', etc.)
-        text: Message text to log
-        **kwargs: Additional context variables for formatting
+    Parameters
+    ----------
+    level : str
+        Log level ('debug', 'info', 'warning', etc.)
+    text : str
+        Message text to log
+    **kwargs
+        Additional context variables for formatting
     """
     # Convert level to proper case
     level = level.upper()
@@ -151,15 +155,19 @@ def configure_logger(
     """
     Configure the logger based on verbosity level and output directory.
 
-    Args:
-        verbose: Controls logging verbosity. Can be:
-            - bool: True is the same as 'INFO', False is the same as 'WARNING'
-            - str: One of 'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL'
-            - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
-            - LogLevel enum: Direct log level specification
-            - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
-        output_dir: Directory where task outputs will be stored
-        task: Name of the current task. If provided, logs will be stored in task's debug directory
+    Parameters
+    ----------
+    verbose : bool, str, int, LogLevel, optional
+        Controls logging verbosity. Can be:
+        - bool: True is the same as 'INFO', False is the same as 'WARNING'
+        - str: One of 'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL'
+        - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
+        - LogLevel enum: Direct log level specification
+        - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
+    output_dir : str or Path, optional
+        Directory where task outputs will be stored
+    task : str, optional
+        Name of the current task. If provided, logs will be stored in task's debug directory
     """
     logger.remove()
 

@@ -1,7 +1,7 @@
 .. _api_io:
 
 =============
-IO
+IO *(autoclean.io)*
 =============
 
 This section covers the input/output classes that provide functionality for reading and writing data in AutoClean.
