@@ -299,6 +299,58 @@ def save_epochs_to_set(
 
     return paths[0]  # Return stage path for consistency
 
+def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
+    """Save ICA results to FIF files.
+
+    This function saves ICA results to FIF files in the derivatives directory.
+
+    Parameters
+    ----------
+        pipeline : dict
+            Pipeline dictionary
+        autoclean_dict : dict
+            Autoclean dictionary
+        pre_ica_raw : mne.io.Raw
+            Raw data before ICA
+    """
+    try:
+        derivatives_dir = pipeline.get_derivative_path(autoclean_dict["bids_path"]).directory
+        derivatives_dir.mkdir(parents=True, exist_ok=True)
+        basename = Path(autoclean_dict["unprocessed_file"]).stem
+    except Exception as e:
+        message("error", f"Failed to save ICA to FIF files: {str(e)}")
+
+    components = []
+
+    if pipeline.ica1 is not None:
+        ica1_path = derivatives_dir / f"{basename}ica1-ica.fif"
+        pipeline.ica1.save(ica1_path, overwrite=True)
+        components.append(ch for ch in pipeline.ica1.exclude)
+    if pipeline.ica2 is not None:
+        ica2_path = derivatives_dir / f"{basename}ica2-ica.fif"
+        pipeline.ica2.save(ica2_path, overwrite=True)
+        components.append(ch for ch in pipeline.ica2.exclude)
+    pre_ica_path = derivatives_dir / f"{basename}_pre_ica.set"
+    pre_ica_raw.export(pre_ica_path, fmt="eeglab", overwrite=True)
+
+
+
+    metadata = {
+        "save_ica_to_fif": {
+            "creationDateTime": datetime.now().isoformat(),
+            "components": components,
+            "ica1_path": ica1_path.name,
+            "ica2_path": ica2_path.name,
+            "pre_ica_path": pre_ica_path.name,
+        }
+    }
+
+    run_id = autoclean_dict["run_id"]
+
+    manage_database(
+        operation="update", update_record={"run_id": run_id, "metadata": metadata}
+    )
+
 
 # Keep the existing save functions with minor updates to ensure backward compatibility
 def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
