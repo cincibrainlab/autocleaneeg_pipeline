@@ -54,3 +54,4 @@ data/pipeline.db
 uv.lock
 codefetch/codebase.md
 
+examples/single_file.py

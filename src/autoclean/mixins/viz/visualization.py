@@ -733,9 +733,6 @@ class VisualizationMixin(BaseVizMixin):
             )
         )
 
-        # Select all EEG channels
-        raw_original.interpolate_bads()
-
         # Count number of EEG channels
         channel_types = raw_original.get_channel_types()
         n_eeg_channels = channel_types.count("eeg")
@@ -744,7 +741,35 @@ class VisualizationMixin(BaseVizMixin):
             message("warning", "No EEG channels found in raw data.")
         else:
             message("info", f"Number of EEG channels: {n_eeg_channels}")
-            raw_original.pick("eeg")
+            
+            # Make copies to avoid modifying the original objects
+            raw_original = raw_original.copy()
+            raw_cleaned = raw_cleaned.copy()
+            
+            # Interpolate bad channels for better visualization
+            if raw_original.info["bads"]:
+                message("info", f"Interpolating {len(raw_original.info['bads'])} bad channels in original data for visualization")
+                raw_original.interpolate_bads()
+            
+            if raw_cleaned.info["bads"]:
+                message("info", f"Interpolating {len(raw_cleaned.info['bads'])} bad channels in cleaned data for visualization")
+                raw_cleaned.interpolate_bads()
+            
+            # Pick only EEG channels
+            raw_original = raw_original.pick("eeg")
+            raw_cleaned = raw_cleaned.pick("eeg")
+            
+            # Ensure both have the same number of channels
+            if len(raw_original.ch_names) != len(raw_cleaned.ch_names):
+                message("warning", f"Channel count mismatch: original has {len(raw_original.ch_names)}, cleaned has {len(raw_cleaned.ch_names)}")
+                
+                # Get common channels
+                common_channels = list(set(raw_original.ch_names).intersection(set(raw_cleaned.ch_names)))
+                message("info", f"Using {len(common_channels)} common channels between original and cleaned data")
+                
+                # Pick common channels
+                raw_original = raw_original.copy().pick(common_channels)
+                raw_cleaned = raw_cleaned.copy().pick(common_channels)
 
         # Parameters for PSD
         fmin = 0.5
