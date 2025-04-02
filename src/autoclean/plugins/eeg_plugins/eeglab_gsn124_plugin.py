@@ -38,6 +38,22 @@ class EEGLABSetGSN124Plugin(BaseEEGPlugin):
             # Step 1: Import the .set file
             raw = mne.io.read_raw_eeglab(input_fname=file_path, preload=preload, verbose=True)
             message("success", "Successfully loaded .set file")
+
+            # Step 1.5: Check for reference channel and rename if necessary
+            ref_channel_names = ['VREF', 'REF', 'E129']
+            for ref_name in ref_channel_names:
+                if ref_name in raw.ch_names:
+                    message("debug", f"Found reference channel '{ref_name}', renaming to 'Cz'")
+                    # Create mapping for renaming
+                    rename_mapping = {ref_name: 'Cz'}
+                    # Rename the channel
+                    raw.rename_channels(rename_mapping)
+                    message("success", f"Successfully renamed '{ref_name}' to 'Cz'")
+                    # Ensure reference channel is marked as EEG type
+                    if 'Cz' in raw.ch_names:
+                        raw.set_channel_types({'Cz': 'eeg'})
+                        message("info", "Set Cz channel type to EEG")
+                    break
             
             # Step 2: Configure the GSN-HydroCel-124 montage
             message("info", "Configuring GSN-HydroCel-124 channels")

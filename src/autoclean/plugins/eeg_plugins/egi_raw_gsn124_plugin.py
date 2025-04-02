@@ -89,25 +89,8 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
             message("info", "Applying GSN-HydroCel-128 montage (modified for 124 channels)")
             montage = mne.channels.make_standard_montage("GSN-HydroCel-129")
             
-            # Since we're using a 124-channel system, we need to adapt the 128 montage
-            # We'll select only the first 124 channels (E1-E124 + REF) from the montage
-            ch_names_to_keep = [f"E{i}" for i in range(1, 125)] + ['Cz']  # Include E129 reference
-            montage_dict = montage.get_positions()
-            
-            # Filter the montage to only keep our channels
-            ch_positions = {
-                ch_name: pos for ch_name, pos in montage_dict['ch_pos'].items() 
-                if ch_name in ch_names_to_keep
-            }
-            
-            # Create a new montage with only our channels
-            reduced_montage = mne.channels.make_dig_montage(
-                ch_pos=ch_positions,
-                coord_frame=montage_dict['coord_frame']
-            )
-            
             # Apply the montage
-            raw.set_montage(reduced_montage, match_case=False)
+            raw.set_montage(montage, match_case=False)
             
             message("success", "Successfully configured GSN-HydroCel-124 montage")
             
