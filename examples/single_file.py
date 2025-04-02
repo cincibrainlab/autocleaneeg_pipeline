@@ -15,7 +15,7 @@ pipeline = Pipeline(
 )
 
 # Example file path - modify this to point to your EEG file
-file_path = Path("C:/Users/Gam9LG/Downloads/CHCCH0014_256983_V04_VEP002.raw")
+file_path = Path("C:/Users/Gam9LG/Documents/HBCD_exampleFiles/CHCCH0014_V04/CHCCH0014_256983_V04_VEP.mff")
 
 
 # Process the file

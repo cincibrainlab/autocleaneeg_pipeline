@@ -38,6 +38,7 @@ _PLUGIN_REGISTRY = {}  # Maps (format_id, montage_name) tuples to plugin classes
 _CORE_FORMATS = {
     'set': 'EEGLAB_SET',
     'raw': 'EGI_RAW',
+    'mff': 'EGI_RAW',
     'fif': 'GENERIC_FIF',
     'vhdr': 'BRAINVISION_VHDR',
     'bdf': 'BIOSEMI_BDF',

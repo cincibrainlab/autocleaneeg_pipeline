@@ -126,28 +126,11 @@ class EventIDEpochsMixin:
             message("info", f"Found {len(events)} events matching the patterns:")
             for event_name, event_num in event_id.items():
                 message("info", f"  {event_name}: {event_num}")
-            # Find events in the data
-            events = mne.events_from_annotations(data, verbose=True)
-            
-            # Check if any events were found
-            if len(events) == 0:
-                message("warning", "No events found in the data")
-                return None
                 
-            # Extract the events array and event_id dictionary from the tuple
-            events_array, events_id_dict = events
-                
-            # Filter events to only include those in event_id
-            event_ids_to_keep = list(event_id.values())
-            filtered_events = [evt for evt in events_array if evt[2] in event_ids_to_keep]
-            
-            if len(filtered_events) == 0:
-                message("warning", f"No events matching event_id {event_id} found in the data")
-                return None
             # Create epochs with reject_by_annotation=False to handle annotations manually
             epochs = mne.Epochs(
                 data,
-                filtered_events,
+                events,
                 event_id=event_id,
                 tmin=tmin,
                 tmax=tmax,
@@ -247,7 +230,7 @@ class EventIDEpochsMixin:
             metadata = {
                 "duration": tmax - tmin,
                 "reject_by_annotation": reject_by_annotation,
-                "initial_epoch_count": len(filtered_events),
+                "initial_epoch_count": len(events),
                 "final_epoch_count": len(epochs_clean),
                 "single_epoch_duration": epochs.times[-1] - epochs.times[0],
                 "single_epoch_samples": epochs.times.shape[0],

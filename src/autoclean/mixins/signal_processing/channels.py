@@ -134,9 +134,19 @@ class ChannelsMixin:
             ransac_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_ransac"]
             bad_channels = cleaned_raw.get_bads(as_dict=True)
 
-            result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_ransac"]])
-            result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_deviation"]])
-            result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
+            # Check for reference channels to exclude from bad channels
+            ref_channels = []
+            if hasattr(self, 'config'):
+                task = self.config.get("task")
+                ref_step = self.config.get("tasks", {}).get(task, {}).get("settings", {}).get("reference_step", {})
+                if ref_step and ref_step.get("enabled") and ref_step.get("value"):
+                    ref_channels = ref_step.get("value", [])
+                    message("info", f"Excluding reference channel(s) from bad channels: {ref_channels}")
+
+            # Add bad channels to info, but exclude reference channels
+            result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_ransac"] if str(ch) not in ref_channels])
+            result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_deviation"] if str(ch) not in ref_channels])
+            result_raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"] if str(ch) not in ref_channels])
             
             # Remove duplicates
             bads = list(set(result_raw.info["bads"]))
