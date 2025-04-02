@@ -3,7 +3,7 @@ from autoclean import Pipeline
 import mne
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean/VEP")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean/MMN")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config_hbcd.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
@@ -15,11 +15,11 @@ pipeline = Pipeline(
 )
 
 # Example file path - modify this to point to your EEG file
-file_path = Path("C:/Users/Gam9LG/Documents/HBCD_exampleFiles/CHCCH0014_V04/CHCCH0014_256983_V04_VEP.mff")
+file_path = Path("C:/Users/Gam9LG/Documents/DATA/hbcd_mmn/sub-896714_ses-V03_task-MMN_acq-eeg_eeg.set")
 
 
 # Process the file
 pipeline.process_file(
     file_path=file_path,
-    task="HBCD_VEP",  # Choose appropriate task
+    task="HBCD_MMN",  # Choose appropriate task
 )
