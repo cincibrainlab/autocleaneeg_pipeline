@@ -33,7 +33,7 @@ tasks:
           end: 60 # null uses full duration
       reference_step:
         enabled: true
-        value: ["E129"]
+        value: ["Cz"]
       montage:
         enabled: true
         value: "GSN-HydroCel-124"
@@ -87,7 +87,7 @@ tasks:
           end: 60 # null uses full duration
       reference_step:
         enabled: true
-        value: ["E129"]
+        value: ["Cz"]
       montage:
         enabled: true
         value: "GSN-HydroCel-124"
@@ -101,7 +101,7 @@ tasks:
           enabled: true
           window: [null, 0]
         threshold_rejection: #Remove artifact laden epoch based on voltage threshold
-          enabled: true
+          enabled: false
           volt_threshold: 
             eeg: 200e-6
 

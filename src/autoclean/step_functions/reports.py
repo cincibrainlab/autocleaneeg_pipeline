@@ -903,7 +903,32 @@ def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: li
                 if not isinstance(current, dict):
                     return default
                 current = current.get(key, {})
+            # Handle case where the value is a dict - return default instead
+            if isinstance(current, dict):
+                return default
             return current if current is not None else default
+        
+        # Function to calculate bad trials safely
+        def calculate_bad_trials():
+            try:
+                initial_epochs = safe_get(summary_dict, "export_details", "initial_n_epochs", default=0)
+                final_epochs = safe_get(summary_dict, "export_details", "final_n_epochs", default=0)
+                
+                # Convert to integers safely
+                if isinstance(initial_epochs, (int, float, str)):
+                    initial_epochs = int(float(initial_epochs)) if initial_epochs else 0
+                else:
+                    initial_epochs = 0
+                    
+                if isinstance(final_epochs, (int, float, str)):
+                    final_epochs = int(float(final_epochs)) if final_epochs else 0
+                else:
+                    final_epochs = 0
+                    
+                # Calculate bad trials
+                return initial_epochs - final_epochs
+            except Exception:
+                return 0  # Default to 0 if calculation fails
         
         # Calculate percentages safely
         def safe_percentage(numerator, denominator, default=""):
@@ -913,7 +938,6 @@ def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: li
                 return str(num / denom) if denom != 0 else default
             except (ValueError, TypeError):
                 return default
-        
         
         # Combine flags into a single string
         flags = "; ".join(flagged_reasons) if flagged_reasons else ""
@@ -950,10 +974,7 @@ def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: li
             "epoch_length": str(safe_get(summary_dict, "export_details", "epoch_length", default="")),
             "epoch_limits": str(safe_get(summary_dict, "export_details", "epoch_limits", default="")),
             "epoch_trials": str(safe_get(summary_dict, "export_details", "initial_n_epochs", default="")),
-            "epoch_badtrials": str(
-                int(safe_get(summary_dict, "export_details", "initial_n_epochs", default=0)) - 
-                int(safe_get(summary_dict, "export_details", "final_n_epochs", default=0))
-            ),
+            "epoch_badtrials": str(calculate_bad_trials()),
             "epoch_percent": safe_percentage(
                 safe_get(summary_dict, "export_details", "final_n_epochs", default=""),
                 safe_get(summary_dict, "export_details", "initial_n_epochs", default=""),

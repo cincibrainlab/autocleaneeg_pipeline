@@ -41,7 +41,24 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
                 exclude=[],  # Explicitly include all events, no exclusions
                 verbose=True
             )
+
             message("success", "Successfully loaded .raw file with all events")
+
+            # Step 1.5: Check for reference channel and rename if necessary
+            ref_channel_names = ['VREF', 'REF', 'E129']
+            for ref_name in ref_channel_names:
+                if ref_name in raw.ch_names:
+                    message("debug", f"Found reference channel '{ref_name}', renaming to 'Cz'")
+                    # Create mapping for renaming
+                    rename_mapping = {ref_name: 'Cz'}
+                    # Rename the channel
+                    raw.rename_channels(rename_mapping)
+                    message("success", f"Successfully renamed '{ref_name}' to 'Cz'")
+                    # Ensure reference channel is marked as EEG type
+                    if 'Cz' in raw.ch_names:
+                        raw.set_channel_types({'Cz': 'eeg'})
+                        message("info", "Set Cz channel type to EEG")
+                    break
             
             # Debug: Print annotations to verify events are loaded
             message("debug", f"Annotations after loading: {raw.annotations.description}")
@@ -73,11 +90,11 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
             montage = mne.channels.make_standard_montage("GSN-HydroCel-129")
             
             # Since we're using a 124-channel system, we need to adapt the 128 montage
-            # We'll select only the first 124 channels (E1-E124) from the montage
-            ch_names_to_keep = [f"E{i}" for i in range(1, 125)]
+            # We'll select only the first 124 channels (E1-E124 + REF) from the montage
+            ch_names_to_keep = [f"E{i}" for i in range(1, 125)] + ['Cz']  # Include E129 reference
             montage_dict = montage.get_positions()
             
-            # Filter the montage to only keep our 124 channels
+            # Filter the montage to only keep our channels
             ch_positions = {
                 ch_name: pos for ch_name, pos in montage_dict['ch_pos'].items() 
                 if ch_name in ch_names_to_keep
@@ -97,14 +114,14 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
             # Step 3: Apply task-specific processing if needed
             task = autoclean_dict.get("task", None)
             if task:
-                if task == "p300_grael4k":
+                if task.lower() == "p300_grael4k":
                     message("info", "Processing P300 task-specific annotations")
                     mapping = {"13": "Standard", "14": "Target"}
                     raw.annotations.rename(mapping)
-                elif task in ["hbcd_mmn", "hbcd_vep"]:
+                elif task.lower() in ["hbcd_mmn", "hbcd_vep"]:
                     message("info", f"Processing {task} task-specific annotations")
                     # Let the dedicated HBCD event processor handle this
-                    # No need for task-specific logic here
+                    # HBCD specific processing here
                     message("info", f"Using generic HBCD processor for {task}")
                     
                 # Check if task-specific event handling is needed
@@ -117,15 +134,15 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
                     # If event_id is not None, process the events
                     if event_id is not None:
                         try:
-                            target_event_id = event_id
-                            events, event_id_map = mne.events_from_annotations(raw)
-                            rev_target_event_id = dict(map(reversed, target_event_id.items()))
-                            raw.set_annotations(None)
-                            raw.set_annotations(
-                                mne.annotations_from_events(
-                                    events, raw.info["sfreq"], event_desc=rev_target_event_id
-                                )
-                            )
+                            # target_event_id = event_id
+                            # events, event_id_map = mne.events_from_annotations(raw)
+                            # rev_target_event_id = dict(map(reversed, target_event_id.items()))
+                            # raw.set_annotations(None)
+                            # raw.set_annotations(
+                            #     mne.annotations_from_events(
+                            #         events, raw.info["sfreq"], event_desc=rev_target_event_id
+                            #     )
+                            # )
                             message("success", "Successfully processed task-specific events")
                         except Exception as e:
                             message("warning", f"Failed to process task-specific events: {str(e)}")
