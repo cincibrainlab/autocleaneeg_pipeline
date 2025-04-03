@@ -111,27 +111,34 @@ class EventIDEpochsMixin:
                 
             message("header", f"Creating epochs based on event IDs: {event_id}")
             
-             # Create regexp pattern for all event types
-            target_event_type = list(event_id.keys())[0]
-            reg_exp = f".*{target_event_type}.*"
-            message("info", f"Looking for events matching pattern: {reg_exp}")
-
-            # Get events using regexp
-            events, event_id = mne.events_from_annotations(data, regexp=reg_exp)
-
-            if len(events) == 0:
+            # Get all events from annotations
+            events_all, event_id_all = mne.events_from_annotations(data)
+            
+            # Find all event types that match our event_id keys
+            event_patterns = {}
+            for event_key in event_id.keys():
+                #Could lead to undesired results if event_key is a substring of another event
+                matching_events = [k for k in event_id_all.keys() if event_key in k]
+                for match in matching_events:
+                    event_patterns[match] = event_id_all[match]
+            
+            message("info", f"Looking for events matching patterns: {list(event_patterns.keys())}")
+            
+            # Filter events to include only those with matching trigger codes
+            trigger_codes = list(event_patterns.values())
+            events_trig = events_all[np.isin(events_all[:, 2], trigger_codes)]
+            
+            if len(events_trig) == 0:
                 message("warning", "No matching events found")
                 return None
-
-            message("info", f"Found {len(events)} events matching the patterns:")
-            for event_name, event_num in event_id.items():
-                message("info", f"  {event_name}: {event_num}")
                 
-            # Create epochs with reject_by_annotation=False to handle annotations manually
+            message("info", f"Found {len(events_trig)} events matching the patterns")
+            
+            # Create epochs with the filtered events
             epochs = mne.Epochs(
                 data,
-                events,
-                event_id=event_id,
+                events_trig,
+                event_id=event_patterns,
                 tmin=tmin,
                 tmax=tmax,
                 baseline=baseline,
@@ -140,11 +147,47 @@ class EventIDEpochsMixin:
                 reject_by_annotation=reject_by_annotation,
             )
             
-            # Initialize metadata DataFrame
-            epochs.metadata = pd.DataFrame(index=range(len(epochs)))
+            # Step 5: Filter other events to keep only those that fall *within the kept epochs*
+            sfreq = data.info['sfreq']
+            epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers
+            n_epochs = len(epoch_samples)
+
+            # Compute valid ranges for each epoch (in raw sample indices)
+            start_offsets = int(tmin * sfreq)
+            end_offsets = int(tmax * sfreq)
+            epoch_sample_ranges = [(s + start_offsets, s + end_offsets) for s in epoch_samples]
+
+            # Filter events_all for events that fall inside any of those ranges
+            events_in_epochs = []
+            for sample, prev, code in events_all:
+                for i, (start, end) in enumerate(epoch_sample_ranges):
+                    if start <= sample <= end:
+                        events_in_epochs.append([sample, prev, code])
+                        break  # prevent double counting
+
+            events_in_epochs = np.array(events_in_epochs, dtype=int)
+            event_descriptions = {v: k for k, v in event_id_all.items()}
+
+            # Build metadata rows
+            metadata_rows = []
+            for i, (start, end) in enumerate(epoch_sample_ranges):
+                epoch_events = []
+                for sample, _, code in events_in_epochs:
+                    if start <= sample <= end:
+                        relative_time = (sample - epoch_samples[i]) / sfreq
+                        label = event_descriptions.get(code, f"code_{code}")
+                        epoch_events.append((label, relative_time))
+                metadata_rows.append({'additional_events': epoch_events})
+
+            # Add the metadata column
+            if epochs.metadata is not None:
+                epochs.metadata['additional_events'] = [row['additional_events'] for row in metadata_rows]
+            else:
+                epochs.metadata = pd.DataFrame(metadata_rows)
 
             # Create a copy for dropping
             epochs_clean = epochs.copy()
+
             
             # If not using reject_by_annotation, manually track bad annotations
             if not reject_by_annotation:
@@ -189,12 +232,14 @@ class EventIDEpochsMixin:
                         epochs.metadata.loc[idx, col_name] = True
                 
                 message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
-
-                epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
-            
             
             # Save epochs with bad epochs marked but not dropped
             self._save_epochs_result(result_data = epochs_clean, stage_name = "post_epochs")
+
+            epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
+            if epochs_clean.metadata is not None:
+                kept_indices = epochs_clean.selection
+                epochs_clean.metadata = epochs.metadata.iloc[kept_indices].reset_index(drop=True)
                 
             
             # Analyze drop log to tally different annotation types
@@ -230,7 +275,7 @@ class EventIDEpochsMixin:
             metadata = {
                 "duration": tmax - tmin,
                 "reject_by_annotation": reject_by_annotation,
-                "initial_epoch_count": len(events),
+                "initial_epoch_count": len(events_trig),
                 "final_epoch_count": len(epochs_clean),
                 "single_epoch_duration": epochs.times[-1] - epochs.times[0],
                 "single_epoch_samples": epochs.times.shape[0],

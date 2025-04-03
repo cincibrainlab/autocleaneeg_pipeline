@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import mne
+import numpy as np
 import scipy.io as sio
 
 from autoclean.utils.database import manage_database
@@ -258,12 +259,74 @@ def save_epochs_to_set(
         autoclean_dict["clean_dir"].mkdir(exist_ok=True)
         paths.append(clean_path)
 
+    if epochs.metadata is None:
+        message("warning", "No additional event metadata found for epochs")
+        events_in_epochs = None
+        event_id_rebuilt = None 
+    else:
+        try:
+            if len(epochs.metadata) != len(epochs.events):
+                message("warning", f"Mismatch in metadata vs events: {len(epochs.metadata)} vs {len(epochs.events)} — truncating to align.")
+
+            # Rebuild events_in_epochs from metadata
+            sfreq = epochs.info['sfreq']
+            offset = int(round(-epochs.tmin * sfreq))  # Number of samples from epoch start to time 0
+            # Ensure metadata and events are aligned
+            n_epochs = min(len(epochs.metadata), len(epochs.events))
+            n_samples = len(epochs.times)             # total samples per epoch
+            base_events = epochs.events[:n_epochs, 0]
+            metadata_iter = epochs.metadata.iloc[:n_epochs].iterrows()
+
+
+            # Step 1: Gather all unique event labels
+            all_labels = set()
+
+            for row in epochs.metadata['additional_events']:
+                for label, _ in row:
+                    all_labels.add(label)
+
+            # Step 2: Build event_id dictionary (label → code)
+            event_id_rebuilt = {label: idx + 1 for idx, label in enumerate(sorted(all_labels))}
+
+            # Step 3: Build events_in_epochs array from metadata
+            events_in_epochs = []
+            for i, row in enumerate(epochs.metadata.itertuples(index=False, name="Row")):
+                for label, rel_time in row.additional_events:
+                    # Compute event sample relative to epoch start (adjusted so trigger is at 0s)
+                    event_sample_within_epoch = int(round(rel_time * sfreq)) + offset
+                    # Add global offset: epoch index * number of samples per epoch
+                    global_sample = i * n_samples + event_sample_within_epoch
+                    code = event_id_rebuilt[label]
+                    events_in_epochs.append([global_sample, 0, code])
+
+            events_in_epochs = np.array(events_in_epochs, dtype=int)
+        except Exception as e:
+            message("error", f"Failed to rebuild events_in_epochs: {str(e)}")
+            events_in_epochs = None
+
+
     # Save to all paths
     epochs.info["description"] = autoclean_dict["run_id"]
     epochs.apply_proj()
     for path in paths:
         try:
-            epochs.export(path, fmt="eeglab", overwrite=True)
+            #Export with preserved events
+            if events_in_epochs is not None:
+                from eeglabio.epochs import export_set
+
+                export_set(
+                    fname=str(path),
+                    data=epochs.get_data(),        # shape: (n_epochs, n_channels, n_times)
+                    sfreq=epochs.info['sfreq'],
+                    events=events_in_epochs,       # this is your full enriched event list
+                    tmin=epochs.tmin,
+                    tmax=epochs.tmax,
+                    ch_names=epochs.ch_names,
+                    event_id=event_id_rebuilt,
+                    precision='single',
+                )
+            else:
+                epochs.export(path, fmt="eeglab", overwrite=True)
             # Add run_id to each file
             EEG = sio.loadmat(path)
             EEG["etc"] = {}

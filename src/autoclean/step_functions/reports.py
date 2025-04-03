@@ -468,7 +468,12 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         "Notch",
                         f"{processing_details.get('notch_freqs', ['N/A'])[0]} Hz",
                     ],
-                    ["ICA Method", ica_details.get("proc_method", "N/A")],
+                ]
+            )
+            if type(ica_details) == dict:
+                lossless_info.extend(
+                    [
+                        ["ICA Method", ica_details.get("proc_method", "N/A")],
                     [
                         "Components",
                         str(ica_details.get("proc_nComps", "N/A")),
