@@ -914,7 +914,7 @@ class FileSelector(QWidget):
                     )  # Disable saving for raw files
                 else:
                     # Load as epochs
-                    epochs = mne.read_epochs_eeglab(self.selected_file_path)
+                    epochs = mne.read_epochs_eeglab(self.selected_file_path, event_repeated = 'merge')
                     self.current_epochs = epochs.copy()
                     self.save_edits_btn.setEnabled(True)
 

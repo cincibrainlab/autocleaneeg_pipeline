@@ -171,18 +171,4 @@ class HBCDEventProcessor(BaseEventProcessor):
         else:
             message("warning", f"No events dataframe available for {task.upper()} processing")
             
-            # If no events_df but raw has annotations, we might still want to process them
-            if len(raw.annotations) > 0:
-                message("info", f"Using existing annotations in raw data for {task.upper()}")
-                
-                # Task-specific handling of annotations
-                if task == "hbcd_vep":
-                    # Example: For VEP, we might want to rename specific triggers
-                    mapping = {"DIN3": "VEP_STIM"}
-                    raw.annotations.rename(mapping)
-                elif task == "hbcd_mmn":
-                    # Example: For MMN, we might want different mappings
-                    mapping = {"DIN2": "MMN_STIM"}
-                    raw.annotations.rename(mapping)
-            
         return raw 

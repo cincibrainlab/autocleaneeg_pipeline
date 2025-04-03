@@ -27,10 +27,10 @@ tasks:
         enabled: true
         value: 4
       crop_step:
-        enabled: false
+        enabled: true
         value:
           start: 0
-          end: 60 # null uses full duration
+          end: 120 # null uses full duration
       reference_step:
         enabled: true
         value: ["Cz"]
@@ -47,7 +47,7 @@ tasks:
           enabled: true
           window: [null, 0]
         threshold_rejection: #Remove artifact laden epoch based on voltage threshold
-          enabled: true
+          enabled: false
           volt_threshold: 
             eeg: 200e-6
 
