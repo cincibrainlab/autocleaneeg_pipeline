@@ -113,28 +113,28 @@ class PyLosslessMixin:
         pre_ica_raw = pipeline.raw.copy()
 
         # #Run ICA
-        # message("debug", "running ICA")
-        # if pipeline.config["ica"] is not None:
-        #     message("debug", "running initial ICA")
-        #     pipeline.run_ica("run1", message="Running Initial ICA")
-        #     if eog_channel is not None:
-        #         message("info", f"Running first EOG detection on {eog_channel}")
-        #         eog_indices, eog_scores = pipeline.ica1.find_bads_eog(pipeline.raw, ch_name=eog_channel)
-        #         pipeline.ica1.exclude = eog_indices
-        #         pipeline.ica1.apply(pipeline.raw)
+        message("debug", "running ICA")
+        if pipeline.config["ica"] is not None:
+            message("debug", "running initial ICA")
+            pipeline.run_ica("run1", message="Running Initial ICA")
+            if eog_channel is not None:
+                message("info", f"Running first EOG detection on {eog_channel}")
+                eog_indices, eog_scores = pipeline.ica1.find_bads_eog(pipeline.raw, ch_name=eog_channel)
+                pipeline.ica1.exclude = eog_indices
+                pipeline.ica1.apply(pipeline.raw)
 
-        #     message("debug", "running final ICA")
-        #     pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
-        #     if eog_channel is not None:
-        #         message("info", f"Running second EOG detection on {eog_channel}")
-        #         eog_indices, eog_scores = pipeline.ica2.find_bads_eog(pipeline.raw, ch_name=eog_channel)
-        #         pipeline.ica2.exclude = eog_indices
-        #         pipeline.ica2.apply(pipeline.raw)
+            message("debug", "running final ICA")
+            pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
+            if eog_channel is not None:
+                message("info", f"Running second EOG detection on {eog_channel}")
+                eog_indices, eog_scores = pipeline.ica2.find_bads_eog(pipeline.raw, ch_name=eog_channel)
+                pipeline.ica2.exclude = eog_indices
+                pipeline.ica2.apply(pipeline.raw)
 
-        #     message("debug", "flagging noisy ICs")
-        #     pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
+            message("debug", "flagging noisy ICs")
+            pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
 
-        #     save_ica_to_fif(pipeline, self.config, pre_ica_raw)
+            save_ica_to_fif(pipeline, self.config, pre_ica_raw)
 
         metadata = {
             "creationDateTime": datetime.now().isoformat(),

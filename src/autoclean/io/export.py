@@ -290,12 +290,23 @@ def save_epochs_to_set(
 
             # Step 3: Build events_in_epochs array from metadata
             events_in_epochs = []
+            # Keep track of samples we've already used
+            used_samples = set()
+            
             for i, row in enumerate(epochs.metadata.itertuples(index=False, name="Row")):
                 for label, rel_time in row.additional_events:
                     # Compute event sample relative to epoch start (adjusted so trigger is at 0s)
                     event_sample_within_epoch = int(round(rel_time * sfreq)) + offset
                     # Add global offset: epoch index * number of samples per epoch
                     global_sample = i * n_samples + event_sample_within_epoch
+                    
+                    # Check if this sample is already used, if so offset by 1
+                    while global_sample in used_samples:
+                        global_sample += 1
+                    
+                    # Mark this sample as used
+                    used_samples.add(global_sample)
+                    
                     code = event_id_rebuilt[label]
                     events_in_epochs.append([global_sample, 0, code])
 

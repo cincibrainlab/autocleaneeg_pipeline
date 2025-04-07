@@ -249,21 +249,21 @@ class HBCD_MMN(Task):
         self.detect_dense_oscillatory_artifacts()
 
         # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
-        # self.pipeline, self.raw = step_run_ll_rejection_policy(
-        #     self.pipeline, self.config
-        # )
+        self.pipeline, self.raw = step_run_ll_rejection_policy(
+            self.pipeline, self.config
+        )
         save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
 
         self.detect_dense_oscillatory_artifacts()
 
         #Clean bad channels post ICA
-        # self.clean_bad_channels(cleaning_method="interpolate")
+        self.clean_bad_channels(cleaning_method="interpolate")
 
         save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
 
         self.create_eventid_epochs()
 
-        # self._generate_reports()
+        self._generate_reports()
 
 
     def _generate_reports(self) -> None:
