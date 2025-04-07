@@ -115,7 +115,7 @@ class EventIDEpochsMixin:
             events_all, event_id_all = mne.events_from_annotations(data)
             
             # Find all event types that match our event_id keys
-            event_patterns = {}
+            event_patterns = {} #Name and code of events to epoch by
             for event_key in event_id.keys():
                 #Could lead to undesired results if event_key is a substring of another event
                 matching_events = [k for k in event_id_all.keys() if event_key in k]
@@ -150,7 +150,9 @@ class EventIDEpochsMixin:
             # Step 5: Filter other events to keep only those that fall *within the kept epochs*
             sfreq = data.info['sfreq']
             epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers
-            n_epochs = len(epoch_samples)
+            n_epochs = len(epochs.events)
+            n_samples = len(epochs.times)             # total samples per epoch
+            offset = int(round(-epochs.tmin * sfreq))  # Number of samples from epoch start to time 0
 
             # Compute valid ranges for each epoch (in raw sample indices)
             start_offsets = int(tmin * sfreq)
@@ -164,6 +166,8 @@ class EventIDEpochsMixin:
                     if start <= sample <= end:
                         events_in_epochs.append([sample, prev, code])
                         break  # prevent double counting
+                    elif sample < start:
+                        break
 
             events_in_epochs = np.array(events_in_epochs, dtype=int)
             event_descriptions = {v: k for k, v in event_id_all.items()}
@@ -177,6 +181,8 @@ class EventIDEpochsMixin:
                         relative_time = (sample - epoch_samples[i]) / sfreq
                         label = event_descriptions.get(code, f"code_{code}")
                         epoch_events.append((label, relative_time))
+                    # if sample < start:
+                    #     break
                 metadata_rows.append({'additional_events': epoch_events})
 
             # Add the metadata column
@@ -187,7 +193,6 @@ class EventIDEpochsMixin:
 
             # Create a copy for dropping
             epochs_clean = epochs.copy()
-
             
             # If not using reject_by_annotation, manually track bad annotations
             if not reject_by_annotation:

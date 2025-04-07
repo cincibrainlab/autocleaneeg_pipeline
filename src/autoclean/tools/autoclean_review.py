@@ -905,18 +905,26 @@ class FileSelector(QWidget):
                 # Check if this is a RAW file
                 is_raw = "_raw.set" in self.selected_file_path.lower()
 
-                if is_raw:
-                    # Load as raw EEG
-                    raw = mne.io.read_raw_eeglab(self.selected_file_path, preload=True)
-                    self.current_raw = raw.copy()
-                    self.save_edits_btn.setEnabled(
-                        False
-                    )  # Disable saving for raw files
-                else:
-                    # Load as epochs
-                    epochs = mne.read_epochs_eeglab(self.selected_file_path, event_repeated = 'merge')
-                    self.current_epochs = epochs.copy()
-                    self.save_edits_btn.setEnabled(True)
+                try:    
+                    if is_raw:
+                        # Load as raw EEG
+                        raw = mne.io.read_raw_eeglab(self.selected_file_path, preload=True)
+                        self.current_raw = raw.copy()
+                        self.save_edits_btn.setEnabled(
+                            False
+                        )  # Disable saving for raw files
+                    else:
+                        # Load as epochs
+                        epochs = mne.read_epochs_eeglab(self.selected_file_path)
+                        self.current_epochs = epochs.copy()
+                        self.save_edits_btn.setEnabled(True)
+                except Exception as e:
+                    QMessageBox.critical(
+                        self, "Error", f"Error loading file: {str(e)}"
+                    )
+                    print(f"Error in plotFile: {str(e)}")
+                    self.instruction_widget.show()  # Show instructions if plot fails
+                    return
 
                 # Hide instructions
                 self.instruction_widget.hide()
@@ -1031,7 +1039,7 @@ class FileSelector(QWidget):
 
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Error", f"Error loading/plotting file: {str(e)}"
+                    self, "Error", f"Error plotting file: {str(e)}"
                 )
                 print(f"Error in plotFile: {str(e)}")
                 self.instruction_widget.show()  # Show instructions if plot fails
@@ -1067,4 +1075,4 @@ def run_autoclean_review(autoclean_dir):
 
 
 if __name__ == "__main__":
-    run_autoclean_review(Path("C:/Users/Gam9LG/Documents/Autoclean_test"))
+    run_autoclean_review(Path("C:/Users/Gam9LG/Documents/Autoclean"))
