@@ -367,6 +367,7 @@
 <span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Any</span><span class="p">,</span> <span class="n">Dict</span><span class="p">,</span> <span class="n">Optional</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">mne</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">scipy.io</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sio</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.utils.database</span><span class="w"> </span><span class="kn">import</span> <span class="n">manage_database</span>
@@ -630,12 +631,85 @@
         <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;clean_dir&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
         <span class="n">paths</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">clean_path</span><span class="p">)</span>
 
+    <span class="k">if</span> <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;No additional event metadata found for epochs&quot;</span><span class="p">)</span>
+        <span class="n">events_in_epochs</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="n">event_id_rebuilt</span> <span class="o">=</span> <span class="kc">None</span> 
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">):</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Mismatch in metadata vs events: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="p">)</span><span class="si">}</span><span class="s2"> vs </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">)</span><span class="si">}</span><span class="s2"> — truncating to align.&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Rebuild events_in_epochs from metadata</span>
+            <span class="n">sfreq</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;sfreq&#39;</span><span class="p">]</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="o">-</span><span class="n">epochs</span><span class="o">.</span><span class="n">tmin</span> <span class="o">*</span> <span class="n">sfreq</span><span class="p">))</span>  <span class="c1"># Number of samples from epoch start to time 0</span>
+            <span class="c1"># Ensure metadata and events are aligned</span>
+            <span class="n">n_epochs</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="p">),</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">))</span>
+            <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>             <span class="c1"># total samples per epoch</span>
+            <span class="n">base_events</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">[:</span><span class="n">n_epochs</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span>
+            <span class="n">metadata_iter</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">iloc</span><span class="p">[:</span><span class="n">n_epochs</span><span class="p">]</span><span class="o">.</span><span class="n">iterrows</span><span class="p">()</span>
+
+
+            <span class="c1"># Step 1: Gather all unique event labels</span>
+            <span class="n">all_labels</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+            <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;additional_events&#39;</span><span class="p">]:</span>
+                <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">row</span><span class="p">:</span>
+                    <span class="n">all_labels</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">label</span><span class="p">)</span>
+
+            <span class="c1"># Step 2: Build event_id dictionary (label → code)</span>
+            <span class="n">event_id_rebuilt</span> <span class="o">=</span> <span class="p">{</span><span class="n">label</span><span class="p">:</span> <span class="n">idx</span> <span class="o">+</span> <span class="mi">1</span> <span class="k">for</span> <span class="n">idx</span><span class="p">,</span> <span class="n">label</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">all_labels</span><span class="p">))}</span>
+
+            <span class="c1"># Step 3: Build events_in_epochs array from metadata</span>
+            <span class="n">events_in_epochs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="c1"># Keep track of samples we&#39;ve already used</span>
+            <span class="n">used_samples</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+            
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">row</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">itertuples</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">name</span><span class="o">=</span><span class="s2">&quot;Row&quot;</span><span class="p">)):</span>
+                <span class="k">for</span> <span class="n">label</span><span class="p">,</span> <span class="n">rel_time</span> <span class="ow">in</span> <span class="n">row</span><span class="o">.</span><span class="n">additional_events</span><span class="p">:</span>
+                    <span class="c1"># Compute event sample relative to epoch start (adjusted so trigger is at 0s)</span>
+                    <span class="n">event_sample_within_epoch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">rel_time</span> <span class="o">*</span> <span class="n">sfreq</span><span class="p">))</span> <span class="o">+</span> <span class="n">offset</span>
+                    <span class="c1"># Add global offset: epoch index * number of samples per epoch</span>
+                    <span class="n">global_sample</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">n_samples</span> <span class="o">+</span> <span class="n">event_sample_within_epoch</span>
+                    
+                    <span class="c1"># Check if this sample is already used, if so offset by 1</span>
+                    <span class="k">while</span> <span class="n">global_sample</span> <span class="ow">in</span> <span class="n">used_samples</span><span class="p">:</span>
+                        <span class="n">global_sample</span> <span class="o">+=</span> <span class="mi">1</span>
+                    
+                    <span class="c1"># Mark this sample as used</span>
+                    <span class="n">used_samples</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">global_sample</span><span class="p">)</span>
+                    
+                    <span class="n">code</span> <span class="o">=</span> <span class="n">event_id_rebuilt</span><span class="p">[</span><span class="n">label</span><span class="p">]</span>
+                    <span class="n">events_in_epochs</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">global_sample</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">code</span><span class="p">])</span>
+
+            <span class="n">events_in_epochs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">events_in_epochs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to rebuild events_in_epochs: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">events_in_epochs</span> <span class="o">=</span> <span class="kc">None</span>
+
+
     <span class="c1"># Save to all paths</span>
     <span class="n">epochs</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;description&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;run_id&quot;</span><span class="p">]</span>
     <span class="n">epochs</span><span class="o">.</span><span class="n">apply_proj</span><span class="p">()</span>
     <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
-            <span class="n">epochs</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;eeglab&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="c1">#Export with preserved events</span>
+            <span class="k">if</span> <span class="n">events_in_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="kn">from</span><span class="w"> </span><span class="nn">eeglabio.epochs</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_set</span>
+
+                <span class="n">export_set</span><span class="p">(</span>
+                    <span class="n">fname</span><span class="o">=</span><span class="nb">str</span><span class="p">(</span><span class="n">path</span><span class="p">),</span>
+                    <span class="n">data</span><span class="o">=</span><span class="n">epochs</span><span class="o">.</span><span class="n">get_data</span><span class="p">(),</span>        <span class="c1"># shape: (n_epochs, n_channels, n_times)</span>
+                    <span class="n">sfreq</span><span class="o">=</span><span class="n">epochs</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;sfreq&#39;</span><span class="p">],</span>
+                    <span class="n">events</span><span class="o">=</span><span class="n">events_in_epochs</span><span class="p">,</span>       <span class="c1"># this is your full enriched event list</span>
+                    <span class="n">tmin</span><span class="o">=</span><span class="n">epochs</span><span class="o">.</span><span class="n">tmin</span><span class="p">,</span>
+                    <span class="n">tmax</span><span class="o">=</span><span class="n">epochs</span><span class="o">.</span><span class="n">tmax</span><span class="p">,</span>
+                    <span class="n">ch_names</span><span class="o">=</span><span class="n">epochs</span><span class="o">.</span><span class="n">ch_names</span><span class="p">,</span>
+                    <span class="n">event_id</span><span class="o">=</span><span class="n">event_id_rebuilt</span><span class="p">,</span>
+                    <span class="n">precision</span><span class="o">=</span><span class="s1">&#39;single&#39;</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">epochs</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;eeglab&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="c1"># Add run_id to each file</span>
             <span class="n">EEG</span> <span class="o">=</span> <span class="n">sio</span><span class="o">.</span><span class="n">loadmat</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
             <span class="n">EEG</span><span class="p">[</span><span class="s2">&quot;etc&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{}</span>

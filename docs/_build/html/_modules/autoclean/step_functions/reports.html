@@ -834,7 +834,12 @@
                         <span class="s2">&quot;Notch&quot;</span><span class="p">,</span>
                         <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">processing_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;notch_freqs&#39;</span><span class="p">,</span><span class="w"> </span><span class="p">[</span><span class="s1">&#39;N/A&#39;</span><span class="p">])[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2"> Hz&quot;</span><span class="p">,</span>
                     <span class="p">],</span>
-                    <span class="p">[</span><span class="s2">&quot;ICA Method&quot;</span><span class="p">,</span> <span class="n">ica_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;proc_method&quot;</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span><span class="p">)],</span>
+                <span class="p">]</span>
+            <span class="p">)</span>
+            <span class="k">if</span> <span class="nb">type</span><span class="p">(</span><span class="n">ica_details</span><span class="p">)</span> <span class="o">==</span> <span class="nb">dict</span><span class="p">:</span>
+                <span class="n">lossless_info</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span>
+                    <span class="p">[</span>
+                        <span class="p">[</span><span class="s2">&quot;ICA Method&quot;</span><span class="p">,</span> <span class="n">ica_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;proc_method&quot;</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span><span class="p">)],</span>
                     <span class="p">[</span>
                         <span class="s2">&quot;Components&quot;</span><span class="p">,</span>
                         <span class="nb">str</span><span class="p">(</span><span class="n">ica_details</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;proc_nComps&quot;</span><span class="p">,</span> <span class="s2">&quot;N/A&quot;</span><span class="p">)),</span>
@@ -1272,7 +1277,32 @@
                 <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
                     <span class="k">return</span> <span class="n">default</span>
                 <span class="n">current</span> <span class="o">=</span> <span class="n">current</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">key</span><span class="p">,</span> <span class="p">{})</span>
+            <span class="c1"># Handle case where the value is a dict - return default instead</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">current</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
+                <span class="k">return</span> <span class="n">default</span>
             <span class="k">return</span> <span class="n">current</span> <span class="k">if</span> <span class="n">current</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="n">default</span>
+        
+        <span class="c1"># Function to calculate bad trials safely</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">calculate_bad_trials</span><span class="p">():</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">initial_epochs</span> <span class="o">=</span> <span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;initial_n_epochs&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                <span class="n">final_epochs</span> <span class="o">=</span> <span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;final_n_epochs&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+                
+                <span class="c1"># Convert to integers safely</span>
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">initial_epochs</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
+                    <span class="n">initial_epochs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">initial_epochs</span><span class="p">))</span> <span class="k">if</span> <span class="n">initial_epochs</span> <span class="k">else</span> <span class="mi">0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">initial_epochs</span> <span class="o">=</span> <span class="mi">0</span>
+                    
+                <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">final_epochs</span><span class="p">,</span> <span class="p">(</span><span class="nb">int</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">str</span><span class="p">)):</span>
+                    <span class="n">final_epochs</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">final_epochs</span><span class="p">))</span> <span class="k">if</span> <span class="n">final_epochs</span> <span class="k">else</span> <span class="mi">0</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">final_epochs</span> <span class="o">=</span> <span class="mi">0</span>
+                    
+                <span class="c1"># Calculate bad trials</span>
+                <span class="k">return</span> <span class="n">initial_epochs</span> <span class="o">-</span> <span class="n">final_epochs</span>
+            <span class="k">except</span> <span class="ne">Exception</span><span class="p">:</span>
+                <span class="k">return</span> <span class="mi">0</span>  <span class="c1"># Default to 0 if calculation fails</span>
         
         <span class="c1"># Calculate percentages safely</span>
         <span class="k">def</span><span class="w"> </span><span class="nf">safe_percentage</span><span class="p">(</span><span class="n">numerator</span><span class="p">,</span> <span class="n">denominator</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">):</span>
@@ -1282,7 +1312,6 @@
                 <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">num</span> <span class="o">/</span> <span class="n">denom</span><span class="p">)</span> <span class="k">if</span> <span class="n">denom</span> <span class="o">!=</span> <span class="mi">0</span> <span class="k">else</span> <span class="n">default</span>
             <span class="k">except</span> <span class="p">(</span><span class="ne">ValueError</span><span class="p">,</span> <span class="ne">TypeError</span><span class="p">):</span>
                 <span class="k">return</span> <span class="n">default</span>
-        
         
         <span class="c1"># Combine flags into a single string</span>
         <span class="n">flags</span> <span class="o">=</span> <span class="s2">&quot;; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">flagged_reasons</span><span class="p">)</span> <span class="k">if</span> <span class="n">flagged_reasons</span> <span class="k">else</span> <span class="s2">&quot;&quot;</span>
@@ -1319,10 +1348,7 @@
             <span class="s2">&quot;epoch_length&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;epoch_length&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)),</span>
             <span class="s2">&quot;epoch_limits&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;epoch_limits&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)),</span>
             <span class="s2">&quot;epoch_trials&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;initial_n_epochs&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)),</span>
-            <span class="s2">&quot;epoch_badtrials&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span>
-                <span class="nb">int</span><span class="p">(</span><span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;initial_n_epochs&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span> <span class="o">-</span> 
-                <span class="nb">int</span><span class="p">(</span><span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;final_n_epochs&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">))</span>
-            <span class="p">),</span>
+            <span class="s2">&quot;epoch_badtrials&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">calculate_bad_trials</span><span class="p">()),</span>
             <span class="s2">&quot;epoch_percent&quot;</span><span class="p">:</span> <span class="n">safe_percentage</span><span class="p">(</span>
                 <span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;final_n_epochs&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span>
                 <span class="n">safe_get</span><span class="p">(</span><span class="n">summary_dict</span><span class="p">,</span> <span class="s2">&quot;export_details&quot;</span><span class="p">,</span> <span class="s2">&quot;initial_n_epochs&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">),</span>

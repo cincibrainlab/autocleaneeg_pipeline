@@ -2,7 +2,7 @@ Getting Started
 ===============
 
 Installation
------------
+------------
 
 AutoClean EEG can be installed via pip:
 
@@ -19,10 +19,10 @@ For development installation:
    pip install -e .
 
 Quick Start
-----------
+-----------
 
 Basic Usage
-^^^^^^^^^^
+^^^^^^^^^^^
 
 In order to run a task on a dataset you will use the ``Pipeline`` class.
 
@@ -45,7 +45,7 @@ In order to run a task on a dataset you will use the ``Pipeline`` class.
 
 
 Processing Multiple Files
-^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^
 
 AutoClean supports batch processing of files, with both synchronous and asynchronous options:
 
@@ -87,12 +87,12 @@ AutoClean supports batch processing of files, with both synchronous and asynchro
 
 
 Docker Usage
------------
+------------
 
 AutoClean can be run in a containerized environment using Docker. This ensures consistent execution across different systems.
 
 Windows PowerShell
-^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^
 
 .. code-block:: powershell
 
@@ -105,7 +105,7 @@ Windows PowerShell
    autoclean -DataPath "C:\Data\raw" -Task "RestingEyesOpen" -ConfigPath "C:\configs\autoclean_config.yaml"
 
 Linux/WSL/Mac
-^^^^^^^^^^^^
+^^^^^^^^^^^^^
 
 .. code-block:: bash
 
@@ -118,7 +118,7 @@ Linux/WSL/Mac
    autoclean -DataPath "/path/to/data" -Task "RestingEyesOpen" -ConfigPath "/path/to/config.yaml"
 
 Configuration
-------------
+-------------
 
 AutoClean uses YAML files for configuration. The main configuration file specifies processing parameters for different tasks:
 
@@ -138,7 +138,7 @@ AutoClean uses YAML files for configuration. The main configuration file specifi
          # Artifact rejection settings...
 
 Available Tasks
---------------
+---------------
 
 AutoClean comes with several pre-configured tasks:
 
@@ -149,7 +149,7 @@ AutoClean comes with several pre-configured tasks:
 - **TEMPLATE**: Template for creating custom tasks
 
 Custom Tasks
------------
+------------
 
 You can create custom tasks by extending the ``Task`` base class:
 
@@ -175,7 +175,7 @@ You can create custom tasks by extending the ``Task`` base class:
            return config
 
 Output Structure
----------------
+----------------
 
 AutoClean organizes processing outputs in a structured directory hierarchy:
 

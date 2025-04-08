@@ -28,20 +28,6 @@ from autoclean.utils.database import manage_database
 class GFPCleanEpochsMixin:
     """Mixin class providing functionality to clean epochs based on Global Field Power (GFP).
     
-    This mixin provides methods for cleaning epochs using Global Field Power (GFP), which
-    is a measure of the spatial standard deviation across all electrodes at each time point.
-    GFP quantifies the overall variability in the electric field across the scalp and is
-    sensitive to both signal strength and spatial complexity.
-    
-    The cleaning process involves calculating GFP for each epoch, identifying epochs with
-    abnormally high or low GFP values (outliers), and optionally creating visualization
-    plots to help understand the distribution of GFP values. The mixin focuses on scalp
-    electrodes for GFP calculation, excluding non-EEG channels like EOG or reference
-    electrodes.
-    
-    The mixin respects configuration settings from the autoclean_config.yaml file,
-    allowing users to customize the GFP threshold, number of epochs to retain, and
-    other parameters.
     """
     
     def gfp_clean_epochs(self, epochs: Union[mne.Epochs, None] = None,
@@ -51,18 +37,6 @@ class GFPCleanEpochsMixin:
                         stage_name: str = "post_gfp_clean") -> mne.Epochs:
         """Clean an MNE Epochs object by removing outlier epochs based on Global Field Power.
         
-        This method calculates the Global Field Power (GFP) for each epoch, identifies
-        epochs with abnormal GFP values (outliers), and removes them from the dataset.
-        GFP is calculated as the standard deviation across all scalp electrodes at each
-        time point, providing a measure of the spatial variability of the electric field.
-        
-        The method focuses on scalp electrodes for GFP calculation, excluding non-EEG
-        channels like EOG or reference electrodes. It can also optionally select a random
-        subset of the cleaned epochs, which is useful for ensuring a consistent number
-        of epochs across subjects or conditions.
-        
-        The method generates visualization plots showing the GFP distribution and outliers,
-        which are saved to the output directory if a run_id is specified in the configuration.
         
         Parameters
         ----------
@@ -98,6 +72,25 @@ class GFPCleanEpochsMixin:
                 random_seed=42
             )
             ```
+
+        Notes
+        -----
+        This method calculates the Global Field Power (GFP) for each epoch, identifies
+        epochs with abnormal GFP values (outliers), and removes them from the dataset.
+        GFP is calculated as the standard deviation across all scalp electrodes at each
+        time point, providing a measure of the spatial variability of the electric field.
+        
+
+        The method focuses on scalp electrodes for GFP calculation, excluding non-EEG
+        channels like EOG or reference electrodes. It can also optionally select a random
+        subset of the cleaned epochs, which is useful for ensuring a consistent number
+        of epochs across subjects or conditions.
+        
+        
+        The method generates visualization plots showing the GFP distribution and outliers,
+        which are saved to the output directory if a run_id is specified in the configuration.
+        
+        
         """
         # Check if this step is enabled in the configuration
         # is_enabled, config_value = self._check_step_enabled("gfp_clean_epochs")
