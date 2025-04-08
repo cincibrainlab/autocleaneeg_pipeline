@@ -49,7 +49,7 @@ class MouseXdatAssr(Task):
         # Initialize instance variables
         self.raw = None
         self.pipeline = None
-        self.cleaned_raw = None
+        self.original_raw = None
         self.epochs = None
 
         # Call parent initialization
@@ -66,10 +66,8 @@ class MouseXdatAssr(Task):
         # Setup options
         options = {
             "random_state": 1337,
-            "ransac": True,
-            "channel_wise": False,
-            "max_chunk_size": None,
-            "corr_thresh": 0.75,
+            "corr_thresh": 0.35,
+            "frac_bad": 0.01,
         }
 
         # check if "eog" is in channel type dictionary
@@ -85,21 +83,14 @@ class MouseXdatAssr(Task):
 
         # Run noisy channels detection
         cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
-        #cleaned_raw.find_bad_by_SNR()
-        cleaned_raw.find_bad_by_correlation(correlation_threshold=0.35, frac_bad=0.01)
-        #cleaned_raw.find_bad_by_deviation(deviation_threshold=4.0)
+        cleaned_raw.find_bad_by_correlation(correlation_threshold=options["corr_thresh"], frac_bad=options["frac_bad"])
+
+        uncorrelated_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_correlation"]
+        deviation_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_deviation"]
+        ransac_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_ransac"]
         bad_channels = cleaned_raw.get_bads(as_dict=True)
         raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
 
-        # cleaned_raw.find_bad_by_ransac(
-        #     n_samples=100,
-        #     sample_prop=0.25,
-        #     corr_thresh=options["corr_thresh"],
-        #     frac_bad=0.35,
-        #     corr_window_secs=5.0,
-        #     channel_wise=True,
-        #     max_chunk_size=None,
-        # )
 
         # Create empty lists for the other bad channel types
         # This ensures the subsequent extend operations won't fail
@@ -133,6 +124,9 @@ class MouseXdatAssr(Task):
                 "channelCount": len(raw.ch_names),
                 "durationSec": int(raw.n_times) / raw.info["sfreq"],
                 "numberSamples": int(raw.n_times),
+                "uncorrelated_channels": uncorrelated_channels,
+                "deviation_channels": deviation_channels,
+                "ransac_channels": ransac_channels,
             }
         }
 
@@ -168,44 +162,31 @@ class MouseXdatAssr(Task):
         self.import_data(file_path)
 
 
-        l_freq = 0.5
-        h_freq = 100
-        self.raw.filter(l_freq = l_freq, h_freq = h_freq)
-
-
-        notch_freqs = [60]
-        notch_widths = 3
-        self.raw.notch_filter(freqs = notch_freqs, notch_widths = notch_widths)
-
-
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
 
+        self.original_raw = self.raw.copy()
 
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
         self.raw = self.step_clean_bad_channels_by_correlation(self.raw, self.config)
 
-
         self.raw.interpolate_bads(reset_bads=False)
 
-        self.epochs = step_create_eventid_epochs(
-            self.raw, self.pipeline, self.config
-        )
-
-        save_epochs_to_set(self.epochs, self.config, "post_epochs")
-
-        # Create analysis directory in stage_dir
-        analysis_dir = Path(self.config['stage_dir']) / "analysis"
-        analysis_dir.mkdir(parents=True, exist_ok=True)        
-        # Update config with analysis directory path
-        self.config['analysis_dir'] = str(analysis_dir)
-
-        from autoclean.calc.assr_runner import run_complete_analysis
-        file_basename = Path(self.config["unprocessed_file"]).stem
-        run_complete_analysis(epochs = self.epochs, output_dir = self.config['analysis_dir'], file_basename=file_basename)
+        self.create_eventid_epochs()
 
         self._generate_reports()
+
+        # Create analysis directory in stage_dir
+        # analysis_dir = Path(self.config['stage_dir']) / "analysis"
+        # analysis_dir.mkdir(parents=True, exist_ok=True)        
+        # # Update config with analysis directory path
+        # self.config['analysis_dir'] = str(analysis_dir)
+
+        # from autoclean.calc.assr_runner import run_complete_analysis
+        # file_basename = Path(self.config["unprocessed_file"]).stem
+        # run_complete_analysis(epochs = self.epochs, output_dir = self.config['analysis_dir'], file_basename=file_basename)
+
 
     def import_data(self, file_path: Path) -> None:
         """Import raw EEG data for this task.
@@ -251,27 +232,9 @@ class MouseXdatAssr(Task):
             This is automatically called by preprocess().
             Override this method if you need custom visualizations.
         """
-        if self.pipeline is None or self.cleaned_raw is None:
-            return
+        self.verify_topography_plot(self.config)
 
-        # Plot raw vs cleaned overlay using mixin method
-        self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
-        )
-
-        # Plot ICA components using mixin method
-        self.plot_ica_full(self.pipeline, self.config)
-
-        # Generate ICA reports using mixin method
-        self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
-        )
-
-        # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
-        )
+        # self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw, self.pipeline, self.config)
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Add your validation logic here
@@ -292,9 +255,7 @@ class MouseXdatAssr(Task):
         required_stages = [
             "post_import",
             "post_prepipeline",
-            "post_pylossless",
             "post_epochs",
-            "post_autoreject",
         ]
 
         for stage in required_stages:

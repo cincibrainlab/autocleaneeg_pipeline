@@ -108,7 +108,7 @@ class MouseXdatChirp(Task):
         self.import_data(file_path)
         self.process()
 
-    def import_data(self, file_path: Path) -> None:
+    def import_data(self) -> None:
         """Import raw EEG data for this task.
 
         This method should handle:
@@ -161,33 +161,32 @@ class MouseXdatChirp(Task):
         if self.raw is None:
             raise RuntimeError("No data has been imported")
 
-        # Run preprocessing pipeline and save result
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        self.import_data()
 
-        # Create BIDS-compliant paths and filenames
+        self.raw = step_pre_pipeline_processing(self.raw, self.config)
+        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+
+        self.original_raw = self.raw.copy()
+
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # Run PyLossless pipeline
-        self.pipeline, pipeline_raw = step_run_pylossless(self.config)
-        save_raw_to_set(raw = pipeline_raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
+        self.raw = self.step_clean_bad_channels_by_correlation(self.raw, self.config)
 
-        # # Apply rejection policy
-        # self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
-        #     self.pipeline, self.config
-        # )
-        # save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
+        self.raw.interpolate_bads(reset_bads=False)
 
-        self.epochs = step_create_eventid_epochs(
-            self.pipeline.raw, self.pipeline, self.config
-        )
-        save_epochs_to_set(epochs = self.epochs, autoclean_dict = self.config, stage = "post_epochs", flagged = self.flagged)
+        self.create_eventid_epochs()
 
-        self.epochs = step_apply_autoreject(self.epochs, self.pipeline, self.config)
-        save_epochs_to_set(epochs = self.epochs, autoclean_dict = self.config, stage = "post_autoreject", flagged = self.flagged)
-
-        # Generate visualization reports
         self._generate_reports()
+
+        # Create analysis directory in stage_dir
+        # analysis_dir = Path(self.config['stage_dir']) / "analysis"
+        # analysis_dir.mkdir(parents=True, exist_ok=True)        
+        # # Update config with analysis directory path
+        # self.config['analysis_dir'] = str(analysis_dir)
+
+        # from autoclean.calc.assr_runner import run_complete_analysis
+        # file_basename = Path(self.config["unprocessed_file"]).stem
+        # run_complete_analysis(epochs = self.epochs, output_dir = self.config['analysis_dir'], file_basename=file_basename)
 
     def preprocess():
         pass
@@ -208,24 +207,4 @@ class MouseXdatChirp(Task):
             This is automatically called by preprocess().
             Override this method if you need custom visualizations.
         """
-        if self.pipeline is None or self.cleaned_raw is None:
-            return
-
-        # Plot raw vs cleaned overlay using mixin method
-        self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
-        )
-
-        # Plot ICA components using mixin method
-        self.plot_ica_full(self.pipeline, self.config)
-
-        # Generate ICA reports using mixin method
-        self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
-        )
-
-        # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
-        )
+        self.verify_topography_plot(self.config)
