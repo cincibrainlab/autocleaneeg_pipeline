@@ -505,3 +505,28 @@ class ICAReportingMixin(BaseVizMixin):
 
             print(f"Report saved to {pdf_path}")
             return Path(pdf_path).name
+
+    def verify_topography_plot(self, autoclean_dict: Dict[str, Any]) -> bool:
+        """Use ica topograph to verify MEA channel placement.
+        """
+
+        from mne.preprocessing import ICA
+        import pylossless as ll
+
+        task = autoclean_dict["task"]
+        config_path = autoclean_dict['tasks'][task]['lossless_config']
+        derivative_name = "pylossless"
+        pipeline = ll.LosslessPipeline(config_path)
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"], derivative_name)
+        derivatives_dir = Path(derivatives_path.directory)
+
+
+        ica = ICA(n_components=len(self.raw.ch_names), method="fastica", random_state=42)
+        ica.fit(self.raw)
+
+        fig = ica.plot_components(picks=range(len(self.raw.ch_names)), show=False)
+
+        fig.savefig(derivatives_dir / "ica_topography.png")
+        
+
+

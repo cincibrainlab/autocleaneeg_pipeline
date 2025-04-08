@@ -82,8 +82,6 @@ class MouseXdatResting(Task):
 
         self.create_regular_epochs()
         
-        self.apply_autoreject()
-
         self._generate_reports()
 
 
@@ -104,23 +102,7 @@ class MouseXdatResting(Task):
             Override this method if you need custom visualizations.
         """
 
-        # Plot raw vs cleaned overlay using mixin method
-        self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
-        )
-
-        # Plot ICA components using mixin method
-        self.plot_ica_full(self.pipeline, self.config)
-
-        # Generate ICA reports using mixin method using
-        self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        )
-
-        # Create PSD topography figure using mixin method using
-        self.psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
-        )
+        self.verify_topography_plot(self.config)
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Add your validation logic here
