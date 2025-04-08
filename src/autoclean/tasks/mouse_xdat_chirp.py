@@ -1,6 +1,5 @@
 # src/autoclean/tasks/mouse_xdat_resting.py
-"""Mouse XDAT Resting State Task"""
-# TODO: Implement this task
+"""Mouse XDAT Chirp Task"""
 
 # Standard library imports
 from pathlib import Path
@@ -11,18 +10,17 @@ from autoclean.core.task import Task
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
     step_pre_pipeline_processing,
-    step_run_pylossless,
 )
 
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
-# Import the reporting functions directly from the Task class via mixins
-# from autoclean.step_functions.reports import (
-#     step_generate_ica_reports,
-#     step_plot_ica_full,
-#     step_plot_raw_vs_cleaned_overlay,
-#     step_psd_topo_figure,
-# )
+
+from pyprep.find_noisy_channels import NoisyChannels
+from autoclean.utils.database import manage_database
+from autoclean.utils.logging import message
+import mne
+
+from datetime import datetime
 
 
 class MouseXdatChirp(Task):
@@ -66,9 +64,7 @@ class MouseXdatChirp(Task):
         required_stages = [
             "post_import",
             "post_prepipeline",
-            "post_pylossless",
             "post_epochs",
-            "post_autoreject",
         ]
 
         for stage in required_stages:
@@ -208,3 +204,83 @@ class MouseXdatChirp(Task):
             Override this method if you need custom visualizations.
         """
         self.verify_topography_plot(self.config)
+
+
+    def step_clean_bad_channels_by_correlation(self,
+        raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
+    ) -> mne.io.Raw:
+        """Clean bad channels."""
+        message("header", "step_clean_bad_channels")
+        # Setup options
+        options = {
+            "random_state": 1337,
+            "corr_thresh": 0.35,
+            "frac_bad": 0.01,
+        }
+
+        # check if "eog" is in channel type dictionary
+        if (
+            "eog" in raw.get_channel_types()
+            and not autoclean_dict["tasks"][autoclean_dict["task"]]["settings"]["eog_step"][
+                "enabled"
+            ]
+        ):
+            eog_picks = mne.pick_types(raw.info, eog=True)
+            eog_ch_names = [raw.ch_names[idx] for idx in eog_picks]
+            raw.set_channel_types({ch: "eeg" for ch in eog_ch_names})
+
+        # Run noisy channels detection
+        cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
+        cleaned_raw.find_bad_by_correlation(correlation_threshold=options["corr_thresh"], frac_bad=options["frac_bad"])
+
+        uncorrelated_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_correlation"]
+        deviation_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_deviation"]
+        ransac_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_ransac"]
+        bad_channels = cleaned_raw.get_bads(as_dict=True)
+        raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
+
+
+        # Create empty lists for the other bad channel types
+        # This ensures the subsequent extend operations won't fail
+        bad_channels = cleaned_raw.get_bads(as_dict=True)
+        
+        # Initialize empty lists for channel types we're not detecting
+        if "bad_by_ransac" not in bad_channels:
+            bad_channels["bad_by_ransac"] = []
+        
+        if "bad_by_deviation" not in bad_channels:
+            bad_channels["bad_by_deviation"] = []
+            
+        if "bad_by_SNR" not in bad_channels:
+            bad_channels["bad_by_SNR"] = []
+
+        bad_channels = cleaned_raw.get_bads(as_dict=True)
+        raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_ransac"]])
+        raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_deviation"]])
+        raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
+        raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_SNR"]])
+
+        print(raw.info["bads"])
+
+        # Record metadata with options
+        metadata = {
+            "step_clean_bad_channels": {
+                "creationDateTime": datetime.now().isoformat(),
+                "method": "NoisyChannels",
+                "options": options,
+                "bads": raw.info["bads"],
+                "channelCount": len(raw.ch_names),
+                "durationSec": int(raw.n_times) / raw.info["sfreq"],
+                "numberSamples": int(raw.n_times),
+                "uncorrelated_channels": uncorrelated_channels,
+                "deviation_channels": deviation_channels,
+                "ransac_channels": ransac_channels,
+            }
+        }
+
+        manage_database(
+            operation="update",
+            update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
+        )
+
+        return raw
