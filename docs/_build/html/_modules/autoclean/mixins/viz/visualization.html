@@ -1107,9 +1107,6 @@
             <span class="p">)</span>
         <span class="p">)</span>
 
-        <span class="c1"># Select all EEG channels</span>
-        <span class="n">raw_original</span><span class="o">.</span><span class="n">interpolate_bads</span><span class="p">()</span>
-
         <span class="c1"># Count number of EEG channels</span>
         <span class="n">channel_types</span> <span class="o">=</span> <span class="n">raw_original</span><span class="o">.</span><span class="n">get_channel_types</span><span class="p">()</span>
         <span class="n">n_eeg_channels</span> <span class="o">=</span> <span class="n">channel_types</span><span class="o">.</span><span class="n">count</span><span class="p">(</span><span class="s2">&quot;eeg&quot;</span><span class="p">)</span>
@@ -1118,7 +1115,35 @@
             <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;No EEG channels found in raw data.&quot;</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Number of EEG channels: </span><span class="si">{</span><span class="n">n_eeg_channels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="n">raw_original</span><span class="o">.</span><span class="n">pick</span><span class="p">(</span><span class="s2">&quot;eeg&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Make copies to avoid modifying the original objects</span>
+            <span class="n">raw_original</span> <span class="o">=</span> <span class="n">raw_original</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            <span class="n">raw_cleaned</span> <span class="o">=</span> <span class="n">raw_cleaned</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+            
+            <span class="c1"># Interpolate bad channels for better visualization</span>
+            <span class="k">if</span> <span class="n">raw_original</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;bads&quot;</span><span class="p">]:</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Interpolating </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">raw_original</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;bads&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> bad channels in original data for visualization&quot;</span><span class="p">)</span>
+                <span class="n">raw_original</span><span class="o">.</span><span class="n">interpolate_bads</span><span class="p">()</span>
+            
+            <span class="k">if</span> <span class="n">raw_cleaned</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;bads&quot;</span><span class="p">]:</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Interpolating </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">raw_cleaned</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;bads&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> bad channels in cleaned data for visualization&quot;</span><span class="p">)</span>
+                <span class="n">raw_cleaned</span><span class="o">.</span><span class="n">interpolate_bads</span><span class="p">()</span>
+            
+            <span class="c1"># Pick only EEG channels</span>
+            <span class="n">raw_original</span> <span class="o">=</span> <span class="n">raw_original</span><span class="o">.</span><span class="n">pick</span><span class="p">(</span><span class="s2">&quot;eeg&quot;</span><span class="p">)</span>
+            <span class="n">raw_cleaned</span> <span class="o">=</span> <span class="n">raw_cleaned</span><span class="o">.</span><span class="n">pick</span><span class="p">(</span><span class="s2">&quot;eeg&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Ensure both have the same number of channels</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw_original</span><span class="o">.</span><span class="n">ch_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">raw_cleaned</span><span class="o">.</span><span class="n">ch_names</span><span class="p">):</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Channel count mismatch: original has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">raw_original</span><span class="o">.</span><span class="n">ch_names</span><span class="p">)</span><span class="si">}</span><span class="s2">, cleaned has </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">raw_cleaned</span><span class="o">.</span><span class="n">ch_names</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                
+                <span class="c1"># Get common channels</span>
+                <span class="n">common_channels</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">raw_original</span><span class="o">.</span><span class="n">ch_names</span><span class="p">)</span><span class="o">.</span><span class="n">intersection</span><span class="p">(</span><span class="nb">set</span><span class="p">(</span><span class="n">raw_cleaned</span><span class="o">.</span><span class="n">ch_names</span><span class="p">)))</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Using </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">common_channels</span><span class="p">)</span><span class="si">}</span><span class="s2"> common channels between original and cleaned data&quot;</span><span class="p">)</span>
+                
+                <span class="c1"># Pick common channels</span>
+                <span class="n">raw_original</span> <span class="o">=</span> <span class="n">raw_original</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">pick</span><span class="p">(</span><span class="n">common_channels</span><span class="p">)</span>
+                <span class="n">raw_cleaned</span> <span class="o">=</span> <span class="n">raw_cleaned</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">pick</span><span class="p">(</span><span class="n">common_channels</span><span class="p">)</span>
 
         <span class="c1"># Parameters for PSD</span>
         <span class="n">fmin</span> <span class="o">=</span> <span class="mf">0.5</span>

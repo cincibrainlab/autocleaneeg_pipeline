@@ -451,18 +451,6 @@
 <dt class="sig sig-object py" id="autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.mixins.signal_processing.gfp_clean_epochs.</span></span><span class="sig-name descname"><span class="pre">GFPCleanEpochsMixin</span></span><a class="reference internal" href="../../_modules/autoclean/mixins/signal_processing/gfp_clean_epochs.html#GFPCleanEpochsMixin"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin" title="Link to this definition">#</a></dt>
 <dd><p>Mixin class providing functionality to clean epochs based on Global Field Power (GFP).</p>
-<p>This mixin provides methods for cleaning epochs using Global Field Power (GFP), which
-is a measure of the spatial standard deviation across all electrodes at each time point.
-GFP quantifies the overall variability in the electric field across the scalp and is
-sensitive to both signal strength and spatial complexity.</p>
-<p>The cleaning process involves calculating GFP for each epoch, identifying epochs with
-abnormally high or low GFP values (outliers), and optionally creating visualization
-plots to help understand the distribution of GFP values. The mixin focuses on scalp
-electrodes for GFP calculation, excluding non-EEG channels like EOG or reference
-electrodes.</p>
-<p>The mixin respects configuration settings from the autoclean_config.yaml file,
-allowing users to customize the GFP threshold, number of epochs to retain, and
-other parameters.</p>
 </dd></dl>
 
 </section>

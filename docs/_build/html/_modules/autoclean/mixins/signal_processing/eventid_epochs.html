@@ -479,44 +479,34 @@
                 
             <span class="n">message</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Creating epochs based on event IDs: </span><span class="si">{</span><span class="n">event_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
             
-             <span class="c1"># Create regexp pattern for all event types</span>
-            <span class="n">target_event_type</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">event_id</span><span class="o">.</span><span class="n">keys</span><span class="p">())[</span><span class="mi">0</span><span class="p">]</span>
-            <span class="n">reg_exp</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;.*</span><span class="si">{</span><span class="n">target_event_type</span><span class="si">}</span><span class="s2">.*&quot;</span>
-            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Looking for events matching pattern: </span><span class="si">{</span><span class="n">reg_exp</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-
-            <span class="c1"># Get events using regexp</span>
-            <span class="n">events</span><span class="p">,</span> <span class="n">event_id</span> <span class="o">=</span> <span class="n">mne</span><span class="o">.</span><span class="n">events_from_annotations</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">regexp</span><span class="o">=</span><span class="n">reg_exp</span><span class="p">)</span>
-
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Get all events from annotations</span>
+            <span class="n">events_all</span><span class="p">,</span> <span class="n">event_id_all</span> <span class="o">=</span> <span class="n">mne</span><span class="o">.</span><span class="n">events_from_annotations</span><span class="p">(</span><span class="n">data</span><span class="p">)</span>
+            
+            <span class="c1"># Find all event types that match our event_id keys</span>
+            <span class="n">event_patterns</span> <span class="o">=</span> <span class="p">{}</span> <span class="c1">#Name and code of events to epoch by</span>
+            <span class="k">for</span> <span class="n">event_key</span> <span class="ow">in</span> <span class="n">event_id</span><span class="o">.</span><span class="n">keys</span><span class="p">():</span>
+                <span class="c1">#Could lead to undesired results if event_key is a substring of another event</span>
+                <span class="n">matching_events</span> <span class="o">=</span> <span class="p">[</span><span class="n">k</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">event_id_all</span><span class="o">.</span><span class="n">keys</span><span class="p">()</span> <span class="k">if</span> <span class="n">event_key</span> <span class="ow">in</span> <span class="n">k</span><span class="p">]</span>
+                <span class="k">for</span> <span class="n">match</span> <span class="ow">in</span> <span class="n">matching_events</span><span class="p">:</span>
+                    <span class="n">event_patterns</span><span class="p">[</span><span class="n">match</span><span class="p">]</span> <span class="o">=</span> <span class="n">event_id_all</span><span class="p">[</span><span class="n">match</span><span class="p">]</span>
+            
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Looking for events matching patterns: </span><span class="si">{</span><span class="nb">list</span><span class="p">(</span><span class="n">event_patterns</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Filter events to include only those with matching trigger codes</span>
+            <span class="n">trigger_codes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">event_patterns</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+            <span class="n">events_trig</span> <span class="o">=</span> <span class="n">events_all</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">events_all</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">trigger_codes</span><span class="p">)]</span>
+            
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">events_trig</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;No matching events found&quot;</span><span class="p">)</span>
                 <span class="k">return</span> <span class="kc">None</span>
-
-            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">)</span><span class="si">}</span><span class="s2"> events matching the patterns:&quot;</span><span class="p">)</span>
-            <span class="k">for</span> <span class="n">event_name</span><span class="p">,</span> <span class="n">event_num</span> <span class="ow">in</span> <span class="n">event_id</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;  </span><span class="si">{</span><span class="n">event_name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">event_num</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-            <span class="c1"># Find events in the data</span>
-            <span class="n">events</span> <span class="o">=</span> <span class="n">mne</span><span class="o">.</span><span class="n">events_from_annotations</span><span class="p">(</span><span class="n">data</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-            
-            <span class="c1"># Check if any events were found</span>
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">events</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;No events found in the data&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="kc">None</span>
                 
-            <span class="c1"># Extract the events array and event_id dictionary from the tuple</span>
-            <span class="n">events_array</span><span class="p">,</span> <span class="n">events_id_dict</span> <span class="o">=</span> <span class="n">events</span>
-                
-            <span class="c1"># Filter events to only include those in event_id</span>
-            <span class="n">event_ids_to_keep</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">event_id</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
-            <span class="n">filtered_events</span> <span class="o">=</span> <span class="p">[</span><span class="n">evt</span> <span class="k">for</span> <span class="n">evt</span> <span class="ow">in</span> <span class="n">events_array</span> <span class="k">if</span> <span class="n">evt</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="ow">in</span> <span class="n">event_ids_to_keep</span><span class="p">]</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Found </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">events_trig</span><span class="p">)</span><span class="si">}</span><span class="s2"> events matching the patterns&quot;</span><span class="p">)</span>
             
-            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered_events</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;No events matching event_id </span><span class="si">{</span><span class="n">event_id</span><span class="si">}</span><span class="s2"> found in the data&quot;</span><span class="p">)</span>
-                <span class="k">return</span> <span class="kc">None</span>
-            <span class="c1"># Create epochs with reject_by_annotation=False to handle annotations manually</span>
+            <span class="c1"># Create epochs with the filtered events</span>
             <span class="n">epochs</span> <span class="o">=</span> <span class="n">mne</span><span class="o">.</span><span class="n">Epochs</span><span class="p">(</span>
                 <span class="n">data</span><span class="p">,</span>
-                <span class="n">filtered_events</span><span class="p">,</span>
-                <span class="n">event_id</span><span class="o">=</span><span class="n">event_id</span><span class="p">,</span>
+                <span class="n">events_trig</span><span class="p">,</span>
+                <span class="n">event_id</span><span class="o">=</span><span class="n">event_patterns</span><span class="p">,</span>
                 <span class="n">tmin</span><span class="o">=</span><span class="n">tmin</span><span class="p">,</span>
                 <span class="n">tmax</span><span class="o">=</span><span class="n">tmax</span><span class="p">,</span>
                 <span class="n">baseline</span><span class="o">=</span><span class="n">baseline</span><span class="p">,</span>
@@ -525,8 +515,49 @@
                 <span class="n">reject_by_annotation</span><span class="o">=</span><span class="n">reject_by_annotation</span><span class="p">,</span>
             <span class="p">)</span>
             
-            <span class="c1"># Initialize metadata DataFrame</span>
-            <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="p">)))</span>
+            <span class="c1"># Step 5: Filter other events to keep only those that fall *within the kept epochs*</span>
+            <span class="n">sfreq</span> <span class="o">=</span> <span class="n">data</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s1">&#39;sfreq&#39;</span><span class="p">]</span>
+            <span class="n">epoch_samples</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span>  <span class="c1"># sample indices of epoch triggers</span>
+            <span class="n">n_epochs</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">)</span>
+            <span class="n">n_samples</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">)</span>             <span class="c1"># total samples per epoch</span>
+            <span class="n">offset</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="o">-</span><span class="n">epochs</span><span class="o">.</span><span class="n">tmin</span> <span class="o">*</span> <span class="n">sfreq</span><span class="p">))</span>  <span class="c1"># Number of samples from epoch start to time 0</span>
+
+            <span class="c1"># Compute valid ranges for each epoch (in raw sample indices)</span>
+            <span class="n">start_offsets</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">tmin</span> <span class="o">*</span> <span class="n">sfreq</span><span class="p">)</span>
+            <span class="n">end_offsets</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">tmax</span> <span class="o">*</span> <span class="n">sfreq</span><span class="p">)</span>
+            <span class="n">epoch_sample_ranges</span> <span class="o">=</span> <span class="p">[(</span><span class="n">s</span> <span class="o">+</span> <span class="n">start_offsets</span><span class="p">,</span> <span class="n">s</span> <span class="o">+</span> <span class="n">end_offsets</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">epoch_samples</span><span class="p">]</span>
+
+            <span class="c1"># Filter events_all for events that fall inside any of those ranges</span>
+            <span class="n">events_in_epochs</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">sample</span><span class="p">,</span> <span class="n">prev</span><span class="p">,</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">events_all</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_sample_ranges</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">sample</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
+                        <span class="n">events_in_epochs</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">sample</span><span class="p">,</span> <span class="n">prev</span><span class="p">,</span> <span class="n">code</span><span class="p">])</span>
+                        <span class="k">break</span>  <span class="c1"># prevent double counting</span>
+                    <span class="k">elif</span> <span class="n">sample</span> <span class="o">&lt;</span> <span class="n">start</span><span class="p">:</span>
+                        <span class="k">break</span>
+
+            <span class="n">events_in_epochs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">events_in_epochs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
+            <span class="n">event_descriptions</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">event_id_all</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
+
+            <span class="c1"># Build metadata rows</span>
+            <span class="n">metadata_rows</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_sample_ranges</span><span class="p">):</span>
+                <span class="n">epoch_events</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">sample</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">events_in_epochs</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">sample</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
+                        <span class="n">relative_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">sample</span> <span class="o">-</span> <span class="n">epoch_samples</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="n">sfreq</span>
+                        <span class="n">label</span> <span class="o">=</span> <span class="n">event_descriptions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;code_</span><span class="si">{</span><span class="n">code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                        <span class="n">epoch_events</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">label</span><span class="p">,</span> <span class="n">relative_time</span><span class="p">))</span>
+                    <span class="c1"># if sample &lt; start:</span>
+                    <span class="c1">#     break</span>
+                <span class="n">metadata_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;additional_events&#39;</span><span class="p">:</span> <span class="n">epoch_events</span><span class="p">})</span>
+
+            <span class="c1"># Add the metadata column</span>
+            <span class="k">if</span> <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;additional_events&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;additional_events&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">metadata_rows</span><span class="p">]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">metadata_rows</span><span class="p">)</span>
 
             <span class="c1"># Create a copy for dropping</span>
             <span class="n">epochs_clean</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -574,12 +605,14 @@
                         <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="n">col_name</span><span class="p">]</span> <span class="o">=</span> <span class="kc">True</span>
                 
                 <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Marked </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">bad_epochs</span><span class="p">)</span><span class="si">}</span><span class="s2"> epochs with bad annotations (not dropped)&quot;</span><span class="p">)</span>
-
-                <span class="n">epochs_clean</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">bad_epochs</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;BAD_ANNOTATION&quot;</span><span class="p">)</span>
-            
             
             <span class="c1"># Save epochs with bad epochs marked but not dropped</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">_save_epochs_result</span><span class="p">(</span><span class="n">result_data</span> <span class="o">=</span> <span class="n">epochs_clean</span><span class="p">,</span> <span class="n">stage_name</span> <span class="o">=</span> <span class="s2">&quot;post_epochs&quot;</span><span class="p">)</span>
+
+            <span class="n">epochs_clean</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">bad_epochs</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;BAD_ANNOTATION&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="n">kept_indices</span> <span class="o">=</span> <span class="n">epochs_clean</span><span class="o">.</span><span class="n">selection</span>
+                <span class="n">epochs_clean</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">kept_indices</span><span class="p">]</span><span class="o">.</span><span class="n">reset_index</span><span class="p">(</span><span class="n">drop</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
                 
             
             <span class="c1"># Analyze drop log to tally different annotation types</span>
@@ -615,7 +648,7 @@
             <span class="n">metadata</span> <span class="o">=</span> <span class="p">{</span>
                 <span class="s2">&quot;duration&quot;</span><span class="p">:</span> <span class="n">tmax</span> <span class="o">-</span> <span class="n">tmin</span><span class="p">,</span>
                 <span class="s2">&quot;reject_by_annotation&quot;</span><span class="p">:</span> <span class="n">reject_by_annotation</span><span class="p">,</span>
-                <span class="s2">&quot;initial_epoch_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">filtered_events</span><span class="p">),</span>
+                <span class="s2">&quot;initial_epoch_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">events_trig</span><span class="p">),</span>
                 <span class="s2">&quot;final_epoch_count&quot;</span><span class="p">:</span> <span class="nb">len</span><span class="p">(</span><span class="n">epochs_clean</span><span class="p">),</span>
                 <span class="s2">&quot;single_epoch_duration&quot;</span><span class="p">:</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
                 <span class="s2">&quot;single_epoch_samples&quot;</span><span class="p">:</span> <span class="n">epochs</span><span class="o">.</span><span class="n">times</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>
