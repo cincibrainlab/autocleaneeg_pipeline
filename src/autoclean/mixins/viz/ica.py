@@ -521,10 +521,10 @@ class ICAReportingMixin(BaseVizMixin):
         derivatives_dir = Path(derivatives_path.directory)
 
 
-        ica = ICA(n_components=len(self.raw.ch_names), method="fastica", random_state=42)
+        ica = ICA(n_components=len(self.raw.ch_names) - len(self.raw.info["bads"]), method="fastica", random_state=42)
         ica.fit(self.raw)
 
-        fig = ica.plot_components(picks=range(len(self.raw.ch_names)), show=False)
+        fig = ica.plot_components(picks=range(len(self.raw.ch_names) - len(self.raw.info["bads"])), show=False)
 
         fig.savefig(derivatives_dir / "ica_topography.png")
         
