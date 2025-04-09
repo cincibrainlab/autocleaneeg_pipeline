@@ -2,6 +2,8 @@
 import json
 import sys
 from pathlib import Path
+from typing import Optional
+import asyncio
 
 import pandas as pd
 from mne.io.constants import FIFF
@@ -21,6 +23,7 @@ def step_convert_to_bids(
     events=None,
     event_id=None,
     study_name="EEG Study",
+    bids_write_lock: Optional[asyncio.Lock] = None,
 ):
     """
     Converts a single EEG data file into BIDS format with default/dummy metadata.
@@ -33,6 +36,7 @@ def step_convert_to_bids(
     - line_freq (float, optional): Power line frequency in Hz. Defaults to 60.0.
     - overwrite (bool, optional): Whether to overwrite existing files. Defaults to False.
     - study_name (str, optional): Name of the study. Defaults to "EEG Study".
+    - bids_write_lock (asyncio.Lock, optional): Lock for synchronizing BIDS write operations.
 
     Dependent Functions:
     - step_sanitize_id(): Sanitizes and formats participant ID from filename
@@ -106,53 +110,65 @@ def step_convert_to_bids(
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message("info", f"Created derivatives directory structure at {derivatives_dir}")
 
-    # Write BIDS data
+    # --- Lock BIDS write operations --- 
+    if bids_write_lock:
+        # This is blocking, but okay since we are already inside asyncio.to_thread
+        asyncio.run(bids_write_lock.acquire())
+        message("debug", f"Acquired BIDS write lock for {fif_file.name}")
+
     try:
-        # breakpoint()
-        write_raw_bids(**bids_kwargs)
-        message("success", f"Converted {fif_file.name} to BIDS format.")
-        entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
-        sidecar_path = bids_path.copy().update(extension=".json")
-        update_sidecar_json(bids_path=sidecar_path, entries=entries)
-    except Exception as e:
-        message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
-        print(f"Detailed error: {str(e)}")
-        traceback.print_exc()
-        sys.exit(1)
+        # Write BIDS data
+        try:
+            write_raw_bids(**bids_kwargs)
+            message("success", f"Converted {fif_file.name} to BIDS format.")
+            entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
+            sidecar_path = bids_path.copy().update(extension=".json")
+            update_sidecar_json(bids_path=sidecar_path, entries=entries)
+        except Exception as e:
+            message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
+            print(f"Detailed error: {str(e)}")
+            traceback.print_exc()
+            sys.exit(1)
 
-    # Update participants.tsv
-    participants_file = bids_root / "participants.tsv"
-    if not participants_file.exists():
-        participants_df = pd.DataFrame(
-            columns=["participant_id", "age", "sex", "group"]
-        )
-    else:
-        participants_df = pd.read_csv(participants_file, sep="\t")
+        # Update participants.tsv
+        participants_file = bids_root / "participants.tsv"
+        if not participants_file.exists():
+            participants_df = pd.DataFrame(
+                columns=["participant_id", "age", "sex", "group"]
+            )
+        else:
+            participants_df = pd.read_csv(participants_file, sep="\t")
 
-    new_entry = {
-        "participant_id": f"sub-{subject_id}",
-        "bids_path": bids_path,
-        "age": age,
-        "sex": sex,
-        "group": group,
-        "eegid": fif_file.stem,
-        "file_name": file_name,
-        "file_hash": file_hash,
-    }
+        new_entry = {
+            "participant_id": f"sub-{subject_id}",
+            "bids_path": bids_path,
+            "age": age,
+            "sex": sex,
+            "group": group,
+            "eegid": fif_file.stem,
+            "file_name": file_name,
+            "file_hash": file_hash,
+        }
 
-    participants_df = participants_df._append(new_entry, ignore_index=True)
-    participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
-    participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
+        participants_df = participants_df._append(new_entry, ignore_index=True)
+        participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
+        participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
 
-    # Create dataset_description.json if it doesn't exist
-    dataset_description_file = bids_root / "dataset_description.json"
-    if not dataset_description_file.exists():
-        step_create_dataset_desc(bids_root, study_name=study_name)
+        # Create dataset_description.json if it doesn't exist
+        dataset_description_file = bids_root / "dataset_description.json"
+        if not dataset_description_file.exists():
+            step_create_dataset_desc(bids_root, study_name=study_name)
 
-    # Create participants.json if it doesn't exist
-    participants_json_file = bids_root / "participants.json"
-    if not participants_json_file.exists():
-        step_create_participants_json(bids_root)
+        # Create participants.json if it doesn't exist
+        participants_json_file = bids_root / "participants.json"
+        if not participants_json_file.exists():
+            step_create_participants_json(bids_root)
+
+    finally:
+        # --- Release BIDS write lock ---
+        if bids_write_lock and bids_write_lock.locked():
+            bids_write_lock.release()
+            message("debug", f"Released BIDS write lock for {fif_file.name}")
 
     return bids_path
 

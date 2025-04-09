@@ -175,8 +175,8 @@ class Pipeline:
         configure_logger(verbose, output_dir=self.autoclean_dir)
         mne.set_log_level(verbose)
 
-        # Add a dictionary to hold asyncio.Lock objects for BIDS subjects
-        self.bids_subject_locks: Dict[str, asyncio.Lock] = {}
+        # Keep a single lock for serializing BIDS write operations (shared root files)
+        self.bids_write_lock = asyncio.Lock()
 
         message("header", "Welcome to AutoClean!")
 
@@ -196,7 +196,7 @@ class Pipeline:
         )
 
     def _entrypoint(
-        self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
+        self, unprocessed_file: Path, task: str, run_id: Optional[str] = None, bids_write_lock: Optional[asyncio.Lock] = None
     ) -> None:
         """Main processing entrypoint that orchestrates the complete pipeline.
 
@@ -209,6 +209,8 @@ class Pipeline:
         run_id : str, optional
             Optional identifier for the processing run, by default None.
             If not provided, a unique ID will be generated.
+        bids_write_lock : asyncio.Lock, optional
+            An asyncio lock for synchronizing BIDS write operations, needed for async runs.
 
         Returns
         -------
@@ -325,6 +327,7 @@ class Pipeline:
                 "task_b64": b64_task,
                 "ll_config_hash": ll_config_hash,
                 "ll_config_b64": b64_ll_config,
+                "bids_write_lock": bids_write_lock,
             }
 
             lossless_config_path = self.autoclean_dict["tasks"][task]["lossless_config"]
@@ -466,7 +469,8 @@ class Pipeline:
         """
         try:
             # Run the processing in a thread to avoid blocking
-            await asyncio.to_thread(self._entrypoint, unprocessed_file, task, run_id)
+            # Pass the single BIDS write lock to the synchronous context
+            await asyncio.to_thread(self._entrypoint, unprocessed_file, task, run_id, bids_write_lock=self.bids_write_lock)
         except Exception as e:
             message("error", f"Failed to process {unprocessed_file}: {str(e)}")
             raise
@@ -626,43 +630,17 @@ class Pipeline:
 
         async def process_with_semaphore(file_path: Path) -> None:
             """Process a single file with semaphore control."""
-            # --- BIDS Lock Handling Start ---
-            subject_id = None
-            lock = None
-            try:
-                # We need the subject ID *before* starting the main entrypoint
-                # to acquire the lock. We'll reuse the sanitization logic.
-                # NOTE: This assumes step_sanitize_id is safe to call here and doesn't have side effects.
-                from ..utils.bids import step_sanitize_id # Import locally
-                subject_id = step_sanitize_id(str(file_path))
-                
-                # Get or create the lock for this subject
-                if subject_id not in self.bids_subject_locks:
-                    self.bids_subject_locks[subject_id] = asyncio.Lock()
-                lock = self.bids_subject_locks[subject_id]
-                
-                pbar.write(f"Waiting for BIDS lock for subject {subject_id} ({file_path.name})...")
-                await lock.acquire()
-                pbar.write(f"Acquired BIDS lock for subject {subject_id} ({file_path.name}).")
-            except Exception as lock_e:
-                pbar.write(f"✗ Failed to acquire BIDS lock for {file_path.name}: {str(lock_e)}")
-                # If lock acquisition fails, we cannot proceed safely
-                pbar.update(1)
-                return
-            # --- BIDS Lock Handling End ---
-
+            # Removed BIDS subject-specific lock handling here.
+            # The single bids_write_lock is handled within step_convert_to_bids.
             async with sem:  # Limit overall concurrent processing
                 try:
-                    # Pass the acquired lock information (implicitly via self if needed later,
-                    # but the lock is mainly for the bids step itself)
+                    # Pass the BIDS write lock down the call chain.
                     await self._entrypoint_async(file_path, task)
                     pbar.write(f"✓ Completed: {file_path.name}")
                 except Exception as e:
                     pbar.write(f"✗ Failed: {file_path.name} - {str(e)}")
                 finally:
-                    if lock and lock.locked():
-                        lock.release()
-                        pbar.write(f"Released BIDS lock for subject {subject_id} ({file_path.name}).")
+                    # No lock to release here anymore
                     pbar.update(1)  # Update progress regardless of outcome
 
         try:
