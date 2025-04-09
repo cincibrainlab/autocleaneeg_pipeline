@@ -241,7 +241,6 @@ class Pipeline:
                 "json_file": f"{unprocessed_file.stem}_autoclean_metadata.json",
                 "report_file": f"{unprocessed_file.stem}_autoclean_report.pdf",
                 "metadata": {},
-                "participants_tsv_lock": self.participants_tsv_lock,
             }
 
             # Store initial run record and get database ID
@@ -334,6 +333,7 @@ class Pipeline:
 
             # Merge task-specific config with base config
             run_dict = {**run_dict, **self.autoclean_dict, **lossless_config}
+            run_dict['participants_tsv_lock'] = self.participants_tsv_lock
 
             # Record full run configuration
             manage_database(
