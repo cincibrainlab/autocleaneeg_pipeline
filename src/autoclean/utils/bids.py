@@ -3,6 +3,7 @@ import json
 import sys
 from pathlib import Path
 import threading
+from threading import Lock as ThreadingLock
 from typing import Optional
 
 import pandas as pd
@@ -51,13 +52,20 @@ def step_convert_to_bids(
 
     # Retrieve Lock if available
     lock = None
+    lock_valid = False # Flag to track if we found a valid lock
     if autoclean_dict and 'participants_tsv_lock' in autoclean_dict:
-        lock = autoclean_dict['participants_tsv_lock']
-        if not isinstance(lock, threading.Lock):
-            message("warning", "participants_tsv_lock found in autoclean_dict but is not a threading.Lock. Proceeding without lock.")
-            lock = None
+        retrieved_lock = autoclean_dict['participants_tsv_lock']
+        # Check based on attributes/name instead of isinstance
+        if hasattr(retrieved_lock, 'acquire') and hasattr(retrieved_lock, 'release') and retrieved_lock.__class__.__name__ == 'lock':
+            lock = retrieved_lock
+            lock_valid = True
+            message("debug", "Successfully validated threading.Lock object from autoclean_dict.")
+        else:
+            # Log what we actually got if it's not a valid lock
+            message("warning", f"participants_tsv_lock found in autoclean_dict but is not a valid threading.Lock object (type: {type(retrieved_lock).__name__}, value: {retrieved_lock!r}). Proceeding without lock.")
+            # lock remains None
     
-    if lock is None:
+    if not lock_valid: # Use the boolean flag for clarity
         message("warning", "participants_tsv_lock not found or invalid in autoclean_dict. Concurrent writes to participants.tsv may be unsafe.")
         from contextlib import contextmanager
         @contextmanager
@@ -70,7 +78,11 @@ def step_convert_to_bids(
     bids_root = Path(output_dir)
     bids_root.mkdir(parents=True, exist_ok=True)
 
-    # Sanitize and set participant ID
+    # Define participants file path and expected columns early
+    participants_file = bids_root / "participants.tsv"
+    expected_cols = {"participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"}
+
+    # Determine participant ID
     if participant_id is None:
         participant_id = step_sanitize_id(file_path)
     # subject_id = participant_id.zfill(5)
@@ -133,7 +145,20 @@ def step_convert_to_bids(
     message("debug", f"Acquiring participants.tsv lock for {file_name}...")
     with lock_context:
         message("debug", f"Acquired participants.tsv lock for {file_name}.")
-        # Write BIDS data
+
+        # --- Ensure participants.tsv exists with headers before MNE-BIDS --- 
+        try:
+            if not participants_file.exists():
+                message("info", f"Creating participants.tsv with headers at {participants_file}")
+                # Create DataFrame with only headers
+                header_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                header_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
+        except Exception as header_err:
+            message("error", f"Failed to create participants.tsv header: {header_err}")
+            # Decide if we should proceed or raise - raising is safer
+            raise
+
+        # Write BIDS data (MNE-BIDS might modify participants.tsv)
         try:
             write_raw_bids(**bids_kwargs)
             message("success", f"Converted {fif_file.name} to BIDS format.")
@@ -147,25 +172,41 @@ def step_convert_to_bids(
             raise
 
         # Update participants.tsv
-        participants_file = bids_root / "participants.tsv"
         try:
-            if not participants_file.exists():
-                participants_df = pd.DataFrame(
-                    columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"]
-                )
-            else:
-                try:
-                    participants_df = pd.read_csv(participants_file, sep="\t")
-                    expected_cols = {"participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"}
-                    if not expected_cols.issubset(participants_df.columns):
-                        message("warning", f"participants.tsv missing expected columns. Will recreate with headers.")
-                        participants_df = pd.DataFrame(columns=list(expected_cols))
-                except pd.errors.EmptyDataError:
-                    message("warning", f"participants.tsv is empty. Creating a new one.")
-                    participants_df = pd.DataFrame(columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"])
-                except Exception as pd_read_err:
-                    message("error", f"Error reading participants.tsv: {pd_read_err}. Attempting to overwrite.")
-                    participants_df = pd.DataFrame(columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"])
+            # Read the file - it should exist now, potentially modified by MNE-BIDS
+            # if not participants_file.exists(): # Remove this check, file should exist
+            #     participants_df = pd.DataFrame(
+            #         columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"]
+            #     )
+            # else:
+            # Use try-except for robustness when reading potentially incomplete files
+            try:
+                participants_df = pd.read_csv(participants_file, sep="\t")
+                # Validate columns after reading - Check if MNE-BIDS removed something unexpectedly
+                # expected_cols = {...} # Defined earlier
+                # We no longer expect *our* columns to be missing, but let's check if the dataframe is valid
+                if participants_df.empty and participants_file.stat().st_size > 0:
+                    message("warning", "participants.tsv exists but pandas read an empty DataFrame. Check file content.")
+                    # Handle potentially corrupted file - recreate from headers
+                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                
+                # Optional: Check if *at least* participant_id exists if file wasn't empty
+                elif not participants_df.empty and "participant_id" not in participants_df.columns:
+                    message("warning", "participants.tsv is missing 'participant_id' column after MNE-BIDS write. Recreating headers.")
+                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                
+                # Remove the specific subset check that caused the original warning:
+                # if not expected_cols.issubset(participants_df.columns):
+                #     message("warning", f"participants.tsv missing expected columns. Will recreate with headers.")
+                #     participants_df = pd.DataFrame(columns=list(expected_cols))
+            except pd.errors.EmptyDataError:
+                # This can happen if MNE-BIDS creates/truncates the file but writes nothing
+                message("warning", f"participants.tsv is empty after MNE-BIDS write. Starting with headers.")
+                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+            except Exception as pd_read_err:
+                message("error", f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting to overwrite.")
+                # Decide how to handle corrupted file - here we overwrite
+                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
 
             new_entry = {
                 "participant_id": f"sub-{subject_id}",
