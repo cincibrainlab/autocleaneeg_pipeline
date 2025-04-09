@@ -78,9 +78,14 @@ def step_convert_to_bids(
     bids_root = Path(output_dir)
     bids_root.mkdir(parents=True, exist_ok=True)
 
-    # Define participants file path and expected columns early
+    # Define participants file path and DESIRED column order
     participants_file = bids_root / "participants.tsv"
-    expected_cols = {"participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"}
+    # Use the order from the user's new_entry example
+    desired_column_order = [
+        "participant_id", "file_name", "bids_path", "age", 
+        "sex", "group", "eegid", "file_hash"
+    ]
+    expected_cols = set(desired_column_order) # Keep the set for checks if needed
 
     # Determine participant ID
     if participant_id is None:
@@ -150,8 +155,8 @@ def step_convert_to_bids(
         try:
             if not participants_file.exists():
                 message("info", f"Creating participants.tsv with headers at {participants_file}")
-                # Create DataFrame with only headers and specify dtype=object
-                header_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
+                # Create DataFrame with desired column order and dtype=object
+                header_df = pd.DataFrame(columns=desired_column_order, dtype=object)
                 header_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
         except Exception as header_err:
             message("error", f"Failed to create participants.tsv header: {header_err}")
@@ -173,57 +178,53 @@ def step_convert_to_bids(
 
         # Update participants.tsv
         try:
-            # Read the file - it should exist now, potentially modified by MNE-BIDS
-            # if not participants_file.exists(): # Remove this check, file should exist
-            #     participants_df = pd.DataFrame(
-            #         columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"]
-            #     )
-            # else:
             # Use try-except for robustness when reading potentially incomplete files
             try:
                 # Specify dtype=object when reading to avoid type mismatch issues
-                dtype_mapping = {col: object for col in expected_cols}
-                participants_df = pd.read_csv(participants_file, sep="\t", dtype=dtype_mapping, na_filter=False) # Use na_filter=False with object dtype if needed
+                dtype_mapping = {col: object for col in desired_column_order} # Use desired order here too
+                participants_df = pd.read_csv(participants_file, sep="\t", dtype=dtype_mapping, na_filter=False)
                 
-                # Validate columns after reading - Check if MNE-BIDS removed something unexpectedly
-                # We no longer expect *our* columns to be missing, but let's check if the dataframe is valid
+                # --- Column Validation/Fixing --- 
+                # Check if all desired columns exist, add missing ones if necessary
+                missing_cols = [col for col in desired_column_order if col not in participants_df.columns]
+                if missing_cols:
+                    message("warning", f"participants.tsv is missing columns: {missing_cols}. Adding them with 'n/a'.")
+                    for col in missing_cols:
+                        participants_df[col] = "n/a" # Add missing column with default value
+                    # Ensure object dtype for newly added columns
+                    participants_df = participants_df.astype({col: object for col in missing_cols})
+                
+                # Check if the file was effectively empty or corrupted
                 if participants_df.empty and participants_file.stat().st_size > 0:
                     message("warning", "participants.tsv exists but pandas read an empty DataFrame. Check file content.")
-                    # Handle potentially corrupted file - recreate from headers
-                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
-                
-                # Optional: Check if *at least* participant_id exists if file wasn't empty
+                    # Recreate with desired order
+                    participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
                 elif not participants_df.empty and "participant_id" not in participants_df.columns:
                     message("warning", "participants.tsv is missing 'participant_id' column after MNE-BIDS write. Recreating headers.")
-                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
-                
-                # Remove the specific subset check that caused the original warning:
-                # if not expected_cols.issubset(participants_df.columns):
-                #     message("warning", f"participants.tsv missing expected columns. Will recreate with headers.")
-                #     participants_df = pd.DataFrame(columns=list(expected_cols))
+                    # Recreate with desired order
+                    participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
+
             except pd.errors.EmptyDataError:
-                # This can happen if MNE-BIDS creates/truncates the file but writes nothing
                 message("warning", f"participants.tsv is empty after MNE-BIDS write. Starting with headers.")
-                # Ensure object dtype even when recreating from empty file
-                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
+                # Ensure object dtype and desired order
+                participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
             except Exception as pd_read_err:
                 message("error", f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting to overwrite.")
-                # Decide how to handle corrupted file - here we overwrite
-                # Ensure object dtype when overwriting
-                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
+                # Ensure object dtype and desired order when overwriting
+                participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
 
             new_entry = {
                 "participant_id": f"sub-{subject_id}",
-                "bids_path": str(bids_path.match()[0]),
-                "age": "n/a",
-                "sex": "n/a",
-                "group": "n/a",
+                "file_name": file_name, 
+                "bids_path": str(bids_path.match()[0]), 
+                "age": age, 
+                "sex": sex, 
+                "group": group, 
                 "eegid": fif_file.stem,
-                "file_name": file_name,
                 "file_hash": file_hash,
             }
 
-            # Check if participant already exists before appending
+            # --- Row Update/Append --- 
             participant_col_id = f"sub-{subject_id}"
             if participant_col_id not in participants_df["participant_id"].values:
                 # Append new row if participant doesn't exist
@@ -249,6 +250,13 @@ def step_convert_to_bids(
 
             # Drop duplicates just in case, keeping the last entry
             participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
+            
+            # --- Final Reordering and Write --- 
+            # Ensure columns are in the desired order before writing
+            # Include any extra columns that might have been added (e.g., by mne-bids)
+            final_columns = desired_column_order + [col for col in participants_df.columns if col not in desired_column_order]
+            participants_df = participants_df[final_columns]
+            
             participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
             message("debug", f"Updated participants.tsv for {file_name}")
 
