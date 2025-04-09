@@ -2,6 +2,8 @@
 import json
 import sys
 from pathlib import Path
+import threading
+from typing import Optional
 
 import pandas as pd
 from mne.io.constants import FIFF
@@ -21,6 +23,7 @@ def step_convert_to_bids(
     events=None,
     event_id=None,
     study_name="EEG Study",
+    autoclean_dict: Optional[dict] = None,
 ):
     """
     Converts a single EEG data file into BIDS format with default/dummy metadata.
@@ -33,6 +36,7 @@ def step_convert_to_bids(
     - line_freq (float, optional): Power line frequency in Hz. Defaults to 60.0.
     - overwrite (bool, optional): Whether to overwrite existing files. Defaults to False.
     - study_name (str, optional): Name of the study. Defaults to "EEG Study".
+    - autoclean_dict (dict, optional): Dictionary containing run configuration, including the lock.
 
     Dependent Functions:
     - step_sanitize_id(): Sanitizes and formats participant ID from filename
@@ -43,6 +47,25 @@ def step_convert_to_bids(
     import hashlib
 
     file_path = raw.filenames[0]
+    file_name = Path(file_path).name
+
+    # Retrieve Lock if available
+    lock = None
+    if autoclean_dict and 'participants_tsv_lock' in autoclean_dict:
+        lock = autoclean_dict['participants_tsv_lock']
+        if not isinstance(lock, threading.Lock):
+            message("warning", "participants_tsv_lock found in autoclean_dict but is not a threading.Lock. Proceeding without lock.")
+            lock = None
+    
+    if lock is None:
+        message("warning", "participants_tsv_lock not found or invalid in autoclean_dict. Concurrent writes to participants.tsv may be unsafe.")
+        from contextlib import contextmanager
+        @contextmanager
+        def dummy_lock():
+            yield
+        lock_context = dummy_lock()
+    else:
+        lock_context = lock
 
     bids_root = Path(output_dir)
     bids_root.mkdir(parents=True, exist_ok=True)
@@ -78,7 +101,7 @@ def step_convert_to_bids(
         file_name = fif_file.name
     except Exception as e:
         message("error", f"Failed to read {fif_file}: {e}")
-        sys.exit(1)
+        raise
 
     # Prepare additional metadata
     raw.info["subject_info"] = {"id": int(subject_id)}
@@ -106,53 +129,80 @@ def step_convert_to_bids(
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message("info", f"Created derivatives directory structure at {derivatives_dir}")
 
-    # Write BIDS data
-    try:
-        # breakpoint()
-        write_raw_bids(**bids_kwargs)
-        message("success", f"Converted {fif_file.name} to BIDS format.")
-        entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
-        sidecar_path = bids_path.copy().update(extension=".json")
-        update_sidecar_json(bids_path=sidecar_path, entries=entries)
-    except Exception as e:
-        message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
-        print(f"Detailed error: {str(e)}")
-        traceback.print_exc()
-        sys.exit(1)
+    # Acquire lock (if available) before critical section
+    message("debug", f"Acquiring participants.tsv lock for {file_name}...")
+    with lock_context:
+        message("debug", f"Acquired participants.tsv lock for {file_name}.")
+        # Write BIDS data
+        try:
+            write_raw_bids(**bids_kwargs)
+            message("success", f"Converted {fif_file.name} to BIDS format.")
+            entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
+            sidecar_path = bids_path.copy().update(extension=".json")
+            update_sidecar_json(bids_path=sidecar_path, entries=entries)
+        except Exception as e:
+            message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
+            print(f"Detailed error: {str(e)}")
+            traceback.print_exc()
+            raise
 
-    # Update participants.tsv
-    participants_file = bids_root / "participants.tsv"
-    if not participants_file.exists():
-        participants_df = pd.DataFrame(
-            columns=["participant_id", "age", "sex", "group"]
-        )
-    else:
-        participants_df = pd.read_csv(participants_file, sep="\t")
+        # Update participants.tsv
+        participants_file = bids_root / "participants.tsv"
+        try:
+            if not participants_file.exists():
+                participants_df = pd.DataFrame(
+                    columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"]
+                )
+            else:
+                try:
+                    participants_df = pd.read_csv(participants_file, sep="\t")
+                    expected_cols = {"participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"}
+                    if not expected_cols.issubset(participants_df.columns):
+                        message("warning", f"participants.tsv missing expected columns. Will recreate with headers.")
+                        participants_df = pd.DataFrame(columns=list(expected_cols))
+                except pd.errors.EmptyDataError:
+                    message("warning", f"participants.tsv is empty. Creating a new one.")
+                    participants_df = pd.DataFrame(columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"])
+                except Exception as pd_read_err:
+                    message("error", f"Error reading participants.tsv: {pd_read_err}. Attempting to overwrite.")
+                    participants_df = pd.DataFrame(columns=["participant_id", "age", "sex", "group", "bids_path", "eegid", "file_name", "file_hash"])
 
-    new_entry = {
-        "participant_id": f"sub-{subject_id}",
-        "bids_path": bids_path,
-        "age": age,
-        "sex": sex,
-        "group": group,
-        "eegid": fif_file.stem,
-        "file_name": file_name,
-        "file_hash": file_hash,
-    }
+            new_entry = {
+                "participant_id": f"sub-{subject_id}",
+                "bids_path": str(bids_path.match()[0]),
+                "age": "n/a",
+                "sex": "n/a",
+                "group": "n/a",
+                "eegid": fif_file.stem,
+                "file_name": file_name,
+                "file_hash": file_hash,
+            }
 
-    participants_df = participants_df._append(new_entry, ignore_index=True)
-    participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
-    participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
+            if f"sub-{subject_id}" not in participants_df["participant_id"].values:
+                participants_df = pd.concat([participants_df, pd.DataFrame([new_entry])], ignore_index=True)
+            else:
+                message("info", f"Participant sub-{subject_id} already exists in participants.tsv. Skipping append.")
 
-    # Create dataset_description.json if it doesn't exist
-    dataset_description_file = bids_root / "dataset_description.json"
-    if not dataset_description_file.exists():
-        step_create_dataset_desc(bids_root, study_name=study_name)
+            participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
+            participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
+            message("debug", f"Updated participants.tsv for {file_name}")
 
-    # Create participants.json if it doesn't exist
-    participants_json_file = bids_root / "participants.json"
-    if not participants_json_file.exists():
-        step_create_participants_json(bids_root)
+            # Create dataset_description.json if it doesn't exist (safe under lock)
+            dataset_description_file = bids_root / "dataset_description.json"
+            if not dataset_description_file.exists():
+                step_create_dataset_desc(bids_root, study_name=study_name)
+
+            # Create participants.json if it doesn't exist (safe under lock)
+            participants_json_file = bids_root / "participants.json"
+            if not participants_json_file.exists():
+                step_create_participants_json(bids_root)
+
+        except Exception as update_err:
+            message("error", f"Failed during participants.tsv update or associated file creation: {update_err}")
+            traceback.print_exc()
+            raise
+    
+    message("debug", f"Released participants.tsv lock for {file_name}.")
 
     return bids_path
 
