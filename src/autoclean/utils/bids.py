@@ -150,8 +150,8 @@ def step_convert_to_bids(
         try:
             if not participants_file.exists():
                 message("info", f"Creating participants.tsv with headers at {participants_file}")
-                # Create DataFrame with only headers
-                header_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                # Create DataFrame with only headers and specify dtype=object
+                header_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
                 header_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
         except Exception as header_err:
             message("error", f"Failed to create participants.tsv header: {header_err}")
@@ -181,19 +181,21 @@ def step_convert_to_bids(
             # else:
             # Use try-except for robustness when reading potentially incomplete files
             try:
-                participants_df = pd.read_csv(participants_file, sep="\t")
+                # Specify dtype=object when reading to avoid type mismatch issues
+                dtype_mapping = {col: object for col in expected_cols}
+                participants_df = pd.read_csv(participants_file, sep="\t", dtype=dtype_mapping, na_filter=False) # Use na_filter=False with object dtype if needed
+                
                 # Validate columns after reading - Check if MNE-BIDS removed something unexpectedly
-                # expected_cols = {...} # Defined earlier
                 # We no longer expect *our* columns to be missing, but let's check if the dataframe is valid
                 if participants_df.empty and participants_file.stat().st_size > 0:
                     message("warning", "participants.tsv exists but pandas read an empty DataFrame. Check file content.")
                     # Handle potentially corrupted file - recreate from headers
-                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
                 
                 # Optional: Check if *at least* participant_id exists if file wasn't empty
                 elif not participants_df.empty and "participant_id" not in participants_df.columns:
                     message("warning", "participants.tsv is missing 'participant_id' column after MNE-BIDS write. Recreating headers.")
-                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                    participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
                 
                 # Remove the specific subset check that caused the original warning:
                 # if not expected_cols.issubset(participants_df.columns):
@@ -202,11 +204,13 @@ def step_convert_to_bids(
             except pd.errors.EmptyDataError:
                 # This can happen if MNE-BIDS creates/truncates the file but writes nothing
                 message("warning", f"participants.tsv is empty after MNE-BIDS write. Starting with headers.")
-                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                # Ensure object dtype even when recreating from empty file
+                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
             except Exception as pd_read_err:
                 message("error", f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting to overwrite.")
                 # Decide how to handle corrupted file - here we overwrite
-                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)))
+                # Ensure object dtype when overwriting
+                participants_df = pd.DataFrame(columns=sorted(list(expected_cols)), dtype=object)
 
             new_entry = {
                 "participant_id": f"sub-{subject_id}",
@@ -227,7 +231,7 @@ def step_convert_to_bids(
                 message("debug", f"Appended new entry for {participant_col_id} to participants.tsv.")
             else:
                 # Update existing row if participant already exists
-                message("info", f"Participant {participant_col_id} already exists in participants.tsv. Updating row.")
+                message("debug", f"Participant {participant_col_id} already exists in participants.tsv. Updating row.")
                 # Find the index of the row to update
                 idx = participants_df.index[participants_df["participant_id"] == participant_col_id].tolist()
                 if idx:
