@@ -218,7 +218,6 @@ class Pipeline:
         Users should not call this method directly.
         """
         task = self._validate_task(task)
-        configure_logger(self.verbose, output_dir=self.autoclean_dir, task=task)
         # Either create new run record or resume existing one
         if run_id is None:
             # Generate time-ordered unique ID for run tracking
