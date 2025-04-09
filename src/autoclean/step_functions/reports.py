@@ -1359,12 +1359,12 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any])->None:
         return
     
     try:
-        noisy_channels = channel_dict["noisy_channels"]
-        uncorrelated_channels = channel_dict["uncorrelated_channels"]
-        deviation_channels = channel_dict["deviation_channels"]
-        bridged_channels = channel_dict["bridged_channels"]
-        rank_channels = channel_dict["rank_channels"]
-        ransac_channels = channel_dict["ransac_channels"]
+        noisy_channels = channel_dict.get("noisy_channels", [])
+        uncorrelated_channels = channel_dict.get("uncorrelated_channels", [])
+        deviation_channels = channel_dict.get("deviation_channels", [])
+        bridged_channels = channel_dict.get("bridged_channels", [])
+        rank_channels = channel_dict.get("rank_channels", [])
+        ransac_channels = channel_dict.get("ransac_channels", [])
     except:
         message("warning", "Could not generate bad channels tsv -> Failed to fetch bad channels")
         return
