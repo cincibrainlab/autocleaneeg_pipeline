@@ -366,18 +366,28 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             # Use data from JSON summary
             processing_details = json_summary["processing_details"]
             
-            preproc_info.extend(
-                [
+            # Check if processing_details is a dictionary before using get()
+            if isinstance(processing_details, dict):
+                preproc_info.extend(
                     [
-                        "Filter",
-                        f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
-                    ],
+                        [
+                            "Filter",
+                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
+                        ],
+                        [
+                            "Notch",
+                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",
+                        ],
+                    ]
+                )
+            else:
+                message("debug", f"processing_details is not a dictionary: {type(processing_details)}")
+                preproc_info.extend(
                     [
-                        "Notch",
-                        f"{processing_details.get('notch_freqs', ['N/A'])[0]} Hz",
-                    ],
-                ]
-            )
+                        ["Filter", "N/A"],
+                        ["Notch", "N/A"],
+                    ]
+                )
             
             # Add more preprocessing info if available in JSON summary
             if "export_details" in json_summary:
@@ -458,18 +468,29 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             processing_details = json_summary["processing_details"]
             ica_details = json_summary["ica_details"]
             
-            lossless_info.extend(
-                [
+            # Check if processing_details is a dictionary before using get()
+            if isinstance(processing_details, dict):
+                lossless_info.extend(
                     [
-                        "Filter",
-                        f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
-                    ],
+                        [
+                            "Filter",
+                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
+                        ],
+                        [
+                            "Notch",
+                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",
+                        ],
+                    ]
+                )
+            else:
+                # Handle case where processing_details is not a dictionary
+                message("warning", f"processing_details is not a dictionary: {type(processing_details)}")
+                lossless_info.extend(
                     [
-                        "Notch",
-                        f"{processing_details.get('notch_freqs', ['N/A'])[0]} Hz",
-                    ],
-                ]
-            )
+                        ["Filter", "N/A"],
+                        ["Notch", "N/A"],
+                    ]
+                )
             if type(ica_details) == dict:
                 lossless_info.extend(
                     [
@@ -496,7 +517,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         ],
                         [
                             "Notch",
-                            f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0]} Hz",
+                            f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0] if isinstance(lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []), list) and lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []) else 'N/A'} Hz",
                         ],
                         ["ICA", ica_args.get("run2", {}).get("method", "N/A")],
                         [
