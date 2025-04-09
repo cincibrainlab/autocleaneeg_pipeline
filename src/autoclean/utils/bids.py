@@ -219,11 +219,31 @@ def step_convert_to_bids(
                 "file_hash": file_hash,
             }
 
-            if f"sub-{subject_id}" not in participants_df["participant_id"].values:
+            # Check if participant already exists before appending
+            participant_col_id = f"sub-{subject_id}"
+            if participant_col_id not in participants_df["participant_id"].values:
+                # Append new row if participant doesn't exist
                 participants_df = pd.concat([participants_df, pd.DataFrame([new_entry])], ignore_index=True)
+                message("debug", f"Appended new entry for {participant_col_id} to participants.tsv.")
             else:
-                message("info", f"Participant sub-{subject_id} already exists in participants.tsv. Skipping append.")
+                # Update existing row if participant already exists
+                message("info", f"Participant {participant_col_id} already exists in participants.tsv. Updating row.")
+                # Find the index of the row to update
+                idx = participants_df.index[participants_df["participant_id"] == participant_col_id].tolist()
+                if idx:
+                    # Update the row at the found index (use the first index if multiple found)
+                    for key, value in new_entry.items():
+                        if key in participants_df.columns: # Ensure column exists before assigning
+                            participants_df.loc[idx[0], key] = value
+                        else:
+                             message("warning", f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.")
+                else:
+                    # Should theoretically not happen if the ID was found in .values, but good to handle
+                    message("warning", f"Could not find index for existing participant {participant_col_id} to update. Appending instead.")
+                    # Fallback to appending if index search fails unexpectedly
+                    participants_df = pd.concat([participants_df, pd.DataFrame([new_entry])], ignore_index=True)
 
+            # Drop duplicates just in case, keeping the last entry
             participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
             participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
             message("debug", f"Updated participants.tsv for {file_name}")
