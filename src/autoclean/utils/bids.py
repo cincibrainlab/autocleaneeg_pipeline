@@ -10,6 +10,7 @@ import pandas as pd
 from mne.io.constants import FIFF
 from mne_bids import BIDSPath, update_sidecar_json, write_raw_bids
 import traceback
+from contextlib import contextmanager # Imported for dummy lock
 
 from ..utils.logging import message
 
@@ -28,78 +29,73 @@ def step_convert_to_bids(
 ):
     """
     Converts a single EEG data file into BIDS format with default/dummy metadata.
+    Handles concurrent access to participants.tsv using a threading.Lock passed
+    via autoclean_dict. Ensures specific column order and dtype=object for the TSV.
 
     Parameters:
-    - file_path (str or Path): Path to the EEG data file.
-    - output_dir (str or Path): Directory where the BIDS dataset will be created.
-    - task (str, optional): Task name. Defaults to 'resting'.
-    - participant_id (str, optional): Participant ID. Defaults to sanitized basename of the file.
-    - line_freq (float, optional): Power line frequency in Hz. Defaults to 60.0.
-    - overwrite (bool, optional): Whether to overwrite existing files. Defaults to False.
-    - study_name (str, optional): Name of the study. Defaults to "EEG Study".
-    - autoclean_dict (dict, optional): Dictionary containing run configuration, including the lock.
-
-    Dependent Functions:
-    - step_sanitize_id(): Sanitizes and formats participant ID from filename
-    - step_create_dataset_desc(): Creates BIDS dataset description JSON file
-    - step_create_participants_json(): Creates participants.json metadata file
-    - update_sidecar_json(): Updates sidecar JSON files with additional metadata
+    - raw: mne.io.Raw object.
+    - output_dir: Directory where the BIDS dataset will be created.
+    - task: Task name for BIDS.
+    - participant_id: Participant ID (if None, generated from filename).
+    - line_freq: Power line frequency.
+    - overwrite: Whether to overwrite existing BIDS files.
+    - events: MNE events array.
+    - event_id: MNE event_id dictionary.
+    - study_name: Name of the study for dataset_description.json.
+    - autoclean_dict: Dictionary containing run configuration, MUST include 
+                      'participants_tsv_lock' (a threading.Lock) for concurrent safety.
     """
     import hashlib
 
     file_path = raw.filenames[0]
     file_name = Path(file_path).name
 
-    # Retrieve Lock if available
+    # Retrieve Lock from autoclean_dict if available for thread-safe TSV access.
     lock = None
-    lock_valid = False # Flag to track if we found a valid lock
+    lock_valid = False 
     if autoclean_dict and 'participants_tsv_lock' in autoclean_dict:
         retrieved_lock = autoclean_dict['participants_tsv_lock']
-        # Check based on attributes/name instead of isinstance
+        # Validate the lock object based on expected methods and type name ('lock').
         if hasattr(retrieved_lock, 'acquire') and hasattr(retrieved_lock, 'release') and retrieved_lock.__class__.__name__ == 'lock':
             lock = retrieved_lock
             lock_valid = True
             message("debug", "Successfully validated threading.Lock object from autoclean_dict.")
         else:
-            # Log what we actually got if it's not a valid lock
             message("warning", f"participants_tsv_lock found in autoclean_dict but is not a valid threading.Lock object (type: {type(retrieved_lock).__name__}, value: {retrieved_lock!r}). Proceeding without lock.")
-            # lock remains None
     
-    if not lock_valid: # Use the boolean flag for clarity
-        message("warning", "participants_tsv_lock not found or invalid in autoclean_dict. Concurrent writes to participants.tsv may be unsafe.")
-        from contextlib import contextmanager
+    if not lock_valid: 
+        message("warning", "participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.")
+        # Use a dummy context manager if no valid lock is found to allow execution.
         @contextmanager
         def dummy_lock():
             yield
         lock_context = dummy_lock()
     else:
-        lock_context = lock
+        lock_context = lock # Use the actual lock context.
 
     bids_root = Path(output_dir)
     bids_root.mkdir(parents=True, exist_ok=True)
 
-    # Define participants file path and DESIRED column order
+    # Define participants file path and the desired column order.
     participants_file = bids_root / "participants.tsv"
-    # Use the order from the user's new_entry example
     desired_column_order = [
         "participant_id", "file_name", "bids_path", "age", 
-        "sex", "group", "eegid", "file_hash"
+        "sex", "group", "hand", "weight", "height", "eegid", "file_hash"
     ]
-    expected_cols = set(desired_column_order) # Keep the set for checks if needed
 
-    # Determine participant ID
+    # Determine participant ID (generate if not provided).
     if participant_id is None:
         participant_id = step_sanitize_id(file_path)
-    # subject_id = participant_id.zfill(5)
     subject_id = str(participant_id)
 
-    # Default metadata
+    # Set default metadata values.
     session = None
     run = None
     age = "n/a"
     sex = "n/a"
     group = "n/a"
 
+    # Create BIDSPath object.
     bids_path = BIDSPath(
         subject=subject_id,
         session=session,
@@ -112,24 +108,20 @@ def step_convert_to_bids(
 
     fif_file = Path(file_path)
 
-    # Read the raw data
+    # Calculate file hash.
     try:
         file_hash = hashlib.sha256(fif_file.read_bytes()).hexdigest()
-        file_name = fif_file.name
     except Exception as e:
-        message("error", f"Failed to read {fif_file}: {e}")
+        message("error", f"Failed to read {fif_file} for hashing: {e}")
         raise
 
-    # Prepare additional metadata
+    # Prepare MNE Raw object metadata for BIDS conversion.
     raw.info["subject_info"] = {"id": int(subject_id)}
-
     raw.info["line_freq"] = line_freq
-
-    # Prepare unit for BIDS
     for ch in raw.info["chs"]:
-        ch["unit"] = FIFF.FIFF_UNIT_V  # Assuming units are in Volts
+        ch["unit"] = FIFF.FIFF_UNIT_V
 
-    # Additional BIDS parameters
+    # Prepare arguments for mne_bids.write_raw_bids.
     bids_kwargs = {
         "raw": raw,
         "bids_path": bids_path,
@@ -141,32 +133,33 @@ def step_convert_to_bids(
         "allow_preload": True,
     }
 
-    # Create derivatives directory structure
+    # Create derivatives directory structure (outside the lock).
     derivatives_dir = bids_root / "derivatives" / "pylossless" / f"sub-{subject_id}" / "eeg"
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message("info", f"Created derivatives directory structure at {derivatives_dir}")
 
-    # Acquire lock (if available) before critical section
+    # --- Critical Section: Accessing shared BIDS files ---
+    # Use the lock (real or dummy) to protect file access.
     message("debug", f"Acquiring participants.tsv lock for {file_name}...")
     with lock_context:
         message("debug", f"Acquired participants.tsv lock for {file_name}.")
 
-        # --- Ensure participants.tsv exists with headers before MNE-BIDS --- 
+        # Ensure participants.tsv exists with correct headers and dtype=object 
+        # *before* calling mne_bids, which might interact with it.
         try:
             if not participants_file.exists():
                 message("info", f"Creating participants.tsv with headers at {participants_file}")
-                # Create DataFrame with desired column order and dtype=object
                 header_df = pd.DataFrame(columns=desired_column_order, dtype=object)
-                header_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
+                header_df.to_csv(participants_file, sep="	", index=False, na_rep="n/a")
         except Exception as header_err:
             message("error", f"Failed to create participants.tsv header: {header_err}")
-            # Decide if we should proceed or raise - raising is safer
             raise
 
-        # Write BIDS data (MNE-BIDS might modify participants.tsv)
+        # Call mne_bids to write the core BIDS data.
         try:
             write_raw_bids(**bids_kwargs)
             message("success", f"Converted {fif_file.name} to BIDS format.")
+            # Update sidecar JSON with additional info.
             entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
             sidecar_path = bids_path.copy().update(extension=".json")
             update_sidecar_json(bids_path=sidecar_path, entries=entries)
@@ -176,43 +169,40 @@ def step_convert_to_bids(
             traceback.print_exc()
             raise
 
-        # Update participants.tsv
+        # --- Update participants.tsv with custom/calculated metadata ---
         try:
-            # Use try-except for robustness when reading potentially incomplete files
+            # Read the potentially modified participants.tsv, enforcing object dtype.
             try:
-                # Specify dtype=object when reading to avoid type mismatch issues
-                dtype_mapping = {col: object for col in desired_column_order} # Use desired order here too
-                participants_df = pd.read_csv(participants_file, sep="\t", dtype=dtype_mapping, na_filter=False)
+                dtype_mapping = {col: object for col in desired_column_order} 
+                # Read assuming all desired columns should exist; add missing ones later.
+                # na_filter=False prevents 'NA' strings from becoming NaN if object dtype is used.
+                participants_df = pd.read_csv(participants_file, sep="	", dtype=dtype_mapping, na_filter=False) 
                 
-                # --- Column Validation/Fixing --- 
-                # Check if all desired columns exist, add missing ones if necessary
+                # Validate and fix columns after reading.
                 missing_cols = [col for col in desired_column_order if col not in participants_df.columns]
                 if missing_cols:
                     message("warning", f"participants.tsv is missing columns: {missing_cols}. Adding them with 'n/a'.")
                     for col in missing_cols:
-                        participants_df[col] = "n/a" # Add missing column with default value
-                    # Ensure object dtype for newly added columns
+                        participants_df[col] = "n/a" 
                     participants_df = participants_df.astype({col: object for col in missing_cols})
                 
-                # Check if the file was effectively empty or corrupted
+                # Handle cases where the file might be corrupted or unexpectedly empty.
                 if participants_df.empty and participants_file.stat().st_size > 0:
-                    message("warning", "participants.tsv exists but pandas read an empty DataFrame. Check file content.")
-                    # Recreate with desired order
+                    message("warning", "participants.tsv exists but pandas read an empty DataFrame. Recreating.")
                     participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
                 elif not participants_df.empty and "participant_id" not in participants_df.columns:
-                    message("warning", "participants.tsv is missing 'participant_id' column after MNE-BIDS write. Recreating headers.")
-                    # Recreate with desired order
+                    message("warning", "participants.tsv is missing 'participant_id'. Recreating.")
                     participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
 
             except pd.errors.EmptyDataError:
+                # Handle case where mne_bids might have left the file empty.
                 message("warning", f"participants.tsv is empty after MNE-BIDS write. Starting with headers.")
-                # Ensure object dtype and desired order
                 participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
             except Exception as pd_read_err:
-                message("error", f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting to overwrite.")
-                # Ensure object dtype and desired order when overwriting
+                message("error", f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting overwrite.")
                 participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
 
+            # Prepare the entry for the current participant.
             new_entry = {
                 "participant_id": f"sub-{subject_id}",
                 "file_name": file_name, 
@@ -220,52 +210,56 @@ def step_convert_to_bids(
                 "age": age, 
                 "sex": sex, 
                 "group": group, 
+                # Add standard optional BIDS columns with 'n/a' if not provided elsewhere.
+                "hand": "n/a",
+                "weight": "n/a",
+                "height": "n/a",
                 "eegid": fif_file.stem,
                 "file_hash": file_hash,
             }
 
-            # --- Row Update/Append --- 
+            # Update existing row or append new row.
             participant_col_id = f"sub-{subject_id}"
             if participant_col_id not in participants_df["participant_id"].values:
-                # Append new row if participant doesn't exist
-                participants_df = pd.concat([participants_df, pd.DataFrame([new_entry])], ignore_index=True)
+                # Append new row using pd.concat for better type handling.
+                new_row_df = pd.DataFrame([new_entry]).astype(dtype=object)
+                participants_df = pd.concat([participants_df, new_row_df], ignore_index=True)
                 message("debug", f"Appended new entry for {participant_col_id} to participants.tsv.")
             else:
-                # Update existing row if participant already exists
-                message("debug", f"Participant {participant_col_id} already exists in participants.tsv. Updating row.")
-                # Find the index of the row to update
+                # Update existing row.
+                message("debug", f"Participant {participant_col_id} already exists. Updating row.")
                 idx = participants_df.index[participants_df["participant_id"] == participant_col_id].tolist()
                 if idx:
-                    # Update the row at the found index (use the first index if multiple found)
+                    row_index = idx[0]
                     for key, value in new_entry.items():
-                        if key in participants_df.columns: # Ensure column exists before assigning
-                            participants_df.loc[idx[0], key] = value
+                        if key in participants_df.columns:
+                            # Ensure value assignment respects object dtype.
+                            participants_df.loc[row_index, key] = str(value) if value is not None else "n/a"
                         else:
                              message("warning", f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.")
                 else:
-                    # Should theoretically not happen if the ID was found in .values, but good to handle
-                    message("warning", f"Could not find index for existing participant {participant_col_id} to update. Appending instead.")
-                    # Fallback to appending if index search fails unexpectedly
-                    participants_df = pd.concat([participants_df, pd.DataFrame([new_entry])], ignore_index=True)
+                    # Fallback if index search fails.
+                    message("warning", f"Could not find index for existing participant {participant_col_id}. Appending instead.")
+                    new_row_df = pd.DataFrame([new_entry]).astype(dtype=object)
+                    participants_df = pd.concat([participants_df, new_row_df], ignore_index=True)
 
-            # Drop duplicates just in case, keeping the last entry
+            # Ensure no duplicate participant IDs remain.
             participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
             
-            # --- Final Reordering and Write --- 
-            # Ensure columns are in the desired order before writing
-            # Include any extra columns that might have been added (e.g., by mne-bids)
+            # Ensure final DataFrame columns match desired order, preserving extras.
+            # Note: This assumes desired_column_order contains all keys from new_entry that should be primary columns.
             final_columns = desired_column_order + [col for col in participants_df.columns if col not in desired_column_order]
             participants_df = participants_df[final_columns]
             
-            participants_df.to_csv(participants_file, sep="\t", index=False, na_rep="n/a")
+            # Write the updated DataFrame back to TSV.
+            participants_df.to_csv(participants_file, sep="	", index=False, na_rep="n/a")
             message("debug", f"Updated participants.tsv for {file_name}")
 
-            # Create dataset_description.json if it doesn't exist (safe under lock)
+            # Create metadata JSON files if they don't exist.
             dataset_description_file = bids_root / "dataset_description.json"
             if not dataset_description_file.exists():
                 step_create_dataset_desc(bids_root, study_name=study_name)
 
-            # Create participants.json if it doesn't exist (safe under lock)
             participants_json_file = bids_root / "participants.json"
             if not participants_json_file.exists():
                 step_create_participants_json(bids_root)
@@ -275,6 +269,7 @@ def step_convert_to_bids(
             traceback.print_exc()
             raise
     
+    # Lock is automatically released when exiting the 'with' block.
     message("debug", f"Released participants.tsv lock for {file_name}.")
 
     return bids_path
@@ -282,74 +277,71 @@ def step_convert_to_bids(
 
 def step_sanitize_id(filename):
     """
-    Sanitizes the participant ID extracted from the filename to comply with BIDS conventions.
-
-    Parameters:
-    - filename (str): The filename to sanitize.
-
-    Returns:
-    - str: A sanitized participant ID.
+    Generates a reproducible numeric participant ID from a filename using MD5 hashing.
     """
     import hashlib
 
     def filename_to_number(filename, max_value=1000000):
-        # Create a hash of the filename
+        # Generate MD5 hash of the filename.
         hash_object = hashlib.md5(filename.encode())
-        # Get the first 8 bytes of the hash as an integer
+        # Convert first 8 bytes of hash to an integer.
         hash_int = int.from_bytes(hash_object.digest()[:8], "big")
-        # Use modulo to get a number within the desired range
+        # Scale to the desired range using modulo.
         return hash_int % max_value
 
     basename = Path(filename).stem
     participant_id = filename_to_number(basename)
-    message("info", f"Unique Number for {basename}: {participant_id}")
+    message("info", f"Generated participant ID for {basename}: {participant_id}")
 
     return participant_id
 
 
 def step_create_dataset_desc(output_path, study_name):
     """
-    Creates BIDS dataset description JSON file.
-
-    Parameters:
-    - output_path (Path): Directory where the file will be created
-    - study_name (str): Name of the study
+    Creates BIDS dataset_description.json file.
     """
     dataset_description = {
         "Name": study_name,
-        "BIDSVersion": "1.6.0",
+        "BIDSVersion": "1.6.0", # Specify BIDS version used.
         "DatasetType": "raw",
     }
-    with open(output_path / "dataset_description.json", "w") as f:
-        json.dump(dataset_description, f, indent=4)
-    message("success", "Created dataset_description.json")
+    filepath = output_path / "dataset_description.json"
+    try:
+        with open(filepath, "w") as f:
+            json.dump(dataset_description, f, indent=4)
+        message("success", f"Created {filepath.name}")
+    except Exception as e:
+        message("error", f"Failed to create {filepath.name}: {e}")
 
 
 def step_create_participants_json(output_path):
     """
-    Creates participants.json metadata file.
-
-    Parameters:
-    - output_path (Path): Directory where the file will be created
+    Creates BIDS participants.json sidecar file describing participants.tsv columns.
     """
+    # Describes columns in participants.tsv, including standard and custom ones.
     participants_json = {
         "participant_id": {"Description": "Unique participant identifier"},
-        "bids_path": {"Description": "Path to the BIDS file"},
-        "file_hash": {"Description": "Hash of the original file"},
-        "file_name": {"Description": "Name of the original file"},
-        "eegid": {"Description": "Original participant identifier"},
+        "file_name": {"Description": "Original source filename"},
+        "bids_path": {"Description": "Relative path to the primary BIDS data file"},
         "age": {"Description": "Age of the participant", "Units": "years"},
         "sex": {
             "Description": "Biological sex of the participant",
-            "Levels": {
-                "M": "Male",
-                "F": "Female",
-                "O": "Other",
-                "n/a": "Not available",
-            },
+            "Levels": {"M": "Male", "F": "Female", "O": "Other", "n/a": "Not available"},
         },
-        "group": {"Description": "Participant group", "Levels": {}},
+        "group": {"Description": "Participant group membership", "Levels": {}},
+        "hand": {
+            "Description": "Dominant hand of the participant",
+            "Levels": {"L": "Left", "R": "Right", "A": "Ambidextrous", "n/a": "Not available"},
+        },
+        "weight": {"Description": "Weight of the participant", "Units": "kg"},
+        "height": {"Description": "Height of the participant", "Units": "m"},
+        "eegid": {"Description": "Original participant identifier/source file stem"},
+        "file_hash": {"Description": "SHA256 hash of the original source file"},
     }
-    with open(output_path / "participants.json", "w") as f:
-        json.dump(participants_json, f, indent=4)
-    message("success", "Created participants.json")
+    filepath = output_path / "participants.json"
+    try:
+        with open(filepath, "w") as f:
+            json.dump(participants_json, f, indent=4)
+        message("success", f"Created {filepath.name}")
+    except Exception as e:
+        message("error", f"Failed to create {filepath.name}: {e}")
