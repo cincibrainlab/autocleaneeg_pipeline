@@ -211,6 +211,7 @@ def step_create_bids_path(
             line_freq=line_freq,
             overwrite=True,
             study_name=unprocessed_file.stem,
+            autoclean_dict=autoclean_dict,
         )
 
         autoclean_dict["bids_path"] = bids_path
