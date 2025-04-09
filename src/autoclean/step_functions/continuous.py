@@ -202,6 +202,9 @@ def step_create_bids_path(
     except:
         line_freq = 60.0
 
+    # Get the single BIDS write lock from the dict (will be None if not running async)
+    bids_write_lock = autoclean_dict.get("bids_write_lock", None)
+
     try:
         bids_path = step_convert_to_bids(
             raw,
@@ -211,6 +214,7 @@ def step_create_bids_path(
             line_freq=line_freq,
             overwrite=True,
             study_name=unprocessed_file.stem,
+            bids_write_lock=bids_write_lock,
         )
 
         autoclean_dict["bids_path"] = bids_path
