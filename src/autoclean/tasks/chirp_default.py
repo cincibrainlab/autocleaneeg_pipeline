@@ -138,6 +138,6 @@ class ChirpDefault(Task):
         self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method using mixin method
-        self.psd_topo_figure(
+        self.step_psd_topo_figure(
             self.raw, self.original_raw, self.pipeline, self.config
         )
