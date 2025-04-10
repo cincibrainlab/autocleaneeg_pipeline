@@ -238,10 +238,12 @@ class EventIDEpochsMixin:
                 
                 message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
             
-            # Save epochs with bad epochs marked but not dropped
-            self._save_epochs_result(result_data = epochs_clean, stage_name = "post_epochs")
+                # Save epochs with bad epochs marked but not dropped
+                self._save_epochs_result(result_data = epochs_clean, stage_name = "post_epochs")
 
-            epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
+                epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
+
+                
             if epochs_clean.metadata is not None:
                 kept_indices = epochs_clean.selection
                 max_index = epochs.metadata.shape[0] - 1
