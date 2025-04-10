@@ -65,6 +65,7 @@ autodoc_default_options = {
     'undoc-members': False,
     'show-inheritance': False,
     'member-order': 'bysource',
+    'exclude-members': 'VALUES, DEBUG, INFO, SUCCESS, HEADER, WARNING, ERROR, CRITICAL',
 }
 
 # Hide type hints in signatures

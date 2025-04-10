@@ -416,6 +416,7 @@
 <span class="sd">&quot;&quot;&quot;</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">asyncio</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>  <span class="c1"># Add threading import</span>
 
 <span class="c1"># Standard library imports</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
@@ -540,8 +541,11 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">autoclean_config</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">autoclean_config</span><span class="p">)</span><span class="o">.</span><span class="n">absolute</span><span class="p">()</span>
         <span class="c1"># Configure logging first with output directory</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">verbose</span> <span class="o">=</span> <span class="n">verbose</span>
-        <span class="n">configure_logger</span><span class="p">(</span><span class="n">verbose</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">autoclean_dir</span><span class="p">)</span>
-        <span class="n">mne</span><span class="o">.</span><span class="n">set_log_level</span><span class="p">(</span><span class="n">verbose</span><span class="p">)</span>
+        <span class="n">mne_verbose</span> <span class="o">=</span> <span class="n">configure_logger</span><span class="p">(</span><span class="n">verbose</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">autoclean_dir</span><span class="p">)</span>
+        <span class="n">mne</span><span class="o">.</span><span class="n">set_log_level</span><span class="p">(</span><span class="n">mne_verbose</span><span class="p">)</span>
+
+        <span class="c1"># Add a threading lock for the participants.tsv file</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">participants_tsv_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
 
         <span class="n">message</span><span class="p">(</span><span class="s2">&quot;header&quot;</span><span class="p">,</span> <span class="s2">&quot;Welcome to AutoClean!&quot;</span><span class="p">)</span>
 
@@ -587,7 +591,6 @@
 <span class="sd">        Users should not call this method directly.</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">task</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_task</span><span class="p">(</span><span class="n">task</span><span class="p">)</span>
-        <span class="n">configure_logger</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">verbose</span><span class="p">,</span> <span class="n">output_dir</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">autoclean_dir</span><span class="p">,</span> <span class="n">task</span><span class="o">=</span><span class="n">task</span><span class="p">)</span>
         <span class="c1"># Either create new run record or resume existing one</span>
         <span class="k">if</span> <span class="n">run_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Generate time-ordered unique ID for run tracking</span>
@@ -699,6 +702,7 @@
 
             <span class="c1"># Merge task-specific config with base config</span>
             <span class="n">run_dict</span> <span class="o">=</span> <span class="p">{</span><span class="o">**</span><span class="n">run_dict</span><span class="p">,</span> <span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">autoclean_dict</span><span class="p">,</span> <span class="o">**</span><span class="n">lossless_config</span><span class="p">}</span>
+            <span class="n">run_dict</span><span class="p">[</span><span class="s1">&#39;participants_tsv_lock&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">participants_tsv_lock</span>
 
             <span class="c1"># Record full run configuration</span>
             <span class="n">manage_database</span><span class="p">(</span>
@@ -1001,8 +1005,10 @@
 
         <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">process_with_semaphore</span><span class="p">(</span><span class="n">file_path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">            </span><span class="sd">&quot;&quot;&quot;Process a single file with semaphore control.&quot;&quot;&quot;</span>
-            <span class="k">async</span> <span class="k">with</span> <span class="n">sem</span><span class="p">:</span>  <span class="c1"># Limit concurrent processing</span>
+            <span class="k">async</span> <span class="k">with</span> <span class="n">sem</span><span class="p">:</span>  <span class="c1"># Limit overall concurrent processing</span>
                 <span class="k">try</span><span class="p">:</span>
+                    <span class="c1"># Pass the acquired lock information (implicitly via self if needed later,</span>
+                    <span class="c1"># but the lock is mainly for the bids step itself)</span>
                     <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_entrypoint_async</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="n">task</span><span class="p">)</span>
                     <span class="n">pbar</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;✓ Completed: </span><span class="si">{</span><span class="n">file_path</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
                 <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>

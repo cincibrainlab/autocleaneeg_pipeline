@@ -46,13 +46,6 @@ Database
    database.get_run_record
    database.manage_database
    
-.. autosummary::
-   :toctree: generated/
-   :template: autosummary/class.rst
-   :nosignatures:
-
-   database.DatabaseError
-   database.RecordNotFoundError
 
 FileSystem
 -------------------
@@ -80,9 +73,7 @@ Logging
    :template: autosummary/class.rst
    :nosignatures:
 
-   logging.WarningToLogger
    logging.LogLevel
-   logging.MessageType
 
 Montage
 -------------------
@@ -98,4 +89,7 @@ Montage
    montage.convert_channel_names
    montage.get_standard_set_in_montage
    montage.validate_channel_set
+
+
+
 

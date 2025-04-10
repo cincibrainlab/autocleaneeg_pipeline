@@ -49,7 +49,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/generated/autoclean.utils.database.manage_database';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="database.DatabaseError" href="autoclean.utils.database.DatabaseError.html" />
+    <link rel="next" title="file_system.step_prepare_directories" href="autoclean.utils.file_system.step_prepare_directories.html" />
     <link rel="prev" title="database.get_run_record" href="autoclean.utils.database.get_run_record.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -362,14 +362,10 @@
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">database.manage_database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.message.html">logging.message</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.LogLevel.html">logging.LogLevel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
@@ -451,10 +447,25 @@
 <dt class="sig sig-object py" id="autoclean.utils.database.manage_database">
 <span class="sig-prename descclassname"><span class="pre">autoclean.utils.database.</span></span><span class="sig-name descname"><span class="pre">manage_database</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">operation</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">run_record</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">update_record</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/utils/database.html#manage_database"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.utils.database.manage_database" title="Link to this definition">#</a></dt>
 <dd><p>Manage database operations with thread safety.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><p>operation: Type of operation (‘create_collection’, ‘store’, ‘update’, etc.)
-run_record: Record to store (for ‘store’ operation)
-update_record: Record updates (for ‘update’ operation)</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>operation</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>Operations can be:</p>
+<ul class="simple">
+<li><p><strong>create_collection</strong>: Create a new collection.</p></li>
+<li><p><strong>store</strong>: Store a new record.</p></li>
+<li><p><strong>update</strong>: Update an existing record.</p></li>
+<li><p><strong>update_status</strong>: Update the status of an existing record.</p></li>
+<li><p><strong>drop_collection</strong>: Drop the collection.</p></li>
+<li><p><strong>get_collection</strong>: Get the collection.</p></li>
+<li><p><strong>get_record</strong>: Get a record from the collection.</p></li>
+</ul>
+</dd>
+<dt><strong>run_record</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>The record to store.</p>
+</dd>
+<dt><strong>update_record</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>The record updates.</p>
+</dd>
+</dl>
 </dd>
 </dl>
 </dd></dl>

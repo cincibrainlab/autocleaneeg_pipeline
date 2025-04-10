@@ -12,6 +12,19 @@ from .montage import VALID_MONTAGES
 
 
 def load_config(config_file: Path) -> dict:
+    """Load and validate the autoclean configuration file.
+
+    Parameters
+    ----------
+    config_file : Path
+        The path to the autoclean configuration file.
+
+    Returns
+    -------
+    autoclean_dict : dict
+        The autoclean configuration dictionary.
+    """
+
     message("info", f"Loading config: {config_file}")
     config_schema = Schema(
         {
@@ -229,6 +242,21 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
 
 
 def validate_eeg_system(autoclean_dict: dict, task: str) -> str:
+    """Validate the EEG system for a given task. Checks if the EEG system is in the VALID_MONTAGES dictionary.
+
+    Parameters
+    ----------
+    autoclean_dict : dict
+        The autoclean configuration dictionary.
+    task : str
+        The task to validate the EEG system for.
+
+    Returns
+    -------
+    eeg_system : str
+        The validated EEG system.
+    """
+
     eeg_system = autoclean_dict["tasks"][task]["settings"]["montage"]["value"]
 
     if eeg_system in VALID_MONTAGES:
@@ -240,7 +268,23 @@ def validate_eeg_system(autoclean_dict: dict, task: str) -> str:
         raise ValueError(error_msg)
 
 
-def hash_and_encode_yaml(content, is_file=True):
+def hash_and_encode_yaml(content: str | dict, is_file: bool = True) -> tuple[str, str]:
+    """Hash and encode a YAML file or dictionary.
+
+    Parameters
+    ----------
+    content : str or dict
+        The content to hash and encode.
+    is_file : bool
+        Whether the content is a file path.
+
+    Returns
+    -------
+    file_hash : str
+        The hash of the content.
+    compressed_encoded : str
+        The compressed and encoded content.
+    """
     if is_file:
         with open(content, "r") as f:
             yaml_str = f.read()
@@ -260,7 +304,20 @@ def hash_and_encode_yaml(content, is_file=True):
     return file_hash, compressed_encoded
 
 
-def decode_compressed_yaml(encoded_str):
+def decode_compressed_yaml(encoded_str: str) -> dict:
+    """Decode a compressed and encoded YAML string.
+
+    Parameters
+    ----------
+    encoded_str : str
+        The compressed and encoded YAML string.
+    
+    Returns
+    -------
+    yaml_dict : dict
+        The decoded YAML dictionary.
+    """
+
     compressed_data = base64.b64decode(encoded_str)
     yaml_str = zlib.decompress(compressed_data).decode("utf-8")
     return yaml.safe_load(yaml_str)

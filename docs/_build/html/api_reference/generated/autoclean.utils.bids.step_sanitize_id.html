@@ -362,14 +362,10 @@
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.manage_database.html">database.manage_database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.message.html">logging.message</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.LogLevel.html">logging.LogLevel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
@@ -450,11 +446,15 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="autoclean.utils.bids.step_sanitize_id">
 <span class="sig-prename descclassname"><span class="pre">autoclean.utils.bids.</span></span><span class="sig-name descname"><span class="pre">step_sanitize_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/utils/bids.html#step_sanitize_id"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.utils.bids.step_sanitize_id" title="Link to this definition">#</a></dt>
-<dd><p>Sanitizes the participant ID extracted from the filename to comply with BIDS conventions.</p>
-<p>Parameters:
-- filename (str): The filename to sanitize.</p>
-<p>Returns:
-- str: A sanitized participant ID.</p>
+<dd><p>Generates a reproducible numeric participant ID from a filename using MD5 hashing.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>filename</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>The filename to generate a participant ID from.</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 <span class="target" id="sphx-glr-backreferences-autoclean-utils-bids-step-sanitize-id"></span></section>

@@ -362,14 +362,10 @@
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.manage_database.html">database.manage_database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
-<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.message.html">logging.message</a></li>
-<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.LogLevel.html">logging.LogLevel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
 <li class="toctree-l2"><a class="reference internal" href="generated/autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
@@ -452,13 +448,13 @@
 <td><p>Converts a single EEG data file into BIDS format with default/dummy metadata.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.utils.bids.step_sanitize_id.html#autoclean.utils.bids.step_sanitize_id" title="autoclean.utils.bids.step_sanitize_id"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bids.step_sanitize_id</span></code></a></p></td>
-<td><p>Sanitizes the participant ID extracted from the filename to comply with BIDS conventions.</p></td>
+<td><p>Generates a reproducible numeric participant ID from a filename using MD5 hashing.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.bids.step_create_dataset_desc.html#autoclean.utils.bids.step_create_dataset_desc" title="autoclean.utils.bids.step_create_dataset_desc"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bids.step_create_dataset_desc</span></code></a></p></td>
-<td><p>Creates BIDS dataset description JSON file.</p></td>
+<td><p>Creates BIDS dataset_description.json file.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.utils.bids.step_create_participants_json.html#autoclean.utils.bids.step_create_participants_json" title="autoclean.utils.bids.step_create_participants_json"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bids.step_create_participants_json</span></code></a></p></td>
-<td><p>Creates participants.json metadata file.</p></td>
+<td><p>Creates BIDS participants.json sidecar file describing participants.tsv columns.</p></td>
 </tr>
 </tbody>
 </table>
@@ -469,7 +465,7 @@
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.config.load_config.html#autoclean.utils.config.load_config" title="autoclean.utils.config.load_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">config.load_config</span></code></a></p></td>
-<td><p></p></td>
+<td><p>Load and validate the autoclean configuration file.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.utils.config.validate_pylossless_config.html#autoclean.utils.config.validate_pylossless_config" title="autoclean.utils.config.validate_pylossless_config"><code class="xref py py-obj docutils literal notranslate"><span class="pre">config.validate_pylossless_config</span></code></a></p></td>
 <td><p>Validate and locate the pylossless configuration file for a given task.</p></td>
@@ -478,13 +474,13 @@
 <td><p>Validate signal processing parameters for physical constraints.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.utils.config.validate_eeg_system.html#autoclean.utils.config.validate_eeg_system" title="autoclean.utils.config.validate_eeg_system"><code class="xref py py-obj docutils literal notranslate"><span class="pre">config.validate_eeg_system</span></code></a></p></td>
-<td><p></p></td>
+<td><p>Validate the EEG system for a given task.</p></td>
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.config.hash_and_encode_yaml.html#autoclean.utils.config.hash_and_encode_yaml" title="autoclean.utils.config.hash_and_encode_yaml"><code class="xref py py-obj docutils literal notranslate"><span class="pre">config.hash_and_encode_yaml</span></code></a></p></td>
-<td><p></p></td>
+<td><p>Hash and encode a YAML file or dictionary.</p></td>
 </tr>
 <tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.utils.config.decode_compressed_yaml.html#autoclean.utils.config.decode_compressed_yaml" title="autoclean.utils.config.decode_compressed_yaml"><code class="xref py py-obj docutils literal notranslate"><span class="pre">config.decode_compressed_yaml</span></code></a></p></td>
-<td><p></p></td>
+<td><p>Decode a compressed and encoded YAML string.</p></td>
 </tr>
 </tbody>
 </table>
@@ -502,17 +498,6 @@
 </tr>
 <tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.database.manage_database.html#autoclean.utils.database.manage_database" title="autoclean.utils.database.manage_database"><code class="xref py py-obj docutils literal notranslate"><span class="pre">database.manage_database</span></code></a></p></td>
 <td><p>Manage database operations with thread safety.</p></td>
-</tr>
-</tbody>
-</table>
-</div>
-<div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
-<tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.database.DatabaseError.html#autoclean.utils.database.DatabaseError" title="autoclean.utils.database.DatabaseError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">database.DatabaseError</span></code></a></p></td>
-<td><p>Custom exception for database operations.</p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.utils.database.RecordNotFoundError.html#autoclean.utils.database.RecordNotFoundError" title="autoclean.utils.database.RecordNotFoundError"><code class="xref py py-obj docutils literal notranslate"><span class="pre">database.RecordNotFoundError</span></code></a></p></td>
-<td><p>Custom exception for when a database record is not found.</p></td>
 </tr>
 </tbody>
 </table>
@@ -544,14 +529,8 @@
 </div>
 <div class="pst-scrollable-table-container"><table class="autosummary longtable table autosummary">
 <tbody>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.logging.WarningToLogger.html#autoclean.utils.logging.WarningToLogger" title="autoclean.utils.logging.WarningToLogger"><code class="xref py py-obj docutils literal notranslate"><span class="pre">logging.WarningToLogger</span></code></a></p></td>
-<td><p></p></td>
-</tr>
-<tr class="row-even"><td><p><a class="reference internal" href="generated/autoclean.utils.logging.LogLevel.html#autoclean.utils.logging.LogLevel" title="autoclean.utils.logging.LogLevel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">logging.LogLevel</span></code></a></p></td>
+<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.logging.LogLevel.html#autoclean.utils.logging.LogLevel" title="autoclean.utils.logging.LogLevel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">logging.LogLevel</span></code></a></p></td>
 <td><p>Enum for log levels matching MNE's logging levels.</p></td>
-</tr>
-<tr class="row-odd"><td><p><a class="reference internal" href="generated/autoclean.utils.logging.MessageType.html#autoclean.utils.logging.MessageType" title="autoclean.utils.logging.MessageType"><code class="xref py py-obj docutils literal notranslate"><span class="pre">logging.MessageType</span></code></a></p></td>
-<td><p>Enum for message types with their corresponding log levels and symbols.</p></td>
 </tr>
 </tbody>
 </table>
@@ -610,9 +589,7 @@
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#bids">Bids</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#config">Config</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#database">Database</a><ul class="nav section-nav flex-column">
-</ul>
-</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#database">Database</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#filesystem">FileSystem</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#logging">Logging</a><ul class="nav section-nav flex-column">
 </ul>

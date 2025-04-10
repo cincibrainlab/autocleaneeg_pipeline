@@ -10,17 +10,18 @@ def step_prepare_directories(
 ) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
     """Set up and validate directory structure for processing pipeline.
 
-    Args:
-        task: Name of the processing task
-        autoclean_dir_str: Path to the autoclean directory
+    Parameters
+    ----------
+    task : str
+        The name of the processing task.
+    autoclean_dir_str : Path
+        The path to the autoclean directory.
 
-    Returns:
-        Tuple of Path objects for key directories:
-        (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, debug_dir, script_dir)
+    Returns
+    -------
+    Tuple of Path objects for key directories:
+    (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, logs_dir, flagged_dir)
 
-    Raises:
-        EnvironmentError: If AUTOCLEAN_DIR is not set or invalid
-        PermissionError: If unable to create/access required directories
     """
     message("header", f"Setting up directories for task: {task}")
 

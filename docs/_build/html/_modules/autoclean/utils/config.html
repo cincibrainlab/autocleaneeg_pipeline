@@ -378,6 +378,19 @@
 <div class="viewcode-block" id="load_config">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.load_config.html#autoclean.utils.config.load_config">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_config</span><span class="p">(</span><span class="n">config_file</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load and validate the autoclean configuration file.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    config_file : Path</span>
+<span class="sd">        The path to the autoclean configuration file.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    autoclean_dict : dict</span>
+<span class="sd">        The autoclean configuration dictionary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Loading config: </span><span class="si">{</span><span class="n">config_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">config_schema</span> <span class="o">=</span> <span class="n">Schema</span><span class="p">(</span>
         <span class="p">{</span>
@@ -604,6 +617,21 @@
 <div class="viewcode-block" id="validate_eeg_system">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.validate_eeg_system.html#autoclean.utils.config.validate_eeg_system">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">validate_eeg_system</span><span class="p">(</span><span class="n">autoclean_dict</span><span class="p">:</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">task</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate the EEG system for a given task. Checks if the EEG system is in the VALID_MONTAGES dictionary.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    autoclean_dict : dict</span>
+<span class="sd">        The autoclean configuration dictionary.</span>
+<span class="sd">    task : str</span>
+<span class="sd">        The task to validate the EEG system for.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    eeg_system : str</span>
+<span class="sd">        The validated EEG system.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">eeg_system</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s2">&quot;tasks&quot;</span><span class="p">][</span><span class="n">task</span><span class="p">][</span><span class="s2">&quot;settings&quot;</span><span class="p">][</span><span class="s2">&quot;montage&quot;</span><span class="p">][</span><span class="s2">&quot;value&quot;</span><span class="p">]</span>
 
     <span class="k">if</span> <span class="n">eeg_system</span> <span class="ow">in</span> <span class="n">VALID_MONTAGES</span><span class="p">:</span>
@@ -618,7 +646,23 @@
 
 <div class="viewcode-block" id="hash_and_encode_yaml">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.hash_and_encode_yaml.html#autoclean.utils.config.hash_and_encode_yaml">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">hash_and_encode_yaml</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="n">is_file</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">hash_and_encode_yaml</span><span class="p">(</span><span class="n">content</span><span class="p">:</span> <span class="nb">str</span> <span class="o">|</span> <span class="nb">dict</span><span class="p">,</span> <span class="n">is_file</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Hash and encode a YAML file or dictionary.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    content : str or dict</span>
+<span class="sd">        The content to hash and encode.</span>
+<span class="sd">    is_file : bool</span>
+<span class="sd">        Whether the content is a file path.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    file_hash : str</span>
+<span class="sd">        The hash of the content.</span>
+<span class="sd">    compressed_encoded : str</span>
+<span class="sd">        The compressed and encoded content.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">is_file</span><span class="p">:</span>
         <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">content</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
             <span class="n">yaml_str</span> <span class="o">=</span> <span class="n">f</span><span class="o">.</span><span class="n">read</span><span class="p">()</span>
@@ -641,7 +685,20 @@
 
 <div class="viewcode-block" id="decode_compressed_yaml">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.config.decode_compressed_yaml.html#autoclean.utils.config.decode_compressed_yaml">[docs]</a>
-<span class="k">def</span><span class="w"> </span><span class="nf">decode_compressed_yaml</span><span class="p">(</span><span class="n">encoded_str</span><span class="p">):</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">decode_compressed_yaml</span><span class="p">(</span><span class="n">encoded_str</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Decode a compressed and encoded YAML string.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    encoded_str : str</span>
+<span class="sd">        The compressed and encoded YAML string.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    yaml_dict : dict</span>
+<span class="sd">        The decoded YAML dictionary.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">compressed_data</span> <span class="o">=</span> <span class="n">base64</span><span class="o">.</span><span class="n">b64decode</span><span class="p">(</span><span class="n">encoded_str</span><span class="p">)</span>
     <span class="n">yaml_str</span> <span class="o">=</span> <span class="n">zlib</span><span class="o">.</span><span class="n">decompress</span><span class="p">(</span><span class="n">compressed_data</span><span class="p">)</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s2">&quot;utf-8&quot;</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">yaml</span><span class="o">.</span><span class="n">safe_load</span><span class="p">(</span><span class="n">yaml_str</span><span class="p">)</span></div>

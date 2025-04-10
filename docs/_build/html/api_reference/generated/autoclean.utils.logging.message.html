@@ -49,7 +49,7 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/generated/autoclean.utils.logging.message';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="logging.WarningToLogger" href="autoclean.utils.logging.WarningToLogger.html" />
+    <link rel="next" title="logging.LogLevel" href="autoclean.utils.logging.LogLevel.html" />
     <link rel="prev" title="logging.configure_logger" href="autoclean.utils.logging.configure_logger.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
@@ -362,14 +362,10 @@
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.manage_database.html">database.manage_database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">logging.message</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.LogLevel.html">logging.LogLevel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
@@ -450,7 +446,8 @@
 <dl class="py function">
 <dt class="sig sig-object py" id="autoclean.utils.logging.message">
 <span class="sig-prename descclassname"><span class="pre">autoclean.utils.logging.</span></span><span class="sig-name descname"><span class="pre">message</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">level</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">text</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/utils/logging.html#message"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.utils.logging.message" title="Link to this definition">#</a></dt>
-<dd><p>Enhanced logging function with support for lazy evaluation and context.</p>
+<dd><p>Enhanced logging function with support for lazy evaluation and context. 
+Outputs to the console and the log file.</p>
 <dl class="field-list">
 <dt class="field-odd">Parameters<span class="colon">:</span></dt>
 <dd class="field-odd"><dl>
