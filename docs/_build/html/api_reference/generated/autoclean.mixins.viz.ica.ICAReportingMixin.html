@@ -469,35 +469,46 @@ can be individually enabled or disabled via configuration.</p>
 <p>This method creates a figure showing each ICA component’s time course over the full
 time series. Components are color-coded by their classification/rejection status,
 and probability scores are indicated for each component.</p>
-<section id="parameters">
-<h2>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading">#</a></h2>
-<dl class="simple">
-<dt>pipeline<span class="classifier">pylossless.Pipeline</span></dt><dd><p>Pipeline object containing raw data and fitted ICA object.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>pipeline</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pylossless.Pipeline</span></code></span></dt><dd><p>Pipeline object containing raw data and fitted ICA object.</p>
 </dd>
-<dt>autoclean_dict<span class="classifier">dict</span></dt><dd><p>Dictionary containing metadata about the processing run.</p>
+<dt><strong>autoclean_dict</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>Dictionary containing metadata about the processing run.</p>
 </dd>
 </dl>
-<dl class="field-list simple">
-<dt class="field-odd">Returns<span class="colon">:</span></dt>
-<dd class="field-odd"><dl class="simple">
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
 <dt><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.1)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">matplotlib.figure.Figure</span></code></a></dt><dd><p>The generated figure with ICA components.</p>
 </dd>
 </dl>
 </dd>
-<dt class="field-even">Raises<span class="colon">:</span></dt>
-<dd class="field-even"><dl class="simple">
+<dt class="field-odd">Raises<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
 <dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If no ICA object is found in the pipeline.</p>
 </dd>
 </dl>
 </dd>
 </dl>
-</section>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.viz.ica.ICAReportingMixin.generate_ica_reports">
 <span class="sig-name descname"><span class="pre">generate_ica_reports</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/viz/ica.html#ICAReportingMixin.generate_ica_reports"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.viz.ica.ICAReportingMixin.generate_ica_reports" title="Link to this definition">#</a></dt>
 <dd><p>Generate comprehensive ICA reports using the _plot_ica_components method.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>pipeline</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">pylossless.Pipeline</span></code></span></dt><dd><p>The pipeline object containing the ICA and raw data</p>
+</dd>
+<dt><strong>autoclean_dict</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>Dictionary containing configuration and paths</p>
+</dd>
+<dt><strong>duration</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">int</span></code></a></span></dt><dd><p>Duration in seconds for plotting time series data</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 <dl class="py method">
