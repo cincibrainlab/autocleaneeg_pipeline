@@ -6,8 +6,6 @@
 # TASK CONFIGURATION
 # Each task represents a different type of EEG recording (e.g., resting state, specific experiments)
 tasks:
-  # RESTING STATE TASK (Eyes Open)
-  # RESTING STATE TASK (Eyes Open)
   MouseXdatResting:
     mne_task: "rest"
     description: "Neuronexus Mouse XDAT Resting State"
@@ -189,6 +187,7 @@ tasks:
       ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
       ic_rejection_threshold: 0.3                              # Threshold for component rejection
       remove_flagged_ics: false  
+
 
   
 # OUTPUT FILE CONFIGURATION

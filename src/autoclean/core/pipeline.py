@@ -173,8 +173,8 @@ class Pipeline:
         self.autoclean_config = Path(autoclean_config).absolute()
         # Configure logging first with output directory
         self.verbose = verbose
-        configure_logger(verbose, output_dir=self.autoclean_dir)
-        mne.set_log_level(verbose)
+        mne_verbose = configure_logger(verbose, output_dir=self.autoclean_dir)
+        mne.set_log_level(mne_verbose)
 
         # Add a threading lock for the participants.tsv file
         self.participants_tsv_lock = threading.Lock()

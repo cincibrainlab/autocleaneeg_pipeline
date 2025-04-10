@@ -1,6 +1,5 @@
 from pathlib import Path
 from autoclean import Pipeline
-import mne
 
 # Define paths - modify these to match your system
 EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean/MMN_debug")  # Where processed data will be stored
