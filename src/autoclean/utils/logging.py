@@ -14,9 +14,18 @@ from loguru import logger
 # Remove default handler
 logger.remove()
 
-# Add only our custom levels (DEBUG and SUCCESS are built-in)
-logger.level("HEADER", no=25, color="<blue>", icon="🧠")
-logger.level("VALUES", no=5, color="<cyan>", icon="➤")
+# Define custom levels with specific order
+# Standard levels are already defined:
+# - DEBUG(10)
+# - INFO(20)
+# - SUCCESS(25) - Built into loguru
+# - WARNING(30)
+# - ERROR(40)
+# - CRITICAL(50)
+
+# Only define our custom levels
+logger.level("HEADER", no=28, color="<blue>", icon="🧠")     # Between SUCCESS and WARNING
+logger.level("VALUES", no=5, color="<cyan>", icon="➤")       # Keep lowest level for debug values
 
 
 # Create a custom warning handler that redirects to loguru
@@ -45,25 +54,24 @@ class LogLevel(str, Enum):
     """Enum for log levels matching MNE's logging levels.
 
     These levels correspond to Python's standard logging levels:
+    - VALUES = 5 (custom debug values)
     - DEBUG = 10
     - INFO = 20
+    - SUCCESS = 25 (built into loguru)
+    - HEADER = 28 (custom)
     - WARNING = 30
     - ERROR = 40
     - CRITICAL = 50
-
-    Plus custom levels:
-    - VALUES = 5
-    - HEADER = 25
     """
 
-    VALUES = "VALUES"  # Custom level for debug values
-    DEBUG = "DEBUG"
-    HEADER = "HEADER"  # Custom level for section headers
-    INFO = "INFO"
-    SUCCESS = "SUCCESS"  # Using built-in Loguru SUCCESS level
-    WARNING = "WARNING"
-    ERROR = "ERROR"
-    CRITICAL = "CRITICAL"
+    VALUES = "VALUES"      # Custom level for debug values (5)
+    DEBUG = "DEBUG"        # Standard debug (10)
+    INFO = "INFO"         # Standard info (20)
+    SUCCESS = "SUCCESS"   # Built-in loguru success level (25)
+    HEADER = "HEADER"     # Custom header level (28)
+    WARNING = "WARNING"   # Standard warning (30)
+    ERROR = "ERROR"       # Standard error (40)
+    CRITICAL = "CRITICAL" # Standard critical (50)
 
     @classmethod
     def from_value(cls, value: Union[str, int, bool, None]) -> "LogLevel":
@@ -151,7 +159,7 @@ def configure_logger(
     verbose: Optional[Union[bool, str, int, LogLevel]] = None,
     output_dir: Optional[Union[str, Path]] = None,
     task: Optional[str] = None
-) -> None:
+) -> str:
     """
     Configure the logger based on verbosity level and output directory.
 
@@ -160,7 +168,7 @@ def configure_logger(
     verbose : bool, str, int, LogLevel, optional
         Controls logging verbosity. Can be:
         - bool: True is the same as 'INFO', False is the same as 'WARNING'
-        - str: One of 'DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL'
+        - str: One of 'DEBUG', 'INFO', 'HEADER', WARNING', 'ERROR', or 'CRITICAL'
         - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
         - LogLevel enum: Direct log level specification
         - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
@@ -168,11 +176,28 @@ def configure_logger(
         Directory where task outputs will be stored
     task : str, optional
         Name of the current task. If provided, logs will be stored in task's debug directory
+
+    Returns
+    -------
+    str
+        Appropriate MNE verbosity level ('DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL')
     """
     logger.remove()
 
     # Convert input to LogLevel using our new conversion method
     level = LogLevel.from_value(verbose)
+
+    # Map our custom levels to appropriate MNE levels
+    mne_level_map = {
+        LogLevel.VALUES: "DEBUG",    # Our lowest level maps to DEBUG
+        LogLevel.DEBUG: "DEBUG",
+        LogLevel.HEADER: "WARNING",  # Headers are for UI, use WARNING for MNE
+        LogLevel.INFO: "INFO",
+        LogLevel.SUCCESS: "INFO",    # Success messages map to INFO
+        LogLevel.WARNING: "WARNING",
+        LogLevel.ERROR: "ERROR",
+        LogLevel.CRITICAL: "CRITICAL"
+    }
 
     # Set up log directory
     if output_dir is not None and task is not None:
@@ -210,6 +235,9 @@ def configure_logger(
         diagnose=True,
         catch=True,
     )
+
+    # Return appropriate MNE verbosity level
+    return mne_level_map[level]
 
 
 # Initialize with default settings (will check MNE_LOGGING_LEVEL env var)

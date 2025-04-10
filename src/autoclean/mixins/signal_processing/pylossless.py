@@ -112,8 +112,10 @@ class PyLosslessMixin:
 
         pre_ica_raw = pipeline.raw.copy()
 
+
+
         # #Run ICA
-        message("debug", "running ICA")
+        message("header", "Running ICA")
         if pipeline.config["ica"] is not None:
             message("debug", "running initial ICA")
             pipeline.run_ica("run1", message="Running Initial ICA")
