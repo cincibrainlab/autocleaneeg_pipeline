@@ -428,9 +428,7 @@
 <span class="sd">    Available ICA reporting methods include:</span>
 <span class="sd">    </span>
 <span class="sd">    - `plot_ica_full`: Plot all ICA components over the full time series</span>
-<span class="sd">    - `plot_ica_components`: Generate plots of ICA components with properties</span>
-<span class="sd">    - `plot_ica_sources`: Plot ICA sources with EOG channel overlay</span>
-<span class="sd">    - `generate_ica_report`: Create a comprehensive report of ICA decomposition results</span>
+<span class="sd">    - `generate_ica_reports`: Create a comprehensive report of ICA decomposition results</span>
 <span class="sd">    - `verify_topography_plot`: Use a basicica topograph to verify MEA channel placement.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     
@@ -444,7 +442,7 @@
 <span class="sd">        time series. Components are color-coded by their classification/rejection status,</span>
 <span class="sd">        and probability scores are indicated for each component.</span>
 <span class="sd">        </span>
-<span class="sd">        Parameters:</span>
+<span class="sd">        Parameters</span>
 <span class="sd">        ----------</span>
 <span class="sd">        pipeline : pylossless.Pipeline</span>
 <span class="sd">            Pipeline object containing raw data and fitted ICA object.</span>
@@ -589,7 +587,7 @@
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate comprehensive ICA reports using the _plot_ica_components method.</span>
 <span class="sd">        </span>
 <span class="sd">        </span>
-<span class="sd">        Parameters:</span>
+<span class="sd">        Parameters</span>
 <span class="sd">        -----------</span>
 <span class="sd">        pipeline : pylossless.Pipeline</span>
 <span class="sd">            The pipeline object containing the ICA and raw data</span>

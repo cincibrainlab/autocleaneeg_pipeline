@@ -62,9 +62,7 @@ class ICAReportingMixin(BaseVizMixin):
     Available ICA reporting methods include:
     
     - `plot_ica_full`: Plot all ICA components over the full time series
-    - `plot_ica_components`: Generate plots of ICA components with properties
-    - `plot_ica_sources`: Plot ICA sources with EOG channel overlay
-    - `generate_ica_report`: Create a comprehensive report of ICA decomposition results
+    - `generate_ica_reports`: Create a comprehensive report of ICA decomposition results
     - `verify_topography_plot`: Use a basicica topograph to verify MEA channel placement.
     """
     
@@ -76,7 +74,7 @@ class ICAReportingMixin(BaseVizMixin):
         time series. Components are color-coded by their classification/rejection status,
         and probability scores are indicated for each component.
         
-        Parameters:
+        Parameters
         ----------
         pipeline : pylossless.Pipeline
             Pipeline object containing raw data and fitted ICA object.
@@ -218,7 +216,7 @@ class ICAReportingMixin(BaseVizMixin):
         """Generate comprehensive ICA reports using the _plot_ica_components method.
         
         
-        Parameters:
+        Parameters
         -----------
         pipeline : pylossless.Pipeline
             The pipeline object containing the ICA and raw data
