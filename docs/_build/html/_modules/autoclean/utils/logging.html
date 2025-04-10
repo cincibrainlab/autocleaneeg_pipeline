@@ -378,22 +378,29 @@
 <span class="c1"># Remove default handler</span>
 <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 
-<span class="c1"># Add only our custom levels (DEBUG and SUCCESS are built-in)</span>
-<span class="n">logger</span><span class="o">.</span><span class="n">level</span><span class="p">(</span><span class="s2">&quot;HEADER&quot;</span><span class="p">,</span> <span class="n">no</span><span class="o">=</span><span class="mi">25</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;&lt;blue&gt;&quot;</span><span class="p">,</span> <span class="n">icon</span><span class="o">=</span><span class="s2">&quot;🧠&quot;</span><span class="p">)</span>
-<span class="n">logger</span><span class="o">.</span><span class="n">level</span><span class="p">(</span><span class="s2">&quot;VALUES&quot;</span><span class="p">,</span> <span class="n">no</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;&lt;cyan&gt;&quot;</span><span class="p">,</span> <span class="n">icon</span><span class="o">=</span><span class="s2">&quot;➤&quot;</span><span class="p">)</span>
+<span class="c1"># Define custom levels with specific order</span>
+<span class="c1"># Standard levels are already defined:</span>
+<span class="c1"># - DEBUG(10)</span>
+<span class="c1"># - INFO(20)</span>
+<span class="c1"># - SUCCESS(25) - Built into loguru</span>
+<span class="c1"># - WARNING(30)</span>
+<span class="c1"># - ERROR(40)</span>
+<span class="c1"># - CRITICAL(50)</span>
+
+<span class="c1"># Only define our custom levels</span>
+<span class="n">logger</span><span class="o">.</span><span class="n">level</span><span class="p">(</span><span class="s2">&quot;HEADER&quot;</span><span class="p">,</span> <span class="n">no</span><span class="o">=</span><span class="mi">28</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;&lt;blue&gt;&quot;</span><span class="p">,</span> <span class="n">icon</span><span class="o">=</span><span class="s2">&quot;🧠&quot;</span><span class="p">)</span>     <span class="c1"># Between SUCCESS and WARNING</span>
 
 
 <span class="c1"># Create a custom warning handler that redirects to loguru</span>
-<div class="viewcode-block" id="WarningToLogger">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.logging.WarningToLogger.html#autoclean.utils.logging.WarningToLogger">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">WarningToLogger</span><span class="p">:</span>
-<div class="viewcode-block" id="WarningToLogger.__init__">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.logging.WarningToLogger.html#autoclean.utils.logging.WarningToLogger.__init__">[docs]</a>
-    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_last_warning</span> <span class="o">=</span> <span class="kc">None</span></div>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom warning handler that redirects warnings to loguru.&quot;&quot;&quot;</span>
 
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize the warning handler.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_last_warning</span> <span class="o">=</span> <span class="kc">None</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">,</span> <span class="n">category</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">lineno</span><span class="p">,</span> <span class="n">file</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">line</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Call the warning handler.&quot;&quot;&quot;</span>
         <span class="c1"># Skip duplicate warnings</span>
         <span class="n">warning_key</span> <span class="o">=</span> <span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">message</span><span class="p">),</span> <span class="n">category</span><span class="p">,</span> <span class="n">filename</span><span class="p">,</span> <span class="n">lineno</span><span class="p">)</span>
         <span class="k">if</span> <span class="n">warning_key</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">_last_warning</span><span class="p">:</span>
@@ -402,8 +409,7 @@
 
         <span class="c1"># Format the warning message</span>
         <span class="n">warning_message</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">category</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">message</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">warning_message</span><span class="p">)</span></div>
-
+        <span class="n">logger</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="n">warning_message</span><span class="p">)</span>
 
 
 <span class="c1"># Set up the warning handler</span>
@@ -416,25 +422,42 @@
 <span class="k">class</span><span class="w"> </span><span class="nc">LogLevel</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Enum for log levels matching MNE&#39;s logging levels.</span>
 
-<span class="sd">    These levels correspond to Python&#39;s standard logging levels:</span>
+<span class="sd">    These levels correspond to Python&#39;s standard logging levels plus custom levels.</span>
+
+<span class="sd">    .. rubric:: Standard Levels</span>
+<span class="sd">    </span>
 <span class="sd">    - DEBUG = 10</span>
 <span class="sd">    - INFO = 20</span>
 <span class="sd">    - WARNING = 30</span>
 <span class="sd">    - ERROR = 40</span>
 <span class="sd">    - CRITICAL = 50</span>
 
-<span class="sd">    Plus custom levels:</span>
-<span class="sd">    - VALUES = 5</span>
-<span class="sd">    - HEADER = 25</span>
+<span class="sd">    .. rubric:: Custom Levels</span>
+<span class="sd">    </span>
+<span class="sd">    - HEADER = 28 (Custom header level)</span>
+<span class="sd">    - SUCCESS = 25 (Built-in Loguru success level)</span>
+
+<span class="sd">    .. note::</span>
+<span class="sd">        This enum is for internal use only and should not be directly accessed.</span>
+<span class="sd">        Use the message() function instead.</span>
+
+<span class="sd">    .. private-members::</span>
 <span class="sd">    &quot;&quot;&quot;</span>
 
-    <span class="n">VALUES</span> <span class="o">=</span> <span class="s2">&quot;VALUES&quot;</span>  <span class="c1"># Custom level for debug values</span>
+    <span class="c1"># Hide these values from documentation</span>
+    <span class="c1">#: Standard debug (10)</span>
     <span class="n">DEBUG</span> <span class="o">=</span> <span class="s2">&quot;DEBUG&quot;</span>
-    <span class="n">HEADER</span> <span class="o">=</span> <span class="s2">&quot;HEADER&quot;</span>  <span class="c1"># Custom level for section headers</span>
+    <span class="c1">#: Standard info (20)</span>
     <span class="n">INFO</span> <span class="o">=</span> <span class="s2">&quot;INFO&quot;</span>
-    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="s2">&quot;SUCCESS&quot;</span>  <span class="c1"># Using built-in Loguru SUCCESS level</span>
+    <span class="c1">#: Built-in loguru success level (25)</span>
+    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="s2">&quot;SUCCESS&quot;</span>
+    <span class="c1">#: Custom header level (28)</span>
+    <span class="n">HEADER</span> <span class="o">=</span> <span class="s2">&quot;HEADER&quot;</span>
+    <span class="c1">#: Standard warning (30)</span>
     <span class="n">WARNING</span> <span class="o">=</span> <span class="s2">&quot;WARNING&quot;</span>
+    <span class="c1">#: Standard error (40)</span>
     <span class="n">ERROR</span> <span class="o">=</span> <span class="s2">&quot;ERROR&quot;</span>
+    <span class="c1">#: Standard critical (50)</span>
     <span class="n">CRITICAL</span> <span class="o">=</span> <span class="s2">&quot;CRITICAL&quot;</span>
 
 <div class="viewcode-block" id="LogLevel.from_value">
@@ -443,15 +466,19 @@
     <span class="k">def</span><span class="w"> </span><span class="nf">from_value</span><span class="p">(</span><span class="bp">cls</span><span class="p">,</span> <span class="n">value</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="nb">bool</span><span class="p">,</span> <span class="kc">None</span><span class="p">])</span> <span class="o">-&gt;</span> <span class="s2">&quot;LogLevel&quot;</span><span class="p">:</span>
 <span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert various input types to LogLevel.</span>
 
-<span class="sd">        Args:</span>
-<span class="sd">            value: Input value that can be:</span>
-<span class="sd">                - str: One of DEBUG, INFO, WARNING, ERROR, or CRITICAL</span>
-<span class="sd">                - int: Standard Python logging level (10, 20, 30, 40, 50)</span>
-<span class="sd">                - bool: True for INFO, False for WARNING</span>
-<span class="sd">                - None: Use MNE_LOGGING_LEVEL env var or default to INFO</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        ----------</span>
+<span class="sd">        value : Union[str, int, bool, None]</span>
+<span class="sd">            Input value that can be:</span>
+<span class="sd">                - **str**: One of DEBUG, INFO, WARNING, ERROR, or CRITICAL</span>
+<span class="sd">                - **int**: Standard Python logging level (10, 20, 30, 40, 50)</span>
+<span class="sd">                - **bool**: True for INFO, False for WARNING</span>
+<span class="sd">                - **None**: Use MNE_LOGGING_LEVEL env var or default to INFO</span>
 
-<span class="sd">        Returns:</span>
-<span class="sd">            LogLevel: The corresponding log level</span>
+<span class="sd">        Returns</span>
+<span class="sd">        -------</span>
+<span class="sd">        LogLevel : LogLevel</span>
+<span class="sd">            The corresponding log level</span>
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
             <span class="c1"># Check environment variable first</span>
@@ -464,7 +491,6 @@
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">int</span><span class="p">):</span>
             <span class="c1"># Map Python&#39;s standard logging levels</span>
             <span class="n">level_map</span> <span class="o">=</span> <span class="p">{</span>
-                <span class="mi">5</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">VALUES</span><span class="p">,</span>  <span class="c1"># Custom debug values level</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">,</span>  <span class="c1"># 10</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">INFO</span><span class="p">,</span>  <span class="c1"># 20</span>
                 <span class="n">logging</span><span class="o">.</span><span class="n">WARNING</span><span class="p">:</span> <span class="bp">cls</span><span class="o">.</span><span class="n">WARNING</span><span class="p">,</span>  <span class="c1"># 30</span>
@@ -476,7 +502,6 @@
             <span class="k">for</span> <span class="n">level</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">valid_levels</span><span class="p">):</span>
                 <span class="k">if</span> <span class="n">value</span> <span class="o">&gt;=</span> <span class="n">level</span><span class="p">:</span>
                     <span class="k">return</span> <span class="n">level_map</span><span class="p">[</span><span class="n">level</span><span class="p">]</span>
-            <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">VALUES</span>
 
         <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
             <span class="k">try</span><span class="p">:</span>
@@ -489,25 +514,23 @@
 
 
 
-<div class="viewcode-block" id="MessageType">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.logging.MessageType.html#autoclean.utils.logging.MessageType">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">MessageType</span><span class="p">(</span><span class="nb">str</span><span class="p">,</span> <span class="n">Enum</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Enum for message types with their corresponding log levels and symbols.&quot;&quot;&quot;</span>
 
-    <span class="n">HEADER</span> <span class="o">=</span> <span class="s2">&quot;header&quot;</span>
     <span class="n">ERROR</span> <span class="o">=</span> <span class="s2">&quot;error&quot;</span>
     <span class="n">WARNING</span> <span class="o">=</span> <span class="s2">&quot;warning&quot;</span>
+    <span class="n">HEADER</span> <span class="o">=</span> <span class="s2">&quot;header&quot;</span>
+    <span class="n">SUCCESS</span> <span class="o">=</span> <span class="s2">&quot;success&quot;</span>
     <span class="n">INFO</span> <span class="o">=</span> <span class="s2">&quot;info&quot;</span>
-    <span class="n">VALUES</span> <span class="o">=</span> <span class="s2">&quot;values&quot;</span>
-    <span class="n">DEBUG</span> <span class="o">=</span> <span class="s2">&quot;debug&quot;</span></div>
-
+    <span class="n">DEBUG</span> <span class="o">=</span> <span class="s2">&quot;debug&quot;</span>
 
 
 <div class="viewcode-block" id="message">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.logging.message.html#autoclean.utils.logging.message">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">message</span><span class="p">(</span><span class="n">level</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">text</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Enhanced logging function with support for lazy evaluation and context.</span>
+<span class="sd">    Enhanced logging function with support for lazy evaluation and context. </span>
+<span class="sd">    Outputs to the console and the log file.</span>
 
 <span class="sd">    Parameters</span>
 <span class="sd">    ----------</span>
@@ -535,7 +558,7 @@
     <span class="n">verbose</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">bool</span><span class="p">,</span> <span class="nb">str</span><span class="p">,</span> <span class="nb">int</span><span class="p">,</span> <span class="n">LogLevel</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">output_dir</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Union</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
     <span class="n">task</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Configure the logger based on verbosity level and output directory.</span>
 
@@ -543,20 +566,37 @@
 <span class="sd">    ----------</span>
 <span class="sd">    verbose : bool, str, int, LogLevel, optional</span>
 <span class="sd">        Controls logging verbosity. Can be:</span>
-<span class="sd">        - bool: True is the same as &#39;INFO&#39;, False is the same as &#39;WARNING&#39;</span>
-<span class="sd">        - str: One of &#39;DEBUG&#39;, &#39;INFO&#39;, &#39;WARNING&#39;, &#39;ERROR&#39;, or &#39;CRITICAL&#39;</span>
-<span class="sd">        - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)</span>
-<span class="sd">        - LogLevel enum: Direct log level specification</span>
-<span class="sd">        - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO</span>
+
+<span class="sd">        - **bool**: True is the same as &#39;INFO&#39;, False is the same as &#39;WARNING&#39;</span>
+<span class="sd">        - **str**: One of &#39;DEBUG&#39;, &#39;INFO&#39;, &#39;HEADER&#39;, WARNING&#39;, &#39;ERROR&#39;, or &#39;CRITICAL&#39;</span>
+<span class="sd">        - **int**: Standard Python logging level (10=DEBUG, 20=INFO, etc.)</span>
+<span class="sd">        - **LogLevel enum**: Direct log level specification</span>
+<span class="sd">        - **None**: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO</span>
 <span class="sd">    output_dir : str or Path, optional</span>
 <span class="sd">        Directory where task outputs will be stored</span>
 <span class="sd">    task : str, optional</span>
 <span class="sd">        Name of the current task. If provided, logs will be stored in task&#39;s debug directory</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    str</span>
+<span class="sd">        Appropriate MNE verbosity level (&#39;DEBUG&#39;, &#39;INFO&#39;, &#39;WARNING&#39;, &#39;ERROR&#39;, or &#39;CRITICAL&#39;)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">logger</span><span class="o">.</span><span class="n">remove</span><span class="p">()</span>
 
     <span class="c1"># Convert input to LogLevel using our new conversion method</span>
     <span class="n">level</span> <span class="o">=</span> <span class="n">LogLevel</span><span class="o">.</span><span class="n">from_value</span><span class="p">(</span><span class="n">verbose</span><span class="p">)</span>
+
+    <span class="c1"># Map our custom levels to appropriate MNE levels</span>
+    <span class="n">mne_level_map</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="n">LogLevel</span><span class="o">.</span><span class="n">DEBUG</span><span class="p">:</span> <span class="s2">&quot;DEBUG&quot;</span><span class="p">,</span>
+        <span class="n">LogLevel</span><span class="o">.</span><span class="n">INFO</span><span class="p">:</span> <span class="s2">&quot;INFO&quot;</span><span class="p">,</span>
+        <span class="n">LogLevel</span><span class="o">.</span><span class="n">SUCCESS</span><span class="p">:</span> <span class="s2">&quot;INFO&quot;</span><span class="p">,</span>    <span class="c1"># Success messages map to INFO</span>
+        <span class="n">LogLevel</span><span class="o">.</span><span class="n">HEADER</span><span class="p">:</span> <span class="s2">&quot;WARNING&quot;</span><span class="p">,</span> <span class="c1"># Headers are for UI, uses WARNING for MNE</span>
+        <span class="n">LogLevel</span><span class="o">.</span><span class="n">WARNING</span><span class="p">:</span> <span class="s2">&quot;WARNING&quot;</span><span class="p">,</span>
+        <span class="n">LogLevel</span><span class="o">.</span><span class="n">ERROR</span><span class="p">:</span> <span class="s2">&quot;ERROR&quot;</span><span class="p">,</span>
+        <span class="n">LogLevel</span><span class="o">.</span><span class="n">CRITICAL</span><span class="p">:</span> <span class="s2">&quot;CRITICAL&quot;</span>
+    <span class="p">}</span>
 
     <span class="c1"># Set up log directory</span>
     <span class="k">if</span> <span class="n">output_dir</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">task</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
@@ -593,7 +633,10 @@
         <span class="n">backtrace</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">diagnose</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
         <span class="n">catch</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-    <span class="p">)</span></div>
+    <span class="p">)</span>
+
+    <span class="c1"># Return appropriate MNE verbosity level</span>
+    <span class="k">return</span> <span class="n">mne_level_map</span><span class="p">[</span><span class="n">level</span><span class="p">]</span></div>
 
 
 

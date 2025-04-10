@@ -375,7 +375,14 @@
 <div class="viewcode-block" id="load_valid_montages">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.montage.load_valid_montages.html#autoclean.utils.montage.load_valid_montages">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">load_valid_montages</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load valid montages from configuration file.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Load valid montages from configuration file.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict[str, str]</span>
+<span class="sd">        Dictionary of valid montages</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="n">config_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
         <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="vm">__file__</span><span class="p">)))),</span>
         <span class="s2">&quot;configs&quot;</span><span class="p">,</span>
@@ -391,10 +398,11 @@
 
 
 
+<span class="c1"># Standard montage mappings and validation</span>
+<span class="c1">#: List of valid montages loaded from MNE-Python</span>
 <span class="n">VALID_MONTAGES</span> <span class="o">=</span> <span class="n">load_valid_montages</span><span class="p">()</span>
 
-<span class="c1"># Standard 10-20 to GSN-HydroCel mapping</span>
-<span class="c1"># Based on official EGI GSN-HydroCel channel maps</span>
+<span class="c1">#: Standard 10-20 to GSN-HydroCel mapping based on official EGI GSN-HydroCel channel maps</span>
 <span class="n">GSN_TO_1020_MAPPING</span> <span class="o">=</span> <span class="p">{</span>
     <span class="c1"># Frontal midline</span>
     <span class="s2">&quot;Fz&quot;</span><span class="p">:</span> <span class="s2">&quot;E11&quot;</span><span class="p">,</span>
@@ -429,14 +437,21 @@
     <span class="s2">&quot;O2&quot;</span><span class="p">:</span> <span class="s2">&quot;E83&quot;</span><span class="p">,</span>
 <span class="p">}</span>
 
-<span class="c1"># Create reverse mapping</span>
+<span class="c1">#: Reverse mapping from GSN-HydroCel to 10-20 system</span>
 <span class="n">_1020_TO_GSN_MAPPING</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">GSN_TO_1020_MAPPING</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
 
 <div class="viewcode-block" id="get_10_20_to_gsn_mapping">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.montage.get_10_20_to_gsn_mapping.html#autoclean.utils.montage.get_10_20_to_gsn_mapping">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_10_20_to_gsn_mapping</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get mapping from 10-20 system to GSN-HydroCel channel names.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get mapping from 10-20 system to GSN-HydroCel channel names.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict[str, str]</span>
+<span class="sd">        Mapping from 10-20 system to GSN-HydroCel channel names</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
     <span class="k">return</span> <span class="n">GSN_TO_1020_MAPPING</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
 
 
@@ -444,7 +459,13 @@
 <div class="viewcode-block" id="get_gsn_to_10_20_mapping">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.montage.get_gsn_to_10_20_mapping.html#autoclean.utils.montage.get_gsn_to_10_20_mapping">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">get_gsn_to_10_20_mapping</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="n">Dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">str</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get mapping from GSN-HydroCel to 10-20 system channel names.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get mapping from GSN-HydroCel to 10-20 system channel names.</span>
+<span class="sd">    </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    Dict[str, str]</span>
+<span class="sd">        Mapping from GSN-HydroCel to 10-20 system channel names</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">return</span> <span class="n">_1020_TO_GSN_MAPPING</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span></div>
 
 
@@ -452,7 +473,20 @@
 <div class="viewcode-block" id="convert_channel_names">
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.montage.convert_channel_names.html#autoclean.utils.montage.convert_channel_names">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">convert_channel_names</span><span class="p">(</span><span class="n">channels</span><span class="p">:</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">montage_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert between 10-20 and GSN-HydroCel channel names.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert between 10-20 and GSN-HydroCel channel names.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    channels : List[str]</span>
+<span class="sd">        List of channel names to convert</span>
+<span class="sd">    montage_type : str</span>
+<span class="sd">        Type of montage to convert to</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    List[str]</span>
+<span class="sd">        List of converted channel names</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Converting channels: </span><span class="si">{</span><span class="n">channels</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
     <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Montage type: </span><span class="si">{</span><span class="n">montage_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
@@ -484,11 +518,16 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">get_standard_set_in_montage</span><span class="p">(</span><span class="n">roi_set</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">montage_type</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get standard channel set converted to appropriate montage type.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        roi_set: Name of standard channel set (&#39;frontal&#39;, &#39;frontocentral&#39;, etc.)</span>
-<span class="sd">        montage_type: Type of montage (&#39;GSN-HydroCel-128&#39;, &#39;GSN-HydroCel-129&#39;, &#39;10-20&#39;, etc.)</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    roi_set : str</span>
+<span class="sd">        Name of standard channel set (&#39;frontal&#39;, &#39;frontocentral&#39;, etc.)</span>
+<span class="sd">    montage_type : str</span>
+<span class="sd">        Type of montage (&#39;GSN-HydroCel-128&#39;, &#39;GSN-HydroCel-129&#39;, &#39;10-20&#39;, etc.)</span>
 
-<span class="sd">    Returns:</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    List[str]</span>
 <span class="sd">        List of channel names in appropriate montage format</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="c1"># Standard ROI sets in 10-20 system</span>
@@ -519,11 +558,16 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Validate and filter channel list based on available channels.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        channels: List of requested channel names</span>
-<span class="sd">        available_channels: List of actually available channel names</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    channels : List[str]</span>
+<span class="sd">        List of requested channel names</span>
+<span class="sd">    available_channels : List[str]</span>
+<span class="sd">        List of actually available channel names</span>
 
-<span class="sd">    Returns:</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    List[str]</span>
 <span class="sd">        List of valid channel names</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">valid_channels</span> <span class="o">=</span> <span class="p">[</span><span class="n">ch</span> <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">channels</span> <span class="k">if</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">available_channels</span><span class="p">]</span>
@@ -532,6 +576,7 @@
         <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Some requested channels not found in data: </span><span class="si">{</span><span class="n">missing</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">valid_channels</span></div>
+
 
 </pre></div>
 

@@ -362,14 +362,10 @@
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.manage_database.html">database.manage_database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.message.html">logging.message</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.LogLevel.html">logging.LogLevel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
@@ -449,21 +445,42 @@
 <h1>bids.step_convert_to_bids<a class="headerlink" href="#bids-step-convert-to-bids" title="Link to this heading">#</a></h1>
 <dl class="py function">
 <dt class="sig sig-object py" id="autoclean.utils.bids.step_convert_to_bids">
-<span class="sig-prename descclassname"><span class="pre">autoclean.utils.bids.</span></span><span class="sig-name descname"><span class="pre">step_convert_to_bids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">participant_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">events</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">study_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'EEG</span> <span class="pre">Study'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/utils/bids.html#step_convert_to_bids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.utils.bids.step_convert_to_bids" title="Link to this definition">#</a></dt>
-<dd><p>Converts a single EEG data file into BIDS format with default/dummy metadata.</p>
-<p>Parameters:
-- file_path (str or Path): Path to the EEG data file.
-- output_dir (str or Path): Directory where the BIDS dataset will be created.
-- task (str, optional): Task name. Defaults to ‘resting’.
-- participant_id (str, optional): Participant ID. Defaults to sanitized basename of the file.
-- line_freq (float, optional): Power line frequency in Hz. Defaults to 60.0.
-- overwrite (bool, optional): Whether to overwrite existing files. Defaults to False.
-- study_name (str, optional): Name of the study. Defaults to “EEG Study”.</p>
-<p>Dependent Functions:
-- step_sanitize_id(): Sanitizes and formats participant ID from filename
-- step_create_dataset_desc(): Creates BIDS dataset description JSON file
-- step_create_participants_json(): Creates participants.json metadata file
-- update_sidecar_json(): Updates sidecar JSON files with additional metadata</p>
+<span class="sig-prename descclassname"><span class="pre">autoclean.utils.bids.</span></span><span class="sig-name descname"><span class="pre">step_convert_to_bids</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">raw</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">task</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'rest'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">participant_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">line_freq</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60.0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">overwrite</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">events</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">event_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">study_name</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'EEG</span> <span class="pre">Study'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/utils/bids.html#step_convert_to_bids"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.utils.bids.step_convert_to_bids" title="Link to this definition">#</a></dt>
+<dd><p>Converts a single EEG data file into BIDS format with default/dummy metadata.
+Handles concurrent access to participants.tsv using a threading.Lock passed
+via autoclean_dict. Ensures specific column order and dtype=object for the TSV.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>raw</strong><span class="classifier"><a class="reference external" href="https://mne.tools/stable/generated/mne.io.Raw.html#mne.io.Raw" title="(in MNE v1.9)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.io.Raw</span></code></a></span></dt><dd><p>The raw data to convert to BIDS.</p>
+</dd>
+<dt><strong>output_dir</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>The directory where the BIDS dataset will be created.</p>
+</dd>
+<dt><strong>task</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>The task name for BIDS.</p>
+</dd>
+<dt><strong>participant_id</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>The participant ID (if None, generated from filename).</p>
+</dd>
+<dt><strong>line_freq</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">float</span></code></a></span></dt><dd><p>The power line frequency.</p>
+</dd>
+<dt><strong>overwrite</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bltin-boolean-values" title="(in Python v3.13)"><span class="xref std std-ref">bool</span></a></span></dt><dd><p>Whether to overwrite existing BIDS files.</p>
+</dd>
+<dt><strong>events</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mne.events_data</span></code></span></dt><dd><p>The events array.</p>
+</dd>
+<dt><strong>event_id</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>The event_id dictionary.</p>
+</dd>
+<dt><strong>study_name</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a></span></dt><dd><p>The name of the study for dataset_description.json.</p>
+</dd>
+<dt><strong>autoclean_dict</strong><span class="classifier"><a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#dict" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">dict</span></code></a></span></dt><dd><p>The run configuration, MUST include ‘participants_tsv_lock’ (a threading.Lock) for concurrent safety.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>bids_path</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BIDSPath</span></code></span></dt><dd><p>The BIDS path of the converted file.</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 <span class="target" id="sphx-glr-backreferences-autoclean-utils-bids-step-convert-to-bids"></span></section>

@@ -362,14 +362,10 @@
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.manage_database.html">database.manage_database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.message.html">logging.message</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.LogLevel.html">logging.LogLevel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
@@ -460,48 +456,63 @@ checking if their corresponding step is enabled before execution. Each method
 can be individually enabled or disabled via configuration.</p>
 <p>Available ICA reporting methods include:</p>
 <ul class="simple">
-<li><p><cite>plot_ica_full</cite>: Plot all ICA components over the full recording duration</p></li>
+<li><p><cite>plot_ica_full</cite>: Plot all ICA components over the full time series</p></li>
 <li><p><cite>plot_ica_components</cite>: Generate plots of ICA components with properties</p></li>
 <li><p><cite>plot_ica_sources</cite>: Plot ICA sources with EOG channel overlay</p></li>
 <li><p><cite>generate_ica_report</cite>: Create a comprehensive report of ICA decomposition results</p></li>
+<li><p><cite>verify_topography_plot</cite>: Use a basicica topograph to verify MEA channel placement.</p></li>
 </ul>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.viz.ica.ICAReportingMixin.plot_ica_full">
 <span class="sig-name descname"><span class="pre">plot_ica_full</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/viz/ica.html#ICAReportingMixin.plot_ica_full"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.viz.ica.ICAReportingMixin.plot_ica_full" title="Link to this definition">#</a></dt>
-<dd><p>Plot ICA components over the full duration with their labels and probabilities.</p>
+<dd><p>Plot ICA components over the full time series with their labels and probabilities.</p>
 <p>This method creates a figure showing each ICA component’s time course over the full
-recording duration. Components are color-coded by their classification/rejection status,
+time series. Components are color-coded by their classification/rejection status,
 and probability scores are indicated for each component.</p>
+<section id="parameters">
+<h2>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading">#</a></h2>
 <dl class="simple">
-<dt>Args:</dt><dd><p>pipeline: Pipeline object containing raw data and fitted ICA object.
-autoclean_dict: Dictionary containing metadata about the processing run.</p>
+<dt>pipeline<span class="classifier">pylossless.Pipeline</span></dt><dd><p>Pipeline object containing raw data and fitted ICA object.</p>
 </dd>
-<dt>Returns:</dt><dd><p>matplotlib.figure.Figure: The generated figure with ICA components.</p>
-</dd>
-<dt>Raises:</dt><dd><p>ValueError: If no ICA object is found in the pipeline.</p>
-</dd>
-<dt>Example:</dt><dd><p><code class="docutils literal notranslate"><span class="pre">`python</span>
-<span class="pre">#</span> <span class="pre">After</span> <span class="pre">performing</span> <span class="pre">ICA</span>
-<span class="pre">fig</span> <span class="pre">=</span> <span class="pre">task.plot_ica_full(pipeline,</span> <span class="pre">autoclean_dict)</span>
-<span class="pre">plt.show()</span>
-<span class="pre">`</span></code></p>
-</dd>
-<dt>Notes:</dt><dd><ul class="simple">
-<li><p>Components classified as artifacts are highlighted in red</p></li>
-<li><p>Classification probabilities are shown for each component</p></li>
-<li><p>The method respects configuration settings via the <cite>ica_full_plot_step</cite> config</p></li>
-</ul>
+<dt>autoclean_dict<span class="classifier">dict</span></dt><dd><p>Dictionary containing metadata about the processing run.</p>
 </dd>
 </dl>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><dl class="simple">
+<dt><a class="reference external" href="https://matplotlib.org/stable/api/_as_gen/matplotlib.figure.Figure.html#matplotlib.figure.Figure" title="(in Matplotlib v3.10.1)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">matplotlib.figure.Figure</span></code></a></dt><dd><p>The generated figure with ICA components.</p>
+</dd>
+</dl>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><dl class="simple">
+<dt><a class="reference external" href="https://docs.python.org/3/library/exceptions.html#ValueError" title="(in Python v3.13)"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ValueError</span></code></a></dt><dd><p>If no ICA object is found in the pipeline.</p>
+</dd>
+</dl>
+</dd>
+</dl>
+</section>
 </dd></dl>
 
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.mixins.viz.ica.ICAReportingMixin.generate_ica_reports">
 <span class="sig-name descname"><span class="pre">generate_ica_reports</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">pipeline</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">duration</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">60</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/viz/ica.html#ICAReportingMixin.generate_ica_reports"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.viz.ica.ICAReportingMixin.generate_ica_reports" title="Link to this definition">#</a></dt>
-<dd><p>Generate comprehensive ICA reports.</p>
-<p>Generates two reports:
-1. All ICA components with properties and activations
-2. Only the rejected ICA components with their properties</p>
+<dd><p>Generate comprehensive ICA reports using the _plot_ica_components method.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="autoclean.mixins.viz.ica.ICAReportingMixin.verify_topography_plot">
+<span class="sig-name descname"><span class="pre">verify_topography_plot</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">autoclean_dict</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/mixins/viz/ica.html#ICAReportingMixin.verify_topography_plot"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.mixins.viz.ica.ICAReportingMixin.verify_topography_plot" title="Link to this definition">#</a></dt>
+<dd><p>Use ica topograph to verify MEA channel placement. This function simply runs fast ICA then plots the topography. 
+It is used on mouse files to verify channel placement.</p>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>autoclean_dict</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Dict</span></code>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <code class="xref py py-obj docutils literal notranslate"><span class="pre">Any</span></code>]</span></dt><dd><p>Autoclean dictionary containing metadata.</p>
+</dd>
+</dl>
+</dd>
+</dl>
 </dd></dl>
 
 </dd></dl>
@@ -534,6 +545,7 @@ autoclean_dict: Dictionary containing metadata about the processing run.</p>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.viz.ica.ICAReportingMixin"><code class="docutils literal notranslate"><span class="pre">ICAReportingMixin</span></code></a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.viz.ica.ICAReportingMixin.plot_ica_full"><code class="docutils literal notranslate"><span class="pre">ICAReportingMixin.plot_ica_full()</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.viz.ica.ICAReportingMixin.generate_ica_reports"><code class="docutils literal notranslate"><span class="pre">ICAReportingMixin.generate_ica_reports()</span></code></a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.mixins.viz.ica.ICAReportingMixin.verify_topography_plot"><code class="docutils literal notranslate"><span class="pre">ICAReportingMixin.verify_topography_plot()</span></code></a></li>
 </ul>
 </li>
 </ul>

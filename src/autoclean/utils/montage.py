@@ -9,7 +9,14 @@ from autoclean.utils.logging import message
 
 
 def load_valid_montages() -> Dict[str, str]:
-    """Load valid montages from configuration file."""
+    """Load valid montages from configuration file.
+    
+    Returns
+    -------
+    Dict[str, str]
+        Dictionary of valid montages
+    """
+
     config_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
         "configs",
@@ -24,10 +31,11 @@ def load_valid_montages() -> Dict[str, str]:
         return {}
 
 
+# Standard montage mappings and validation
+#: List of valid montages loaded from MNE-Python
 VALID_MONTAGES = load_valid_montages()
 
-# Standard 10-20 to GSN-HydroCel mapping
-# Based on official EGI GSN-HydroCel channel maps
+#: Standard 10-20 to GSN-HydroCel mapping based on official EGI GSN-HydroCel channel maps
 GSN_TO_1020_MAPPING = {
     # Frontal midline
     "Fz": "E11",
@@ -62,22 +70,48 @@ GSN_TO_1020_MAPPING = {
     "O2": "E83",
 }
 
-# Create reverse mapping
+#: Reverse mapping from GSN-HydroCel to 10-20 system
 _1020_TO_GSN_MAPPING = {v: k for k, v in GSN_TO_1020_MAPPING.items()}
 
 
 def get_10_20_to_gsn_mapping() -> Dict[str, str]:
-    """Get mapping from 10-20 system to GSN-HydroCel channel names."""
+    """Get mapping from 10-20 system to GSN-HydroCel channel names.
+
+    Returns
+    -------
+    Dict[str, str]
+        Mapping from 10-20 system to GSN-HydroCel channel names
+    """
+
     return GSN_TO_1020_MAPPING.copy()
 
 
 def get_gsn_to_10_20_mapping() -> Dict[str, str]:
-    """Get mapping from GSN-HydroCel to 10-20 system channel names."""
+    """Get mapping from GSN-HydroCel to 10-20 system channel names.
+    
+    Returns
+    -------
+    Dict[str, str]
+        Mapping from GSN-HydroCel to 10-20 system channel names
+    """
     return _1020_TO_GSN_MAPPING.copy()
 
 
 def convert_channel_names(channels: List[str], montage_type: str) -> List[str]:
-    """Convert between 10-20 and GSN-HydroCel channel names."""
+    """Convert between 10-20 and GSN-HydroCel channel names.
+    
+    Parameters
+    ----------
+    channels : List[str]
+        List of channel names to convert
+    montage_type : str
+        Type of montage to convert to
+
+    Returns
+    -------
+    List[str]
+        List of converted channel names
+    """
     message("info", f"Converting channels: {channels}")
     message("info", f"Montage type: {montage_type}")
 
@@ -106,11 +140,16 @@ def convert_channel_names(channels: List[str], montage_type: str) -> List[str]:
 def get_standard_set_in_montage(roi_set: str, montage_type: str) -> List[str]:
     """Get standard channel set converted to appropriate montage type.
 
-    Args:
-        roi_set: Name of standard channel set ('frontal', 'frontocentral', etc.)
-        montage_type: Type of montage ('GSN-HydroCel-128', 'GSN-HydroCel-129', '10-20', etc.)
+    Parameters
+    ----------
+    roi_set : str
+        Name of standard channel set ('frontal', 'frontocentral', etc.)
+    montage_type : str
+        Type of montage ('GSN-HydroCel-128', 'GSN-HydroCel-129', '10-20', etc.)
 
-    Returns:
+    Returns
+    -------
+    List[str]
         List of channel names in appropriate montage format
     """
     # Standard ROI sets in 10-20 system
@@ -138,11 +177,16 @@ def validate_channel_set(
 ) -> List[str]:
     """Validate and filter channel list based on available channels.
 
-    Args:
-        channels: List of requested channel names
-        available_channels: List of actually available channel names
+    Parameters
+    ----------
+    channels : List[str]
+        List of requested channel names
+    available_channels : List[str]
+        List of actually available channel names
 
-    Returns:
+    Returns
+    -------
+    List[str]
         List of valid channel names
     """
     valid_channels = [ch for ch in channels if ch in available_channels]
@@ -151,3 +195,4 @@ def validate_channel_set(
         message("warning", f"Some requested channels not found in data: {missing}")
 
     return valid_channels
+

@@ -61,30 +61,40 @@ class ICAReportingMixin(BaseVizMixin):
     
     Available ICA reporting methods include:
     
-    - `plot_ica_full`: Plot all ICA components over the full recording duration
+    - `plot_ica_full`: Plot all ICA components over the full time series
     - `plot_ica_components`: Generate plots of ICA components with properties
     - `plot_ica_sources`: Plot ICA sources with EOG channel overlay
     - `generate_ica_report`: Create a comprehensive report of ICA decomposition results
+    - `verify_topography_plot`: Use a basicica topograph to verify MEA channel placement.
     """
     
+
     def plot_ica_full(self, pipeline: Any, autoclean_dict: Dict[str, Any]) -> plt.Figure:
-        """Plot ICA components over the full duration with their labels and probabilities.
+        """Plot ICA components over the full time series with their labels and probabilities.
         
         This method creates a figure showing each ICA component's time course over the full
-        recording duration. Components are color-coded by their classification/rejection status,
+        time series. Components are color-coded by their classification/rejection status,
         and probability scores are indicated for each component.
         
-        Args:
-            pipeline: Pipeline object containing raw data and fitted ICA object.
-            autoclean_dict: Dictionary containing metadata about the processing run.
+        Parameters:
+        ----------
+        pipeline : pylossless.Pipeline
+            Pipeline object containing raw data and fitted ICA object.
+        autoclean_dict : dict
+            Dictionary containing metadata about the processing run.
             
-        Returns:
-            matplotlib.figure.Figure: The generated figure with ICA components.
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure with ICA components.
             
-        Raises:
-            ValueError: If no ICA object is found in the pipeline.
+        Raises
+        ------
+        ValueError
+            If no ICA object is found in the pipeline.
             
-        Example:
+        Example
+        -------
             ```python
             # After performing ICA
             fig = task.plot_ica_full(pipeline, autoclean_dict)
@@ -205,18 +215,13 @@ class ICAReportingMixin(BaseVizMixin):
         autoclean_dict: Dict[str, Any],
         duration: int = 60,
     ) -> None:
-        """Generate comprehensive ICA reports.
+        """Generate comprehensive ICA reports using the _plot_ica_components method.
         
-        Generates two reports:
-        1. All ICA components with properties and activations
-        2. Only the rejected ICA components with their properties
         
         Parameters:
         -----------
         pipeline : pylossless.Pipeline
             The pipeline object containing the ICA and raw data
-        cleaned_raw : mne.io.Raw
-            Cleaned raw data after processing
         autoclean_dict : dict
             Dictionary containing configuration and paths
         duration : int
@@ -507,7 +512,14 @@ class ICAReportingMixin(BaseVizMixin):
             return Path(pdf_path).name
 
     def verify_topography_plot(self, autoclean_dict: Dict[str, Any]) -> bool:
-        """Use ica topograph to verify MEA channel placement.
+        """Use ica topograph to verify MEA channel placement. This function simply runs fast ICA then plots the topography. 
+        It is used on mouse files to verify channel placement.
+
+        Parameters
+        ----------
+        autoclean_dict : Dict[str, Any]
+            Autoclean dictionary containing metadata.
+
         """
 
         from mne.preprocessing import ICA

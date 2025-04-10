@@ -25,15 +25,18 @@ logger.remove()
 
 # Only define our custom levels
 logger.level("HEADER", no=28, color="<blue>", icon="🧠")     # Between SUCCESS and WARNING
-logger.level("VALUES", no=5, color="<cyan>", icon="➤")       # Keep lowest level for debug values
 
 
 # Create a custom warning handler that redirects to loguru
 class WarningToLogger:
+    """Custom warning handler that redirects warnings to loguru."""
+
     def __init__(self):
+        """Initialize the warning handler."""
         self._last_warning = None
 
     def __call__(self, message, category, filename, lineno, file=None, line=None):
+        """Call the warning handler."""
         # Skip duplicate warnings
         warning_key = (str(message), category, filename, lineno)
         if warning_key == self._last_warning:
@@ -53,39 +56,61 @@ warnings.showwarning = warning_handler
 class LogLevel(str, Enum):
     """Enum for log levels matching MNE's logging levels.
 
-    These levels correspond to Python's standard logging levels:
-    - VALUES = 5 (custom debug values)
+    These levels correspond to Python's standard logging levels plus custom levels.
+
+    .. rubric:: Standard Levels
+    
     - DEBUG = 10
     - INFO = 20
-    - SUCCESS = 25 (built into loguru)
-    - HEADER = 28 (custom)
     - WARNING = 30
     - ERROR = 40
     - CRITICAL = 50
+
+    .. rubric:: Custom Levels
+    
+    - HEADER = 28 (Custom header level)
+    - SUCCESS = 25 (Built-in Loguru success level)
+
+    .. note::
+        This enum is for internal use only and should not be directly accessed.
+        Use the message() function instead.
+
+    .. private-members::
     """
 
-    VALUES = "VALUES"      # Custom level for debug values (5)
-    DEBUG = "DEBUG"        # Standard debug (10)
-    INFO = "INFO"         # Standard info (20)
-    SUCCESS = "SUCCESS"   # Built-in loguru success level (25)
-    HEADER = "HEADER"     # Custom header level (28)
-    WARNING = "WARNING"   # Standard warning (30)
-    ERROR = "ERROR"       # Standard error (40)
-    CRITICAL = "CRITICAL" # Standard critical (50)
+    # Hide these values from documentation
+    #: Standard debug (10)
+    DEBUG = "DEBUG"
+    #: Standard info (20)
+    INFO = "INFO"
+    #: Built-in loguru success level (25)
+    SUCCESS = "SUCCESS"
+    #: Custom header level (28)
+    HEADER = "HEADER"
+    #: Standard warning (30)
+    WARNING = "WARNING"
+    #: Standard error (40)
+    ERROR = "ERROR"
+    #: Standard critical (50)
+    CRITICAL = "CRITICAL"
 
     @classmethod
     def from_value(cls, value: Union[str, int, bool, None]) -> "LogLevel":
         """Convert various input types to LogLevel.
 
-        Args:
-            value: Input value that can be:
-                - str: One of DEBUG, INFO, WARNING, ERROR, or CRITICAL
-                - int: Standard Python logging level (10, 20, 30, 40, 50)
-                - bool: True for INFO, False for WARNING
-                - None: Use MNE_LOGGING_LEVEL env var or default to INFO
+        Parameters
+        ----------
+        value : Union[str, int, bool, None]
+            Input value that can be:
+                - **str**: One of DEBUG, INFO, WARNING, ERROR, or CRITICAL
+                - **int**: Standard Python logging level (10, 20, 30, 40, 50)
+                - **bool**: True for INFO, False for WARNING
+                - **None**: Use MNE_LOGGING_LEVEL env var or default to INFO
 
-        Returns:
-            LogLevel: The corresponding log level
+        Returns
+        -------
+        LogLevel : LogLevel
+            The corresponding log level
         """
         if value is None:
             # Check environment variable first
@@ -98,7 +123,6 @@ class LogLevel(str, Enum):
         if isinstance(value, int):
             # Map Python's standard logging levels
             level_map = {
-                5: cls.VALUES,  # Custom debug values level
                 logging.DEBUG: cls.DEBUG,  # 10
                 logging.INFO: cls.INFO,  # 20
                 logging.WARNING: cls.WARNING,  # 30
@@ -110,7 +134,6 @@ class LogLevel(str, Enum):
             for level in reversed(valid_levels):
                 if value >= level:
                     return level_map[level]
-            return cls.VALUES
 
         if isinstance(value, str):
             try:
@@ -124,17 +147,18 @@ class LogLevel(str, Enum):
 class MessageType(str, Enum):
     """Enum for message types with their corresponding log levels and symbols."""
 
-    HEADER = "header"
     ERROR = "error"
     WARNING = "warning"
+    HEADER = "header"
+    SUCCESS = "success"
     INFO = "info"
-    VALUES = "values"
     DEBUG = "debug"
 
 
 def message(level: str, text: str, **kwargs) -> None:
     """
-    Enhanced logging function with support for lazy evaluation and context.
+    Enhanced logging function with support for lazy evaluation and context. 
+    Outputs to the console and the log file.
 
     Parameters
     ----------
@@ -167,11 +191,12 @@ def configure_logger(
     ----------
     verbose : bool, str, int, LogLevel, optional
         Controls logging verbosity. Can be:
-        - bool: True is the same as 'INFO', False is the same as 'WARNING'
-        - str: One of 'DEBUG', 'INFO', 'HEADER', WARNING', 'ERROR', or 'CRITICAL'
-        - int: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
-        - LogLevel enum: Direct log level specification
-        - None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
+
+        - **bool**: True is the same as 'INFO', False is the same as 'WARNING'
+        - **str**: One of 'DEBUG', 'INFO', 'HEADER', WARNING', 'ERROR', or 'CRITICAL'
+        - **int**: Standard Python logging level (10=DEBUG, 20=INFO, etc.)
+        - **LogLevel enum**: Direct log level specification
+        - **None**: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
     output_dir : str or Path, optional
         Directory where task outputs will be stored
     task : str, optional
@@ -189,11 +214,10 @@ def configure_logger(
 
     # Map our custom levels to appropriate MNE levels
     mne_level_map = {
-        LogLevel.VALUES: "DEBUG",    # Our lowest level maps to DEBUG
         LogLevel.DEBUG: "DEBUG",
-        LogLevel.HEADER: "WARNING",  # Headers are for UI, use WARNING for MNE
         LogLevel.INFO: "INFO",
         LogLevel.SUCCESS: "INFO",    # Success messages map to INFO
+        LogLevel.HEADER: "WARNING", # Headers are for UI, uses WARNING for MNE
         LogLevel.WARNING: "WARNING",
         LogLevel.ERROR: "ERROR",
         LogLevel.CRITICAL: "CRITICAL"

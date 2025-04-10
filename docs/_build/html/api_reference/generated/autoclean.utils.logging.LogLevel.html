@@ -49,8 +49,8 @@
     <script>DOCUMENTATION_OPTIONS.pagename = 'api_reference/generated/autoclean.utils.logging.LogLevel';</script>
     <link rel="index" title="Index" href="../../genindex.html" />
     <link rel="search" title="Search" href="../../search.html" />
-    <link rel="next" title="logging.MessageType" href="autoclean.utils.logging.MessageType.html" />
-    <link rel="prev" title="logging.WarningToLogger" href="autoclean.utils.logging.WarningToLogger.html" />
+    <link rel="next" title="montage.load_valid_montages" href="autoclean.utils.montage.load_valid_montages.html" />
+    <link rel="prev" title="logging.message" href="autoclean.utils.logging.message.html" />
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="docsearch:language" content="en"/>
   <meta name="docsearch:version" content="1.2.0" />
@@ -362,14 +362,10 @@
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.set_database_path.html">database.set_database_path</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.get_run_record.html">database.get_run_record</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.manage_database.html">database.manage_database</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.DatabaseError.html">database.DatabaseError</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.database.RecordNotFoundError.html">database.RecordNotFoundError</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.file_system.step_prepare_directories.html">file_system.step_prepare_directories</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.configure_logger.html">logging.configure_logger</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.message.html">logging.message</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.WarningToLogger.html">logging.WarningToLogger</a></li>
 <li class="toctree-l2 current active"><a class="current reference internal" href="#">logging.LogLevel</a></li>
-<li class="toctree-l2"><a class="reference internal" href="autoclean.utils.logging.MessageType.html">logging.MessageType</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.load_valid_montages.html">montage.load_valid_montages</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_10_20_to_gsn_mapping.html">montage.get_10_20_to_gsn_mapping</a></li>
 <li class="toctree-l2"><a class="reference internal" href="autoclean.utils.montage.get_gsn_to_10_20_mapping.html">montage.get_gsn_to_10_20_mapping</a></li>
@@ -451,71 +447,49 @@
 <dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel">
 <em class="property"><span class="pre">class</span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">autoclean.utils.logging.</span></span><span class="sig-name descname"><span class="pre">LogLevel</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/utils/logging.html#LogLevel"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.utils.logging.LogLevel" title="Link to this definition">#</a></dt>
 <dd><p>Enum for log levels matching MNE’s logging levels.</p>
-<p>These levels correspond to Python’s standard logging levels:
-- DEBUG = 10
-- INFO = 20
-- WARNING = 30
-- ERROR = 40
-- CRITICAL = 50</p>
-<p>Plus custom levels:
-- VALUES = 5
-- HEADER = 25</p>
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.VALUES">
-<span class="sig-name descname"><span class="pre">VALUES</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'VALUES'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.VALUES" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.DEBUG">
-<span class="sig-name descname"><span class="pre">DEBUG</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'DEBUG'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.DEBUG" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.HEADER">
-<span class="sig-name descname"><span class="pre">HEADER</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'HEADER'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.HEADER" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.INFO">
-<span class="sig-name descname"><span class="pre">INFO</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'INFO'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.INFO" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.SUCCESS">
-<span class="sig-name descname"><span class="pre">SUCCESS</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'SUCCESS'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.SUCCESS" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.WARNING">
-<span class="sig-name descname"><span class="pre">WARNING</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'WARNING'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.WARNING" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.ERROR">
-<span class="sig-name descname"><span class="pre">ERROR</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'ERROR'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.ERROR" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
-<dl class="py attribute">
-<dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.CRITICAL">
-<span class="sig-name descname"><span class="pre">CRITICAL</span></span><em class="property"><span class="w"> </span><span class="p"><span class="pre">=</span></span><span class="w"> </span><span class="pre">'CRITICAL'</span></em><a class="headerlink" href="#autoclean.utils.logging.LogLevel.CRITICAL" title="Link to this definition">#</a></dt>
-<dd></dd></dl>
-
+<p>These levels correspond to Python’s standard logging levels plus custom levels.</p>
+<p class="rubric">Standard Levels</p>
+<ul class="simple">
+<li><p>DEBUG = 10</p></li>
+<li><p>INFO = 20</p></li>
+<li><p>WARNING = 30</p></li>
+<li><p>ERROR = 40</p></li>
+<li><p>CRITICAL = 50</p></li>
+</ul>
+<p class="rubric">Custom Levels</p>
+<ul class="simple">
+<li><p>HEADER = 28 (Custom header level)</p></li>
+<li><p>SUCCESS = 25 (Built-in Loguru success level)</p></li>
+</ul>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This enum is for internal use only and should not be directly accessed.
+Use the message() function instead.</p>
+</div>
 <dl class="py method">
 <dt class="sig sig-object py" id="autoclean.utils.logging.LogLevel.from_value">
 <em class="property"><span class="pre">classmethod</span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">from_value</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">value</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../../_modules/autoclean/utils/logging.html#LogLevel.from_value"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#autoclean.utils.logging.LogLevel.from_value" title="Link to this definition">#</a></dt>
 <dd><p>Convert various input types to LogLevel.</p>
-<dl class="simple">
-<dt>Args:</dt><dd><dl class="simple">
-<dt>value: Input value that can be:</dt><dd><ul class="simple">
-<li><p>str: One of DEBUG, INFO, WARNING, ERROR, or CRITICAL</p></li>
-<li><p>int: Standard Python logging level (10, 20, 30, 40, 50)</p></li>
-<li><p>bool: True for INFO, False for WARNING</p></li>
-<li><p>None: Use MNE_LOGGING_LEVEL env var or default to INFO</p></li>
+<dl class="field-list">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><dl>
+<dt><strong>value</strong><span class="classifier"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Union</span></code>[<a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#str" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">str</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">int</span></code></a>, <a class="reference external" href="https://docs.python.org/3/library/stdtypes.html#bltin-boolean-values" title="(in Python v3.13)"><span class="xref std std-ref">bool</span></a>, <a class="reference external" href="https://docs.python.org/3/library/constants.html#None" title="(in Python v3.13)"><code class="docutils literal notranslate"><span class="pre">None</span></code></a>]</span></dt><dd><dl class="simple">
+<dt>Input value that can be:</dt><dd><ul class="simple">
+<li><p><strong>str</strong>: One of DEBUG, INFO, WARNING, ERROR, or CRITICAL</p></li>
+<li><p><strong>int</strong>: Standard Python logging level (10, 20, 30, 40, 50)</p></li>
+<li><p><strong>bool</strong>: True for INFO, False for WARNING</p></li>
+<li><p><strong>None</strong>: Use MNE_LOGGING_LEVEL env var or default to INFO</p></li>
 </ul>
 </dd>
 </dl>
 </dd>
-<dt>Returns:</dt><dd><p>LogLevel: The corresponding log level</p>
+</dl>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><dl>
+<dt><strong>LogLevel</strong><span class="classifier"><a class="reference internal" href="#autoclean.utils.logging.LogLevel" title="autoclean.utils.logging.LogLevel"><code class="xref py py-obj docutils literal notranslate"><span class="pre">LogLevel</span></code></a></span></dt><dd><p>The corresponding log level</p>
+</dd>
+</dl>
 </dd>
 </dl>
 </dd></dl>
@@ -548,14 +522,6 @@
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel"><code class="docutils literal notranslate"><span class="pre">LogLevel</span></code></a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.VALUES"><code class="docutils literal notranslate"><span class="pre">LogLevel.VALUES</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.DEBUG"><code class="docutils literal notranslate"><span class="pre">LogLevel.DEBUG</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.HEADER"><code class="docutils literal notranslate"><span class="pre">LogLevel.HEADER</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.INFO"><code class="docutils literal notranslate"><span class="pre">LogLevel.INFO</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.SUCCESS"><code class="docutils literal notranslate"><span class="pre">LogLevel.SUCCESS</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.WARNING"><code class="docutils literal notranslate"><span class="pre">LogLevel.WARNING</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.ERROR"><code class="docutils literal notranslate"><span class="pre">LogLevel.ERROR</span></code></a></li>
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.CRITICAL"><code class="docutils literal notranslate"><span class="pre">LogLevel.CRITICAL</span></code></a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#autoclean.utils.logging.LogLevel.from_value"><code class="docutils literal notranslate"><span class="pre">LogLevel.from_value()</span></code></a></li>
 </ul>
 </li>

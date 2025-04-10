@@ -20,8 +20,10 @@ _DB_PATH = None
 def set_database_path(path: Path) -> None:
     """Set the global database path.
 
-    Args:
-        path: Path to the database directory
+    Parameters
+    ----------
+    path : Path
+        The path to the autoclean directory.
     """
     global _DB_PATH
     _DB_PATH = path
@@ -46,19 +48,33 @@ class RecordNotFoundError(Exception):
 def get_run_record(run_id: str) -> dict:
     """Get a run record from the database by run ID.
 
-    Args:
-        run_id: String ID of the run to retrieve
-        autoclean_dir: Path to the autoclean output directory
+    Parameters
+    ----------
+    run_id : str
+        The string ID of the run to retrieve.
 
-    Returns:
-        dict: The run record if found, None if not found
+    Returns
+    -------
+    run_record : dict
+        The run record if found, None if not found
     """
     run_record = manage_database(operation="get_record", run_record={"run_id": run_id})
     return run_record
 
 
 def _validate_metadata(metadata: dict) -> bool:
-    """Validates metadata structure and types."""
+    """Validates metadata structure and types.
+
+    Parameters
+    ----------
+    metadata : dict
+        The metadata to validate.
+
+    Returns
+    -------
+    bool
+        True if the metadata is valid, False otherwise.
+    """
     if not isinstance(metadata, dict):
         return False
     return all(isinstance(k, str) for k in metadata.keys())
@@ -71,10 +87,24 @@ def manage_database(
 ) -> Any:
     """Manage database operations with thread safety.
 
-    Args:
-        operation: Type of operation ('create_collection', 'store', 'update', etc.)
-        run_record: Record to store (for 'store' operation)
-        update_record: Record updates (for 'update' operation)
+    Parameters
+    ----------
+    operation : str
+        Operations can be:
+
+        - **create_collection**: Create a new collection.
+        - **store**: Store a new record.
+        - **update**: Update an existing record.
+        - **update_status**: Update the status of an existing record.
+        - **drop_collection**: Drop the collection.
+        - **get_collection**: Get the collection.
+        - **get_record**: Get a record from the collection.
+
+    run_record : dict
+        The record to store.
+    update_record : dict
+        The record updates.
+
     """
     global _DB_PATH
 

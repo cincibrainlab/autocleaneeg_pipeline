@@ -366,11 +366,15 @@
 <span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">threading</span><span class="w"> </span><span class="kn">import</span> <span class="n">Lock</span> <span class="k">as</span> <span class="n">ThreadingLock</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span>
 
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mne.io.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">FIFF</span>
 <span class="kn">from</span><span class="w"> </span><span class="nn">mne_bids</span><span class="w"> </span><span class="kn">import</span> <span class="n">BIDSPath</span><span class="p">,</span> <span class="n">update_sidecar_json</span><span class="p">,</span> <span class="n">write_raw_bids</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">traceback</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span> <span class="c1"># Imported for dummy lock</span>
 
 <span class="kn">from</span><span class="w"> </span><span class="nn">..utils.logging</span><span class="w"> </span><span class="kn">import</span> <span class="n">message</span>
 
@@ -387,45 +391,92 @@
     <span class="n">events</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">event_id</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
     <span class="n">study_name</span><span class="o">=</span><span class="s2">&quot;EEG Study&quot;</span><span class="p">,</span>
+    <span class="n">autoclean_dict</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">dict</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
 <span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Converts a single EEG data file into BIDS format with default/dummy metadata.</span>
+<span class="sd">    Handles concurrent access to participants.tsv using a threading.Lock passed</span>
+<span class="sd">    via autoclean_dict. Ensures specific column order and dtype=object for the TSV.</span>
 
-<span class="sd">    Parameters:</span>
-<span class="sd">    - file_path (str or Path): Path to the EEG data file.</span>
-<span class="sd">    - output_dir (str or Path): Directory where the BIDS dataset will be created.</span>
-<span class="sd">    - task (str, optional): Task name. Defaults to &#39;resting&#39;.</span>
-<span class="sd">    - participant_id (str, optional): Participant ID. Defaults to sanitized basename of the file.</span>
-<span class="sd">    - line_freq (float, optional): Power line frequency in Hz. Defaults to 60.0.</span>
-<span class="sd">    - overwrite (bool, optional): Whether to overwrite existing files. Defaults to False.</span>
-<span class="sd">    - study_name (str, optional): Name of the study. Defaults to &quot;EEG Study&quot;.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    raw : mne.io.Raw</span>
+<span class="sd">        The raw data to convert to BIDS.</span>
+<span class="sd">    output_dir : str</span>
+<span class="sd">        The directory where the BIDS dataset will be created.</span>
+<span class="sd">    task : str</span>
+<span class="sd">        The task name for BIDS.</span>
+<span class="sd">    participant_id : str</span>
+<span class="sd">        The participant ID (if None, generated from filename).</span>
+<span class="sd">    line_freq : float</span>
+<span class="sd">        The power line frequency.</span>
+<span class="sd">    overwrite : bool</span>
+<span class="sd">        Whether to overwrite existing BIDS files.</span>
+<span class="sd">    events : mne.events_data</span>
+<span class="sd">        The events array.</span>
+<span class="sd">    event_id : dict</span>
+<span class="sd">        The event_id dictionary.</span>
+<span class="sd">    study_name : str</span>
+<span class="sd">        The name of the study for dataset_description.json.</span>
+<span class="sd">    autoclean_dict : dict</span>
+<span class="sd">        The run configuration, MUST include &#39;participants_tsv_lock&#39; (a threading.Lock) for concurrent safety.</span>
 
-<span class="sd">    Dependent Functions:</span>
-<span class="sd">    - step_sanitize_id(): Sanitizes and formats participant ID from filename</span>
-<span class="sd">    - step_create_dataset_desc(): Creates BIDS dataset description JSON file</span>
-<span class="sd">    - step_create_participants_json(): Creates participants.json metadata file</span>
-<span class="sd">    - update_sidecar_json(): Updates sidecar JSON files with additional metadata</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bids_path : BIDSPath</span>
+<span class="sd">        The BIDS path of the converted file.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
 
     <span class="n">file_path</span> <span class="o">=</span> <span class="n">raw</span><span class="o">.</span><span class="n">filenames</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">file_name</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span><span class="o">.</span><span class="n">name</span>
+
+    <span class="c1"># Retrieve Lock from autoclean_dict if available for thread-safe TSV access.</span>
+    <span class="n">lock</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">lock_valid</span> <span class="o">=</span> <span class="kc">False</span> 
+    <span class="k">if</span> <span class="n">autoclean_dict</span> <span class="ow">and</span> <span class="s1">&#39;participants_tsv_lock&#39;</span> <span class="ow">in</span> <span class="n">autoclean_dict</span><span class="p">:</span>
+        <span class="n">retrieved_lock</span> <span class="o">=</span> <span class="n">autoclean_dict</span><span class="p">[</span><span class="s1">&#39;participants_tsv_lock&#39;</span><span class="p">]</span>
+        <span class="c1"># Validate the lock object based on expected methods and type name (&#39;lock&#39;).</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">retrieved_lock</span><span class="p">,</span> <span class="s1">&#39;acquire&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">retrieved_lock</span><span class="p">,</span> <span class="s1">&#39;release&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="n">retrieved_lock</span><span class="o">.</span><span class="vm">__class__</span><span class="o">.</span><span class="vm">__name__</span> <span class="o">==</span> <span class="s1">&#39;lock&#39;</span><span class="p">:</span>
+            <span class="n">lock</span> <span class="o">=</span> <span class="n">retrieved_lock</span>
+            <span class="n">lock_valid</span> <span class="o">=</span> <span class="kc">True</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="s2">&quot;Successfully validated threading.Lock object from autoclean_dict.&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;participants_tsv_lock found in autoclean_dict but is not a valid threading.Lock object (type: </span><span class="si">{</span><span class="nb">type</span><span class="p">(</span><span class="n">retrieved_lock</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="si">}</span><span class="s2">, value: </span><span class="si">{</span><span class="n">retrieved_lock</span><span class="si">!r}</span><span class="s2">). Proceeding without lock.&quot;</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">lock_valid</span><span class="p">:</span> 
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.&quot;</span><span class="p">)</span>
+        <span class="c1"># Use a dummy context manager if no valid lock is found to allow execution.</span>
+        <span class="nd">@contextmanager</span>
+        <span class="k">def</span><span class="w"> </span><span class="nf">dummy_lock</span><span class="p">():</span>
+            <span class="k">yield</span>
+        <span class="n">lock_context</span> <span class="o">=</span> <span class="n">dummy_lock</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">lock_context</span> <span class="o">=</span> <span class="n">lock</span> <span class="c1"># Use the actual lock context.</span>
 
     <span class="n">bids_root</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span>
     <span class="n">bids_root</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="c1"># Sanitize and set participant ID</span>
+    <span class="c1"># Define participants file path and the desired column order.</span>
+    <span class="n">participants_file</span> <span class="o">=</span> <span class="n">bids_root</span> <span class="o">/</span> <span class="s2">&quot;participants.tsv&quot;</span>
+    <span class="n">desired_column_order</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="s2">&quot;participant_id&quot;</span><span class="p">,</span> <span class="s2">&quot;file_name&quot;</span><span class="p">,</span> <span class="s2">&quot;bids_path&quot;</span><span class="p">,</span> <span class="s2">&quot;age&quot;</span><span class="p">,</span> 
+        <span class="s2">&quot;sex&quot;</span><span class="p">,</span> <span class="s2">&quot;group&quot;</span><span class="p">,</span> <span class="s2">&quot;hand&quot;</span><span class="p">,</span> <span class="s2">&quot;weight&quot;</span><span class="p">,</span> <span class="s2">&quot;height&quot;</span><span class="p">,</span> <span class="s2">&quot;eegid&quot;</span><span class="p">,</span> <span class="s2">&quot;file_hash&quot;</span>
+    <span class="p">]</span>
+
+    <span class="c1"># Determine participant ID (generate if not provided).</span>
     <span class="k">if</span> <span class="n">participant_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
         <span class="n">participant_id</span> <span class="o">=</span> <span class="n">step_sanitize_id</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
-    <span class="c1"># subject_id = participant_id.zfill(5)</span>
     <span class="n">subject_id</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">participant_id</span><span class="p">)</span>
 
-    <span class="c1"># Default metadata</span>
+    <span class="c1"># Set default metadata values.</span>
     <span class="n">session</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">run</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">age</span> <span class="o">=</span> <span class="s2">&quot;n/a&quot;</span>
     <span class="n">sex</span> <span class="o">=</span> <span class="s2">&quot;n/a&quot;</span>
     <span class="n">group</span> <span class="o">=</span> <span class="s2">&quot;n/a&quot;</span>
 
+    <span class="c1"># Create BIDSPath object.</span>
     <span class="n">bids_path</span> <span class="o">=</span> <span class="n">BIDSPath</span><span class="p">(</span>
         <span class="n">subject</span><span class="o">=</span><span class="n">subject_id</span><span class="p">,</span>
         <span class="n">session</span><span class="o">=</span><span class="n">session</span><span class="p">,</span>
@@ -438,24 +489,20 @@
 
     <span class="n">fif_file</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">file_path</span><span class="p">)</span>
 
-    <span class="c1"># Read the raw data</span>
+    <span class="c1"># Calculate file hash.</span>
     <span class="k">try</span><span class="p">:</span>
         <span class="n">file_hash</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">sha256</span><span class="p">(</span><span class="n">fif_file</span><span class="o">.</span><span class="n">read_bytes</span><span class="p">())</span><span class="o">.</span><span class="n">hexdigest</span><span class="p">()</span>
-        <span class="n">file_name</span> <span class="o">=</span> <span class="n">fif_file</span><span class="o">.</span><span class="n">name</span>
     <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to read </span><span class="si">{</span><span class="n">fif_file</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to read </span><span class="si">{</span><span class="n">fif_file</span><span class="si">}</span><span class="s2"> for hashing: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span>
 
-    <span class="c1"># Prepare additional metadata</span>
+    <span class="c1"># Prepare MNE Raw object metadata for BIDS conversion.</span>
     <span class="n">raw</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;subject_info&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;id&quot;</span><span class="p">:</span> <span class="nb">int</span><span class="p">(</span><span class="n">subject_id</span><span class="p">)}</span>
-
     <span class="n">raw</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;line_freq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">line_freq</span>
-
-    <span class="c1"># Prepare unit for BIDS</span>
     <span class="k">for</span> <span class="n">ch</span> <span class="ow">in</span> <span class="n">raw</span><span class="o">.</span><span class="n">info</span><span class="p">[</span><span class="s2">&quot;chs&quot;</span><span class="p">]:</span>
-        <span class="n">ch</span><span class="p">[</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FIFF</span><span class="o">.</span><span class="n">FIFF_UNIT_V</span>  <span class="c1"># Assuming units are in Volts</span>
+        <span class="n">ch</span><span class="p">[</span><span class="s2">&quot;unit&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">FIFF</span><span class="o">.</span><span class="n">FIFF_UNIT_V</span>
 
-    <span class="c1"># Additional BIDS parameters</span>
+    <span class="c1"># Prepare arguments for mne_bids.write_raw_bids.</span>
     <span class="n">bids_kwargs</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;raw&quot;</span><span class="p">:</span> <span class="n">raw</span><span class="p">,</span>
         <span class="s2">&quot;bids_path&quot;</span><span class="p">:</span> <span class="n">bids_path</span><span class="p">,</span>
@@ -467,58 +514,144 @@
         <span class="s2">&quot;allow_preload&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
     <span class="p">}</span>
 
-    <span class="c1"># Create derivatives directory structure</span>
+    <span class="c1"># Create derivatives directory structure (outside the lock).</span>
     <span class="n">derivatives_dir</span> <span class="o">=</span> <span class="n">bids_root</span> <span class="o">/</span> <span class="s2">&quot;derivatives&quot;</span> <span class="o">/</span> <span class="s2">&quot;pylossless&quot;</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span> <span class="o">/</span> <span class="s2">&quot;eeg&quot;</span>
     <span class="n">derivatives_dir</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
     <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Created derivatives directory structure at </span><span class="si">{</span><span class="n">derivatives_dir</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Write BIDS data</span>
-    <span class="k">try</span><span class="p">:</span>
-        <span class="c1"># breakpoint()</span>
-        <span class="n">write_raw_bids</span><span class="p">(</span><span class="o">**</span><span class="n">bids_kwargs</span><span class="p">)</span>
-        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Converted </span><span class="si">{</span><span class="n">fif_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> to BIDS format.&quot;</span><span class="p">)</span>
-        <span class="n">entries</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Manufacturer&quot;</span><span class="p">:</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">,</span> <span class="s2">&quot;PowerLineFrequency&quot;</span><span class="p">:</span> <span class="n">line_freq</span><span class="p">}</span>
-        <span class="n">sidecar_path</span> <span class="o">=</span> <span class="n">bids_path</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.json&quot;</span><span class="p">)</span>
-        <span class="n">update_sidecar_json</span><span class="p">(</span><span class="n">bids_path</span><span class="o">=</span><span class="n">sidecar_path</span><span class="p">,</span> <span class="n">entries</span><span class="o">=</span><span class="n">entries</span><span class="p">)</span>
-    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
-        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to write BIDS for </span><span class="si">{</span><span class="n">fif_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Detailed error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-        <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
-        <span class="n">sys</span><span class="o">.</span><span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+    <span class="c1"># --- Critical Section: Accessing shared BIDS files ---</span>
+    <span class="c1"># Use the lock (real or dummy) to protect file access.</span>
+    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Acquiring participants.tsv lock for </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+    <span class="k">with</span> <span class="n">lock_context</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Acquired participants.tsv lock for </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 
-    <span class="c1"># Update participants.tsv</span>
-    <span class="n">participants_file</span> <span class="o">=</span> <span class="n">bids_root</span> <span class="o">/</span> <span class="s2">&quot;participants.tsv&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">participants_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
-            <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;participant_id&quot;</span><span class="p">,</span> <span class="s2">&quot;age&quot;</span><span class="p">,</span> <span class="s2">&quot;sex&quot;</span><span class="p">,</span> <span class="s2">&quot;group&quot;</span><span class="p">]</span>
-        <span class="p">)</span>
-    <span class="k">else</span><span class="p">:</span>
-        <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">participants_file</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="c1"># Ensure participants.tsv exists with correct headers and dtype=object </span>
+        <span class="c1"># *before* calling mne_bids, which might interact with it.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">participants_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Creating participants.tsv with headers at </span><span class="si">{</span><span class="n">participants_file</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="n">header_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">desired_column_order</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+                <span class="n">header_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">participants_file</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;	&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;n/a&quot;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">header_err</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to create participants.tsv header: </span><span class="si">{</span><span class="n">header_err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">raise</span>
 
-    <span class="n">new_entry</span> <span class="o">=</span> <span class="p">{</span>
-        <span class="s2">&quot;participant_id&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
-        <span class="s2">&quot;bids_path&quot;</span><span class="p">:</span> <span class="n">bids_path</span><span class="p">,</span>
-        <span class="s2">&quot;age&quot;</span><span class="p">:</span> <span class="n">age</span><span class="p">,</span>
-        <span class="s2">&quot;sex&quot;</span><span class="p">:</span> <span class="n">sex</span><span class="p">,</span>
-        <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="n">group</span><span class="p">,</span>
-        <span class="s2">&quot;eegid&quot;</span><span class="p">:</span> <span class="n">fif_file</span><span class="o">.</span><span class="n">stem</span><span class="p">,</span>
-        <span class="s2">&quot;file_name&quot;</span><span class="p">:</span> <span class="n">file_name</span><span class="p">,</span>
-        <span class="s2">&quot;file_hash&quot;</span><span class="p">:</span> <span class="n">file_hash</span><span class="p">,</span>
-    <span class="p">}</span>
+        <span class="c1"># Call mne_bids to write the core BIDS data.</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">write_raw_bids</span><span class="p">(</span><span class="o">**</span><span class="n">bids_kwargs</span><span class="p">)</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Converted </span><span class="si">{</span><span class="n">fif_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> to BIDS format.&quot;</span><span class="p">)</span>
+            <span class="c1"># Update sidecar JSON with additional info.</span>
+            <span class="n">entries</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;Manufacturer&quot;</span><span class="p">:</span> <span class="s2">&quot;Unknown&quot;</span><span class="p">,</span> <span class="s2">&quot;PowerLineFrequency&quot;</span><span class="p">:</span> <span class="n">line_freq</span><span class="p">}</span>
+            <span class="n">sidecar_path</span> <span class="o">=</span> <span class="n">bids_path</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">extension</span><span class="o">=</span><span class="s2">&quot;.json&quot;</span><span class="p">)</span>
+            <span class="n">update_sidecar_json</span><span class="p">(</span><span class="n">bids_path</span><span class="o">=</span><span class="n">sidecar_path</span><span class="p">,</span> <span class="n">entries</span><span class="o">=</span><span class="n">entries</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to write BIDS for </span><span class="si">{</span><span class="n">fif_file</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Detailed error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+            <span class="k">raise</span>
 
-    <span class="n">participants_df</span> <span class="o">=</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">_append</span><span class="p">(</span><span class="n">new_entry</span><span class="p">,</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">participants_df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;participant_id&quot;</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;last&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-    <span class="n">participants_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">participants_file</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;</span><span class="se">\t</span><span class="s2">&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;n/a&quot;</span><span class="p">)</span>
+        <span class="c1"># --- Update participants.tsv with custom/calculated metadata ---</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Read the potentially modified participants.tsv, enforcing object dtype.</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">dtype_mapping</span> <span class="o">=</span> <span class="p">{</span><span class="n">col</span><span class="p">:</span> <span class="nb">object</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">desired_column_order</span><span class="p">}</span> 
+                <span class="c1"># Read assuming all desired columns should exist; add missing ones later.</span>
+                <span class="c1"># na_filter=False prevents &#39;NA&#39; strings from becoming NaN if object dtype is used.</span>
+                <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">participants_file</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;	&quot;</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dtype_mapping</span><span class="p">,</span> <span class="n">na_filter</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span> 
+                
+                <span class="c1"># Validate and fix columns after reading.</span>
+                <span class="n">missing_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">desired_column_order</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">columns</span><span class="p">]</span>
+                <span class="k">if</span> <span class="n">missing_cols</span><span class="p">:</span>
+                    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;participants.tsv is missing columns: </span><span class="si">{</span><span class="n">missing_cols</span><span class="si">}</span><span class="s2">. Adding them with &#39;n/a&#39;.&quot;</span><span class="p">)</span>
+                    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">missing_cols</span><span class="p">:</span>
+                        <span class="n">participants_df</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;n/a&quot;</span> 
+                    <span class="n">participants_df</span> <span class="o">=</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">astype</span><span class="p">({</span><span class="n">col</span><span class="p">:</span> <span class="nb">object</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">missing_cols</span><span class="p">})</span>
+                
+                <span class="c1"># Handle cases where the file might be corrupted or unexpectedly empty.</span>
+                <span class="k">if</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">empty</span> <span class="ow">and</span> <span class="n">participants_file</span><span class="o">.</span><span class="n">stat</span><span class="p">()</span><span class="o">.</span><span class="n">st_size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;participants.tsv exists but pandas read an empty DataFrame. Recreating.&quot;</span><span class="p">)</span>
+                    <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">desired_column_order</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+                <span class="k">elif</span> <span class="ow">not</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">empty</span> <span class="ow">and</span> <span class="s2">&quot;participant_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="s2">&quot;participants.tsv is missing &#39;participant_id&#39;. Recreating.&quot;</span><span class="p">)</span>
+                    <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">desired_column_order</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
 
-    <span class="c1"># Create dataset_description.json if it doesn&#39;t exist</span>
-    <span class="n">dataset_description_file</span> <span class="o">=</span> <span class="n">bids_root</span> <span class="o">/</span> <span class="s2">&quot;dataset_description.json&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">dataset_description_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="n">step_create_dataset_desc</span><span class="p">(</span><span class="n">bids_root</span><span class="p">,</span> <span class="n">study_name</span><span class="o">=</span><span class="n">study_name</span><span class="p">)</span>
+            <span class="k">except</span> <span class="n">pd</span><span class="o">.</span><span class="n">errors</span><span class="o">.</span><span class="n">EmptyDataError</span><span class="p">:</span>
+                <span class="c1"># Handle case where mne_bids might have left the file empty.</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;participants.tsv is empty after MNE-BIDS write. Starting with headers.&quot;</span><span class="p">)</span>
+                <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">desired_column_order</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">pd_read_err</span><span class="p">:</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Error reading participants.tsv after MNE-BIDS write: </span><span class="si">{</span><span class="n">pd_read_err</span><span class="si">}</span><span class="s2">. Attempting overwrite.&quot;</span><span class="p">)</span>
+                <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">columns</span><span class="o">=</span><span class="n">desired_column_order</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
 
-    <span class="c1"># Create participants.json if it doesn&#39;t exist</span>
-    <span class="n">participants_json_file</span> <span class="o">=</span> <span class="n">bids_root</span> <span class="o">/</span> <span class="s2">&quot;participants.json&quot;</span>
-    <span class="k">if</span> <span class="ow">not</span> <span class="n">participants_json_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
-        <span class="n">step_create_participants_json</span><span class="p">(</span><span class="n">bids_root</span><span class="p">)</span>
+            <span class="c1"># Prepare the entry for the current participant.</span>
+            <span class="n">new_entry</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;participant_id&quot;</span><span class="p">:</span> <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;file_name&quot;</span><span class="p">:</span> <span class="n">file_name</span><span class="p">,</span> 
+                <span class="s2">&quot;bids_path&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">bids_path</span><span class="o">.</span><span class="n">match</span><span class="p">()[</span><span class="mi">0</span><span class="p">]),</span> 
+                <span class="s2">&quot;age&quot;</span><span class="p">:</span> <span class="n">age</span><span class="p">,</span> 
+                <span class="s2">&quot;sex&quot;</span><span class="p">:</span> <span class="n">sex</span><span class="p">,</span> 
+                <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="n">group</span><span class="p">,</span> 
+                <span class="c1"># Add standard optional BIDS columns with &#39;n/a&#39; if not provided elsewhere.</span>
+                <span class="s2">&quot;hand&quot;</span><span class="p">:</span> <span class="s2">&quot;n/a&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="s2">&quot;n/a&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;height&quot;</span><span class="p">:</span> <span class="s2">&quot;n/a&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;eegid&quot;</span><span class="p">:</span> <span class="n">fif_file</span><span class="o">.</span><span class="n">stem</span><span class="p">,</span>
+                <span class="s2">&quot;file_hash&quot;</span><span class="p">:</span> <span class="n">file_hash</span><span class="p">,</span>
+            <span class="p">}</span>
+
+            <span class="c1"># Update existing row or append new row.</span>
+            <span class="n">participant_col_id</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;sub-</span><span class="si">{</span><span class="n">subject_id</span><span class="si">}</span><span class="s2">&quot;</span>
+            <span class="k">if</span> <span class="n">participant_col_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">participants_df</span><span class="p">[</span><span class="s2">&quot;participant_id&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">:</span>
+                <span class="c1"># Append new row using pd.concat for better type handling.</span>
+                <span class="n">new_row_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">new_entry</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+                <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">participants_df</span><span class="p">,</span> <span class="n">new_row_df</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Appended new entry for </span><span class="si">{</span><span class="n">participant_col_id</span><span class="si">}</span><span class="s2"> to participants.tsv.&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Update existing row.</span>
+                <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Participant </span><span class="si">{</span><span class="n">participant_col_id</span><span class="si">}</span><span class="s2"> already exists. Updating row.&quot;</span><span class="p">)</span>
+                <span class="n">idx</span> <span class="o">=</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="n">participants_df</span><span class="p">[</span><span class="s2">&quot;participant_id&quot;</span><span class="p">]</span> <span class="o">==</span> <span class="n">participant_col_id</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">idx</span><span class="p">:</span>
+                    <span class="n">row_index</span> <span class="o">=</span> <span class="n">idx</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+                    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">new_entry</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+                        <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                            <span class="c1"># Ensure value assignment respects object dtype.</span>
+                            <span class="n">participants_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">row_index</span><span class="p">,</span> <span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">value</span><span class="p">)</span> <span class="k">if</span> <span class="n">value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="s2">&quot;n/a&quot;</span>
+                        <span class="k">else</span><span class="p">:</span>
+                             <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Column &#39;</span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">&#39; not found in participants.tsv during update for </span><span class="si">{</span><span class="n">participant_col_id</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="c1"># Fallback if index search fails.</span>
+                    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;warning&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Could not find index for existing participant </span><span class="si">{</span><span class="n">participant_col_id</span><span class="si">}</span><span class="s2">. Appending instead.&quot;</span><span class="p">)</span>
+                    <span class="n">new_row_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">([</span><span class="n">new_entry</span><span class="p">])</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+                    <span class="n">participants_df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">participants_df</span><span class="p">,</span> <span class="n">new_row_df</span><span class="p">],</span> <span class="n">ignore_index</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+            <span class="c1"># Ensure no duplicate participant IDs remain.</span>
+            <span class="n">participants_df</span><span class="o">.</span><span class="n">drop_duplicates</span><span class="p">(</span><span class="n">subset</span><span class="o">=</span><span class="s2">&quot;participant_id&quot;</span><span class="p">,</span> <span class="n">keep</span><span class="o">=</span><span class="s2">&quot;last&quot;</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            
+            <span class="c1"># Ensure final DataFrame columns match desired order, preserving extras.</span>
+            <span class="c1"># Note: This assumes desired_column_order contains all keys from new_entry that should be primary columns.</span>
+            <span class="n">final_columns</span> <span class="o">=</span> <span class="n">desired_column_order</span> <span class="o">+</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">participants_df</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">desired_column_order</span><span class="p">]</span>
+            <span class="n">participants_df</span> <span class="o">=</span> <span class="n">participants_df</span><span class="p">[</span><span class="n">final_columns</span><span class="p">]</span>
+            
+            <span class="c1"># Write the updated DataFrame back to TSV.</span>
+            <span class="n">participants_df</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">participants_file</span><span class="p">,</span> <span class="n">sep</span><span class="o">=</span><span class="s2">&quot;	&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">na_rep</span><span class="o">=</span><span class="s2">&quot;n/a&quot;</span><span class="p">)</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Updated participants.tsv for </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+            <span class="c1"># Create metadata JSON files if they don&#39;t exist.</span>
+            <span class="n">dataset_description_file</span> <span class="o">=</span> <span class="n">bids_root</span> <span class="o">/</span> <span class="s2">&quot;dataset_description.json&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">dataset_description_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">step_create_dataset_desc</span><span class="p">(</span><span class="n">bids_root</span><span class="p">,</span> <span class="n">study_name</span><span class="o">=</span><span class="n">study_name</span><span class="p">)</span>
+
+            <span class="n">participants_json_file</span> <span class="o">=</span> <span class="n">bids_root</span> <span class="o">/</span> <span class="s2">&quot;participants.json&quot;</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">participants_json_file</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="n">step_create_participants_json</span><span class="p">(</span><span class="n">bids_root</span><span class="p">)</span>
+
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">update_err</span><span class="p">:</span>
+            <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed during participants.tsv update or associated file creation: </span><span class="si">{</span><span class="n">update_err</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="n">traceback</span><span class="o">.</span><span class="n">print_exc</span><span class="p">()</span>
+            <span class="k">raise</span>
+    
+    <span class="c1"># Lock is automatically released when exiting the &#39;with&#39; block.</span>
+    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;debug&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Released participants.tsv lock for </span><span class="si">{</span><span class="n">file_name</span><span class="si">}</span><span class="s2">.&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">bids_path</span></div>
 
@@ -528,27 +661,27 @@
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.bids.step_sanitize_id.html#autoclean.utils.bids.step_sanitize_id">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">step_sanitize_id</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Sanitizes the participant ID extracted from the filename to comply with BIDS conventions.</span>
+<span class="sd">    Generates a reproducible numeric participant ID from a filename using MD5 hashing.</span>
 
-<span class="sd">    Parameters:</span>
-<span class="sd">    - filename (str): The filename to sanitize.</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    filename : str</span>
+<span class="sd">        The filename to generate a participant ID from.</span>
 
-<span class="sd">    Returns:</span>
-<span class="sd">    - str: A sanitized participant ID.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span><span class="w"> </span><span class="nn">hashlib</span>
 
     <span class="k">def</span><span class="w"> </span><span class="nf">filename_to_number</span><span class="p">(</span><span class="n">filename</span><span class="p">,</span> <span class="n">max_value</span><span class="o">=</span><span class="mi">1000000</span><span class="p">):</span>
-        <span class="c1"># Create a hash of the filename</span>
+        <span class="c1"># Generate MD5 hash of the filename.</span>
         <span class="n">hash_object</span> <span class="o">=</span> <span class="n">hashlib</span><span class="o">.</span><span class="n">md5</span><span class="p">(</span><span class="n">filename</span><span class="o">.</span><span class="n">encode</span><span class="p">())</span>
-        <span class="c1"># Get the first 8 bytes of the hash as an integer</span>
+        <span class="c1"># Convert first 8 bytes of hash to an integer.</span>
         <span class="n">hash_int</span> <span class="o">=</span> <span class="nb">int</span><span class="o">.</span><span class="n">from_bytes</span><span class="p">(</span><span class="n">hash_object</span><span class="o">.</span><span class="n">digest</span><span class="p">()[:</span><span class="mi">8</span><span class="p">],</span> <span class="s2">&quot;big&quot;</span><span class="p">)</span>
-        <span class="c1"># Use modulo to get a number within the desired range</span>
+        <span class="c1"># Scale to the desired range using modulo.</span>
         <span class="k">return</span> <span class="n">hash_int</span> <span class="o">%</span> <span class="n">max_value</span>
 
     <span class="n">basename</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span><span class="o">.</span><span class="n">stem</span>
     <span class="n">participant_id</span> <span class="o">=</span> <span class="n">filename_to_number</span><span class="p">(</span><span class="n">basename</span><span class="p">)</span>
-    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Unique Number for </span><span class="si">{</span><span class="n">basename</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">participant_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Generated participant ID for </span><span class="si">{</span><span class="n">basename</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">participant_id</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 
     <span class="k">return</span> <span class="n">participant_id</span></div>
 
@@ -558,20 +691,27 @@
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.bids.step_create_dataset_desc.html#autoclean.utils.bids.step_create_dataset_desc">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">step_create_dataset_desc</span><span class="p">(</span><span class="n">output_path</span><span class="p">,</span> <span class="n">study_name</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Creates BIDS dataset description JSON file.</span>
+<span class="sd">    Creates BIDS dataset_description.json file.</span>
 
-<span class="sd">    Parameters:</span>
-<span class="sd">    - output_path (Path): Directory where the file will be created</span>
-<span class="sd">    - study_name (str): Name of the study</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    output_path : str</span>
+<span class="sd">        The path to the output directory.</span>
+<span class="sd">    study_name : str</span>
+<span class="sd">        The name of the study.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">dataset_description</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;Name&quot;</span><span class="p">:</span> <span class="n">study_name</span><span class="p">,</span>
-        <span class="s2">&quot;BIDSVersion&quot;</span><span class="p">:</span> <span class="s2">&quot;1.6.0&quot;</span><span class="p">,</span>
+        <span class="s2">&quot;BIDSVersion&quot;</span><span class="p">:</span> <span class="s2">&quot;1.6.0&quot;</span><span class="p">,</span> <span class="c1"># Specify BIDS version used.</span>
         <span class="s2">&quot;DatasetType&quot;</span><span class="p">:</span> <span class="s2">&quot;raw&quot;</span><span class="p">,</span>
     <span class="p">}</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;dataset_description.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">dataset_description</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="s2">&quot;Created dataset_description.json&quot;</span><span class="p">)</span></div>
+    <span class="n">filepath</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;dataset_description.json&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">dataset_description</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Created </span><span class="si">{</span><span class="n">filepath</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to create </span><span class="si">{</span><span class="n">filepath</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 
 
@@ -579,32 +719,40 @@
 <a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.bids.step_create_participants_json.html#autoclean.utils.bids.step_create_participants_json">[docs]</a>
 <span class="k">def</span><span class="w"> </span><span class="nf">step_create_participants_json</span><span class="p">(</span><span class="n">output_path</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Creates participants.json metadata file.</span>
+<span class="sd">    Creates BIDS participants.json sidecar file describing participants.tsv columns.</span>
 
-<span class="sd">    Parameters:</span>
-<span class="sd">    - output_path (Path): Directory where the file will be created</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    output_path : str</span>
+<span class="sd">        The path to the output directory.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Describes columns in participants.tsv, including standard and custom ones.</span>
     <span class="n">participants_json</span> <span class="o">=</span> <span class="p">{</span>
         <span class="s2">&quot;participant_id&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Unique participant identifier&quot;</span><span class="p">},</span>
-        <span class="s2">&quot;bids_path&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Path to the BIDS file&quot;</span><span class="p">},</span>
-        <span class="s2">&quot;file_hash&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Hash of the original file&quot;</span><span class="p">},</span>
-        <span class="s2">&quot;file_name&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Name of the original file&quot;</span><span class="p">},</span>
-        <span class="s2">&quot;eegid&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Original participant identifier&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;file_name&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Original source filename&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;bids_path&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Relative path to the primary BIDS data file&quot;</span><span class="p">},</span>
         <span class="s2">&quot;age&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Age of the participant&quot;</span><span class="p">,</span> <span class="s2">&quot;Units&quot;</span><span class="p">:</span> <span class="s2">&quot;years&quot;</span><span class="p">},</span>
         <span class="s2">&quot;sex&quot;</span><span class="p">:</span> <span class="p">{</span>
             <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Biological sex of the participant&quot;</span><span class="p">,</span>
-            <span class="s2">&quot;Levels&quot;</span><span class="p">:</span> <span class="p">{</span>
-                <span class="s2">&quot;M&quot;</span><span class="p">:</span> <span class="s2">&quot;Male&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="s2">&quot;Female&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;O&quot;</span><span class="p">:</span> <span class="s2">&quot;Other&quot;</span><span class="p">,</span>
-                <span class="s2">&quot;n/a&quot;</span><span class="p">:</span> <span class="s2">&quot;Not available&quot;</span><span class="p">,</span>
-            <span class="p">},</span>
+            <span class="s2">&quot;Levels&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;M&quot;</span><span class="p">:</span> <span class="s2">&quot;Male&quot;</span><span class="p">,</span> <span class="s2">&quot;F&quot;</span><span class="p">:</span> <span class="s2">&quot;Female&quot;</span><span class="p">,</span> <span class="s2">&quot;O&quot;</span><span class="p">:</span> <span class="s2">&quot;Other&quot;</span><span class="p">,</span> <span class="s2">&quot;n/a&quot;</span><span class="p">:</span> <span class="s2">&quot;Not available&quot;</span><span class="p">},</span>
         <span class="p">},</span>
-        <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Participant group&quot;</span><span class="p">,</span> <span class="s2">&quot;Levels&quot;</span><span class="p">:</span> <span class="p">{}},</span>
+        <span class="s2">&quot;group&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Participant group membership&quot;</span><span class="p">,</span> <span class="s2">&quot;Levels&quot;</span><span class="p">:</span> <span class="p">{}},</span>
+        <span class="s2">&quot;hand&quot;</span><span class="p">:</span> <span class="p">{</span>
+            <span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Dominant hand of the participant&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;Levels&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;L&quot;</span><span class="p">:</span> <span class="s2">&quot;Left&quot;</span><span class="p">,</span> <span class="s2">&quot;R&quot;</span><span class="p">:</span> <span class="s2">&quot;Right&quot;</span><span class="p">,</span> <span class="s2">&quot;A&quot;</span><span class="p">:</span> <span class="s2">&quot;Ambidextrous&quot;</span><span class="p">,</span> <span class="s2">&quot;n/a&quot;</span><span class="p">:</span> <span class="s2">&quot;Not available&quot;</span><span class="p">},</span>
+        <span class="p">},</span>
+        <span class="s2">&quot;weight&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Weight of the participant&quot;</span><span class="p">,</span> <span class="s2">&quot;Units&quot;</span><span class="p">:</span> <span class="s2">&quot;kg&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;height&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Height of the participant&quot;</span><span class="p">,</span> <span class="s2">&quot;Units&quot;</span><span class="p">:</span> <span class="s2">&quot;m&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;eegid&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;Original participant identifier/source file stem&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;file_hash&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;Description&quot;</span><span class="p">:</span> <span class="s2">&quot;SHA256 hash of the original source file&quot;</span><span class="p">},</span>
     <span class="p">}</span>
-    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;participants.json&quot;</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
-        <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">participants_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
-    <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="s2">&quot;Created participants.json&quot;</span><span class="p">)</span></div>
+    <span class="n">filepath</span> <span class="o">=</span> <span class="n">output_path</span> <span class="o">/</span> <span class="s2">&quot;participants.json&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filepath</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">json</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">participants_json</span><span class="p">,</span> <span class="n">f</span><span class="p">,</span> <span class="n">indent</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;success&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Created </span><span class="si">{</span><span class="n">filepath</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">message</span><span class="p">(</span><span class="s2">&quot;error&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Failed to create </span><span class="si">{</span><span class="n">filepath</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">e</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
 
 </pre></div>
 

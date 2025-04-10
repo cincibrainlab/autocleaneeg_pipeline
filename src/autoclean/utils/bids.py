@@ -32,18 +32,33 @@ def step_convert_to_bids(
     Handles concurrent access to participants.tsv using a threading.Lock passed
     via autoclean_dict. Ensures specific column order and dtype=object for the TSV.
 
-    Parameters:
-    - raw: mne.io.Raw object.
-    - output_dir: Directory where the BIDS dataset will be created.
-    - task: Task name for BIDS.
-    - participant_id: Participant ID (if None, generated from filename).
-    - line_freq: Power line frequency.
-    - overwrite: Whether to overwrite existing BIDS files.
-    - events: MNE events array.
-    - event_id: MNE event_id dictionary.
-    - study_name: Name of the study for dataset_description.json.
-    - autoclean_dict: Dictionary containing run configuration, MUST include 
-                      'participants_tsv_lock' (a threading.Lock) for concurrent safety.
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        The raw data to convert to BIDS.
+    output_dir : str
+        The directory where the BIDS dataset will be created.
+    task : str
+        The task name for BIDS.
+    participant_id : str
+        The participant ID (if None, generated from filename).
+    line_freq : float
+        The power line frequency.
+    overwrite : bool
+        Whether to overwrite existing BIDS files.
+    events : mne.events_data
+        The events array.
+    event_id : dict
+        The event_id dictionary.
+    study_name : str
+        The name of the study for dataset_description.json.
+    autoclean_dict : dict
+        The run configuration, MUST include 'participants_tsv_lock' (a threading.Lock) for concurrent safety.
+
+    Returns
+    -------
+    bids_path : BIDSPath
+        The BIDS path of the converted file.
     """
     import hashlib
 
@@ -278,6 +293,12 @@ def step_convert_to_bids(
 def step_sanitize_id(filename):
     """
     Generates a reproducible numeric participant ID from a filename using MD5 hashing.
+
+    Parameters
+    ----------
+    filename : str
+        The filename to generate a participant ID from.
+
     """
     import hashlib
 
@@ -299,6 +320,13 @@ def step_sanitize_id(filename):
 def step_create_dataset_desc(output_path, study_name):
     """
     Creates BIDS dataset_description.json file.
+
+    Parameters
+    ----------
+    output_path : str
+        The path to the output directory.
+    study_name : str
+        The name of the study.
     """
     dataset_description = {
         "Name": study_name,
@@ -317,6 +345,11 @@ def step_create_dataset_desc(output_path, study_name):
 def step_create_participants_json(output_path):
     """
     Creates BIDS participants.json sidecar file describing participants.tsv columns.
+
+    Parameters
+    ----------
+    output_path : str
+        The path to the output directory.
     """
     # Describes columns in participants.tsv, including standard and custom ones.
     participants_json = {

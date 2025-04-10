@@ -386,40 +386,30 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">set_database_path</span><span class="p">(</span><span class="n">path</span><span class="p">:</span> <span class="n">Path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Set the global database path.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        path: Path to the database directory</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    path : Path</span>
+<span class="sd">        The path to the autoclean directory.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_DB_PATH</span>
     <span class="n">_DB_PATH</span> <span class="o">=</span> <span class="n">path</span></div>
 
 
 
-<div class="viewcode-block" id="DatabaseError">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.DatabaseError.html#autoclean.utils.database.DatabaseError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">DatabaseError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom exception for database operations.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="DatabaseError.__init__">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.DatabaseError.html#autoclean.utils.database.DatabaseError.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span></div>
-</div>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 
 
-
-<div class="viewcode-block" id="RecordNotFoundError">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.RecordNotFoundError.html#autoclean.utils.database.RecordNotFoundError">[docs]</a>
 <span class="k">class</span><span class="w"> </span><span class="nc">RecordNotFoundError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom exception for when a database record is not found.&quot;&quot;&quot;</span>
 
-<div class="viewcode-block" id="RecordNotFoundError.__init__">
-<a class="viewcode-back" href="../../../api_reference/generated/autoclean.utils.database.RecordNotFoundError.html#autoclean.utils.database.RecordNotFoundError.__init__">[docs]</a>
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">message</span> <span class="o">=</span> <span class="n">message</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span></div>
-</div>
-
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">message</span><span class="p">)</span>
 
 
 <div class="viewcode-block" id="get_run_record">
@@ -427,12 +417,15 @@
 <span class="k">def</span><span class="w"> </span><span class="nf">get_run_record</span><span class="p">(</span><span class="n">run_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Get a run record from the database by run ID.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        run_id: String ID of the run to retrieve</span>
-<span class="sd">        autoclean_dir: Path to the autoclean output directory</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    run_id : str</span>
+<span class="sd">        The string ID of the run to retrieve.</span>
 
-<span class="sd">    Returns:</span>
-<span class="sd">        dict: The run record if found, None if not found</span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    run_record : dict</span>
+<span class="sd">        The run record if found, None if not found</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">run_record</span> <span class="o">=</span> <span class="n">manage_database</span><span class="p">(</span><span class="n">operation</span><span class="o">=</span><span class="s2">&quot;get_record&quot;</span><span class="p">,</span> <span class="n">run_record</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;run_id&quot;</span><span class="p">:</span> <span class="n">run_id</span><span class="p">})</span>
     <span class="k">return</span> <span class="n">run_record</span></div>
@@ -440,7 +433,18 @@
 
 
 <span class="k">def</span><span class="w"> </span><span class="nf">_validate_metadata</span><span class="p">(</span><span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validates metadata structure and types.&quot;&quot;&quot;</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Validates metadata structure and types.</span>
+
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    metadata : dict</span>
+<span class="sd">        The metadata to validate.</span>
+
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    bool</span>
+<span class="sd">        True if the metadata is valid, False otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">metadata</span><span class="p">,</span> <span class="nb">dict</span><span class="p">):</span>
         <span class="k">return</span> <span class="kc">False</span>
     <span class="k">return</span> <span class="nb">all</span><span class="p">(</span><span class="nb">isinstance</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="nb">str</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">metadata</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
@@ -455,10 +459,24 @@
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Any</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Manage database operations with thread safety.</span>
 
-<span class="sd">    Args:</span>
-<span class="sd">        operation: Type of operation (&#39;create_collection&#39;, &#39;store&#39;, &#39;update&#39;, etc.)</span>
-<span class="sd">        run_record: Record to store (for &#39;store&#39; operation)</span>
-<span class="sd">        update_record: Record updates (for &#39;update&#39; operation)</span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    operation : str</span>
+<span class="sd">        Operations can be:</span>
+
+<span class="sd">        - **create_collection**: Create a new collection.</span>
+<span class="sd">        - **store**: Store a new record.</span>
+<span class="sd">        - **update**: Update an existing record.</span>
+<span class="sd">        - **update_status**: Update the status of an existing record.</span>
+<span class="sd">        - **drop_collection**: Drop the collection.</span>
+<span class="sd">        - **get_collection**: Get the collection.</span>
+<span class="sd">        - **get_record**: Get a record from the collection.</span>
+
+<span class="sd">    run_record : dict</span>
+<span class="sd">        The record to store.</span>
+<span class="sd">    update_record : dict</span>
+<span class="sd">        The record updates.</span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="k">global</span> <span class="n">_DB_PATH</span>
 
