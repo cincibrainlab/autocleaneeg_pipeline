@@ -106,29 +106,6 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
                     # Let the dedicated HBCD event processor handle this
                     # HBCD specific processing here
                     message("info", f"Using generic HBCD processor for {task}")
-                    
-                # Check if task-specific event handling is needed
-                if "tasks" in autoclean_dict and task in autoclean_dict["tasks"]:
-                    # Get epoch settings
-                    settings = autoclean_dict["tasks"][task]["settings"]
-                    epoch_settings = settings.get("epoch_settings", {})
-                    event_id = epoch_settings.get("event_id")
-                    
-                    # If event_id is not None, process the events
-                    if event_id is not None:
-                        try:
-                            # target_event_id = event_id
-                            # events, event_id_map = mne.events_from_annotations(raw)
-                            # rev_target_event_id = dict(map(reversed, target_event_id.items()))
-                            # raw.set_annotations(None)
-                            # raw.set_annotations(
-                            #     mne.annotations_from_events(
-                            #         events, raw.info["sfreq"], event_desc=rev_target_event_id
-                            #     )
-                            # )
-                            message("success", "Successfully processed task-specific events")
-                        except Exception as e:
-                            message("warning", f"Failed to process task-specific events: {str(e)}")
             
             return raw
             
