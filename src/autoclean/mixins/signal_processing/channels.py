@@ -158,7 +158,7 @@ class ChannelsMixin:
                 result_raw.drop_channels(result_raw.info["bads"])
                 result_raw.info["bads"] = []
 
-            if hasattr(self.raw, 'bad_channels')::
+            if hasattr(self.raw, 'bad_channels'):
                 total_bads = self.raw.bad_channels
                 total_bads.extend(bads)
                 total_bads = list(set(total_bads))
