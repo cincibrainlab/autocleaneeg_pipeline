@@ -61,6 +61,7 @@ if __name__ == "__main__":
         results.append((file_path.name, task_name, success))
 
     # Print summary
+    configure_logger(verbose="INFO", output_dir=OUTPUT_DIR)
     print_header("Test Summary")
     total_tests = len(results)
     passed_tests = sum(1 for _, _, success in results if success)

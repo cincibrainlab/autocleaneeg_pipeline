@@ -243,17 +243,17 @@ class EventIDEpochsMixin:
 
                 epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
 
-                
-            if epochs_clean.metadata is not None:
-                kept_indices = epochs_clean.selection
-                max_index = epochs.metadata.shape[0] - 1
-                if kept_indices.max() > max_index:
-                    print("Metadata shape:", epochs.metadata.shape)
-                    print("Regular indices:", kept_indices)
-                    kept_indices = kept_indices - 1
-                    print("Adjusted indices:", kept_indices)
+                message('debug', 'reordering metadata after dropping')
+                if epochs_clean.metadata is not None:
+                    kept_indices = epochs_clean.selection
+                    max_index = epochs.metadata.shape[0] - 1
+                    if kept_indices.max() > max_index:
+                        print("Metadata shape:", epochs.metadata.shape)
+                        print("Regular indices:", kept_indices)
+                        kept_indices = kept_indices - 1
+                        print("Adjusted indices:", kept_indices)
 
-                epochs_clean.metadata = epochs.metadata.iloc[kept_indices].reset_index(drop=True)
+                    epochs_clean.metadata = epochs.metadata.iloc[kept_indices].reset_index(drop=True)
                 
             
             # Analyze drop log to tally different annotation types
