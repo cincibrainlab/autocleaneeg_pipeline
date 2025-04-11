@@ -115,7 +115,16 @@ class RegularEpochsMixin:
             events = mne.make_fixed_length_events(
                 data, duration=tmax - tmin, overlap=0, start=abs(tmin)
             )
+
+            # Get all events from annotations
+            try:
+                events_all, event_id_all = mne.events_from_annotations(data)
+            except Exception as e:
+                message("warning", f"No annotations found in data, skipping event extraction from annotations")
+                events_all = None
+                event_id_all = None
             
+
             epochs = mne.Epochs(
                 data,
                 events,
@@ -127,8 +136,47 @@ class RegularEpochsMixin:
                 reject_by_annotation=reject_by_annotation,
             )
             
-            # Initialize metadata DataFrame
-            epochs.metadata = pd.DataFrame(index=range(len(epochs)))
+            if events_all is not None:
+                # Step 5: Filter other events to keep only those that fall *within the kept epochs*
+                sfreq = data.info['sfreq']
+                epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers
+
+                # Compute valid ranges for each epoch (in raw sample indices)
+                start_offsets = int(tmin * sfreq)
+                end_offsets = int(tmax * sfreq)
+                epoch_sample_ranges = [(s + start_offsets, s + end_offsets) for s in epoch_samples]
+
+                # Filter events_all for events that fall inside any of those ranges
+                events_in_epochs = []
+                for sample, prev, code in events_all:
+                    for i, (start, end) in enumerate(epoch_sample_ranges):
+                        if start <= sample <= end:
+                            events_in_epochs.append([sample, prev, code])
+                            break  # prevent double counting
+                        elif sample < start:
+                            break
+
+                events_in_epochs = np.array(events_in_epochs, dtype=int)
+                event_descriptions = {v: k for k, v in event_id_all.items()}
+
+                # Build metadata rows
+                metadata_rows = []
+                for i, (start, end) in enumerate(epoch_sample_ranges):
+                    epoch_events = []
+                    for sample, _, code in events_in_epochs:
+                        if start <= sample <= end:
+                            relative_time = (sample - epoch_samples[i]) / sfreq
+                            label = event_descriptions.get(code, f"code_{code}")
+                            epoch_events.append((label, relative_time))
+                    metadata_rows.append({'additional_events': epoch_events})
+
+                # Add the metadata column
+                if epochs.metadata is not None:
+                    epochs.metadata['additional_events'] = [row['additional_events'] for row in metadata_rows]
+                else:
+                    epochs.metadata = pd.DataFrame(metadata_rows)
+            else:
+                epochs.metadata = pd.DataFrame(index=range(len(epochs)))
 
             # Create a copy for dropping if using amplitude thresholds
             epochs_clean = epochs.copy()
@@ -176,11 +224,25 @@ class RegularEpochsMixin:
                         epochs.metadata.loc[idx, col_name] = True
                 
                 message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
+            
+                # Save epochs with bad epochs marked but not dropped
+                self._save_epochs_result(result_data = epochs_clean, stage_name = stage_name)
 
                 epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
-            
-            # Save epochs with bad epochs marked but not dropped
-            self._save_epochs_result(result_data = epochs_clean, stage_name = stage_name)
+
+                if events_all is not None:
+                    # Reorder metadata after dropping bad epochs
+                    message('debug', 'reordering metadata after dropping')
+                    if epochs_clean.metadata is not None:
+                        kept_indices = epochs_clean.selection
+                        max_index = epochs.metadata.shape[0] - 1
+                        if kept_indices.max() > max_index:
+                            print("Metadata shape:", epochs.metadata.shape)
+                            print("Regular indices:", kept_indices)
+                            kept_indices = kept_indices - 1
+                            print("Adjusted indices:", kept_indices)
+
+                        epochs_clean.metadata = epochs.metadata.iloc[kept_indices].reset_index(drop=True)
         
             # Analyze drop log to tally different annotation types
             drop_log = epochs_clean.drop_log

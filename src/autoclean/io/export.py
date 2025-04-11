@@ -268,49 +268,53 @@ def save_epochs_to_set(
             if len(epochs.metadata) != len(epochs.events):
                 message("warning", f"Mismatch in metadata vs events: {len(epochs.metadata)} vs {len(epochs.events)} — truncating to align.")
 
-            # Rebuild events_in_epochs from metadata
-            sfreq = epochs.info['sfreq']
-            offset = int(round(-epochs.tmin * sfreq))  # Number of samples from epoch start to time 0
-            # Ensure metadata and events are aligned
-            n_epochs = min(len(epochs.metadata), len(epochs.events))
-            n_samples = len(epochs.times)             # total samples per epoch
-            base_events = epochs.events[:n_epochs, 0]
-            metadata_iter = epochs.metadata.iloc[:n_epochs].iterrows()
+            if 'additional_events' in epochs.metadata.columns and not epochs.metadata['additional_events'].empty:
+                # Rebuild events_in_epochs from metadata
+                sfreq = epochs.info['sfreq']
+                offset = int(round(-epochs.tmin * sfreq))  # Number of samples from epoch start to time 0
+                # Ensure metadata and events are aligned
+                n_epochs = min(len(epochs.metadata), len(epochs.events))
+                n_samples = len(epochs.times)             # total samples per epoch
+                base_events = epochs.events[:n_epochs, 0]
+                metadata_iter = epochs.metadata.iloc[:n_epochs].iterrows()
 
 
-            # Step 1: Gather all unique event labels
-            all_labels = set()
+                # Step 1: Gather all unique event labels
+                all_labels = set()
 
-            for row in epochs.metadata['additional_events']:
-                for label, _ in row:
-                    all_labels.add(label)
+                for row in epochs.metadata['additional_events']:
+                    for label, _ in row:
+                        all_labels.add(label)
 
-            # Step 2: Build event_id dictionary (label → code)
-            event_id_rebuilt = {label: idx + 1 for idx, label in enumerate(sorted(all_labels))}
+                # Step 2: Build event_id dictionary (label → code)
+                event_id_rebuilt = {label: idx + 1 for idx, label in enumerate(sorted(all_labels))}
 
-            # Step 3: Build events_in_epochs array from metadata
-            events_in_epochs = []
-            # Keep track of samples we've already used
-            used_samples = set()
-            
-            for i, row in enumerate(epochs.metadata.itertuples(index=False, name="Row")):
-                for label, rel_time in row.additional_events:
-                    # Compute event sample relative to epoch start (adjusted so trigger is at 0s)
-                    event_sample_within_epoch = int(round(rel_time * sfreq)) + offset
-                    # Add global offset: epoch index * number of samples per epoch
-                    global_sample = i * n_samples + event_sample_within_epoch
-                    
-                    # Check if this sample is already used, if so offset by 1
-                    while global_sample in used_samples:
-                        global_sample += 1
-                    
-                    # Mark this sample as used
-                    used_samples.add(global_sample)
-                    
-                    code = event_id_rebuilt[label]
-                    events_in_epochs.append([global_sample, 0, code])
+                # Step 3: Build events_in_epochs array from metadata
+                events_in_epochs = []
+                # Keep track of samples we've already used
+                used_samples = set()
+                
+                for i, row in enumerate(epochs.metadata.itertuples(index=False, name="Row")):
+                    for label, rel_time in row.additional_events:
+                        # Compute event sample relative to epoch start (adjusted so trigger is at 0s)
+                        event_sample_within_epoch = int(round(rel_time * sfreq)) + offset
+                        # Add global offset: epoch index * number of samples per epoch
+                        global_sample = i * n_samples + event_sample_within_epoch
+                        
+                        # Check if this sample is already used, if so offset by 1
+                        while global_sample in used_samples:
+                            global_sample += 1
+                        
+                        # Mark this sample as used
+                        used_samples.add(global_sample)
+                        
+                        code = event_id_rebuilt[label]
+                        events_in_epochs.append([global_sample, 0, code])
 
-            events_in_epochs = np.array(events_in_epochs, dtype=int)
+                events_in_epochs = np.array(events_in_epochs, dtype=int)
+            else:
+                message("warning", "No additional event metadata found for epochs")
+                events_in_epochs = None
         except Exception as e:
             message("error", f"Failed to rebuild events_in_epochs: {str(e)}")
             events_in_epochs = None

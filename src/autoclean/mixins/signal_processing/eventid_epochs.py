@@ -150,9 +150,6 @@ class EventIDEpochsMixin:
             # Step 5: Filter other events to keep only those that fall *within the kept epochs*
             sfreq = data.info['sfreq']
             epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers
-            n_epochs = len(epochs.events)
-            n_samples = len(epochs.times)             # total samples per epoch
-            offset = int(round(-epochs.tmin * sfreq))  # Number of samples from epoch start to time 0
 
             # Compute valid ranges for each epoch (in raw sample indices)
             start_offsets = int(tmin * sfreq)
@@ -181,8 +178,6 @@ class EventIDEpochsMixin:
                         relative_time = (sample - epoch_samples[i]) / sfreq
                         label = event_descriptions.get(code, f"code_{code}")
                         epoch_events.append((label, relative_time))
-                    # if sample < start:
-                    #     break
                 metadata_rows.append({'additional_events': epoch_events})
 
             # Add the metadata column
@@ -239,7 +234,7 @@ class EventIDEpochsMixin:
                 message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
             
                 # Save epochs with bad epochs marked but not dropped
-                self._save_epochs_result(result_data = epochs_clean, stage_name = "post_epochs")
+                self._save_epochs_result(result_data = epochs_clean, stage_name = stage_name)
 
                 epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
 
