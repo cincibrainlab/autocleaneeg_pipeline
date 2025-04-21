@@ -149,18 +149,15 @@ class MouseXdatAssr(Task):
         The results are automatically saved at each stage according to
         the stage_files configuration.
 
-        Raises:
-            FileNotFoundError: If input file doesn't exist
-            RuntimeError: If any processing step fails
-
         Note:
             Progress and errors are automatically logged and tracked in
             the database. You can monitor progress through the logging
             messages and final report.
         """
-        file_path = Path(self.config["unprocessed_file"])
-        self.import_data(file_path)
+        self.import_data()
 
+        if self.raw is None:
+            raise RuntimeError("No data has been imported")
 
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
@@ -196,9 +193,6 @@ class MouseXdatAssr(Task):
         2. Basic data validation
         3. Any task-specific import preprocessing
         4. Saving the imported data if configured
-
-        Args:
-            file_path: Path to the EEG data file
 
         Raises:
             FileNotFoundError: If file doesn't exist
