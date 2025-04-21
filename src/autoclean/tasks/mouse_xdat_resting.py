@@ -72,7 +72,7 @@ class MouseXdatResting(Task):
             messages and final report.
         """
 
-        self.import_raw()
+        self.import_data()
 
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
@@ -103,6 +103,30 @@ class MouseXdatResting(Task):
         """
 
         self.verify_topography_plot(self.config)
+
+    def import_data(self) -> None:
+        """Import raw EEG data for this task.
+
+        This method should handle:
+        1. Loading the raw EEG data file
+        2. Basic data validation
+        3. Any task-specific import preprocessing
+        4. Saving the imported data if configured
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If file format is invalid
+            RuntimeError: If import fails
+
+        Note:
+            The imported data should be stored in self.raw as an MNE Raw object.
+            Use save_raw_to_set() to save intermediate results if needed.
+        """
+        # Import raw data using standard function
+        self.raw = import_eeg(self.config)
+
+        # Save imported data if configured
+        save_raw_to_set(self.raw, self.config, "post_import")
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Add your validation logic here

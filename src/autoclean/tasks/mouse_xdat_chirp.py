@@ -45,6 +45,7 @@ class MouseXdatChirp(Task):
         # Call parent initialization
         super().__init__(config)
 
+
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Add your validation logic here
         # This is just an example - customize for your needs
@@ -80,6 +81,7 @@ class MouseXdatChirp(Task):
 
         return config
 
+
     def run(self) -> None:
         """Run the complete processing pipeline for this task.
 
@@ -91,73 +93,16 @@ class MouseXdatChirp(Task):
         The results are automatically saved at each stage according to
         the stage_files configuration.
 
-        Raises:
-            FileNotFoundError: If input file doesn't exist
-            RuntimeError: If any processing step fails
-
         Note:
             Progress and errors are automatically logged and tracked in
             the database. You can monitor progress through the logging
             messages and final report.
         """
-        file_path = Path(self.config["unprocessed_file"])
-        self.import_data(file_path)
-        self.process()
-
-    def import_data(self) -> None:
-        """Import raw EEG data for this task.
-
-        This method should handle:
-        1. Loading the raw EEG data file
-        2. Basic data validation
-        3. Any task-specific import preprocessing
-        4. Saving the imported data if configured
-
-        Args:
-            file_path: Path to the EEG data file
-
-        Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If file format is invalid
-            RuntimeError: If import fails
-
-        Note:
-            The imported data should be stored in self.raw as an MNE Raw object.
-            Use save_raw_to_set() to save intermediate results if needed.
-        """
-        # Import raw data using standard function
-        self.raw = import_eeg(self.config)
-
-        # Save imported data if configured
-        save_raw_to_set(self.raw, self.config, "post_import")
-
-    def process(self) -> None:
-        """Run standard preprocessing pipeline.
-
-        This method implements the common preprocessing steps:
-        1. Basic preprocessing (resampling, filtering)
-        2. Bad channel detection
-        3. BIDS conversion
-        4. PyLossless pipeline
-        5. Rejection policy application
-        6. Report generation
-
-        Each step's results are saved according to the stage_files
-        configuration, allowing for quality control and debugging.
-
-        Raises:
-            RuntimeError: If no data has been imported
-            ValueError: If preprocessing parameters are invalid
-            RuntimeError: If any preprocessing step fails
-
-        Note:
-            The preprocessing parameters are read from the task's
-            configuration. Modify the config file to adjust parameters.
-        """
-        if self.raw is None:
-            raise RuntimeError("No data has been imported")
 
         self.import_data()
+
+        if self.raw is None:
+            raise RuntimeError("No data has been imported")
 
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(self.raw, self.config, "post_prepipeline")
@@ -184,8 +129,31 @@ class MouseXdatChirp(Task):
         # file_basename = Path(self.config["unprocessed_file"]).stem
         # run_complete_analysis(epochs = self.epochs, output_dir = self.config['analysis_dir'], file_basename=file_basename)
 
-    def preprocess():
-        pass
+
+    def import_data(self) -> None:
+        """Import raw EEG data for this task.
+
+        This method should handle:
+        1. Loading the raw EEG data file
+        2. Basic data validation
+        3. Any task-specific import preprocessing
+        4. Saving the imported data if configured
+
+        Raises:
+            FileNotFoundError: If file doesn't exist
+            ValueError: If file format is invalid
+            RuntimeError: If import fails
+
+        Note:
+            The imported data should be stored in self.raw as an MNE Raw object.
+            Use save_raw_to_set() to save intermediate results if needed.
+        """
+        # Import raw data using standard function
+        self.raw = import_eeg(self.config)
+
+        # Save imported data if configured
+        save_raw_to_set(self.raw, self.config, "post_import")
+
 
     def _generate_reports(self) -> None:
         """Generate quality control visualizations.
