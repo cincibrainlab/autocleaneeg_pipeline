@@ -211,7 +211,7 @@ class ICAReportingMixin(BaseVizMixin):
         self,
         pipeline: Any,
         autoclean_dict: Dict[str, Any],
-        duration: int = 60,
+        duration: int = 10,
     ) -> None:
         """Generate comprehensive ICA reports using the _plot_ica_components method.
         
@@ -264,7 +264,7 @@ class ICAReportingMixin(BaseVizMixin):
         self,
         pipeline: Any,
         autoclean_dict: Dict[str, Any],
-        duration: int = 60,
+        duration: int = 10,
         components: str = "all",
     ):
         """
