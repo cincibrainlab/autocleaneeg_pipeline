@@ -101,7 +101,7 @@ class RestingEyesOpen(Task):
         self.gfp_clean_epochs()
 
         # Generate visualization reports
-        # self._generate_reports()
+        self._generate_reports()
 
 
     def _generate_reports(self) -> None:
@@ -134,7 +134,7 @@ class RestingEyesOpen(Task):
         self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
+        self.step_psd_topo_figure(
             self.original_raw, self.raw, self.pipeline, self.config
         )
 
