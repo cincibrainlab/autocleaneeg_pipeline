@@ -185,7 +185,7 @@ class MouseXdatAssr(Task):
         # run_complete_analysis(epochs = self.epochs, output_dir = self.config['analysis_dir'], file_basename=file_basename)
 
 
-    def import_data(self, file_path: Path) -> None:
+    def import_data(self) -> None:
         """Import raw EEG data for this task.
 
         This method should handle:
