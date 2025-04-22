@@ -160,21 +160,24 @@ class RegularEpochsMixin:
                 event_descriptions = {v: k for k, v in event_id_all.items()}
 
                 # Build metadata rows
-                metadata_rows = []
-                for i, (start, end) in enumerate(epoch_sample_ranges):
-                    epoch_events = []
-                    for sample, _, code in events_in_epochs:
-                        if start <= sample <= end:
-                            relative_time = (sample - epoch_samples[i]) / sfreq
-                            label = event_descriptions.get(code, f"code_{code}")
-                            epoch_events.append((label, relative_time))
-                    metadata_rows.append({'additional_events': epoch_events})
+                if (events_in_epochs.size != 0):
+                    metadata_rows = []
+                    for i, (start, end) in enumerate(epoch_sample_ranges):
+                        epoch_events = []
+                        for sample, _, code in events_in_epochs:
+                            if start <= sample <= end:
+                                relative_time = (sample - epoch_samples[i]) / sfreq
+                                label = event_descriptions.get(code, f"code_{code}")
+                                epoch_events.append((label, relative_time))
+                        metadata_rows.append({'additional_events': epoch_events})
 
-                # Add the metadata column
-                if epochs.metadata is not None:
-                    epochs.metadata['additional_events'] = [row['additional_events'] for row in metadata_rows]
+                    # Add the metadata column
+                    if epochs.metadata is not None:
+                        epochs.metadata['additional_events'] = [row['additional_events'] for row in metadata_rows]
+                    else:
+                        epochs.metadata = pd.DataFrame(metadata_rows)
                 else:
-                    epochs.metadata = pd.DataFrame(metadata_rows)
+                    epochs.metadata = pd.DataFrame(index=range(len(epochs)))
             else:
                 epochs.metadata = pd.DataFrame(index=range(len(epochs)))
 
