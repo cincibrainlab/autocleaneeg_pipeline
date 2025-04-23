@@ -159,27 +159,45 @@ class RegularEpochsMixin:
                 events_in_epochs = np.array(events_in_epochs, dtype=int)
                 event_descriptions = {v: k for k, v in event_id_all.items()}
 
+                # Define the label for fixed-length epoch start events
+                fixed_event_label = 'fixed_marker'
+
                 # Build metadata rows
-                if (events_in_epochs.size != 0):
-                    metadata_rows = []
-                    for i, (start, end) in enumerate(epoch_sample_ranges):
-                        epoch_events = []
+                metadata_rows = []
+                for i, (start, end) in enumerate(epoch_sample_ranges):
+                    # Always start with the epoch start event
+                    epoch_events = [(fixed_event_label, 0.0)] 
+                    
+                    # Add other events from annotations if they exist and fall within the epoch
+                    if events_in_epochs.size > 0:
                         for sample, _, code in events_in_epochs:
                             if start <= sample <= end:
                                 relative_time = (sample - epoch_samples[i]) / sfreq
-                                label = event_descriptions.get(code, f"code_{code}")
+                                # Use the description from event_id_all if available
+                                label = event_descriptions.get(code, f"code_{code}") 
                                 epoch_events.append((label, relative_time))
-                        metadata_rows.append({'additional_events': epoch_events})
+                                
+                    metadata_rows.append({'additional_events': epoch_events})
 
-                    # Add the metadata column
-                    if epochs.metadata is not None:
-                        epochs.metadata['additional_events'] = [row['additional_events'] for row in metadata_rows]
-                    else:
-                        epochs.metadata = pd.DataFrame(metadata_rows)
+                # Add the metadata column
+                if epochs.metadata is not None:
+                    # Ensure column exists and handle potential type issues if merging
+                    if 'additional_events' not in epochs.metadata.columns:
+                         epochs.metadata['additional_events'] = pd.Series(dtype=object)
+                    # Assign the constructed lists
+                    # This assumes the DataFrame index aligns with metadata_rows implicitly
+                    # A more robust way might be needed if indices don't match len(metadata_rows)
+                    epochs.metadata['additional_events'] = [row['additional_events'] for row in metadata_rows]
                 else:
-                    epochs.metadata = pd.DataFrame(index=range(len(epochs)))
+                    # Create metadata from scratch
+                    epochs.metadata = pd.DataFrame(metadata_rows, index=epochs.events[:,0]) # Use event sample as index
             else:
-                epochs.metadata = pd.DataFrame(index=range(len(epochs)))
+                # No annotations found, create metadata with only epoch_start events
+                fixed_event_label = 'fixed_marker'
+                metadata_rows = []
+                for i in range(len(epochs)):
+                     metadata_rows.append({'additional_events': [(fixed_event_label, 0.0)]})
+                epochs.metadata = pd.DataFrame(metadata_rows, index=epochs.events[:,0]) # Use event sample as index
 
             # Create a copy for dropping if using amplitude thresholds
             epochs_clean = epochs.copy()
