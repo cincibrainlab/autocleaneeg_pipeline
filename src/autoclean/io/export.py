@@ -326,7 +326,8 @@ def save_epochs_to_set(
     for path in paths:
         try:
             #Export with preserved events
-            if events_in_epochs is not None:
+            # Check if events_in_epochs exists AND is not empty
+            if events_in_epochs is not None and len(events_in_epochs) > 0:
                 from eeglabio.epochs import export_set
 
                 export_set(
@@ -341,6 +342,7 @@ def save_epochs_to_set(
                     precision='single',
                 )
             else:
+                # Fallback to MNE's export for eventless data or failed reconstruction
                 epochs.export(path, fmt="eeglab", overwrite=True)
             # Add run_id to each file
             EEG = sio.loadmat(path)
