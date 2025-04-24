@@ -26,7 +26,7 @@ Basic Usage
 Single File
 ^^^^^^^^^^^
 
-In order to run a task on a dataset you will use the ``Pipeline`` class.
+In order to run a task on a dataset you will use the :class:`~autoclean.core.pipeline.Pipeline` class.
 
 
 .. code-block:: python
@@ -115,7 +115,7 @@ Provided and Example configuration files can be found in the `configs` directory
 Tasks
 ---------------
 
-AutoClean comes with several pre-configured tasks:
+AutoClean comes with several pre-configured :class:`~autoclean.core.task.Task` classes:
 
 - **RestingEyesOpen**: Processing for resting state EEG with eyes open
 - **ChirpDefault**: Processing for chirp auditory stimulus paradigms
