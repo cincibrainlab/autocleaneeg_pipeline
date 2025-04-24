@@ -20,17 +20,23 @@ The Task class is an abstract base class that defines the interface for all EEG 
    .. rubric:: Core Methods
    
    .. automethod:: run
+      :no-index:
    .. automethod:: import_raw
+      :no-index:
    .. automethod:: validate_config
+      :no-index:
    
    .. rubric:: Getter Methods
    
    .. automethod:: get_raw
+      :no-index:
    .. automethod:: get_epochs
+      :no-index:
    .. automethod:: get_flagged_status
+      :no-index:
 
 Creating Custom Tasks
---------------------
+-----------------------
 
 To create a custom task, subclass the Task class and implement the required methods:
 

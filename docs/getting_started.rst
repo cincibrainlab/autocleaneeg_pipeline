@@ -126,7 +126,7 @@ AutoClean comes with several pre-configured :class:`~autoclean.core.task.Task` c
 
 However the real power of Autoclean comes from the ability to create custom dataflows backed by structure and modular framework we have developed.
 
-See :doc:`custom_tasks` for more information.
+See :doc:`tutorials/creating_custom_task` for more information.
 
 
 
@@ -173,7 +173,7 @@ Linux/WSL/Mac
    autoclean -DataPath "/path/to/data" -Task "RestingEyesOpen" -ConfigPath "/path/to/config.yaml"
 
 Next Steps
----------
+----------
 
-- See the :doc:`tutorial` for a step-by-step walkthrough
+- See the :doc:`tutorials/index` for a step-by-step walkthrough
 - Explore the :doc:`api_reference/index` for detailed API documentation

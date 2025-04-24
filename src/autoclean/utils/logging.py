@@ -75,7 +75,6 @@ class LogLevel(str, Enum):
         This enum is for internal use only and should not be directly accessed.
         Use the message() function instead.
 
-    .. private-members::
     """
 
     # Hide these values from documentation

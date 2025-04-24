@@ -33,14 +33,20 @@ analysis pipelines.
    .. rubric:: Core Methods
 
    .. automethod:: process_file
+      :no-index:
    .. automethod:: process_directory
+      :no-index:
    .. automethod:: process_directory_async
+      :no-index:
 
    .. rubric:: Utility Methods
 
    .. automethod:: list_tasks
+      :no-index:
    .. automethod:: list_stage_files
+      :no-index:
    .. automethod:: start_autoclean_review
+      :no-index:
 
 Usage Examples
 ----------------

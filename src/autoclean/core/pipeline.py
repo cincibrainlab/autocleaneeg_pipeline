@@ -509,18 +509,18 @@ class Pipeline:
         pattern: str = "*.set",
         recursive: bool = False,
     ) -> None:
-        """Process all matching EEG files in a directory.
+        """Processes all files matching a pattern within a directory sequentially.
 
         Parameters
         ----------
         directory : str or Path
-            Path to the directory containing EEG files.
+            Path to the directory containing the EEG files.
         task : str
-            Name of the processing task to run (e.g., 'RestingEyesOpen').
+            The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files, by default "*.set".
+            Glob pattern to match files within the directory, default is `*.set`.
         recursive : bool, optional
-            Whether to search in subdirectories, by default False.
+            If True, searches subdirectories recursively, by default False.
             
         See Also
         --------
@@ -574,18 +574,18 @@ class Pipeline:
         sub_directories: bool = False,
         max_concurrent: int = 3,
     ) -> None:
-        """Process all matching EEG files in a directory asynchronously.
+        """Processes all files matching a pattern within a directory asynchronously.
 
         Parameters
         ----------
         directory : str or Path
-            Path to the directory containing EEG files.
+            Path to the directory containing the EEG files.
         task : str
-            Name of the processing task to run (e.g., 'RestingEyesOpen').
+            The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files, by default "*.raw".
+            Glob pattern to match files within the directory, default is `*.raw`.
         sub_directories : bool, optional
-            Whether to search in subdirectories, by default False.
+            If True, searches subdirectories recursively, by default False.
         max_concurrent : int, optional
             Maximum number of files to process concurrently, by default 3.
             

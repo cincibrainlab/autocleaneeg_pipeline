@@ -4,7 +4,7 @@ Development
 This guide provides information for developers who want to contribute to or extend AutoClean EEG.
 
 Setting Up Development Environment
----------------------------------
+----------------------------------
 
 Prerequisites:
 
@@ -32,7 +32,7 @@ Prerequisites:
       pip install -e ".[dev]"
 
 Project Structure
-----------------
+-----------------
 
 The project is organized as follows:
 
@@ -70,7 +70,7 @@ The project is organized as follows:
    - ``autoclean_review.py``: Review GUI
 
 Architecture
------------
+------------
 
 AutoClean follows a modular architecture with several key components:
 
