@@ -18,10 +18,12 @@ For development installation:
    cd autoclean_pipeline
    pip install -e .
 
-Quick Start
------------
+Development Installations are recommended in order to fully utilize the features of Autoclean. 
 
 Basic Usage
+-----------
+
+Single File
 ^^^^^^^^^^^
 
 In order to run a task on a dataset you will use the ``Pipeline`` class.
@@ -36,6 +38,7 @@ In order to run a task on a dataset you will use the ``Pipeline`` class.
        autoclean_dir="/path/to/output",
        autoclean_config="configs/autoclean_config.yaml"
    )
+
 
    # Process a single file
    pipeline.process_file(
@@ -76,7 +79,7 @@ AutoClean supports batch processing of files, with both synchronous and asynchro
 .. code-block:: python
 
     #src/autoclean/tasks/resting_eyes_open.py
-    class RestingEyesOpenTask(Task):
+    class RestingEyesOpen(Task):
 
 
 .. code-block:: yaml
@@ -85,6 +88,58 @@ AutoClean supports batch processing of files, with both synchronous and asynchro
    tasks:
      RestingEyesOpen:
 
+
+
+Configuration
+-------------
+
+AutoClean uses YAML files for configuration. The main configuration file specifies processing parameters for different tasks:
+
+.. code-block:: yaml
+
+   tasks:
+     RestingEyesOpen:
+       mne_task: "rest"
+       description: "Resting state with eyes open"
+       lossless_config: configs/pylossless/lossless_config.yaml
+       settings:
+         resample_step:
+           enabled: true
+           value: 250
+         # Additional settings...
+       rejection_policy:
+         # Artifact rejection settings...
+
+Provided and Example configuration files can be found in the `configs` directory.
+
+Tasks
+---------------
+
+AutoClean comes with several pre-configured tasks:
+
+- **RestingEyesOpen**: Processing for resting state EEG with eyes open
+- **ChirpDefault**: Processing for chirp auditory stimulus paradigms
+- **AssrDefault**: Processing for auditory steady state response paradigms
+- **HBCD_MMN**: Processing for mismatch negativity paradigms
+- **TEMPLATE**: Template for creating custom tasks
+
+
+However the real power of Autoclean comes from the ability to create custom dataflows backed by structure and modular framework we have developed.
+
+See :doc:`custom_tasks` for more information.
+
+
+
+Output Structure
+----------------
+
+AutoClean organizes processing outputs in a structured directory hierarchy:
+
+- **bids/**: Data and derivatives saved in BIDS format
+- **logs/**: Logs of the processing steps
+- **metadata/**: Full metadata in json format and a generic run report pdf
+- **post_comps/**: Post completion files
+- **stage/**: Where the stage files are saved
 
 Docker Usage
 ------------
@@ -116,74 +171,6 @@ Linux/WSL/Mac
 
    # Run the pipeline
    autoclean -DataPath "/path/to/data" -Task "RestingEyesOpen" -ConfigPath "/path/to/config.yaml"
-
-Configuration
--------------
-
-AutoClean uses YAML files for configuration. The main configuration file specifies processing parameters for different tasks:
-
-.. code-block:: yaml
-
-   tasks:
-     RestingEyesOpen:
-       mne_task: "rest"
-       description: "Resting state with eyes open"
-       lossless_config: configs/pylossless/lossless_config.yaml
-       settings:
-         resample_step:
-           enabled: true
-           value: 250
-         # Additional settings...
-       rejection_policy:
-         # Artifact rejection settings...
-
-Available Tasks
----------------
-
-AutoClean comes with several pre-configured tasks:
-
-- **RestingEyesOpen**: Processing for resting state EEG with eyes open
-- **ChirpDefault**: Processing for chirp auditory stimulus paradigms
-- **AssrDefault**: Processing for auditory steady state response paradigms
-- **HBCD_MMN**: Processing for mismatch negativity paradigms
-- **TEMPLATE**: Template for creating custom tasks
-
-Custom Tasks
-------------
-
-You can create custom tasks by extending the ``Task`` base class:
-
-.. code-block:: python
-
-   from autoclean.core.task import Task
-   
-   class MyCustomTask(Task):
-       def run(self):
-           # Import and process raw data
-           self.import_raw()
-           
-           # Continue with preprocessing steps
-           self.raw = step_pre_pipeline_processing(self.raw, self.config)
-
-           self.create_regular_epochs()
-           
-           # Additional custom processing steps...
-           
-       def _validate_task_config(self, config):
-           # Validation logic for task-specific configuration.
-           # Most useful when other users are going to be running your task file.
-           return config
-
-Output Structure
-----------------
-
-AutoClean organizes processing outputs in a structured directory hierarchy:
-
-- **bids/**: Data and derivatives saved in BIDS format
-- **logs/**: Logs of the processing steps
-- **metadata/**: Full metadata in json format and a generic run report pdf
-- **post_comps/**: Post completion files
-- **stage/**: Where the stage files are saved
 
 Next Steps
 ---------

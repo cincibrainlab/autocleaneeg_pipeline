@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>autoclean.io.export &#8212; AutoClean 1.2.0 documentation</title>
+    <title>autoclean.io.export &#8212; Autoclean 1.2.0 documentation</title>
   
   
   
@@ -698,7 +698,8 @@
     <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">:</span>
         <span class="k">try</span><span class="p">:</span>
             <span class="c1">#Export with preserved events</span>
-            <span class="k">if</span> <span class="n">events_in_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># Check if events_in_epochs exists AND is not empty</span>
+            <span class="k">if</span> <span class="n">events_in_epochs</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">events_in_epochs</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
                 <span class="kn">from</span><span class="w"> </span><span class="nn">eeglabio.epochs</span><span class="w"> </span><span class="kn">import</span> <span class="n">export_set</span>
 
                 <span class="n">export_set</span><span class="p">(</span>
@@ -713,6 +714,7 @@
                     <span class="n">precision</span><span class="o">=</span><span class="s1">&#39;single&#39;</span><span class="p">,</span>
                 <span class="p">)</span>
             <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Fallback to MNE&#39;s export for eventless data or failed reconstruction</span>
                 <span class="n">epochs</span><span class="o">.</span><span class="n">export</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">fmt</span><span class="o">=</span><span class="s2">&quot;eeglab&quot;</span><span class="p">,</span> <span class="n">overwrite</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
             <span class="c1"># Add run_id to each file</span>
             <span class="n">EEG</span> <span class="o">=</span> <span class="n">sio</span><span class="o">.</span><span class="n">loadmat</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
@@ -845,7 +847,7 @@
 
   <p class="copyright">
     
-      © Copyright 2025-2025, AutoClean Team.
+      © Copyright 2024-2025, Cincibrainlab Team.
       <br/>
     
   </p>

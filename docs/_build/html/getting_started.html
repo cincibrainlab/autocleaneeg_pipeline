@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Getting Started &#8212; AutoClean 1.2.0 documentation</title>
+    <title>Getting Started &#8212; Autoclean 1.2.0 documentation</title>
   
   
   
@@ -386,11 +386,12 @@
 pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span>.
 </pre></div>
 </div>
+<p>Development Installations are recommended in order to fully utilize the features of Autoclean.</p>
 </section>
-<section id="quick-start">
-<h2>Quick Start<a class="headerlink" href="#quick-start" title="Link to this heading">#</a></h2>
 <section id="basic-usage">
-<h3>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">#</a></h3>
+<h2>Basic Usage<a class="headerlink" href="#basic-usage" title="Link to this heading">#</a></h2>
+<section id="single-file">
+<h3>Single File<a class="headerlink" href="#single-file" title="Link to this heading">#</a></h3>
 <p>In order to run a task on a dataset you will use the <code class="docutils literal notranslate"><span class="pre">Pipeline</span></code> class.</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">autoclean</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
 
@@ -399,6 +400,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
     <span class="n">autoclean_dir</span><span class="o">=</span><span class="s2">&quot;/path/to/output&quot;</span><span class="p">,</span>
     <span class="n">autoclean_config</span><span class="o">=</span><span class="s2">&quot;configs/autoclean_config.yaml&quot;</span>
 <span class="p">)</span>
+
 
 <span class="c1"># Process a single file</span>
 <span class="n">pipeline</span><span class="o">.</span><span class="n">process_file</span><span class="p">(</span>
@@ -432,7 +434,7 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 <p><strong>Note:</strong> The inputted task name must match the name in the configuration file and the task class.</p>
 <p><em>For example:</em></p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="c1">#src/autoclean/tasks/resting_eyes_open.py</span>
-<span class="k">class</span><span class="w"> </span><span class="nc">RestingEyesOpenTask</span><span class="p">(</span><span class="n">Task</span><span class="p">):</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">RestingEyesOpen</span><span class="p">(</span><span class="n">Task</span><span class="p">):</span>
 </pre></div>
 </div>
 <div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="c1">#configs/autoclean_config.yaml</span>
@@ -441,6 +443,49 @@ pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </s
 </pre></div>
 </div>
 </section>
+</section>
+<section id="configuration">
+<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
+<p>AutoClean uses YAML files for configuration. The main configuration file specifies processing parameters for different tasks:</p>
+<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">tasks</span><span class="p">:</span>
+<span class="w">  </span><span class="nt">RestingEyesOpen</span><span class="p">:</span>
+<span class="w">    </span><span class="nt">mne_task</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rest&quot;</span>
+<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Resting</span><span class="nv"> </span><span class="s">state</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">eyes</span><span class="nv"> </span><span class="s">open&quot;</span>
+<span class="w">    </span><span class="nt">lossless_config</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">configs/pylossless/lossless_config.yaml</span>
+<span class="w">    </span><span class="nt">settings</span><span class="p">:</span>
+<span class="w">      </span><span class="nt">resample_step</span><span class="p">:</span>
+<span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">250</span>
+<span class="w">      </span><span class="c1"># Additional settings...</span>
+<span class="w">    </span><span class="nt">rejection_policy</span><span class="p">:</span>
+<span class="w">      </span><span class="c1"># Artifact rejection settings...</span>
+</pre></div>
+</div>
+<p>Provided and Example configuration files can be found in the <cite>configs</cite> directory.</p>
+</section>
+<section id="tasks">
+<h2>Tasks<a class="headerlink" href="#tasks" title="Link to this heading">#</a></h2>
+<p>AutoClean comes with several pre-configured tasks:</p>
+<ul class="simple">
+<li><p><strong>RestingEyesOpen</strong>: Processing for resting state EEG with eyes open</p></li>
+<li><p><strong>ChirpDefault</strong>: Processing for chirp auditory stimulus paradigms</p></li>
+<li><p><strong>AssrDefault</strong>: Processing for auditory steady state response paradigms</p></li>
+<li><p><strong>HBCD_MMN</strong>: Processing for mismatch negativity paradigms</p></li>
+<li><p><strong>TEMPLATE</strong>: Template for creating custom tasks</p></li>
+</ul>
+<p>However the real power of Autoclean comes from the ability to create custom dataflows backed by structure and modular framework we have developed.</p>
+<p>See <span class="xref std std-doc">custom_tasks</span> for more information.</p>
+</section>
+<section id="output-structure">
+<h2>Output Structure<a class="headerlink" href="#output-structure" title="Link to this heading">#</a></h2>
+<p>AutoClean organizes processing outputs in a structured directory hierarchy:</p>
+<ul class="simple">
+<li><p><strong>bids/</strong>: Data and derivatives saved in BIDS format</p></li>
+<li><p><strong>logs/</strong>: Logs of the processing steps</p></li>
+<li><p><strong>metadata/</strong>: Full metadata in json format and a generic run report pdf</p></li>
+<li><p><strong>post_comps/</strong>: Post completion files</p></li>
+<li><p><strong>stage/</strong>: Where the stage files are saved</p></li>
+</ul>
 </section>
 <section id="docker-usage">
 <h2>Docker Usage<a class="headerlink" href="#docker-usage" title="Link to this heading">#</a></h2>
@@ -469,70 +514,6 @@ autoclean<span class="w"> </span>-DataPath<span class="w"> </span><span class="s
 </pre></div>
 </div>
 </section>
-</section>
-<section id="configuration">
-<h2>Configuration<a class="headerlink" href="#configuration" title="Link to this heading">#</a></h2>
-<p>AutoClean uses YAML files for configuration. The main configuration file specifies processing parameters for different tasks:</p>
-<div class="highlight-yaml notranslate"><div class="highlight"><pre><span></span><span class="nt">tasks</span><span class="p">:</span>
-<span class="w">  </span><span class="nt">RestingEyesOpen</span><span class="p">:</span>
-<span class="w">    </span><span class="nt">mne_task</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;rest&quot;</span>
-<span class="w">    </span><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Resting</span><span class="nv"> </span><span class="s">state</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">eyes</span><span class="nv"> </span><span class="s">open&quot;</span>
-<span class="w">    </span><span class="nt">lossless_config</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">configs/pylossless/lossless_config.yaml</span>
-<span class="w">    </span><span class="nt">settings</span><span class="p">:</span>
-<span class="w">      </span><span class="nt">resample_step</span><span class="p">:</span>
-<span class="w">        </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<span class="w">        </span><span class="nt">value</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">250</span>
-<span class="w">      </span><span class="c1"># Additional settings...</span>
-<span class="w">    </span><span class="nt">rejection_policy</span><span class="p">:</span>
-<span class="w">      </span><span class="c1"># Artifact rejection settings...</span>
-</pre></div>
-</div>
-</section>
-<section id="available-tasks">
-<h2>Available Tasks<a class="headerlink" href="#available-tasks" title="Link to this heading">#</a></h2>
-<p>AutoClean comes with several pre-configured tasks:</p>
-<ul class="simple">
-<li><p><strong>RestingEyesOpen</strong>: Processing for resting state EEG with eyes open</p></li>
-<li><p><strong>ChirpDefault</strong>: Processing for chirp auditory stimulus paradigms</p></li>
-<li><p><strong>AssrDefault</strong>: Processing for auditory steady state response paradigms</p></li>
-<li><p><strong>HBCD_MMN</strong>: Processing for mismatch negativity paradigms</p></li>
-<li><p><strong>TEMPLATE</strong>: Template for creating custom tasks</p></li>
-</ul>
-</section>
-<section id="custom-tasks">
-<h2>Custom Tasks<a class="headerlink" href="#custom-tasks" title="Link to this heading">#</a></h2>
-<p>You can create custom tasks by extending the <code class="docutils literal notranslate"><span class="pre">Task</span></code> base class:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">autoclean.core.task</span><span class="w"> </span><span class="kn">import</span> <span class="n">Task</span>
-
-<span class="k">class</span><span class="w"> </span><span class="nc">MyCustomTask</span><span class="p">(</span><span class="n">Task</span><span class="p">):</span>
-    <span class="k">def</span><span class="w"> </span><span class="nf">run</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="c1"># Import and process raw data</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">import_raw</span><span class="p">()</span>
-
-        <span class="c1"># Continue with preprocessing steps</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="n">step_pre_pipeline_processing</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">raw</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">config</span><span class="p">)</span>
-
-        <span class="bp">self</span><span class="o">.</span><span class="n">create_regular_epochs</span><span class="p">()</span>
-
-        <span class="c1"># Additional custom processing steps...</span>
-
-    <span class="k">def</span><span class="w"> </span><span class="nf">_validate_task_config</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">config</span><span class="p">):</span>
-        <span class="c1"># Validation logic for task-specific configuration.</span>
-        <span class="c1"># Most useful when other users are going to be running your task file.</span>
-        <span class="k">return</span> <span class="n">config</span>
-</pre></div>
-</div>
-</section>
-<section id="output-structure">
-<h2>Output Structure<a class="headerlink" href="#output-structure" title="Link to this heading">#</a></h2>
-<p>AutoClean organizes processing outputs in a structured directory hierarchy:</p>
-<ul class="simple">
-<li><p><strong>bids/</strong>: Data and derivatives saved in BIDS format</p></li>
-<li><p><strong>logs/</strong>: Logs of the processing steps</p></li>
-<li><p><strong>metadata/</strong>: Full metadata in json format and a generic run report pdf</p></li>
-<li><p><strong>post_comps/</strong>: Post completion files</p></li>
-<li><p><strong>stage/</strong>: Where the stage files are saved</p></li>
-</ul>
 </section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">#</a></h2>
@@ -567,20 +548,19 @@ autoclean<span class="w"> </span>-DataPath<span class="w"> </span><span class="s
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#installation">Installation</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-start">Quick Start</a><ul class="nav section-nav flex-column">
-<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-usage">Basic Usage</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#basic-usage">Basic Usage</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#single-file">Single File</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#processing-multiple-files">Processing Multiple Files</a></li>
 </ul>
 </li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration">Configuration</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#tasks">Tasks</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-structure">Output Structure</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#docker-usage">Docker Usage</a><ul class="nav section-nav flex-column">
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#windows-powershell">Windows PowerShell</a></li>
 <li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#linux-wsl-mac">Linux/WSL/Mac</a></li>
 </ul>
 </li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#configuration">Configuration</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#available-tasks">Available Tasks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#custom-tasks">Custom Tasks</a></li>
-<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#output-structure">Output Structure</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#next-steps">Next Steps</a></li>
 </ul>
   </nav></div>
@@ -610,7 +590,7 @@ autoclean<span class="w"> </span>-DataPath<span class="w"> </span><span class="s
 
   <p class="copyright">
     
-      © Copyright 2025-2025, AutoClean Team.
+      © Copyright 2024-2025, Cincibrainlab Team.
       <br/>
     
   </p>
