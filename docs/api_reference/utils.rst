@@ -1,8 +1,8 @@
 .. api_utils:
 
-=============
+=========================
 Utils *(autoclean.utils)*
-=============
+=========================
 
 .. currentmodule:: autoclean.utils
 

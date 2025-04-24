@@ -91,13 +91,11 @@ class ICAReportingMixin(BaseVizMixin):
         ValueError
             If no ICA object is found in the pipeline.
             
-        Example
-        -------
-            ```python
-            # After performing ICA
-            fig = task.plot_ica_full(pipeline, autoclean_dict)
-            plt.show()
-            ```
+        Examples
+        --------
+        >>> # After performing ICA
+        >>> fig = task.plot_ica_full(pipeline, autoclean_dict)
+        >>> plt.show()
             
         Notes:
             - Components classified as artifacts are highlighted in red
@@ -217,7 +215,7 @@ class ICAReportingMixin(BaseVizMixin):
         
         
         Parameters
-        -----------
+        ----------
         pipeline : pylossless.Pipeline
             The pipeline object containing the ICA and raw data
         autoclean_dict : dict

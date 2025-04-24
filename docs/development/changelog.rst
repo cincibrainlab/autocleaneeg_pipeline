@@ -17,13 +17,13 @@ and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0
 `[1.2.0] <https://github.com/cincibrainlab/autoclean_pipeline/releases/tag/v1.2.0>`_
 
 [1.1.0] - 03/3/2025
--------------------
+---------------------
 
 Added
 ^^^^^
 * Modularized import system further using mixins
 * Mixins are imported in task base class
-* Pluggins added for custom import behavior
+* Plugins added for custom import behavior
 * Refresh files button to autoclean_review
 * Complete documentation site
 
@@ -34,7 +34,7 @@ Deprecated
 `[1.1.0] <https://github.com/cincibrainlab/autoclean_pipeline/releases/tag/v1.1.0>`_
 
 [1.0.0] - 02/28/2025
--------------------
+---------------------
 
 Added
 ^^^^^

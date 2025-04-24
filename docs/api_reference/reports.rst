@@ -1,8 +1,8 @@
 .. _api_reports:
 
-=============
+====================================
 Reports *(autoclean.step_functions)*
-=============
+====================================
 
 This section covers the report classes that provide functionality for generating reports in the Pipeline class.
 

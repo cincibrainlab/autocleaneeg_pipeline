@@ -13,3 +13,4 @@ This page provides an overview of the AutoClean API.
    reports
    utils
    tools
+   montage_constants

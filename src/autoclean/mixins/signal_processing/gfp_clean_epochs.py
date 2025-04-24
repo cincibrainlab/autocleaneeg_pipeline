@@ -58,7 +58,9 @@ class GFPCleanEpochsMixin:
             
         See Also
         --------
-        'MNE Epochs' : https://mne.tools/stable/generated/mne.Epochs.html
+        mne.Epochs
+        mne.Epochs.get_data
+        mne.Epochs.copy
             
         Example:
             ```python
