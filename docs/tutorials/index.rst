@@ -8,5 +8,5 @@ for using and customizing the pipeline.
    :maxdepth: 2
    :caption: Tutorials:
 
-   creating_custom_classes 
+   creating_custom_task
    creating_a_custom_mixin 

@@ -16,7 +16,7 @@ Mixins are Python classes designed to add specific functionalities (methods) to 
 
 By creating a Mixin for a new processing step, you make that step easily reusable across different Tasks.
 
-*(This tutorial assumes you understand how to create a custom Task. See :doc:`creating_custom_classes` if needed.)*
+*(This tutorial assumes you understand how to create a custom Task. See* :doc:`creating_custom_task` *if needed.)*
 
 Steps to Create a Custom Mixin
 ------------------------------

@@ -40,6 +40,17 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
                self.epochs: Optional[mne.Epochs] = None
                self.original_raw: Optional[mne.io.Raw] = None
 
+                # Stages that should be configured in the autoclean_config.yaml file
+                self.required_stages = [
+                    "post_import",
+                    "post_prepipeline",
+                    "post_pylossless",
+                    "post_rejection_policy",
+                    "post_clean_raw",
+                    "post_epochs",
+                    "post_comp",
+                ]
+
                super().__init__(config) # Calls _validate_task_config
 
 
@@ -137,39 +148,6 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
              # Task-specific config checked in _validate_task_config
              my_required_setting: "value"
 
-6.  **Optionally Adjust `_validate_task_config`:**
-Validate config sections relevant to your task. Based on the template, this often includes checking top-level keys (`eeg_system`, `tasks`, `stage_files`), ensuring your task exists in `tasks`, checking required global `stage_files`, and any task-specific `settings` your `run` method relies on.
-
-.. code-block:: python
-
-    # Inside MyParadigm class...
-
-        def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-            """Validate required configuration sections."""
-            task_name = self.__class__.__name__
-
-            # --- Example: Validate top-level keys (adapt from template) --- 
-            required_top_level = {"eeg_system": str, "tasks": dict, "stage_files": dict}
-            for field, field_type in required_top_level.items():
-                # ... (validation logic as in template) ...
-                pass # Placeholder for brevity
-
-            # --- Example: Validate Task Presence --- 
-            if task_name not in config["tasks"]:
-                raise ValueError(f"Config missing section for task: {task_name}")
-
-            # --- Example: Validate Task-Specific Settings --- 
-            task_settings = config["tasks"][task_name].get("settings", {})
-            if "my_required_setting" not in task_settings:
-                raise ValueError(f"Task '{task_name}' requires 'my_required_setting'.")
-
-            # --- Example: Validate Global Stage Files (adapt from template) --- 
-            required_stages = ["post_import", "post_prepipeline"]
-            for stage in required_stages:
-                # ... (validation logic as in template) ...
-                pass # Placeholder for brevity
-
-            return config
 
 7.  **Run the Task:**
     Use the class name when running the pipeline.
