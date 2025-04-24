@@ -67,6 +67,7 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         self.epochs: Optional[mne.Epochs] = None  # Holds epoched data segments
         self.flagged = False
         self.flagged_reasons = []
+        self.pipeline = None
 
     def import_raw(self) -> None:
         """Import the raw EEG data from file.
@@ -138,6 +139,7 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
             "stage_files": dict,  # Intermediate file config
         }
 
+
         # Two-stage validation: first check existence, then type
         for field, field_type in required_fields.items():
             # Stage 1: Check field existence
@@ -150,40 +152,28 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
                     f"Field '{field}' must be of type {field_type.__name__}, "
                     f"got {type(config[field]).__name__} instead"
                 )
+            
+        # Check if the task has defined required_stages
+        if not hasattr(self, 'required_stages'):
+            from ..utils.logging import message
+            message("warning", f"Task {self.__class__.__name__} does not define required_stages attribute. "
+                              "Defaulting to ['post_import', 'post_clean_raw', 'post_epochs', 'post_comp']")
+            message("warning", "Please define self.required_stages in the __init__ method of your task class.")
+            # Initialize with empty list to prevent errors in subsequent validation
+            self.required_stages = ['post_import', 'post_clean_raw', 'post_epochs', 'post_comp']
 
-        # After base validation succeeds, delegate to task-specific validation
-        # Using template method pattern for extensibility
-        return self._validate_task_config(config)
+        for stage in self.required_stages:
+            if stage not in config["stage_files"]:
+                raise ValueError(f"Missing stage in stage_files: {stage}")
+            stage_config = config["stage_files"][stage]
+            if not isinstance(stage_config, dict):
+                raise ValueError(f"Stage {stage} configuration must be a dictionary")
+            if "enabled" not in stage_config:
+                raise ValueError(f"Stage {stage} must have 'enabled' field")
+            if "suffix" not in stage_config:
+                raise ValueError(f"Stage {stage} must have 'suffix' field")
 
-    @abstractmethod
-    def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate task-specific configuration settings.
-
-        Parameters
-        ----------
-        config : Dict[str, Any]
-            Configuration dictionary that has passed common validation.
-            Contains all fields from validate_config plus task-specific settings.
-
-        Returns
-        -------
-        Dict[str, Any]
-            The validated configuration dictionary, potentially modified
-            to include derived or default values.
-
-        Notes
-        -----
-        This is an abstract method that must be implemented by all task classes.
-        The implementation should validate all task-specific settings and parameters.
-
-        Implementation Requirements:
-        
-        - Must validate all task-specific parameters
-        - Should add any derived/computed values to config
-        - Must maintain immutability of input config
-        - Must implement type checking for all fields
-        """
-        pass
+        return config
 
 
     def get_flagged_status(self) -> tuple[bool, list[str]]:

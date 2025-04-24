@@ -39,6 +39,17 @@ class RestingEyesOpen(Task):
         """
         self.pipeline: Optional[Any] = None
         self.original_raw: Optional[mne.io.Raw] = None
+
+        self.required_stages = [
+            "post_import",
+            "post_prepipeline",
+            "post_pylossless",
+            "post_rejection_policy",
+            "post_clean_raw",
+            "post_epochs",
+            "post_comp",
+        ]
+
         super().__init__(config) # Initialize the base class
 
     def run(self) -> None:
@@ -101,10 +112,10 @@ class RestingEyesOpen(Task):
         self.gfp_clean_epochs()
 
         # Generate visualization reports
-        self._generate_reports()
+        self.generate_reports()
 
 
-    def _generate_reports(self) -> None:
+    def generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
         
         Creates standard visualization reports including:
@@ -137,53 +148,3 @@ class RestingEyesOpen(Task):
         self.step_psd_topo_figure(
             self.original_raw, self.raw, self.pipeline, self.config
         )
-
-
-    def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate resting state specific configuration.
-
-        Args:
-            config: Configuration dictionary that has passed common validation
-
-        Returns:
-            Validated configuration dictionary
-
-        Raises:
-            ValueError: If required fields are missing or invalid
-        """
-        # Validate resting state specific fields
-        required_fields = {
-            "task": str,
-            "eeg_system": str,
-            "tasks": dict,
-        }
-
-        for field, field_type in required_fields.items():
-            if field not in config:
-                raise ValueError(f"Missing required field: {field}")
-            if not isinstance(config[field], field_type):
-                raise ValueError(f"Field {field} must be of type {field_type}")
-
-        # Validate stage_files structure
-        required_stages = [
-            "post_import",
-            "post_prepipeline",
-            "post_pylossless",
-            "post_rejection_policy",
-            "post_artifact_detection",
-            "post_epochs",
-            "post_comp"
-        ]
-
-        for stage in required_stages:
-            if stage not in config["stage_files"]:
-                raise ValueError(f"Missing stage in stage_files: {stage}")
-            stage_config = config["stage_files"][stage]
-            if not isinstance(stage_config, dict):
-                raise ValueError(f"Stage {stage} configuration must be a dictionary")
-            if "enabled" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'enabled' field")
-            if "suffix" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'suffix' field")
-
-        return config
