@@ -36,14 +36,25 @@ Project Structure
 
 The project is organized as follows:
 
+- ``configs/``: Configuration templates
+
 - ``src/autoclean/core/``: Core classes and functionality
    - ``pipeline.py``: Main entry point for the API
    - ``task.py``: Base class for all task implementations
+
+- ``src/autoclean/io/``: Modular processing functions
+   - ``export.py``: Exporting functions
+   - ``import.py``: Importing functions
+
+- ``src/autoclean/mixins/signal_processing/``: Signal processing related functions
+
+- ``src/autoclean/mixins/viz/``: Visualization related functions
    
 - ``src/autoclean/step_functions/``: Modular processing functions
-   - ``io.py``: Input/output operations
-   - ``steps.py``: Core preprocessing steps
-   - ``reports.py``: Reporting and visualization
+   - ``continuous.py``: Core preprocessing steps
+   - ``reports.py``: Post-task reports such as processing log
+
+- ``src/autoclean/plugins/``: Import and event handling plugins
    
 - ``src/autoclean/tasks/``: Task implementations
    - ``resting_eyes_open.py``: Resting state task
@@ -55,8 +66,8 @@ The project is organized as follows:
    - ``database.py``: Database operations
    - ``logging.py``: Logging functionality
 
-- ``configs/``: Configuration templates
-- ``tests/``: Unit and integration tests
+- ``src/autoclean/tools/``: Additional features for the pipeline
+   - ``autoclean_review.py``: Review GUI
 
 Architecture
 -----------
