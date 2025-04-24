@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>autoclean.mixins.signal_processing.regular_epochs &#8212; AutoClean 1.2.0 documentation</title>
+    <title>autoclean.mixins.signal_processing.regular_epochs &#8212; Autoclean 1.2.0 documentation</title>
   
   
   
@@ -527,24 +527,45 @@
                 <span class="n">events_in_epochs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">events_in_epochs</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">int</span><span class="p">)</span>
                 <span class="n">event_descriptions</span> <span class="o">=</span> <span class="p">{</span><span class="n">v</span><span class="p">:</span> <span class="n">k</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">event_id_all</span><span class="o">.</span><span class="n">items</span><span class="p">()}</span>
 
+                <span class="c1"># Define the label for fixed-length epoch start events</span>
+                <span class="n">fixed_event_label</span> <span class="o">=</span> <span class="s1">&#39;fixed_marker&#39;</span>
+
                 <span class="c1"># Build metadata rows</span>
                 <span class="n">metadata_rows</span> <span class="o">=</span> <span class="p">[]</span>
                 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">epoch_sample_ranges</span><span class="p">):</span>
-                    <span class="n">epoch_events</span> <span class="o">=</span> <span class="p">[]</span>
-                    <span class="k">for</span> <span class="n">sample</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">events_in_epochs</span><span class="p">:</span>
-                        <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">sample</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
-                            <span class="n">relative_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">sample</span> <span class="o">-</span> <span class="n">epoch_samples</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="n">sfreq</span>
-                            <span class="n">label</span> <span class="o">=</span> <span class="n">event_descriptions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;code_</span><span class="si">{</span><span class="n">code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-                            <span class="n">epoch_events</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">label</span><span class="p">,</span> <span class="n">relative_time</span><span class="p">))</span>
+                    <span class="c1"># Always start with the epoch start event</span>
+                    <span class="n">epoch_events</span> <span class="o">=</span> <span class="p">[(</span><span class="n">fixed_event_label</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)]</span> 
+                    
+                    <span class="c1"># Add other events from annotations if they exist and fall within the epoch</span>
+                    <span class="k">if</span> <span class="n">events_in_epochs</span><span class="o">.</span><span class="n">size</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                        <span class="k">for</span> <span class="n">sample</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">code</span> <span class="ow">in</span> <span class="n">events_in_epochs</span><span class="p">:</span>
+                            <span class="k">if</span> <span class="n">start</span> <span class="o">&lt;=</span> <span class="n">sample</span> <span class="o">&lt;=</span> <span class="n">end</span><span class="p">:</span>
+                                <span class="n">relative_time</span> <span class="o">=</span> <span class="p">(</span><span class="n">sample</span> <span class="o">-</span> <span class="n">epoch_samples</span><span class="p">[</span><span class="n">i</span><span class="p">])</span> <span class="o">/</span> <span class="n">sfreq</span>
+                                <span class="c1"># Use the description from event_id_all if available</span>
+                                <span class="n">label</span> <span class="o">=</span> <span class="n">event_descriptions</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">code</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;code_</span><span class="si">{</span><span class="n">code</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span> 
+                                <span class="n">epoch_events</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">label</span><span class="p">,</span> <span class="n">relative_time</span><span class="p">))</span>
+                                
                     <span class="n">metadata_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;additional_events&#39;</span><span class="p">:</span> <span class="n">epoch_events</span><span class="p">})</span>
 
                 <span class="c1"># Add the metadata column</span>
                 <span class="k">if</span> <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="c1"># Ensure column exists and handle potential type issues if merging</span>
+                    <span class="k">if</span> <span class="s1">&#39;additional_events&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+                         <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;additional_events&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">Series</span><span class="p">(</span><span class="n">dtype</span><span class="o">=</span><span class="nb">object</span><span class="p">)</span>
+                    <span class="c1"># Assign the constructed lists</span>
+                    <span class="c1"># This assumes the DataFrame index aligns with metadata_rows implicitly</span>
+                    <span class="c1"># A more robust way might be needed if indices don&#39;t match len(metadata_rows)</span>
                     <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span><span class="p">[</span><span class="s1">&#39;additional_events&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="s1">&#39;additional_events&#39;</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">metadata_rows</span><span class="p">]</span>
                 <span class="k">else</span><span class="p">:</span>
-                    <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">metadata_rows</span><span class="p">)</span>
+                    <span class="c1"># Create metadata from scratch</span>
+                    <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">metadata_rows</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span> <span class="c1"># Use event sample as index</span>
             <span class="k">else</span><span class="p">:</span>
-                <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="p">)))</span>
+                <span class="c1"># No annotations found, create metadata with only epoch_start events</span>
+                <span class="n">fixed_event_label</span> <span class="o">=</span> <span class="s1">&#39;fixed_marker&#39;</span>
+                <span class="n">metadata_rows</span> <span class="o">=</span> <span class="p">[]</span>
+                <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">epochs</span><span class="p">)):</span>
+                     <span class="n">metadata_rows</span><span class="o">.</span><span class="n">append</span><span class="p">({</span><span class="s1">&#39;additional_events&#39;</span><span class="p">:</span> <span class="p">[(</span><span class="n">fixed_event_label</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)]})</span>
+                <span class="n">epochs</span><span class="o">.</span><span class="n">metadata</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">metadata_rows</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="n">epochs</span><span class="o">.</span><span class="n">events</span><span class="p">[:,</span><span class="mi">0</span><span class="p">])</span> <span class="c1"># Use event sample as index</span>
 
             <span class="c1"># Create a copy for dropping if using amplitude thresholds</span>
             <span class="n">epochs_clean</span> <span class="o">=</span> <span class="n">epochs</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
@@ -712,7 +733,7 @@
 
   <p class="copyright">
     
-      © Copyright 2025-2025, AutoClean Team.
+      © Copyright 2024-2025, Cincibrainlab Team.
       <br/>
     
   </p>

@@ -1,6 +1,6 @@
 """Configuration file for the Sphinx documentation builder.
 
-This file contains settings for Sphinx to build the AutoClean documentation.
+This file contains settings for Sphinx to build the Autoclean documentation.
 """
 
 import os
@@ -15,13 +15,13 @@ sys.path.insert(0, os.path.abspath('../..'))
 # Import the module to verify it's available
 try:
     import autoclean
-    print(f"AutoClean module found at: {autoclean.__file__}")
+    print(f"Autoclean module found at: {autoclean.__file__}")
 except ImportError as e:
     print(f"WARNING: Unable to import autoclean: {e}")
 
 # -- Project information -----------------------------------------------------
-project = 'AutoClean'
-copyright = f'2025-{date.today().year}, AutoClean Team'
+project = 'Autoclean'
+copyright = f'2024-{date.today().year}, Cincibrainlab Team'
 author = 'Gavin Gammoh, Ernest Pedapati'
 
 # The full version, including alpha/beta/rc tags

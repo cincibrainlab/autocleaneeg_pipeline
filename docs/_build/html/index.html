@@ -8,7 +8,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Autoclean &#8212; AutoClean 1.2.0 documentation</title>
+    <title>Autoclean &#8212; Autoclean 1.2.0 documentation</title>
   
   
   
@@ -342,9 +342,7 @@
                   
   <section id="autoclean">
 <h1>Autoclean<a class="headerlink" href="#autoclean" title="Link to this heading">#</a></h1>
-<p><strong>AutoClean</strong> is an automated EEG processing pipeline that leverages MNE and PyLossless to provide
-a modular framework for EEG data analysis. Designed as an importable Python package, it allows
-researchers to create custom pipelines tailored to their specific experimental paradigms.</p>
+<p><strong>Autoclean</strong> is an automated EEG processing pipeline leveraging MNE and PyLossless. It provides a modular, task-based framework for EEG data analysis, designed as an importable Python package. Create custom pipelines tailored to your specific experimental needs.</p>
 <section id="features">
 <h2>Features<a class="headerlink" href="#features" title="Link to this heading">#</a></h2>
 <ul class="simple">
@@ -356,20 +354,40 @@ researchers to create custom pipelines tailored to their specific experimental p
 <li><p><strong>Database Integration</strong>: Tracking of processing runs and results</p></li>
 </ul>
 </section>
+<section id="who-is-this-for">
+<h2>Who is this for?<a class="headerlink" href="#who-is-this-for" title="Link to this heading">#</a></h2>
+<p>This pipeline is designed for:</p>
+<p><strong>EEG Researchers:</strong> Streamline your preprocessing and analysis workflows with reproducible and configurable pipelines.</p>
+<p><strong>Why use this pipeline?</strong>
+Preprocessing EEG data often suffers from variability, even among highly trained researchers, due to differences in methods and quality standards. Additionally, existing pipelines may lack flexibility or fail to include critical processing steps required by specific experiments. To address these challenges, Autoclean provides a fully customizable, modular pipeline using a task-based architecture. While initial setup involves creating and configuring tasks to precisely fit your analysis needs, the result is a robust, reproducible, and automated workflow that can include both preprocessing and analysis. This ensures consistent, high-quality outputs tailored specifically to your dataset, significantly improving both the reliability and efficiency of your EEG data analysis.</p>
+</section>
+<section id="core-concepts">
+<h2>Core Concepts<a class="headerlink" href="#core-concepts" title="Link to this heading">#</a></h2>
+<p>The pipeline is built around a few key ideas:</p>
+<ul class="simple">
+<li><p><strong>Pipeline:</strong> The central orchestrator that manages configuration, data flow, and task execution.</p></li>
+<li><p><strong>Task:</strong> A defined sequence of processing steps for a specific experimental paradigm (e.g., resting-state, auditory steady-state response). You can use pre-built tasks or create your own.</p></li>
+<li><p><strong>Config:</strong> A YAML file that defines the parameters for the pipeline and tasks.</p></li>
+<li><p><strong>Mixins:</strong> Individual, reusable processing units (e.g., loading data, filtering, artifact rejection, reporting) that make up a Task.</p></li>
+<li><p><strong>Step Functions:</strong> Legacy functions that may still be used to process data.</p></li>
+<li><p><strong>Plugins:</strong> Plugins handle importing different formats and montages as well as different event types</p></li>
+</ul>
+</section>
 <section id="quick-example">
 <h2>Quick Example<a class="headerlink" href="#quick-example" title="Link to this heading">#</a></h2>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">autoclean</span><span class="w"> </span><span class="kn">import</span> <span class="n">Pipeline</span>
 
-<span class="c1"># Initialize the pipeline</span>
+<span class="c1"># Initialize the pipeline with configuration and output directory</span>
 <span class="n">pipeline</span> <span class="o">=</span> <span class="n">Pipeline</span><span class="p">(</span>
-    <span class="n">autoclean_dir</span><span class="o">=</span><span class="s2">&quot;results/&quot;</span><span class="p">,</span>
-    <span class="n">autoclean_config</span><span class="o">=</span><span class="s2">&quot;configs/default.yaml&quot;</span>
+    <span class="n">autoclean_dir</span><span class="o">=</span><span class="s2">&quot;path/to/your/results&quot;</span><span class="p">,</span>
+    <span class="n">autoclean_config</span><span class="o">=</span><span class="s2">&quot;path/to/your/autoclean_config.yaml&quot;</span><span class="p">,</span>
+    <span class="c1"># lossless_config=&quot;path/to/your/lossless_config.yaml&quot; # Optional</span>
 <span class="p">)</span>
 
-<span class="c1"># Process a single file</span>
+<span class="c1"># Process a single EEG file using a specific task</span>
 <span class="n">pipeline</span><span class="o">.</span><span class="n">process_file</span><span class="p">(</span>
-    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;data/sub-01_task-rest_eeg.set&quot;</span><span class="p">,</span>
-    <span class="n">task</span><span class="o">=</span><span class="s2">&quot;rest_eyesopen&quot;</span>
+    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;path/to/your/data/sub-01_task-rest_eeg.set&quot;</span><span class="p">,</span> <span class="c1"># Example file</span>
+    <span class="n">task</span><span class="o">=</span><span class="s2">&quot;resting_eyes_open&quot;</span>  <span class="c1"># Example task</span>
 <span class="p">)</span>
 </pre></div>
 </div>
@@ -380,12 +398,11 @@ researchers to create custom pipelines tailored to their specific experimental p
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting Started</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="getting_started.html#installation">Installation</a></li>
-<li class="toctree-l2"><a class="reference internal" href="getting_started.html#quick-start">Quick Start</a></li>
-<li class="toctree-l2"><a class="reference internal" href="getting_started.html#docker-usage">Docker Usage</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#basic-usage">Basic Usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="getting_started.html#configuration">Configuration</a></li>
-<li class="toctree-l2"><a class="reference internal" href="getting_started.html#available-tasks">Available Tasks</a></li>
-<li class="toctree-l2"><a class="reference internal" href="getting_started.html#custom-tasks">Custom Tasks</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#tasks">Tasks</a></li>
 <li class="toctree-l2"><a class="reference internal" href="getting_started.html#output-structure">Output Structure</a></li>
+<li class="toctree-l2"><a class="reference internal" href="getting_started.html#docker-usage">Docker Usage</a></li>
 <li class="toctree-l2"><a class="reference internal" href="getting_started.html#next-steps">Next Steps</a></li>
 </ul>
 </li>
@@ -444,6 +461,8 @@ researchers to create custom pipelines tailored to their specific experimental p
   <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
     <ul class="visible nav section-nav flex-column">
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#features">Features</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#who-is-this-for">Who is this for?</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#core-concepts">Core Concepts</a></li>
 <li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#quick-example">Quick Example</a><ul class="nav section-nav flex-column">
 </ul>
 </li>
@@ -475,7 +494,7 @@ researchers to create custom pipelines tailored to their specific experimental p
 
   <p class="copyright">
     
-      © Copyright 2025-2025, AutoClean Team.
+      © Copyright 2024-2025, Cincibrainlab Team.
       <br/>
     
   </p>

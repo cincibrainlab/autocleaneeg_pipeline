@@ -7,7 +7,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>autoclean.mixins.signal_processing.eventid_epochs &#8212; AutoClean 1.2.0 documentation</title>
+    <title>autoclean.mixins.signal_processing.eventid_epochs &#8212; Autoclean 1.2.0 documentation</title>
   
   
   
@@ -602,7 +602,7 @@
                 <span class="n">message</span><span class="p">(</span><span class="s2">&quot;info&quot;</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Marked </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">bad_epochs</span><span class="p">)</span><span class="si">}</span><span class="s2"> epochs with bad annotations (not dropped)&quot;</span><span class="p">)</span>
             
                 <span class="c1"># Save epochs with bad epochs marked but not dropped</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_save_epochs_result</span><span class="p">(</span><span class="n">result_data</span> <span class="o">=</span> <span class="n">epochs_clean</span><span class="p">,</span> <span class="n">stage_name</span> <span class="o">=</span> <span class="s2">&quot;post_epochs&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">_save_epochs_result</span><span class="p">(</span><span class="n">result_data</span> <span class="o">=</span> <span class="n">epochs_clean</span><span class="p">,</span> <span class="n">stage_name</span> <span class="o">=</span> <span class="n">stage_name</span><span class="p">)</span>
 
                 <span class="n">epochs_clean</span><span class="o">.</span><span class="n">drop</span><span class="p">(</span><span class="n">bad_epochs</span><span class="p">,</span> <span class="n">reason</span><span class="o">=</span><span class="s2">&quot;BAD_ANNOTATION&quot;</span><span class="p">)</span>
 
@@ -719,7 +719,7 @@
 
   <p class="copyright">
     
-      © Copyright 2025-2025, AutoClean Team.
+      © Copyright 2024-2025, Cincibrainlab Team.
       <br/>
     
   </p>
