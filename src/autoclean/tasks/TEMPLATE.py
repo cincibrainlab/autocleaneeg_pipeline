@@ -82,7 +82,6 @@ class TemplateTask(Task):
     1. __init__ - Initialize task state and validate config
     2. run - Main processing pipeline
     3. _generate_reports - Create quality control visualizations
-    4. _validate_task_config - Validate task-specific settings
 
     The task should handle a specific EEG paradigm (e.g., resting state, ASSR, MMN)
     and implement appropriate processing steps for that paradigm.
@@ -101,7 +100,7 @@ class TemplateTask(Task):
         ```yaml
         # autoclean_config.yaml
         tasks:
-          my_paradigm:
+          TemplateTask:
             settings:
               resample_step:
                 enabled: true
@@ -128,15 +127,24 @@ class TemplateTask(Task):
             The parent class handles basic initialization and validation.
             Task-specific setup should be added here if needed.
             
-        Raises:
-            ValueError: If required configuration fields are missing
-            TypeError: If configuration fields have incorrect types
         """
         # Initialize instance variables
         self.raw: Optional[mne.io.Raw] = None
         self.pipeline: Optional[Any] = None
         self.epochs: Optional[mne.Epochs] = None
         self.original_raw: Optional[mne.io.Raw] = None
+
+        # Stages that should be configured in the autoclean_config.yaml file
+        self.required_stages = [
+            "post_import",
+            "post_prepipeline",
+            "post_pylossless",
+            "post_rejection_policy",
+            "post_clean_raw",
+            "post_epochs",
+            "post_comp",
+        ]
+
 
         # Call parent initialization with validated config
         super().__init__(config)
@@ -155,17 +163,15 @@ class TemplateTask(Task):
 
         Processing Steps:
         1. Import and validate raw data
-        2. Resample data to target frequency
-        3. Apply preprocessing pipeline (filtering, etc.)
-        4. Create BIDS-compliant paths
-        5. Run PyLossless pipeline for artifact detection
-        6. Clean bad channels
-        7. Apply rejection policy for artifact removal
-        8. Create event-based epochs
-        9. Prepare epochs for ICA
-        10. Apply GFP-based cleaning to epochs
-        11. Generate quality control reports
-        12. Save processed data
+        2. Apply preprocessing pipeline (filtering, resampling, etc.)
+        3. Create BIDS-compliant paths
+        4. Run PyLossless pipeline for artifact detection
+        5. Clean bad channels
+        6. Apply rejection policy for artifact removal
+        7. Create event-based epochs
+        8. Prepare epochs for ICA
+        9. Apply GFP-based cleaning to epochs
+        10. Generate quality control reports
 
         Raises:
             FileNotFoundError: If input file doesn't exist
@@ -176,73 +182,71 @@ class TemplateTask(Task):
             the database. You can monitor progress through the logging
             messages and final report.
         """
-        # Import raw data using standard function
+        # Import and save raw EEG data
         self.import_raw()
         
-        # Store a copy of the original raw data for comparison in reports
-        self.original_raw = self.raw.copy()
-
-
-        # Apply preprocessing steps (filtering, etc.)
+        message("header", "Running preprocessing steps")
+        
+        # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
         save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+
+        # Store a copy of the pre-cleaned raw data for comparison in reports
+        self.original_raw = self.raw.copy()
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # Run PyLossless pipeline for artifact detection and save result
+        #Run PyLossless Pipeline
         self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
 
-        # Clean bad channels (from mixins.signal_processing.channels)
-        self.clean_bad_channels(cleaning_method="interpolate")
+        #Add more artifact detection steps
+        self.detect_dense_oscillatory_artifacts()
 
+        # Update pipeline with annotated raw data
         self.pipeline.raw = self.raw
-        # Apply PyLossless Rejection Policy for artifact removal
+
+        # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
         self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
         self.raw = self.pipeline.raw
+        
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
 
-        # Create event-based epochs (from mixins.signal_processing.eventid_epochs)
+        #Clean bad channels post ICA
+        self.clean_bad_channels(deviation_thresh=3, cleaning_method="interpolate", reset_bads=True)
+
+        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
+
+        # Create regular epochs
         self.create_eventid_epochs()
 
-        # Prepare epochs for ICA (from mixins.signal_processing.prepare_epochs_ica)
+        # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
 
-        # Apply GFP-based cleaning to epochs (from mixins.signal_processing.gfp_clean_epochs)
+        # Clean epochs using GFP
         self.gfp_clean_epochs()
 
         # Generate visualization reports
-        self._generate_reports()
-
-        # Save final cleaned data
-        save_raw_to_set(self.raw, self.config, "post_clean_raw")
+        self.generate_reports()
 
 
-    def _generate_reports(self) -> None:
+    def generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
-
+        
         Creates standard visualization reports including:
-        1. Raw vs cleaned data overlay - Shows the effect of preprocessing
-        2. ICA components - Displays the independent components extracted
-        3. ICA details - Shows detailed information about ICA components
-        4. PSD topography - Power spectral density across the scalp
-
+        1. Raw vs cleaned data overlay
+        2. ICA components
+        3. ICA details
+        4. PSD topography
+        
         The reports are saved in the debug directory specified
-        in the configuration, with standardized naming conventions.
-
+        in the configuration.
+        
         Note:
-            This is automatically called by run() method.
-            Override this method if you need custom visualizations.
-            
-        Returns:
-            None: Reports are saved to disk, nothing is returned.
-            
-        Raises:
-            RuntimeError: If pipeline or raw is None (silently returns instead)
+            This is automatically called by run().
         """
-        # Skip report generation if required data is missing
         if self.pipeline is None or self.raw is None or self.original_raw is None:
             return
 
@@ -258,80 +262,6 @@ class TemplateTask(Task):
         self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
+        self.step_psd_topo_figure(
             self.original_raw, self.raw, self.pipeline, self.config
         )
-
-    def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate task-specific configuration settings.
-
-        This method checks that all required settings for the task
-        are present and valid. The validation includes:
-        - Required fields exist
-        - Field types are correct
-        - Stage files configuration is properly structured
-        
-        Args:
-            config: Configuration dictionary that has passed common validation.
-                   Contains all standard fields plus task-specific settings.
-
-        Returns:
-            Dict[str, Any]: The validated configuration dictionary.
-                           You can add derived settings or defaults here.
-
-        Raises:
-            ValueError: If any required settings are missing or invalid
-            TypeError: If settings are of wrong type
-
-        Example:
-            ```python
-            def _validate_task_config(self, config):
-                required_fields = {
-                    'eeg_system': str,
-                    'settings': dict,
-                }
-                for field, field_type in required_fields.items():
-                    if field not in config:
-                        raise ValueError(f"Missing required field: {field}")
-                    if not isinstance(config[field], field_type):
-                        raise TypeError(f"Field {field} must be {field_type}")
-                return config
-            ```
-        """
-        # Define required fields and their expected types
-        required_fields = {
-            "task": str,
-            "eeg_system": str,
-            "tasks": dict,
-        }
-
-        # Validate required fields exist and have correct types
-        for field, field_type in required_fields.items():
-            if field not in config:
-                raise ValueError(f"Missing required field: {field}")
-            if not isinstance(config[field], field_type):
-                raise TypeError(f"Field {field} must be {field_type}")
-
-        # Validate stage_files structure
-        # These are the processing stages where data can be saved
-        required_stages = [
-            "post_import",
-            "post_prepipeline",
-            "post_pylossless",
-            "post_rejection_policy",
-        ]
-
-        # Check each required stage has proper configuration
-        for stage in required_stages:
-            if stage not in config["stage_files"]:
-                raise ValueError(f"Missing stage in stage_files: {stage}")
-            stage_config = config["stage_files"][stage]
-            if not isinstance(stage_config, dict):
-                raise ValueError(f"Stage {stage} configuration must be a dictionary")
-            if "enabled" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'enabled' field")
-            if "suffix" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'suffix' field")
-
-        return config
-        
