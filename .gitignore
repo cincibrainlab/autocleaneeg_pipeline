@@ -55,3 +55,5 @@ uv.lock
 codefetch/codebase.md
 
 examples/single_file.py
+/docs/_build
+/docs/api_reference/generated
