@@ -56,7 +56,7 @@ pipeline.process_directory(
 
 ## Documentation
 
-Full documentation is available at [https://autoclean-eeg.readthedocs.io/](https://autoclean-eeg.readthedocs.io/)
+Full documentation is available at [https://cincibrainlab.github.io/autoclean_pipeline/](https://cincibrainlab.github.io/autoclean_pipeline/)
 
 ## Contributing
 
