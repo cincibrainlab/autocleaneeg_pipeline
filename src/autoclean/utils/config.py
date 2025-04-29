@@ -1,4 +1,8 @@
 # src/autoclean/utils/config.py
+"""
+This module contains functions for loading and validating the autoclean configuration file.
+"""
+# pylint: disable=line-too-long
 import base64
 import hashlib
 import zlib
@@ -87,7 +91,7 @@ def load_config(config_file: Path) -> dict:
     # Extract the config file path from the config_file
     config_file_path = Path(config_file)
 
-    with open(config_file) as f:
+    with open(config_file, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 
     autoclean_dict = config_schema.validate(config)
@@ -242,6 +246,7 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
 
 
 def validate_eeg_system(autoclean_dict: dict, task: str) -> str:
+    # pylint: disable=line-too-long
     """Validate the EEG system for a given task. Checks if the EEG system is in the VALID_MONTAGES dictionary.
 
     Parameters
@@ -263,7 +268,10 @@ def validate_eeg_system(autoclean_dict: dict, task: str) -> str:
         message("success", f"✓ EEG system validated: {eeg_system}")
         return eeg_system
     else:
-        error_msg = f"Invalid EEG system: {eeg_system}. Supported: {', '.join(VALID_MONTAGES.keys())}. To add a new montage, please edit configs/montage.yaml or request it on GitHub issues."
+        error_msg = (
+            f"Invalid EEG system: {eeg_system}. Supported: {', '.join(VALID_MONTAGES.keys())}. "
+            "To add a new montage, please edit configs/montage.yaml or request it on GitHub issues."
+        )
         message("error", error_msg)
         raise ValueError(error_msg)
 
@@ -286,7 +294,7 @@ def hash_and_encode_yaml(content: str | dict, is_file: bool = True) -> tuple[str
         The compressed and encoded content.
     """
     if is_file:
-        with open(content, "r") as f:
+        with open(content, "r", encoding="utf-8") as f:
             yaml_str = f.read()
     else:
         yaml_str = yaml.safe_dump(content, sort_keys=True)
