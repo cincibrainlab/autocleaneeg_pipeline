@@ -4,7 +4,6 @@
 # Standard library imports
 from typing import Any, Dict
 
-
 from autoclean.calc.source import estimate_source_function_raw
 
 # Local imports

@@ -3,41 +3,9 @@ Autoclean Review Tool - GUI for reviewing EEG processing results
 Requires additional GUI dependencies. Install with: pip install autocleaneeg[gui]
 """
 
-import sys
-
-
-def check_gui_dependencies():
-    """Check if all required GUI dependencies are installed."""
-    missing = []
-    try:
-        import PyQt5
-    except ImportError:
-        missing.append("PyQt5")
-    try:
-        import fitz
-    except ImportError:
-        missing.append("pymupdf")
-
-    if missing:
-        print("Error: Missing required GUI dependencies.")
-        print("To use the review tool, install the GUI dependencies:")
-        print("pip install autocleaneeg[gui]")
-        print(f"\nMissing packages: {', '.join(missing)}")
-        sys.exit(1)
-
-
-# Check dependencies before importing
-check_gui_dependencies()
-
-from pathlib import Path
-
-# Add the src directory to Python path if package is not installed
-src_path = Path(__file__).resolve().parent.parent.parent / "src"
-if str(src_path) not in sys.path:
-    sys.path.insert(0, str(src_path))
-
 import os
 import subprocess
+import sys
 import webbrowser
 from pathlib import Path
 
@@ -69,6 +37,37 @@ from PyQt5.QtWidgets import (
 from autoclean.io.export import save_epochs_to_set
 from autoclean.utils.database import get_run_record
 from autoclean.utils.logging import message
+
+
+def check_gui_dependencies():
+    """Check if all required GUI dependencies are installed."""
+    missing = []
+    try:
+        import PyQt5
+    except ImportError:
+        missing.append("PyQt5")
+    try:
+        import fitz
+    except ImportError:
+        missing.append("pymupdf")
+
+    if missing:
+        print("Error: Missing required GUI dependencies.")
+        print("To use the review tool, install the GUI dependencies:")
+        print("pip install autocleaneeg[gui]")
+        print(f"\nMissing packages: {', '.join(missing)}")
+        sys.exit(1)
+
+
+# Check dependencies before importing
+check_gui_dependencies()
+
+# Add the src directory to Python path if package is not installed
+src_path = Path(__file__).resolve().parent.parent.parent / "src"
+if str(src_path) not in sys.path:
+    sys.path.insert(0, str(src_path))
+
+
 
 pyqtRemoveInputHook()
 

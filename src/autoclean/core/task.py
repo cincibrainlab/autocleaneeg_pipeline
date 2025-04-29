@@ -9,6 +9,9 @@ import mne  # Core EEG processing library for data containers and processing
 # Local imports
 from autoclean.mixins.signal_processing.main import SignalProcessingMixin
 from autoclean.mixins.viz.main import ReportingMixin
+from autoclean.io.export import save_raw_to_set
+from autoclean.io.import_ import import_eeg
+from autoclean.utils.logging import message
 
 
 class Task(ABC, SignalProcessingMixin, ReportingMixin):
@@ -78,8 +81,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         stage file.
 
         """
-        from autoclean.io.export import save_raw_to_set
-        from autoclean.io.import_ import import_eeg
 
         self.raw = import_eeg(self.config)
         if self.raw.duration < 60:
@@ -107,7 +108,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         The specific parameters for each preprocessing step should be
         defined in the task configuration and validated before use.
         """
-        pass
 
     def validate_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the complete task configuration.
@@ -161,7 +161,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
 
         # Check if the task has defined required_stages
         if not hasattr(self, "required_stages"):
-            from ..utils.logging import message
 
             message(
                 "warning",

@@ -55,7 +55,6 @@ Key Components:
 # Standard library imports
 from typing import Any, Dict, Optional
 
-
 # Third-party imports
 import mne
 
