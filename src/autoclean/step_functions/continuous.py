@@ -1,7 +1,8 @@
+#./src/autoclean/step_functions/continuous.py
 """Continuous preprocessing steps."""
-
+# pylint: disable=not-callable
+# pylint: disable=isinstance-second-argument-not-valid-type
 import os
-from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -34,7 +35,14 @@ __all__ = [
 def step_pre_pipeline_processing(
     raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
 ) -> mne.io.Raw:  # pylint: disable=too-many-lines
-    """"""
+    """Applies basic preprocessing steps to the raw data.
+        * Resample
+        * Drop Outer Layer
+        * EOG Assignment
+        * Average Reference
+        * Trim Edges
+        * Crop Duration
+        """
     message("header", "\nPre-pipeline Processing Steps")
 
     task = autoclean_dict["task"]
@@ -592,20 +600,6 @@ def _get_rejection_policy(autoclean_dict: dict) -> dict:
 def _extended_BAD_LL_noisy_ICs_annotations(
     raw, pipeline, autoclean_dict, extra_duration=1
 ):  # pylint: disable=invalid-name
-    # Extend each annotation by 1 second on each side
-    for ann in raw.annotations:
-        new_annotation = OrderedDict(
-            [
-                ("onset", np.float64(ann["onset"])),
-                ("duration", np.float64(ann["duration"])),
-                ("description", np.str_(ann["description"])),
-                ("orig_time", ann.get("orig_time", None)),
-            ]
-        )
-
-        # print(
-        #     f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}" # pylint: disable=line-too-long
-        # )
 
     updated_annotations = []
     for annotation in raw.annotations:
@@ -666,7 +660,6 @@ def _extended_BAD_LL_noisy_ICs_annotations(
         if n_segments == 1:
             axes = [axes]  # Ensure axes is iterable
 
-        sfreq = raw.info["sfreq"]
         for idx, i_ann in enumerate(bad_indices):
             onset = raw.annotations.onset[i_ann]
             duration = raw.annotations.duration[i_ann]
@@ -1069,19 +1062,6 @@ def extend_annotations(
 ):
     """Extend each annotation by 1 second on each side"""
     # Extend each annotation by 1 second on each side
-    for ann in raw.annotations:
-        new_annotation = OrderedDict(
-            [
-                ("onset", np.float64(ann["onset"])),
-                ("duration", np.float64(ann["duration"])),
-                ("description", np.str_(ann["description"])),
-                ("orig_time", ann.get("orig_time", None)),
-            ]
-        )
-
-        # print(
-        #     f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}"
-        # )
 
     updated_annotations = []
     for annotation in raw.annotations:

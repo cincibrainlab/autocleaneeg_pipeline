@@ -108,16 +108,14 @@ class BB_Long(Task): # pylint: disable=invalid-name
         self.plot_ica_full(self.pipeline, self.config)
 
         # # Generate ICA reports using mixin method
-        self.plot_ica_components(
-            self.pipeline.ica2,
-            self.cleaned_raw,
-            self.config,
+        self.generate_ica_reports(
             self.pipeline,
+            self.config,
             duration=60,
         )
 
         # # Create PSD topography figure using mixin method
-        self.psd_topo_figure(  # TODO
+        self.step_psd_topo_figure(
             self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
         )
 
