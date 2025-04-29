@@ -87,7 +87,6 @@ class BaseEEGPlugin(abc.ABC):
         Returns:
             bool: True if this plugin can handle the combination, False otherwise
         """
-        pass
 
     @abc.abstractmethod
     def import_and_configure(
@@ -106,10 +105,9 @@ class BaseEEGPlugin(abc.ABC):
         Raises:
             RuntimeError: If processing fails
         """
-        pass
 
     def process_events(
-        self, raw: mne.io.Raw, autoclean_dict: dict
+        self, raw: mne.io.Raw
     ) -> Tuple[Optional[np.ndarray], Optional[Dict], Optional[pd.DataFrame]]:
         """Process events and annotations in the EEG data.
 
@@ -310,7 +308,6 @@ def import_eeg(
             unprocessed_file, autoclean_dict, preload
         )
 
-        # Determine if we have Raw or Epochs
         is_epochs = isinstance(eeg_data, mne.Epochs)
 
         # Process events if we have Raw data
@@ -424,7 +421,6 @@ class BaseEventProcessor(abc.ABC):
         Returns:
             bool: True if this processor can handle the task, False otherwise
         """
-        pass
 
     def _check_config_enabled(
         self, step_name: str, autoclean_dict: dict, default: bool = True
@@ -468,8 +464,6 @@ class BaseEventProcessor(abc.ABC):
         Returns:
             mne.io.Raw: Raw data with processed events/annotations
         """
-        pass
-
 
 def register_event_processor(processor_class: Type[BaseEventProcessor]) -> None:
     """Register a new event processor plugin.

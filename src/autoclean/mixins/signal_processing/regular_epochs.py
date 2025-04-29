@@ -12,9 +12,6 @@ Regular epoching is particularly useful for resting-state data analysis, where
 there are no specific events of interest, but the data needs to be segmented
 into manageable chunks for further processing and analysis.
 
-Updates:
-- Added reject_by_annotation parameter to create_regular_epochs to control how bad annotations are handled
-- Added functionality to detect muscle artifacts in continuous Raw data using a sliding window approach
 """
 
 from typing import Dict, Optional, Union
@@ -62,11 +59,13 @@ class RegularEpochsMixin:
         Returns
         -------
         epochs_clean: mne.Epochs
-            The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True)
+            The created epochs object with bad epochs marked 
+            (and dropped if reject_by_annotation=True)
 
         Notes
         -----
-        If reject_by_annotation is False, an intermediate file with bad epochs marked but not dropped is saved.
+        If reject_by_annotation is False, an intermediate file with bad epochs 
+        marked but not dropped is saved.
 
         The epoching parameters can be customized through the configuration file
         (autoclean_config.yaml) under the "epoch_settings" section. If enabled, the
@@ -128,14 +127,14 @@ class RegularEpochsMixin:
             # Get all events from annotations
             try:
                 events_all, event_id_all = mne.events_from_annotations(data)
-            except Exception:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 message(
                     "warning",
-                    "No annotations found in data, skipping event extraction from annotations",
+                    f"No annotations found in data, skipping event extraction from annotations:{e}",
                 )
                 events_all = None
                 event_id_all = None
-
+            # pylint: disable=not-callable
             epochs = mne.Epochs(
                 data,
                 events,
@@ -319,7 +318,8 @@ class RegularEpochsMixin:
 
             # Add flags if needed
             if (good_epochs / total_epochs) < self.EPOCH_RETENTION_THRESHOLD:
-                flagged_reason = f"WARNING: Only {good_epochs / total_epochs * 100}% of epochs were kept"
+                flagged_reason = (f"WARNING: Only {good_epochs / total_epochs * 100}% "
+                "of epochs were kept")
                 self._update_flagged_status(flagged=True, reason=flagged_reason)
 
             # Add good and total to the annotation_types dictionary

@@ -11,10 +11,13 @@ of concerns. This modular approach allows for flexible composition of processing
 functionality across different task types.
 """
 
+from datetime import datetime
 from typing import Any, Dict, Optional, Tuple, Union
 
 import mne
 
+from autoclean.io import save_epochs_to_set, save_raw_to_set
+from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 
 
@@ -127,8 +130,6 @@ class SignalProcessingMixin:
 
         settings = self.config.get("tasks", {}).get(task, {}).get("settings", {})
 
-        from autoclean.utils.logging import message
-
         message("header", f"Processing step status for task '{task}':")
 
         for step_name, step_settings in settings.items():
@@ -197,10 +198,6 @@ class SignalProcessingMixin:
         if not hasattr(self, "config") or not self.config.get("run_id"):
             return
 
-        from datetime import datetime
-
-        from autoclean.utils.database import manage_database
-
         # Add creation timestamp if not present
         if "creationDateTime" not in metadata_dict:
             metadata_dict["creationDateTime"] = datetime.now().isoformat()
@@ -238,8 +235,6 @@ class SignalProcessingMixin:
         if not hasattr(self, "config"):
             return
 
-        from autoclean.io.export import save_raw_to_set
-
         if isinstance(result_data, mne.io.Raw):
             save_raw_to_set(
                 raw=result_data,
@@ -258,9 +253,7 @@ class SignalProcessingMixin:
         if not hasattr(self, "config"):
             return
 
-        from autoclean.io.export import save_epochs_to_set
-
-        if isinstance(result_data, mne.Epochs):
+        if isinstance(result_data, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
             save_epochs_to_set(
                 epochs=result_data,
                 autoclean_dict=self.config,

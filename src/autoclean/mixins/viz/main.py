@@ -50,5 +50,3 @@ class ReportingMixin(VisualizationMixin, ICAReportingMixin):
        - Component activation plots
 
     """
-
-    pass

@@ -147,6 +147,7 @@ class EventIDEpochsMixin:
             message("info", f"Found {len(events_trig)} events matching the patterns")
 
             # Create epochs with the filtered events
+            # pylint: disable=not-callable
             epochs = mne.Epochs(
                 data,
                 events_trig,
@@ -299,7 +300,8 @@ class EventIDEpochsMixin:
 
             # Add flags if needed
             if (good_epochs / total_epochs) < self.EPOCH_RETENTION_THRESHOLD:
-                flagged_reason = f"WARNING: Only {good_epochs / total_epochs * 100}% of epochs were kept"
+                flagged_reason = (f"WARNING: Only {good_epochs / total_epochs * 100}% "
+                "of epochs were kept")
                 self._update_flagged_status(flagged=True, reason=flagged_reason)
 
             # Add good and total to the annotation_types dictionary

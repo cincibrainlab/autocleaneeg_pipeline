@@ -128,6 +128,6 @@ class BaseVizMixin:
             message("info", f"Figure saved to {figure_path}")
             return str(figure_path)
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             message("error", f"Error saving figure: {str(e)}")
             return ""

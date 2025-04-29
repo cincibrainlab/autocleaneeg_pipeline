@@ -1,3 +1,9 @@
+#./src/autoclean/mixins/signal_processing/pylossless.py
+"""
+This file contains the PyLosslessMixin class, which provides a custom flow for running the 
+PyLossless pipeline.
+"""
+
 from datetime import datetime
 from typing import Any, Dict, Tuple, Union
 
@@ -30,7 +36,8 @@ class PyLosslessMixin:
         config : dict
             The configuration dictionary for the autoclean pipeline.
         eog_channel : str | None, optional
-            The channel name of the EOG channel. Default is "E25". This parameter is used to specify the channel referenced for eog specific ICA.
+            The channel name of the EOG channel. Default is "E25". This parameter is used to specify 
+            the channel referenced for eog specific ICA.
             If None, no EOG channel will be used.
         stage_name : str, optional
             The name of the stage for saving and metadata. Default is "post_pylossless".
@@ -45,7 +52,8 @@ class PyLosslessMixin:
         Notes
         -----
         This method is a wrapper around the PyLossless pipeline.
-        It includes a mixture of Pylossless and Autoclean functions in order to provide a comprehensive pipeline.
+        It includes a mixture of Pylossless and Autoclean functions in order 
+        to provide a comprehensive pipeline.
 
         See Also
         --------
@@ -72,7 +80,7 @@ class PyLosslessMixin:
 
         pipeline.flag_bridged_channels(data_r_ch)
 
-        pipeline.flag_rank_channel(data_r_ch, message="Flagging the rank channel")
+        pipeline.flag_rank_channel(data_r_ch)
 
         message("info", "Removing eog channels from flagged bads")
         bads = pipeline.flags["ch"].get_flagged()
@@ -83,9 +91,9 @@ class PyLosslessMixin:
         task = config["task"]
         try:
             eogs = config["tasks"][task]["settings"]["eog_step"]["value"]
-        except Exception:
+        except (KeyError, TypeError) as e:
             message(
-                "warning", "Failed to get eog channel (run_custom_pylossless_pipeline)"
+                "warning", f"Failed to get EOG channels (run_custom_pylossless_pipeline): {e}"
             )
             eogs = []
 
@@ -112,9 +120,9 @@ class PyLosslessMixin:
 
         # Flag Bad Epochs
         message("debug", "flagging noisy epochs")
-        pipeline.flag_noisy_epochs(message="Flagging Noisy Epochs")
+        pipeline.flag_noisy_epochs()
 
-        pipeline.flag_uncorrelated_epochs(message="Flagging Uncorrelated epochs")
+        pipeline.flag_uncorrelated_epochs()
 
         pre_ica_raw = pipeline.raw.copy()
 
@@ -122,27 +130,27 @@ class PyLosslessMixin:
         message("header", "Running ICA")
         if pipeline.config["ica"] is not None:
             message("debug", "running initial ICA")
-            pipeline.run_ica("run1", message="Running Initial ICA")
+            pipeline.run_ica("run1")
             if eog_channel is not None:
                 message("info", f"Running first EOG detection on {eog_channel}")
-                eog_indices, eog_scores = pipeline.ica1.find_bads_eog(
+                eog_indices, _ = pipeline.ica1.find_bads_eog(
                     pipeline.raw, ch_name=eog_channel
                 )
                 pipeline.ica1.exclude = eog_indices
                 pipeline.ica1.apply(pipeline.raw)
 
             message("debug", "running final ICA")
-            pipeline.run_ica("run2", message="Running Final ICA and ICLabel.")
+            pipeline.run_ica("run2")
             if eog_channel is not None:
                 message("info", f"Running second EOG detection on {eog_channel}")
-                eog_indices, eog_scores = pipeline.ica2.find_bads_eog(
+                eog_indices, _ = pipeline.ica2.find_bads_eog(
                     pipeline.raw, ch_name=eog_channel
                 )
                 pipeline.ica2.exclude = eog_indices
                 pipeline.ica2.apply(pipeline.raw)
 
             message("debug", "flagging noisy ICs")
-            pipeline.flag_noisy_ics(message="Flagging time periods with noisy IC's.")
+            pipeline.flag_noisy_ics()
 
             save_ica_to_fif(pipeline, self.config, pre_ica_raw)
 
@@ -213,7 +221,7 @@ class PyLosslessMixin:
             raise e
 
         try:
-            pylossless_config = yaml.safe_load(open(config_path))
+            pylossless_config = yaml.safe_load(open(config_path, "r", encoding="utf-8"))
 
             metadata = {
                 "creationDateTime": datetime.now().isoformat(),

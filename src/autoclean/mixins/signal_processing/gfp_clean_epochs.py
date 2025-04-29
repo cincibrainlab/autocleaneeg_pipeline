@@ -16,6 +16,7 @@ or other global disturbances in the EEG signal.
 
 from pathlib import Path
 from typing import Optional, Union
+import random
 
 import matplotlib.pyplot as plt
 import mne
@@ -112,13 +113,11 @@ class GFPCleanEpochsMixin:
         epochs = self._get_data_object(epochs, use_epochs=True)
 
         # Type checking
-        if not isinstance(epochs, mne.Epochs):
+        if not isinstance(epochs, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Epochs object for GFP cleaning")
 
         try:
             message("header", "Cleaning epochs based on Global Field Power (GFP)")
-
-            import random
 
             # Force preload to avoid RuntimeError
             if not epochs.preload:
@@ -206,7 +205,9 @@ class GFPCleanEpochsMixin:
             requested_epochs_exceeded = False
             if number_of_epochs is not None:
                 if len(epochs_final) < number_of_epochs:
-                    warning_msg = f"Requested number_of_epochs={number_of_epochs} exceeds the available cleaned epochs={len(epochs_final)}. Using all available epochs."
+                    warning_msg = (f"Requested number_of_epochs={number_of_epochs} "
+                    f"exceeds the available cleaned epochs={len(epochs_final)}. "
+                    "Using all available epochs.")
                     message("warning", warning_msg)
                     requested_epochs_exceeded = True
                     number_of_epochs = len(epochs_final)
@@ -244,7 +245,7 @@ class GFPCleanEpochsMixin:
 
             # Create GFP barplot if we have a pipeline with a derivative path
             if hasattr(self, "pipeline") and hasattr(self, "config"):
-                self._create_gfp_plots(epochs, epoch_stats, epoch_stats_final)
+                self._create_gfp_plots(epoch_stats, epoch_stats_final)
 
             # Update metadata
             metadata = {
@@ -283,7 +284,7 @@ class GFPCleanEpochsMixin:
             message("error", f"Error during GFP epoch cleaning: {str(e)}")
             raise RuntimeError(f"Failed to clean epochs using GFP: {str(e)}") from e
 
-    def _create_gfp_plots(self, epochs, epoch_stats, epoch_stats_final):
+    def _create_gfp_plots(self, epoch_stats, epoch_stats_final):
         """Create GFP plots and save them to the derivatives path.
 
         Args:
@@ -379,6 +380,6 @@ class GFPCleanEpochsMixin:
             plt.savefig(Path(plot_fname), dpi=300, bbox_inches="tight")
             plt.close()
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             message("warning", f"Could not create GFP plots: {str(e)}")
             # Continue without plots

@@ -33,5 +33,3 @@ class SignalProcessingMixin(
     This class inherits from all specialized signal processing mixins to provide
     a comprehensive set of signal processing methods for EEG data.
     """
-
-    pass

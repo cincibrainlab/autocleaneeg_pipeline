@@ -37,6 +37,7 @@ from typing import Any, Dict
 import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.gridspec import GridSpec
 
 from autoclean.mixins.viz.base import BaseVizMixin
@@ -111,7 +112,7 @@ class ICAReportingMixin(BaseVizMixin):
         ica_sources = ica.get_sources(raw)
         ica_data = ica_sources.get_data()
         times = raw.times
-        n_components, n_samples = ica_data.shape
+        n_components, _ = ica_data.shape
 
         # Normalize each component individually for better visibility
         for idx in range(n_components):
@@ -153,7 +154,8 @@ class ICAReportingMixin(BaseVizMixin):
         yticks = [idx * spacing for idx in range(n_components)]
         yticklabels = []
         for idx in range(n_components):
-            label_text = f"IC{idx + 1}: {ic_labels['ic_type'][idx]} ({ic_labels['confidence'][idx]:.2f})"
+            label_text = (f"IC{idx + 1}: {ic_labels['ic_type'][idx]} "
+            f"({ic_labels['confidence'][idx]:.2f})")
             yticklabels.append(label_text)
 
         ax.set_yticks(yticks)
@@ -214,7 +216,6 @@ class ICAReportingMixin(BaseVizMixin):
         duration: int = 10,
     ) -> None:
         """Generate comprehensive ICA reports using the _plot_ica_components method.
-
 
         Parameters
         ----------
@@ -280,10 +281,6 @@ class ICAReportingMixin(BaseVizMixin):
         components : str
             'all' to plot all components, 'rejected' to plot only rejected components.
         """
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-        from matplotlib.backends.backend_pdf import PdfPages
 
         # Get raw and ICA from pipeline
         raw = pipeline.raw
@@ -383,8 +380,6 @@ class ICAReportingMixin(BaseVizMixin):
                 table.scale(1.2, 1.5)  # Reduced vertical scaling
 
                 # Add title with page information, filename and timestamp
-                from datetime import datetime
-
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 fig_table.suptitle(
                     f"ICA Components Summary - {autoclean_dict['bids_path'].basename}\n"
@@ -437,7 +432,8 @@ class ICAReportingMixin(BaseVizMixin):
                 if len(ica_ch_names) != len(raw_copy.ch_names):
                     message(
                         "warning",
-                        f"Channel count mismatch: ICA has {len(ica_ch_names)} channels, raw has {len(raw_copy.ch_names)}. Using only ICA channels for plotting.",
+                        f"Channel count mismatch: ICA has {len(ica_ch_names)} channels, "
+                        f"raw has {len(raw_copy.ch_names)}. Using only ICA channels for plotting.",
                     )
                     # Keep only the channels that were used in ICA
                     raw_copy.pick_channels(ica_ch_names)
@@ -516,7 +512,8 @@ class ICAReportingMixin(BaseVizMixin):
             return Path(pdf_path).name
 
     def verify_topography_plot(self, autoclean_dict: Dict[str, Any]) -> bool:
-        """Use ica topograph to verify MEA channel placement. This function simply runs fast ICA then plots the topography.
+        """Use ica topograph to verify MEA channel placement. 
+        This function simply runs fast ICA then plots the topography.
         It is used on mouse files to verify channel placement.
 
         Parameters
@@ -525,7 +522,7 @@ class ICAReportingMixin(BaseVizMixin):
             Autoclean dictionary containing metadata.
 
         """
-
+        # pylint: disable=import-outside-toplevel
         import pylossless as ll
         from mne.preprocessing import ICA
 
@@ -538,7 +535,7 @@ class ICAReportingMixin(BaseVizMixin):
         )
         derivatives_dir = Path(derivatives_path.directory)
 
-        ica = ICA(
+        ica = ICA(  # pylint: disable=not-callable
             n_components=len(self.raw.ch_names) - len(self.raw.info["bads"]),
             method="fastica",
             random_state=42,

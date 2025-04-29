@@ -68,7 +68,7 @@ class SegmentationMixin:
         data = self._get_data_object(data, use_epochs)
 
         # Type checking
-        if not isinstance(data, (mne.io.Raw, mne.Epochs)):
+        if not isinstance(data, (mne.io.Raw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object for cropping")
 
         try:
@@ -150,7 +150,8 @@ class SegmentationMixin:
             if duration <= 2 * trim_amount:
                 message(
                     "warning",
-                    f"Data duration ({duration}s) is too short to trim {trim_amount}s from both ends",
+                    f"Data duration ({duration}s) is too short to trim {trim_amount}s "
+                    "from both ends",
                 )
                 return data
 
