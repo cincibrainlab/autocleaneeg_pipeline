@@ -4,7 +4,6 @@
 from datetime import datetime
 
 # Standard library imports
-from pathlib import Path
 from typing import Any, Dict
 
 import mne

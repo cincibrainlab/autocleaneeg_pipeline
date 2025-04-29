@@ -8,7 +8,6 @@ for EGI .raw files with GSN-HydroCel-129 electrode system.
 from pathlib import Path
 
 import mne
-import numpy as np
 import pandas as pd
 
 from autoclean.io.import_ import BaseEEGPlugin

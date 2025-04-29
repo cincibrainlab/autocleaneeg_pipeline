@@ -1,11 +1,8 @@
 # src/autoclean/utils/bids.py
 import json
-import sys
-import threading
 import traceback
 from contextlib import contextmanager  # Imported for dummy lock
 from pathlib import Path
-from threading import Lock as ThreadingLock
 from typing import Optional
 
 import pandas as pd
@@ -268,7 +265,7 @@ def step_convert_to_bids(
                 # Handle case where mne_bids might have left the file empty.
                 message(
                     "warning",
-                    f"participants.tsv is empty after MNE-BIDS write. Starting with headers.",
+                    "participants.tsv is empty after MNE-BIDS write. Starting with headers.",
                 )
                 participants_df = pd.DataFrame(
                     columns=desired_column_order, dtype=object

@@ -605,7 +605,7 @@ class HBCDEventProcessor(BaseEventProcessor):
         except ImportError:
             message(
                 "warning",
-                f"Could not import dedicated HBCD processor, using legacy implementation",
+                "Could not import dedicated HBCD processor, using legacy implementation",
             )
 
             # Legacy implementation for MMN

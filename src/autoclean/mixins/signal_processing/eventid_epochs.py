@@ -14,8 +14,7 @@ processing and analysis, such as event-related potentials (ERPs) or time-frequen
 analysis.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import mne
 import numpy as np

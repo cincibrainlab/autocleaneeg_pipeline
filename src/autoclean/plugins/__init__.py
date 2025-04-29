@@ -34,7 +34,7 @@ try:
     register_plugin(EEGLABSetMEA30Plugin)
     register_plugin(EGIRawGSN129Plugin)
 
-except ImportError as e:
+except ImportError:
     # This will happen during initial package setup before plugins are created
     pass
 
@@ -49,6 +49,6 @@ try:
     register_event_processor(HBCDMMNEventProcessor)
     register_event_processor(RestingStateEventProcessor)
 
-except ImportError as e:
+except ImportError:
     # This will happen during initial package setup before event processors are created
     pass

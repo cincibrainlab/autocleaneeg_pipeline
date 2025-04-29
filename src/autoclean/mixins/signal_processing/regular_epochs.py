@@ -17,8 +17,7 @@ Updates:
 - Added functionality to detect muscle artifacts in continuous Raw data using a sliding window approach
 """
 
-from datetime import datetime
-from typing import Dict, List, Optional, Union
+from typing import Dict, Optional, Union
 
 import mne
 import numpy as np
@@ -129,10 +128,10 @@ class RegularEpochsMixin:
             # Get all events from annotations
             try:
                 events_all, event_id_all = mne.events_from_annotations(data)
-            except Exception as e:
+            except Exception:
                 message(
                     "warning",
-                    f"No annotations found in data, skipping event extraction from annotations",
+                    "No annotations found in data, skipping event extraction from annotations",
                 )
                 events_all = None
                 event_id_all = None

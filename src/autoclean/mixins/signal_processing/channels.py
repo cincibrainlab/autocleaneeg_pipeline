@@ -1,6 +1,6 @@
 """Channel operations mixin for autoclean tasks."""
 
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 import mne
 import numpy as np

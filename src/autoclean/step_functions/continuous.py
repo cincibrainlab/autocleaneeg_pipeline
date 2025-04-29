@@ -1,22 +1,17 @@
 """Continuous preprocessing steps."""
 
-import json
 import os
-import re
-from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, Tuple
 
 import mne
 import numpy as np
-import pandas as pd
 import pylossless as ll
 import yaml
 from matplotlib import pyplot as plt
 from mne_bids import read_raw_bids
 from pyprep.find_noisy_channels import NoisyChannels
-from scipy import stats
 
 from autoclean.io.export import save_raw_to_set
 from autoclean.utils.bids import step_convert_to_bids

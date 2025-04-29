@@ -1,14 +1,11 @@
 # src/autoclean/tasks/chirp_default.py
 """Task implementation for chirp EEG preprocessing."""
 
-from pathlib import Path
 from typing import Any, Dict
 
 from ..core.task import Task
-from ..io.export import save_epochs_to_set, save_raw_to_set
-from ..io.import_ import import_eeg
+from ..io.export import save_raw_to_set
 from ..step_functions.continuous import (
-    step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,

@@ -25,7 +25,6 @@ Example:
     ```
 """
 
-from autoclean.mixins.viz.base import BaseVizMixin
 from autoclean.mixins.viz.ica import ICAReportingMixin
 from autoclean.mixins.viz.visualization import VisualizationMixin
 

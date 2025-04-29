@@ -160,13 +160,9 @@ def calculate_source_psd(
     file_path : str
         Path to the saved file
     """
-    import os
 
     import mne
-    import numpy as np
     import pandas as pd
-    from mne.parallel import parallel_func
-    from scipy import signal
 
     # Create output directory if it doesn't exist
     if output_dir is None:
@@ -194,7 +190,6 @@ def calculate_source_psd(
     n_overlap = window_length // 2  # 50% overlap
 
     # For multitaper, we'll use mne's implementation directly which handles this correctly
-    from mne.time_frequency import psd_array_multitaper
 
     # First, calculate frequencies that will be generated
     # We'll use a helper call to get the frequency axis
@@ -395,16 +390,12 @@ def calculate_source_psd_list(
     file_path : str
         Path to the saved file
     """
-    import os
     import time
-    from functools import partial
 
-    import h5py
     import matplotlib.pyplot as plt
     import mne
     import numpy as np
     import pandas as pd
-    from joblib import Parallel, delayed
     from scipy import signal
 
     # Start timing
@@ -807,10 +798,8 @@ def visualize_psd_results(psd_df, output_dir=None, subject_id=None):
     fig : matplotlib Figure
         Figure containing the visualization
     """
-    import os
 
     import matplotlib.pyplot as plt
-    import numpy as np
     import pandas as pd
     import seaborn as sns
     from matplotlib.gridspec import GridSpec
@@ -1092,11 +1081,9 @@ def calculate_source_connectivity(
     """
     import itertools
     import logging
-    import os
     import traceback
 
     import mne
-    import numpy as np
     import pandas as pd
     from mne_connectivity import spectral_connectivity_time
 
@@ -1470,11 +1457,9 @@ def test_connectivity_function_list():
         bool: True if test passes, False otherwise
     """
     import logging
-    import os
     import tempfile
 
     import mne
-    import numpy as np
     from mne.source_estimate import SourceEstimate
 
     # Set up logging
@@ -1675,12 +1660,10 @@ def calculate_source_connectivity_list(
     """
     import itertools
     import logging
-    import os
     import time
     import traceback
 
     import mne
-    import numpy as np
     import pandas as pd
     from mne_connectivity import spectral_connectivity_time
 
@@ -2098,11 +2081,9 @@ def test_connectivity_function():
         bool: True if test passes, False otherwise
     """
     import logging
-    import os
     import tempfile
 
     import mne
-    import numpy as np
     from mne.source_estimate import SourceEstimate
 
     # Set up logging
@@ -2302,11 +2283,9 @@ def calculate_aec_connectivity(
     """
     import itertools
     import logging
-    import os
     import time
 
     import mne
-    import numpy as np
     import pandas as pd
     from mne.filter import filter_data
     from scipy.signal import hilbert
@@ -2521,12 +2500,9 @@ def calculate_source_pac(
     file_path : str
         Path to the saved summary file
     """
-    import os
 
     import mne
-    import numpy as np
     import pandas as pd
-    from joblib import Parallel, delayed
     from scipy.signal import hilbert
 
     # Create output directory if it doesn't exist
@@ -2916,16 +2892,11 @@ def calculate_vertex_level_spectral_power_list(
         Path to the saved vertex power file
     """
     import logging
-    import os
 
-    import h5py
     import matplotlib.pyplot as plt
-    import mne
     import numpy as np
     import pandas as pd
-    from joblib import Parallel, delayed
     from scipy import signal
-    from tqdm import tqdm
 
     # Setup output directory
     if output_dir is None:
@@ -3219,14 +3190,9 @@ def calculate_vertex_level_spectral_power(
     file_path : str
         Path to the saved vertex power file
     """
-    import os
 
-    import h5py
-    import mne
     import numpy as np
-    from joblib import Parallel, delayed
     from scipy import signal
-    from tqdm import tqdm
 
     if output_dir is None:
         output_dir = os.getcwd()
@@ -3356,9 +3322,7 @@ def apply_spatial_smoothing(
     file_path : str
         Path to the saved smoothed data file
     """
-    import os
 
-    import h5py
     import mne
     import numpy as np
 
@@ -3452,11 +3416,8 @@ def calculate_vertex_psd_for_fooof(
     file_path : str
         Path to the saved PSD file
     """
-    import os
 
     import mne
-    import numpy as np
-    from joblib import Parallel, delayed
     from scipy import signal
 
     if output_dir is None:
@@ -3586,13 +3547,10 @@ def calculate_fooof_aperiodic(
         Path to saved file
     """
     import gc
-    import os
     import warnings
 
-    import numpy as np
     import pandas as pd
     from fooof import FOOOFGroup
-    from joblib import Parallel, delayed
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -3642,12 +3600,12 @@ def calculate_fooof_aperiodic(
                     # Some fits failed, try fallback parameters
                     raise RuntimeError("Some fits failed with primary parameters")
 
-            except Exception as e:
+            except Exception:
                 # Try again with fallback parameters
                 try:
                     fg = FOOOFGroup(**fallback_params)
                     fg.fit(freqs, batch_psds)
-                except Exception as e2:
+                except Exception:
                     # Create dummy results for completely failed fits
                     results = []
                     for i, vertex_idx in enumerate(vertices):
@@ -3845,17 +3803,12 @@ def visualize_fooof_results(
     fig : matplotlib Figure
         The multi-panel figure
     """
-    import os
 
     import matplotlib.gridspec as gridspec
     import matplotlib.pyplot as plt
     import mne
-    import numpy as np
-    import pandas as pd
     import seaborn as sns
     from fooof import FOOOF
-    from matplotlib.colors import Normalize
-    from mpl_toolkits.axes_grid1 import make_axes_locatable
 
     if output_dir is None:
         output_dir = os.getcwd()
@@ -4182,11 +4135,8 @@ def calculate_fooof_periodic(
         Path to the saved data file
     """
     import gc
-    import os
 
-    import numpy as np
     import pandas as pd
-    from joblib import Parallel, delayed
 
     # Import FOOOF only if not already imported
     try:
@@ -4369,12 +4319,8 @@ def calculate_vertex_peak_frequencies(
     file_path : str
         Path to the saved data file
     """
-    import gc
-    import os
 
-    import numpy as np
     import pandas as pd
-    from joblib import Parallel, delayed
     from scipy import stats
     from scipy.optimize import curve_fit
     from scipy.signal import find_peaks, savgol_filter
@@ -4643,10 +4589,8 @@ def visualize_peak_frequencies(
     brain : instance of Brain
         The visualization object
     """
-    import os
 
     import mne
-    import numpy as np
 
     if output_dir is None:
         output_dir = os.getcwd()
@@ -4723,12 +4667,8 @@ def convert_stc_to_eeg(
     eeglab_out_file : str
         Path to the saved EEGLAB .set file
     """
-    import os
 
     import mne
-    import numpy as np
-    import pandas as pd
-    import scipy.io
     from mne.datasets import fetch_fsaverage
 
     # Set up paths
@@ -4852,10 +4792,8 @@ def convert_stc_list_to_eeg(
     eeglab_out_file : str
         Path to the saved EEGLAB .set file
     """
-    import os
 
     import mne
-    import numpy as np
     import pandas as pd
     from mne.datasets import fetch_fsaverage
 

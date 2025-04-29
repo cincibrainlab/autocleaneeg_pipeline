@@ -53,24 +53,19 @@ Key Components:
 """
 
 # Standard library imports
-from pathlib import Path
 from typing import Any, Dict, Optional
 
-import matplotlib.pyplot as plt
 
 # Third-party imports
 import mne
-import numpy as np
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.io.import_ import import_eeg
+from autoclean.io.export import save_raw_to_set
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
-    step_run_pylossless,
 )
 from autoclean.utils.logging import message
 
