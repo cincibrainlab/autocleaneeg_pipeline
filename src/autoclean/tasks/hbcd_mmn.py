@@ -1,4 +1,5 @@
 # src/autoclean/tasks/hbcd_mmn.py
+"""Task implementation for HBCD mmn EEG preprocessing."""
 # Standard library imports
 from typing import Any, Dict
 
@@ -12,7 +13,8 @@ from autoclean.step_functions.continuous import (
 )
 
 
-class HBCD_MMN(Task):
+class HBCD_MMN(Task): # pylint: disable=invalid-name
+    """Task implementation for HBCD mmn EEG preprocessing."""
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -29,6 +31,7 @@ class HBCD_MMN(Task):
         self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
+        self.original_raw = None
 
         # Stages that should be configured in the autoclean_config.yaml file
         self.required_stages = [

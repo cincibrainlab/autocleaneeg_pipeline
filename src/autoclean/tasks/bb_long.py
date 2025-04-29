@@ -1,9 +1,7 @@
 # src/autoclean/tasks/resting_eyes_open.py
 """Task implementation for resting state EEG preprocessing."""
-# TODO
 
 # Standard library imports
-from pathlib import Path
 from typing import Any, Dict
 
 # Local imports
@@ -27,7 +25,7 @@ from autoclean.step_functions.continuous import (
 # )
 
 
-class BB_Long(Task):
+class BB_Long(Task): # pylint: disable=invalid-name
     """Task implementation for resting state EEG preprocessing."""
 
     def __init__(self, config: Dict[str, Any]):
@@ -37,7 +35,7 @@ class BB_Long(Task):
         self.epochs = None
         super().__init__(config)
 
-    def import_data(self, file_path: Path) -> None:
+    def import_data(self) -> None:
         """Import raw resting state EEG data."""
         # Import and save raw EEG data
         self.raw = import_eeg(self.config)
@@ -45,10 +43,9 @@ class BB_Long(Task):
 
     def run(self) -> None:
         """Run the complete resting state processing pipeline."""
-        file_path = Path(self.config["unprocessed_file"])
-        self.import_data(file_path)
+        self.import_data()
 
-        """Run preprocessing steps on the raw data."""
+        # Run preprocessing steps on the raw data.
         if self.raw is None:
             raise RuntimeError("No data has been imported")
 
@@ -120,7 +117,7 @@ class BB_Long(Task):
         )
 
         # # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
+        self.psd_topo_figure(  # TODO
             self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
         )
 

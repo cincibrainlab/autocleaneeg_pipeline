@@ -1,4 +1,6 @@
+# src/autoclean/tasks/RawToSet.py # pylint: disable=invalid-name
 # Standard library imports
+"""Converts RAW files to SET"""
 from typing import Any, Dict, Optional
 
 # Third-party imports
@@ -10,7 +12,8 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 
 
-class RawToSet(Task):
+class RawToSet(Task): # pylint: disable=invalid-name
+    """Converts RAW files to SET"""
     def __init__(self, config: Dict[str, Any]) -> None:
         """Initialize a new task instance.
 
@@ -38,8 +41,6 @@ class RawToSet(Task):
 
         # Save imported data if configured
         save_raw_to_set(self.raw, self.config, "post_import")
-
-        exit
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Define required fields and their expected types

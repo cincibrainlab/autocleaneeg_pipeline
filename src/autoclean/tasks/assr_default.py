@@ -1,7 +1,6 @@
 # src/autoclean/tasks/assr_default.py
 """Task implementation for assr EEG preprocessing."""
 
-from pathlib import Path
 from typing import Any, Dict
 
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
@@ -27,17 +26,17 @@ class AssrDefault(Task):
         self.epochs = None
         super().__init__(config)
 
-    def import_data(self, file_path: Path) -> None:
+    def import_data(self) -> None:
+        """Import and save raw EEG data"""
         # Import and save raw EEG data
         self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
 
     def run(self) -> None:
         """Run the complete assr processing pipeline."""
-        file_path = Path(self.config["unprocessed_file"])
-        self.import_data(file_path)
+        self.import_data()
 
-        """Run preprocessing steps on the raw data."""
+        # Run preprocessing steps on the raw data.
         if self.raw is None:
             raise RuntimeError("No data has been imported")
 
@@ -67,17 +66,17 @@ class AssrDefault(Task):
             raise RuntimeError("Preprocessing must be completed first")
 
         # Create event-id epochs
-        self.epochs = step_create_eventid_epochs(
+        self.epochs = step_create_eventid_epochs( #TODO
             self.cleaned_raw, self.pipeline, self.config
         )
 
         # Prepare epochs for ICA
-        self.epochs = step_prepare_epochs_for_ica(
+        self.epochs = step_prepare_epochs_for_ica( #TODO
             self.epochs, self.pipeline, self.config
         )
 
         # Clean epochs
-        self.epochs = step_gfp_clean_epochs(self.epochs, self.pipeline, self.config)
+        self.epochs = step_gfp_clean_epochs(self.epochs, self.pipeline, self.config) #TODO
 
         # Save cleaned epochs
         save_epochs_to_set(self.epochs, self.config, "post_clean_epochs")

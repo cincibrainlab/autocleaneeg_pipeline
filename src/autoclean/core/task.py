@@ -1,3 +1,5 @@
+"""Base class for all EEG processing tasks."""
+
 # Standard library imports
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -161,7 +163,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
 
         # Check if the task has defined required_stages
         if not hasattr(self, "required_stages"):
-
             message(
                 "warning",
                 f"Task {self.__class__.__name__} does not define required_stages attribute. "

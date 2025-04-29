@@ -31,6 +31,8 @@ from autoclean.utils.logging import message
 
 
 class MouseXdatAssr(Task):
+    """Mouse XDAT assr State Task"""
+
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -175,7 +177,8 @@ class MouseXdatAssr(Task):
 
         # from autoclean.calc.assr_runner import run_complete_analysis
         # file_basename = Path(self.config["unprocessed_file"]).stem
-        # run_complete_analysis(epochs = self.epochs, output_dir = self.config['analysis_dir'], file_basename=file_basename)
+        # run_complete_analysis(epochs = self.epochs, output_dir =
+        # self.config['analysis_dir'], file_basename=file_basename)
 
     def import_data(self) -> None:
         """Import raw EEG data for this task.

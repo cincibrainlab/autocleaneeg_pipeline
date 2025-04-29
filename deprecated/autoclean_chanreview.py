@@ -611,7 +611,7 @@ def process_single_file(
             power_spectrum,
         )
 
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         logging.error(f"Error processing {file_name}: {e}")
         return (file_id, None, None, None, None, None)
 
@@ -757,7 +757,7 @@ def process_eeg_files_async(
         metrics_df["Numerical_ID"] = metrics_df["File"].apply(extract_numerical_id)
         jitter_plot_path = f"{sanitized_electrode}_summary_jitter_plots.png"
         plot_summary_jitter(metrics_df, jitter_plot_path)
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         logging.error(f"Error creating summary jitter plots: {e}")
 
     logging.info("EEG folder processing completed.")

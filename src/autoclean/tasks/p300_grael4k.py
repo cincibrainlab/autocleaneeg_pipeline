@@ -1,4 +1,4 @@
-# src/autoclean/tasks/hbcd_mmn.py
+# src/autoclean/tasks/p300_grael4k.py
 # Standard library imports
 from datetime import datetime
 from pathlib import Path
@@ -164,7 +164,7 @@ class P300_Grael4k(Task):
         except Exception as e:
             error_message = f"Failed to read .set file: {str(e)}"
             message("error", error_message)
-            raise RuntimeError(error_message)
+            raise RuntimeError(error_message) from e
 
         # ------------------------------------------
         # Set up standard 10-20 montage
@@ -182,7 +182,7 @@ class P300_Grael4k(Task):
         except Exception as e:
             error_message = f"Failed to set up standard_1020 montage: {str(e)}"
             message("error", error_message)
-            raise RuntimeError(error_message)
+            raise RuntimeError(error_message) from e
 
         # ------------------------------------------
         # Process P300 task-specific annotations
@@ -194,7 +194,7 @@ class P300_Grael4k(Task):
         except Exception as e:
             error_message = f"Failed to rename annotations: {str(e)}"
             message("error", error_message)
-            raise RuntimeError(error_message)
+            raise RuntimeError(error_message) from e
 
         # ------------------------------------------
         # Assign imported data to self.raw
@@ -239,7 +239,7 @@ class P300_Grael4k(Task):
         return self.raw
 
     def step_create_eventid_epochs_p300(
-        cleaned_raw: mne.io.Raw, pipeline: Any, autoclean_dict: Dict[str, Any]
+        self, cleaned_raw: mne.io.Raw, pipeline: Any, autoclean_dict: Dict[str, Any]
     ) -> Optional[mne.Epochs]:
         task = autoclean_dict["task"]
         # Get epoch settings

@@ -45,7 +45,7 @@ def load_raw_file(file_path: Path) -> mne.io.Raw:
             f"[bold green]Successfully loaded raw data with {len(raw.ch_names)} channels[/bold green]"
         )
         return raw
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         console.print(
             f"[bold red]Error loading raw file {file_path}: {str(e)}[/bold red]"
         )
@@ -75,7 +75,7 @@ def process_and_save_stc(
         console.print(f"[bold green]Saved STC to: {output_path}[/bold green]")
         message("success", f"✓ Saved STC for {filename} to {output_path}")
 
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         console.print(
             f"[bold red]Error processing {filename} to STC: {str(e)}[/bold red]"
         )
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     console.print("[bold blue]Starting Batch Conversion of .set to STC[/bold blue]")
     try:
         main()
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         console.print(f"[bold red]An unexpected error occurred: {str(e)}[/bold red]")
     finally:
         console.print("[bold blue]Done![/bold blue]")

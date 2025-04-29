@@ -109,7 +109,7 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
         except Exception as e:
             raise RuntimeError(
                 f"Failed to process EEGLAB file with MEA30 montage: {str(e)}"
-            )
+            ) from e
 
     def process_events(self, raw: mne.io.Raw, autoclean_dict: dict) -> tuple:
         """Process events and annotations in the EEG data."""
@@ -133,7 +133,7 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
             else:
                 return None, None, None
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             message("warning", f"Failed to process events: {str(e)}")
             return None, None, None
 
@@ -154,7 +154,7 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
 
             events_df = pd.DataFrame(event_list)
             return events_df
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             message("warning", f"Could not load events table: {str(e)}")
             return None
 

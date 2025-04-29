@@ -92,7 +92,7 @@ class RestingStateEventProcessor(BaseEventProcessor):
                     "success",
                     f"Added resting state annotation with condition: {condition}",
                 )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Error creating resting state annotation: {e}")
         else:
             message("info", "No specific condition found for resting state task")
@@ -135,7 +135,7 @@ class RestingStateEventProcessor(BaseEventProcessor):
                     "success",
                     f"Created {len(segment_times)} segment annotations for resting state data",
                 )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Error creating segment annotations: {e}")
 
         return raw

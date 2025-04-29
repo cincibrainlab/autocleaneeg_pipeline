@@ -14,9 +14,6 @@ Plugins are automatically discovered and registered at runtime.
 # Import all plugins to ensure they are registered
 from autoclean.io.import_ import register_event_processor, register_plugin
 
-# Initialize subpackages
-from . import eeg_plugins, event_processors, formats
-
 # Import built-in plugins
 
 # EEG plugins
@@ -40,13 +37,11 @@ except ImportError:
 
 # Event processor plugins
 try:
-    from .event_processors.hbcd_mmn import HBCDMMNEventProcessor
     from .event_processors.p300 import P300EventProcessor
     from .event_processors.resting_state import RestingStateEventProcessor
 
     # Register built-in event processors
     register_event_processor(P300EventProcessor)
-    register_event_processor(HBCDMMNEventProcessor)
     register_event_processor(RestingStateEventProcessor)
 
 except ImportError:

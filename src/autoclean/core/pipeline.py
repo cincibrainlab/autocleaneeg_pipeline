@@ -328,7 +328,9 @@ class Pipeline:
             }
 
             lossless_config_path = self.autoclean_dict["tasks"][task]["lossless_config"]
-            lossless_config = yaml.safe_load(open(lossless_config_path))
+            lossless_config = yaml.safe_load(
+                open(lossless_config_path, encoding="utf8")
+            )
 
             # Merge task-specific config with base config
             run_dict = {**run_dict, **self.autoclean_dict, **lossless_config}
@@ -347,7 +349,7 @@ class Pipeline:
             except KeyError:
                 message(
                     "error",
-                    f"Task '{task}' not found in task registry. Class name in task file must match task name exactly.",
+                    f"Task '{task}' not found in task registry. Class name in task file must match task name exactly.",  # pylint: disable=line-too-long
                 )
                 raise
             task_object.run()
@@ -370,7 +372,7 @@ class Pipeline:
                         stage="post_comp",
                         flagged=flagged,
                     )
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to save completion data: {str(e)}")
 
             # Mark run as successful in database
@@ -393,7 +395,7 @@ class Pipeline:
 
             # Export run metadata to JSON file
             json_file = metadata_dir / run_record["json_file"]
-            with open(json_file, "w") as f:
+            with open(json_file, "w", encoding="utf8") as f:
                 json.dump(run_record, f, indent=4)
             message("success", f"✓ Run record exported to {json_file}")
 
@@ -403,7 +405,7 @@ class Pipeline:
                 update_task_processing_log(json_summary, flagged_reasons)
                 try:
                     generate_bad_channels_tsv(json_summary)
-                except Exception as tsv_error:
+                except Exception as tsv_error:  # pylint: disable=broad-except
                     message(
                         "warning",
                         f"Failed to generate bad channels tsv: {str(tsv_error)}",
@@ -417,7 +419,7 @@ class Pipeline:
             # Generate PDF report if processing succeeded
             try:
                 create_run_report(run_id, run_dict)
-            except Exception as report_error:
+            except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
 
         except Exception as e:
@@ -439,13 +441,13 @@ class Pipeline:
                 try:
                     flagged, flagged_reasons = task_object.get_flagged_status()
                     update_task_processing_log(json_summary, flagged_reasons)
-                except Exception as log_error:
+                except Exception as log_error:  # pylint: disable=broad-except
                     message(
                         "warning", f"Failed to update processing log: {str(log_error)}"
                     )
                 try:
                     generate_bad_channels_tsv(json_summary)
-                except Exception as tsv_error:
+                except Exception as tsv_error:  # pylint: disable=broad-except
                     message(
                         "warning",
                         f"Failed to generate bad channels tsv: {str(tsv_error)}",
@@ -459,7 +461,7 @@ class Pipeline:
                     create_run_report(run_id, run_dict)
                 else:
                     create_run_report(run_id)
-            except Exception as report_error:
+            except Exception as report_error:  # pylint: disable=broad-except
                 message(
                     "error", f"Failed to generate error report: {str(report_error)}"
                 )
@@ -585,7 +587,7 @@ class Pipeline:
         for file_path in files:
             try:
                 self._entrypoint(file_path, task)
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
 
@@ -657,7 +659,7 @@ class Pipeline:
                     # but the lock is mainly for the bids step itself)
                     await self._entrypoint_async(file_path, task)
                     pbar.write(f"✓ Completed: {file_path.name}")
-                except Exception as e:
+                except Exception as e:  # pylint: disable=broad-except
                     pbar.write(f"✗ Failed: {file_path.name} - {str(e)}")
                 finally:
                     pbar.update(1)  # Update progress regardless of outcome
@@ -731,7 +733,7 @@ class Pipeline:
         Note: The ideal use of the Review tool is as a docker container.
         """
         try:
-            from autoclean.tools.autoclean_review import run_autoclean_review
+            from autoclean.tools.autoclean_review import run_autoclean_review  # pylint: disable=import-outside-toplevel
 
             run_autoclean_review(self.autoclean_dir)
         except ImportError:
