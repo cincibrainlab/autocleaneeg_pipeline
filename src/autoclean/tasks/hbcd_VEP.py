@@ -2,8 +2,6 @@
 # Standard library imports
 from typing import Any, Dict
 
-# Third-party imports
-
 # Local imports
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
@@ -13,6 +11,9 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
 )
 from autoclean.utils.logging import message
+
+# Third-party imports
+
 
 
 class HBCD_VEP(Task):
