@@ -437,7 +437,6 @@ class FileSelector(QWidget):
             QHBoxLayout,
             QLabel,
             QPushButton,
-            QScrollArea,
         )
 
         original_filename = self.current_run_record["metadata"]["import_eeg"][
@@ -1028,7 +1027,7 @@ class FileSelector(QWidget):
                                 "info",
                                 f"Remapped stage directory from {original_stage_dir} to {container_stage_dir}",
                             )
-                        except Exception as e:
+                        except Exception:
                             # If we can't extract the path structure, try a simpler approach
                             # Just use the current directory as the base and add 'stage'
                             container_stage_dir = Path(self.current_dir) / "stage"

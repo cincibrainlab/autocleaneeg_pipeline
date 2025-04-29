@@ -14,16 +14,14 @@ that affect multiple channels simultaneously, such as movement artifacts, muscle
 or other global disturbances in the EEG signal.
 """
 
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
 
-from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 
 

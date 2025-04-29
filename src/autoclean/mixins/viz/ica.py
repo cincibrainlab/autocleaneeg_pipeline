@@ -32,11 +32,10 @@ Example:
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict
 
 import matplotlib
 import matplotlib.pyplot as plt
-import mne
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
@@ -281,12 +280,10 @@ class ICAReportingMixin(BaseVizMixin):
         components : str
             'all' to plot all components, 'rejected' to plot only rejected components.
         """
-        import os
 
         import matplotlib.pyplot as plt
         import numpy as np
         from matplotlib.backends.backend_pdf import PdfPages
-        from matplotlib.gridspec import GridSpec
 
         # Get raw and ICA from pipeline
         raw = pipeline.raw

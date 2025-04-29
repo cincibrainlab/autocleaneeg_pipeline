@@ -15,13 +15,10 @@ reduces the need for manual inspection and rejection of artifacts, while maintai
 the quality of the data for subsequent analysis.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 import mne
-import numpy as np
 
-from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 
 

@@ -34,7 +34,7 @@ def main():
 
     args = parser.parse_args()
 
-    print(f"Starting AutoClean Pipeline Container...")
+    print("Starting AutoClean Pipeline Container...")
     print(f"Task: {args.task}")
     print(f"Using data from: {DATA_DIR}")
     print(f"Using config from: {CONFIG_DIR}")

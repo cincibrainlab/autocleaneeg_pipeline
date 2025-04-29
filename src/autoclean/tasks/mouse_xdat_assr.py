@@ -1,12 +1,9 @@
 # src/autoclean/tasks/mouse_xdat_assr.py
 """Mouse XDAT assr State Task"""
 
-import os
-import sys
 from datetime import datetime
 
 # Standard library imports
-from pathlib import Path
 from typing import Any, Dict
 
 import mne
@@ -16,13 +13,11 @@ from pyprep.find_noisy_channels import NoisyChannels
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
-    step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,
-    step_run_pylossless,
 )
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message

@@ -11,13 +11,11 @@ of concerns. This modular approach allows for flexible composition of reporting
 functionality across different task types.
 """
 
-import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Optional
 
 import matplotlib.pyplot as plt
-import mne
 from mne_bids import BIDSPath
 
 from autoclean.utils.database import manage_database

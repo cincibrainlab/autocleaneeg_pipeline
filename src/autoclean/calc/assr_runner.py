@@ -13,16 +13,12 @@ import os
 import sys
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # Import the analysis and visualization modules
 from assr_analysis import (
     analyze_assr,
-    compute_metrics,
-    compute_time_frequency,
-    load_epochs,
 )
 from assr_viz import plot_all_figures, plot_global_mean_itc, plot_topomap
 

@@ -3,8 +3,6 @@
 from typing import Any, Dict
 
 # Third-party imports
-import mne
-import numpy as np
 
 # Local imports
 from autoclean.core.task import Task

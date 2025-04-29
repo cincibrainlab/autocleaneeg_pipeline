@@ -4,17 +4,13 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import matplotlib
-import matplotlib.pyplot as plt
 
 # Third-party imports
 import mne
-import numpy as np
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.io.import_ import import_eeg
+from autoclean.io.export import save_raw_to_set
 
 # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (

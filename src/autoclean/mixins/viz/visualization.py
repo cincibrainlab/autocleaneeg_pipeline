@@ -30,20 +30,17 @@ Example:
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
-import pandas as pd
-from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 
 from autoclean.mixins.viz.base import BaseVizMixin
 from autoclean.utils.logging import message
-from autoclean.utils.montage import get_standard_set_in_montage, validate_channel_set
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")

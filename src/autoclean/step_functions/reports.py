@@ -22,14 +22,11 @@ import shutil
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict
 
 import matplotlib
-import mne
-import numpy as np
 import pandas as pd
 import pylossless as ll
-from matplotlib.gridspec import GridSpec
 from mne_bids import BIDSPath
 
 __all__ = [
@@ -41,7 +38,6 @@ __all__ = [
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
-from matplotlib.backends.backend_pdf import PdfPages
 
 # ReportLab imports for PDF generation
 from reportlab.lib import colors
@@ -60,7 +56,6 @@ from reportlab.platypus import (
 
 from autoclean.utils.database import get_run_record, manage_database
 from autoclean.utils.logging import message
-from autoclean.utils.montage import get_standard_set_in_montage, validate_channel_set
 
 
 def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:

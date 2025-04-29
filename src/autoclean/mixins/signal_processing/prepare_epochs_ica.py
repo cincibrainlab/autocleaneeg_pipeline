@@ -15,12 +15,10 @@ reflect true brain activity and artifacts rather than being influenced by extrem
 outliers in the data.
 """
 
-from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Union
 
 import mne
 import numpy as np
-import pandas as pd
 
 from autoclean.utils.logging import message
 

@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_clean_bad_channels,

@@ -1,10 +1,8 @@
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
-from matplotlib.colors import LinearSegmentedColormap
 
 
 def load_epochs(file_path):

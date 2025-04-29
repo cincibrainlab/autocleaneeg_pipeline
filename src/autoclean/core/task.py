@@ -1,7 +1,6 @@
 # Standard library imports
 from abc import ABC, abstractmethod
 from pathlib import Path
-from struct import Struct
 from typing import Any, Dict, Optional
 
 # Third-party imports

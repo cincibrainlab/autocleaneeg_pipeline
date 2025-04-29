@@ -1,10 +1,8 @@
 # task_models.py
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Optional
 
-import mne
-from pydantic import BaseModel, Field, StrictFloat
+from pydantic import BaseModel, Field
 
 
 class BaseMetadata(BaseModel):

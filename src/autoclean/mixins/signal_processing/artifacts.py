@@ -1,6 +1,6 @@
 """Artifacts detection and rejection mixin for autoclean tasks."""
 
-from typing import List, Optional, Tuple, Union
+from typing import Optional, Union
 
 import mne
 import numpy as np

@@ -4,7 +4,7 @@ This processor handles all HBCD (HEALthy Brain and Child Development) paradigms,
 including MMN, VEP, and other task variants.
 """
 
-from typing import List, Optional
+from typing import Optional
 
 import mne
 import numpy as np

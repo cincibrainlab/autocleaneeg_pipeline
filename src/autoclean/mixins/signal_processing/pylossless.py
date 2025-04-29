@@ -83,9 +83,9 @@ class PyLosslessMixin:
         task = config["task"]
         try:
             eogs = config["tasks"][task]["settings"]["eog_step"]["value"]
-        except Exception as e:
+        except Exception:
             message(
-                "warning", f"Failed to get eog channel (run_custom_pylossless_pipeline)"
+                "warning", "Failed to get eog channel (run_custom_pylossless_pipeline)"
             )
             eogs = []
 
