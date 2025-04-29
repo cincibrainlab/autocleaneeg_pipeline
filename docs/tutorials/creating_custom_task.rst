@@ -8,7 +8,7 @@ When to Create a Custom Task?
 
 Create a custom Task to define a specific sequence of processing steps for your experimental paradigm, combining steps from `autoclean.step_functions` and methods from built-in Mixins (like `SignalProcessingMixin`, `ReportingMixin`).
 
-*(For creating entirely new processing *steps*, see the :doc:`creating_a_custom_mixin` tutorial.)*
+*(For creating entirely new processing "steps", see the :doc:`creating_a_custom_mixin` tutorial.)*
 
 How to Create a Custom Task
 ---------------------------

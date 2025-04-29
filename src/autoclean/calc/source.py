@@ -2,7 +2,6 @@ from autoclean.io.export import (
     save_stc_to_file,
 )
 import matplotlib
-import PyQt5
 import mne
 
 def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):

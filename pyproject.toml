@@ -54,7 +54,6 @@ dependencies = [
     "mkdocs-glightbox",
     "mkdocstrings>=0.20.0",
     "mkdocstrings-python>=1.16.2",
-    "pyqt5>=5.15.11",
     "pyvistaqt>=0.11.2",
     "qtpy>=2.4.3",
     "nibabel>=5.3.2",
