@@ -144,44 +144,6 @@ class resting_eyesopen_grael4k(Task): # pylint: disable=invalid-name
         # Generate visualization reports
         self._generate_reports()
 
-    # def preprocess(self) -> None:
-    #     """Run preprocessing steps on the raw data."""
-    #     if self.raw is None:
-    #         raise RuntimeError("No data has been imported")
-
-    #     # Run preprocessing pipeline and save intermediate result
-    #     self.raw = step_pre_pipeline_processing(self.raw, self.config)
-    #     save_raw_to_set(self.raw, self.config, "post_prepipeline")
-
-    #     # Create BIDS-compliant paths and filenames
-    #     self.raw, self.config = step_create_bids_path(self.raw, self.config)
-
-    #     # Run PyLossless pipeline and save result
-    #     self.pipeline, self.raw = step_run_pylossless(self.config)
-    #     save_raw_to_set(self.raw, self.config, "post_pylossless")
-
-    #     # Clean bad channels
-    #     #self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-    #     #save_raw_to_set(self.pipeline.raw, self.config, "post_bad_channels")
-
-    #     # # Use PyLossless Rejection Policy
-    #     self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
-    #         self.pipeline, self.config
-    #     )
-
-    #     self.cleaned_raw = step_detect_dense_oscillatory_artifacts(
-    #         self.cleaned_raw,
-    #         window_size_ms=100,
-    #         channel_threshold_uv=50,
-    #         min_channels=65,
-    #         padding_ms=500,
-    #     )
-    #     save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
-
-    #     estimate_source_function_raw(self.cleaned_raw, self.config)
-
-    #     # Generate visualization reports
-    #     # self._generate_reports()
 
     def _generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
@@ -213,4 +175,4 @@ class resting_eyesopen_grael4k(Task): # pylint: disable=invalid-name
         self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
-        self.psd_topo_figure(self.original_raw, self.raw, self.pipeline, self.config)
+        self.step_psd_topo_figure(self.original_raw, self.raw, self.pipeline, self.config)

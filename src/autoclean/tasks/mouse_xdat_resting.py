@@ -1,6 +1,5 @@
 # src/autoclean/tasks/mouse_xdat_resting.py
 """Mouse XDAT Resting State Task"""
-# TODO: Implement this task
 
 # Standard library imports
 from typing import Any, Dict
@@ -13,17 +12,6 @@ from autoclean.step_functions.continuous import (
     step_pre_pipeline_processing,
     step_run_pylossless,
 )
-
-# Import the reporting functions directly from the Task class via mixins
-# # Import the reporting functions directly from the Task class via mixins
-# # Import the reporting functions directly from the Task class via mixins
-# from autoclean.step_functions.reports import (
-#     #     step_generate_ica_reports,
-#     step_plot_ica_full,
-#     step_plot_raw_vs_cleaned_overlay,
-#     step_psd_topo_figure,
-#
-# )
 
 
 class MouseXdatResting(Task):

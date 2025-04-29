@@ -1328,7 +1328,7 @@ def create_json_summary(run_id: str) -> dict:
             unique_bad_channels.append(channel)
     channel_dict["removed_channels"] = unique_bad_channels
 
-    if "step_prepare_directories" in metadata:  # TODO
+    if "step_prepare_directories" in metadata:  # step_prepare_directories is part of the entrypoint so it will always be present
         output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
 
     # FIND IMPORT DETAILS

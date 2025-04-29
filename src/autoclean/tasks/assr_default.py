@@ -6,8 +6,8 @@ from typing import Any, Dict
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.io.import_ import import_eeg
 
-from ..core.task import Task
-from ..step_functions.continuous import (
+from autoclean.core.task import Task
+from autoclean.step_functions.continuous import (
     step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,
@@ -61,22 +61,18 @@ class AssrDefault(Task):
         )
         save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
 
-        """Run final processing steps including epoching."""
+        # Run final processing steps including epoching.
         if self.cleaned_raw is None:
             raise RuntimeError("Preprocessing must be completed first")
 
         # Create event-id epochs
-        self.epochs = step_create_eventid_epochs( #TODO
-            self.cleaned_raw, self.pipeline, self.config
-        )
+        self.create_eventid_epochs()
 
         # Prepare epochs for ICA
-        self.epochs = step_prepare_epochs_for_ica( #TODO
-            self.epochs, self.pipeline, self.config
-        )
+        self.prepare_epochs_for_ica()
 
         # Clean epochs
-        self.epochs = step_gfp_clean_epochs(self.epochs, self.pipeline, self.config) #TODO
+        self.gfp_clean_epochs()
 
         # Save cleaned epochs
         save_epochs_to_set(self.epochs, self.config, "post_clean_epochs")
