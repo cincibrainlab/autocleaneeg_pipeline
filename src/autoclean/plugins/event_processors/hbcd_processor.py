@@ -182,7 +182,7 @@ class HBCDEventProcessor(BaseEventProcessor):
                 # Apply new annotations to the raw data
                 raw.set_annotations(new_annotations)
                 message("success", f"Successfully processed {task.upper()} annotations")
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Error creating annotations: {e}")
         else:
             message(

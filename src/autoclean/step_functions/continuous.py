@@ -1,6 +1,7 @@
 """Continuous preprocessing steps."""
 
 import os
+from collections import OrderedDict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Tuple
@@ -10,6 +11,8 @@ import numpy as np
 import pylossless as ll
 import yaml
 from matplotlib import pyplot as plt
+from matplotlib.gridspec import GridSpec
+from matplotlib.lines import Line2D
 from mne_bids import read_raw_bids
 from pyprep.find_noisy_channels import NoisyChannels
 
@@ -17,6 +20,7 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.utils.bids import step_convert_to_bids
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
+
 
 __all__ = [
     "step_pre_pipeline_processing",
@@ -29,7 +33,8 @@ __all__ = [
 
 def step_pre_pipeline_processing(
     raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
-) -> mne.io.Raw:
+) -> mne.io.Raw:  # pylint: disable=too-many-lines
+    """"""
     message("header", "\nPre-pipeline Processing Steps")
 
     task = autoclean_dict["task"]
@@ -59,14 +64,14 @@ def step_pre_pipeline_processing(
     )
     message(
         "info",
-        f"{'✓' if apply_drop_outerlayer_toggle else '✗'} Drop Outer Layer: {apply_drop_outerlayer_toggle}",
+        f"{'✓' if apply_drop_outerlayer_toggle else '✗'} Drop Outer Layer: {apply_drop_outerlayer_toggle}",  # pylint: disable=line-too-long
     )
     message(
         "info", f"{'✓' if apply_eog_toggle else '✗'} EOG Assignment: {apply_eog_toggle}"
     )
     message(
         "info",
-        f"{'✓' if apply_average_reference_toggle else '✗'} Average Reference: {apply_average_reference_toggle}",
+        f"{'✓' if apply_average_reference_toggle else '✗'} Average Reference: {apply_average_reference_toggle}",  # pylint: disable=line-too-long
     )
     message(
         "info",
@@ -193,7 +198,8 @@ def step_create_bids_path(
 
     try:
         line_freq = autoclean_dict["filtering"]["notch_filter_args"]["freqs"][0]
-    except:
+    except Exception as e:  # pylint: disable=broad-except
+        message("error", f"Failed to load line frequency: {str(e)}")
         line_freq = 60.0
 
     try:
@@ -345,7 +351,7 @@ def step_run_pylossless(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw
         raise e
 
     try:
-        pylossless_config = yaml.safe_load(open(config_path))
+        pylossless_config = yaml.safe_load(open(config_path, encoding="utf8"))
 
         metadata = {
             "step_run_pylossless": {
@@ -394,7 +400,7 @@ def step_get_pylossless_pipeline(
         raise e
 
     try:
-        pylossless_config = yaml.safe_load(open(config_path))
+        pylossless_config = yaml.safe_load(open(config_path, encoding="utf8"))
 
         metadata = {
             "step_get_pylossless_pipeline": {
@@ -470,7 +476,7 @@ def step_run_ll_rejection_policy(
         duration_sec = int(cleaned_raw.n_times) / cleaned_raw.info["sfreq"]
         total_time = cleaned_raw.times[-1] if len(cleaned_raw.times) > 0 else 0
     except (AttributeError, KeyError, IndexError, ZeroDivisionError) as e:
-        raise RuntimeError(f"Error calculating duration/timing info: {str(e)}")
+        raise RuntimeError(f"Error calculating duration/timing info: {str(e)}") from e
 
     # Safely calculate percentage with bounds checking
     try:
@@ -507,7 +513,7 @@ def step_run_ll_rejection_policy(
             update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
         )
     except Exception as e:
-        raise RuntimeError(f"Failed to update database: {str(e)}")
+        raise RuntimeError(f"Failed to update database: {str(e)}") from e
 
     ##remove annotations before saving
     # cleaned_raw.set_annotations(None)
@@ -585,9 +591,7 @@ def _get_rejection_policy(autoclean_dict: dict) -> dict:
 
 def _extended_BAD_LL_noisy_ICs_annotations(
     raw, pipeline, autoclean_dict, extra_duration=1
-):
-    from collections import OrderedDict
-
+):  # pylint: disable=invalid-name
     # Extend each annotation by 1 second on each side
     for ann in raw.annotations:
         new_annotation = OrderedDict(
@@ -600,10 +604,8 @@ def _extended_BAD_LL_noisy_ICs_annotations(
         )
 
         # print(
-        #     f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}"
+        #     f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}" # pylint: disable=line-too-long
         # )
-
-    from collections import OrderedDict
 
     updated_annotations = []
     for annotation in raw.annotations:
@@ -760,7 +762,8 @@ def plot_bad_channels_with_topography(
     raw_original, raw_cleaned, pipeline, autoclean_dict, zoom_duration=30, zoom_start=0
 ):
     """
-    Plot bad channels with a topographical map and time series overlays for both full duration and a zoomed-in window.
+    Plot bad channels with a topographical map and time series overlays
+    for both full duration and a zoomed-in window.
 
     Parameters:
     -----------
@@ -777,10 +780,6 @@ def plot_bad_channels_with_topography(
     zoom_start : float, optional
         Start time in seconds for the zoomed-in window. Default is 0 seconds.
     """
-    import matplotlib.pyplot as plt
-    import mne
-    import numpy as np
-    from matplotlib.gridspec import GridSpec
 
     # ----------------------------
     # 1. Collect Bad Channels
@@ -963,8 +962,6 @@ def plot_bad_channels_with_topography(
     ax_full.invert_yaxis()
 
     # Add legend
-    from matplotlib.lines import Line2D
-
     legend_elements = [
         Line2D([0], [0], color="red", lw=2, linestyle="-", label="Original Data"),
         Line2D([0], [0], color="black", lw=2, linestyle="-", label="Interpolated Data"),
@@ -1070,8 +1067,7 @@ def plot_bad_channels_with_topography(
 def extend_annotations(
     raw, pipeline, autoclean_dict, extra_duration=0.5, label="BAD_LL_noisy_ICs"
 ):
-    from collections import OrderedDict
-
+    """Extend each annotation by 1 second on each side"""
     # Extend each annotation by 1 second on each side
     for ann in raw.annotations:
         new_annotation = OrderedDict(
@@ -1086,8 +1082,6 @@ def extend_annotations(
         # print(
         #     f"'{new_annotation['description']}' goes from {new_annotation['onset']} to {new_annotation['onset'] + new_annotation['duration']}"
         # )
-
-    from collections import OrderedDict
 
     updated_annotations = []
     for annotation in raw.annotations:
@@ -1148,7 +1142,6 @@ def extend_annotations(
         if n_segments == 1:
             axes = [axes]  # Ensure axes is iterable
 
-        sfreq = raw.info["sfreq"]
         for idx, i_ann in enumerate(bad_indices):
             onset = raw.annotations.onset[i_ann]
             duration = raw.annotations.duration[i_ann]

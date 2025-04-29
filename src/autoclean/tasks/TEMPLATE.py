@@ -1,4 +1,4 @@
-# src/autoclean/tasks/template_task.py
+# src/autoclean/tasks/TEMPLATE.py # pylint: disable=invalid-name
 """Template for implementing new EEG processing tasks.
 
 This template provides a starting point for implementing new EEG processing tasks.

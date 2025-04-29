@@ -1,4 +1,4 @@
-# src/autoclean/tasks/resting_eyes_open.py
+# src/autoclean/tasks/resting_eyes_open_grael4k.py
 """Task implementation for resting state EEG preprocessing."""
 
 # Standard library imports
@@ -17,7 +17,7 @@ from autoclean.step_functions.continuous import (
 from autoclean.utils.logging import message
 
 
-class resting_eyesopen_grael4k(Task):
+class resting_eyesopen_grael4k(Task): # pylint: disable=invalid-name
     """Task implementation for resting state EEG preprocessing."""
 
     def __init__(self, config: Dict[str, Any]):
@@ -25,6 +25,7 @@ class resting_eyesopen_grael4k(Task):
         self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
+        self.original_raw = None
         super().__init__(config)
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:

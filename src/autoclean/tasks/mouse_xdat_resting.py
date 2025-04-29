@@ -27,6 +27,7 @@ from autoclean.step_functions.continuous import (
 
 
 class MouseXdatResting(Task):
+    """Mouse XDAT Resting State Task"""
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 

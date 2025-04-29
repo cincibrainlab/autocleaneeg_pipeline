@@ -1,4 +1,4 @@
-# src/autoclean/step_functions/reports.py
+# src/autoclean/step_functions/reports.py # pylint: disable=too-many-lines
 """Visualization and reporting functions.
 
 
@@ -29,16 +29,6 @@ import pandas as pd
 import pylossless as ll
 from mne_bids import BIDSPath
 
-__all__ = [
-    "create_run_report",
-    "update_task_processing_log",
-    "create_json_summary",
-    "generate_bad_channels_tsv",
-]
-
-# Force matplotlib to use non-interactive backend for async operations
-matplotlib.use("Agg")
-
 # ReportLab imports for PDF generation
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -56,6 +46,16 @@ from reportlab.platypus import (
 
 from autoclean.utils.database import get_run_record, manage_database
 from autoclean.utils.logging import message
+
+__all__ = [
+    "create_run_report",
+    "update_task_processing_log",
+    "create_json_summary",
+    "generate_bad_channels_tsv",
+]
+
+# Force matplotlib to use non-interactive backend for async operations
+matplotlib.use("Agg")
 
 
 def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
@@ -111,10 +111,10 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         if autoclean_dict:
             try:
                 bids_path = autoclean_dict["bids_path"]
-            except Exception:
+            except Exception as e: # pylint: disable=broad-except
                 message(
                     "warning",
-                    "Failed to get BIDS path from autoclean_dict: Trying metadata",
+                    f"Failed to get BIDS path from autoclean_dict: Trying metadata: {str(e)}",
                 )
 
         if not bids_path:
@@ -146,7 +146,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         derivatives_path = str(
             derivatives_path.copy().update(suffix="report", extension=".pdf")
         )
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message(
             "warning",
             f"Failed to get BIDS path: {str(e)} : Saving only to metadata directory",
@@ -201,14 +201,14 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         textColor=colors.HexColor("#2C3E50"),
     )
 
-    steps_style = ParagraphStyle(
-        "Steps",
-        parent=normal_style,
-        fontSize=7,
-        leading=10,
-        spaceBefore=1,
-        spaceAfter=1,
-    )
+    # steps_style = ParagraphStyle(
+    #     "Steps",
+    #     parent=normal_style,
+    #     fontSize=7,
+    #     leading=10,
+    #     spaceBefore=1,
+    #     spaceAfter=1,
+    # )
 
     # Define frame style for main content
     frame_style = TableStyle(
@@ -337,7 +337,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         if not import_info:
             import_info = [["No import data available", "N/A"]]
 
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("warning", f"Error processing import information: {str(e)}")
         import_info = [["Error processing import data", "N/A"]]
 
@@ -369,11 +369,11 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                     [
                         [
                             "Filter",
-                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
+                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",  # pylint: disable=line-too-long
                         ],
                         [
                             "Notch",
-                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",
+                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",  # pylint: disable=line-too-long
                         ],
                     ]
                 )
@@ -442,7 +442,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         ],
                     ]
                 )
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("warning", f"Error processing preprocessing parameters: {str(e)}")
         preproc_info = [["Error processing parameters", "N/A"]]
 
@@ -482,11 +482,11 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                     [
                         [
                             "Filter",
-                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",
+                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",  # pylint: disable=line-too-long
                         ],
                         [
                             "Notch",
-                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",
+                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",  # pylint: disable=line-too-long
                         ],
                     ]
                 )
@@ -502,7 +502,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         ["Notch", "N/A"],
                     ]
                 )
-            if type(ica_details) == dict:
+            if isinstance(ica_details, dict):
                 lossless_info.extend(
                     [
                         ["ICA Method", ica_details.get("proc_method", "N/A")],
@@ -526,11 +526,11 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                     [
                         [
                             "Filter",
-                            f"{filter_args.get('l_freq', 'N/A')}-{filter_args.get('h_freq', 'N/A')} Hz",
+                            f"{filter_args.get('l_freq', 'N/A')}-{filter_args.get('h_freq', 'N/A')} Hz",  # pylint: disable=line-too-long
                         ],
                         [
                             "Notch",
-                            f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0] if isinstance(lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []), list) and lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []) else 'N/A'} Hz",
+                            f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0] if isinstance(lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []), list) and lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []) else 'N/A'} Hz",  # pylint: disable=line-too-long
                         ],
                         ["ICA", ica_args.get("run2", {}).get("method", "N/A")],
                         [
@@ -539,7 +539,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         ],
                     ]
                 )
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("warning", f"Error processing lossless settings: {str(e)}")
         lossless_info = [["Error processing lossless data", "N/A"]]
 
@@ -598,7 +598,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 # Format step name for display
                 display_name = step_name.replace("step_", "").replace("_", " ").title()
                 steps_data.append([display_name])
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("warning", f"Error processing steps data: {str(e)}")
         steps_data = [["Error processing steps"]]
 
@@ -682,7 +682,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         bad_channels_data.append(
                             [display_name, ", ".join(step_data["bads"])]
                         )
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("warning", f"Error processing bad channels data: {str(e)}")
         bad_channels_data = [["Error processing bad channels", "N/A"]]
 
@@ -779,11 +779,11 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                             results_data.append(
                                 [
                                     "Duration Retained",
-                                    f"{final_duration:.1f}s / {initial_duration:.1f}s ({percentage:.1f}%)",
+                                    f"{final_duration:.1f}s / {initial_duration:.1f}s ({percentage:.1f}%)",  # pylint: disable=line-too-long
                                 ]
                             )
                     else:
-                        # Use the values directly from export_details if epoch_length is not available
+                        # Use the values directly from export_details if epoch_length is not available # pylint: disable=line-too-long
                         percentage = (final / initial) * 100 if initial else 0
                         results_data.append(
                             [
@@ -815,7 +815,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         results_data.append(
                             ["Removed ICA Components", ", ".join(map(str, components))]
                         )
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing results data: {str(e)}")
         results_data = [["Error processing results", "N/A"]]
 
@@ -865,7 +865,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             for file in files:
                 if file.is_file():
                     output_files_data.append([file.name])
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing output files: {str(e)}")
         output_files_data = [["Error processing output files"]]
 
@@ -924,7 +924,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         try:
             shutil.copy(pdf_path, derivatives_path)
             message("success", f"Report also saved to {derivatives_path}")
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             message("warning", f"Could not save to derivatives: {str(e)}")
 
     return pdf_path
@@ -932,7 +932,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
 
 def update_task_processing_log(
     summary_dict: Dict[str, Any], flagged_reasons: list[str] = []
-) -> None:
+):
     """Update the task-specific processing log CSV file with processing details.
 
 
@@ -1012,7 +1012,7 @@ def update_task_processing_log(
 
                 # Calculate bad trials
                 return initial_epochs - final_epochs
-            except Exception:
+            except Exception:  # pylint: disable=broad-except
                 return 0  # Default to 0 if calculation fails
 
         # Calculate percentages safely
@@ -1144,7 +1144,7 @@ def update_task_processing_log(
                 else:
                     # Append new entry
                     df = pd.concat([df, pd.DataFrame([details])], ignore_index=True)
-            except Exception as csv_err:
+            except Exception as csv_err:  # pylint: disable=broad-except
                 message("error", f"Error processing existing CSV: {str(csv_err)}")
                 # Create new DataFrame as fallback
                 df = pd.DataFrame([details], dtype=str)
@@ -1161,7 +1161,7 @@ def update_task_processing_log(
                 "success",
                 f"Updated processing log for {details['subj_basename']} in {csv_path}",
             )
-        except Exception as save_err:
+        except Exception as save_err:  # pylint: disable=broad-except
             message("error", f"Error saving CSV: {str(save_err)}")
             return
 
@@ -1181,10 +1181,10 @@ def update_task_processing_log(
                 },
             )
 
-        except Exception as db_err:
+        except Exception as db_err:  # pylint: disable=broad-except
             message("error", f"Error updating database: {str(db_err)}")
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         message(
             "error",
             f"Error updating processing log: {str(e)}\n{traceback.format_exc()}",
@@ -1193,7 +1193,8 @@ def update_task_processing_log(
 
 def create_json_summary(run_id: str) -> dict:
     """
-    Creates a JSON summary of the run metadata. The main purpose of this is to create a summary of the run for the autoclean report.
+    Creates a JSON summary of the run metadata.
+    The main purpose of this is to create a summary of the run for the autoclean report.
 
     Parameters
     ----------
@@ -1243,7 +1244,7 @@ def create_json_summary(run_id: str) -> dict:
             )
             return {}
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-except
         message("error", f"Failed to get derivatives path: {str(e)}")
         return {}
 
@@ -1304,7 +1305,7 @@ def create_json_summary(run_id: str) -> dict:
             break
 
     if flagged_chs_file:
-        with open(derivatives_dir / flagged_chs_file, "r") as f:
+        with open(derivatives_dir / flagged_chs_file, "r", encoding="utf8") as f:
             # Skip the header line
             next(f)
             # Read each line and extract the label and channel name
@@ -1327,7 +1328,7 @@ def create_json_summary(run_id: str) -> dict:
             unique_bad_channels.append(channel)
     channel_dict["removed_channels"] = unique_bad_channels
 
-    if "step_prepare_directories" in metadata:
+    if "step_prepare_directories" in metadata:  # TODO
         output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
 
     # FIND IMPORT DETAILS
@@ -1339,8 +1340,8 @@ def create_json_summary(run_id: str) -> dict:
             if dropped_channels is None:
                 dropped_channels = []
             import_details["dropped_channels"] = dropped_channels
-        except:
-            pass
+        except Exception as e:  # pylint: disable=broad-except
+            message("error", f"Failed to load dropped channels: {str(e)}")
 
     if "import_eeg" in metadata:
         import_details["sample_rate"] = metadata["import_eeg"]["sampleRate"]
@@ -1471,10 +1472,10 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
     """
     try:
         channel_dict = summary_dict["channel_dict"]
-    except:
+    except Exception as e:  # pylint: disable=broad-except
         message(
             "warning",
-            "Could not generate bad channels tsv -> No channel dict found in summary dict",
+            f"Could not generate bad channels tsv -> No channel dict found in summary dict: {str(e)}", # pylint: disable=line-too-long
         )
         return
 
@@ -1485,14 +1486,16 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
         bridged_channels = channel_dict.get("bridged_channels", [])
         rank_channels = channel_dict.get("rank_channels", [])
         ransac_channels = channel_dict.get("ransac_channels", [])
-    except:
+    except Exception as e:  # pylint: disable=broad-except
         message(
             "warning",
-            "Could not generate bad channels tsv -> Failed to fetch bad channels",
+            f"Could not generate bad channels tsv -> Failed to fetch bad channels: {str(e)}",
         )
         return
 
-    with open(f"{summary_dict['derivatives_dir']}/FlaggedChs.tsv", "w") as f:
+    with open(
+        f"{summary_dict['derivatives_dir']}/FlaggedChs.tsv", "w", encoding="utf8"
+    ) as f:
         f.write("label\tchannel\n")
         for channel in noisy_channels:
             f.write("Noisy\t" + channel + "\n")

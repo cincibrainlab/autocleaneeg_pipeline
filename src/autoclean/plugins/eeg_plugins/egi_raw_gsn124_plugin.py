@@ -126,7 +126,7 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
         except Exception as e:
             raise RuntimeError(
                 f"Failed to process EGI .raw file with GSN-HydroCel-124 montage: {str(e)}"
-            )
+            ) from e
 
     def process_events(self, raw: mne.io.Raw, autoclean_dict: dict) -> tuple:
         """Process events and annotations in the EEG data."""
@@ -153,7 +153,7 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
                 unique_event_types = events_df["type"].unique()
                 message(
                     "info",
-                    f"Found {len(events)} events of {len(unique_event_types)} unique types: {unique_event_types}",
+                    f"Found {len(events)} events of {len(unique_event_types)} unique types: {unique_event_types}",  # pylint: disable=line-too-long
                 )
 
                 # Count events by type
@@ -165,7 +165,7 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
                 message("warning", "No events found in the raw data")
                 return None, None, None
 
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-except
             message("warning", f"Failed to process events: {str(e)}")
             return None, None, None
 
@@ -181,6 +181,6 @@ class EGIRawGSN124Plugin(BaseEEGPlugin):
                 "reference": "Common Reference",
                 "layout": "Geodesic",
                 "file_format": "EGI .raw binary format",
-                "notes": "124 EEG channels, excludes E129 (vertex reference), may include 4 ECG channels (E125-E128)",
+                "notes": "124 EEG channels, excludes E129 (vertex reference), may include 4 ECG channels (E125-E128)",  # pylint: disable=line-too-long
             },
         }

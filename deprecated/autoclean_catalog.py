@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""""" #TODO
 
 import argparse
 import time
@@ -16,7 +17,7 @@ console = Console()
 def parse_args():
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(
-        description="Generate metadata CSV for EEG files (.set, .stc, .fif) in autoclean stage directory."
+        description="Generate metadata CSV for EEG files (.set, .stc, .fif) in autoclean stage directory." # pylint: disable=line-too-long
     )
     parser.add_argument(
         "--autoclean-base",
@@ -38,7 +39,7 @@ def collect_eeg_metadata(stage_dir: Path) -> list:
     ]  # File extensions to search for
 
     console.print(
-        f"[bold cyan]Scanning directory: {stage_dir} for {', '.join(file_extensions)} files[/bold cyan]"
+        f"[bold cyan]Scanning directory: {stage_dir} for {', '.join(file_extensions)} files[/bold cyan]" # pylint: disable=line-too-long
     )
     for folder in track(list(stage_dir.iterdir()), description="Processing folders..."):
         if folder.is_dir() and folder.name.startswith(
@@ -98,6 +99,7 @@ def save_to_csv(metadata: list, output_path: Path):
 
 
 def main():
+    """""" #TODO
     # Parse command-line arguments
     args = parse_args()
     autoclean_base = args.autoclean_base
@@ -136,7 +138,7 @@ if __name__ == "__main__":
     )
     try:
         main()
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         console.print(f"[bold red]An error occurred: {str(e)}[/bold red]")
     finally:
         console.print("[bold blue]Done![/bold blue]")

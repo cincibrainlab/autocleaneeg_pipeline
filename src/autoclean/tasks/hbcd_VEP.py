@@ -1,4 +1,5 @@
-# src/autoclean/tasks/hbcd_VEP.py
+# src/autoclean/tasks/hbcd_VEP.py # pylint: disable=invalid-name
+"""Task implementation for HBCD VEP EEG preprocessing."""
 # Standard library imports
 from typing import Any, Dict
 
@@ -15,8 +16,8 @@ from autoclean.utils.logging import message
 # Third-party imports
 
 
-
-class HBCD_VEP(Task):
+class HBCD_VEP(Task): # pylint: disable=invalid-name
+    """Task implementation for HBCD VEP EEG preprocessing."""
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -33,6 +34,7 @@ class HBCD_VEP(Task):
         self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
+        self.original_raw = None
 
         # Call parent initialization
         super().__init__(config)

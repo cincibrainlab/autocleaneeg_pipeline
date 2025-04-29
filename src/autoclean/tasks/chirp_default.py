@@ -14,7 +14,8 @@ from ..step_functions.continuous import (
 
 # Import the reporting functions directly from the Task class via mixins
 # # Import the reporting functions directly from the Task class via mixins
-# from autoclean.step_functions.reports import step_generate_ica_reports, step_plot_ica_full, step_plot_raw_vs_cleaned_overlay, step_psd_topo_figure
+# from autoclean.step_functions.reports import step_generate_ica_reports,
+# step_plot_ica_full, step_plot_raw_vs_cleaned_overlay, step_psd_topo_figure
 
 
 class ChirpDefault(Task):
@@ -25,6 +26,7 @@ class ChirpDefault(Task):
         self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
+        self.original_raw = None
         super().__init__(config)
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
