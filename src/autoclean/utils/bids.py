@@ -1,4 +1,9 @@
 # src/autoclean/utils/bids.py
+# pylint: disable=line-too-long
+"""
+This module contains functions for converting EEG data to BIDS format.
+"""
+import hashlib
 import json
 import traceback
 from contextlib import contextmanager  # Imported for dummy lock
@@ -9,7 +14,7 @@ import pandas as pd
 from mne.io.constants import FIFF
 from mne_bids import BIDSPath, update_sidecar_json, write_raw_bids
 
-from ..utils.logging import message
+from autoclean.utils.logging import message
 
 
 def step_convert_to_bids(
@@ -50,14 +55,13 @@ def step_convert_to_bids(
     study_name : str
         The name of the study for dataset_description.json.
     autoclean_dict : dict
-        The run configuration, MUST include 'participants_tsv_lock' (a threading.Lock) for concurrent safety.
+        The run configuration, MUST include 'participants_tsv_lock' (a threading.Lock) for concurrent safety. 
 
     Returns
     -------
     bids_path : BIDSPath
         The BIDS path of the converted file.
     """
-    import hashlib
 
     file_path = raw.filenames[0]
     file_name = Path(file_path).name
@@ -82,13 +86,15 @@ def step_convert_to_bids(
         else:
             message(
                 "warning",
-                f"participants_tsv_lock found in autoclean_dict but is not a valid threading.Lock object (type: {type(retrieved_lock).__name__}, value: {retrieved_lock!r}). Proceeding without lock.",
+                f"participants_tsv_lock found in autoclean_dict but is not a valid threading.Lock object "
+                f"(type: {type(retrieved_lock).__name__}, value: {retrieved_lock!r}). "
+                "Proceeding without lock.",
             )
 
     if not lock_valid:
         message(
             "warning",
-            "participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.",
+            "participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.", # pylint: disable=line-too-long
         )
 
         # Use a dummy context manager if no valid lock is found to allow execution.
@@ -270,10 +276,10 @@ def step_convert_to_bids(
                 participants_df = pd.DataFrame(
                     columns=desired_column_order, dtype=object
                 )
-            except Exception as pd_read_err:
+            except Exception as pd_read_err: # pylint: disable=broad-except
                 message(
                     "error",
-                    f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting overwrite.",
+                    f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting overwrite.", # pylint: disable=line-too-long
                 )
                 participants_df = pd.DataFrame(
                     columns=desired_column_order, dtype=object
@@ -327,13 +333,13 @@ def step_convert_to_bids(
                         else:
                             message(
                                 "warning",
-                                f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.",
+                                f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.", # pylint: disable=line-too-long
                             )
                 else:
                     # Fallback if index search fails.
                     message(
                         "warning",
-                        f"Could not find index for existing participant {participant_col_id}. Appending instead.",
+                        f"Could not find index for existing participant {participant_col_id}. Appending instead.", # pylint: disable=line-too-long
                     )
                     new_row_df = pd.DataFrame([new_entry]).astype(dtype=object)
                     participants_df = pd.concat(
@@ -346,7 +352,7 @@ def step_convert_to_bids(
             )
 
             # Ensure final DataFrame columns match desired order, preserving extras.
-            # Note: This assumes desired_column_order contains all keys from new_entry that should be primary columns.
+            # Note: This assumes desired_column_order contains all keys from new_entry that should be primary columns. # pylint: disable=line-too-long
             final_columns = desired_column_order + [
                 col
                 for col in participants_df.columns
@@ -393,7 +399,6 @@ def step_sanitize_id(filename):
         The filename to generate a participant ID from.
 
     """
-    import hashlib
 
     def filename_to_number(filename, max_value=1000000):
         # Generate MD5 hash of the filename.
@@ -428,10 +433,10 @@ def step_create_dataset_desc(output_path, study_name):
     }
     filepath = output_path / "dataset_description.json"
     try:
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(dataset_description, f, indent=4)
         message("success", f"Created {filepath.name}")
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("error", f"Failed to create {filepath.name}: {e}")
 
 
@@ -476,8 +481,8 @@ def step_create_participants_json(output_path):
     }
     filepath = output_path / "participants.json"
     try:
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(participants_json, f, indent=4)
         message("success", f"Created {filepath.name}")
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("error", f"Failed to create {filepath.name}: {e}")

@@ -35,16 +35,16 @@ class WarningToLogger:
         """Initialize the warning handler."""
         self._last_warning = None
 
-    def __call__(self, message, category, filename, lineno, file=None, line=None):
+    def __call__(self, warning_message, category, filename, lineno, file=None, line=None):
         """Call the warning handler."""
         # Skip duplicate warnings
-        warning_key = (str(message), category, filename, lineno)
+        warning_key = (str(warning_message), category, filename, lineno)
         if warning_key == self._last_warning:
             return
         self._last_warning = warning_key
 
         # Format the warning message
-        warning_message = f"{category.__name__}: {str(message)}"
+        warning_message = f"{category.__name__}: {str(warning_message)}"
         logger.warning(warning_message)
 
 
@@ -252,7 +252,7 @@ def configure_logger(
     logger.add(
         sys.stderr,
         level=level,
-        format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+        format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>", # pylint: disable=line-too-long
         colorize=True,
         backtrace=True,
         diagnose=True,

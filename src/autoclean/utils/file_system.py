@@ -1,4 +1,7 @@
 # src/autoclean/utils/file_system.py
+"""
+This module contains functions for setting up and validating directory structures.
+"""
 import os
 from pathlib import Path
 
@@ -49,7 +52,7 @@ def step_prepare_directories(
             if not os.access(dir_path, os.W_OK):
                 raise PermissionError(f"No write permission for directory: {dir_path}")
     except Exception as e:
-        message("error", f"Failed to create/validate directory {name}: {str(e)}")
+        message("error", f"Failed to create/validate directory {dir_path}: {str(e)}")
         raise
 
     # Log directory structure

@@ -6,7 +6,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from unqlite import UnQLite
+from unqlite import UnQLite # pylint: disable=no-name-in-module
 
 from autoclean.utils.logging import message
 
@@ -14,7 +14,7 @@ from autoclean.utils.logging import message
 _db_lock = threading.Lock()
 
 # Global database path
-_DB_PATH = None
+DB_PATH = None
 
 
 def set_database_path(path: Path) -> None:
@@ -25,23 +25,23 @@ def set_database_path(path: Path) -> None:
     path : Path
         The path to the autoclean directory.
     """
-    global _DB_PATH
-    _DB_PATH = path
+    global DB_PATH # pylint: disable=global-statement
+    DB_PATH = path
 
 
 class DatabaseError(Exception):
     """Custom exception for database operations."""
 
-    def __init__(self, message):
-        self.message = message
+    def __init__(self, error_message: str):
+        self.message = error_message
         super().__init__(self.message)
 
 
 class RecordNotFoundError(Exception):
     """Custom exception for when a database record is not found."""
 
-    def __init__(self, message):
-        self.message = message
+    def __init__(self, error_message: str):
+        self.message = error_message
         super().__init__(self.message)
 
 
@@ -106,9 +106,8 @@ def manage_database(
         The record updates.
 
     """
-    global _DB_PATH
 
-    db_path = _DB_PATH / "pipeline.db"
+    db_path = DB_PATH / "pipeline.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     with _db_lock:  # Ensure only one thread can access the database at a time
@@ -199,4 +198,4 @@ def manage_database(
                 "error": str(e),
             }
             message("error", f"Database operation failed: {error_context}")
-            raise DatabaseError(f"Operation '{operation}' failed: {e}")
+            raise DatabaseError(f"Operation '{operation}' failed: {e}") from e

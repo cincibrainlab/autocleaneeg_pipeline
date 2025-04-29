@@ -23,12 +23,12 @@ def load_valid_montages() -> Dict[str, str]:
         "montages.yaml",
     )
     try:
-        with open(config_path, "r") as f:
+        with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
             return config["valid_montages"]
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-except
         message("error", f"Failed to load montages config: {e}")
-        return {}
+        raise
 
 
 # Standard montage mappings and validation
@@ -153,7 +153,7 @@ def get_standard_set_in_montage(roi_set: str, montage_type: str) -> List[str]:
         List of channel names in appropriate montage format
     """
     # Standard ROI sets in 10-20 system
-    STANDARD_SETS = {
+    standard_sets = {
         "frontal": ["Fz", "F3", "F4"],
         "frontocentral": ["Fz", "FCz", "Cz", "F3", "F4"],
         "central": ["Cz", "C3", "C4"],
@@ -163,12 +163,12 @@ def get_standard_set_in_montage(roi_set: str, montage_type: str) -> List[str]:
         "mmn_standard": ["Fz", "FCz", "Cz", "F3", "F4"],  # Standard MMN analysis set
     }
 
-    if roi_set not in STANDARD_SETS:
+    if roi_set not in standard_sets:
         raise ValueError(
-            f"Unknown ROI set: {roi_set}. Available sets: {list(STANDARD_SETS.keys())}"
+            f"Unknown ROI set: {roi_set}. Available sets: {list(standard_sets.keys())}"
         )
 
-    channels = STANDARD_SETS[roi_set]
+    channels = standard_sets[roi_set]
     return convert_channel_names(channels, montage_type)
 
 
