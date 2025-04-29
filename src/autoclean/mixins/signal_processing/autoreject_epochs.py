@@ -18,9 +18,9 @@ the quality of the data for subsequent analysis.
 from typing import List, Optional, Union
 
 import mne
+from autoreject import AutoReject
 
 from autoclean.utils.logging import message
-
 
 class AutoRejectEpochsMixin:
     """Mixin class providing functionality to clean epochs using AutoReject.
@@ -71,13 +71,13 @@ class AutoRejectEpochsMixin:
             stage_name: Name for saving and metadata tracking
 
         Returns:
-            mne.Epochs: The cleaned epochs object with bad epochs removed and bad channels interpolated
+            mne.Epochs: The cleaned epochs object with bad epochs removed 
+            and bad channels interpolated
 
         Raises:
             AttributeError: If self.epochs doesn't exist when needed
             TypeError: If epochs is not an Epochs object
             RuntimeError: If AutoReject fails
-            ImportError: If autoreject package is not installed
 
         Example:
             ```python
@@ -109,20 +109,10 @@ class AutoRejectEpochsMixin:
         epochs = self._get_epochs_object(epochs)
 
         # Type checking
-        if not isinstance(epochs, mne.Epochs):
+        if not isinstance(epochs, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Epochs object for AutoReject")
 
         try:
-            # Import AutoReject
-            try:
-                from autoreject import AutoReject
-            except ImportError:
-                message(
-                    "error",
-                    "AutoReject package is not installed. Please install it with 'pip install autoreject'",
-                )
-                raise ImportError("AutoReject package is not installed")
-
             message("header", "Applying AutoReject for artifact rejection")
 
             # Create AutoReject object with parameters if provided
@@ -146,7 +136,8 @@ class AutoRejectEpochsMixin:
 
             message(
                 "info",
-                f"Artifacts rejected: {rejected_epochs} epochs removed by AutoReject ({rejection_percent}%)",
+                f"Artifacts rejected: {rejected_epochs} epochs removed by "
+                f"AutoReject ({rejection_percent}%)",
             )
 
             # Update metadata

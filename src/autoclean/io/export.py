@@ -1,3 +1,5 @@
+"""Export functions for autoclean pipeline."""
+
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -78,7 +80,7 @@ def save_stc_to_file(
             stc.save(fname=path, ftype="h5", overwrite=True, verbose=False)
             message("success", f"✓ Saved {stage} STC file to: {path}")
         except Exception as e:
-            raise RuntimeError(f"Failed to save {stage} STC file to {path}: {str(e)}")
+            raise RuntimeError(f"Failed to save {stage} STC file to {path}: {str(e)}") from e
 
     # Create metadata for database logging
     metadata = {
@@ -159,6 +161,8 @@ def save_raw_to_set(
     elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
         subfolder = output_path / f"{stage_num}{suffix}"
+    else:
+        subfolder = output_path
     subfolder.mkdir(exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_raw.set"
 
@@ -176,7 +180,7 @@ def save_raw_to_set(
             raw.export(path, fmt="eeglab", overwrite=True)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
-            raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}")
+            raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}") from e
 
     metadata = {
         "save_raw_to_set": {
@@ -209,22 +213,20 @@ def save_epochs_to_set(
     output_path: Optional[Path] = None,
     flagged: bool = False,
 ) -> Path:
-    """Save epoched EEG data to file.
-
-    This function saves epoched EEG data, typically after processing.
+    """Save epoched EEG data to EEGLAB .set format with metadata preservation.
 
     Parameters
     ----------
         epochs : mne.Epochs
-            Epoched EEG data to save
-        autoclean_dict : dict
-            Configuration dictionary
-        stage : str
-            Processing stage identifier (default: "post_clean_epochs")
-        output_path : Optional[Path]
-            Optional custom output path. If None, uses config
-        flagged : bool
-            Whether to save to flagged directory
+            The epoched EEG data to save
+        autoclean_dict : Dict[str, Any]
+            Pipeline configuration containing stage settings, paths, and run identifier
+        stage : str, default="post_clean_epochs"
+            Processing stage identifier used for file naming and organization
+        output_path : Optional[Path], default=None
+            Custom output directory; if None, uses stage_dir from config
+        flagged : bool, default=False
+            If True, saves to the flagged_dir instead of stage_dir
 
     Returns
     -------
@@ -233,6 +235,7 @@ def save_epochs_to_set(
 
     """
 
+    # Validate stage configuration
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
 
@@ -240,89 +243,82 @@ def save_epochs_to_set(
         message("info", f"Saving disabled for stage: {stage}")
         return None
 
+    # Prepare file paths
     suffix = autoclean_dict["stage_files"][stage]["suffix"]
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
-    # Save to stage directory
+    # Determine output directory based on flagged status
     if flagged:
         output_path = autoclean_dict["flagged_dir"]
         subfolder = output_path / f"{basename}"
     elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
         subfolder = output_path / f"{stage_num}{suffix}"
+    else:
+        subfolder = output_path
     subfolder.mkdir(exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_epo.set"
 
-    # Save to both locations for post_comp
+    # For post_comp stage, save to both stage directory and clean directory
     paths = [stage_path]
     if stage == "post_comp" and not flagged:
         clean_path = autoclean_dict["clean_dir"] / f"{basename}{suffix}.set"
         autoclean_dict["clean_dir"].mkdir(exist_ok=True)
         paths.append(clean_path)
 
+    # Handle epoch metadata for event preservation
     if epochs.metadata is None:
         message("warning", "No additional event metadata found for epochs")
         events_in_epochs = None
         event_id_rebuilt = None
     else:
         try:
+            # Check for metadata-events alignment
             if len(epochs.metadata) != len(epochs.events):
                 message(
                     "warning",
-                    f"Mismatch in metadata vs events: {len(epochs.metadata)} vs {len(epochs.events)} — truncating to align.",
+                    "Mismatch in metadata vs events: "
+                    f"{len(epochs.metadata)} vs {len(epochs.events)} — truncating to align.",
                 )
 
+            # Extract events from metadata if available
             if (
                 "additional_events" in epochs.metadata.columns
                 and not epochs.metadata["additional_events"].empty
             ):
-                # Rebuild events_in_epochs from metadata
+                # Calculate timing parameters for event reconstruction
                 sfreq = epochs.info["sfreq"]
-                offset = int(
-                    round(-epochs.tmin * sfreq)
-                )  # Number of samples from epoch start to time 0
-                # Ensure metadata and events are aligned
-                n_epochs = min(len(epochs.metadata), len(epochs.events))
-                n_samples = len(epochs.times)  # total samples per epoch
-                base_events = epochs.events[:n_epochs, 0]
-                metadata_iter = epochs.metadata.iloc[:n_epochs].iterrows()
+                offset = int(round(-epochs.tmin * sfreq))  # Samples from epoch start to time 0
+                n_samples = len(epochs.times)  # Total samples per epoch
 
-                # Step 1: Gather all unique event labels
+                # Build event dictionary from all unique event labels
                 all_labels = set()
-
                 for row in epochs.metadata["additional_events"]:
                     for label, _ in row:
                         all_labels.add(label)
-
-                # Step 2: Build event_id dictionary (label → code)
                 event_id_rebuilt = {
                     label: idx + 1 for idx, label in enumerate(sorted(all_labels))
                 }
 
-                # Step 3: Build events_in_epochs array from metadata
+                # Reconstruct events array with global sample positions
                 events_in_epochs = []
-                # Keep track of samples we've already used
-                used_samples = set()
+                used_samples = set()  # Track used samples to prevent collisions
 
                 for i, row in enumerate(
                     epochs.metadata.itertuples(index=False, name="Row")
                 ):
                     for label, rel_time in row.additional_events:
-                        # Compute event sample relative to epoch start (adjusted so trigger is at 0s)
-                        event_sample_within_epoch = (
-                            int(round(rel_time * sfreq)) + offset
-                        )
-                        # Add global offset: epoch index * number of samples per epoch
+                        # Convert relative time to sample position
+                        event_sample_within_epoch = int(round(rel_time * sfreq)) + offset
                         global_sample = i * n_samples + event_sample_within_epoch
 
-                        # Check if this sample is already used, if so offset by 1
+                        # Prevent sample collisions by incrementing if needed
                         while global_sample in used_samples:
                             global_sample += 1
-
-                        # Mark this sample as used
                         used_samples.add(global_sample)
 
+                        # Add to events array with appropriate event code
                         code = event_id_rebuilt[label]
                         events_in_epochs.append([global_sample, 0, code])
 
@@ -330,25 +326,24 @@ def save_epochs_to_set(
             else:
                 message("warning", "No additional event metadata found for epochs")
                 events_in_epochs = None
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             message("error", f"Failed to rebuild events_in_epochs: {str(e)}")
             events_in_epochs = None
 
-    # Save to all paths
+    # Save to all target paths
     epochs.info["description"] = autoclean_dict["run_id"]
-    epochs.apply_proj()
+    epochs.apply_proj()  # Apply projectors before saving
     for path in paths:
         try:
-            # Export with preserved events
-            # Check if events_in_epochs exists AND is not empty
+            # Use specialized export for preserving complex event structures
             if events_in_epochs is not None and len(events_in_epochs) > 0:
-                from eeglabio.epochs import export_set
+                from eeglabio.epochs import export_set # pylint: disable=import-outside-toplevel
 
                 export_set(
                     fname=str(path),
-                    data=epochs.get_data(),  # shape: (n_epochs, n_channels, n_times)
+                    data=epochs.get_data(),
                     sfreq=epochs.info["sfreq"],
-                    events=events_in_epochs,  # this is your full enriched event list
+                    events=events_in_epochs,
                     tmin=epochs.tmin,
                     tmax=epochs.tmax,
                     ch_names=epochs.ch_names,
@@ -356,17 +351,19 @@ def save_epochs_to_set(
                     precision="single",
                 )
             else:
-                # Fallback to MNE's export for eventless data or failed reconstruction
+                # Use MNE's built-in exporter for simple cases
                 epochs.export(path, fmt="eeglab", overwrite=True)
-            # Add run_id to each file
+            # Add run_id to EEGLAB's etc field for tracking
+            # pylint: disable=invalid-name
             EEG = sio.loadmat(path)
             EEG["etc"] = {}
             EEG["etc"]["run_id"] = autoclean_dict["run_id"]
             sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
-            raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}")
+            raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}") from e
 
+    # Record save operation in database
     metadata = {
         "save_epochs_to_set": {
             "creationDateTime": datetime.now().isoformat(),
@@ -382,6 +379,7 @@ def save_epochs_to_set(
         }
     }
 
+    # Update database with save metadata and status
     run_id = autoclean_dict["run_id"]
     manage_database(
         operation="update", update_record={"run_id": run_id, "metadata": metadata}
@@ -414,7 +412,7 @@ def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
         ).directory
         derivatives_dir.mkdir(parents=True, exist_ok=True)
         basename = Path(autoclean_dict["unprocessed_file"]).stem
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         message("error", f"Failed to save ICA to FIF files: {str(e)}")
 
     components = []

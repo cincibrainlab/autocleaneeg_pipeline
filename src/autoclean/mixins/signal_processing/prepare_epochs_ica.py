@@ -43,7 +43,7 @@ class PrepareEpochsICAMixin:
     def prepare_epochs_for_ica(
         self, epochs: Union[mne.Epochs, None] = None, threshold: float = 3.0
     ) -> mne.Epochs:
-        """Prepare epochs for ICA by dropping epochs marked as bad based on global outlier detection.
+        """Prepare epochs for ICA by dropping epochs marked bad based on global outlier detection.
 
         This method identifies and marks epochs that are statistical outliers based on
         multiple measures, following the principles of the FASTER algorithm. It calculates
@@ -101,7 +101,7 @@ class PrepareEpochsICAMixin:
         epochs = self._get_data_object(epochs, use_epochs=True)
 
         # Type checking
-        if not isinstance(epochs, mne.Epochs):
+        if not isinstance(epochs, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Epochs object for ICA preparation")
 
         try:

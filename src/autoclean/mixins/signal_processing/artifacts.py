@@ -36,7 +36,8 @@ class ArtifactsMixin:
         min_channels : int, Optional
             Minimum number of channels that must exhibit oscillations, by default 75.
         padding_ms : float, Optional
-            Amount of padding in milliseconds to add before and after each detected artifact, by default 500.
+            Amount of padding in milliseconds to add before and after each detected artifact, 
+            by default 500.
         annotation_label : str, Optional
             Label to use for the annotations, by default "BAD_REF_AF".
         stage_name : str, Optional
@@ -45,18 +46,21 @@ class ArtifactsMixin:
         Returns
         -------
         result_raw : instance of mne.io.Raw
-            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
+            The raw data object with updated artifact annotations. 
+            *Note the self.raw is updated in place. So the return value is optional.*
 
         Examples
         --------
         >>> #Inside a task class that uses the autoclean framework
         >>> self.detect_dense_oscillatory_artifacts()
         >>> #Or with custom parameters
-        >>> self.detect_dense_oscillatory_artifacts(window_size_ms=200, channel_threshold_uv=50, min_channels=100, padding_ms=1000, annotation_label="BAD_CUSTOM_ARTIFACT")
+        >>> self.detect_dense_oscillatory_artifacts(window_size_ms=200, channel_threshold_uv=50, 
+        min_channels=100, padding_ms=1000, annotation_label="BAD_CUSTOM_ARTIFACT")
 
         Notes
         -----
-        This method is intended to find reference artifacts but may also be triggered by other artifacts.
+        This method is intended to find reference artifacts 
+        but may also be triggered by other artifacts.
         """
         # Determine which data to use
         data = self._get_data_object(data)
@@ -76,7 +80,7 @@ class ArtifactsMixin:
 
             # Get data and times
             raw_data, times = data.get_data(return_times=True)
-            n_channels, n_samples = raw_data.shape
+            _, n_samples = raw_data.shape
 
             artifact_annotations = []
 
@@ -126,7 +130,7 @@ class ArtifactsMixin:
 
             # Add flags if needed
             if len(artifact_annotations) > self.REFERENCE_ARTIFACT_THRESHOLD:
-                flagged_reason = f"WARNING: {len(artifact_annotations)} potential reference artifacts detected"
+                flagged_reason = f"WARNING: {len(artifact_annotations)} potential reference artifacts detected" # pylint: disable=line-too-long
                 self._update_flagged_status(flagged=True, reason=flagged_reason)
 
             # Update metadata
@@ -185,14 +189,16 @@ class ArtifactsMixin:
         Returns
         -------
         results_raw : instance of mne.io.Raw
-            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*
+            The raw data object with updated artifact annotations. 
+            *Note the self.raw is updated in place. So the return value is optional.*
 
         Examples
         --------
         >>> #Inside a task class that uses the autoclean framework
         >>> self.detect_muscle_beta_focus()
         >>> #Or with custom parameters
-        >>> self.detect_muscle_beta_focus(freq_band=(20, 30), scale_factor=4.0, window_length=2.0, window_overlap=0.7, annotation_description="BAD_CUSTOM_ARTIFACT")
+        >>> self.detect_muscle_beta_focus(freq_band=(20, 30), scale_factor=4.0, window_length=2.0, 
+        window_overlap=0.7, annotation_description="BAD_CUSTOM_ARTIFACT")
         """
         # Determine which data to use
         data = self._get_data_object(data)
@@ -398,7 +404,8 @@ class ArtifactsMixin:
         Returns
         -------
         raw_cleaned : instance of mne.io.Raw
-            The raw data object with updated artifact annotations. *Note the self.raw is updated in place. So the return value is optional.*.
+            The raw data object with updated artifact annotations. 
+            *Note the self.raw is updated in place. So the return value is optional.*.
 
         Examples
         --------
