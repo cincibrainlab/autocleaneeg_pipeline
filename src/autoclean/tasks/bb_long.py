@@ -1,6 +1,6 @@
 # src/autoclean/tasks/resting_eyes_open.py
 """Task implementation for resting state EEG preprocessing."""
-#TODO
+# TODO
 
 # Standard library imports
 from pathlib import Path
@@ -8,6 +8,8 @@ from typing import Any, Dict
 
 # Local imports
 from autoclean.core.task import Task
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_clean_bad_channels,
     step_create_bids_path,
@@ -15,8 +17,7 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.io.import_ import import_eeg
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+
 # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,
@@ -36,7 +37,6 @@ class BB_Long(Task):
         self.epochs = None
         super().__init__(config)
 
-
     def import_data(self, file_path: Path) -> None:
         """Import raw resting state EEG data."""
         # Import and save raw EEG data
@@ -54,29 +54,48 @@ class BB_Long(Task):
 
         # Run preprocessing pipeline and save intermediate result
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_prepipeline",
+            flagged=self.flagged,
+        )
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
         # Run PyLossless pipeline and save result
         self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_pylossless",
+            flagged=self.flagged,
+        )
 
         # Clean bad channels
         self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-        save_raw_to_set(raw = self.pipeline.raw, autoclean_dict = self.config, stage = "post_bad_channels", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.pipeline.raw,
+            autoclean_dict=self.config,
+            stage="post_bad_channels",
+            flagged=self.flagged,
+        )
 
         # # Use PyLossless Rejection Policy
         self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
 
-        save_raw_to_set(raw = self.cleaned_raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.cleaned_raw,
+            autoclean_dict=self.config,
+            stage="post_rejection_policy",
+            flagged=self.flagged,
+        )
 
         # Generate visualization reports
         self._generate_reports()
-
 
     def _generate_reports(self) -> None:
         """Generate all visualization reports."""
@@ -93,8 +112,11 @@ class BB_Long(Task):
 
         # # Generate ICA reports using mixin method
         self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
+            self.pipeline.ica2,
+            self.cleaned_raw,
+            self.config,
+            self.pipeline,
+            duration=60,
         )
 
         # # Create PSD topography figure using mixin method
@@ -113,7 +135,7 @@ class BB_Long(Task):
 
         # Raises:
         #     ValueError: If required fields are missing or invalid
-        # """
+        #"""
 
         required_fields = {
             "task": str,

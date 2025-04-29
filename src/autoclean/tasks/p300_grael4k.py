@@ -1,20 +1,21 @@
 # src/autoclean/tasks/hbcd_mmn.py
 # Standard library imports
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Optional
+
+import matplotlib
+import matplotlib.pyplot as plt
 
 # Third-party imports
 import mne
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib
-from datetime import datetime
+
 # Local imports
 from autoclean.core.task import Task
-from autoclean.io.import_ import import_eeg
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.utils.logging import message
-from autoclean.utils.database import manage_database
+from autoclean.io.import_ import import_eeg
+
 # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,
@@ -30,13 +31,11 @@ from autoclean.step_functions.continuous import (
     step_run_pylossless,
 )
 from autoclean.types.task_models import ImportMetadata, ProcessingMetadata
-
-from typing import Optional
-
+from autoclean.utils.database import manage_database
+from autoclean.utils.logging import message
 
 
 class P300_Grael4k(Task):
-
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -57,7 +56,6 @@ class P300_Grael4k(Task):
         # Call parent initialization
         super().__init__(config)
 
-
     def run(self) -> None:
         """Run the complete processing pipeline for this task.
         This method orchestrates the complete processing sequence:
@@ -65,7 +63,7 @@ class P300_Grael4k(Task):
         2. Run preprocessing steps
         3. Apply task-specific processing
         """
-        
+
         # ==========================================
         #          Data Import and Validation
         # ==========================================
@@ -112,20 +110,19 @@ class P300_Grael4k(Task):
         #     self.cleaned_raw, self.pipeline, self.config
         # )
 
-
         # save_epochs_to_set(self.epochs, self.config, "post_epochs")
         # if self.epochs is None:
         #     message("error", "Failed to create epochs")
         #     return
 
         # Run MMN analysis
-        #generate_mmn_erp(self.epochs, self.pipeline, self.config)
+        # generate_mmn_erp(self.epochs, self.pipeline, self.config)
 
         # # Save final epochs
         # save_epochs_to_set(self.epochs, self.config, "post_comp")
 
-        #self.preprocess()
-        #self.process()
+        # self.preprocess()
+        # self.process()
 
     def import_data(self, file_path: Path) -> mne.io.Raw:
         """Import raw EEG data for this task.
@@ -149,52 +146,52 @@ class P300_Grael4k(Task):
             Use save_raw_to_set() to save intermediate results if needed.
         """
 
-        #------------------------------------------
+        # ------------------------------------------
         # Check if the specified unprocessed file exists
-        #------------------------------------------
+        # ------------------------------------------
         if not file_path.is_file():
             error_message = f"Input file not found: {file_path}"
             message("error", error_message)
             raise FileNotFoundError(error_message)
 
-        #------------------------------------------
+        # ------------------------------------------
         # Import raw data using EEGLAB reader
-        #------------------------------------------
+        # ------------------------------------------
         message("info", "Importing data...")
         unprocessed_file = self.config["unprocessed_file"]
         eeg_system = self.config["eeg_system"]
 
         try:
-            raw = mne.io.read_raw_eeglab(input_fname=unprocessed_file, preload=True, verbose=True)
+            raw = mne.io.read_raw_eeglab(
+                input_fname=unprocessed_file, preload=True, verbose=True
+            )
             message("success", "Successfully loaded .set file")
         except Exception as e:
             error_message = f"Failed to read .set file: {str(e)}"
             message("error", error_message)
             raise RuntimeError(error_message)
 
-
-        #------------------------------------------
+        # ------------------------------------------
         # Set up standard 10-20 montage
-        #------------------------------------------
+        # ------------------------------------------
         try:
             montage = mne.channels.make_standard_montage(eeg_system)
             raw.set_montage(montage, match_case=False)
             raw.set_eeg_reference(ref_channels=[])  # No re-referencing, just keep as is
-            
-            # Reclassify A1 and A2 as 'misc' channels (not EEG)
-            raw.set_channel_types({'A1': 'misc', 'A2': 'misc'})
 
-            raw.info['description'] = 'Data referenced to linked ears (A1 + A2)/2'
+            # Reclassify A1 and A2 as 'misc' channels (not EEG)
+            raw.set_channel_types({"A1": "misc", "A2": "misc"})
+
+            raw.info["description"] = "Data referenced to linked ears (A1 + A2)/2"
             message("success", "Successfully configured standard 10-20 montage")
         except Exception as e:
             error_message = f"Failed to set up standard_1020 montage: {str(e)}"
             message("error", error_message)
             raise RuntimeError(error_message)
 
-
-        #------------------------------------------
+        # ------------------------------------------
         # Process P300 task-specific annotations
-        #------------------------------------------
+        # ------------------------------------------
         try:
             mapping = {"13": "Standard", "14": "Target"}
             raw.annotations.rename(mapping)
@@ -204,26 +201,22 @@ class P300_Grael4k(Task):
             message("error", error_message)
             raise RuntimeError(error_message)
 
-
-        #------------------------------------------
+        # ------------------------------------------
         # Assign imported data to self.raw
-        #------------------------------------------
+        # ------------------------------------------
         self.raw = raw
 
-
-        #------------------------------------------
+        # ------------------------------------------
         # Save imported data if configured
-        #------------------------------------------
+        # ------------------------------------------
         save_raw_to_set(self.raw, self.config, "post_import")
-
 
         # Verify initial annotations
         self._verify_annotations(self.raw, "post_import")
 
-
-        #------------------------------------------
+        # ------------------------------------------
         # Update database with import metadata
-        #------------------------------------------
+        # ------------------------------------------
         try:
             metadata = ImportMetadata(
                 unprocessedFile=file_path.name,
@@ -232,21 +225,23 @@ class P300_Grael4k(Task):
                 channelCount=len(self.raw.ch_names),
                 durationSec=self.raw.n_times / self.raw.info["sfreq"],
                 numberSamples=int(self.raw.n_times),
-                hasEvents=self.raw.annotations is not None
+                hasEvents=self.raw.annotations is not None,
             )
 
             manage_database(
                 operation="update",
-                update_record={"run_id": self.config["run_id"], "metadata": ProcessingMetadata(import_eeg=metadata).model_dump()},
+                update_record={
+                    "run_id": self.config["run_id"],
+                    "metadata": ProcessingMetadata(import_eeg=metadata).model_dump(),
+                },
             )
 
             message("success", "✓ Raw EEG data imported successfully")
         except Exception as e:
             message("error", f"Failed to update database: {str(e)}")
             raise
-        
-        return self.raw
 
+        return self.raw
 
     def step_create_eventid_epochs_p300(
         cleaned_raw: mne.io.Raw, pipeline: Any, autoclean_dict: Dict[str, Any]
@@ -269,25 +264,36 @@ class P300_Grael4k(Task):
         events, event_id = mne.events_from_annotations(cleaned_raw)
 
         # Create epochs from -200ms to 800ms relative to the event onset, with baseline correction
-        epochs = mne.Epochs(cleaned_raw, events, event_id, tmin=-0.5, tmax=0.8, baseline=(-.5, 0), preload=True)
+        epochs = mne.Epochs(
+            cleaned_raw,
+            events,
+            event_id,
+            tmin=-0.5,
+            tmax=0.8,
+            baseline=(-0.5, 0),
+            preload=True,
+        )
 
         # Average epochs for each condition
-        evoked_standard = epochs['Standard'].average()
-        evoked_target = epochs['Target'].average()
+        evoked_standard = epochs["Standard"].average()
+        evoked_target = epochs["Target"].average()
 
         # Plot both evoked responses on the same figure
-        figs = mne.viz.plot_compare_evokeds({'Standard': evoked_standard,
-                                    'Target': evoked_target},
-                                    colors={'Standard': 'blue', 'Target': 'red'},
-                                    title='ERP: Standard vs. Target')
+        figs = mne.viz.plot_compare_evokeds(
+            {"Standard": evoked_standard, "Target": evoked_target},
+            colors={"Standard": "blue", "Target": "red"},
+            title="ERP: Standard vs. Target",
+        )
 
         fig = figs[0] if isinstance(figs, list) else figs
-        fig.savefig('erp_comparison.png', dpi=300)
+        fig.savefig("erp_comparison.png", dpi=300)
 
         # get event_id settings
         event_types = epoch_settings.get("event_id")
         if event_types is None:
-            message("warning", "Event ID is not specified in epoch_settings (set to null)")
+            message(
+                "warning", "Event ID is not specified in epoch_settings (set to null)"
+            )
             return None
 
         # Add metadata about the epoching
@@ -317,7 +323,6 @@ class P300_Grael4k(Task):
 
         return epochs
 
-
     def preprocess(self) -> None:
         """Run standard preprocessing pipeline.
 
@@ -330,10 +335,11 @@ class P300_Grael4k(Task):
             The preprocessing parameters are read from the task's
             configuration. Modify the config file to adjust parameters.
         """
+
     pass
 
-        # Generate visualization reports
-        # self._generate_reports()
+    # Generate visualization reports
+    # self._generate_reports()
 
     def process(self) -> None:
         pass
@@ -362,8 +368,11 @@ class P300_Grael4k(Task):
 
         # Generate ICA reports using mixin method
         self.plot_ica_components(
-            self.pipeline.ica2, self.cleaned_raw, self.config, self.pipeline, duration=60
-        
+            self.pipeline.ica2,
+            self.cleaned_raw,
+            self.config,
+            self.pipeline,
+            duration=60,
         )
 
         # Create PSD topography figure using mixin method
@@ -458,31 +467,28 @@ class P300_Grael4k(Task):
         pass
 
     def _create_import_metadata(
-            self,
-            unprocessed_file: Path,
-            raw: mne.io.Raw,
-            events: Optional[Any]
-        ) -> Dict[str, Any]:
-            """Generate metadata specific to the data import step."""
-            if not isinstance(raw, mne.io.Raw):
-                raise TypeError("raw must be an mne.io.Raw object")
-            if not isinstance(unprocessed_file, Path):
-                raise TypeError("unprocessed_file must be a pathlib.Path object")
+        self, unprocessed_file: Path, raw: mne.io.Raw, events: Optional[Any]
+    ) -> Dict[str, Any]:
+        """Generate metadata specific to the data import step."""
+        if not isinstance(raw, mne.io.Raw):
+            raise TypeError("raw must be an mne.io.Raw object")
+        if not isinstance(unprocessed_file, Path):
+            raise TypeError("unprocessed_file must be a pathlib.Path object")
 
-            metadata = {
-                "import_eeg": {
-                    "import_function": "import_eeg",
-                    "creationDateTime": datetime.now().isoformat(),
-                    "unprocessedFile": str(unprocessed_file.name),
-                    "eegSystem": self.config.get("eeg_system", "Unknown"),
-                    "sampleRate": float(raw.info["sfreq"]),
-                    "channelCount": int(len(raw.ch_names)),
-                    "durationSec": float(raw.n_times) / raw.info["sfreq"],
-                    "numberSamples": int(raw.n_times),
-                    "hasEvents": bool(events is not None),
-                }
+        metadata = {
+            "import_eeg": {
+                "import_function": "import_eeg",
+                "creationDateTime": datetime.now().isoformat(),
+                "unprocessedFile": str(unprocessed_file.name),
+                "eegSystem": self.config.get("eeg_system", "Unknown"),
+                "sampleRate": float(raw.info["sfreq"]),
+                "channelCount": int(len(raw.ch_names)),
+                "durationSec": float(raw.n_times) / raw.info["sfreq"],
+                "numberSamples": int(raw.n_times),
+                "hasEvents": bool(events is not None),
             }
-            return metadata
+        }
+        return metadata
 
     def _validate_import_metadata(self, metadata: Dict[str, Any]) -> bool:
         """Validate metadata specific to the import step."""
@@ -512,10 +518,7 @@ class P300_Grael4k(Task):
         return True
 
     def _update_database_with_import_metadata(
-        self,
-        unprocessed_file: Path,
-        raw: mne.io.Raw,
-        events: Optional[Any]
+        self, unprocessed_file: Path, raw: mne.io.Raw, events: Optional[Any]
     ) -> None:
         """Update the database with metadata from the import step."""
         # Generate and validate metadata

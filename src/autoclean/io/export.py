@@ -16,6 +16,7 @@ __all__ = [
     "_get_stage_number",
 ]
 
+
 def save_stc_to_file(
     stc: mne.SourceEstimate,
     autoclean_dict: Dict[str, Any],
@@ -47,7 +48,7 @@ def save_stc_to_file(
     # Validate stage configuration
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
-        
+
     if not autoclean_dict["stage_files"][stage]["enabled"]:
         message("info", f"Saving disabled for stage: {stage}")
         return None
@@ -74,7 +75,7 @@ def save_stc_to_file(
     # Save the STC to all specified paths
     for path in paths:
         try:
-            stc.save(fname=path, ftype='h5', overwrite=True, verbose=False)
+            stc.save(fname=path, ftype="h5", overwrite=True, verbose=False)
             message("success", f"✓ Saved {stage} STC file to: {path}")
         except Exception as e:
             raise RuntimeError(f"Failed to save {stage} STC file to {path}: {str(e)}")
@@ -108,6 +109,7 @@ def save_stc_to_file(
 
     return paths[0]  # Return stage path for consistency
 
+
 def save_raw_to_set(
     raw: mne.io.Raw,
     autoclean_dict: Dict[str, Any],
@@ -118,7 +120,7 @@ def save_raw_to_set(
     """Save continuous EEG data to file.
 
     This function saves raw EEG data at various processing stages.
-    
+
     Parameters
     ----------
         raw : mne.io.Raw
@@ -141,7 +143,7 @@ def save_raw_to_set(
 
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
-        
+
     if not autoclean_dict["stage_files"][stage]["enabled"]:
         message("info", f"Saving disabled for stage: {stage}")
         return None
@@ -210,7 +212,7 @@ def save_epochs_to_set(
     """Save epoched EEG data to file.
 
     This function saves epoched EEG data, typically after processing.
-    
+
     Parameters
     ----------
         epochs : mne.Epochs
@@ -230,10 +232,10 @@ def save_epochs_to_set(
             Path to the saved file (stage path)
 
     """
-    
+
     if stage not in autoclean_dict["stage_files"]:
         raise ValueError(f"Stage not configured: {stage}")
-        
+
     if not autoclean_dict["stage_files"][stage]["enabled"]:
         message("info", f"Saving disabled for stage: {stage}")
         return None
@@ -262,52 +264,65 @@ def save_epochs_to_set(
     if epochs.metadata is None:
         message("warning", "No additional event metadata found for epochs")
         events_in_epochs = None
-        event_id_rebuilt = None 
+        event_id_rebuilt = None
     else:
         try:
             if len(epochs.metadata) != len(epochs.events):
-                message("warning", f"Mismatch in metadata vs events: {len(epochs.metadata)} vs {len(epochs.events)} — truncating to align.")
+                message(
+                    "warning",
+                    f"Mismatch in metadata vs events: {len(epochs.metadata)} vs {len(epochs.events)} — truncating to align.",
+                )
 
-            if 'additional_events' in epochs.metadata.columns and not epochs.metadata['additional_events'].empty:
+            if (
+                "additional_events" in epochs.metadata.columns
+                and not epochs.metadata["additional_events"].empty
+            ):
                 # Rebuild events_in_epochs from metadata
-                sfreq = epochs.info['sfreq']
-                offset = int(round(-epochs.tmin * sfreq))  # Number of samples from epoch start to time 0
+                sfreq = epochs.info["sfreq"]
+                offset = int(
+                    round(-epochs.tmin * sfreq)
+                )  # Number of samples from epoch start to time 0
                 # Ensure metadata and events are aligned
                 n_epochs = min(len(epochs.metadata), len(epochs.events))
-                n_samples = len(epochs.times)             # total samples per epoch
+                n_samples = len(epochs.times)  # total samples per epoch
                 base_events = epochs.events[:n_epochs, 0]
                 metadata_iter = epochs.metadata.iloc[:n_epochs].iterrows()
-
 
                 # Step 1: Gather all unique event labels
                 all_labels = set()
 
-                for row in epochs.metadata['additional_events']:
+                for row in epochs.metadata["additional_events"]:
                     for label, _ in row:
                         all_labels.add(label)
 
                 # Step 2: Build event_id dictionary (label → code)
-                event_id_rebuilt = {label: idx + 1 for idx, label in enumerate(sorted(all_labels))}
+                event_id_rebuilt = {
+                    label: idx + 1 for idx, label in enumerate(sorted(all_labels))
+                }
 
                 # Step 3: Build events_in_epochs array from metadata
                 events_in_epochs = []
                 # Keep track of samples we've already used
                 used_samples = set()
-                
-                for i, row in enumerate(epochs.metadata.itertuples(index=False, name="Row")):
+
+                for i, row in enumerate(
+                    epochs.metadata.itertuples(index=False, name="Row")
+                ):
                     for label, rel_time in row.additional_events:
                         # Compute event sample relative to epoch start (adjusted so trigger is at 0s)
-                        event_sample_within_epoch = int(round(rel_time * sfreq)) + offset
+                        event_sample_within_epoch = (
+                            int(round(rel_time * sfreq)) + offset
+                        )
                         # Add global offset: epoch index * number of samples per epoch
                         global_sample = i * n_samples + event_sample_within_epoch
-                        
+
                         # Check if this sample is already used, if so offset by 1
                         while global_sample in used_samples:
                             global_sample += 1
-                        
+
                         # Mark this sample as used
                         used_samples.add(global_sample)
-                        
+
                         code = event_id_rebuilt[label]
                         events_in_epochs.append([global_sample, 0, code])
 
@@ -319,27 +334,26 @@ def save_epochs_to_set(
             message("error", f"Failed to rebuild events_in_epochs: {str(e)}")
             events_in_epochs = None
 
-
     # Save to all paths
     epochs.info["description"] = autoclean_dict["run_id"]
     epochs.apply_proj()
     for path in paths:
         try:
-            #Export with preserved events
+            # Export with preserved events
             # Check if events_in_epochs exists AND is not empty
             if events_in_epochs is not None and len(events_in_epochs) > 0:
                 from eeglabio.epochs import export_set
 
                 export_set(
                     fname=str(path),
-                    data=epochs.get_data(),        # shape: (n_epochs, n_channels, n_times)
-                    sfreq=epochs.info['sfreq'],
-                    events=events_in_epochs,       # this is your full enriched event list
+                    data=epochs.get_data(),  # shape: (n_epochs, n_channels, n_times)
+                    sfreq=epochs.info["sfreq"],
+                    events=events_in_epochs,  # this is your full enriched event list
                     tmin=epochs.tmin,
                     tmax=epochs.tmax,
                     ch_names=epochs.ch_names,
                     event_id=event_id_rebuilt,
-                    precision='single',
+                    precision="single",
                 )
             else:
                 # Fallback to MNE's export for eventless data or failed reconstruction
@@ -379,6 +393,7 @@ def save_epochs_to_set(
 
     return paths[0]  # Return stage path for consistency
 
+
 def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
     """Save ICA results to FIF files.
 
@@ -394,7 +409,9 @@ def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
             Raw data before ICA
     """
     try:
-        derivatives_dir = pipeline.get_derivative_path(autoclean_dict["bids_path"]).directory
+        derivatives_dir = pipeline.get_derivative_path(
+            autoclean_dict["bids_path"]
+        ).directory
         derivatives_dir.mkdir(parents=True, exist_ok=True)
         basename = Path(autoclean_dict["unprocessed_file"]).stem
     except Exception as e:
@@ -412,8 +429,6 @@ def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
         components.append(ch for ch in pipeline.ica2.exclude)
     pre_ica_path = derivatives_dir / f"{basename}_pre_ica.set"
     pre_ica_raw.export(pre_ica_path, fmt="eeglab", overwrite=True)
-
-
 
     metadata = {
         "save_ica_to_fif": {

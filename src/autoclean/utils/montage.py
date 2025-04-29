@@ -10,7 +10,7 @@ from autoclean.utils.logging import message
 
 def load_valid_montages() -> Dict[str, str]:
     """Load valid montages from configuration file.
-    
+
     Returns
     -------
     Dict[str, str]
@@ -88,7 +88,7 @@ def get_10_20_to_gsn_mapping() -> Dict[str, str]:
 
 def get_gsn_to_10_20_mapping() -> Dict[str, str]:
     """Get mapping from GSN-HydroCel to 10-20 system channel names.
-    
+
     Returns
     -------
     Dict[str, str]
@@ -99,7 +99,7 @@ def get_gsn_to_10_20_mapping() -> Dict[str, str]:
 
 def convert_channel_names(channels: List[str], montage_type: str) -> List[str]:
     """Convert between 10-20 and GSN-HydroCel channel names.
-    
+
     Parameters
     ----------
     channels : List[str]
@@ -195,4 +195,3 @@ def validate_channel_set(
         message("warning", f"Some requested channels not found in data: {missing}")
 
     return valid_channels
-

@@ -162,7 +162,7 @@ def validate_pylossless_config(
 
 def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
     """Validate signal processing parameters for physical constraints.
-    
+
     Parameters
     ----------
     autoclean_dict : dict
@@ -311,7 +311,7 @@ def decode_compressed_yaml(encoded_str: str) -> dict:
     ----------
     encoded_str : str
         The compressed and encoded YAML string.
-    
+
     Returns
     -------
     yaml_dict : dict

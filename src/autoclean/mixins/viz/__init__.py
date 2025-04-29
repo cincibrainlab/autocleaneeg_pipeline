@@ -19,13 +19,13 @@ making it easy to integrate reporting functionality into task classes.
 Example:
     ```python
     from autoclean.core.task import Task
-    
+
     # Task class automatically includes ReportingMixin via inheritance
     class MyEEGTask(Task):
         def process(self, raw, pipeline, autoclean_dict):
             # Process the data
             raw_cleaned = self.apply_preprocessing(raw)
-            
+
             # Use reporting methods
             self.plot_raw_vs_cleaned_overlay(raw, raw_cleaned, pipeline, autoclean_dict)
             self.generate_report(raw, raw_cleaned, pipeline, autoclean_dict)
@@ -36,8 +36,8 @@ Configuration:
     checking if their corresponding steps are enabled before execution.
 """
 
+from autoclean.mixins.viz.ica import ICAReportingMixin
 from autoclean.mixins.viz.main import ReportingMixin
 from autoclean.mixins.viz.visualization import VisualizationMixin
-from autoclean.mixins.viz.ica import ICAReportingMixin
 
 __all__ = ["ReportingMixin", "VisualizationMixin", "ICAReportingMixin"]

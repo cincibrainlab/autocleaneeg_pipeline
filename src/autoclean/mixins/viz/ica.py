@@ -16,23 +16,23 @@ Example:
     ```python
     from autoclean.core.task import Task
     from mne.preprocessing import ICA
-    
+
     class MyICATask(Task):
         def process(self, raw, pipeline, autoclean_dict):
             # Perform ICA decomposition
             ica = ICA(n_components=20)
             ica.fit(raw)
-            
+
             # Create visualizations and reports
             self.plot_ica_components(ica, raw, autoclean_dict, pipeline)
             self.generate_ica_report(ica, raw, autoclean_dict, pipeline)
     ```
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -40,8 +40,8 @@ import mne
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
-from autoclean.utils.logging import message
 from autoclean.mixins.viz.base import BaseVizMixin
+from autoclean.utils.logging import message
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
@@ -49,54 +49,55 @@ matplotlib.use("Agg")
 
 class ICAReportingMixin(BaseVizMixin):
     """Mixin providing ICA reporting functionality for EEG data.
-    
+
     This mixin extends the base ReportingMixin with specialized methods for
     generating visualizations and reports of ICA results. It provides tools for
     assessing component properties, visualizing component activations, and
     documenting component rejection decisions.
-    
+
     All reporting methods respect configuration toggles from `autoclean_config.yaml`,
     checking if their corresponding step is enabled before execution. Each method
     can be individually enabled or disabled via configuration.
-    
+
     Available ICA reporting methods include:
-    
+
     - `plot_ica_full`: Plot all ICA components over the full time series
     - `generate_ica_reports`: Create a comprehensive report of ICA decomposition results
     - `verify_topography_plot`: Use a basicica topograph to verify MEA channel placement.
     """
-    
 
-    def plot_ica_full(self, pipeline: Any, autoclean_dict: Dict[str, Any]) -> plt.Figure:
+    def plot_ica_full(
+        self, pipeline: Any, autoclean_dict: Dict[str, Any]
+    ) -> plt.Figure:
         """Plot ICA components over the full time series with their labels and probabilities.
-        
+
         This method creates a figure showing each ICA component's time course over the full
         time series. Components are color-coded by their classification/rejection status,
         and probability scores are indicated for each component.
-        
+
         Parameters
         ----------
         pipeline : pylossless.Pipeline
             Pipeline object containing raw data and fitted ICA object.
         autoclean_dict : dict
             Dictionary containing metadata about the processing run.
-            
+
         Returns
         -------
         matplotlib.figure.Figure
             The generated figure with ICA components.
-            
+
         Raises
         ------
         ValueError
             If no ICA object is found in the pipeline.
-            
+
         Examples
         --------
         >>> # After performing ICA
         >>> fig = task.plot_ica_full(pipeline, autoclean_dict)
         >>> plt.show()
-            
+
         Notes:
             - Components classified as artifacts are highlighted in red
             - Classification probabilities are shown for each component
@@ -145,7 +146,9 @@ class ICAReportingMixin(BaseVizMixin):
         # Plot components in original order
         for idx in range(n_components):
             offset = idx * spacing
-            ax.plot(times, ica_data[idx] + offset, color=line_colors[idx], linewidth=0.5)
+            ax.plot(
+                times, ica_data[idx] + offset, color=line_colors[idx], linewidth=0.5
+            )
 
         # Set y-ticks and labels
         yticks = [idx * spacing for idx in range(n_components)]
@@ -212,8 +215,8 @@ class ICAReportingMixin(BaseVizMixin):
         duration: int = 10,
     ) -> None:
         """Generate comprehensive ICA reports using the _plot_ica_components method.
-        
-        
+
+
         Parameters
         ----------
         pipeline : pylossless.Pipeline
@@ -225,10 +228,10 @@ class ICAReportingMixin(BaseVizMixin):
         """
         # Generate report for all components
         report_filename = self._plot_ica_components(
-            pipeline = pipeline,
-            autoclean_dict = autoclean_dict,
-            duration = duration,
-            components = "all"
+            pipeline=pipeline,
+            autoclean_dict=autoclean_dict,
+            duration=duration,
+            components="all",
         )
 
         metadata = {
@@ -242,10 +245,10 @@ class ICAReportingMixin(BaseVizMixin):
 
         # Generate report for rejected components
         report_filename = self._plot_ica_components(
-            pipeline = pipeline,
-            autoclean_dict = autoclean_dict,
-            duration = duration,
-            components = "rejected"
+            pipeline=pipeline,
+            autoclean_dict=autoclean_dict,
+            duration=duration,
+            components="rejected",
         )
 
         metadata = {
@@ -256,7 +259,6 @@ class ICAReportingMixin(BaseVizMixin):
         }
 
         self._update_metadata("generate_ica_reports", metadata)
-        
 
     def _plot_ica_components(
         self,
@@ -299,7 +301,9 @@ class ICAReportingMixin(BaseVizMixin):
             component_indices = ica.exclude
             report_name = "ica_components_rejected"
             if not component_indices:
-                print("No components were rejected. Skipping rejected components report.")
+                print(
+                    "No components were rejected. Skipping rejected components report."
+                )
                 return
         else:
             raise ValueError("components parameter must be 'all' or 'rejected'.")
@@ -315,7 +319,9 @@ class ICAReportingMixin(BaseVizMixin):
 
         # Create output path for the PDF report
         derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-        pdf_path = str(derivatives_path.copy().update(suffix=report_name, extension=".pdf"))
+        pdf_path = str(
+            derivatives_path.copy().update(suffix=report_name, extension=".pdf")
+        )
 
         # Remove existing file
         if os.path.exists(pdf_path):
@@ -422,20 +428,23 @@ class ICAReportingMixin(BaseVizMixin):
             if components == "rejected":
                 fig_overlay = plt.figure()
                 end_time = min(30.0, pipeline.raw.times[-1])
-                
+
                 # Create a copy of raw data with only the channels used in ICA training
                 # to avoid shape mismatch during pre-whitening
                 raw_copy = pipeline.raw.copy()
-                
+
                 # Get the channel names that were used for ICA training
                 ica_ch_names = pipeline.ica2.ch_names
-                
+
                 # Pick only those channels from the raw data
                 if len(ica_ch_names) != len(raw_copy.ch_names):
-                    message('warning',f"Channel count mismatch: ICA has {len(ica_ch_names)} channels, raw has {len(raw_copy.ch_names)}. Using only ICA channels for plotting.")
+                    message(
+                        "warning",
+                        f"Channel count mismatch: ICA has {len(ica_ch_names)} channels, raw has {len(raw_copy.ch_names)}. Using only ICA channels for plotting.",
+                    )
                     # Keep only the channels that were used in ICA
                     raw_copy.pick_channels(ica_ch_names)
-                
+
                 fig_overlay = pipeline.ica2.plot_overlay(
                     raw_copy,
                     start=0,
@@ -478,7 +487,9 @@ class ICAReportingMixin(BaseVizMixin):
                 ax_timeseries.plot(times, ica_data[idx, :n_samples], linewidth=0.5)
                 ax_timeseries.set_xlabel("Time (seconds)")
                 ax_timeseries.set_ylabel("Amplitude")
-                ax_timeseries.set_title(f"Component {idx + 1} Time Course ({duration}s)")
+                ax_timeseries.set_title(
+                    f"Component {idx + 1} Time Course ({duration}s)"
+                )
 
                 # Add labels
                 comp_info = ic_labels.iloc[idx]
@@ -508,7 +519,7 @@ class ICAReportingMixin(BaseVizMixin):
             return Path(pdf_path).name
 
     def verify_topography_plot(self, autoclean_dict: Dict[str, Any]) -> bool:
-        """Use ica topograph to verify MEA channel placement. This function simply runs fast ICA then plots the topography. 
+        """Use ica topograph to verify MEA channel placement. This function simply runs fast ICA then plots the topography.
         It is used on mouse files to verify channel placement.
 
         Parameters
@@ -518,23 +529,27 @@ class ICAReportingMixin(BaseVizMixin):
 
         """
 
-        from mne.preprocessing import ICA
         import pylossless as ll
+        from mne.preprocessing import ICA
 
         task = autoclean_dict["task"]
-        config_path = autoclean_dict['tasks'][task]['lossless_config']
+        config_path = autoclean_dict["tasks"][task]["lossless_config"]
         derivative_name = "pylossless"
         pipeline = ll.LosslessPipeline(config_path)
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"], derivative_name)
+        derivatives_path = pipeline.get_derivative_path(
+            autoclean_dict["bids_path"], derivative_name
+        )
         derivatives_dir = Path(derivatives_path.directory)
 
-
-        ica = ICA(n_components=len(self.raw.ch_names) - len(self.raw.info["bads"]), method="fastica", random_state=42)
+        ica = ICA(
+            n_components=len(self.raw.ch_names) - len(self.raw.info["bads"]),
+            method="fastica",
+            random_state=42,
+        )
         ica.fit(self.raw)
 
-        fig = ica.plot_components(picks=range(len(self.raw.ch_names) - len(self.raw.info["bads"])), show=False)
+        fig = ica.plot_components(
+            picks=range(len(self.raw.ch_names) - len(self.raw.info["bads"])), show=False
+        )
 
         fig.savefig(derivatives_dir / "ica_topography.png")
-        
-
-
