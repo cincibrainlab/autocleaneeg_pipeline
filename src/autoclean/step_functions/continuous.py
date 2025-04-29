@@ -1,15 +1,15 @@
 """Continuous preprocessing steps."""
 
+import json
+import os
+import re
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
-import re
-import os
-import json
-import numpy as np
 
 import mne
+import numpy as np
 import pandas as pd
 import pylossless as ll
 import yaml
@@ -181,7 +181,6 @@ def step_pre_pipeline_processing(
     # self._verify_annotations(self.raw, "post_prepipeline")
     save_raw_to_set(raw, autoclean_dict, "post_prepipeline")
 
-
     return raw
 
 
@@ -282,8 +281,10 @@ def step_clean_bad_channels(
     # Run noisy channels detection
     cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
     cleaned_raw.find_bad_by_SNR()
-    cleaned_raw.find_bad_by_correlation(correlation_secs=1.0,correlation_threshold=0.2, frac_bad=0.01) #frac_bad refers to "bad" correlation window over whole recording
-    cleaned_raw.find_bad_by_deviation(deviation_threshold=4.0)  
+    cleaned_raw.find_bad_by_correlation(
+        correlation_secs=1.0, correlation_threshold=0.2, frac_bad=0.01
+    )  # frac_bad refers to "bad" correlation window over whole recording
+    cleaned_raw.find_bad_by_deviation(deviation_threshold=4.0)
 
     cleaned_raw.find_bad_by_ransac(
         n_samples=100,
@@ -291,7 +292,7 @@ def step_clean_bad_channels(
         corr_thresh=0.5,
         frac_bad=0.25,
         corr_window_secs=4.0,
-        channel_wise=False, 
+        channel_wise=False,
         max_chunk_size=None,
     )
     bad_channels = cleaned_raw.get_bads(as_dict=True)
@@ -373,7 +374,10 @@ def step_run_pylossless(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw
 
     return pipeline, raw
 
-def step_get_pylossless_pipeline(autoclean_dict: Dict[str, Any]) -> Tuple[Any, mne.io.Raw]:
+
+def step_get_pylossless_pipeline(
+    autoclean_dict: Dict[str, Any],
+) -> Tuple[Any, mne.io.Raw]:
     """Run PyLossless pipeline."""
     message("header", "step_run_pylossless")
     task = autoclean_dict["task"]
@@ -389,7 +393,6 @@ def step_get_pylossless_pipeline(autoclean_dict: Dict[str, Any]) -> Tuple[Any, m
         pipeline.raw = raw
 
         derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
-
 
     except Exception as e:
         message("error", f"Failed to run pylossless: {str(e)}")
@@ -425,12 +428,12 @@ def step_run_ll_rejection_policy(
     """Apply PyLossless rejection policy."""
     message("header", "step_run_ll_rejection_policy")
     rejection_policy = _get_rejection_policy(autoclean_dict)
-    
+
     # Convert all channel flags to numpy arrays to avoid 'tolist' AttributeError
     for key in pipeline.flags["ch"]:
         if isinstance(pipeline.flags["ch"][key], list):
             pipeline.flags["ch"][key] = np.array(pipeline.flags["ch"][key])
-    
+
     cleaned_raw = rejection_policy.apply(pipeline)
     cleaned_raw = _extended_BAD_LL_noisy_ICs_annotations(
         cleaned_raw, pipeline, autoclean_dict, extra_duration=1
@@ -512,7 +515,7 @@ def step_run_ll_rejection_policy(
         raise RuntimeError(f"Failed to update database: {str(e)}")
 
     ##remove annotations before saving
-    #cleaned_raw.set_annotations(None)
+    # cleaned_raw.set_annotations(None)
     save_raw_to_set(cleaned_raw, autoclean_dict, "post_rejection_policy")
 
     return pipeline, cleaned_raw
@@ -756,6 +759,7 @@ def _extended_BAD_LL_noisy_ICs_annotations(
     )
 
     return raw
+
 
 def plot_bad_channels_with_topography(
     raw_original, raw_cleaned, pipeline, autoclean_dict, zoom_duration=30, zoom_start=0
@@ -1069,7 +1073,7 @@ def plot_bad_channels_with_topography(
 
 
 def extend_annotations(
-    raw, pipeline, autoclean_dict, extra_duration=.5, label="BAD_LL_noisy_ICs"
+    raw, pipeline, autoclean_dict, extra_duration=0.5, label="BAD_LL_noisy_ICs"
 ):
     from collections import OrderedDict
 
@@ -1210,8 +1214,7 @@ def extend_annotations(
         sum(
             1
             for ann in updated_annotations
-            if isinstance(ann, mne.Annotations)
-            and ann.description == label
+            if isinstance(ann, mne.Annotations) and ann.description == label
         )
         if updated_annotations
         else 0
@@ -1229,9 +1232,9 @@ def extend_annotations(
 
     # Only add figure info if it was generated
     if "target_figure" in locals():
-        metadata["extended_annotations"][
-            "extended_annotations_figure"
-        ] = Path(target_figure).name
+        metadata["extended_annotations"]["extended_annotations_figure"] = Path(
+            target_figure
+        ).name
 
     manage_database(
         operation="update",

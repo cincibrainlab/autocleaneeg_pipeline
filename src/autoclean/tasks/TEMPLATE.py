@@ -14,7 +14,7 @@ Key Components:
    - Define processing steps in autoclean_config.yaml
    - Each step has enabled/disabled flag and parameters
    - Configure artifact rejection policies
-   
+
 2. Required Methods:
    - __init__: Initialize task state
    - run: Main processing pipeline
@@ -56,21 +56,22 @@ Key Components:
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import matplotlib.pyplot as plt
+
 # Third-party imports
 import mne
 import numpy as np
-import matplotlib.pyplot as plt
 
 # Local imports
 from autoclean.core.task import Task
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.io.import_ import import_eeg
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.utils.logging import message
 
 
@@ -126,7 +127,7 @@ class TemplateTask(Task):
         Note:
             The parent class handles basic initialization and validation.
             Task-specific setup should be added here if needed.
-            
+
         """
         # Initialize instance variables
         self.raw: Optional[mne.io.Raw] = None
@@ -144,7 +145,6 @@ class TemplateTask(Task):
             "post_epochs",
             "post_comp",
         ]
-
 
         # Call parent initialization with validated config
         super().__init__(config)
@@ -184,12 +184,17 @@ class TemplateTask(Task):
         """
         # Import and save raw EEG data
         self.import_raw()
-        
+
         message("header", "Running preprocessing steps")
-        
+
         # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_prepipeline",
+            flagged=self.flagged,
+        )
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -197,10 +202,10 @@ class TemplateTask(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        #Run PyLossless Pipeline
+        # Run PyLossless Pipeline
         self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
 
-        #Add more artifact detection steps
+        # Add more artifact detection steps
         self.detect_dense_oscillatory_artifacts()
 
         # Update pipeline with annotated raw data
@@ -211,13 +216,25 @@ class TemplateTask(Task):
             self.pipeline, self.config
         )
         self.raw = self.pipeline.raw
-        
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
 
-        #Clean bad channels post ICA
-        self.clean_bad_channels(deviation_thresh=3, cleaning_method="interpolate", reset_bads=True)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_rejection_policy",
+            flagged=self.flagged,
+        )
 
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
+        # Clean bad channels post ICA
+        self.clean_bad_channels(
+            deviation_thresh=3, cleaning_method="interpolate", reset_bads=True
+        )
+
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_clean_raw",
+            flagged=self.flagged,
+        )
 
         # Create regular epochs
         self.create_eventid_epochs()
@@ -231,19 +248,18 @@ class TemplateTask(Task):
         # Generate visualization reports
         self.generate_reports()
 
-
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
-        
+
         Creates standard visualization reports including:
         1. Raw vs cleaned data overlay
         2. ICA components
         3. ICA details
         4. PSD topography
-        
+
         The reports are saved in the debug directory specified
         in the configuration.
-        
+
         Note:
             This is automatically called by run().
         """

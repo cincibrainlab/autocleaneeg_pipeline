@@ -4,6 +4,9 @@
 from pathlib import Path
 from typing import Any, Dict
 
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.import_ import import_eeg
+
 from ..core.task import Task
 from ..step_functions.continuous import (
     step_clean_bad_channels,
@@ -12,8 +15,6 @@ from ..step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from autoclean.io.import_ import import_eeg
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 
 
 class AssrDefault(Task):
@@ -26,12 +27,10 @@ class AssrDefault(Task):
         self.epochs = None
         super().__init__(config)
 
-    
     def import_data(self, file_path: Path) -> None:
         # Import and save raw EEG data
         self.raw = import_eeg(self.config)
         save_raw_to_set(self.raw, self.config, "post_import")
-
 
     def run(self) -> None:
         """Run the complete assr processing pipeline."""
@@ -82,7 +81,6 @@ class AssrDefault(Task):
 
         # Save cleaned epochs
         save_epochs_to_set(self.epochs, self.config, "post_clean_epochs")
-
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate assr specific configuration.

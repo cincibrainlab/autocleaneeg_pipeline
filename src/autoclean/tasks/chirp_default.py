@@ -4,11 +4,9 @@
 from pathlib import Path
 from typing import Any, Dict
 
-# Import the reporting functions directly from the Task class via mixins
-# # Import the reporting functions directly from the Task class via mixins
-# from autoclean.step_functions.reports import step_generate_ica_reports, step_plot_ica_full, step_plot_raw_vs_cleaned_overlay, step_psd_topo_figure
-
 from ..core.task import Task
+from ..io.export import save_epochs_to_set, save_raw_to_set
+from ..io.import_ import import_eeg
 from ..step_functions.continuous import (
     step_clean_bad_channels,
     step_create_bids_path,
@@ -16,8 +14,10 @@ from ..step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-from ..io.export import save_epochs_to_set, save_raw_to_set
-from ..io.import_ import import_eeg
+
+# Import the reporting functions directly from the Task class via mixins
+# # Import the reporting functions directly from the Task class via mixins
+# from autoclean.step_functions.reports import step_generate_ica_reports, step_plot_ica_full, step_plot_raw_vs_cleaned_overlay, step_psd_topo_figure
 
 
 class ChirpDefault(Task):
@@ -84,7 +84,12 @@ class ChirpDefault(Task):
 
         # Note: step_pre_pipeline_processing will skip resampling if already done
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_prepipeline",
+            flagged=self.flagged,
+        )
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -97,7 +102,12 @@ class ChirpDefault(Task):
 
         # Run PyLossless pipeline and save result
         self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_pylossless",
+            flagged=self.flagged,
+        )
 
         # Apply PyLossless Rejection Policy for artifact removal
         self.pipeline, self.raw = step_run_ll_rejection_policy(
@@ -110,7 +120,12 @@ class ChirpDefault(Task):
         # Detect and mark muscle artifacts in beta frequency range
         self.detect_muscle_beta_focus(self.raw)
 
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_artifact_detection", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_artifact_detection",
+            flagged=self.flagged,
+        )
 
         self.create_eventid_epochs(reject_by_annotation=True)
 
@@ -119,7 +134,6 @@ class ChirpDefault(Task):
         self.gfp_clean_epochs()
 
         self._generate_reports()
-
 
     def _generate_reports(self) -> None:
         """Generate all visualization reports."""

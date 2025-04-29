@@ -52,10 +52,10 @@ Async processing of multiple files:
 """
 
 import asyncio
-import threading  # Add threading import
 
 # Standard library imports
 import json
+import threading  # Add threading import
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Type, Union
@@ -64,19 +64,18 @@ import matplotlib
 
 # Third-party imports
 import mne
+import yaml
 from tqdm import tqdm
 from ulid import ULID
-import yaml
 
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-
 from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,
-    update_task_processing_log,
     generate_bad_channels_tsv,
+    update_task_processing_log,
 )
 from autoclean.tasks import task_registry
 from autoclean.utils.config import (
@@ -106,22 +105,22 @@ class Pipeline:
         processing parameters for all tasks.
     verbose : bool, str, int, or None, optional
         Controls logging verbosity, by default None.
-        
+
         * bool: True for INFO, False for WARNING.
         * str: One of 'debug', 'info', 'warning', 'error', or 'critical'.
         * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
         * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.
-        
+
     Attributes
     ----------
     TASK_REGISTRY : Dict[str, Type[Task]]
         Automatically generated dictionary of all task classes in the `autoclean.tasks` module.
-        
+
     See Also
     --------
     autoclean.core.task.Task : Base class for all processing tasks.
     autoclean.io.import_ : I/O functions for data loading and saving.
-    
+
     Examples
     --------
     >>> from autoclean import Pipeline
@@ -153,7 +152,7 @@ class Pipeline:
             processing parameters for all tasks.
         verbose : bool, str, int, or None, optional
             Controls logging verbosity, by default None.
-            
+
             * bool: True for INFO, False for WARNING.
             * str: One of 'debug', 'info', 'warning', 'error', or 'critical'.
             * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
@@ -333,7 +332,7 @@ class Pipeline:
 
             # Merge task-specific config with base config
             run_dict = {**run_dict, **self.autoclean_dict, **lossless_config}
-            run_dict['participants_tsv_lock'] = self.participants_tsv_lock
+            run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
             # Record full run configuration
             manage_database(
@@ -346,7 +345,10 @@ class Pipeline:
             try:
                 task_object = self.TASK_REGISTRY[task.lower()](run_dict)
             except KeyError:
-                message("error", f"Task '{task}' not found in task registry. Class name in task file must match task name exactly.")
+                message(
+                    "error",
+                    f"Task '{task}' not found in task registry. Class name in task file must match task name exactly.",
+                )
                 raise
             task_object.run()
 
@@ -354,10 +356,20 @@ class Pipeline:
                 flagged, flagged_reasons = task_object.get_flagged_status()
                 comp_data = task_object.get_epochs()
                 if comp_data is not None:
-                    save_epochs_to_set(epochs = comp_data, autoclean_dict = run_dict, stage = "post_comp", flagged = flagged)
+                    save_epochs_to_set(
+                        epochs=comp_data,
+                        autoclean_dict=run_dict,
+                        stage="post_comp",
+                        flagged=flagged,
+                    )
                 else:
                     comp_data = task_object.get_raw()
-                    save_raw_to_set(raw = comp_data, autoclean_dict = run_dict, stage = "post_comp", flagged = flagged)
+                    save_raw_to_set(
+                        raw=comp_data,
+                        autoclean_dict=run_dict,
+                        stage="post_comp",
+                        flagged=flagged,
+                    )
             except Exception as e:
                 message("error", f"Failed to save completion data: {str(e)}")
 
@@ -373,7 +385,7 @@ class Pipeline:
 
             message("success", f"✓ Task {task} completed successfully")
 
-            #Create a run summary in JSON format
+            # Create a run summary in JSON format
             json_summary = create_json_summary(run_id)
 
             # Get final run record for report generation
@@ -384,7 +396,7 @@ class Pipeline:
             with open(json_file, "w") as f:
                 json.dump(run_record, f, indent=4)
             message("success", f"✓ Run record exported to {json_file}")
-            
+
             # Only proceed with processing log update if we have a valid summary
             if json_summary:
                 # Update processing log
@@ -392,9 +404,15 @@ class Pipeline:
                 try:
                     generate_bad_channels_tsv(json_summary)
                 except Exception as tsv_error:
-                    message("warning", f"Failed to generate bad channels tsv: {str(tsv_error)}")
+                    message(
+                        "warning",
+                        f"Failed to generate bad channels tsv: {str(tsv_error)}",
+                    )
             else:
-                message("warning", "Could not create JSON summary, processing log will not be updated")
+                message(
+                    "warning",
+                    "Could not create JSON summary, processing log will not be updated",
+                )
 
             # Generate PDF report if processing succeeded
             try:
@@ -415,18 +433,23 @@ class Pipeline:
             )
 
             json_summary = create_json_summary(run_id)
-            
+
             # Try to update processing log even in error case
             if json_summary:
                 try:
                     flagged, flagged_reasons = task_object.get_flagged_status()
                     update_task_processing_log(json_summary, flagged_reasons)
                 except Exception as log_error:
-                    message("warning", f"Failed to update processing log: {str(log_error)}")
+                    message(
+                        "warning", f"Failed to update processing log: {str(log_error)}"
+                    )
                 try:
                     generate_bad_channels_tsv(json_summary)
                 except Exception as tsv_error:
-                    message("warning", f"Failed to generate bad channels tsv: {str(tsv_error)}")
+                    message(
+                        "warning",
+                        f"Failed to generate bad channels tsv: {str(tsv_error)}",
+                    )
             else:
                 message("warning", "Could not create JSON summary for error case")
 
@@ -445,7 +468,7 @@ class Pipeline:
             raise
 
         return run_record["run_id"]
-    
+
     async def _entrypoint_async(
         self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
     ) -> None:
@@ -487,7 +510,7 @@ class Pipeline:
         run_id : str, optional
             Optional identifier for the processing run, by default None.
             If not provided, a unique ID will be generated.
-            
+
         See Also
         --------
         process_directory : Process multiple files in a directory.
@@ -521,7 +544,7 @@ class Pipeline:
             Glob pattern to match files within the directory, default is `*.set`.
         recursive : bool, optional
             If True, searches subdirectories recursively, by default False.
-            
+
         See Also
         --------
         process_file : Process a single file.
@@ -588,7 +611,7 @@ class Pipeline:
             If True, searches subdirectories recursively, by default False.
         max_concurrent : int, optional
             Maximum number of files to process concurrently, by default 3.
-            
+
         See Also
         --------
         process_file : Process a single file.
@@ -657,7 +680,6 @@ class Pipeline:
         message("info", f"Total files processed: {len(files)}")
         message("info", "Check individual file logs for detailed status")
 
-
     def list_tasks(self) -> list[str]:
         """Get a list of available processing tasks.
 
@@ -679,7 +701,6 @@ class Pipeline:
         """
         return list(self.TASK_REGISTRY.keys())
 
-
     def list_stage_files(self) -> list[str]:
         """Get a list of configured stage file types.
 
@@ -699,22 +720,25 @@ class Pipeline:
         """
         return list(self.autoclean_dict["stage_files"].keys())
 
-
     def start_autoclean_review(self):
         """Launch the AutoClean Review GUI tool.
-            
+
         Notes
         -----
         This method requires the GUI dependencies to be installed.
         Install them with: pip install autocleaneeg[gui]
 
-        Note: The ideal use of the Review tool is as a docker container. 
+        Note: The ideal use of the Review tool is as a docker container.
         """
         try:
             from autoclean.tools.autoclean_review import run_autoclean_review
+
             run_autoclean_review(self.autoclean_dir)
         except ImportError:
-            message("error", "GUI dependencies not installed. To use the review tool, install:")
+            message(
+                "error",
+                "GUI dependencies not installed. To use the review tool, install:",
+            )
             message("error", "pip install autocleaneeg[gui]")
             raise
 
@@ -762,7 +786,7 @@ class Pipeline:
         -------
         Path
             The validated file path.
-            
+
         Notes
         -----
         Performs filesystem-level validation using pathlib, ensuring atomic

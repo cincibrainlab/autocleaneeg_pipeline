@@ -1,6 +1,11 @@
 """Utility functions and helpers."""
 
-from .bids import step_convert_to_bids, step_sanitize_id, step_create_dataset_desc, step_create_participants_json
+from .bids import (
+    step_convert_to_bids,
+    step_create_dataset_desc,
+    step_create_participants_json,
+    step_sanitize_id,
+)
 from .config import load_config, validate_eeg_system
 from .database import get_run_record, manage_database
 from .file_system import step_prepare_directories

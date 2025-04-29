@@ -5,6 +5,7 @@ Requires additional GUI dependencies. Install with: pip install autocleaneeg[gui
 
 import sys
 
+
 def check_gui_dependencies():
     """Check if all required GUI dependencies are installed."""
     missing = []
@@ -16,13 +17,14 @@ def check_gui_dependencies():
         import fitz
     except ImportError:
         missing.append("pymupdf")
-    
+
     if missing:
         print("Error: Missing required GUI dependencies.")
         print("To use the review tool, install the GUI dependencies:")
         print("pip install autocleaneeg[gui]")
         print(f"\nMissing packages: {', '.join(missing)}")
         sys.exit(1)
+
 
 # Check dependencies before importing
 check_gui_dependencies()
@@ -53,6 +55,7 @@ from PyQt5.QtWidgets import (
     QLabel,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QStatusBar,
     QStyle,
@@ -61,7 +64,6 @@ from PyQt5.QtWidgets import (
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
-    QScrollArea,
 )
 
 from autoclean.io.export import save_epochs_to_set
@@ -197,7 +199,9 @@ class FileSelector(QWidget):
         self.refresh_btn = QPushButton("Refresh File Tree")
         self.refresh_btn.clicked.connect(self.refreshFileTree)
         self.refresh_btn.setShortcut("F5")  # Add F5 shortcut for refresh
-        self.refresh_btn.setToolTip("Refresh the file tree to show new or modified files (F5)")
+        self.refresh_btn.setToolTip(
+            "Refresh the file tree to show new or modified files (F5)"
+        )
         # Add a refresh icon if available in the style
         refresh_icon = self.style().standardIcon(QStyle.SP_BrowserReload)
         if not refresh_icon.isNull():
@@ -506,21 +510,20 @@ class FileSelector(QWidget):
                     "sub-" + subject_id,
                     "eeg",
                 )
-                
+
                 # Try to remap the path for Docker container environment
                 try:
                     # Extract the relative path structure that should be consistent
                     # This assumes a structure like /some/path/derivatives/pylossless/sub-XXX/eeg
                     relative_derivatives_path = Path(
-                        "derivatives", 
-                        derivatives_stem,
-                        "sub-" + subject_id,
-                        "eeg"
+                        "derivatives", derivatives_stem, "sub-" + subject_id, "eeg"
                     )
-                    
+
                     # First try: Look for the derivatives directory relative to current_dir
-                    container_derivatives_dir = Path(self.current_dir) / relative_derivatives_path
-                    
+                    container_derivatives_dir = (
+                        Path(self.current_dir) / relative_derivatives_path
+                    )
+
                     # Second try: Look for derivatives in parent directories (up to 3 levels)
                     if not container_derivatives_dir.exists():
                         for i in range(1, 4):
@@ -532,18 +535,28 @@ class FileSelector(QWidget):
                             if test_path.exists():
                                 container_derivatives_dir = test_path
                                 break
-                    
+
                     # Third try: Look for derivatives directory anywhere under current_dir
                     if not container_derivatives_dir.exists():
                         for root, dirs, _ in os.walk(self.current_dir):
                             if "derivatives" in dirs:
-                                test_path = Path(root) / "derivatives" / derivatives_stem / f"sub-{subject_id}" / "eeg"
+                                test_path = (
+                                    Path(root)
+                                    / "derivatives"
+                                    / derivatives_stem
+                                    / f"sub-{subject_id}"
+                                    / "eeg"
+                                )
                                 if test_path.exists():
                                     container_derivatives_dir = test_path
                                     break
-                    
+
                     # Use the remapped path if it exists, otherwise fall back to original
-                    derivatives_dir = container_derivatives_dir if container_derivatives_dir.exists() else original_derivatives_dir
+                    derivatives_dir = (
+                        container_derivatives_dir
+                        if container_derivatives_dir.exists()
+                        else original_derivatives_dir
+                    )
                     print(f"Using derivatives directory: {derivatives_dir}")
                     print(f"Original path was: {original_derivatives_dir}")
                 except Exception as e:
@@ -573,63 +586,82 @@ class FileSelector(QWidget):
                     )
                     print(f"Found {len(image_files)} image files")
                 else:
-                    print(f"Warning: Derivatives directory does not exist: {derivatives_dir}")
-                
+                    print(
+                        f"Warning: Derivatives directory does not exist: {derivatives_dir}"
+                    )
+
                 # If no image files found in the derivatives directory, try alternative locations
                 if not image_files:
-                    print("No image files found in derivatives directory, searching alternative locations...")
-                    
+                    print(
+                        "No image files found in derivatives directory, searching alternative locations..."
+                    )
+
                     # Try to find image files in the current directory and its subdirectories
                     alt_locations = [
                         self.current_dir,  # Current directory
                         Path(self.current_dir).parent,  # Parent directory
-                        Path(self.selected_file_path).parent,  # Directory containing the selected file
+                        Path(
+                            self.selected_file_path
+                        ).parent,  # Directory containing the selected file
                     ]
-                    
+
                     for location in alt_locations:
                         if not location.exists():
                             continue
-                            
+
                         print(f"Searching for image files in: {location}")
                         # Search for PNG and PDF files directly in this directory
-                        location_images = list(location.glob("*.png")) + list(location.glob("*.pdf"))
-                        
+                        location_images = list(location.glob("*.png")) + list(
+                            location.glob("*.pdf")
+                        )
+
                         # Also search one level down for a reports or figures directory
                         for subdir in ["reports", "figures", "images", "plots"]:
                             report_dir = location / subdir
                             if report_dir.exists():
-                                location_images.extend(list(report_dir.glob("*.png")) + list(report_dir.glob("*.pdf")))
-                        
+                                location_images.extend(
+                                    list(report_dir.glob("*.png"))
+                                    + list(report_dir.glob("*.pdf"))
+                                )
+
                         if location_images:
-                            print(f"Found {len(location_images)} image files in alternative location: {location}")
+                            print(
+                                f"Found {len(location_images)} image files in alternative location: {location}"
+                            )
                             image_files = location_images
                             break
-                
+
                 # If we still have no image files, try a more aggressive search
                 if not image_files:
                     print("Still no image files found, performing deeper search...")
                     # Look for any PNG or PDF files in the current directory tree (limit depth to avoid excessive searching)
                     max_depth = 3
                     current_depth = 0
-                    
+
                     def search_directory(directory, current_depth, max_depth):
                         if current_depth > max_depth:
                             return []
-                        
-                        found_files = list(directory.glob("*.png")) + list(directory.glob("*.pdf"))
+
+                        found_files = list(directory.glob("*.png")) + list(
+                            directory.glob("*.pdf")
+                        )
                         if found_files:
-                            print(f"Found {len(found_files)} image files in: {directory}")
+                            print(
+                                f"Found {len(found_files)} image files in: {directory}"
+                            )
                             return found_files
-                            
+
                         # Search subdirectories
                         for subdir in directory.iterdir():
                             if subdir.is_dir():
-                                subdir_files = search_directory(subdir, current_depth + 1, max_depth)
+                                subdir_files = search_directory(
+                                    subdir, current_depth + 1, max_depth
+                                )
                                 if subdir_files:
                                     return subdir_files
-                        
+
                         return []
-                    
+
                     image_files = search_directory(Path(self.current_dir), 0, max_depth)
 
                 if image_files:
@@ -819,24 +851,26 @@ class FileSelector(QWidget):
                     # No image files found, provide manual selection option
                     manual_widget = QWidget()
                     manual_layout = QVBoxLayout()
-                    
+
                     # Informative message
                     message_label = QLabel(
                         "No image files were found automatically. This may be due to the Docker container environment.\n\n"
                         "You can manually select a PNG or PDF file to view."
                     )
                     message_label.setWordWrap(True)
-                    message_label.setStyleSheet("font-size: 14px; color: #e74c3c; margin: 10px;")
-                    
+                    message_label.setStyleSheet(
+                        "font-size: 14px; color: #e74c3c; margin: 10px;"
+                    )
+
                     # Button to browse for files
                     browse_btn = QPushButton("Browse for PNG/PDF Files")
-                    
+
                     def browse_for_files():
                         file_path, _ = QFileDialog.getOpenFileName(
                             self,
                             "Select PNG or PDF File",
                             str(self.current_dir),
-                            "Image Files (*.png *.pdf)"
+                            "Image Files (*.png *.pdf)",
                         )
                         if file_path:
                             if file_path.lower().endswith(".pdf"):
@@ -845,37 +879,39 @@ class FileSelector(QWidget):
                             elif file_path.lower().endswith(".png"):
                                 # Create a new window to display the PNG
                                 image_window = QWidget()
-                                image_window.setWindowTitle(f"Image Viewer - {os.path.basename(file_path)}")
+                                image_window.setWindowTitle(
+                                    f"Image Viewer - {os.path.basename(file_path)}"
+                                )
                                 image_layout = QVBoxLayout()
-                                
+
                                 # Create scroll area and label
                                 scroll = QScrollArea()
                                 label = QLabel()
-                                
+
                                 # Load PNG
                                 pixmap = QPixmap(file_path)
                                 label.setPixmap(pixmap)
-                                
+
                                 scroll.setWidget(label)
                                 image_layout.addWidget(scroll)
                                 image_window.setLayout(image_layout)
                                 image_window.resize(800, 600)
                                 image_window.show()
-                    
+
                     browse_btn.clicked.connect(browse_for_files)
-                    
+
                     # Add widgets to layout
                     manual_layout.addWidget(message_label)
                     manual_layout.addWidget(browse_btn)
                     manual_widget.setLayout(manual_layout)
-                    
+
                     # Add to the artifact layout
                     artifact_layout.addWidget(manual_widget)
                     artifact_widget.setLayout(artifact_layout)
-                    
+
                     splitter.addWidget(artifact_widget)
                     layout.addWidget(splitter)
-                    
+
                     self.current_run_record_window.setLayout(layout)
                     self.current_run_record_window.show()
 
@@ -905,10 +941,12 @@ class FileSelector(QWidget):
                 # Check if this is a RAW file
                 is_raw = "_raw.set" in self.selected_file_path.lower()
 
-                try:    
+                try:
                     if is_raw:
                         # Load as raw EEG
-                        raw = mne.io.read_raw_eeglab(self.selected_file_path, preload=True)
+                        raw = mne.io.read_raw_eeglab(
+                            self.selected_file_path, preload=True
+                        )
                         self.current_raw = raw.copy()
                         self.save_edits_btn.setEnabled(
                             False
@@ -919,9 +957,7 @@ class FileSelector(QWidget):
                         self.current_epochs = epochs.copy()
                         self.save_edits_btn.setEnabled(True)
                 except Exception as e:
-                    QMessageBox.critical(
-                        self, "Error", f"Error loading file: {str(e)}"
-                    )
+                    QMessageBox.critical(self, "Error", f"Error loading file: {str(e)}")
                     print(f"Error in plotFile: {str(e)}")
                     self.instruction_widget.show()  # Show instructions if plot fails
                     return
@@ -945,14 +981,22 @@ class FileSelector(QWidget):
                         message("info", f"Epoch number: {len(self.current_epochs)}")
                         message("info", "Manually marked epochs for removal:")
                         message("info", "=" * 50)
-                        
+
                         # Store bad epochs before any cleanup can occur
                         try:
-                            bad_epochs = sorted(self.plot_widget.mne.bad_epochs) if hasattr(self.plot_widget, 'mne') and self.plot_widget.mne is not None else []
+                            bad_epochs = (
+                                sorted(self.plot_widget.mne.bad_epochs)
+                                if hasattr(self.plot_widget, "mne")
+                                and self.plot_widget.mne is not None
+                                else []
+                            )
                         except AttributeError:
                             bad_epochs = []
-                            message("warning", "Could not retrieve bad epochs, assuming none marked")
-                            
+                            message(
+                                "warning",
+                                "Could not retrieve bad epochs, assuming none marked",
+                            )
+
                         if bad_epochs:
                             message("info", f"Total epochs marked: {len(bad_epochs)}")
                             message("info", f"Epoch indices: {bad_epochs}")
@@ -961,35 +1005,47 @@ class FileSelector(QWidget):
                         message("info", "=" * 50)
 
                         run_record = get_run_record(self.current_run_id)
-                        
+
                         # Get the original stage directory from the database
-                        original_stage_dir = Path(run_record["metadata"]["step_prepare_directories"]["stage"])
-                        
+                        original_stage_dir = Path(
+                            run_record["metadata"]["step_prepare_directories"]["stage"]
+                        )
+
                         # Extract the relative portion of the path that matters
                         # This assumes the stage directory is within a structure we can extract
                         # For example, if the path is /srv2/RAWDATA/.../MouseXdatAssr/stage/
                         # We want to extract 'MouseXdatAssr/stage/' or just 'stage/'
-                        
+
                         # Find the immediate parent directory that contains 'stage'
                         try:
                             # This gets the parent folder of 'stage' (typically the task name)
                             task_name = original_stage_dir.parent.name
                             # Reconstruct the path using the current directory and the task/stage structure
-                            container_stage_dir = Path(self.current_dir) / task_name / "stage"
-                            message("info", f"Remapped stage directory from {original_stage_dir} to {container_stage_dir}")
+                            container_stage_dir = (
+                                Path(self.current_dir) / task_name / "stage"
+                            )
+                            message(
+                                "info",
+                                f"Remapped stage directory from {original_stage_dir} to {container_stage_dir}",
+                            )
                         except Exception as e:
                             # If we can't extract the path structure, try a simpler approach
                             # Just use the current directory as the base and add 'stage'
                             container_stage_dir = Path(self.current_dir) / "stage"
-                            message("warning", f"Could not extract task name from path, using simplified mapping: {container_stage_dir}")
-                        
+                            message(
+                                "warning",
+                                f"Could not extract task name from path, using simplified mapping: {container_stage_dir}",
+                            )
+
                         autoclean_dict = {
                             "run_id": self.current_run_id,
-                            "stage_files": run_record["metadata"]["entrypoint"]["stage_files"],
+                            "stage_files": run_record["metadata"]["entrypoint"][
+                                "stage_files"
+                            ],
                             "stage_dir": container_stage_dir,  # Use our remapped path
                             "unprocessed_file": run_record["unprocessed_file"],
                         }
-                        
+
                         reply = QMessageBox.question(
                             self,
                             "Confirm Save",
@@ -1000,10 +1056,10 @@ class FileSelector(QWidget):
                         if reply == QMessageBox.Yes:
                             message("info", "Saving epochs to file...")
                             self.current_epochs.drop(bad_epochs)
-                            
+
                             # Create the stage directory if it doesn't exist
                             container_stage_dir.mkdir(parents=True, exist_ok=True)
-                            
+
                             save_epochs_to_set(
                                 self.current_epochs, autoclean_dict, stage="post_edit"
                             )
@@ -1018,14 +1074,24 @@ class FileSelector(QWidget):
 
                     # Create the plot widget for epochs
                     self.plot_widget = self.current_epochs.plot(
-                        n_epochs=10, show=False, block=True, picks="all", events=True, show_scalebars=True, scalings={"eeg": 25e-6},
-                        n_channels=self.current_epochs.info["nchan"]
+                        n_epochs=10,
+                        show=False,
+                        block=True,
+                        picks="all",
+                        events=True,
+                        show_scalebars=True,
+                        scalings={"eeg": 25e-6},
+                        n_channels=self.current_epochs.info["nchan"],
                     )
                 else:
                     # Create the plot widget for raw data
                     self.plot_widget = self.current_raw.plot(
-                        show=False, block=True, show_scalebars=True, scalings={"eeg": 25e-6},
-                        n_channels=self.current_raw.info["nchan"], show_options=True
+                        show=False,
+                        block=True,
+                        show_scalebars=True,
+                        scalings={"eeg": 25e-6},
+                        n_channels=self.current_raw.info["nchan"],
+                        show_options=True,
                     )
 
                 # Embed the plot in our GUI
@@ -1038,9 +1104,7 @@ class FileSelector(QWidget):
                     print("INFO", f"Initial epoch count: {len(self.current_epochs)}")
 
             except Exception as e:
-                QMessageBox.critical(
-                    self, "Error", f"Error plotting file: {str(e)}"
-                )
+                QMessageBox.critical(self, "Error", f"Error plotting file: {str(e)}")
                 print(f"Error in plotFile: {str(e)}")
                 self.instruction_widget.show()  # Show instructions if plot fails
 
@@ -1051,18 +1115,18 @@ class FileSelector(QWidget):
             original_text = self.refresh_btn.text()
             self.refresh_btn.setText("Refreshing...")
             self.refresh_btn.setEnabled(False)
-            
+
             # Use QApplication.processEvents to update the UI
             QApplication.processEvents()
-            
+
             # Reload the files
             self.loadFiles()
             self.updateStatusBar()
-            
+
             # Restore button state
             self.refresh_btn.setText(original_text)
             self.refresh_btn.setEnabled(True)
-            
+
             print(f"File tree refreshed for directory: {self.current_dir}")
 
 

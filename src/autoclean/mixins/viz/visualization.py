@@ -15,35 +15,35 @@ validate the quality of processed data.
 Example:
     ```python
     from autoclean.core.task import Task
-    
+
     class MyEEGTask(Task):
         def process(self, raw, pipeline, autoclean_dict):
             # Process the data
             raw_cleaned = self.apply_preprocessing(raw)
-            
+
             # Generate visualizations
             self.plot_raw_vs_cleaned_overlay(raw, raw_cleaned, pipeline, autoclean_dict)
             self.psd_topo_figure(raw, raw_cleaned, pipeline, autoclean_dict)
     ```
 """
 
-from typing import Any, Dict, List, Optional, Tuple, Union
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import pandas as pd
-from matplotlib.gridspec import GridSpec
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 
+from autoclean.mixins.viz.base import BaseVizMixin
 from autoclean.utils.logging import message
 from autoclean.utils.montage import get_standard_set_in_montage, validate_channel_set
-from autoclean.mixins.viz.base import BaseVizMixin
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
@@ -51,24 +51,24 @@ matplotlib.use("Agg")
 
 class VisualizationMixin(BaseVizMixin):
     """Mixin providing visualization methods for EEG data.
-    
+
     This mixin extends the base ReportingMixin with specialized methods for
     generating plots and visualizations of EEG data. It provides a comprehensive
     set of visualization tools for assessing data quality and understanding the
     effects of preprocessing steps.
-    
+
     All visualization methods respect configuration toggles from `autoclean_config.yaml`,
     checking if their corresponding step is enabled before execution. Each method
     can be individually enabled or disabled via configuration.
-    
+
     Available visualization methods include:
-    
+
     - `plot_raw_vs_cleaned_overlay`: Overlay of original and cleaned EEG data
     - `plot_bad_channels_with_topography`: Bad channel visualization with topographies
     - `psd_topo_figure`: Combined PSD and topographical maps for frequency bands
     - `step_psd_topo_figure`: Wrapper for backwards compatibility
     """
-    
+
     def plot_raw_vs_cleaned_overlay(
         self,
         raw_original: mne.io.Raw,
@@ -78,7 +78,7 @@ class VisualizationMixin(BaseVizMixin):
         suffix: str = "",
     ) -> None:
         """Plot raw data channels over the full duration, overlaying the original and cleaned data.
-        
+
         Parameters
         ----------
             raw_original : mne.io.Raw
@@ -91,11 +91,11 @@ class VisualizationMixin(BaseVizMixin):
                 Dictionary containing metadata about the processing run.
             suffix : str, optional
                 Optional suffix to append to the output filename.
-            
+
         Returns
         -------
             None
-            
+
         Notes
         -----
             - The method downsamples the data for plotting to reduce file size
@@ -105,9 +105,13 @@ class VisualizationMixin(BaseVizMixin):
         """
         # Ensure that the original and cleaned data have the same channels and times
         if raw_original.ch_names != raw_cleaned.ch_names:
-            raise ValueError("Channel names in raw_original and raw_cleaned do not match.")
+            raise ValueError(
+                "Channel names in raw_original and raw_cleaned do not match."
+            )
         if raw_original.times.shape != raw_cleaned.times.shape:
-            raise ValueError("Time vectors in raw_original and raw_cleaned do not match.")
+            raise ValueError(
+                "Time vectors in raw_original and raw_cleaned do not match."
+            )
 
         # Get raw data
         channel_labels = raw_original.ch_names
@@ -194,7 +198,9 @@ class VisualizationMixin(BaseVizMixin):
 
         # Customize axes
         ax.set_xlabel("Time (seconds)", fontsize=12)
-        ax.set_title("Raw Data Channels: Original vs Cleaned (Full Duration)", fontsize=14)
+        ax.set_title(
+            "Raw Data Channels: Original vs Cleaned (Full Duration)", fontsize=14
+        )
         ax.set_xlim(times[0], times[-1])
         ax.set_ylim(-spacing, offsets[-1] + spacing)
         ax.set_ylabel("")
@@ -205,7 +211,9 @@ class VisualizationMixin(BaseVizMixin):
 
         legend_elements = [
             Line2D([0], [0], color="red", lw=0.5, linestyle="-", label="Original Data"),
-            Line2D([0], [0], color="black", lw=0.5, linestyle="-", label="Cleaned Data"),
+            Line2D(
+                [0], [0], color="black", lw=0.5, linestyle="-", label="Cleaned Data"
+            ),
         ]
         ax.legend(handles=legend_elements, loc="upper right", fontsize=8)
 
@@ -217,7 +225,9 @@ class VisualizationMixin(BaseVizMixin):
         # Target file path
         target_figure = str(
             derivatives_path.copy().update(
-                suffix="step_plot_raw_vs_cleaned_overlay", extension=".png", datatype="eeg"
+                suffix="step_plot_raw_vs_cleaned_overlay",
+                extension=".png",
+                datatype="eeg",
             )
         )
 
@@ -225,7 +235,9 @@ class VisualizationMixin(BaseVizMixin):
         fig.savefig(target_figure, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
-        message("info", f"Raw channels overlay full duration plot saved to {target_figure}")
+        message(
+            "info", f"Raw channels overlay full duration plot saved to {target_figure}"
+        )
 
         metadata = {
             "artifact_reports": {
@@ -235,7 +247,7 @@ class VisualizationMixin(BaseVizMixin):
         }
 
         self._update_metadata("plot_raw_vs_cleaned_overlay", metadata)
-        
+
     def plot_bad_channels_with_topography(
         self,
         raw_original: mne.io.Raw,
@@ -246,16 +258,16 @@ class VisualizationMixin(BaseVizMixin):
         zoom_start: float = 0,
     ) -> None:
         """Plot bad channels with a topographical map and time series overlays.
-        
+
         This method creates a comprehensive visualization of bad channels including:
-        
+
         1. A topographical map showing the locations of bad channels
         2. Time series plots comparing original and cleaned data for bad channels
         3. Both full duration and zoomed-in views of the data
-        
+
         The visualization helps to validate the detection and interpolation of bad channels
         during preprocessing.
-        
+
         Parameters
         ----------
             raw_original: mne.io.Raw
@@ -270,11 +282,11 @@ class VisualizationMixin(BaseVizMixin):
                 Duration in seconds for the zoomed-in time series plot.
             zoom_start: float, Optional
                 Start time in seconds for the zoomed-in window.
-            
+
         Returns
         -------
             None
-            
+
         Notes
         -----
             - If no bad channels are found, the method returns without creating a plot
@@ -284,9 +296,9 @@ class VisualizationMixin(BaseVizMixin):
         if not self._check_step_enabled("bad_channel_report_step"):
             message("info", "✗ Bad channel visualization step disabled in config")
             return
-            
+
         message("info", "✓ Generating bad channel visualization")
-        
+
         # Collect Bad Channels
         bad_channels_info = {}
 
@@ -346,7 +358,10 @@ class VisualizationMixin(BaseVizMixin):
             data_original = data_original[:, ::downsample_factor]
             data_cleaned = data_cleaned[:, ::downsample_factor]
             times = times[::downsample_factor]
-            message("info", f"Data downsampled by a factor of {downsample_factor} to {desired_sfreq} Hz.")
+            message(
+                "info",
+                f"Data downsampled by a factor of {downsample_factor} to {desired_sfreq} Hz.",
+            )
 
         # Normalize and Scale Data
         data_original_normalized = np.zeros_like(data_original)
@@ -356,15 +371,21 @@ class VisualizationMixin(BaseVizMixin):
         for idx in range(n_channels):
             # Original data
             channel_data_original = data_original[idx]
-            channel_data_original = channel_data_original - np.mean(channel_data_original)  # Remove DC offset
+            channel_data_original = channel_data_original - np.mean(
+                channel_data_original
+            )  # Remove DC offset
             std = np.std(channel_data_original)
             if std == 0:
                 std = 1  # Avoid division by zero
-            data_original_normalized[idx] = channel_data_original / std  # Normalize to unit variance
+            data_original_normalized[idx] = (
+                channel_data_original / std
+            )  # Normalize to unit variance
 
             # Cleaned data
             channel_data_cleaned = data_cleaned[idx]
-            channel_data_cleaned = channel_data_cleaned - np.mean(channel_data_cleaned)  # Remove DC offset
+            channel_data_cleaned = channel_data_cleaned - np.mean(
+                channel_data_cleaned
+            )  # Remove DC offset
             # Use same std for normalization to ensure both signals are on the same scale
             data_cleaned_normalized[idx] = channel_data_cleaned / std
 
@@ -418,7 +439,9 @@ class VisualizationMixin(BaseVizMixin):
         # Add legend
         legend_elements = [
             Line2D([0], [0], color="red", lw=2, linestyle="-", label="Original Data"),
-            Line2D([0], [0], color="black", lw=2, linestyle="-", label="Interpolated Data"),
+            Line2D(
+                [0], [0], color="black", lw=2, linestyle="-", label="Interpolated Data"
+            ),
         ]
         ax_full.legend(handles=legend_elements, loc="upper right", fontsize=12)
 
@@ -489,88 +512,116 @@ class VisualizationMixin(BaseVizMixin):
         plt.close(fig)
 
         message("success", f"Bad channels plot saved to {output_file}")
-        
+
         # Save metadata to pipeline
-        pipeline.add_metadata({
-            "bad_channels_plot": {
-                "file": str(output_file),
-                "n_bad_channels": len(bad_channels),
-                "bad_channels": bad_channels,
-                "reasons": {ch: reasons for ch, reasons in bad_channels_info.items()}
+        pipeline.add_metadata(
+            {
+                "bad_channels_plot": {
+                    "file": str(output_file),
+                    "n_bad_channels": len(bad_channels),
+                    "bad_channels": bad_channels,
+                    "reasons": {
+                        ch: reasons for ch, reasons in bad_channels_info.items()
+                    },
+                }
             }
-        })
+        )
         # Check if configuration checking is enabled and the step is enabled
-        if hasattr(self, '_check_step_enabled'):
+        if hasattr(self, "_check_step_enabled"):
             is_enabled, _ = self._check_step_enabled("bad_channel_report_step")
             if not is_enabled:
-                message("info", "✗ Bad channel report generation is disabled in configuration")
+                message(
+                    "info",
+                    "✗ Bad channel report generation is disabled in configuration",
+                )
                 return
-            
+
         # Get bad channels from the cleaned data
-        bad_channels = raw_cleaned.info['bads']
-        
+        bad_channels = raw_cleaned.info["bads"]
+
         if not bad_channels:
-            message("info", "No bad channels found. Skipping bad channel visualization.")
+            message(
+                "info", "No bad channels found. Skipping bad channel visualization."
+            )
             return
-            
-        message("info", f"Generating bad channel visualization for {len(bad_channels)} channels: {', '.join(bad_channels)}")
-        
+
+        message(
+            "info",
+            f"Generating bad channel visualization for {len(bad_channels)} channels: {', '.join(bad_channels)}",
+        )
+
         # Create Artifact Report
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict['bids_path'])
-        
+        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+
         # Target file path
         target_figure = str(
             derivatives_path.copy().update(
                 suffix="step_bad_channels_topo", extension=".png", datatype="eeg"
             )
         )
-        
+
         # Create a figure to visualize bad channels
         n_bad_channels = len(bad_channels)
         fig = plt.figure(figsize=(12, 8 + n_bad_channels * 1.5))
-        gs = GridSpec(2 + n_bad_channels, 2, height_ratios=[2] + [1.5] * n_bad_channels + [0.5])
-        
+        gs = GridSpec(
+            2 + n_bad_channels, 2, height_ratios=[2] + [1.5] * n_bad_channels + [0.5]
+        )
+
         # 1. Plot topographical map of all channels with bad channels highlighted
         ax_topo = fig.add_subplot(gs[0, :])
         self._plot_bad_channels_topo(raw_original, bad_channels, ax_topo)
-        
+
         # 2. Plot time series for each bad channel - full duration
         message("info", "Generating full duration time series plots for bad channels")
-        sfreq = raw_original.info['sfreq']
+        sfreq = raw_original.info["sfreq"]
         for i, bad_ch in enumerate(bad_channels):
-            ax_full = fig.add_subplot(gs[i+1, 0])
+            ax_full = fig.add_subplot(gs[i + 1, 0])
             self._plot_bad_channel_timeseries(
-                raw_original, raw_cleaned, bad_ch,
-                ax_full, full_duration=True, title_suffix="Full Duration"
+                raw_original,
+                raw_cleaned,
+                bad_ch,
+                ax_full,
+                full_duration=True,
+                title_suffix="Full Duration",
             )
-            
+
         # 3. Plot time series for each bad channel - zoomed in
         message("info", "Generating zoomed time series plots for bad channels")
         for i, bad_ch in enumerate(bad_channels):
-            ax_zoom = fig.add_subplot(gs[i+1, 1])
+            ax_zoom = fig.add_subplot(gs[i + 1, 1])
             self._plot_bad_channel_timeseries(
-                raw_original, raw_cleaned, bad_ch,
-                ax_zoom, full_duration=False, zoom_start=zoom_start,
-                zoom_duration=zoom_duration, title_suffix=f"Zoom {zoom_start}-{zoom_start+zoom_duration}s"
+                raw_original,
+                raw_cleaned,
+                bad_ch,
+                ax_zoom,
+                full_duration=False,
+                zoom_start=zoom_start,
+                zoom_duration=zoom_duration,
+                title_suffix=f"Zoom {zoom_start}-{zoom_start + zoom_duration}s",
             )
-            
+
         # Add legend at the bottom
         ax_legend = fig.add_subplot(gs[-1, :])
-        ax_legend.axis('off')
+        ax_legend.axis("off")
         ax_legend.legend(
-            [plt.Line2D([0], [0], color='red', lw=1), plt.Line2D([0], [0], color='blue', lw=1)],
-            ['Original Data', 'Cleaned/Interpolated Data'],
-            loc='center', ncol=2, frameon=False
+            [
+                plt.Line2D([0], [0], color="red", lw=1),
+                plt.Line2D([0], [0], color="blue", lw=1),
+            ],
+            ["Original Data", "Cleaned/Interpolated Data"],
+            loc="center",
+            ncol=2,
+            frameon=False,
         )
-        
+
         plt.tight_layout()
-        
+
         # Save figure
-        fig.savefig(target_figure, dpi=150, bbox_inches='tight')
+        fig.savefig(target_figure, dpi=150, bbox_inches="tight")
         plt.close(fig)
-        
+
         message("info", f"Bad channels visualization saved to {target_figure}")
-        
+
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
@@ -578,12 +629,14 @@ class VisualizationMixin(BaseVizMixin):
                 "bad_channels": bad_channels,
             }
         }
-        
+
         self._update_metadata("bad_channels_visualization", metadata)
-        
-    def _plot_bad_channels_topo(self, raw: mne.io.Raw, bad_channels: List[str], ax) -> None:
+
+    def _plot_bad_channels_topo(
+        self, raw: mne.io.Raw, bad_channels: List[str], ax
+    ) -> None:
         """Plot topographical map highlighting bad channels.
-        
+
         Parameters
         ----------
         raw : mne.io.Raw
@@ -599,17 +652,24 @@ class VisualizationMixin(BaseVizMixin):
         for bad_ch in bad_channels:
             if bad_ch in ch_names:
                 data[ch_names.index(bad_ch)] = 1
-                
+
         # Plot topography
         mne.viz.plot_topomap(
-            data, raw.info, axes=ax, show=False,
-            cmap='RdBu_r', vmin=0, vmax=1,
-            outlines='head', contours=0, sensors=True
+            data,
+            raw.info,
+            axes=ax,
+            show=False,
+            cmap="RdBu_r",
+            vmin=0,
+            vmax=1,
+            outlines="head",
+            contours=0,
+            sensors=True,
         )
-        
+
         # Add title
         ax.set_title(f"Bad Channels Topography (n={len(bad_channels)})")
-        
+
     def _plot_bad_channel_timeseries(
         self,
         raw_original: mne.io.Raw,
@@ -619,10 +679,10 @@ class VisualizationMixin(BaseVizMixin):
         full_duration: bool = True,
         zoom_start: float = 0,
         zoom_duration: float = 30,
-        title_suffix: str = ""
+        title_suffix: str = "",
     ) -> None:
         """Plot time series for a specific channel.
-        
+
         Parameters:
         -----------
         raw_original : mne.io.Raw
@@ -643,14 +703,14 @@ class VisualizationMixin(BaseVizMixin):
             Suffix to add to the plot title.
         """
         # Get channel data
-        sfreq = raw_original.info['sfreq']
+        sfreq = raw_original.info["sfreq"]
         ch_idx = raw_original.ch_names.index(channel)
-        
+
         if full_duration:
             data_orig = raw_original.get_data(picks=[ch_idx])[0]
             data_clean = raw_cleaned.get_data(picks=[ch_idx])[0]
             times = raw_original.times
-            
+
             # Downsample for faster plotting if too many data points
             if len(times) > 10000:  # Arbitrary threshold
                 downsample_factor = max(1, int(len(times) / 10000))
@@ -661,22 +721,26 @@ class VisualizationMixin(BaseVizMixin):
             # Extract zoomed-in data
             start_idx = int(zoom_start * sfreq)
             end_idx = int((zoom_start + zoom_duration) * sfreq)
-            data_orig = raw_original.get_data(picks=[ch_idx], start=start_idx, stop=end_idx)[0]
-            data_clean = raw_cleaned.get_data(picks=[ch_idx], start=start_idx, stop=end_idx)[0]
+            data_orig = raw_original.get_data(
+                picks=[ch_idx], start=start_idx, stop=end_idx
+            )[0]
+            data_clean = raw_cleaned.get_data(
+                picks=[ch_idx], start=start_idx, stop=end_idx
+            )[0]
             times = np.arange(len(data_orig)) / sfreq + zoom_start
-        
+
         # Plot data
-        ax.plot(times, data_orig, color='red', lw=0.8)
-        ax.plot(times, data_clean, color='blue', lw=0.8)
-        
+        ax.plot(times, data_orig, color="red", lw=0.8)
+        ax.plot(times, data_clean, color="blue", lw=0.8)
+
         # Add labels and title
-        ax.set_xlabel('Time (s)')
-        ax.set_ylabel('Amplitude (µV)')
+        ax.set_xlabel("Time (s)")
+        ax.set_ylabel("Amplitude (µV)")
         ax.set_title(f"Channel: {channel} - {title_suffix}")
-        
+
         # Add grid
-        ax.grid(True, linestyle='--', alpha=0.6)
-        
+        ax.grid(True, linestyle="--", alpha=0.6)
+
     def step_psd_topo_figure(
         self,
         raw_original: mne.io.Raw,
@@ -686,7 +750,7 @@ class VisualizationMixin(BaseVizMixin):
         bands: Optional[List[Tuple[str, float, float]]] = None,
     ) -> None:
         """Generate and save a single high-resolution image that includes:
-       
+
         - Two PSD plots side by side: Absolute PSD (mV²) and Relative PSD (%).
         - Topographical maps for multiple EEG frequency bands arranged horizontally,
           showing both pre and post cleaning.
@@ -741,32 +805,46 @@ class VisualizationMixin(BaseVizMixin):
             message("warning", "No EEG channels found in raw data.")
         else:
             message("info", f"Number of EEG channels: {n_eeg_channels}")
-            
+
             # Make copies to avoid modifying the original objects
             raw_original = raw_original.copy()
             raw_cleaned = raw_cleaned.copy()
-            
+
             # Interpolate bad channels for better visualization
             if raw_original.info["bads"]:
-                message("info", f"Interpolating {len(raw_original.info['bads'])} bad channels in original data for visualization")
+                message(
+                    "info",
+                    f"Interpolating {len(raw_original.info['bads'])} bad channels in original data for visualization",
+                )
                 raw_original.interpolate_bads()
-            
+
             if raw_cleaned.info["bads"]:
-                message("info", f"Interpolating {len(raw_cleaned.info['bads'])} bad channels in cleaned data for visualization")
+                message(
+                    "info",
+                    f"Interpolating {len(raw_cleaned.info['bads'])} bad channels in cleaned data for visualization",
+                )
                 raw_cleaned.interpolate_bads()
-            
+
             # Pick only EEG channels
             raw_original = raw_original.pick("eeg")
             raw_cleaned = raw_cleaned.pick("eeg")
-            
+
             # Ensure both have the same number of channels
             if len(raw_original.ch_names) != len(raw_cleaned.ch_names):
-                message("warning", f"Channel count mismatch: original has {len(raw_original.ch_names)}, cleaned has {len(raw_cleaned.ch_names)}")
-                
+                message(
+                    "warning",
+                    f"Channel count mismatch: original has {len(raw_original.ch_names)}, cleaned has {len(raw_cleaned.ch_names)}",
+                )
+
                 # Get common channels
-                common_channels = list(set(raw_original.ch_names).intersection(set(raw_cleaned.ch_names)))
-                message("info", f"Using {len(common_channels)} common channels between original and cleaned data")
-                
+                common_channels = list(
+                    set(raw_original.ch_names).intersection(set(raw_cleaned.ch_names))
+                )
+                message(
+                    "info",
+                    f"Using {len(common_channels)} common channels between original and cleaned data",
+                )
+
                 # Pick common channels
                 raw_original = raw_original.copy().pick(common_channels)
                 raw_cleaned = raw_cleaned.copy().pick(common_channels)
@@ -859,7 +937,9 @@ class VisualizationMixin(BaseVizMixin):
 
         # Create figure and GridSpec
         fig = plt.figure(figsize=(15, 20))
-        gs = GridSpec(4, len(bands), height_ratios=[2, 1, 1, 1.5], hspace=0.4, wspace=0.3)
+        gs = GridSpec(
+            4, len(bands), height_ratios=[2, 1, 1, 1.5], hspace=0.4, wspace=0.3
+        )
 
         # Create PSD plots
         self._plot_psd(
@@ -894,7 +974,10 @@ class VisualizationMixin(BaseVizMixin):
         fig.savefig(target_figure, dpi=300)
         plt.close(fig)
 
-        message("info", f"Combined PSD and topographical map figure saved to {target_figure}")
+        message(
+            "info",
+            f"Combined PSD and topographical map figure saved to {target_figure}",
+        )
 
         metadata = {
             "artifact_reports": {
@@ -906,7 +989,7 @@ class VisualizationMixin(BaseVizMixin):
         self._update_metadata("step_psd_topo_figure", metadata)
 
         return target_figure
-        
+
     def _plot_psd(
         self,
         fig,
@@ -919,7 +1002,7 @@ class VisualizationMixin(BaseVizMixin):
         num_bands,
     ) -> None:
         """Helper function to create PSD plots.
-        
+
         Parameters:
         -----------
         fig : matplotlib.figure.Figure
@@ -940,25 +1023,25 @@ class VisualizationMixin(BaseVizMixin):
             Number of frequency bands for subplot width
         """
         # Plot Absolute PSD
-        ax1 = fig.add_subplot(gs[0, :num_bands//2])
-        ax1.semilogy(freqs, psd_original_mean_mV2, color='red', label='Original')
-        ax1.semilogy(freqs, psd_cleaned_mean_mV2, color='black', label='Cleaned')
-        ax1.set_xlabel('Frequency (Hz)')
-        ax1.set_ylabel('PSD (mV²/Hz)')
-        ax1.set_title('Absolute PSD')
-        ax1.legend(loc='upper right')
+        ax1 = fig.add_subplot(gs[0, : num_bands // 2])
+        ax1.semilogy(freqs, psd_original_mean_mV2, color="red", label="Original")
+        ax1.semilogy(freqs, psd_cleaned_mean_mV2, color="black", label="Cleaned")
+        ax1.set_xlabel("Frequency (Hz)")
+        ax1.set_ylabel("PSD (mV²/Hz)")
+        ax1.set_title("Absolute PSD")
+        ax1.legend(loc="upper right")
         ax1.grid(True, which="both", ls="--")
 
         # Plot Relative PSD
-        ax2 = fig.add_subplot(gs[0, num_bands//2:])
-        ax2.plot(freqs, psd_original_rel, color='red', label='Original')
-        ax2.plot(freqs, psd_cleaned_rel, color='black', label='Cleaned')
-        ax2.set_xlabel('Frequency (Hz)')
-        ax2.set_ylabel('Relative Power (%)')
-        ax2.set_title('Relative PSD')
-        ax2.legend(loc='upper right')
+        ax2 = fig.add_subplot(gs[0, num_bands // 2 :])
+        ax2.plot(freqs, psd_original_rel, color="red", label="Original")
+        ax2.plot(freqs, psd_cleaned_rel, color="black", label="Cleaned")
+        ax2.set_xlabel("Frequency (Hz)")
+        ax2.set_ylabel("Relative Power (%)")
+        ax2.set_title("Relative PSD")
+        ax2.legend(loc="upper right")
         ax2.grid(True)
-        
+
     def _plot_topomaps(
         self,
         fig,
@@ -1021,7 +1104,6 @@ class VisualizationMixin(BaseVizMixin):
                     fontsize=8,
                     color="red",
                 )
-            
 
     # def generate_mmn_erp(
     #     self,
@@ -1037,32 +1119,32 @@ class VisualizationMixin(BaseVizMixin):
     #         "mmn_standard", settings["montage"]["value"]
     #     )
     #     roi_channels = validate_channel_set(roi_channels, epochs.ch_names)
-        
+
     #     if not roi_channels:
     #         message("error", "No valid ROI channels found in data")
     #         return None
-        
+
     #     # Get conditions
     #     epoch_settings = settings["epoch_settings"]
     #     event_id = epoch_settings.get("event_id")
-        
+
     #     if event_id is None:
     #         message("warning", "Event ID is not specified in epoch_settings (set to null)")
     #         return None
-            
+
     #     conditions = {
     #         "standard": event_id.get("standard", "DIN2/1"),
     #         "predeviant": event_id.get("predeviant", "DIN2/2"),
     #         "deviant": event_id.get("deviant", "DIN2/3"),
     #     }
-        
+
     #     # Create evoked objects
     #     try:
     #         evoked_dict = {
     #             "standard": epochs[conditions["standard"]].average(),
     #             "deviant": epochs[conditions["deviant"]].average(),
     #         }
-            
+
     #         # Create difference wave (MMN = deviant - standard)
     #         evoked_dict["mmn"] = mne.combine_evoked(
     #             [evoked_dict["deviant"], evoked_dict["standard"]], weights=[1, -1]
@@ -1070,13 +1152,13 @@ class VisualizationMixin(BaseVizMixin):
     #     except Exception as e:
     #         message("error", f"Error creating evoked objects: {str(e)}")
     #         return None
-        
+
     #     # Set up figure output
     #     output_dir = Path(pipeline.run_path) / "derivatives" / "reports"
     #     output_dir.mkdir(parents=True, exist_ok=True)
     #     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     #     output_file = output_dir / f"mmn_erp_report_{timestamp}.pdf"
-        
+
     #     # Create PDF report
     #     with PdfPages(output_file) as pdf:
     #         # Title page
@@ -1089,28 +1171,28 @@ class VisualizationMixin(BaseVizMixin):
     #         plt.text(0.5, 0.4, f"ROI Channels: {', '.join(roi_channels)}", ha='center', fontsize=14)
     #         pdf.savefig(fig)
     #         plt.close()
-            
+
     #         # Create ERP plots for each ROI channel
     #         time_window = (-0.1, 0.5)  # -100 ms to 500 ms
     #         for channel in roi_channels:
     #             fig = plt.figure(figsize=(12, 9))
     #             gs = GridSpec(3, 2, height_ratios=[1, 1, 1])
-                
+
     #             # Plot standard response
     #             ax1 = plt.subplot(gs[0, 0])
     #             evoked_dict["standard"].plot(picks=channel, axes=ax1, time_unit='s', show=False)
     #             ax1.set_title(f"Standard Response - {channel}")
-                
+
     #             # Plot deviant response
     #             ax2 = plt.subplot(gs[1, 0])
     #             evoked_dict["deviant"].plot(picks=channel, axes=ax2, time_unit='s', show=False)
     #             ax2.set_title(f"Deviant Response - {channel}")
-                
+
     #             # Plot MMN (difference wave)
     #             ax3 = plt.subplot(gs[2, 0])
     #             evoked_dict["mmn"].plot(picks=channel, axes=ax3, time_unit='s', show=False)
     #             ax3.set_title(f"MMN (Deviant - Standard) - {channel}")
-                
+
     #             # Find MMN peak in 100-250 ms window
     #             mmn_data = evoked_dict["mmn"].copy().pick(channel)
     #             peak_window = (0.100, 0.250)  # 100-250 ms for MMN
@@ -1118,16 +1200,16 @@ class VisualizationMixin(BaseVizMixin):
     #                 ch_type='eeg', tmin=peak_window[0], tmax=peak_window[1], mode='neg'
     #             )
     #             peak_amp = mmn_data.data[0, peak_idx]
-                
+
     #             # Highlight MMN window on plot
     #             ax3.axvspan(peak_window[0], peak_window[1], color='yellow', alpha=0.3)
     #             ax3.axvline(peak_latency, color='red', linestyle='--')
     #             ax3.text(
-    #                 peak_latency, peak_amp, 
+    #                 peak_latency, peak_amp,
     #                 f"\n{peak_amp:.2f} μV\n{peak_latency*1000:.0f} ms",
     #                 ha='center', va='bottom', color='red'
     #             )
-                
+
     #             # Plot topomaps
     #             # Standard
     #             ax4 = plt.subplot(gs[0, 1])
@@ -1135,54 +1217,54 @@ class VisualizationMixin(BaseVizMixin):
     #                 times=peak_latency, axes=ax4, show=False, time_unit='s'
     #             )
     #             ax4.set_title(f"Standard at {peak_latency*1000:.0f} ms")
-                
+
     #             # Deviant
     #             ax5 = plt.subplot(gs[1, 1])
     #             evoked_dict["deviant"].plot_topomap(
     #                 times=peak_latency, axes=ax5, show=False, time_unit='s'
     #             )
     #             ax5.set_title(f"Deviant at {peak_latency*1000:.0f} ms")
-                
+
     #             # MMN
     #             ax6 = plt.subplot(gs[2, 1])
     #             evoked_dict["mmn"].plot_topomap(
     #                 times=peak_latency, axes=ax6, show=False, time_unit='s'
     #             )
     #             ax6.set_title(f"MMN at {peak_latency*1000:.0f} ms")
-                
+
     #             plt.tight_layout()
     #             pdf.savefig(fig)
     #             plt.close(fig)
-            
+
     #         # Global field power analysis
     #         fig = plt.figure(figsize=(12, 9))
     #         gs = GridSpec(2, 1)
-            
+
     #         # GFP for all conditions
     #         ax1 = plt.subplot(gs[0, 0])
     #         for cond, evoked in evoked_dict.items():
     #             gfp = np.sqrt(np.mean(evoked.data ** 2, axis=0))
     #             times = evoked.times
     #             ax1.plot(times, gfp, label=cond.capitalize())
-            
+
     #         ax1.set_title("Global Field Power")
     #         ax1.set_xlabel("Time (s)")
     #         ax1.set_ylabel("GFP (μV)")
     #         ax1.axvline(0, color='k', linestyle='--')
     #         ax1.legend()
     #         ax1.grid(True)
-            
+
     #         # Summary statistics
     #         ax2 = plt.subplot(gs[1, 0])
     #         ax2.axis('off')
-            
+
     #         # Create a summary table
     #         mmn_peak_table = {
     #             "Channel": [],
     #             "Peak Amplitude (μV)": [],
     #             "Peak Latency (ms)": []
     #         }
-            
+
     #         for channel in roi_channels:
     #             mmn_data = evoked_dict["mmn"].copy().pick(channel)
     #             peak_idx, peak_latency = mmn_data.get_peak(
@@ -1192,7 +1274,7 @@ class VisualizationMixin(BaseVizMixin):
     #             mmn_peak_table["Channel"].append(channel)
     #             mmn_peak_table["Peak Amplitude (μV)"].append(f"{peak_amp:.2f}")
     #             mmn_peak_table["Peak Latency (ms)"].append(f"{peak_latency*1000:.0f}")
-            
+
     #         # Convert to string format
     #         table_str = "MMN Peak Analysis (100-250 ms window):\n\n"
     #         for i in range(len(mmn_peak_table["Channel"])):
@@ -1200,15 +1282,15 @@ class VisualizationMixin(BaseVizMixin):
     #             amp = mmn_peak_table["Peak Amplitude (μV)"][i]
     #             lat = mmn_peak_table["Peak Latency (ms)"][i]
     #             table_str += f"{ch}: {amp} μV at {lat} ms\n"
-            
+
     #         ax2.text(0.1, 0.9, table_str, fontsize=12, va='top')
-            
+
     #         plt.tight_layout()
     #         pdf.savefig(fig)
     #         plt.close(fig)
-        
+
     #     message("success", f"MMN ERP report saved to {output_file}")
-        
+
     #     # Update pipeline metadata
     #     pipeline.add_metadata({
     #         "mmn_erp_analysis": {
@@ -1220,50 +1302,50 @@ class VisualizationMixin(BaseVizMixin):
     #     })
 
     #     derivatives_path = pipeline.get_derivative_path(autoclean_dict['bids_path'])
-        
+
     #     # Target file path
     #     target_pdf = str(
     #         derivatives_path.copy().update(
     #             suffix="mmn_erp_report", extension=".pdf", datatype="eeg"
     #         )
     #     )
-        
+
     #     # Get channel info and validate standard 10-20 channel set
     #     channel_names = epochs.ch_names
-        
+
     #     # Validate if we have the standard channels needed for MMN analysis
     #     standard_frontal_channels = ['Fz', 'FCz']
     #     available_channels = [ch for ch in standard_frontal_channels if ch in channel_names]
-        
+
     #     if not available_channels:
     #         message("warning", f"No standard frontal channels found for MMN analysis. Looking for: {standard_frontal_channels}")
     #         # Try to find alternative frontal channels
     #         for ch in channel_names:
     #             if ch.startswith('F') and len(ch) <= 3:
     #                 available_channels.append(ch)
-            
+
     #         if not available_channels:
     #             message("error", "Cannot perform MMN analysis: no suitable frontal channels found.")
     #             return
-                
+
     #     message("info", f"Using channels for MMN analysis: {available_channels}")
-        
+
     #     # Extract evoked responses
     #     standard_evoked = epochs[standard_key].average()
     #     deviant_evoked = epochs[deviant_key].average()
-        
+
     #     # Create MMN (deviant - standard)
     #     mmn_evoked = mne.combine_evoked([deviant_evoked, -standard_evoked], weights='equal')
     #     mmn_evoked.comment = 'MMN (Deviant - Standard)'
-        
+
     #     # Calculate MMN peak amplitude and latency
     #     mmn_peak_window = (0.1, 0.25)  # 100-250 ms window for MMN
     #     mmn_stats = {}
-        
+
     #     for ch in available_channels:
     #         ch_data = mmn_evoked.copy().pick(ch).data[0]
     #         ch_times = mmn_evoked.times
-            
+
     #         # Find peak latency and amplitude within window
     #         peak_window_indices = np.where(
     #             (ch_times >= mmn_peak_window[0]) & (ch_times <= mmn_peak_window[1])
@@ -1271,20 +1353,20 @@ class VisualizationMixin(BaseVizMixin):
     #         if len(peak_window_indices) == 0:
     #             message("warning", f"No data points found in MMN window for channel {ch}")
     #             continue
-                
+
     #         peak_data = ch_data[peak_window_indices]
     #         peak_times = ch_times[peak_window_indices]
-            
+
     #         # Find the most negative peak (MMN is a negative component)
     #         peak_idx = np.argmin(peak_data)
     #         peak_latency = peak_times[peak_idx]
     #         peak_amplitude = peak_data[peak_idx]
-            
+
     #         mmn_stats[ch] = {
     #             'peak_latency': float(peak_latency),
     #             'peak_amplitude': float(peak_amplitude)
     #         }
-            
+
     #     # Create PDF report
     #     with PdfPages(target_pdf) as pdf:
     #         # 1. Title page
@@ -1297,33 +1379,33 @@ class VisualizationMixin(BaseVizMixin):
     #         plt.text(0.5, 0.55, f"Task: {autoclean_dict['bids_path'].task}", ha='center', fontsize=14)
     #         plt.text(0.5, 0.5, f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", ha='center', fontsize=12)
     #         plt.text(0.5, 0.45, f"Channels used: {', '.join(available_channels)}", ha='center', fontsize=12)
-            
+
     #         # Add MMN stats to title page
     #         stats_text = "MMN Peak Statistics:\n"
     #         for ch, stats in mmn_stats.items():
     #             stats_text += f"\n{ch}: {stats['peak_amplitude']:.2f} µV at {stats['peak_latency']*1000:.0f} ms"
     #         plt.text(0.5, 0.35, stats_text, ha='center', fontsize=12)
-            
+
     #         pdf.savefig(fig_title)
     #         plt.close(fig_title)
-            
+
     #         # 2. ERP plots for key channels
     #         for ch in available_channels:
     #             fig_erp = plt.figure(figsize=(10, 8))
     #             plt.suptitle(f"MMN ERP Analysis - Channel {ch}", fontsize=16)
-                
+
     #             gs = GridSpec(2, 2, height_ratios=[2, 1])
-                
+
     #             # Plot ERPs
     #             ax_erp = fig_erp.add_subplot(gs[0, :])
     #             times = standard_evoked.times * 1000  # Convert to ms
     #             ax_erp.plot(times, standard_evoked.copy().pick(ch).data[0] * 1e6, 'b-', linewidth=2, label=standard_key)
     #             ax_erp.plot(times, deviant_evoked.copy().pick(ch).data[0] * 1e6, 'r-', linewidth=2, label=deviant_key)
     #             ax_erp.plot(times, mmn_evoked.copy().pick(ch).data[0] * 1e6, 'k-', linewidth=2, label='MMN Difference')
-                
+
     #             # Highlight MMN window
     #             ax_erp.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
-                
+
     #             # Mark MMN peak
     #             if ch in mmn_stats:
     #                 peak_lat = mmn_stats[ch]['peak_latency'] * 1000  # Convert to ms
@@ -1331,13 +1413,13 @@ class VisualizationMixin(BaseVizMixin):
     #                 ax_erp.plot(peak_lat, peak_amp, 'ko', markersize=8)
     #                 ax_erp.annotate(f"{peak_amp:.1f} µV", xy=(peak_lat, peak_amp), xytext=(peak_lat+20, peak_amp-5),
     #                                  arrowprops=dict(arrowstyle="->", color='black'))
-                
+
     #             ax_erp.set_xlabel('Time (ms)')
     #             ax_erp.set_ylabel('Amplitude (µV)')
     #             ax_erp.legend(loc='best')
     #             ax_erp.grid(True)
     #             ax_erp.set_title(f"Event-Related Potentials - Channel {ch}")
-                
+
     #             # Plot topomaps at different time points
     #             time_points = [0.1, 0.15, 0.2, 0.25]  # 100, 150, 200, 250 ms
     #             for i, t in enumerate(time_points):
@@ -1346,34 +1428,34 @@ class VisualizationMixin(BaseVizMixin):
     #                                      axes=ax_topo, show=False, times=t,
     #                                      cmap='RdBu_r', vmin=-3, vmax=3)
     #                 ax_topo.set_title(f"{int(t*1000)} ms")
-                
+
     #             pdf.savefig(fig_erp)
     #             plt.close(fig_erp)
-                
+
     #         # 3. Global field power plot
     #         fig_gfp = plt.figure(figsize=(10, 6))
     #         plt.suptitle("Global Field Power", fontsize=16)
-            
+
     #         # Calculate GFP for each condition
     #         gfp_standard = np.std(standard_evoked.data, axis=0) * 1e6
     #         gfp_deviant = np.std(deviant_evoked.data, axis=0) * 1e6
     #         gfp_mmn = np.std(mmn_evoked.data, axis=0) * 1e6
-            
+
     #         plt.plot(times, gfp_standard, 'b-', linewidth=2, label=standard_key)
     #         plt.plot(times, gfp_deviant, 'r-', linewidth=2, label=deviant_key)
     #         plt.plot(times, gfp_mmn, 'k-', linewidth=2, label='MMN Difference')
-            
+
     #         plt.axvspan(mmn_peak_window[0]*1000, mmn_peak_window[1]*1000, color='gray', alpha=0.2)
     #         plt.xlabel('Time (ms)')
     #         plt.ylabel('Global Field Power (µV)')
     #         plt.legend(loc='best')
     #         plt.grid(True)
-            
+
     #         pdf.savefig(fig_gfp)
     #         plt.close(fig_gfp)
-            
+
     #     message("info", f"MMN ERP report saved to {target_pdf}")
-        
+
     #     # Update metadata
     #     metadata = {
     #         "mmn_erp_report": {
@@ -1385,5 +1467,5 @@ class VisualizationMixin(BaseVizMixin):
     #             "mmn_peak_stats": mmn_stats
     #         }
     #     }
-        
+
     #     self._update_metadata("mmn_erp_report", metadata)

@@ -8,20 +8,16 @@ import numpy as np
 
 # Local imports
 from autoclean.core.task import Task
+from autoclean.io.export import save_raw_to_set
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
 )
-
-from autoclean.io.export import save_raw_to_set
-
-
 from autoclean.utils.logging import message
 
 
 class HBCD_VEP(Task):
-
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -123,7 +119,6 @@ class HBCD_VEP(Task):
                 raise ValueError(f"Stage {stage} must have 'suffix' field")
 
         return config
-    
 
     def run(self) -> None:
         """Run the complete processing pipeline for this task
@@ -147,12 +142,17 @@ class HBCD_VEP(Task):
         """
         # Import and save raw EEG data
         self.import_raw()
-        
+
         message("header", "Running preprocessing steps")
 
         # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_prepipeline",
+            flagged=self.flagged,
+        )
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -160,42 +160,53 @@ class HBCD_VEP(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        #Run PyLossless Pipeline
-        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config, eog_channel="E25")
+        # Run PyLossless Pipeline
+        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(
+            self.config, eog_channel="E25"
+        )
 
-        #Add more artifact detection steps
+        # Add more artifact detection steps
         self.detect_dense_oscillatory_artifacts()
 
         # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
         self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_rejection_policy",
+            flagged=self.flagged,
+        )
 
         self.detect_dense_oscillatory_artifacts()
 
-        #Clean bad channels post ICA
+        # Clean bad channels post ICA
         self.clean_bad_channels(cleaning_method="interpolate")
 
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_clean_raw",
+            flagged=self.flagged,
+        )
 
         self.create_eventid_epochs()
 
         self._generate_reports()
 
-
     def _generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
-        
+
         Creates standard visualization reports including:
         1. Raw vs cleaned data overlay
         2. ICA components
         3. ICA details
         4. PSD topography
-        
+
         The reports are saved in the debug directory specified
         in the configuration.
-        
+
         Note:
             This is automatically called by run().
         """
@@ -217,4 +228,3 @@ class HBCD_VEP(Task):
         self.step_psd_topo_figure(
             self.original_raw, self.raw, self.pipeline, self.config
         )
-

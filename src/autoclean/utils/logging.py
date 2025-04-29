@@ -24,7 +24,7 @@ logger.remove()
 # - CRITICAL(50)
 
 # Only define our custom levels
-logger.level("HEADER", no=28, color="<blue>", icon="🧠")     # Between SUCCESS and WARNING
+logger.level("HEADER", no=28, color="<blue>", icon="🧠")  # Between SUCCESS and WARNING
 
 
 # Create a custom warning handler that redirects to loguru
@@ -59,7 +59,7 @@ class LogLevel(str, Enum):
     These levels correspond to Python's standard logging levels plus custom levels.
 
     .. rubric:: Standard Levels
-    
+
     - DEBUG = 10
     - INFO = 20
     - WARNING = 30
@@ -67,7 +67,7 @@ class LogLevel(str, Enum):
     - CRITICAL = 50
 
     .. rubric:: Custom Levels
-    
+
     - HEADER = 28 (Custom header level)
     - SUCCESS = 25 (Built-in Loguru success level)
 
@@ -156,7 +156,7 @@ class MessageType(str, Enum):
 
 def message(level: str, text: str, **kwargs) -> None:
     """
-    Enhanced logging function with support for lazy evaluation and context. 
+    Enhanced logging function with support for lazy evaluation and context.
     Outputs to the console and the log file.
 
     Parameters
@@ -181,7 +181,7 @@ def message(level: str, text: str, **kwargs) -> None:
 def configure_logger(
     verbose: Optional[Union[bool, str, int, LogLevel]] = None,
     output_dir: Optional[Union[str, Path]] = None,
-    task: Optional[str] = None
+    task: Optional[str] = None,
 ) -> str:
     """
     Configure the logger based on verbosity level and output directory.
@@ -215,11 +215,11 @@ def configure_logger(
     mne_level_map = {
         LogLevel.DEBUG: "DEBUG",
         LogLevel.INFO: "INFO",
-        LogLevel.SUCCESS: "INFO",    # Success messages map to INFO
-        LogLevel.HEADER: "WARNING", # Headers are for UI, uses WARNING for MNE
+        LogLevel.SUCCESS: "INFO",  # Success messages map to INFO
+        LogLevel.HEADER: "WARNING",  # Headers are for UI, uses WARNING for MNE
         LogLevel.WARNING: "WARNING",
         LogLevel.ERROR: "ERROR",
-        LogLevel.CRITICAL: "CRITICAL"
+        LogLevel.CRITICAL: "CRITICAL",
     }
 
     # Set up log directory
@@ -229,7 +229,7 @@ def configure_logger(
     else:
         # Fallback to current working directory if no task-specific path
         log_dir = Path(os.getcwd()) / "logs"
-    
+
     # Create logs directory
     log_dir.mkdir(parents=True, exist_ok=True)
 

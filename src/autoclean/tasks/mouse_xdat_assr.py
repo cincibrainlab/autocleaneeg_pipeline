@@ -1,23 +1,32 @@
 # src/autoclean/tasks/mouse_xdat_assr.py
 """Mouse XDAT assr State Task"""
 
+import os
+import sys
+from datetime import datetime
+
 # Standard library imports
 from pathlib import Path
 from typing import Any, Dict
-import os
-import sys
 
+import mne
+
+# )
+from pyprep.find_noisy_channels import NoisyChannels
 
 # Local imports
 from autoclean.core.task import Task
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
+    step_clean_bad_channels,
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_pylossless,
-    step_clean_bad_channels,
 )
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.io.import_ import import_eeg
+from autoclean.utils.database import manage_database
+from autoclean.utils.logging import message
+
 # Import the reporting functions directly from the Task class via mixins
 # from autoclean.step_functions.reports import (
 #     step_generate_ica_reports,
@@ -25,16 +34,8 @@ from autoclean.io.import_ import import_eeg
 #     step_plot_raw_vs_cleaned_overlay,
 #     step_psd_topo_figure,
 
-# )
-from pyprep.find_noisy_channels import NoisyChannels
-from autoclean.utils.database import manage_database
-from autoclean.utils.logging import message
-import mne
-
-from datetime import datetime
 
 class MouseXdatAssr(Task):
-
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -55,11 +56,8 @@ class MouseXdatAssr(Task):
         # Call parent initialization
         super().__init__(config)
 
-
-
-
-    def step_clean_bad_channels_by_correlation(self,
-        raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
+    def step_clean_bad_channels_by_correlation(
+        self, raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
     ) -> mne.io.Raw:
         """Clean bad channels."""
         message("header", "step_clean_bad_channels")
@@ -73,9 +71,9 @@ class MouseXdatAssr(Task):
         # check if "eog" is in channel type dictionary
         if (
             "eog" in raw.get_channel_types()
-            and not autoclean_dict["tasks"][autoclean_dict["task"]]["settings"]["eog_step"][
-                "enabled"
-            ]
+            and not autoclean_dict["tasks"][autoclean_dict["task"]]["settings"][
+                "eog_step"
+            ]["enabled"]
         ):
             eog_picks = mne.pick_types(raw.info, eog=True)
             eog_ch_names = [raw.ch_names[idx] for idx in eog_picks]
@@ -83,7 +81,9 @@ class MouseXdatAssr(Task):
 
         # Run noisy channels detection
         cleaned_raw = NoisyChannels(raw, random_state=options["random_state"])
-        cleaned_raw.find_bad_by_correlation(correlation_threshold=options["corr_thresh"], frac_bad=options["frac_bad"])
+        cleaned_raw.find_bad_by_correlation(
+            correlation_threshold=options["corr_thresh"], frac_bad=options["frac_bad"]
+        )
 
         uncorrelated_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_correlation"]
         deviation_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_deviation"]
@@ -91,18 +91,17 @@ class MouseXdatAssr(Task):
         bad_channels = cleaned_raw.get_bads(as_dict=True)
         raw.info["bads"].extend([str(ch) for ch in bad_channels["bad_by_correlation"]])
 
-
         # Create empty lists for the other bad channel types
         # This ensures the subsequent extend operations won't fail
         bad_channels = cleaned_raw.get_bads(as_dict=True)
-        
+
         # Initialize empty lists for channel types we're not detecting
         if "bad_by_ransac" not in bad_channels:
             bad_channels["bad_by_ransac"] = []
-        
+
         if "bad_by_deviation" not in bad_channels:
             bad_channels["bad_by_deviation"] = []
-            
+
         if "bad_by_SNR" not in bad_channels:
             bad_channels["bad_by_SNR"] = []
 
@@ -136,7 +135,6 @@ class MouseXdatAssr(Task):
         )
 
         return raw
-
 
     def run(self) -> None:
         """Run the complete processing pipeline for this task.
@@ -176,14 +174,13 @@ class MouseXdatAssr(Task):
 
         # Create analysis directory in stage_dir
         # analysis_dir = Path(self.config['stage_dir']) / "analysis"
-        # analysis_dir.mkdir(parents=True, exist_ok=True)        
+        # analysis_dir.mkdir(parents=True, exist_ok=True)
         # # Update config with analysis directory path
         # self.config['analysis_dir'] = str(analysis_dir)
 
         # from autoclean.calc.assr_runner import run_complete_analysis
         # file_basename = Path(self.config["unprocessed_file"]).stem
         # run_complete_analysis(epochs = self.epochs, output_dir = self.config['analysis_dir'], file_basename=file_basename)
-
 
     def import_data(self) -> None:
         """Import raw EEG data for this task.
@@ -208,7 +205,6 @@ class MouseXdatAssr(Task):
 
         # Save imported data if configured
         save_raw_to_set(self.raw, self.config, "post_import")
-
 
     def _generate_reports(self) -> None:
         """Generate quality control visualizations.

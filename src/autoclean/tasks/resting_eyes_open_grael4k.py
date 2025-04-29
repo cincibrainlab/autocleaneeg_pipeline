@@ -5,8 +5,14 @@
 from pathlib import Path
 from typing import Any, Dict
 
+import mne
+
+from autoclean.calc.source import estimate_source_function_raw
+
 # Local imports
 from autoclean.core.task import Task
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set, save_stc_to_file
+from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_clean_bad_channels,
     step_create_bids_path,
@@ -14,14 +20,6 @@ from autoclean.step_functions.continuous import (
     step_run_ll_rejection_policy,
     step_run_pylossless,
 )
-
-from autoclean.io.import_ import import_eeg
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set, save_stc_to_file
-
-from autoclean.calc.source import estimate_source_function_raw
-
-import mne
-
 from autoclean.utils.logging import message
 
 
@@ -85,12 +83,17 @@ class resting_eyesopen_grael4k(Task):
         """Run the complete resting state processing pipeline."""
 
         self.import_raw()
-        
+
         message("header", "Running preprocessing steps")
-        
+
         # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_prepipeline",
+            flagged=self.flagged,
+        )
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -98,10 +101,12 @@ class resting_eyesopen_grael4k(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        #Run PyLossless Pipeline
-        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config, eog_channel="VEOG")
+        # Run PyLossless Pipeline
+        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(
+            self.config, eog_channel="VEOG"
+        )
 
-        #Add more artifact detection steps
+        # Add more artifact detection steps
         self.detect_dense_oscillatory_artifacts()
 
         # Update pipeline with annotated raw data
@@ -110,15 +115,25 @@ class resting_eyesopen_grael4k(Task):
         # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
         self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
-        )   
+        )
         self.raw = self.pipeline.raw
 
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_rejection_policy",
+            flagged=self.flagged,
+        )
 
-        #Clean bad channels post ICA
+        # Clean bad channels post ICA
         self.clean_bad_channels(deviation_thresh=3, cleaning_method="interpolate")
 
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_clean_raw",
+            flagged=self.flagged,
+        )
 
         estimate_source_function_raw(self.raw, self.config)
 
@@ -173,19 +188,18 @@ class resting_eyesopen_grael4k(Task):
     #     # Generate visualization reports
     #     # self._generate_reports()
 
-
     def _generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
-        
+
         Creates standard visualization reports including:
         1. Raw vs cleaned data overlay
         2. ICA components
         3. ICA details
         4. PSD topography
-        
+
         The reports are saved in the debug directory specified
         in the configuration.
-        
+
         Note:
             This is automatically called by run().
         """
@@ -204,7 +218,4 @@ class resting_eyesopen_grael4k(Task):
         self.generate_ica_reports(self.pipeline, self.config)
 
         # Create PSD topography figure using mixin method
-        self.psd_topo_figure(
-            self.original_raw, self.raw, self.pipeline, self.config
-        )
-
+        self.psd_topo_figure(self.original_raw, self.raw, self.pipeline, self.config)

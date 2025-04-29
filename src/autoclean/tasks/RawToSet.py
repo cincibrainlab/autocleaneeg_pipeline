@@ -7,12 +7,11 @@ import mne
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.io.import_ import import_eeg
 from autoclean.io.export import save_raw_to_set
+from autoclean.io.import_ import import_eeg
 
 
 class RawToSet(Task):
-
     def __init__(self, config: Dict[str, Any]) -> None:
         """Initialize a new task instance.
 
@@ -23,7 +22,7 @@ class RawToSet(Task):
         Note:
             The parent class handles basic initialization and validation.
             Task-specific setup should be added here if needed.
-            
+
         Raises:
             ValueError: If required configuration fields are missing
             TypeError: If configuration fields have incorrect types
@@ -41,7 +40,7 @@ class RawToSet(Task):
         # Save imported data if configured
         save_raw_to_set(self.raw, self.config, "post_import")
 
-        exit 
+        exit
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Define required fields and their expected types
@@ -77,4 +76,3 @@ class RawToSet(Task):
                 raise ValueError(f"Stage {stage} must have 'suffix' field")
 
         return config
-        

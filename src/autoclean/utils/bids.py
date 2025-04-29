@@ -1,16 +1,16 @@
 # src/autoclean/utils/bids.py
 import json
 import sys
-from pathlib import Path
 import threading
+import traceback
+from contextlib import contextmanager  # Imported for dummy lock
+from pathlib import Path
 from threading import Lock as ThreadingLock
 from typing import Optional
 
 import pandas as pd
 from mne.io.constants import FIFF
 from mne_bids import BIDSPath, update_sidecar_json, write_raw_bids
-import traceback
-from contextlib import contextmanager # Imported for dummy lock
 
 from ..utils.logging import message
 
@@ -67,26 +67,41 @@ def step_convert_to_bids(
 
     # Retrieve Lock from autoclean_dict if available for thread-safe TSV access.
     lock = None
-    lock_valid = False 
-    if autoclean_dict and 'participants_tsv_lock' in autoclean_dict:
-        retrieved_lock = autoclean_dict['participants_tsv_lock']
+    lock_valid = False
+    if autoclean_dict and "participants_tsv_lock" in autoclean_dict:
+        retrieved_lock = autoclean_dict["participants_tsv_lock"]
         # Validate the lock object based on expected methods and type name ('lock').
-        if hasattr(retrieved_lock, 'acquire') and hasattr(retrieved_lock, 'release') and retrieved_lock.__class__.__name__ == 'lock':
+        if (
+            hasattr(retrieved_lock, "acquire")
+            and hasattr(retrieved_lock, "release")
+            and retrieved_lock.__class__.__name__ == "lock"
+        ):
             lock = retrieved_lock
             lock_valid = True
-            message("debug", "Successfully validated threading.Lock object from autoclean_dict.")
+            message(
+                "debug",
+                "Successfully validated threading.Lock object from autoclean_dict.",
+            )
         else:
-            message("warning", f"participants_tsv_lock found in autoclean_dict but is not a valid threading.Lock object (type: {type(retrieved_lock).__name__}, value: {retrieved_lock!r}). Proceeding without lock.")
-    
-    if not lock_valid: 
-        message("warning", "participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.")
+            message(
+                "warning",
+                f"participants_tsv_lock found in autoclean_dict but is not a valid threading.Lock object (type: {type(retrieved_lock).__name__}, value: {retrieved_lock!r}). Proceeding without lock.",
+            )
+
+    if not lock_valid:
+        message(
+            "warning",
+            "participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.",
+        )
+
         # Use a dummy context manager if no valid lock is found to allow execution.
         @contextmanager
         def dummy_lock():
             yield
+
         lock_context = dummy_lock()
     else:
-        lock_context = lock # Use the actual lock context.
+        lock_context = lock  # Use the actual lock context.
 
     bids_root = Path(output_dir)
     bids_root.mkdir(parents=True, exist_ok=True)
@@ -94,8 +109,17 @@ def step_convert_to_bids(
     # Define participants file path and the desired column order.
     participants_file = bids_root / "participants.tsv"
     desired_column_order = [
-        "participant_id", "file_name", "bids_path", "age", 
-        "sex", "group", "hand", "weight", "height", "eegid", "file_hash"
+        "participant_id",
+        "file_name",
+        "bids_path",
+        "age",
+        "sex",
+        "group",
+        "hand",
+        "weight",
+        "height",
+        "eegid",
+        "file_hash",
     ]
 
     # Determine participant ID (generate if not provided).
@@ -149,7 +173,9 @@ def step_convert_to_bids(
     }
 
     # Create derivatives directory structure (outside the lock).
-    derivatives_dir = bids_root / "derivatives" / "pylossless" / f"sub-{subject_id}" / "eeg"
+    derivatives_dir = (
+        bids_root / "derivatives" / "pylossless" / f"sub-{subject_id}" / "eeg"
+    )
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message("info", f"Created derivatives directory structure at {derivatives_dir}")
 
@@ -159,13 +185,18 @@ def step_convert_to_bids(
     with lock_context:
         message("debug", f"Acquired participants.tsv lock for {file_name}.")
 
-        # Ensure participants.tsv exists with correct headers and dtype=object 
+        # Ensure participants.tsv exists with correct headers and dtype=object
         # *before* calling mne_bids, which might interact with it.
         try:
             if not participants_file.exists():
-                message("info", f"Creating participants.tsv with headers at {participants_file}")
+                message(
+                    "info",
+                    f"Creating participants.tsv with headers at {participants_file}",
+                )
                 header_df = pd.DataFrame(columns=desired_column_order, dtype=object)
-                header_df.to_csv(participants_file, sep="	", index=False, na_rep="n/a")
+                header_df.to_csv(
+                    participants_file, sep="	", index=False, na_rep="n/a"
+                )
         except Exception as header_err:
             message("error", f"Failed to create participants.tsv header: {header_err}")
             raise
@@ -188,43 +219,77 @@ def step_convert_to_bids(
         try:
             # Read the potentially modified participants.tsv, enforcing object dtype.
             try:
-                dtype_mapping = {col: object for col in desired_column_order} 
+                dtype_mapping = {col: object for col in desired_column_order}
                 # Read assuming all desired columns should exist; add missing ones later.
                 # na_filter=False prevents 'NA' strings from becoming NaN if object dtype is used.
-                participants_df = pd.read_csv(participants_file, sep="	", dtype=dtype_mapping, na_filter=False) 
-                
+                participants_df = pd.read_csv(
+                    participants_file, sep="	", dtype=dtype_mapping, na_filter=False
+                )
+
                 # Validate and fix columns after reading.
-                missing_cols = [col for col in desired_column_order if col not in participants_df.columns]
+                missing_cols = [
+                    col
+                    for col in desired_column_order
+                    if col not in participants_df.columns
+                ]
                 if missing_cols:
-                    message("warning", f"participants.tsv is missing columns: {missing_cols}. Adding them with 'n/a'.")
+                    message(
+                        "warning",
+                        f"participants.tsv is missing columns: {missing_cols}. Adding them with 'n/a'.",
+                    )
                     for col in missing_cols:
-                        participants_df[col] = "n/a" 
-                    participants_df = participants_df.astype({col: object for col in missing_cols})
-                
+                        participants_df[col] = "n/a"
+                    participants_df = participants_df.astype(
+                        {col: object for col in missing_cols}
+                    )
+
                 # Handle cases where the file might be corrupted or unexpectedly empty.
                 if participants_df.empty and participants_file.stat().st_size > 0:
-                    message("warning", "participants.tsv exists but pandas read an empty DataFrame. Recreating.")
-                    participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
-                elif not participants_df.empty and "participant_id" not in participants_df.columns:
-                    message("warning", "participants.tsv is missing 'participant_id'. Recreating.")
-                    participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
+                    message(
+                        "warning",
+                        "participants.tsv exists but pandas read an empty DataFrame. Recreating.",
+                    )
+                    participants_df = pd.DataFrame(
+                        columns=desired_column_order, dtype=object
+                    )
+                elif (
+                    not participants_df.empty
+                    and "participant_id" not in participants_df.columns
+                ):
+                    message(
+                        "warning",
+                        "participants.tsv is missing 'participant_id'. Recreating.",
+                    )
+                    participants_df = pd.DataFrame(
+                        columns=desired_column_order, dtype=object
+                    )
 
             except pd.errors.EmptyDataError:
                 # Handle case where mne_bids might have left the file empty.
-                message("warning", f"participants.tsv is empty after MNE-BIDS write. Starting with headers.")
-                participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
+                message(
+                    "warning",
+                    f"participants.tsv is empty after MNE-BIDS write. Starting with headers.",
+                )
+                participants_df = pd.DataFrame(
+                    columns=desired_column_order, dtype=object
+                )
             except Exception as pd_read_err:
-                message("error", f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting overwrite.")
-                participants_df = pd.DataFrame(columns=desired_column_order, dtype=object)
+                message(
+                    "error",
+                    f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting overwrite.",
+                )
+                participants_df = pd.DataFrame(
+                    columns=desired_column_order, dtype=object
+                )
 
             # Prepare the entry for the current participant.
             new_entry = {
                 "participant_id": f"sub-{subject_id}",
-                "file_name": file_name, 
-                "bids_path": str(bids_path.match()[0]), 
-                "age": age, 
-                "sex": sex, 
-                "group": group, 
+                "file_name": file_name,
+                "bids_path": str(bids_path.match()[0]),
+                "age": age,
+                "sex": sex,
+                "group": group,
                 # Add standard optional BIDS columns with 'n/a' if not provided elsewhere.
                 "hand": "n/a",
                 "weight": "n/a",
@@ -238,36 +303,64 @@ def step_convert_to_bids(
             if participant_col_id not in participants_df["participant_id"].values:
                 # Append new row using pd.concat for better type handling.
                 new_row_df = pd.DataFrame([new_entry]).astype(dtype=object)
-                participants_df = pd.concat([participants_df, new_row_df], ignore_index=True)
-                message("debug", f"Appended new entry for {participant_col_id} to participants.tsv.")
+                participants_df = pd.concat(
+                    [participants_df, new_row_df], ignore_index=True
+                )
+                message(
+                    "debug",
+                    f"Appended new entry for {participant_col_id} to participants.tsv.",
+                )
             else:
                 # Update existing row.
-                message("debug", f"Participant {participant_col_id} already exists. Updating row.")
-                idx = participants_df.index[participants_df["participant_id"] == participant_col_id].tolist()
+                message(
+                    "debug",
+                    f"Participant {participant_col_id} already exists. Updating row.",
+                )
+                idx = participants_df.index[
+                    participants_df["participant_id"] == participant_col_id
+                ].tolist()
                 if idx:
                     row_index = idx[0]
                     for key, value in new_entry.items():
                         if key in participants_df.columns:
                             # Ensure value assignment respects object dtype.
-                            participants_df.loc[row_index, key] = str(value) if value is not None else "n/a"
+                            participants_df.loc[row_index, key] = (
+                                str(value) if value is not None else "n/a"
+                            )
                         else:
-                             message("warning", f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.")
+                            message(
+                                "warning",
+                                f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.",
+                            )
                 else:
                     # Fallback if index search fails.
-                    message("warning", f"Could not find index for existing participant {participant_col_id}. Appending instead.")
+                    message(
+                        "warning",
+                        f"Could not find index for existing participant {participant_col_id}. Appending instead.",
+                    )
                     new_row_df = pd.DataFrame([new_entry]).astype(dtype=object)
-                    participants_df = pd.concat([participants_df, new_row_df], ignore_index=True)
+                    participants_df = pd.concat(
+                        [participants_df, new_row_df], ignore_index=True
+                    )
 
             # Ensure no duplicate participant IDs remain.
-            participants_df.drop_duplicates(subset="participant_id", keep="last", inplace=True)
-            
+            participants_df.drop_duplicates(
+                subset="participant_id", keep="last", inplace=True
+            )
+
             # Ensure final DataFrame columns match desired order, preserving extras.
             # Note: This assumes desired_column_order contains all keys from new_entry that should be primary columns.
-            final_columns = desired_column_order + [col for col in participants_df.columns if col not in desired_column_order]
+            final_columns = desired_column_order + [
+                col
+                for col in participants_df.columns
+                if col not in desired_column_order
+            ]
             participants_df = participants_df[final_columns]
-            
+
             # Write the updated DataFrame back to TSV.
-            participants_df.to_csv(participants_file, sep="	", index=False, na_rep="n/a")
+            participants_df.to_csv(
+                participants_file, sep="	", index=False, na_rep="n/a"
+            )
             message("debug", f"Updated participants.tsv for {file_name}")
 
             # Create metadata JSON files if they don't exist.
@@ -280,10 +373,13 @@ def step_convert_to_bids(
                 step_create_participants_json(bids_root)
 
         except Exception as update_err:
-            message("error", f"Failed during participants.tsv update or associated file creation: {update_err}")
+            message(
+                "error",
+                f"Failed during participants.tsv update or associated file creation: {update_err}",
+            )
             traceback.print_exc()
             raise
-    
+
     # Lock is automatically released when exiting the 'with' block.
     message("debug", f"Released participants.tsv lock for {file_name}.")
 
@@ -330,7 +426,7 @@ def step_create_dataset_desc(output_path, study_name):
     """
     dataset_description = {
         "Name": study_name,
-        "BIDSVersion": "1.6.0", # Specify BIDS version used.
+        "BIDSVersion": "1.6.0",  # Specify BIDS version used.
         "DatasetType": "raw",
     }
     filepath = output_path / "dataset_description.json"
@@ -359,12 +455,22 @@ def step_create_participants_json(output_path):
         "age": {"Description": "Age of the participant", "Units": "years"},
         "sex": {
             "Description": "Biological sex of the participant",
-            "Levels": {"M": "Male", "F": "Female", "O": "Other", "n/a": "Not available"},
+            "Levels": {
+                "M": "Male",
+                "F": "Female",
+                "O": "Other",
+                "n/a": "Not available",
+            },
         },
         "group": {"Description": "Participant group membership", "Levels": {}},
         "hand": {
             "Description": "Dominant hand of the participant",
-            "Levels": {"L": "Left", "R": "Right", "A": "Ambidextrous", "n/a": "Not available"},
+            "Levels": {
+                "L": "Left",
+                "R": "Right",
+                "A": "Ambidextrous",
+                "n/a": "Not available",
+            },
         },
         "weight": {"Description": "Weight of the participant", "Units": "kg"},
         "height": {"Description": "Height of the participant", "Units": "m"},

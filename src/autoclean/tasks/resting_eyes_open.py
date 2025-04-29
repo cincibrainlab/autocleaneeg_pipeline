@@ -9,21 +9,21 @@ import mne
 
 # Local imports
 from autoclean.core.task import Task
+from autoclean.io.export import save_raw_to_set
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_ll_rejection_policy,
 )
-from autoclean.io.export import save_raw_to_set
 from autoclean.utils.logging import message
 
 
 class RestingEyesOpen(Task):
     """Revised task implementation for resting state EEG preprocessing.
-    
+
     This class extends the base Task class which now includes functionality from mixins,
     demonstrating a more modular approach to task implementation.
-    
+
     Attributes:
         raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline
         pipeline (Any): PyLossless pipeline instance after preprocessing
@@ -33,7 +33,7 @@ class RestingEyesOpen(Task):
 
     def __init__(self, config: Dict[str, Any]):
         """Initialize the resting state task.
-        
+
         Args:
             config: Configuration dictionary containing all settings.
         """
@@ -50,29 +50,34 @@ class RestingEyesOpen(Task):
             "post_comp",
         ]
 
-        super().__init__(config) # Initialize the base class
+        super().__init__(config)  # Initialize the base class
 
     def run(self) -> None:
         """Execute the complete resting state EEG processing pipeline.
-        
+
         This method orchestrates the complete processing sequence including:
         1. Data import
         2. Preprocessing (resampling, filtering)
         3. Artifact detection and rejection
         4. Epoching
         5. Report generation
-        
+
         Raises:
             RuntimeError: If data hasn't been imported successfully
         """
         # Import and save raw EEG data
         self.import_raw()
-        
+
         message("header", "Running preprocessing steps")
-        
+
         # Continue with other preprocessing steps
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_prepipeline",
+            flagged=self.flagged,
+        )
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -80,10 +85,10 @@ class RestingEyesOpen(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        #Run PyLossless Pipeline
+        # Run PyLossless Pipeline
         self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
 
-        #Add more artifact detection steps
+        # Add more artifact detection steps
         self.detect_dense_oscillatory_artifacts()
 
         # Update pipeline with annotated raw data
@@ -94,13 +99,25 @@ class RestingEyesOpen(Task):
             self.pipeline, self.config
         )
         self.raw = self.pipeline.raw
-        
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_rejection_policy", flagged = self.flagged)
 
-        #Clean bad channels post ICA
-        self.clean_bad_channels(deviation_thresh=3, cleaning_method="interpolate", reset_bads=True)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_rejection_policy",
+            flagged=self.flagged,
+        )
 
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_clean_raw", flagged = self.flagged)
+        # Clean bad channels post ICA
+        self.clean_bad_channels(
+            deviation_thresh=3, cleaning_method="interpolate", reset_bads=True
+        )
+
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_clean_raw",
+            flagged=self.flagged,
+        )
 
         # Create regular epochs
         self.create_regular_epochs()
@@ -114,19 +131,18 @@ class RestingEyesOpen(Task):
         # Generate visualization reports
         self.generate_reports()
 
-
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
-        
+
         Creates standard visualization reports including:
         1. Raw vs cleaned data overlay
         2. ICA components
         3. ICA details
         4. PSD topography
-        
+
         The reports are saved in the debug directory specified
         in the configuration.
-        
+
         Note:
             This is automatically called by run().
         """

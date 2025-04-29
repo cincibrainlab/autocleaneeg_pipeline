@@ -1,50 +1,71 @@
 #!/usr/bin/env python3
 
 import argparse
-from pathlib import Path
-import pandas as pd
-from rich.console import Console
-from rich.table import Table
-from rich.progress import track
 import os
 import time
+from pathlib import Path
+
+import pandas as pd
+from rich.console import Console
+from rich.progress import track
+from rich.table import Table
 
 # Initialize Rich console
 console = Console()
 
+
 def parse_args():
     """Parse command-line arguments."""
-    parser = argparse.ArgumentParser(description="Generate metadata CSV for EEG files (.set, .stc, .fif) in autoclean stage directory.")
+    parser = argparse.ArgumentParser(
+        description="Generate metadata CSV for EEG files (.set, .stc, .fif) in autoclean stage directory."
+    )
     parser.add_argument(
         "--autoclean-base",
         type=Path,
         required=True,
-        help="Base directory of the autoclean output (e.g., /Users/ernie/Data/autoclean_v3)"
+        help="Base directory of the autoclean output (e.g., /Users/ernie/Data/autoclean_v3)",
     )
     return parser.parse_args()
+
 
 def collect_eeg_metadata(stage_dir: Path) -> list:
     """Collect metadata for all .set, .stc, and .fif files in the stage directory."""
     metadata = []
-    file_extensions = ["*.set", "*.stc", "*.fif", "*.h5"]  # File extensions to search for
-    
-    console.print(f"[bold cyan]Scanning directory: {stage_dir} for {', '.join(file_extensions)} files[/bold cyan]")
+    file_extensions = [
+        "*.set",
+        "*.stc",
+        "*.fif",
+        "*.h5",
+    ]  # File extensions to search for
+
+    console.print(
+        f"[bold cyan]Scanning directory: {stage_dir} for {', '.join(file_extensions)} files[/bold cyan]"
+    )
     for folder in track(list(stage_dir.iterdir()), description="Processing folders..."):
-        if folder.is_dir() and folder.name.startswith("0"):  # Assuming stage folders start with numbers (e.g., 01_postimport)
+        if folder.is_dir() and folder.name.startswith(
+            "0"
+        ):  # Assuming stage folders start with numbers (e.g., 01_postimport)
             for ext in file_extensions:
                 for file_path in folder.glob(ext):
                     stat = file_path.stat()
-                    metadata.append({
-                        "full_path": str(file_path.absolute()),
-                        "basename": file_path.name,
-                        "stage_folder": folder.name,
-                        "file_type": ext.lstrip("*"),  # Remove the "*" from "*.set" to get "set"
-                        "size_bytes": stat.st_size,
-                        "size_mb": stat.st_size / (1024 * 1024),  # Convert to MB
-                        "modification_date": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime))
-                    })
-    
+                    metadata.append(
+                        {
+                            "full_path": str(file_path.absolute()),
+                            "basename": file_path.name,
+                            "stage_folder": folder.name,
+                            "file_type": ext.lstrip(
+                                "*"
+                            ),  # Remove the "*" from "*.set" to get "set"
+                            "size_bytes": stat.st_size,
+                            "size_mb": stat.st_size / (1024 * 1024),  # Convert to MB
+                            "modification_date": time.strftime(
+                                "%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)
+                            ),
+                        }
+                    )
+
     return metadata
+
 
 def create_table(metadata: list) -> Table:
     """Create a rich table for displaying metadata."""
@@ -63,10 +84,11 @@ def create_table(metadata: list) -> Table:
             item["stage_folder"],
             item["file_type"],
             f"{item['size_mb']:.2f}",
-            item["modification_date"]
+            item["modification_date"],
         )
-    
+
     return table
+
 
 def save_to_csv(metadata: list, output_path: Path):
     """Save metadata to a CSV file."""
@@ -74,6 +96,7 @@ def save_to_csv(metadata: list, output_path: Path):
     df = pd.DataFrame(metadata)
     df.to_csv(output_path, index=False)
     console.print(f"[bold green]Metadata saved to: {output_path}[/bold green]")
+
 
 def main():
     # Parse command-line arguments
@@ -87,14 +110,18 @@ def main():
 
     # Ensure the stage directory exists
     if not stage_dir.exists():
-        console.print(f"[bold red]Error: Stage directory {stage_dir} does not exist![/bold red]")
+        console.print(
+            f"[bold red]Error: Stage directory {stage_dir} does not exist![/bold red]"
+        )
         return
 
     # Collect metadata
     metadata = collect_eeg_metadata(stage_dir)
 
     if not metadata:
-        console.print("[bold yellow]No .set, .stc, or .fif files found in the stage directory![/bold yellow]")
+        console.print(
+            "[bold yellow]No .set, .stc, or .fif files found in the stage directory![/bold yellow]"
+        )
         return
 
     # Display table
@@ -103,8 +130,11 @@ def main():
     # Save to CSV
     save_to_csv(metadata, output_csv)
 
+
 if __name__ == "__main__":
-    console.print("[bold blue]Starting EEG Metadata Generator (.set, .stc, .fif)[/bold blue]")
+    console.print(
+        "[bold blue]Starting EEG Metadata Generator (.set, .stc, .fif)[/bold blue]"
+    )
     try:
         main()
     except Exception as e:

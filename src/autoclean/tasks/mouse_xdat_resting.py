@@ -8,14 +8,14 @@ from typing import Any, Dict
 
 # Local imports
 from autoclean.core.task import Task
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
     step_pre_pipeline_processing,
     step_run_pylossless,
 )
 
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.io.import_ import import_eeg
 # Import the reporting functions directly from the Task class via mixins
 # # Import the reporting functions directly from the Task class via mixins
 # # Import the reporting functions directly from the Task class via mixins
@@ -24,12 +24,11 @@ from autoclean.io.import_ import import_eeg
 #     step_plot_ica_full,
 #     step_plot_raw_vs_cleaned_overlay,
 #     step_psd_topo_figure,
-# 
+#
 # )
 
 
 class MouseXdatResting(Task):
-
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -49,7 +48,6 @@ class MouseXdatResting(Task):
 
         # Call parent initialization
         super().__init__(config)
-
 
     def run(self) -> None:
         """Run the complete processing pipeline for this task.
@@ -75,15 +73,24 @@ class MouseXdatResting(Task):
         self.import_data()
 
         self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_prepipeline", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_prepipeline",
+            flagged=self.flagged,
+        )
 
         self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(raw = self.raw, autoclean_dict = self.config, stage = "post_pylossless", flagged = self.flagged)
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_pylossless",
+            flagged=self.flagged,
+        )
 
         self.create_regular_epochs()
-        
-        self._generate_reports()
 
+        self._generate_reports()
 
     def _generate_reports(self) -> None:
         """Generate quality control visualizations.
