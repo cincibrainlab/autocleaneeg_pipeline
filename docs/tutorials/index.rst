@@ -10,3 +10,4 @@ for using and customizing the pipeline.
 
    creating_custom_task
    creating_a_custom_mixin 
+   docker_usage

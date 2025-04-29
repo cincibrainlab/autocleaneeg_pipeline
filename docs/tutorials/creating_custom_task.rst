@@ -15,7 +15,7 @@ How to Create a Custom Task
 The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` file.
 
 1.  **Copy and Rename:**
-    Copy `src/autoclean/tasks/TEMPLATE.py` to a new file (e.g., `my_paradigm.py`). Rename the class `TemplateTask` to your task name (e.g., `MyParadigm`) using CamelCase.
+    Copy `src/autoclean/tasks/TEMPLATE.py` to a new file in the `src/autoclean/tasks/` directory (e.g., `my_paradigm.py`). Rename the class `TemplateTask` to your task name (e.g., `MyParadigm`) using CamelCase.
 
     .. code-block:: python
 
@@ -27,7 +27,7 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
            # ... Implement methods below ...
 
 2.  **Implement `__init__`:**
-    Usually minimal: initialize instance variables to `None` and call `super().__init__(config)`.
+    Usually minimal: initialize instance variables to `None` and call `super().__init__(config)`. The only changes you may need to make are to what stage files should be configured when running this task.
 
     .. code-block:: python
 
