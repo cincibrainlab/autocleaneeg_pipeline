@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 4/30/2025
+- Added MFF file support 
+- Added proper documentation site linked on the github 
+- Added Event retention after epoching
+- Added async lock to bids function to prevent errors related to concurrent file writes
+- Moved io functions into their own module 
+- Fixed all pylint warnings and properly formatted all code in src
+- Fixed logger so that batch runs do not repeat outputs
+- Deprecated pydantic metadata models and legacy tools
+- Deprecated the majority of step functions in favor of mixins 
+
 ## [1.2.0] - 03/19/2025
  - Added robust system for flagging concerning behavior in processing
  - Added customized pylossless pipeline function
