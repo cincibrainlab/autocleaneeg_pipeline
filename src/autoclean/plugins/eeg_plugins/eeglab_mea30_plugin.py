@@ -111,7 +111,7 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
                 f"Failed to process EEGLAB file with MEA30 montage: {str(e)}"
             ) from e
 
-    def process_events(self, raw: mne.io.Raw, autoclean_dict: dict) -> tuple:
+    def process_events(self, raw: mne.io.Raw) -> tuple:
         """Process events and annotations in the EEG data."""
         message("info", "Processing events from EEGLAB file")
         try:
