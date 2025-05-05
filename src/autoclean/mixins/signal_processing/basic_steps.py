@@ -70,6 +70,8 @@ class BasicStepsMixin:
 
         message("info", "Basic preprocessing steps completed successfully.")
 
+        self._save_raw_result(processed_data, "post_basicsteps")
+
         return processed_data
 
     def rereference_data(
