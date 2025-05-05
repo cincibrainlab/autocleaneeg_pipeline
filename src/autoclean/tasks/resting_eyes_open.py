@@ -68,16 +68,8 @@ class RestingEyesOpen(Task):
         # Import and save raw EEG data
         self.import_raw()
 
-        message("header", "Running preprocessing steps")
-
         # Continue with other preprocessing steps
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_prepipeline",
-            flagged=self.flagged,
-        )
+        self.run_basic_steps()
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()

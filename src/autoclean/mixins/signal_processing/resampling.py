@@ -51,7 +51,7 @@ class ResamplingMixin:
         data = self._get_data_object(data, use_epochs)
 
         # Type checking
-        if not isinstance(data, (mne.io.Raw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         # Access configuration if needed
