@@ -111,7 +111,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         if autoclean_dict:
             try:
                 bids_path = autoclean_dict["bids_path"]
-            except Exception as e: # pylint: disable=broad-except
+            except Exception as e:  # pylint: disable=broad-except
                 message(
                     "warning",
                     f"Failed to get BIDS path from autoclean_dict: Trying metadata: {str(e)}",
@@ -146,7 +146,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         derivatives_path = str(
             derivatives_path.copy().update(suffix="report", extension=".pdf")
         )
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message(
             "warning",
             f"Failed to get BIDS path: {str(e)} : Saving only to metadata directory",
@@ -337,7 +337,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         if not import_info:
             import_info = [["No import data available", "N/A"]]
 
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing import information: {str(e)}")
         import_info = [["Error processing import data", "N/A"]]
 
@@ -442,7 +442,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         ],
                     ]
                 )
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing preprocessing parameters: {str(e)}")
         preproc_info = [["Error processing parameters", "N/A"]]
 
@@ -539,7 +539,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         ],
                     ]
                 )
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing lossless settings: {str(e)}")
         lossless_info = [["Error processing lossless data", "N/A"]]
 
@@ -598,7 +598,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 # Format step name for display
                 display_name = step_name.replace("step_", "").replace("_", " ").title()
                 steps_data.append([display_name])
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing steps data: {str(e)}")
         steps_data = [["Error processing steps"]]
 
@@ -682,7 +682,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         bad_channels_data.append(
                             [display_name, ", ".join(step_data["bads"])]
                         )
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing bad channels data: {str(e)}")
         bad_channels_data = [["Error processing bad channels", "N/A"]]
 
@@ -930,9 +930,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     return pdf_path
 
 
-def update_task_processing_log(
-    summary_dict: Dict[str, Any], flagged_reasons: list[str] = []
-):
+def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: list[str] = []):
     """Update the task-specific processing log CSV file with processing details.
 
 
@@ -1328,8 +1326,7 @@ def create_json_summary(run_id: str) -> dict:
             unique_bad_channels.append(channel)
     channel_dict["removed_channels"] = unique_bad_channels
 
-    if "step_prepare_directories" in metadata:  # step_prepare_directories is part of the entrypoint so it will always be present
-        output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
+    output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
 
     # FIND IMPORT DETAILS
     import_details = {}
@@ -1475,7 +1472,7 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
     except Exception as e:  # pylint: disable=broad-except
         message(
             "warning",
-            f"Could not generate bad channels tsv -> No channel dict found in summary dict: {str(e)}", # pylint: disable=line-too-long
+            f"Could not generate bad channels tsv -> No channel dict found in summary dict: {str(e)}",  # pylint: disable=line-too-long
         )
         return
 
