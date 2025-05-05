@@ -16,6 +16,7 @@ from autoclean.mixins.signal_processing.reference import ReferenceMixin
 from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
 from autoclean.mixins.signal_processing.resampling import ResamplingMixin
 from autoclean.mixins.signal_processing.segmentation import SegmentationMixin
+from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
 
 __all__ = [
     "SignalProcessingMixin",
@@ -30,4 +31,5 @@ __all__ = [
     "PrepareEpochsICAMixin",
     "GFPCleanEpochsMixin",
     "AutoRejectEpochsMixin",
+    "BasicStepsMixin",
 ]
