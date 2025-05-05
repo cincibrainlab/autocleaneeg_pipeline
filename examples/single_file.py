@@ -3,7 +3,7 @@ from autoclean import Pipeline
 
 # Define paths - modify these to match your system
 EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/AutocleanDev/")  # Where processed data will be stored
-CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
+CONFIG_FILE = Path("C:/Users/Gam9LG/Downloads/autoclean_files/config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
 # Create pipeline instance
@@ -23,5 +23,5 @@ file_path = Path("C:/Users/Gam9LG/Documents/DATA/rest_eyesopen/0375_rest.raw")
 # Process the file
 pipeline.process_file(
     file_path=file_path,
-    task="RestingEyesOpen",  # Choose appropriate task
+    task="TestingRest",  # Choose appropriate task
 )
