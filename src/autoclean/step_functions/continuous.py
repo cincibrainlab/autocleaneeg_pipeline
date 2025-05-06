@@ -240,6 +240,7 @@ def step_create_bids_path(
                 "eegSystem": eeg_system,
                 "configFile": str(config_file),
                 "line_freq": line_freq,
+                "derivatives_dir": str(derivatives_dir),
             }
         }
 

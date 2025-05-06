@@ -26,8 +26,6 @@ from typing import Any, Dict
 
 import matplotlib
 import pandas as pd
-import pylossless as ll
-from mne_bids import BIDSPath
 
 # ReportLab imports for PDF generation
 from reportlab.lib import colors
@@ -106,50 +104,14 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         json_summary = {}
 
     # Set up BIDS path
-    bids_path = None
+    derivatives_path = None
     try:
         if autoclean_dict:
-            try:
-                bids_path = autoclean_dict["bids_path"]
-            except Exception as e:  # pylint: disable=broad-except
-                message(
-                    "warning",
-                    f"Failed to get BIDS path from autoclean_dict: Trying metadata: {str(e)}",
-                )
-
-        if not bids_path:
-            if json_summary and "bids_subject" in json_summary:
-                # Try to reconstruct from JSON summary
-                if "step_convert_to_bids" in run_record["metadata"]:
-                    bids_info = run_record["metadata"]["step_convert_to_bids"]
-                    if bids_info:
-                        # Reconstruct BIDSPath object
-                        bids_path = BIDSPath(
-                            subject=bids_info["bids_subject"],
-                            session=bids_info["bids_session"],
-                            task=bids_info["bids_task"],
-                            run=bids_info["bids_run"],
-                            datatype=bids_info["bids_datatype"],
-                            root=bids_info["bids_root"],
-                            suffix=bids_info["bids_suffix"],
-                            extension=bids_info["bids_extension"],
-                        )
-
-        task = run_record["task"]
-        config_path = run_record["metadata"]["entrypoint"]["tasks"][task][
-            "lossless_config"
-        ]
-        derivative_name = "pylossless"
-        pipeline = ll.LosslessPipeline(config_path)
-        derivatives_path = pipeline.get_derivative_path(bids_path, derivative_name)
-        derivatives_dir = Path(derivatives_path.directory)
-        derivatives_path = str(
-            derivatives_path.copy().update(suffix="report", extension=".pdf")
-        )
+            derivatives_path = autoclean_dict["derivatives_dir"]
     except Exception as e:  # pylint: disable=broad-except
         message(
             "warning",
-            f"Failed to get BIDS path: {str(e)} : Saving only to metadata directory",
+            f"Failed to get derivatives path: {str(e)} : Saving only to metadata directory",
         )
         derivatives_path = None
 
@@ -859,9 +821,9 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             outputs = json_summary["outputs"]
             for output_file in outputs:
                 output_files_data.append([output_file])
-        elif derivatives_dir and derivatives_dir.exists():
+        elif derivatives_path and Path(derivatives_path).exists():
             # If no JSON summary, try to get files directly from derivatives directory
-            files = list(derivatives_dir.glob("*"))
+            files = list(Path(derivatives_path).glob("*"))
             for file in files:
                 if file.is_file():
                     output_files_data.append([file.name])
@@ -923,7 +885,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     if derivatives_path:
         try:
             shutil.copy(pdf_path, derivatives_path)
-            message("success", f"Report also saved to {derivatives_path}")
+            message("success", f"Report saved to {derivatives_path}")
         except Exception as e:  # pylint: disable=broad-except
             message("warning", f"Could not save to derivatives: {str(e)}")
 
@@ -1212,38 +1174,14 @@ def create_json_summary(run_id: str) -> dict:
     metadata = run_record.get("metadata", {})
 
     # Create a JSON summary of the metadata
-    try:
-        if "step_convert_to_bids" in run_record["metadata"]:
-            bids_info = run_record["metadata"]["step_convert_to_bids"]
-            if bids_info:
-                # Reconstruct BIDSPath object
-                bids_path = BIDSPath(
-                    subject=bids_info["bids_subject"],
-                    session=bids_info["bids_session"],
-                    task=bids_info["bids_task"],
-                    run=bids_info["bids_run"],
-                    datatype=bids_info["bids_datatype"],
-                    root=bids_info["bids_root"],
-                    suffix=bids_info["bids_suffix"],
-                    extension=bids_info["bids_extension"],
-                )
-
-                config_path = run_record["lossless_config"]
-                derivative_name = "pylossless"
-                pipeline = ll.LosslessPipeline(config_path)
-                derivatives_path = pipeline.get_derivative_path(
-                    bids_path, derivative_name
-                )
-                derivatives_dir = Path(derivatives_path.directory)
-        else:
-            message(
-                "warning",
-                "Failed to create json summary -> Could not find bids info in metadata.",
-            )
-            return {}
-
-    except Exception as e:  # pylint: disable=broad-except
-        message("error", f"Failed to get derivatives path: {str(e)}")
+    if "step_convert_to_bids" in run_record["metadata"]:
+        bids_info = run_record["metadata"]["step_convert_to_bids"]
+        derivatives_dir = Path(bids_info["derivatives_dir"])
+    else:
+        message(
+            "warning",
+            "Failed to create json summary -> Could not find bids info in metadata.",
+        )
         return {}
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
@@ -1432,7 +1370,7 @@ def create_json_summary(run_id: str) -> dict:
     summary_dict = {
         "run_id": run_id,
         "task": run_record["task"],
-        "bids_subject": f"sub-{bids_path.subject}",
+        "bids_subject": f"sub-{bids_info['bids_subject']}",
         "timestamp": run_record["timestamp"],
         "basename": import_details["basename"],
         "proc_state": proc_state,
