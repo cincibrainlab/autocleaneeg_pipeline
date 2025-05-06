@@ -141,7 +141,7 @@ class ChirpDefault(Task):
 
         # Plot raw vs cleaned overlay using mixin method using mixin method
         self.plot_raw_vs_cleaned_overlay(
-            self.raw, self.original_raw, self.pipeline, self.config
+            self.raw, self.original_raw, self.config
         )
 
         # Plot ICA components using mixin method using mixin method
@@ -152,5 +152,5 @@ class ChirpDefault(Task):
 
         # Create PSD topography figure using mixin method using mixin method
         self.step_psd_topo_figure(
-            self.raw, self.original_raw, self.pipeline, self.config
+            self.raw, self.original_raw, self.config
         )
