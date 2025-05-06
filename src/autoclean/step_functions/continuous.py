@@ -211,7 +211,7 @@ def step_create_bids_path(
         line_freq = 60.0
 
     try:
-        bids_path = step_convert_to_bids(
+        bids_path, derivatives_dir = step_convert_to_bids(
             raw,
             output_dir=str(bids_dir),
             task=mne_task,
@@ -224,6 +224,7 @@ def step_create_bids_path(
 
         autoclean_dict["bids_path"] = bids_path
         autoclean_dict["bids_basename"] = bids_path.basename
+        autoclean_dict["derivatives_dir"] = derivatives_dir
         metadata = {
             "step_convert_to_bids": {
                 "creationDateTime": datetime.now().isoformat(),
