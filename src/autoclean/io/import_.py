@@ -315,7 +315,7 @@ def import_eeg(
         if not is_epochs:
             # Basic event extraction from annotations
             events, event_dict, events_df = plugin.process_events(
-                eeg_data, autoclean_dict
+                eeg_data
             )
 
             # Apply task-specific event processing if specified
