@@ -139,7 +139,7 @@ class TestingRest(Task):
 
         # Plot raw vs cleaned overlay using mixin method
         self.plot_raw_vs_cleaned_overlay(
-            self.original_raw, self.raw, self.pipeline, self.config
+            self.original_raw, self.raw, self.config
         )
 
         # Plot ICA components using mixin method
@@ -150,5 +150,5 @@ class TestingRest(Task):
 
         # Create PSD topography figure using mixin method
         self.step_psd_topo_figure(
-            self.original_raw, self.raw, self.pipeline, self.config
+            self.original_raw, self.raw, self.config
         )
