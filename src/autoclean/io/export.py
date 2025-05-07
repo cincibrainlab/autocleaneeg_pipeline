@@ -407,10 +407,7 @@ def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
             Raw data before ICA
     """
     try:
-        derivatives_dir = pipeline.get_derivative_path(
-            autoclean_dict["bids_path"]
-        ).directory
-        derivatives_dir.mkdir(parents=True, exist_ok=True)
+        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
     except Exception as e: # pylint: disable=broad-exception-caught
         message("error", f"Failed to save ICA to FIF files: {str(e)}")
