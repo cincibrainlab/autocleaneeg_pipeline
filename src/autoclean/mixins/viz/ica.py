@@ -104,7 +104,7 @@ class ICAReportingMixin(BaseVizMixin):
             - The method respects configuration settings via the `ica_full_plot_step` config
         """
         # Get raw and ICA from pipeline
-        raw = pipeline.raw
+        raw = self.raw.copy()
         ica = pipeline.ica2
         ic_labels = pipeline.flags["ic"]
 
@@ -187,13 +187,17 @@ class ICAReportingMixin(BaseVizMixin):
         # Adjust layout
         plt.tight_layout()
 
-        # Get output path for ICA components figure
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-        target_figure = str(
-            derivatives_path.copy().update(
-                suffix="ica_components_full_duration", extension=".png", datatype="eeg"
-            )
-        )
+        # # Get output path for ICA components figure
+        # derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+        # target_figure = str(
+        #     derivatives_path.copy().update(
+        #         suffix="ica_components_full_duration", extension=".png", datatype="eeg"
+        #     )
+        # )
+        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
+        basename = autoclean_dict["bids_path"].basename
+        basename = basename.replace("_eeg", "_ica_components_full_duration")
+        target_figure = derivatives_dir / basename
 
         # Save figure with higher DPI for better resolution of wider plot
         fig.savefig(target_figure, dpi=300, bbox_inches="tight")
@@ -312,10 +316,11 @@ class ICAReportingMixin(BaseVizMixin):
         times = raw.times[:n_samples]
 
         # Create output path for the PDF report
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-        pdf_path = str(
-            derivatives_path.copy().update(suffix=report_name, extension=".pdf")
-        )
+        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
+        basename = autoclean_dict["bids_path"].basename
+        basename = basename.replace("_eeg", report_name)
+        pdf_path = derivatives_dir / basename
+        pdf_path = pdf_path.with_suffix(".pdf")
 
         # Remove existing file
         if os.path.exists(pdf_path):
