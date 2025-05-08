@@ -16,19 +16,6 @@ EEG processing results, such as:
 These visualizations help users understand the effects of preprocessing steps and
 validate the quality of processed data.
 
-Example:
-    ```python
-    from autoclean.core.task import Task
-
-    class MyEEGTask(Task):
-        def process(self, raw, pipeline, autoclean_dict):
-            # Process the data
-            raw_cleaned = self.apply_preprocessing(raw)
-
-            # Generate visualizations
-            self.plot_raw_vs_cleaned_overlay(raw, raw_cleaned, pipeline, autoclean_dict)
-            self.psd_topo_figure(raw, raw_cleaned, pipeline, autoclean_dict)
-    ```
 """
 
 import os
@@ -74,7 +61,6 @@ class VisualizationMixin(BaseVizMixin):
         self,
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
-        autoclean_dict: Dict[str, Any],
     ) -> None:
         """Plot raw data channels over the full duration, overlaying the original and cleaned data.
 
@@ -84,8 +70,6 @@ class VisualizationMixin(BaseVizMixin):
                 Original raw EEG data before cleaning.
             raw_cleaned : mne.io.Raw
                 Cleaned raw EEG data after preprocessing.
-            autoclean_dict : Dict[str, Any]
-                Dictionary containing metadata about the processing run.
 
         Returns
         -------
@@ -213,8 +197,8 @@ class VisualizationMixin(BaseVizMixin):
         plt.tight_layout()
 
         # Create Artifact Report
-        derivatives_dir = autoclean_dict["derivatives_dir"]
-        basename = autoclean_dict["bids_path"].basename
+        derivatives_dir = self.config["derivatives_dir"]
+        basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", "_raw_vs_cleaned_overlay")
         target_figure = derivatives_dir / f"{basename}.png"
 
@@ -240,7 +224,6 @@ class VisualizationMixin(BaseVizMixin):
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
         pipeline: Any,
-        autoclean_dict: Dict[str, Any],
         zoom_duration: float = 30,
         zoom_start: float = 0,
     ) -> None:
@@ -263,8 +246,6 @@ class VisualizationMixin(BaseVizMixin):
                 Cleaned raw EEG data after interpolation of bad channels.
             pipeline: Any
                 Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict: Dict[str, Any]
-                Dictionary containing metadata about the processing run.
             zoom_duration: float, Optional
                 Duration in seconds for the zoomed-in time series plot.
             zoom_start: float, Optional
@@ -538,7 +519,7 @@ class VisualizationMixin(BaseVizMixin):
         )
 
         # Create Artifact Report
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+        derivatives_path = pipeline.get_derivative_path(self.config["bids_path"])
 
         # Target file path
         target_figure = str(
@@ -732,7 +713,6 @@ class VisualizationMixin(BaseVizMixin):
         self,
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
-        autoclean_dict: Dict[str, Any],
         bands: Optional[List[Tuple[str, float, float]]] = None,
     ) -> None:
         """Generate and save a single high-resolution image that includes:
@@ -748,8 +728,6 @@ class VisualizationMixin(BaseVizMixin):
             Original raw EEG data before cleaning.
         raw_cleaned : mne.io.Raw
             Cleaned EEG data after preprocessing.
-        autoclean_dict : dict
-            Dictionary containing autoclean parameters and paths.
         bands : list of tuple, optional
             List of frequency bands to plot. Each tuple should contain
             (band_name, lower_freq, upper_freq).
@@ -772,8 +750,8 @@ class VisualizationMixin(BaseVizMixin):
             ]
 
         # Create Artifact Report
-        derivatives_dir = autoclean_dict["derivatives_dir"]
-        basename = autoclean_dict["bids_path"].basename
+        derivatives_dir = self.config["derivatives_dir"]
+        basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", "_psd_topo_figure")
         target_figure = derivatives_dir / f"{basename}.png"
 

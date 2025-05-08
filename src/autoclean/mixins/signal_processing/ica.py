@@ -1,8 +1,5 @@
 """ICA mixin for autoclean tasks."""
 
-from typing import Optional
-
-import mne
 from mne.preprocessing import ICA
 import mne_icalabel
 import pandas as pd
@@ -13,27 +10,35 @@ from autoclean.utils.logging import message
 class IcaMixin:
     """Mixin for ICA processing."""
 
-    def run_ica(self, eog_channel: str = None, use_epochs: bool = False, **kwargs) -> None:
-        """Run ICA on the raw data.
+    def run_ica(self, eog_channel: str = None, use_epochs: bool = False, **kwargs) -> ICA:
+        """Run ICA on the raw data. 
+
+        This method will fit an ICA object to the raw data and save it to a FIF file.
+        ICA object is stored in self.final_ica.
+        Uses optional kwargs from the autoclean_config file to fit the mne ICA object.
+
 
         Parameters
         ----------
         eog_channel : str, optional
-            The EOG channel to use for ICA. If None, the EOG channel will be detected automatically.
+            The EOG channel to use for ICA. If None, no EOG detection will be performed.
+        use_epochs : bool, optional
+            If True, epoch data stored in self.epochs will be used.
 
         Returns
         -------
-        None
+        final_ica : mne.preprocessing.ICA
+            The fitted ICA object.
         
         Examples
         --------
-        >>> self.one_stage_ica()
+        >>> self.run_ica()
 
-        >>> self.one_stage_ica(eog_channel="EOG") 
+        >>> self.run_ica(eog_channel="E27") 
 
-        Notes
-        -----
-        This method will modify the self.raw attribute.
+        See Also
+        --------
+        run_ICLabel : Run ICLabel on the raw data.
 
         """
         message("header", "Running ICA step")
@@ -47,7 +52,7 @@ class IcaMixin:
         if use_epochs:
             message("debug", "Using epochs")
             # Create epochs
-            data = mne.Epochs(self.raw, self.events, event_id=self.event_id, tmin=0, tmax=0.5, picks=self.picks)
+            data = self.epochs
         else:
             message("debug", "Using raw data")
             data = self.raw
@@ -70,11 +75,11 @@ class IcaMixin:
 
             # Create ICA object
 
-            self.final_ica = ICA(**ica_kwargs)    
+            self.final_ica = ICA(**ica_kwargs) # pylint: disable=not-callable
 
             message("debug", f"Fitting ICA with {ica_kwargs}")
 
-            self.final_ica.fit(data)        
+            self.final_ica.fit(data)
 
             if eog_channel is not None:
                 message("info", f"Running EOG detection on {eog_channel}")
@@ -94,16 +99,30 @@ class IcaMixin:
             }
         }
 
-        self._update_metadata("ica", metadata)
+        self._update_metadata("step_run_ica", metadata)
 
         save_ica_to_fif(self.final_ica, self.config, self.raw)
 
         message("success", "ICA step complete")
 
         return self.final_ica
-    
-    def run_ICLabel(self):
-        """Run ICLabel on the raw data."""
+
+    def run_ICLabel(self): # pylint: disable=invalid-name
+        """Run ICLabel on the raw data.
+
+        Returns
+        -------
+        ica_flags : pandas.DataFrame
+            A pandas DataFrame containing the ICLabel flags.
+
+        Examples
+        --------
+        >>> self.run_ICLabel()
+
+        Notes
+        -----
+        This method will modify the self.final_ica attribute in place.
+        """
         message("header", "Running ICLabel step")
 
         # is_enabled, config_value = self._check_step_enabled("ICLabel")
@@ -116,7 +135,19 @@ class IcaMixin:
 
         self._icalabel_to_data_frame(self.final_ica)
 
+        metadata = {
+            "ica": {
+                "ica_components": self.final_ica.n_components_,
+            }
+        }
 
+        self._update_metadata("step_run_ICLabel", metadata)
+
+        save_ica_to_fif(self.final_ica, self.config, self.raw)
+
+        message("success", "ICLabel step complete")
+
+        return self.ica_flags
 
     def _icalabel_to_data_frame(self, ica):
         """Export IClabels to pandas DataFrame."""
@@ -127,7 +158,7 @@ class IcaMixin:
 
         self.ica_flags = pd.DataFrame(
             dict(
-                component=ica._ica_names,
+                component=ica._ica_names, # pylint: disable=protected-access
                 annotator=["ic_label"] * ica.n_components_,
                 ic_type=ic_type,
                 confidence=ica.labels_scores_.max(1),
@@ -135,8 +166,3 @@ class IcaMixin:
         )
 
         return self.ica_flags
-
-
-
-
-

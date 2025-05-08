@@ -70,7 +70,7 @@ class BasicStepsMixin:
         self._save_raw_result(processed_data, "post_basicsteps")
 
         return processed_data
-    
+
     def filter_data(
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
@@ -107,18 +107,18 @@ class BasicStepsMixin:
 
         if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
-        
+
         is_enabled, config_value = self._check_step_enabled("filtering")
 
         if not is_enabled:
             message("info", "Filtering step is disabled in configuration")
             return data
-        
+
         filter_args = config_value.get("value", {})
         if not filter_args:
             message("warning", "No filter arguments provided, skipping filtering")
             return data
-        
+
         message("header", "Filtering data...")
         filtered_data = data.copy()
 
@@ -129,7 +129,10 @@ class BasicStepsMixin:
             filtered_data.filter(l_freq=None, h_freq=filter_args["h_freq"])
 
         if "notch_freqs" in filter_args:
-            filtered_data.notch_filter(freqs=filter_args["notch_freqs"], notch_widths=filter_args.get("notch_widths", 0.5))
+            filtered_data.notch_filter(
+                freqs=filter_args["notch_freqs"],
+                notch_widths=filter_args.get("notch_widths", 0.5),
+            )
 
         self._save_raw_result(filtered_data, "post_filter")
 
@@ -143,7 +146,6 @@ class BasicStepsMixin:
         self._update_instance_data(data, filtered_data, use_epochs)
 
         return filtered_data
-    
 
     def resample_data(
         self,
@@ -223,7 +225,7 @@ class BasicStepsMixin:
 
         try:
             # Resample based on data type
-            if isinstance(data, mne.io.Raw) or isinstance(data, mne.io.base.BaseRaw):
+            if isinstance(data, mne.io.base.BaseRaw):
                 resampled_data = data.copy().resample(target_sfreq)
                 # Save resampled raw data if it's a Raw object
                 self._save_raw_result(resampled_data, stage_name)
@@ -251,7 +253,6 @@ class BasicStepsMixin:
         except Exception as e:
             message("error", f"Error during resampling: {str(e)}")
             raise RuntimeError(f"Failed to resample data: {str(e)}") from e
-        
 
     def rereference_data(
         self,
@@ -326,7 +327,6 @@ class BasicStepsMixin:
         self._update_metadata("rereference_data", metadata)
 
         return rereferenced_data
-        
 
     def drop_outer_layer(
         self,
@@ -380,7 +380,7 @@ class BasicStepsMixin:
         message("info", f"Channels dropped: {', '.join(channels_to_drop)}")
 
         if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
-             self._save_raw_result(processed_data, stage_name)
+            self._save_raw_result(processed_data, stage_name)
 
         metadata = {
             "dropped_outer_layer_channels": channels_to_drop,
@@ -511,7 +511,8 @@ class BasicStepsMixin:
         if 2 * trim_duration_sec >= original_duration:
             message(
                 "error",
-                f"Total trim duration ({2 * trim_duration_sec}s) is greater than or equal to data duration ({original_duration}s). Cannot trim.",
+                f"Total trim duration ({2 * trim_duration_sec}s) is greater than or equal to data "
+                f"duration ({original_duration}s). Cannot trim.",
             )
             # Consider raising an error or just returning data
             return data # Return original data to avoid erroring out pipeline
@@ -601,7 +602,8 @@ class BasicStepsMixin:
         if tmin >= tmax:
             message(
                 "error",
-                f"Invalid crop range: start time ({tmin:.3f}s) is not before end time ({tmax:.3f}s) after adjusting to data bounds. Skipping crop.",
+                f"Invalid crop range: start time ({tmin:.3f}s) is not before end time ({tmax:.3f}s)"
+                f"after adjusting to data bounds. Skipping crop.",
             )
             return data
 
@@ -611,7 +613,7 @@ class BasicStepsMixin:
         message("info", f"Data cropped. New duration: {new_duration:.3f}s")
 
         if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
-             self._save_raw_result(processed_data, stage_name)
+            self._save_raw_result(processed_data, stage_name)
 
         metadata = {
             "requested_start_time_sec": start_time_sec,

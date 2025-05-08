@@ -9,7 +9,7 @@ import zlib
 from pathlib import Path
 
 import yaml
-from schema import Or, Schema, Optional, Literal
+from schema import Or, Schema, Optional
 
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
@@ -264,7 +264,7 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
                     "error", f"Low-pass filter frequency {l_freq} must be less than high-pass filter frequency {h_freq}"
                 )
                 raise ValueError(f"Invalid filtering settings: l_freq {l_freq} >= h_freq {h_freq}")
-            
+
         resampling_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]
         if resampling_settings["enabled"]:
             resampling_rate = resampling_settings["value"]
