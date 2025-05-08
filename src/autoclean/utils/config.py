@@ -38,6 +38,15 @@ def load_config(config_file: Path) -> dict:
                     "description": str,
                     "lossless_config": str,
                     "settings": {
+                        "filtering": {
+                            "enabled": bool,
+                            "value": {
+                                "l_freq": Or(int, float, None),
+                                "h_freq": Or(int, float, None),
+                                "notch_freqs": Or(float, int, list[float], list[int], None),
+                                "notch_widths": Or(float, int, list[float], list[int], None),
+                            },
+                        },
                         "resample_step": {
                             "enabled": bool,
                             "value": Or(int, float, None),
@@ -229,6 +238,39 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
     #     raise ValueError(
     #         f"Filter frequency {l_freq} exceeds Nyquist frequency {nyquist_freq} Hz"
     #     )
+
+    # Validate filtering settings
+    filtering_settings = autoclean_dict["tasks"][task]["settings"]["filtering"]
+    if filtering_settings["enabled"]:
+        l_freq = filtering_settings["value"]["l_freq"]
+        h_freq = filtering_settings["value"]["h_freq"]
+
+        if l_freq is not None and h_freq is not None:
+            if l_freq >= h_freq:
+                message(
+                    "error", f"Low-pass filter frequency {l_freq} must be less than high-pass filter frequency {h_freq}"
+                )
+                raise ValueError(f"Invalid filtering settings: l_freq {l_freq} >= h_freq {h_freq}")
+            
+        resampling_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]
+        if resampling_settings["enabled"]:
+            resampling_rate = resampling_settings["value"]
+            if resampling_rate is not None:
+                if resampling_rate <= 0:
+                    message(
+                        "error",
+                        f"Resampling rate {resampling_rate} Hz must be greater than 0",
+                    )
+                    raise ValueError(f"Invalid resampling rate: {resampling_rate} Hz")
+                if l_freq is not None and h_freq is not None:
+                    if l_freq >= resampling_rate / 2 or h_freq >= resampling_rate / 2:
+                        message(
+                            "error",
+                            f"Filter frequencies {l_freq} Hz and {h_freq} Hz must be below Nyquist frequency {resampling_rate / 2} Hz",
+                        )
+                        raise ValueError(
+                            f"Filter frequencies {l_freq} Hz and {h_freq} Hz must be below Nyquist frequency {resampling_rate / 2} Hz"
+                        )
 
     # Validate epoch settings if enabled
     epoch_settings = autoclean_dict["tasks"][task]["settings"]["epoch_settings"]
