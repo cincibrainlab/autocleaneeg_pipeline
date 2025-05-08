@@ -112,7 +112,7 @@ class IcaMixin:
         #     message("warning", "ICLabel is not enabled in the config")
         #     return
 
-        self.final_ica = mne_icalabel.label_components(self.raw, self.final_ica, method="iclabel")
+        mne_icalabel.label_components(self.raw, self.final_ica, method="iclabel")
 
         self._icalabel_to_data_frame(self.final_ica)
 
