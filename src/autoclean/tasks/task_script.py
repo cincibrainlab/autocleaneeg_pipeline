@@ -72,11 +72,12 @@ class TestingRest(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels()
+        self.clean_bad_channels(reset_bads = True)
+
+        self.rereference_data()
 
         #Segment rejection
         self.detect_dense_oscillatory_artifacts()
-
 
         #ICA
         self.run_ica()
@@ -118,9 +119,6 @@ class TestingRest(Task):
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
 
-        # Verify topography plot
-        self.verify_topography_plot()
-
         # Clean epochs using GFP
         self.gfp_clean_epochs()
         # --- EPOCHING BLOCK END ---
@@ -157,7 +155,7 @@ class TestingRest(Task):
         )
 
         # Plot ICA components using mixin method
-        self.plot_ica_full(self.pipeline, self.config)
+        self.plot_ica_full(self.config)
 
         # Generate ICA reports using mixin method
         self.generate_ica_reports(self.pipeline, self.config)

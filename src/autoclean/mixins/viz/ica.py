@@ -67,7 +67,7 @@ class ICAReportingMixin(BaseVizMixin):
     """
 
     def plot_ica_full(
-        self, pipeline: Any, autoclean_dict: Dict[str, Any]
+        self, autoclean_dict: Dict[str, Any]
     ) -> plt.Figure:
         """Plot ICA components over the full time series with their labels and probabilities.
 
@@ -516,7 +516,7 @@ class ICAReportingMixin(BaseVizMixin):
             print(f"Report saved to {pdf_path}")
             return Path(pdf_path).name
 
-    def verify_topography_plot(self, autoclean_dict: Dict[str, Any]) -> bool:
+    def verify_topography_plot(self) -> bool:
         """Use ica topograph to verify MEA channel placement. 
         This function simply runs fast ICA then plots the topography.
         It is used on mouse files to verify channel placement.
@@ -531,7 +531,7 @@ class ICAReportingMixin(BaseVizMixin):
         import pylossless as ll
         from mne.preprocessing import ICA
 
-        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
+        derivatives_dir = Path(self.config["derivatives_dir"])
 
         ica = ICA(  # pylint: disable=not-callable
             n_components=len(self.raw.ch_names) - len(self.raw.info["bads"]),
