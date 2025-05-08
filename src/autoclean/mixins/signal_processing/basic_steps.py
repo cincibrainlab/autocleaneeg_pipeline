@@ -46,26 +46,23 @@ class BasicStepsMixin:
         # 1. Resample
         processed_data = self.resample_data(data=processed_data, use_epochs=use_epochs)
 
-        # 2. Drop Outer Layer
+        # 2. Filter
+        processed_data = self.filter_data(data=processed_data, use_epochs=use_epochs)
+
+        # 3. Drop Outer Layer
         processed_data = self.drop_outer_layer(
             data=processed_data, use_epochs=use_epochs
         )
 
-        # 3. Assign EOG Channels
-        # Note: assign_eog_channels doesn't save intermediate data, only updates metadata
+        # 4. Assign EOG Channels
         processed_data = self.assign_eog_channels(
             data=processed_data, use_epochs=use_epochs
         )
 
-        # 4. Rereference
-        processed_data = self.rereference_data(
-            data=processed_data, use_epochs=use_epochs
-        )
-
-        # 5. Trim Edges
+        # 6. Trim Edges
         processed_data = self.trim_edges(data=processed_data, use_epochs=use_epochs)
 
-        # 6. Crop Duration
+        # 7. Crop Duration
         processed_data = self.crop_duration(data=processed_data, use_epochs=use_epochs)
 
         message("info", "Basic preprocessing steps completed successfully.")
@@ -73,82 +70,81 @@ class BasicStepsMixin:
         self._save_raw_result(processed_data, "post_basicsteps")
 
         return processed_data
-
-    def rereference_data(
+    
+    def filter_data(
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
-        ref_type: str = None,
         use_epochs: bool = False,
-        stage_name: str = "post_rereference",
     ) -> Union[mne.io.Raw, mne.Epochs]:
-        """Rereference raw or epoched data based on configuration settings.
+        """Filter raw or epoched data based on configuration settings.
 
         This method can work with self.raw, self.epochs, or a provided data object.
-        It checks the rereference_step toggle in the configuration if no ref_type is provided.
-
+        It checks the filtering_step toggle in the configuration if no filter_args are provided.
+        
         Parameters
         ----------
         data : Optional
-            The raw data to rereference. If None, uses self.raw or self.epochs.
+            The data object to filter. If None, uses self.raw or self.epochs.
         use_epochs : bool, Optional
             If True and data is None, uses self.epochs instead of self.raw.
-        ref_type : str, Optional
-            The type of reference to use. If None, reads from config.
-        stage_name : str, Optional
-            Name for saving the rereferenced data (default: "post_rereference").
 
         Returns
         -------
         inst : instance of mne.io.Raw or mne.io.Epochs
-            The rereferenced data object (same type as input)
-
+            The filtered data object (same type as input)
+            
         Examples
-        --------    
+        --------
         >>> #Inside a task class that uses the autoclean framework
-        >>> self.rereference_data()
+        >>> self.filter_data()
 
         See Also
         --------
-        :py:meth:`mne.io.Raw.set_eeg_reference` : For MNE's raw data rereferencing functionality
-        :py:meth:`mne.Epochs.set_eeg_reference` : For MNE's epochs rereferencing functionality
+        :py:meth:`mne.io.Raw.filter` : For MNE's raw data filtering functionality
+        :py:meth:`mne.Epochs.filter` : For MNE's epochs filtering functionality
         """
-
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
+        
+        is_enabled, config_value = self._check_step_enabled("filtering")
 
-        if ref_type is None:
-            is_enabled, config_value = self._check_step_enabled("rereference_step")
+        if not is_enabled:
+            message("info", "Filtering step is disabled in configuration")
+            return data
+        
+        filter_args = config_value.get("value", {})
+        if not filter_args:
+            message("warning", "No filter arguments provided, skipping filtering")
+            return data
+        
+        message("header", "Filtering data...")
+        filtered_data = data.copy()
 
-            if not is_enabled:
-                message("info", "Rereferencing step is disabled in configuration")
-                return data
+        if "l_freq" in filter_args:
+            filtered_data.filter(l_freq=filter_args["l_freq"], h_freq=None)
 
-            ref_type = config_value.get("value", None)
+        if "h_freq" in filter_args:
+            filtered_data.filter(l_freq=None, h_freq=filter_args["h_freq"])
 
-            if ref_type is None:
-                message("warning", "Rereferencing value not specified, skipping rereferencing")
-                return data
+        if "notch_freqs" in filter_args:
+            filtered_data.notch_filter(freqs=filter_args["notch_freqs"], notch_widths=filter_args.get("notch_widths", 0.5))
 
-        if ref_type == "average":
-            rereferenced_data = data.copy().set_eeg_reference(ref_type, projection=False)
-        else:
-            rereferenced_data = data.copy().set_eeg_reference(ref_type)
-
-        self._save_raw_result(rereferenced_data, stage_name)
+        self._save_raw_result(filtered_data, "post_filter")
 
         metadata = {
-            "original_ref_type": data.info["ref_type"],
-            "new_ref_type": ref_type,
+            "original_data_type": type(data).__name__,
+            "filtered_data_type": type(filtered_data).__name__,
+            "filter_args": filter_args,
         }
 
-        self._update_instance_data(data, rereferenced_data, use_epochs)
+        self._update_metadata("filter_data", metadata)
+        self._update_instance_data(data, filtered_data, use_epochs)
 
-        self._update_metadata("rereference_data", metadata)
+        return filtered_data
+    
 
-        return rereferenced_data
-        
     def resample_data(
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
@@ -255,6 +251,83 @@ class BasicStepsMixin:
         except Exception as e:
             message("error", f"Error during resampling: {str(e)}")
             raise RuntimeError(f"Failed to resample data: {str(e)}") from e
+        
+
+    def rereference_data(
+        self,
+        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        ref_type: str = None,
+        use_epochs: bool = False,
+        stage_name: str = "post_rereference",
+    ) -> Union[mne.io.Raw, mne.Epochs]:
+        """Rereference raw or epoched data based on configuration settings.
+
+        This method can work with self.raw, self.epochs, or a provided data object.
+        It checks the rereference_step toggle in the configuration if no ref_type is provided.
+
+        Parameters
+        ----------
+        data : Optional
+            The raw data to rereference. If None, uses self.raw or self.epochs.
+        use_epochs : bool, Optional
+            If True and data is None, uses self.epochs instead of self.raw.
+        ref_type : str, Optional
+            The type of reference to use. If None, reads from config.
+        stage_name : str, Optional
+            Name for saving the rereferenced data (default: "post_rereference").
+
+        Returns
+        -------
+        inst : instance of mne.io.Raw or mne.io.Epochs
+            The rereferenced data object (same type as input)
+
+        Examples
+        --------    
+        >>> #Inside a task class that uses the autoclean framework
+        >>> self.rereference_data()
+
+        See Also
+        --------
+        :py:meth:`mne.io.Raw.set_eeg_reference` : For MNE's raw data rereferencing functionality
+        :py:meth:`mne.Epochs.set_eeg_reference` : For MNE's epochs rereferencing functionality
+        """
+
+        data = self._get_data_object(data, use_epochs)
+
+        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+            raise TypeError("Data must be an MNE Raw or Epochs object")
+
+        if ref_type is None:
+            is_enabled, config_value = self._check_step_enabled("rereference_step")
+
+            if not is_enabled:
+                message("info", "Rereferencing step is disabled in configuration")
+                return data
+
+            ref_type = config_value.get("value", None)
+
+            if ref_type is None:
+                message("warning", "Rereferencing value not specified, skipping rereferencing")
+                return data
+
+        if ref_type == "average":
+            rereferenced_data = data.copy().set_eeg_reference(ref_type, projection=False)
+        else:
+            rereferenced_data = data.copy().set_eeg_reference(ref_type)
+
+        self._save_raw_result(rereferenced_data, stage_name)
+
+        metadata = {
+            "original_ref_type": data.info["ref_type"],
+            "new_ref_type": ref_type,
+        }
+
+        self._update_instance_data(data, rereferenced_data, use_epochs)
+
+        self._update_metadata("rereference_data", metadata)
+
+        return rereferenced_data
+        
 
     def drop_outer_layer(
         self,

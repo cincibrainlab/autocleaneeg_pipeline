@@ -72,11 +72,20 @@ class TestingRest(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
+        self.clean_bad_channels()
+
+        #Segment rejection
+        self.detect_dense_oscillatory_artifacts()
+
+
+        #ICA
+
+
         # Run PyLossless Pipeline
         self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
 
         # Add more artifact detection steps
-        self.detect_dense_oscillatory_artifacts()
+
 
         # Update pipeline with annotated raw data
         self.pipeline.raw = self.raw
@@ -92,11 +101,6 @@ class TestingRest(Task):
             autoclean_dict=self.config,
             stage="post_rejection_policy",
             flagged=self.flagged,
-        )
-
-        # Clean bad channels post ICA
-        self.clean_bad_channels(
-            deviation_thresh=3, cleaning_method="interpolate", reset_bads=True
         )
 
         save_raw_to_set(

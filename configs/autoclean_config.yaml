@@ -14,6 +14,13 @@ tasks:
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
+      filtering:
+        enabled: true
+        value:
+          l_freq: 0.5
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_width: 5
       
       resample_step:
         enabled: true        # Set to false to skip this step
