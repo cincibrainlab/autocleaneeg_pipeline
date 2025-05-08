@@ -12,27 +12,11 @@ and reports of Independent Component Analysis (ICA) results, including:
 These reports help users understand the ICA decomposition and validate component rejection
 decisions to ensure appropriate artifact removal.
 
-Example:
-    ```python
-    from autoclean.core.task import Task
-    from mne.preprocessing import ICA
-
-    class MyICATask(Task):
-        def process(self, raw, pipeline, autoclean_dict):
-            # Perform ICA decomposition
-            ica = ICA(n_components=20)
-            ica.fit(raw)
-
-            # Create visualizations and reports
-            self.plot_ica_components(ica, raw, autoclean_dict, pipeline)
-            self.generate_ica_report(ica, raw, autoclean_dict, pipeline)
-    ```
 """
 
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -66,9 +50,7 @@ class ICAReportingMixin(BaseVizMixin):
     - `verify_topography_plot`: Use a basicica topograph to verify MEA channel placement.
     """
 
-    def plot_ica_full(
-        self, autoclean_dict: Dict[str, Any]
-    ) -> plt.Figure:
+    def plot_ica_full(self) -> plt.Figure:
         """Plot ICA components over the full time series with their labels and probabilities.
 
         This method creates a figure showing each ICA component's time course over the full
@@ -79,8 +61,6 @@ class ICAReportingMixin(BaseVizMixin):
         ----------
         pipeline : pylossless.Pipeline
             Pipeline object containing raw data and fitted ICA object.
-        autoclean_dict : dict
-            Dictionary containing metadata about the processing run.
 
         Returns
         -------
@@ -95,7 +75,7 @@ class ICAReportingMixin(BaseVizMixin):
         Examples
         --------
         >>> # After performing ICA
-        >>> fig = task.plot_ica_full(pipeline, autoclean_dict)
+        >>> fig = task.plot_ica_full()
         >>> plt.show()
 
         Notes:
@@ -187,15 +167,8 @@ class ICAReportingMixin(BaseVizMixin):
         # Adjust layout
         plt.tight_layout()
 
-        # # Get output path for ICA components figure
-        # derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-        # target_figure = str(
-        #     derivatives_path.copy().update(
-        #         suffix="ica_components_full_duration", extension=".png", datatype="eeg"
-        #     )
-        # )
-        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
-        basename = autoclean_dict["bids_path"].basename
+        derivatives_dir = Path(self.config["derivatives_dir"])
+        basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", "_ica_components_full_duration")
         target_figure = derivatives_dir / basename
 
@@ -215,25 +188,17 @@ class ICAReportingMixin(BaseVizMixin):
 
     def generate_ica_reports(
         self,
-        pipeline: Any,
-        autoclean_dict: Dict[str, Any],
         duration: int = 10,
     ) -> None:
         """Generate comprehensive ICA reports using the _plot_ica_components method.
 
         Parameters
         ----------
-        pipeline : pylossless.Pipeline
-            The pipeline object containing the ICA and raw data
-        autoclean_dict : dict
-            Dictionary containing configuration and paths
-        duration : int
+        duration : Optional[int]
             Duration in seconds for plotting time series data
         """
         # Generate report for all components
         report_filename = self._plot_ica_components(
-            pipeline=pipeline,
-            autoclean_dict=autoclean_dict,
             duration=duration,
             components="all",
         )
@@ -249,8 +214,6 @@ class ICAReportingMixin(BaseVizMixin):
 
         # Generate report for rejected components
         report_filename = self._plot_ica_components(
-            pipeline=pipeline,
-            autoclean_dict=autoclean_dict,
             duration=duration,
             components="rejected",
         )
@@ -266,8 +229,6 @@ class ICAReportingMixin(BaseVizMixin):
 
     def _plot_ica_components(
         self,
-        pipeline: Any,
-        autoclean_dict: Dict[str, Any],
         duration: int = 10,
         components: str = "all",
     ):
@@ -276,10 +237,6 @@ class ICAReportingMixin(BaseVizMixin):
 
         Parameters:
         -----------
-        pipeline : pylossless.Pipeline
-            Pipeline object containing raw data and ICA.
-        autoclean_dict : dict
-            Autoclean dictionary containing metadata.
         duration : int
             Duration in seconds to plot.
         components : str
@@ -316,8 +273,8 @@ class ICAReportingMixin(BaseVizMixin):
         times = raw.times[:n_samples]
 
         # Create output path for the PDF report
-        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
-        basename = autoclean_dict["bids_path"].basename
+        derivatives_dir = Path(self.config["derivatives_dir"])
+        basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", report_name)
         pdf_path = derivatives_dir / basename
         pdf_path = pdf_path.with_suffix(".pdf")
@@ -387,7 +344,7 @@ class ICAReportingMixin(BaseVizMixin):
                 # Add title with page information, filename and timestamp
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 fig_table.suptitle(
-                    f"ICA Components Summary - {autoclean_dict['bids_path'].basename}\n"
+                    f"ICA Components Summary - {self.config['bids_path'].basename}\n"
                     f"(Page {page + 1} of {num_pages})\n"
                     f"Generated: {timestamp}",
                     fontsize=12,
@@ -521,14 +478,8 @@ class ICAReportingMixin(BaseVizMixin):
         This function simply runs fast ICA then plots the topography.
         It is used on mouse files to verify channel placement.
 
-        Parameters
-        ----------
-        autoclean_dict : Dict[str, Any]
-            Autoclean dictionary containing metadata.
-
         """
         # pylint: disable=import-outside-toplevel
-        import pylossless as ll
         from mne.preprocessing import ICA
 
         derivatives_dir = Path(self.config["derivatives_dir"])
