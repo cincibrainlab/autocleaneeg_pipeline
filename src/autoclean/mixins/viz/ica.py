@@ -105,8 +105,8 @@ class ICAReportingMixin(BaseVizMixin):
         """
         # Get raw and ICA from pipeline
         raw = self.raw.copy()
-        ica = pipeline.ica2
-        ic_labels = pipeline.flags["ic"]
+        ica = self.final_ica
+        ic_labels = self.ica_flags
 
         # Get ICA activations and create time vector
         ica_sources = ica.get_sources(raw)
@@ -287,9 +287,9 @@ class ICAReportingMixin(BaseVizMixin):
         """
 
         # Get raw and ICA from pipeline
-        raw = pipeline.raw
-        ica = pipeline.ica2
-        ic_labels = pipeline.flags["ic"]
+        raw = self.raw
+        ica = self.final_ica
+        ic_labels = self.ica_flags
 
         # Determine components to plot
         if components == "all":
@@ -424,14 +424,14 @@ class ICAReportingMixin(BaseVizMixin):
             # If rejected components, add overlay plot
             if components == "rejected":
                 fig_overlay = plt.figure()
-                end_time = min(30.0, pipeline.raw.times[-1])
+                end_time = min(30.0, self.raw.times[-1])
 
                 # Create a copy of raw data with only the channels used in ICA training
                 # to avoid shape mismatch during pre-whitening
-                raw_copy = pipeline.raw.copy()
+                raw_copy = self.raw.copy()
 
                 # Get the channel names that were used for ICA training
-                ica_ch_names = pipeline.ica2.ch_names
+                ica_ch_names = self.final_ica.ch_names
 
                 # Pick only those channels from the raw data
                 if len(ica_ch_names) != len(raw_copy.ch_names):
@@ -443,7 +443,7 @@ class ICAReportingMixin(BaseVizMixin):
                     # Keep only the channels that were used in ICA
                     raw_copy.pick_channels(ica_ch_names)
 
-                fig_overlay = pipeline.ica2.plot_overlay(
+                fig_overlay = self.final_ica.plot_overlay(
                     raw_copy,
                     start=0,
                     stop=end_time,
@@ -531,14 +531,7 @@ class ICAReportingMixin(BaseVizMixin):
         import pylossless as ll
         from mne.preprocessing import ICA
 
-        task = autoclean_dict["task"]
-        config_path = autoclean_dict["tasks"][task]["lossless_config"]
-        derivative_name = "pylossless"
-        pipeline = ll.LosslessPipeline(config_path)
-        derivatives_path = pipeline.get_derivative_path(
-            autoclean_dict["bids_path"], derivative_name
-        )
-        derivatives_dir = Path(derivatives_path.directory)
+        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
 
         ica = ICA(  # pylint: disable=not-callable
             n_components=len(self.raw.ch_names) - len(self.raw.info["bads"]),
