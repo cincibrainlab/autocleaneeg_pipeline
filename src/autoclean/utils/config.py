@@ -9,10 +9,10 @@ import zlib
 from pathlib import Path
 
 import yaml
-from schema import Or, Schema
+from schema import Or, Schema, Optional, Literal
 
-from ..utils.logging import message
-from .montage import VALID_MONTAGES
+from autoclean.utils.logging import message
+from autoclean.utils.montage import VALID_MONTAGES
 
 
 def load_config(config_file: Path) -> dict:
@@ -66,6 +66,19 @@ def load_config(config_file: Path) -> dict:
                             "value": Or(str, list[str], None),
                         },
                         "montage": {"enabled": bool, "value": Or(str, None)},
+                        "ICA": {
+                            "enabled": bool,
+                            "value": {
+                                "method": str,  # Required parameter
+                                Optional("n_components"): Or(int, float, None),
+                                Optional("noise_cov"): Or(dict, None),
+                                Optional("random_state"): Or(int, None),
+                                Optional("fit_params"): Or(dict, None),
+                                Optional("max_iter"): Or(int, str, None),
+                                Optional("allow_ref_meg"): Or(bool, None),
+                                Optional("decim"): Or(int, None),
+                            }
+                        },
                         "epoch_settings": {
                             "enabled": bool,
                             "value": {
