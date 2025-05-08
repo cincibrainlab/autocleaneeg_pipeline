@@ -13,7 +13,6 @@ from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
-    step_run_ll_rejection_policy,
 )
 
 class TestingRest(Task):
@@ -145,18 +144,13 @@ class TestingRest(Task):
             return
 
         # Plot raw vs cleaned overlay using mixin method
-        self.plot_raw_vs_cleaned_overlay(
-            self.original_raw, self.raw, self.config
-        )
+        self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
 
         # Plot PSD topography using mixin method
-        self.step_psd_topo_figure(
-            self.original_raw, self.raw, self.config
-        )
+        self.step_psd_topo_figure(self.original_raw, self.raw)
 
         # Plot ICA components using mixin method
-        self.plot_ica_full(self.config)
+        self.plot_ica_full()
 
         # Generate ICA reports using mixin method
-        self.generate_ica_reports(self.pipeline, self.config)
-
+        self.generate_ica_reports()
