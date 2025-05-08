@@ -142,7 +142,7 @@ class BasicStepsMixin:
             "filter_args": filter_args,
         }
 
-        self._update_metadata("filter_data", metadata)
+        self._update_metadata("step_filter_data", metadata)
         self._update_instance_data(data, filtered_data, use_epochs)
 
         return filtered_data
@@ -243,7 +243,7 @@ class BasicStepsMixin:
                 else "epochs",
             }
 
-            self._update_metadata("resample_data", metadata)
+            self._update_metadata("step_resample_data", metadata)
 
             # Update self.raw or self.epochs if we're using those
             self._update_instance_data(data, resampled_data, use_epochs)
@@ -324,7 +324,7 @@ class BasicStepsMixin:
 
         self._update_instance_data(data, rereferenced_data, use_epochs)
 
-        self._update_metadata("rereference_data", metadata)
+        self._update_metadata("step_rereference_data", metadata)
 
         return rereferenced_data
 
@@ -387,7 +387,7 @@ class BasicStepsMixin:
             "original_channel_count": len(data.ch_names),
             "new_channel_count": len(processed_data.ch_names),
         }
-        self._update_metadata("drop_outer_layer", metadata)
+        self._update_metadata("step_drop_outerlayer", metadata)
         self._update_instance_data(data, processed_data, use_epochs)
 
         return processed_data
@@ -456,7 +456,7 @@ class BasicStepsMixin:
         # as channel type changes don't alter the data matrix itself.
 
         metadata = {"assigned_eog_channels": list(eog_channels_map.keys())}
-        self._update_metadata("assign_eog_channels", metadata)
+        self._update_metadata("step_assign_eog_channels", metadata)
 
         # Even though set_channel_types modifies inplace on the copy,
         # we still call update_instance_data to potentially update self.raw/self.epochs
@@ -532,15 +532,15 @@ class BasicStepsMixin:
             self._save_raw_result(processed_data, stage_name)
 
         metadata = {
-            "trim_duration_each_end_sec": trim_duration_sec,
-            "original_start_time_sec": original_start_time,
-            "original_end_time_sec": original_end_time,
-            "new_start_time_sec": tmin,
-            "new_end_time_sec": tmax,
-            "original_duration_sec": original_duration,
-            "new_duration_sec": new_duration,
+            "trim_duration": trim_duration_sec,
+            "original_start_time": original_start_time,
+            "original_end_time": original_end_time,
+            "new_start_time": tmin,
+            "new_end_time": tmax,
+            "original_duration": original_duration,
+            "new_duration": new_duration,
         }
-        self._update_metadata("trim_edges", metadata)
+        self._update_metadata("step_trim_edges", metadata)
         self._update_instance_data(data, processed_data, use_epochs)
 
         return processed_data
@@ -616,14 +616,13 @@ class BasicStepsMixin:
             self._save_raw_result(processed_data, stage_name)
 
         metadata = {
-            "requested_start_time_sec": start_time_sec,
-            "requested_end_time_sec": end_time_sec,
-            "actual_start_time_sec": tmin,
-            "actual_end_time_sec": tmax,
-            "original_duration_sec": original_end - original_start,
-            "new_duration_sec": new_duration,
+            "crop_duration": start_time_sec,
+            "crop_start": tmin,
+            "crop_end": tmax,
+            "original_duration": original_end - original_start,
+            "new_duration": new_duration,
         }
-        self._update_metadata("crop_duration", metadata)
+        self._update_metadata("step_crop_duration", metadata)
         self._update_instance_data(data, processed_data, use_epochs)
 
         return processed_data

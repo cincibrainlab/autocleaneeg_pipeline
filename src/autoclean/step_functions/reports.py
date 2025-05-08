@@ -1291,32 +1291,27 @@ def create_json_summary(run_id: str) -> dict:
         return {}
 
     processing_details = {}
-    if "step_run_pylossless" in metadata:
-        pylossless_info = metadata["step_run_pylossless"]["pylossless_config"]
-    elif "step_custom_pylossless_pipeline" in metadata:
-        pylossless_info = metadata["step_get_pylossless_pipeline"]["pylossless_config"]
-    else:
-        message(
-            "warning", "No pylossless info found. Processing details may be missing"
-        )
-        pylossless_info = None
-
-    if pylossless_info is not None:
-        processing_details["h_freq"] = pylossless_info["filtering"]["filter_args"][
-            "h_freq"
-        ]
-        processing_details["l_freq"] = pylossless_info["filtering"]["filter_args"][
-            "l_freq"
-        ]
-        processing_details["notch_freqs"] = pylossless_info["filtering"][
-            "notch_filter_args"
-        ]["freqs"]
-        if "notch_widths" in pylossless_info["filtering"]["notch_filter_args"]:
-            processing_details["notch_widths"] = pylossless_info["filtering"][
-                "notch_filter_args"
-            ]["notch_widths"]
-        else:
-            processing_details["notch_widths"] = "notch_freqs/200"
+    if "step_filter_data" in metadata:
+        processing_details["h_freq"] = metadata["step_filter_data"]["filter_args"]["h_freq"]
+        processing_details["l_freq"] = metadata["step_filter_data"]["filter_args"]["l_freq"]
+        processing_details["notch_freqs"] = metadata["step_filter_data"]["filter_args"]["notch_freqs"]
+        processing_details["notch_widths"] = metadata["step_filter_data"]["filter_args"]["notch_widths"]
+    if "step_resample_data" in metadata:
+        processing_details["resample_rate"] = metadata["step_resample_data"]["target_sfreq"]
+    if "step_trim_edges" in metadata:
+        processing_details["trim_duration"] = metadata["step_trim_edges"]["trim_duration"]
+    if "step_crop_duration" in metadata:
+        processing_details["crop_duration"] = metadata["step_crop_duration"]["crop_duration"]
+        processing_details["crop_start"] = metadata["step_crop_duration"]["crop_start"]
+        processing_details["crop_end"] = metadata["step_crop_duration"]["crop_end"]
+    if "step_assign_eog_channels" in metadata:
+        processing_details["eog_channels"] = metadata["step_assign_eog_channels"]["assigned_eog_channels"]
+    if "step_drop_outerlayer" in metadata:
+        processing_details["dropped_channels"] = metadata["step_drop_outerlayer"]["dropped_outer_layer_channels"]
+        processing_details["original_channel_count"] = metadata["step_drop_outerlayer"]["original_channel_count"]
+        processing_details["new_channel_count"] = metadata["step_drop_outerlayer"]["new_channel_count"]
+    if "step_rereference_data" in metadata:
+        processing_details["ref_type"] = metadata["step_rereference_data"]["new_ref_type"]
 
     # FIND EXPORT DETAILS
     export_details = {}
