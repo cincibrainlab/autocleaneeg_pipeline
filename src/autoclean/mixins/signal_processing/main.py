@@ -14,6 +14,7 @@ from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
 from autoclean.mixins.signal_processing.resampling import ResamplingMixin
 from autoclean.mixins.signal_processing.segmentation import SegmentationMixin
 from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+from autoclean.mixins.signal_processing.ica import IcaMixin
 
 class SignalProcessingMixin(
     BaseSignalProcessingMixin,
@@ -28,6 +29,7 @@ class SignalProcessingMixin(
     PrepareEpochsICAMixin,
     GFPCleanEpochsMixin,
     BasicStepsMixin,
+    IcaMixin,
 ):
     """Main mixin class that combines all signal processing functionality.
 

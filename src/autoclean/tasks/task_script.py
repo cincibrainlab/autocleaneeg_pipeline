@@ -79,29 +79,31 @@ class TestingRest(Task):
 
 
         #ICA
+        self.run_ica()
+
+        self.run_ICLabel()
+
+        # # Run PyLossless Pipeline
+        # self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
+
+        # # Add more artifact detection steps
 
 
-        # Run PyLossless Pipeline
-        self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
+        # # Update pipeline with annotated raw data
+        # self.pipeline.raw = self.raw
 
-        # Add more artifact detection steps
+        # # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
+        # self.pipeline, self.raw = step_run_ll_rejection_policy(
+        #     self.pipeline, self.config
+        # )
+        # self.raw = self.pipeline.raw
 
-
-        # Update pipeline with annotated raw data
-        self.pipeline.raw = self.raw
-
-        # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
-        self.pipeline, self.raw = step_run_ll_rejection_policy(
-            self.pipeline, self.config
-        )
-        self.raw = self.pipeline.raw
-
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_rejection_policy",
-            flagged=self.flagged,
-        )
+        # save_raw_to_set(
+        #     raw=self.raw,
+        #     autoclean_dict=self.config,
+        #     stage="post_rejection_policy",
+        #     flagged=self.flagged,
+        # )
 
         save_raw_to_set(
             raw=self.raw,
@@ -115,6 +117,9 @@ class TestingRest(Task):
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
+
+        # Verify topography plot
+        self.verify_topography_plot()
 
         # Clean epochs using GFP
         self.gfp_clean_epochs()
@@ -138,11 +143,16 @@ class TestingRest(Task):
         Note:
             This is automatically called by run().
         """
-        if self.pipeline is None or self.raw is None or self.original_raw is None:
+        if self.raw is None or self.original_raw is None:
             return
 
         # Plot raw vs cleaned overlay using mixin method
         self.plot_raw_vs_cleaned_overlay(
+            self.original_raw, self.raw, self.config
+        )
+
+        # Plot PSD topography using mixin method
+        self.step_psd_topo_figure(
             self.original_raw, self.raw, self.config
         )
 
@@ -152,7 +162,3 @@ class TestingRest(Task):
         # Generate ICA reports using mixin method
         self.generate_ica_reports(self.pipeline, self.config)
 
-        # Create PSD topography figure using mixin method
-        self.step_psd_topo_figure(
-            self.original_raw, self.raw, self.config
-        )
