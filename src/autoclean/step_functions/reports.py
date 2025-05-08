@@ -234,12 +234,11 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     timestamp = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
     story.append(Paragraph(timestamp, timestamp_style))
 
-    # Tables layout with better styling
+    # Tables layout with better styling - NOW 2 COLUMNS
     data = [
         [
             Paragraph("Import Information", heading_style),
-            Paragraph("Preprocessing Parameters", heading_style),
-            Paragraph("Lossless Configuration", heading_style),
+            Paragraph("Processing Details", heading_style), # Changed from "Preprocessing Parameters"
         ]
     ]
 
@@ -318,101 +317,107 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         )
     )
 
-    # Middle column: Preprocessing parameters
-    preproc_info = []
+    # Middle column: Processing Details 
+    processing_details_info = []
     try:
+        # Check if JSON summary and processing_details exist
         if json_summary and "processing_details" in json_summary:
-            # Use data from JSON summary
-            processing_details = json_summary["processing_details"]
+            current_processing_details = json_summary["processing_details"]
 
-            # Check if processing_details is a dictionary before using get()
-            if isinstance(processing_details, dict):
-                preproc_info.extend(
-                    [
-                        [
-                            "Filter",
-                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",  # pylint: disable=line-too-long
-                        ],
-                        [
-                            "Notch",
-                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",  # pylint: disable=line-too-long
-                        ],
-                    ]
-                )
+            # Ensure current_processing_details is a dictionary
+            if isinstance(current_processing_details, dict):
+                # Filter
+                l_freq = current_processing_details.get('l_freq', 'N/A')
+                h_freq = current_processing_details.get('h_freq', 'N/A')
+                filter_display = "N/A"
+                if l_freq != 'N/A' or h_freq != 'N/A':
+                    filter_display = f"{l_freq if l_freq is not None else 'N/A'}-{h_freq if h_freq is not None else 'N/A'} Hz"
+                processing_details_info.append(["Filter", filter_display])
+
+                # Notch
+                notch_freqs_list = current_processing_details.get('notch_freqs', [])
+                notch_freq_display = 'N/A'
+                actual_notch_freqs = []
+                if isinstance(notch_freqs_list, list):
+                    actual_notch_freqs = [str(f) for f in notch_freqs_list if f is not None]
+                elif isinstance(notch_freqs_list, (int, float, str)) and notch_freqs_list not in [None, '']: # Handle scalar if somehow it's not a list
+                    actual_notch_freqs = [str(notch_freqs_list)]
+                
+                if actual_notch_freqs:
+                    notch_freq_display = f"{', '.join(actual_notch_freqs)} Hz"
+                processing_details_info.append(["Notch", notch_freq_display])
+                
+                # Resample Rate
+                resample_rate = current_processing_details.get('resample_rate')
+                resample_display = f"{resample_rate} Hz" if resample_rate is not None else "N/A"
+                processing_details_info.append(["Resample Rate", resample_display])
+
+                # Trim Duration
+                trim_duration = current_processing_details.get('trim_duration')
+                if trim_duration is not None:
+                    processing_details_info.append(["Trim Duration", f"{trim_duration} sec"])
+
+                # Crop Info
+                crop_s = current_processing_details.get('crop_start')
+                crop_e = current_processing_details.get('crop_end')
+                crop_d = current_processing_details.get('crop_duration') # from create_json_summary
+                
+                crop_display_val = None
+                if crop_s is not None and crop_e is not None:
+                    crop_display_val = f"{crop_s:.2f}s to {crop_e:.2f}s"
+                    processing_details_info.append(["Crop Window", crop_display_val])
+                elif crop_d is not None : # if specific start/end aren't there, maybe overall duration is
+                    crop_display_val = f"{crop_d:.2f} sec"
+                    processing_details_info.append(["Crop Duration", crop_display_val])
+
+
+                # EOG Channels
+                eog_channels = current_processing_details.get('eog_channels', [])
+                if isinstance(eog_channels, list) and eog_channels: # Only show if present and not empty
+                    processing_details_info.append(["EOG Channels", ", ".join(eog_channels)])
+                
+                # Dropped Outer Layer Channels
+                dropped_ch_list = current_processing_details.get('dropped_channels', [])
+                # Ensure dropped_ch_list is a list before calling len()
+                num_dropped = len(dropped_ch_list) if isinstance(dropped_ch_list, list) else 0
+                if num_dropped > 0: # Only show if channels were actually dropped
+                    processing_details_info.append(["Outer Chans Dropped", str(num_dropped)])
+
+                # Reference Type
+                ref_type = current_processing_details.get('ref_type')
+                if ref_type: # Only show if present
+                    processing_details_info.append(["Reference", str(ref_type)])
+                
+                # Dense Oscillatory Artifacts (REF artifacts)
+                ref_artifacts = current_processing_details.get('ref_artifacts')
+                if ref_artifacts is not None: 
+                    ref_artifact_display = "Not Detected" # Default
+                    if isinstance(ref_artifacts, bool) and ref_artifacts:
+                        ref_artifact_display = "Detected"
+                    elif isinstance(ref_artifacts, list) and ref_artifacts:
+                        ref_artifact_display = f"Detected ({len(ref_artifacts)} segments)"
+                    elif isinstance(ref_artifacts, str) and ref_artifacts: # If it's a descriptive string
+                         ref_artifact_display = ref_artifacts
+                    elif ref_artifacts: # For non-empty non-bool non-list non-str truthy values
+                        ref_artifact_display = "Detected"
+                        
+                    processing_details_info.append(["REF Artifacts", ref_artifact_display])
             else:
-                message(
-                    "debug",
-                    f"processing_details is not a dictionary: {type(processing_details)}",
-                )
-                preproc_info.extend(
-                    [
-                        ["Filter", "N/A"],
-                        ["Notch", "N/A"],
-                    ]
-                )
-
-            # Add more preprocessing info if available in JSON summary
-            if "export_details" in json_summary:
-                export_details = json_summary["export_details"]
-                if "srate_post" in export_details:
-                    preproc_info.append(
-                        ["Resampled", f"{export_details['srate_post']} Hz"]
-                    )
+                message("debug", f"json_summary['processing_details'] is not a dictionary: {type(current_processing_details)}")
         else:
-            # Fall back to direct metadata access
-            if "entrypoint" in run_record["metadata"]:
-                task_config = run_record["metadata"]["entrypoint"]["tasks"][
-                    run_record["metadata"]["entrypoint"]["task"]
-                ]["settings"]
-                preproc_info.extend(
-                    [
-                        [
-                            "Resample",
-                            (
-                                f"{task_config['resample_step']['value']} Hz"
-                                if task_config["resample_step"]["enabled"]
-                                else "Disabled"
-                            ),
-                        ],
-                        [
-                            "Trim",
-                            (
-                                f"{task_config['trim_step']['value']} sec"
-                                if task_config["trim_step"]["enabled"]
-                                else "Disabled"
-                            ),
-                        ],
-                        [
-                            "Reference",
-                            (
-                                str(task_config["reference_step"]["value"])
-                                if isinstance(
-                                    task_config["reference_step"]["value"], str
-                                )
-                                else (
-                                    ", ".join(task_config["reference_step"]["value"])
-                                    if isinstance(
-                                        task_config["reference_step"]["value"], list
-                                    )
-                                    else (
-                                        "Disabled"
-                                        if task_config["reference_step"]["enabled"]
-                                        else "Disabled"
-                                    )
-                                )
-                            ),
-                        ],
-                    ]
-                )
+            # This case means json_summary or json_summary["processing_details"] is missing.
+            # The 'if not processing_details_info:' check below will handle it.
+            message("debug", "processing_details not found in json_summary. 'Processing Details' section will be sparse or N/A.")
+
     except Exception as e:  # pylint: disable=broad-except
-        message("warning", f"Error processing preprocessing parameters: {str(e)}")
-        preproc_info = [["Error processing parameters", "N/A"]]
+        message("warning", f"Error populating 'Processing Details' section: {str(e)}")
+        processing_details_info = [["Error processing details", str(e)]] # Show error in report
 
-    if not preproc_info:
-        preproc_info = [["No preprocessing data available", "N/A"]]
+    if not processing_details_info: # If after all attempts, it's still empty
+        processing_details_info = [["Processing data N/A", ""]]
 
-    preproc_table = ReportLabTable(preproc_info, colWidths=[0.7 * inch, 1.3 * inch])
-    preproc_table.setStyle(
+    processing_details_table = ReportLabTable(processing_details_info, colWidths=[1.2 * inch, 2.1 * inch])
+    processing_details_table.setStyle(
         TableStyle(
             [
                 *table_style._cmds,
@@ -420,112 +425,15 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                     "BACKGROUND",
                     (0, 0),
                     (-1, -1),
-                    colors.HexColor("#EFF8F9"),
-                ),
-            ]
-        )
-    )
-
-    # Right column: Lossless settings
-    lossless_info = []
-    try:
-        if (
-            json_summary
-            and "processing_details" in json_summary
-            and "ica_details" in json_summary
-        ):
-            # Use data from JSON summary
-            processing_details = json_summary["processing_details"]
-            ica_details = json_summary["ica_details"]
-
-            # Check if processing_details is a dictionary before using get()
-            if isinstance(processing_details, dict):
-                lossless_info.extend(
-                    [
-                        [
-                            "Filter",
-                            f"{processing_details.get('l_freq', 'N/A')}-{processing_details.get('h_freq', 'N/A')} Hz",  # pylint: disable=line-too-long
-                        ],
-                        [
-                            "Notch",
-                            f"{processing_details.get('notch_freqs', ['N/A'])[0] if isinstance(processing_details.get('notch_freqs', []), list) and processing_details.get('notch_freqs', []) else 'N/A'} Hz",  # pylint: disable=line-too-long
-                        ],
-                    ]
-                )
-            else:
-                # Handle case where processing_details is not a dictionary
-                message(
-                    "warning",
-                    f"processing_details is not a dictionary: {type(processing_details)}",
-                )
-                lossless_info.extend(
-                    [
-                        ["Filter", "N/A"],
-                        ["Notch", "N/A"],
-                    ]
-                )
-            if isinstance(ica_details, dict):
-                lossless_info.extend(
-                    [
-                        ["ICA Method", ica_details.get("proc_method", "N/A")],
-                        [
-                            "Components",
-                            str(ica_details.get("proc_nComps", "N/A")),
-                        ],
-                    ]
-                )
-        else:
-            # Fall back to direct metadata access
-            if "step_run_pylossless" in run_record["metadata"]:
-                lossless_config = run_record["metadata"]["step_run_pylossless"].get(
-                    "pylossless_config", {}
-                )
-                filter_args = lossless_config.get("filtering", {}).get(
-                    "filter_args", {}
-                )
-                ica_args = lossless_config.get("ica", {}).get("ica_args", {})
-                lossless_info.extend(
-                    [
-                        [
-                            "Filter",
-                            f"{filter_args.get('l_freq', 'N/A')}-{filter_args.get('h_freq', 'N/A')} Hz",  # pylint: disable=line-too-long
-                        ],
-                        [
-                            "Notch",
-                            f"{lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', ['N/A'])[0] if isinstance(lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []), list) and lossless_config.get('filtering', {}).get('notch_filter_args', {}).get('freqs', []) else 'N/A'} Hz",  # pylint: disable=line-too-long
-                        ],
-                        ["ICA", ica_args.get("run2", {}).get("method", "N/A")],
-                        [
-                            "Components",
-                            str(ica_args.get("run2", {}).get("n_components", "N/A")),
-                        ],
-                    ]
-                )
-    except Exception as e:  # pylint: disable=broad-except
-        message("warning", f"Error processing lossless settings: {str(e)}")
-        lossless_info = [["Error processing lossless data", "N/A"]]
-
-    if not lossless_info:
-        lossless_info = [["No lossless data available", "N/A"]]
-
-    lossless_table = ReportLabTable(lossless_info, colWidths=[0.7 * inch, 1.3 * inch])
-    lossless_table.setStyle(
-        TableStyle(
-            [
-                *table_style._cmds,
-                (
-                    "BACKGROUND",
-                    (0, 0),
-                    (-1, -1),
-                    colors.HexColor("#F5EEF8"),
+                    colors.HexColor("#EFF8F9"), # Light blue background for this section
                 ),
             ]
         )
     )
 
     # Add tables to main layout with spacing
-    data.append([import_table, preproc_table, lossless_table])
-    main_table = ReportLabTable(data, colWidths=[2 * inch, 2 * inch, 2 * inch])
+    data.append([import_table, processing_details_table]) 
+    main_table = ReportLabTable(data, colWidths=[2.5 * inch, 3.5 * inch]) # Adjusted for 2 columns
     main_table.setStyle(
         TableStyle(
             [
@@ -1217,23 +1125,6 @@ def create_json_summary(run_id: str) -> dict:
             "ransac_channels"
         ]
 
-    if "step_custom_pylossless_pipeline" in metadata:
-        channel_dict["step_custom_pylossless_pipeline"] = metadata[
-            "step_custom_pylossless_pipeline"
-        ]["bads"]
-        channel_dict["noisy_channels"] = metadata["step_custom_pylossless_pipeline"][
-            "noisy_channels"
-        ]
-        channel_dict["uncorrelated_channels"] = metadata[
-            "step_custom_pylossless_pipeline"
-        ]["uncorrelated_channels"]
-        channel_dict["bridged_channels"] = metadata["step_custom_pylossless_pipeline"][
-            "bridged_channels"
-        ]
-        channel_dict["rank_channels"] = metadata["step_custom_pylossless_pipeline"][
-            "rank_channels"
-        ]
-
     flagged_chs_file = None
     for file_name in outputs:
         if file_name.endswith("FlaggedChs.tsv"):
@@ -1269,9 +1160,9 @@ def create_json_summary(run_id: str) -> dict:
     # FIND IMPORT DETAILS
     import_details = {}
     dropped_channels = []
-    if "pre_pipeline_processing" in metadata:
+    if "step_drop_outerlayer" in metadata:
         try:
-            dropped_channels = metadata["pre_pipeline_processing"]["OuterLayerChannels"]
+            dropped_channels = metadata["step_drop_outerlayer"]["dropped_outer_layer_channels"]
             if dropped_channels is None:
                 dropped_channels = []
             import_details["dropped_channels"] = dropped_channels
