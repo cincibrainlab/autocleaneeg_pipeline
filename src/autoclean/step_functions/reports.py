@@ -348,7 +348,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 processing_details_info.append(["Notch", notch_freq_display])
                 
                 # Resample Rate
-                resample_rate = current_processing_details.get('resample_rate')
+                resample_rate = current_processing_details.get('target_sfreq')
                 resample_display = f"{resample_rate} Hz" if resample_rate is not None else "N/A"
                 processing_details_info.append(["Resample Rate", resample_display])
 
@@ -388,20 +388,6 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                 if ref_type: # Only show if present
                     processing_details_info.append(["Reference", str(ref_type)])
                 
-                # Dense Oscillatory Artifacts (REF artifacts)
-                ref_artifacts = current_processing_details.get('ref_artifacts')
-                if ref_artifacts is not None: 
-                    ref_artifact_display = "Not Detected" # Default
-                    if isinstance(ref_artifacts, bool) and ref_artifacts:
-                        ref_artifact_display = "Detected"
-                    elif isinstance(ref_artifacts, list) and ref_artifacts:
-                        ref_artifact_display = f"Detected ({len(ref_artifacts)} segments)"
-                    elif isinstance(ref_artifacts, str) and ref_artifacts: # If it's a descriptive string
-                         ref_artifact_display = ref_artifacts
-                    elif ref_artifacts: # For non-empty non-bool non-list non-str truthy values
-                        ref_artifact_display = "Detected"
-                        
-                    processing_details_info.append(["REF Artifacts", ref_artifact_display])
             else:
                 message("debug", f"json_summary['processing_details'] is not a dictionary: {type(current_processing_details)}")
         else:
