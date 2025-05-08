@@ -17,7 +17,7 @@ pipeline = Pipeline(
 # file_path = Path("C:/Users/Gam9LG/Documents/DATA/hbcd_mmn/sub-896714_ses-V03_task-MMN_acq-eeg_eeg.set")
 # file_path = Path("C:/Users/Gam9LG/Documents/HBCD_exampleFiles/CHCCH0014_V04/CHCCH0014_256983_V04_MMN.mff")
 # file_path = Path("C:/Users/Gam9LG/Documents/HBCD_exampleFiles/CHCCH0014_V04/CHCCH0014_256983_V04_VEP.mff")
-file_path = Path("C:/Users/Gam9LG/Documents/DATA/rest_eyesopen/0375_rest.raw")
+file_path = Path("C:/Users/Gam9LG/Documents/DATA/n141_resting/raw/0199_rest.raw")
 
 
 # Process the file
