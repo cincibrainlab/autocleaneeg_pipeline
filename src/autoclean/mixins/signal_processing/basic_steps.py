@@ -298,7 +298,7 @@ class BasicStepsMixin:
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         if ref_type is None:
-            is_enabled, config_value = self._check_step_enabled("rereference_step")
+            is_enabled, config_value = self._check_step_enabled("reference_step")
 
             if not is_enabled:
                 message("info", "Rereferencing step is disabled in configuration")
@@ -318,7 +318,6 @@ class BasicStepsMixin:
         self._save_raw_result(rereferenced_data, stage_name)
 
         metadata = {
-            "original_ref_type": data.info["ref_type"],
             "new_ref_type": ref_type,
         }
 
