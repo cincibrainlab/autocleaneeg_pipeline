@@ -2,7 +2,7 @@ from pathlib import Path
 from autoclean import Pipeline
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/AutocleanDev/")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/AutocleanDev2/")  # Where processed data will be stored
 CONFIG_FILE = Path("C:/Users/Gam9LG/Downloads/autoclean_files/config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
