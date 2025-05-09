@@ -123,7 +123,7 @@ class ArtifactsMixin:
                         description=annotation[2],
                     )
                 message(
-                    "info", f"Added {len(artifact_annotations)} artifact annotations"
+                    "info", f"Added {len(artifact_annotations)} potential reference artifact annotations"
                 )
             else:
                 message("info", "No reference artifacts detected")
