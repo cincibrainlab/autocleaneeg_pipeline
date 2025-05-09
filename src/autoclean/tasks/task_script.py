@@ -37,8 +37,6 @@ class TestingRest(Task):
         self.required_stages = [
             "post_import",
             "post_basicsteps",
-            "post_pylossless",
-            "post_rejection_policy",
             "post_clean_raw",
             "post_epochs",
             "post_comp",
@@ -71,39 +69,21 @@ class TestingRest(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(reset_bads = True)
+        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
 
         self.rereference_data()
 
-        #Segment rejection
+        self.annotate_noisy_epochs()
+
+        # self.annotate_uncorrelated_epochs()
+
+        # #Segment rejection
         self.detect_dense_oscillatory_artifacts()
 
-        #ICA
+        # #ICA
         self.run_ica()
 
         self.run_ICLabel()
-
-        # # Run PyLossless Pipeline
-        # self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
-
-        # # Add more artifact detection steps
-
-
-        # # Update pipeline with annotated raw data
-        # self.pipeline.raw = self.raw
-
-        # # Apply PyLossless Rejection Policy for artifact removal and channel interpolation
-        # self.pipeline, self.raw = step_run_ll_rejection_policy(
-        #     self.pipeline, self.config
-        # )
-        # self.raw = self.pipeline.raw
-
-        # save_raw_to_set(
-        #     raw=self.raw,
-        #     autoclean_dict=self.config,
-        #     stage="post_rejection_policy",
-        #     flagged=self.flagged,
-        # )
 
         save_raw_to_set(
             raw=self.raw,
