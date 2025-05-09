@@ -231,9 +231,6 @@ class Pipeline:
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "task": task,
                 "unprocessed_file": str(unprocessed_file),
-                "lossless_config": self.autoclean_dict["tasks"][task][
-                    "lossless_config"
-                ],
                 "status": "unprocessed",
                 "success": False,
                 # Define output filenames based on input file
@@ -297,12 +294,6 @@ class Pipeline:
             b64_task, task_hash = hash_and_encode_yaml(
                 self.autoclean_dict["tasks"][task], is_file=False
             )
-            if self.autoclean_dict["tasks"][task]["lossless_config"]:
-                b64_ll_config, ll_config_hash = hash_and_encode_yaml(
-                    self.autoclean_dict["tasks"][task]["lossless_config"], is_file=True
-                )
-            else:
-                b64_ll_config, ll_config_hash = None, None
 
             # Prepare configuration for task execution
             run_dict = {
@@ -323,17 +314,11 @@ class Pipeline:
                 "config_b64": b64_config,
                 "task_hash": task_hash,
                 "task_b64": b64_task,
-                "ll_config_hash": ll_config_hash,
-                "ll_config_b64": b64_ll_config,
             }
 
-            lossless_config_path = self.autoclean_dict["tasks"][task]["lossless_config"]
-            lossless_config = yaml.safe_load(
-                open(lossless_config_path, encoding="utf8")
-            )
 
             # Merge task-specific config with base config
-            run_dict = {**run_dict, **self.autoclean_dict, **lossless_config}
+            run_dict = {**run_dict, **self.autoclean_dict}
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
             # Record full run configuration
