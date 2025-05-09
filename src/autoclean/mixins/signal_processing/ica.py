@@ -112,8 +112,9 @@ class IcaMixin:
 
         Returns
         -------
-        ica_flags : pandas.DataFrame
-            A pandas DataFrame containing the ICLabel flags.
+        ica_flags : pandas.DataFrame or None
+            A pandas DataFrame containing the ICLabel flags, or None if the
+            step is disabled or fails.
 
         Examples
         --------
@@ -121,15 +122,22 @@ class IcaMixin:
 
         Notes
         -----
-        This method will modify the self.final_ica attribute in place.
+        This method will modify the self.final_ica attribute in place by adding labels.
+        It checks if the 'ICLabel' step is enabled in the configuration.
         """
         message("header", "Running ICLabel step")
 
-        # is_enabled, config_value = self._check_step_enabled("ICLabel")
+        is_enabled, _ = self._check_step_enabled("ICLabel") # config_value not used here
 
-        # if not is_enabled:
-        #     message("warning", "ICLabel is not enabled in the config")
-        #     return
+        if not is_enabled:
+            message("warning", "ICLabel is not enabled in the config. Skipping ICLabel.")
+            return None # Return None if not enabled
+
+        if not hasattr(self, 'final_ica') or self.final_ica is None:
+            message("error", "ICA (self.final_ica) not found. Please run `run_ica` before `run_ICLabel`.")
+            # Or raise an error, depending on desired behavior
+            return None
+
 
         mne_icalabel.label_components(self.raw, self.final_ica, method="iclabel")
 
@@ -145,9 +153,140 @@ class IcaMixin:
 
         save_ica_to_fif(self.final_ica, self.config, self.raw)
 
-        message("success", "ICLabel step complete")
+        message("success", "ICLabel complete")
+
+        self.apply_iclabel_rejection()
 
         return self.ica_flags
+
+    def apply_iclabel_rejection(self, data_to_clean=None):
+        """
+        Apply ICA component rejection based on ICLabel classifications and configuration.
+
+        This method uses the labels assigned by `run_ICLabel` and the rejection
+        criteria specified in the 'ICLabel' section of the pipeline configuration
+        (e.g., ic_flags_to_reject, ic_rejection_threshold) to mark components
+        for rejection. It then applies the ICA to remove these components from
+        the data.
+
+        It updates `self.final_ica.exclude` and modifies the data object
+        (e.g., `self.raw`) in-place. The updated ICA object is also saved.
+
+        Parameters
+        ----------
+        data_to_clean : mne.io.Raw | mne.Epochs, optional
+            The data to apply the ICA to. If None, defaults to `self.raw`.
+            This should ideally be the same data object that `run_ICLabel` was
+            performed on, or is compatible with `self.final_ica`.
+
+        Returns
+        -------
+        None
+            Modifies `self.final_ica` and the input data object in-place.
+
+        Raises
+        ------
+        RuntimeError
+            If `self.final_ica` or `self.ica_flags` are not available (i.e.,
+            `run_ica` and `run_ICLabel` have not been run successfully).
+        """
+        message("header", "Applying ICLabel-based component rejection")
+
+        if not hasattr(self, 'final_ica') or self.final_ica is None:
+            message("error", "ICA (self.final_ica) not found. Skipping ICLabel rejection.")
+            raise RuntimeError("ICA (self.final_ica) not found. Please run `run_ica` first.")
+
+        if not hasattr(self, 'ica_flags') or self.ica_flags is None:
+            message("error", "ICLabel results (self.ica_flags) not found. Skipping ICLabel rejection.")
+            raise RuntimeError("ICLabel results (self.ica_flags) not found. Please run `run_ICLabel` first.")
+
+        is_enabled, step_config_main_dict = self._check_step_enabled("ICLabel")
+        if not is_enabled:
+            message("warning", "ICLabel processing itself is not enabled in the config. "
+                             "Rejection parameters might be missing or irrelevant. Skipping.")
+            return
+
+        # Attempt to get parameters from a nested "value" dictionary first (common pattern)
+        iclabel_params_nested = step_config_main_dict.get("value", {})
+        
+        flags_to_reject = iclabel_params_nested.get("ic_flags_to_reject")
+        rejection_threshold = iclabel_params_nested.get("ic_rejection_threshold")
+
+        # If not found in "value", try to get them from the main step config dict directly
+        if flags_to_reject is None and "ic_flags_to_reject" in step_config_main_dict:
+            flags_to_reject = step_config_main_dict.get("ic_flags_to_reject")
+        if rejection_threshold is None and "ic_rejection_threshold" in step_config_main_dict:
+            rejection_threshold = step_config_main_dict.get("ic_rejection_threshold")
+            
+        if flags_to_reject is None or rejection_threshold is None:
+            message("warning", "ICLabel rejection parameters (ic_flags_to_reject or ic_rejection_threshold) "
+                             "not found in the 'ICLabel' step configuration. Skipping component rejection.")
+            return
+
+        message("info", f"Will reject ICs of types: {flags_to_reject} with confidence > {rejection_threshold}")
+
+        rejected_ic_indices_this_step = []
+        for idx, row in self.ica_flags.iterrows(): # DataFrame index is the component index
+            if row['ic_type'] in flags_to_reject and row['confidence'] > rejection_threshold:
+                rejected_ic_indices_this_step.append(idx)
+
+        if not rejected_ic_indices_this_step:
+            message("info", "No new components met ICLabel rejection criteria in this step.")
+        else:
+            message("info", f"Identified {len(rejected_ic_indices_this_step)} components for rejection "
+                             f"based on ICLabel: {rejected_ic_indices_this_step}")
+
+        # Ensure self.final_ica.exclude is initialized as a list if it's None
+        if self.final_ica.exclude is None:
+            self.final_ica.exclude = []
+        
+        # Combine with any existing exclusions (e.g., from EOG detection in run_ica)
+        current_exclusions = set(self.final_ica.exclude)
+        for idx in rejected_ic_indices_this_step:
+            current_exclusions.add(idx)
+        self.final_ica.exclude = sorted(list(current_exclusions))
+
+        message("info", f"Total components now marked for exclusion: {self.final_ica.exclude}")
+
+        # Determine data to clean
+        target_data = data_to_clean if data_to_clean is not None else self.raw
+        data_source_name = "provided data object" if data_to_clean is not None else "self.raw"
+        message("debug", f"Applying ICA to {data_source_name}")
+
+
+        if not self.final_ica.exclude:
+            message("info", "No components are marked for exclusion. Skipping ICA apply.")
+        else:
+            # Apply ICA to remove the excluded components
+            # This modifies target_data in-place
+            self.final_ica.apply(target_data)
+            message("info", f"Applied ICA to {data_source_name}, removing/attenuating "
+                             f"{len(self.final_ica.exclude)} components.")
+
+        # Update metadata
+        metadata = {
+            "step_apply_iclabel_rejection": {
+                "configured_flags_to_reject": flags_to_reject,
+                "configured_rejection_threshold": rejection_threshold,
+                "iclabel_rejected_indices_this_step": rejected_ic_indices_this_step,
+                "final_excluded_indices_after_iclabel": self.final_ica.exclude
+            }
+        }
+        # Assuming _update_metadata is available in the class using this mixin
+        if hasattr(self, '_update_metadata') and callable(self._update_metadata):
+            self._update_metadata("step_apply_iclabel_rejection", metadata)
+        else:
+            message("warning", "_update_metadata method not found. Cannot save metadata for ICLabel rejection.")
+            
+        # Save the ICA object with updated exclusions
+        if hasattr(self, 'config') and hasattr(self, 'raw'):
+             save_ica_to_fif(self.final_ica, self.config, self.raw) # Consistently save against self.raw context
+             message("debug", "Saved ICA object with updated exclusions after ICLabel rejection.")
+        else:
+            message("warning", "Cannot save ICA object: self.config or self.raw not found.")
+
+
+        message("success", "ICLabel-based component rejection complete.")
 
     def _icalabel_to_data_frame(self, ica):
         """Export IClabels to pandas DataFrame."""
