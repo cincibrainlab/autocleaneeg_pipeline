@@ -14,17 +14,14 @@ from autoclean.mixins.signal_processing.prepare_epochs_ica import PrepareEpochsI
 from autoclean.mixins.signal_processing.pylossless import PyLosslessMixin
 from autoclean.mixins.signal_processing.reference import ReferenceMixin
 from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
-from autoclean.mixins.signal_processing.resampling import ResamplingMixin
-from autoclean.mixins.signal_processing.segmentation import SegmentationMixin
 from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
 from autoclean.mixins.signal_processing.ica import IcaMixin
+from autoclean.mixins.signal_processing.segment_rejection import SegmentRejectionMixin
 
 __all__ = [
     "SignalProcessingMixin",
-    "ResamplingMixin",
     "ArtifactsMixin",
     "ChannelsMixin",
-    "SegmentationMixin",
     "ReferenceMixin",
     "PyLosslessMixin",
     "EventIDEpochsMixin",
@@ -34,4 +31,5 @@ __all__ = [
     "AutoRejectEpochsMixin",
     "BasicStepsMixin",
     "IcaMixin",
+    "SegmentRejectionMixin",
 ]
