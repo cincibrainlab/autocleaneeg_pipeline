@@ -75,7 +75,7 @@ class TestingRest(Task):
 
         self.annotate_noisy_epochs()
 
-        # self.annotate_uncorrelated_epochs()
+        self.annotate_uncorrelated_epochs()
 
         # #Segment rejection
         self.detect_dense_oscillatory_artifacts()
