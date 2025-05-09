@@ -205,9 +205,9 @@ def step_create_bids_path(
     config_file = autoclean_dict["config_file"]
 
     try:
-        line_freq = autoclean_dict["filtering"]["notch_filter_args"]["freqs"][0]
+        line_freq = autoclean_dict["tasks"][task]["settings"]["filtering"]["value"]["notch_freqs"][0]
     except Exception as e:  # pylint: disable=broad-except
-        message("error", f"Failed to load line frequency: {str(e)}")
+        message("error", f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.")
         line_freq = 60.0
 
     try:
