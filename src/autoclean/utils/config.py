@@ -79,6 +79,13 @@ def load_config(config_file: Path) -> dict:
                                 Optional("decim"): Or(int, None),
                             }
                         },
+                        "ICLabel": {
+                            "enabled": bool,
+                            "value": {
+                                "ic_flags_to_reject": list,
+                                "ic_rejection_threshold": float,
+                            }
+                        },
                         "epoch_settings": {
                             "enabled": bool,
                             "value": {
