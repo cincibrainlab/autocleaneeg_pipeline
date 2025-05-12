@@ -64,7 +64,7 @@ class AssrDefault(Task):
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_regular_epochs() # Using fixed-length epochs
+        self.create_eventid_epochs() # Using fixed-length epochs
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
@@ -72,6 +72,9 @@ class AssrDefault(Task):
         # Clean epochs using GFP
         self.gfp_clean_epochs()
         # --- EPOCHING BLOCK END ---
+
+        # Generate visualization reports
+        # self.generate_reports()
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate assr specific configuration.

@@ -41,9 +41,7 @@ class RestingEyesOpen(Task):
 
         self.required_stages = [
             "post_import",
-            "post_prepipeline",
-            "post_pylossless",
-            "post_rejection_policy",
+            "post_basic_steps",
             "post_clean_raw",
             "post_epochs",
             "post_comp",
@@ -127,21 +125,32 @@ class RestingEyesOpen(Task):
         Note:
             This is automatically called by run().
         """
-        if self.pipeline is None or self.raw is None or self.original_raw is None:
+    def generate_reports(self) -> None:
+        """Generate quality control visualizations and reports.
+
+        Creates standard visualization reports including:
+        1. Raw vs cleaned data overlay
+        2. ICA components
+        3. ICA details
+        4. PSD topography
+
+        The reports are saved in the debug directory specified
+        in the configuration.
+
+        Note:
+            This is automatically called by run().
+        """
+        if self.raw is None or self.original_raw is None:
             return
 
         # Plot raw vs cleaned overlay using mixin method
-        self.plot_raw_vs_cleaned_overlay(
-            self.original_raw, self.raw, self.config
-        )
+        self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
+
+        # Plot PSD topography using mixin method
+        self.step_psd_topo_figure(self.original_raw, self.raw)
 
         # Plot ICA components using mixin method
-        self.plot_ica_full(self.pipeline, self.config)
+        self.plot_ica_full()
 
         # Generate ICA reports using mixin method
-        self.generate_ica_reports(self.pipeline, self.config)
-
-        # Create PSD topography figure using mixin method
-        self.step_psd_topo_figure(
-            self.original_raw, self.raw, self.config
-        )
+        self.generate_ica_reports()
