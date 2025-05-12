@@ -10,7 +10,6 @@ tasks:
   HBCD_MMN:
     mne_task: "MMN"
     description: "HBCD Mismatch Negativity task"
-    lossless_config: configs/pylossless/lossless_config_hbcd.yaml
     settings:
       resample_step:
         enabled: true
@@ -21,7 +20,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60, 120]
-          notch_width: 5
+          notch_widths: 5
       drop_outerlayer:
         enabled: true
         value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
@@ -83,7 +82,6 @@ tasks:
   HBCD_VEP:
     mne_task: "VEP"
     description: "HBCD Visual Evoked Potential task"
-    lossless_config: configs/pylossless/lossless_config_hbcd.yaml
     settings:
       resample_step:
         enabled: true

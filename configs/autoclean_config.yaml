@@ -10,7 +10,6 @@ tasks:
   RestingEyesOpen:
     mne_task: "rest"
     description: "Resting state with eyes open"
-    lossless_config: configs/pylossless/lossless_config.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
@@ -25,7 +24,7 @@ tasks:
           l_freq: 0.5
           h_freq: 100
           notch_freqs: [60, 120]
-          notch_width: 5
+          notch_widths: 5
       
       drop_outerlayer:
         enabled: false
@@ -104,7 +103,6 @@ tasks:
   ChirpDefault:
     mne_task: "chirp"
     description: "Chirp auditory stimulus task" 
-    lossless_config: configs/pylossless/lossless_config_chirp.yaml
     settings:
       resample_step:
         enabled: true
@@ -115,7 +113,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60, 120]
-          notch_width: 5
+          notch_widths: 5
       drop_outerlayer:
         enabled: false
         value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
@@ -169,7 +167,6 @@ tasks:
   AssrDefault:
     mne_task: "assr"
     description: "Auditory steady state response task"
-    lossless_config: configs/pylossless/lossless_config.yaml
     settings:
       resample_step:
         enabled: true
@@ -180,7 +177,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60, 120]
-          notch_width: 5
+          notch_widths: 5
       drop_outerlayer:
         enabled: false
         value: []
@@ -239,7 +236,6 @@ tasks:
   BB_Long:
     mne_task: "Binural Beats"
     description: "Binural Beats full length file"
-    lossless_config: configs/pylossless/lossless_config.yaml
     settings:
       resample_step:
         enabled: true
@@ -250,7 +246,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60, 120]
-          notch_width: 5
+          notch_widths: 5
       drop_outerlayer:
         enabled: false
         value: []
@@ -309,7 +305,6 @@ tasks:
   RawToSet:
     mne_task: "RawToSet"
     description: "Convert raw file to set format" 
-    lossless_config: configs/pylossless/lossless_config.yaml
     settings:
       resample_step:
         enabled: false
@@ -320,7 +315,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60]
-          notch_width: 5
+          notch_widths: 5
       drop_outerlayer:
         enabled: false
         value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
@@ -408,11 +403,6 @@ stage_files:
     enabled: false
     suffix: "_postcrop"
 
-  #PyLossless steps
-  post_pylossless:
-    enabled: true
-    suffix: "_postpylossless"
-
   post_artifact_detection:
     enabled: false
     suffix: "_postartifactdetection"
@@ -420,10 +410,6 @@ stage_files:
   post_reference:
     enabled: false
     suffix: "_postreference"
-
-  post_rejection_policy:
-    enabled: true
-    suffix: "_postrejection"
   
   post_bad_channels:
     enabled: true

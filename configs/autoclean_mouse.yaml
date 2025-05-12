@@ -23,7 +23,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60]
-          notch_width: 5
+          notch_widths: 5
 
       drop_outerlayer:
         enabled: false
@@ -102,7 +102,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60]
-          notch_width: 5
+          notch_widths: 5
 
       drop_outerlayer:
         enabled: false
@@ -184,7 +184,7 @@ tasks:
           l_freq: 1
           h_freq: 100
           notch_freqs: [60]
-          notch_width: 5
+          notch_widths: 5
 
       drop_outerlayer:
         enabled: false
