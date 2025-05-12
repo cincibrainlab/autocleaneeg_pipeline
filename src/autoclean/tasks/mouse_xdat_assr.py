@@ -154,8 +154,7 @@ class MouseXdatAssr(Task):
         if self.raw is None:
             raise RuntimeError("No data has been imported")
 
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        self.run_basic_steps()
 
         self.original_raw = self.raw.copy()
 
@@ -220,7 +219,7 @@ class MouseXdatAssr(Task):
             This is automatically called by preprocess().
             Override this method if you need custom visualizations.
         """
-        self.verify_topography_plot(self.config)
+        self.verify_topography_plot()
 
         # self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw, self.pipeline, self.config)
 
