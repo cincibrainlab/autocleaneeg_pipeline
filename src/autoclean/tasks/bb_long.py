@@ -70,53 +70,54 @@ class BB_Long(Task): # pylint: disable=invalid-name
             flagged=self.flagged,
         )
 
-        # Clean bad channels
-        self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-        save_raw_to_set(
-            raw=self.pipeline.raw,
-            autoclean_dict=self.config,
-            stage="post_bad_channels",
-            flagged=self.flagged,
-        )
-
-        # # Use PyLossless Rejection Policy
-        self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
+        # Apply PyLossless Rejection Policy for artifact removal
+        self.pipeline, self.raw = step_run_ll_rejection_policy(
             self.pipeline, self.config
         )
 
+        # Detect and mark dense oscillatory artifacts
+        self.detect_dense_oscillatory_artifacts()
+
+        # Detect and mark muscle artifacts in beta frequency range
+        self.detect_muscle_beta_focus(self.raw)
+
         save_raw_to_set(
-            raw=self.cleaned_raw,
+            raw=self.raw,
             autoclean_dict=self.config,
-            stage="post_rejection_policy",
+            stage="post_artifact_detection",
             flagged=self.flagged,
         )
+
+        self.create_eventid_epochs(reject_by_annotation=False)
+
+        self.prepare_epochs_for_ica()
+
+        self.gfp_clean_epochs()
+
+        self._generate_reports()
 
         # Generate visualization reports
         self._generate_reports()
 
     def _generate_reports(self) -> None:
         """Generate all visualization reports."""
-        if self.pipeline is None or self.cleaned_raw is None:
+        if self.pipeline is None or self.raw is None:
             return
 
-        # Plot raw vs cleaned overlay using mixin method
+        # Plot raw vs cleaned overlay using mixin method using mixin method
         self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.raw, self.original_raw, self.pipeline, self.config
         )
 
-        # Plot ICA components using mixin method
+        # Plot ICA components using mixin method using mixin method
         self.plot_ica_full(self.pipeline, self.config)
 
-        # # Generate ICA reports using mixin method
-        self.generate_ica_reports(
-            self.pipeline,
-            self.config,
-            duration=60,
-        )
+        # # Generate ICA reports using mixin method using mixin method (uncomment if needed)
+        self.generate_ica_reports(self.pipeline, self.config)
 
-        # # Create PSD topography figure using mixin method
+        # Create PSD topography figure using mixin method using mixin method
         self.step_psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.raw, self.original_raw, self.pipeline, self.config
         )
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
