@@ -14,6 +14,11 @@ tasks:
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
+      
+      resample_step:
+        enabled: true        # Set to false to skip this step
+        value: 250          # New sampling rate in Hz
+
       filtering:
         enabled: true
         value:
@@ -21,10 +26,6 @@ tasks:
           h_freq: 100
           notch_freqs: [60, 120]
           notch_width: 5
-      
-      resample_step:
-        enabled: true        # Set to false to skip this step
-        value: 250          # New sampling rate in Hz
       
       drop_outerlayer:
         enabled: false
@@ -51,6 +52,29 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-129"  # Type of EEG cap/electrode layout
+
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
 
       epoch_settings:
         enabled: true     
@@ -85,14 +109,21 @@ tasks:
       resample_step:
         enabled: true
         value: 250
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_width: 5
       drop_outerlayer:
         enabled: false
         value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
                 "E120", "E121", "E56", "E63", "E68", "E73", "E81", "E88", "E94",
-                "E99", "E107" ]
+                "E99", "E107"]
       eog_step:
         enabled: false
-        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
+        value: []
       trim_step:
         enabled: true
         value: 4
@@ -107,6 +138,19 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-129"
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
+          ic_rejection_threshold: 0.3
       epoch_settings:
         enabled: true
         value:
@@ -120,14 +164,7 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated"]
-      ch_cleaning_mode: "interpolate"
-      interpolate_bads_kwargs:
-        method: "spline"
-      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
-      ic_rejection_threshold: 0.3
-      remove_flagged_ics: true
+
   
   AssrDefault:
     mne_task: "assr"
@@ -137,12 +174,19 @@ tasks:
       resample_step:
         enabled: true
         value: 250
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_width: 5
       drop_outerlayer:
         enabled: false
         value: []
       eog_step:
         enabled: false
-        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
+        value: []
       trim_step:
         enabled: true
         value: 4
@@ -157,6 +201,27 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-129"
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
       epoch_settings:
         enabled: true
         value:
@@ -170,14 +235,6 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]
-      ch_cleaning_mode: "interpolate"
-      interpolate_bads_kwargs:
-        method: "spline"
-      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
-      ic_rejection_threshold: 0.3
-      remove_flagged_ics: true
 
   BB_Long:
     mne_task: "Binural Beats"
@@ -187,6 +244,13 @@ tasks:
       resample_step:
         enabled: true
         value: 250
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_width: 5
       drop_outerlayer:
         enabled: false
         value: []
@@ -207,6 +271,27 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-129"
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
       epoch_settings:
         enabled: true
         value:
@@ -291,6 +376,13 @@ tasks:
       resample_step:
         enabled: false
         value: 250
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+          notch_width: 5
       drop_outerlayer:
         enabled: false
         value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
@@ -313,6 +405,28 @@ tasks:
       montage:
         enabled: false
         value: "GSN-HydroCel-129"
+      ICA:
+        enabled: false
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+      ICLabel:
+        enabled: false
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
+
       epoch_settings:
         enabled: false
         value:
@@ -326,14 +440,6 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated"]
-      ch_cleaning_mode: "interpolate"
-      interpolate_bads_kwargs:
-        method: "spline"
-      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
-      ic_rejection_threshold: 0.3
-      remove_flagged_ics: true
 
 # OUTPUT FILE CONFIGURATION
 # Controls which processing stages save intermediate files
