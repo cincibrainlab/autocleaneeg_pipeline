@@ -188,7 +188,7 @@ tasks:
         value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
       trim_step:
         enabled: true
-        value: 1
+        value: 2
       crop_step:
         enabled: false
         value:
@@ -201,11 +201,11 @@ tasks:
         enabled: true
         value: "GSN-HydroCel-129"
       epoch_settings:
-        enabled: false
+        enabled: true
         value:
           tmin: -0.5
-          tmax: 2.7
-        event_id: null      # null means no triggers/events to use (disabled)
+          tmax: 30
+        event_id: {'DI71', 'DI12', 'DIN7', 'DI10', 'DIN8', 'DIN9', 'DI13', 'DI61', 'DI11'}     # null means no triggers/events to use (disabled)
         remove_baseline:
           enabled: false
           window: [null, 0]
@@ -214,7 +214,7 @@ tasks:
           volt_threshold: 
             eeg: 150e-6
     rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]
+      ch_flags_to_reject: ["noisy", "uncorrelated"]
       ch_cleaning_mode: "interpolate"
       interpolate_bads_kwargs:
         method: "spline"

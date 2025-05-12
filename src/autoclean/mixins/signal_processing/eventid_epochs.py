@@ -127,7 +127,7 @@ class EventIDEpochsMixin:
             event_patterns = {}  # Name and code of events to epoch by
             for event_key in event_id.keys():
                 # Could lead to undesired results if event_key is a substring of another event
-                matching_events = [k for k in event_id_all.keys() if event_key in k]
+                matching_events = [k for k in event_id_all.keys() if event_key == str(k)]
                 for match in matching_events:
                     event_patterns[match] = event_id_all[match]
 
