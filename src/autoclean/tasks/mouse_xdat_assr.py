@@ -242,7 +242,7 @@ class MouseXdatAssr(Task):
         # Validate stage_files structure
         required_stages = [
             "post_import",
-            "post_prepipeline",
+            "post_basic_steps",
             "post_epochs",
         ]
 
