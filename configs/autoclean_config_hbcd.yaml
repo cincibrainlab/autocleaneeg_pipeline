@@ -15,6 +15,13 @@ tasks:
       resample_step:
         enabled: true
         value: 1000
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_width: 5
       drop_outerlayer:
         enabled: true
         value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
@@ -22,7 +29,7 @@ tasks:
                 "E99", "E107" ]
       eog_step:
         enabled: false
-        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]
+        value: []
       trim_step:
         enabled: true
         value: 4
@@ -37,6 +44,27 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-124"
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
       epoch_settings:
         enabled: true
         value:
@@ -51,15 +79,6 @@ tasks:
           volt_threshold: 
             eeg: 200e-6
 
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated"]
-      ch_cleaning_mode: "interpolate"
-      interpolate_bads_kwargs:
-        method: "spline"
-      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
-      ic_rejection_threshold: 0.2
-      remove_flagged_ics: true  
-
   #Visual Evoked Potential task
   HBCD_VEP:
     mne_task: "VEP"
@@ -69,6 +88,12 @@ tasks:
       resample_step:
         enabled: true
         value: 1000
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60, 120]
       drop_outerlayer:
         enabled: true
         value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
@@ -91,6 +116,27 @@ tasks:
       montage:
         enabled: true
         value: "GSN-HydroCel-124"
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
       epoch_settings:
         enabled: true
         value:
@@ -104,15 +150,6 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 200e-6
-
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated"]
-      ch_cleaning_mode: "interpolate"
-      interpolate_bads_kwargs:
-        method: "spline"
-      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]
-      ic_rejection_threshold: 0.2
-      remove_flagged_ics: true  
 
 # OUTPUT FILE CONFIGURATION
 # Controls which processing stages save intermediate files
