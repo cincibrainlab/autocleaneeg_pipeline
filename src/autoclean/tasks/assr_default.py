@@ -26,56 +26,52 @@ class AssrDefault(Task):
         self.epochs = None
         super().__init__(config)
 
-    def import_data(self) -> None:
-        """Import and save raw EEG data"""
-        # Import and save raw EEG data
-        self.raw = import_eeg(self.config)
-        save_raw_to_set(self.raw, self.config, "post_import")
-
     def run(self) -> None:
         """Run the complete assr processing pipeline."""
-        self.import_data()
+        # Import and save raw EEG data
+        self.import_raw()
 
-        # Run preprocessing steps on the raw data.
-        if self.raw is None:
-            raise RuntimeError("No data has been imported")
+        # Continue with other preprocessing steps
+        self.run_basic_steps()
 
-        # Run preprocessing pipeline and save intermediate result
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        # Store a copy of the pre-cleaned raw data for comparison in reports
+        self.original_raw = self.raw.copy()
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # Run PyLossless pipeline and save result
-        self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(self.raw, self.config, "post_pylossless")
+        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
 
-        # Clean bad channels
-        self.pipeline.raw = step_clean_bad_channels(self.raw, self.config)
-        save_raw_to_set(self.pipeline.raw, self.config, "post_bad_channels")
+        self.rereference_data()
 
-        # Use PyLossless Rejection Policy
-        self.pipeline, self.cleaned_raw = step_run_ll_rejection_policy(
-            self.pipeline, self.config
+        self.annotate_noisy_epochs()
+
+        self.annotate_uncorrelated_epochs()
+
+        # #Segment rejection
+        self.detect_dense_oscillatory_artifacts()
+
+        # #ICA
+        self.run_ica()
+
+        self.run_ICLabel()
+
+        save_raw_to_set(
+            raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_clean_raw",
+            flagged=self.flagged,
         )
-        save_raw_to_set(self.cleaned_raw, self.config, "post_rejection_policy")
 
-        # Run final processing steps including epoching.
-        if self.cleaned_raw is None:
-            raise RuntimeError("Preprocessing must be completed first")
-
-        # Create event-id epochs
-        self.create_eventid_epochs()
+        # --- EPOCHING BLOCK START ---
+        self.create_regular_epochs() # Using fixed-length epochs
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
 
-        # Clean epochs
+        # Clean epochs using GFP
         self.gfp_clean_epochs()
-
-        # Save cleaned epochs
-        save_epochs_to_set(self.epochs, self.config, "post_clean_epochs")
+        # --- EPOCHING BLOCK END ---
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate assr specific configuration.
@@ -105,9 +101,7 @@ class AssrDefault(Task):
         # Validate stage_files structure
         required_stages = [
             "post_import",
-            "post_prepipeline",
-            "post_pylossless",
-            "post_rejection_policy",
+            "post_basic_steps",
             "post_clean_epochs",
         ]
 
