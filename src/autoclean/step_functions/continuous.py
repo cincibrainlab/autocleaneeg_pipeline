@@ -14,8 +14,8 @@ from matplotlib.lines import Line2D
 from autoclean.utils.database import manage_database
 
 
-def plot_bad_channels_with_topography(
-    raw_original, raw_cleaned, pipeline, autoclean_dict, zoom_duration=30, zoom_start=0
+def plot_bad_channels_with_topography( #TODO: Remove this function and add it to viz mixin
+    raw_original, raw_cleaned, autoclean_dict, zoom_duration=30, zoom_start=0
 ):
     """
     Plot bad channels with a topographical map and time series overlays
@@ -27,8 +27,6 @@ def plot_bad_channels_with_topography(
         Original raw EEG data before cleaning.
     raw_cleaned : mne.io.Raw
         Cleaned raw EEG data after interpolation of bad channels.
-    pipeline : pylossless.Pipeline
-        Pipeline object containing flags and raw data.
     autoclean_dict : dict
         Autoclean dictionary containing metadata.
     zoom_duration : float, optional

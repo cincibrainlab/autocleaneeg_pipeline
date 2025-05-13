@@ -88,16 +88,6 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
-
-    # ARTIFACT REJECTION SETTINGS
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated"]  # Types of bad channels to reject
-      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
-      interpolate_bads_kwargs:
-        method: "spline"                                    # Method for interpolating bad channels
-      ic_flags_to_reject: ["muscle", "heart", "eog", "ch_noise", "line_noise"]  # Types of components to reject
-      ic_rejection_threshold: 0.2                              # Threshold for component rejection
-      remove_flagged_ics: true          # Whether to remove marked components
                             
   
   ChirpDefault:

@@ -14,7 +14,6 @@ class ChirpDefault(Task):
 
     def __init__(self, config: Dict[str, Any]):
         self.raw = None
-        self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
         self.original_raw = None
@@ -48,9 +47,9 @@ class ChirpDefault(Task):
         # Validate stage_files structure
         required_stages = [
             "post_import",
-            "post_prepipeline",
-            "post_pylossless",
-            "post_rejection_policy",
+            "post_basicsteps",
+            "post_clean_raw",
+            "post_epochs",
             "post_comp",
         ]
 

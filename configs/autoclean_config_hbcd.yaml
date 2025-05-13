@@ -178,11 +178,6 @@ stage_files:
     enabled: false
     suffix: "_postcrop"
 
-  #PyLossless steps
-  post_pylossless:
-    enabled: true
-    suffix: "_postpylossless"
-
   post_artifact_detection:
     enabled: false
     suffix: "_postartifactdetection"
@@ -190,10 +185,6 @@ stage_files:
   post_reference:
     enabled: false
     suffix: "_postreference"
-
-  post_rejection_policy:
-    enabled: true
-    suffix: "_postrejection"
   
   post_bad_channels:
     enabled: true

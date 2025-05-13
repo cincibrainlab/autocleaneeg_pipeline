@@ -28,7 +28,6 @@ Config
    :nosignatures:
 
    config.load_config
-   config.validate_pylossless_config
    config.validate_signal_processing_params
    config.validate_eeg_system
    config.hash_and_encode_yaml

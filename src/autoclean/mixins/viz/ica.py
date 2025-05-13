@@ -57,11 +57,6 @@ class ICAReportingMixin(BaseVizMixin):
         time series. Components are color-coded by their classification/rejection status,
         and probability scores are indicated for each component.
 
-        Parameters
-        ----------
-        pipeline : pylossless.Pipeline
-            Pipeline object containing raw data and fitted ICA object.
-
         Returns
         -------
         matplotlib.figure.Figure

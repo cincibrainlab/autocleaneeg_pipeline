@@ -1,7 +1,7 @@
 Autoclean
 ====================================
 
-**Autoclean** is an automated EEG processing pipeline leveraging MNE and PyLossless. It provides a modular, task-based framework for EEG data analysis, designed as an importable Python package. Create custom pipelines tailored to your specific experimental needs.
+**Autoclean** is an automated EEG processing pipeline leveraging MNE. It provides a modular, task-based framework for EEG data analysis, designed as an importable Python package. Create custom pipelines tailored to your specific experimental needs.
 
 Features
 --------
@@ -45,7 +45,6 @@ Quick Example
    pipeline = Pipeline(
        autoclean_dir="path/to/your/results",
        autoclean_config="path/to/your/autoclean_config.yaml",
-       # lossless_config="path/to/your/lossless_config.yaml" # Optional
    )
 
    # Process a single EEG file using a specific task

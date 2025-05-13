@@ -54,7 +54,6 @@ SignalProcessingMixin
    segmentation.SegmentationMixin
    reference.ReferenceMixin
    resampling.ResamplingMixin
-   pylossless.PyLosslessMixin
    channels.ChannelsMixin
    artifacts.ArtifactsMixin
    eventid_epochs.EventIDEpochsMixin
