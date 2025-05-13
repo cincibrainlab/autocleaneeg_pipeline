@@ -5,13 +5,88 @@
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, Tuple
 
 import mne
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
+from autoclean.utils.bids import step_convert_to_bids
 from autoclean.utils.database import manage_database
+from autoclean.utils.logging import message
+
+
+def step_create_bids_path(
+    raw: mne.io.Raw, autoclean_dict: Dict[str, Any]
+) -> Tuple[mne.io.Raw, Dict[str, Any]]:
+    """Create BIDS-compliant paths."""
+    message("header", "step_create_bids_path")
+    unprocessed_file = autoclean_dict["unprocessed_file"]
+    task = autoclean_dict["task"]
+    mne_task = autoclean_dict["tasks"][task]["mne_task"]
+    bids_dir = autoclean_dict["bids_dir"]
+    eeg_system = autoclean_dict["eeg_system"]
+    config_file = autoclean_dict["config_file"]
+
+    try:
+        line_freq = autoclean_dict["tasks"][task]["settings"]["filtering"]["value"]["notch_freqs"][0]
+    except Exception as e:  # pylint: disable=broad-except
+        message("error", f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.")
+        line_freq = 60.0
+
+    try:
+        bids_path, derivatives_dir = step_convert_to_bids(
+            raw,
+            output_dir=str(bids_dir),
+            task=mne_task,
+            participant_id=None,
+            line_freq=line_freq,
+            overwrite=True,
+            study_name=unprocessed_file.stem,
+            autoclean_dict=autoclean_dict,
+        )
+
+        autoclean_dict["bids_path"] = bids_path
+        autoclean_dict["bids_basename"] = bids_path.basename
+        autoclean_dict["derivatives_dir"] = derivatives_dir
+        metadata = {
+            "step_convert_to_bids": {
+                "creationDateTime": datetime.now().isoformat(),
+                "bids_subject": bids_path.subject,
+                "bids_task": bids_path.task,
+                "bids_run": bids_path.run,
+                "bids_session": bids_path.session,
+                "bids_dir": str(bids_dir),
+                "bids_datatype": bids_path.datatype,
+                "bids_suffix": bids_path.suffix,
+                "bids_extension": bids_path.extension,
+                "bids_root": str(bids_path.root),
+                "eegSystem": eeg_system,
+                "configFile": str(config_file),
+                "line_freq": line_freq,
+                "derivatives_dir": str(derivatives_dir),
+            }
+        }
+
+        manage_database(
+            operation="update",
+            update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
+        )
+
+        manage_database(
+            operation="update_status",
+            update_record={
+                "run_id": autoclean_dict["run_id"],
+                "status": "bids_path_created",
+            },
+        )
+
+        return raw, autoclean_dict
+
+    except Exception as e:
+        message("error", f"Error converting raw to bids: {e}")
+        raise e
 
 
 def plot_bad_channels_with_topography( #TODO: Remove this function and add it to viz mixin

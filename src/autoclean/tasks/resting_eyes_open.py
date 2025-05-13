@@ -12,7 +12,6 @@ from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
-    step_run_ll_rejection_policy,
 )
 from autoclean.utils.logging import message
 
