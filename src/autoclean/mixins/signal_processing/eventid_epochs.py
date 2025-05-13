@@ -376,10 +376,10 @@ class EventIDEpochsMixin:
                 self.epochs = epochs_clean
 
             # Save epochs
-            final_stage = "post_drop_bad_epochs" if not keep_all_epochs else "post_epochs_all_kept"
-            self._save_epochs_result(
-                result_data=epochs_clean, stage_name=final_stage
-            )
+            if not keep_all_epochs:
+                self._save_epochs_result(
+                    result_data=epochs_clean, stage_name='post_drop_bad_epochs'
+                )
 
             return epochs_clean
 

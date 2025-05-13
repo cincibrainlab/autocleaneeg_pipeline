@@ -5,7 +5,7 @@ from autoclean import Pipeline
 
 async def main():
     # Define paths - modify these to match your system
-    EXAMPLE_OUTPUT_DIR = Path("/path/to/output/directory")  # Where processed data will be stored
+    EXAMPLE_OUTPUT_DIR = Path("/srv2/RAWDATA/1_NBRT_LAB_STUDIES/Proj_Entrain/BB_long/Autoclean_output")  # Where processed data will be stored
     CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
 
     """Example of batch processing multiple EEG files asynchronously."""
@@ -17,14 +17,14 @@ async def main():
     )
 
     # Example INPUT directory path - modify this to point to your EEG files
-    directory = Path("/path/to/input/directory")
+    directory = Path("/srv2/RAWDATA/1_NBRT_LAB_STUDIES/Proj_Entrain/BB_long/RAW")
 
     # Process all files in directory
     await pipeline.process_directory_async(
         directory=directory,
-        task="RestingEyesOpen",  # Choose appropriate task
+        task="BB_Long",  # Choose appropriate task
         sub_directories=False, # Optional: process files in subdirectories
-        pattern="*.set", # Optional: specify a pattern to filter files (use "*.extention" for all files of that extension)
+        pattern="*.raw", # Optional: specify a pattern to filter files (use "*.extention" for all files of that extension)
         max_concurrent=2 # Optional: specify the maximum number of concurrent processes
     )
 
