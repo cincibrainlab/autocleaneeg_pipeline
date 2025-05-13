@@ -19,7 +19,6 @@ class BB_Long(Task): # pylint: disable=invalid-name
 
     def __init__(self, config: Dict[str, Any]):
         self.raw = None
-        self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
         super().__init__(config)

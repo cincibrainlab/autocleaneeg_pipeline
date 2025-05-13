@@ -46,7 +46,6 @@ class MouseXdatAssr(Task):
         """
         # Initialize instance variables
         self.raw = None
-        self.pipeline = None
         self.original_raw = None
         self.epochs = None
 
@@ -220,8 +219,6 @@ class MouseXdatAssr(Task):
             Override this method if you need custom visualizations.
         """
         self.verify_topography_plot()
-
-        # self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw, self.pipeline, self.config)
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Add your validation logic here

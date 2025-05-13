@@ -101,14 +101,11 @@ AutoClean uses YAML files for configuration. The main configuration file specifi
      RestingEyesOpen:
        mne_task: "rest"
        description: "Resting state with eyes open"
-       lossless_config: configs/pylossless/lossless_config.yaml
        settings:
          resample_step:
            enabled: true
            value: 250
          # Additional settings...
-       rejection_policy:
-         # Artifact rejection settings...
 
 Provided and Example configuration files can be found in the `configs` directory.
 

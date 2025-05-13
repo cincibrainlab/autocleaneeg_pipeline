@@ -123,64 +123,6 @@ def load_config(config_file: Path) -> dict:
     return autoclean_dict
 
 
-# def validate_pylossless_config(
-#     autoclean_dict: dict, task: str, config_file_path: Path
-# ) -> dict:
-#     """Validate and locate the pylossless configuration file for a given task.
-
-#     This function checks if the pylossless configuration file exists at the specified path.
-#     If not found at the absolute path, it attempts to find it relative to the main config
-#     file directory. Updates the config dictionary with the full path if found.
-
-#     Parameters
-#     ----------
-#     autoclean_dict : dict
-#         Configuration dictionary containing task settings
-#     task : str
-#         Name of the current processing task
-#     config_file_path : Path
-#         Path to the main configuration file
-
-#     Returns
-#     -------
-#     dict
-#         Updated configuration dictionary
-
-#     Examples
-#     --------
-#     >>> validate_pylossless_config(
-#     ...     autoclean_dict={"tasks": {"rest": {"lossless_config": "lossless.yaml"}}},
-#     ...     task="rest",
-#     ...     config_file_path=Path("/path/to/config.yaml")
-#     ... )
-#     """
-#     lossless_config_path = autoclean_dict["tasks"][task]["lossless_config"]
-#     message(
-#         "debug",
-#         f"[{task}] Validating pylossless config at path: {lossless_config_path}",
-#     )
-
-#     # Check if lossless config exists at specified path
-#     if not Path(lossless_config_path).exists():
-#         # Try finding it relative to main config file directory
-#         message(
-#             "debug",
-#             f"[{task}] Trying to find pylossless config relative to main config file directory",
-#         )
-#         relative_path = config_file_path.parent / Path(lossless_config_path).name
-#         if relative_path.exists():
-#             # Update config dict with full path
-#             autoclean_dict["tasks"][task]["lossless_config"] = str(relative_path)
-#             message("success", f"[{task}] Found pylossless config at: {relative_path}")
-#         else:
-#             message(
-#                 "warning",
-#                 f"[{task}] Could not find pylossless config at {lossless_config_path} or {relative_path}",
-#             )
-
-#     return autoclean_dict
-
-
 def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
     """Validate signal processing parameters for physical constraints.
 

@@ -11,7 +11,6 @@ from autoclean.mixins.signal_processing.channels import ChannelsMixin
 from autoclean.mixins.signal_processing.eventid_epochs import EventIDEpochsMixin
 from autoclean.mixins.signal_processing.gfp_clean_epochs import GFPCleanEpochsMixin
 from autoclean.mixins.signal_processing.prepare_epochs_ica import PrepareEpochsICAMixin
-from autoclean.mixins.signal_processing.pylossless import PyLosslessMixin
 from autoclean.mixins.signal_processing.reference import ReferenceMixin
 from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
 from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
@@ -23,7 +22,6 @@ __all__ = [
     "ArtifactsMixin",
     "ChannelsMixin",
     "ReferenceMixin",
-    "PyLosslessMixin",
     "EventIDEpochsMixin",
     "RegularEpochsMixin",
     "PrepareEpochsICAMixin",

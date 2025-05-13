@@ -71,7 +71,6 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         self.epochs: Optional[mne.Epochs] = None  # Holds epoched data segments
         self.flagged = False
         self.flagged_reasons = []
-        self.pipeline = None
         self.fast_ica: Optional[mne.ICA] = None
         self.final_ica: Optional[mne.ICA] = None
         self.ica_flags = None

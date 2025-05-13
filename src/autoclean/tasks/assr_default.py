@@ -8,11 +8,7 @@ from autoclean.io.import_ import import_eeg
 
 from autoclean.core.task import Task
 from autoclean.step_functions.continuous import (
-    step_clean_bad_channels,
     step_create_bids_path,
-    step_pre_pipeline_processing,
-    step_run_ll_rejection_policy,
-    step_run_pylossless,
 )
 
 
@@ -21,7 +17,6 @@ class AssrDefault(Task):
 
     def __init__(self, config: Dict[str, Any]):
         self.raw = None
-        self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
         super().__init__(config)

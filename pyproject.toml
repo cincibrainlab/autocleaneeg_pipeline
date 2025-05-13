@@ -40,7 +40,6 @@ dependencies = [
     "eeglabio>=0.0.3",
     "autoreject>=0.3.0",
     "python-ulid>=1.0.0",
-    "pylossless @ git+https://github.com/lina-usc/pylossless.git",
     "cython>=0.29.0",
     "unqlite>=0.9.3",
     "scipy>=1.7.0",

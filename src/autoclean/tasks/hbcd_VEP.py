@@ -31,7 +31,6 @@ class HBCD_VEP(Task): # pylint: disable=invalid-name
         """
         # Initialize instance variables
         self.raw = None
-        self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
         self.original_raw = None

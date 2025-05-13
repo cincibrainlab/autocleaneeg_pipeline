@@ -36,16 +36,13 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
            def __init__(self, config: Dict[str, Any]) -> None:
                """Initialize the task instance."""
                self.raw: Optional[mne.io.Raw] = None
-               self.pipeline: Optional[Any] = None
                self.epochs: Optional[mne.Epochs] = None
                self.original_raw: Optional[mne.io.Raw] = None
 
                 # Stages that should be configured in the autoclean_config.yaml file
                 self.required_stages = [
                     "post_import",
-                    "post_prepipeline",
-                    "post_pylossless",
-                    "post_rejection_policy",
+                    "post_basicsteps",
                     "post_clean_raw",
                     "post_epochs",
                     "post_comp",
@@ -77,15 +74,6 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
                # 3. BIDS Path Step Function
                self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-               # 4. PyLossless & Artifact Detection (Example using Mixin Methods)
-               # self.pipeline, self.raw = self.step_custom_pylossless_pipeline(self.config)
-               # self.detect_dense_oscillatory_artifacts()
-
-               # 5. Rejection Policy (Example using Step Function)
-               # if self.pipeline: 
-               #    self.pipeline.raw = self.raw
-               #    self.pipeline, self.raw = step_run_ll_rejection_policy(self.pipeline, self.config)
-               #    save_raw_to_set(self.raw, self.config, "post_rejection_policy", self.flagged)
 
                # 6. Channel Cleaning (Example using Mixin Method)
                self.clean_bad_channels(cleaning_method="interpolate") # Reads config
@@ -114,12 +102,6 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
                 """Generate standard reports."""
                 if self.raw is None or self.original_raw is None:
                     return
-
-                # Example calls (adapt based on steps run)
-                # if self.pipeline:
-                #    self.plot_ica_full(self.pipeline, self.config)
-                #    self.generate_ica_reports(self.pipeline, self.config)
-                #    self.step_psd_topo_figure(self.original_raw, self.raw, self.pipeline, self.config)
 
                 # if self.epochs:
                 #    self.plot_epochs_image(self.epochs)

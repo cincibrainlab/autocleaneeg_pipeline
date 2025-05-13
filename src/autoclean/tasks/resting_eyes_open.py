@@ -25,7 +25,6 @@ class RestingEyesOpen(Task):
 
     Attributes:
         raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline
-        pipeline (Any): PyLossless pipeline instance after preprocessing
         epochs (mne.Epochs): Epoched data after processing
         original_raw (mne.io.Raw): Original unprocessed raw data, preserved for comparison
     """
@@ -36,7 +35,6 @@ class RestingEyesOpen(Task):
         Args:
             config: Configuration dictionary containing all settings.
         """
-        self.pipeline: Optional[Any] = None
         self.original_raw: Optional[mne.io.Raw] = None
 
         self.required_stages = [
