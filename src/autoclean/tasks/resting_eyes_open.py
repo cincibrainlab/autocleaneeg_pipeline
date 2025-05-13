@@ -74,7 +74,7 @@ class RestingEyesOpen(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True) #reset_bads needs to be true if running ICA later
 
         self.rereference_data()
 
@@ -110,21 +110,7 @@ class RestingEyesOpen(Task):
         # Generate visualization reports
         self.generate_reports()
 
-    def generate_reports(self) -> None:
-        """Generate quality control visualizations and reports.
 
-        Creates standard visualization reports including:
-        1. Raw vs cleaned data overlay
-        2. ICA components
-        3. ICA details
-        4. PSD topography
-
-        The reports are saved in the debug directory specified
-        in the configuration.
-
-        Note:
-            This is automatically called by run().
-        """
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports.
 
