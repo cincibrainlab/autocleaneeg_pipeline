@@ -106,7 +106,7 @@ class BB_Long(Task): # pylint: disable=invalid-name
 
         # Plot raw vs cleaned overlay using mixin method using mixin method
         self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.pipeline.raw, self.cleaned_raw, self.config
         )
 
         # Plot ICA components using mixin method using mixin method
@@ -117,7 +117,7 @@ class BB_Long(Task): # pylint: disable=invalid-name
 
         # Create PSD topography figure using mixin method using mixin method
         self.step_psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.pipeline, self.config
+            self.pipeline.raw, self.cleaned_raw, self.config
         )
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
