@@ -42,83 +42,83 @@ class BB_Long(Task): # pylint: disable=invalid-name
         save_raw_to_set(self.raw, self.config, "post_import")
 
     def run(self) -> None:
-        """Run the complete resting state processing pipeline."""
-        self.import_data()
+        # Import and save raw EEG data
+        self.import_raw()
 
-        # Run preprocessing steps on the raw data.
-        if self.raw is None:
-            raise RuntimeError("No data has been imported")
+        # Continue with other preprocessing steps
+        self.run_basic_steps()
 
-        # Run preprocessing pipeline and save intermediate result
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_prepipeline",
-            flagged=self.flagged,
-        )
+        # Store a copy of the pre-cleaned raw data for comparison in reports
+        self.original_raw = self.raw.copy()
 
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # Run PyLossless pipeline and save result
-        self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_pylossless",
-            flagged=self.flagged,
-        )
+        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True) #reset_bads needs to be true if running ICA later
 
-        # Apply PyLossless Rejection Policy for artifact removal
-        self.pipeline, self.raw = step_run_ll_rejection_policy(
-            self.pipeline, self.config
-        )
+        self.rereference_data()
 
-        # Detect and mark dense oscillatory artifacts
+        self.annotate_noisy_epochs()
+
+        self.annotate_uncorrelated_epochs()
+
+        # #Segment rejection
         self.detect_dense_oscillatory_artifacts()
 
-        # Detect and mark muscle artifacts in beta frequency range
-        self.detect_muscle_beta_focus(self.raw)
+        # #ICA
+        self.run_ica()
+
+        self.run_ICLabel()
 
         save_raw_to_set(
             raw=self.raw,
             autoclean_dict=self.config,
-            stage="post_artifact_detection",
+            stage="post_clean_raw",
             flagged=self.flagged,
         )
 
-        self.create_eventid_epochs(reject_by_annotation=False)
+        # --- EPOCHING BLOCK START ---
+        self.create_regular_epochs() # Using fixed-length epochs
 
+        # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
 
+        # Clean epochs using GFP
         self.gfp_clean_epochs()
-
-        self._generate_reports()
+        # --- EPOCHING BLOCK END ---
 
         # Generate visualization reports
-        self._generate_reports()
+        self.generate_reports()
 
-    def _generate_reports(self) -> None:
-        """Generate all visualization reports."""
-        if self.pipeline is None or self.raw is None:
+    def generate_reports(self) -> None:
+        """Generate quality control visualizations and reports.
+
+        Creates standard visualization reports including:
+        1. Raw vs cleaned data overlay
+        2. ICA components
+        3. ICA details
+        4. PSD topography
+
+        The reports are saved in the debug directory specified
+        in the configuration.
+
+        Note:
+            This is automatically called by run().
+        """
+        if self.raw is None or self.original_raw is None:
             return
 
-        # Plot raw vs cleaned overlay using mixin method using mixin method
-        self.plot_raw_vs_cleaned_overlay(
-            self.pipeline.raw, self.cleaned_raw, self.config
-        )
+        # Plot raw vs cleaned overlay using mixin method
+        self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
 
-        # Plot ICA components using mixin method using mixin method
-        self.plot_ica_full(self.pipeline, self.config)
+        # Plot PSD topography using mixin method
+        self.step_psd_topo_figure(self.original_raw, self.raw)
 
-        # # Generate ICA reports using mixin method using mixin method (uncomment if needed)
-        self.generate_ica_reports(self.pipeline, self.config)
+        # Plot ICA components using mixin method
+        self.plot_ica_full()
 
-        # Create PSD topography figure using mixin method using mixin method
-        self.step_psd_topo_figure(
-            self.pipeline.raw, self.cleaned_raw, self.config
-        )
+        # Generate ICA reports using mixin method
+        self.generate_ica_reports()
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         """Validate resting state specific configuration.
@@ -148,11 +148,9 @@ class BB_Long(Task): # pylint: disable=invalid-name
         # Validate stage_files structure
         required_stages = [
             "post_import",
-            "post_prepipeline",
-            "post_pylossless",
-            "post_bad_channels",
-            "post_rejection_policy",
+            "post_basic_steps", #filtering, cropping, trimming, etc.
             "post_cleaned_raw",
+            "post_comp",
         ]
 
         for stage in required_stages:
