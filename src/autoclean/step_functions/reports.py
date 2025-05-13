@@ -662,15 +662,8 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                         )
         else:
             # Fall back to metadata
-            # Add any available results data from metadata
-            if "step_run_ll_rejection_policy" in run_record["metadata"]:
-                rejection_data = run_record["metadata"]["step_run_ll_rejection_policy"]
-                if "ica_components" in rejection_data:
-                    components = rejection_data["ica_components"]
-                    if isinstance(components, list):
-                        results_data.append(
-                            ["Removed ICA Components", ", ".join(map(str, components))]
-                        )
+            pass
+
     except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing results data: {str(e)}")
         results_data = [["Error processing results", "N/A"]]
@@ -1228,10 +1221,6 @@ def create_json_summary(run_id: str) -> dict:
         ]
 
     ica_details = {}
-    if "step_run_ll_rejection_policy" in metadata:
-        ll_rejection_policy = metadata["step_run_ll_rejection_policy"]
-        ica_details["proc_removeComps"] = ll_rejection_policy["ica_components"]
-        ica_details["proc_nComps"] = ll_rejection_policy["n_components"]
 
     if "step_detect_dense_oscillatory_artifacts" in metadata:
         ref_artifacts = metadata["step_detect_dense_oscillatory_artifacts"][

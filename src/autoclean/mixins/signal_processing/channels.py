@@ -76,23 +76,6 @@ class ChannelsMixin:
         ):
             raise TypeError("Data must be an MNE Raw object for bad channel detection")
 
-        # Check configuration for rejection policy
-        if hasattr(self, "config"):
-            task = self.config.get("task")
-
-            # Get rejection policy from config
-            rejection_policy = (
-                self.config.get("tasks", {}).get(task, {}).get("rejection_policy", {})
-            )
-
-            if rejection_policy:
-                # Update parameters from rejection policy if available
-                for key in rejection_policy:
-                    if key == "ic_rejection_threshold":
-                        correlation_thresh = rejection_policy[key]
-                    elif key == "ch_cleaning_mode":
-                        ransac_channel_wise = rejection_policy[key] == "ransac"
-
         try:
             # Check if "eog" is in channel types and handle EOG channels if needed
             if (

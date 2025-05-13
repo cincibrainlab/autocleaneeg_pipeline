@@ -67,9 +67,6 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
                if self.raw is None: return # Early exit if import fails
                self.original_raw = self.raw.copy()
 
-               # 2. Preprocessing Step Function
-               self.raw = step_pre_pipeline_processing(self.raw, self.config)
-               save_raw_to_set(self.raw, self.config, "post_prepipeline", self.flagged)
 
                # 3. BIDS Path Step Function
                self.raw, self.config = step_create_bids_path(self.raw, self.config)
@@ -118,7 +115,7 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
          MyParadigm:
            description: "Processing for MyParadigm"
            settings:
-             # Config for step_pre_pipeline_processing 
+             # Config for basic_steps
              resample_step: { enabled: true, value: 250 }
              filter_step: { enabled: true, value: { l_freq: 0.1, h_freq: 40 } }
              # Config for clean_bad_channels 

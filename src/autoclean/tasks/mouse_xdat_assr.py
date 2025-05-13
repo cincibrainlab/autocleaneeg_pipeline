@@ -17,7 +17,6 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
-    step_pre_pipeline_processing,
 )
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
