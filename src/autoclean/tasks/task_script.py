@@ -83,7 +83,9 @@ class TestingRest(Task):
         # #ICA
         self.run_ica()
 
-        self.run_ICLabel()
+        self.classify_ica_components_vision()
+
+        # self.run_ICLabel()
 
         save_raw_to_set(
             raw=self.raw,

@@ -227,6 +227,113 @@ class ICAReportingMixin(BaseVizMixin):
 
         self._update_metadata("generate_ica_reports", metadata)
 
+    def plot_ica_vision_results(self):
+        """Plot ICA components with their OpenAI Vision classification.
+        
+        This method creates a figure showing each ICA component's properties along with
+        their classification from the OpenAI Vision API. It's designed to be called after
+        running the classify_ica_components_vision method.
+        
+        Returns
+        -------
+        matplotlib.figure.Figure
+            The generated figure with ICA components and their classifications.
+            
+        Notes
+        -----
+        - This method requires that classify_ica_components_vision has been run
+          and self.ica_vision_flags is available.
+        - Components classified as artifacts are highlighted in red, brain components in green.
+        """
+        # Check if vision classification has been performed
+        if not hasattr(self, 'ica_vision_flags') or self.ica_vision_flags is None:
+            message("error", "ICA vision classification results not found. Please run classify_ica_components_vision first.")
+            return None
+            
+        # Get raw and ICA from pipeline
+        raw = self.raw.copy()
+        ica = self.final_ica
+        
+        # Get the classification results
+        vision_results = self.ica_vision_flags
+        
+        # Create a figure for the summary visualization
+        fig = plt.figure(figsize=(15, 10))
+        gs = GridSpec(2, 1, height_ratios=[1, 3], figure=fig)
+        
+        # Top subplot: Summary bar chart
+        ax_summary = fig.add_subplot(gs[0])
+        
+        # Prepare data for bar chart
+        n_components = len(vision_results)
+        indices = np.arange(n_components)
+        bar_heights = np.ones(n_components)  # Fixed height bars
+        
+        # Color coding based on classification
+        bar_colors = []
+        for _, row in vision_results.iterrows():
+            if row['label'] == 'brain':
+                bar_colors.append('green')
+            else:  # artifact
+                bar_colors.append('red')
+        
+        # Create bars
+        bars = ax_summary.bar(indices, bar_heights, color=bar_colors)
+        
+        # Annotate bars with confidence scores
+        for idx, (_, row) in enumerate(vision_results.iterrows()):
+            ax_summary.text(
+                idx, 
+                0.5,  # Middle of bar
+                f"{row['confidence']:.2f}",
+                ha='center',
+                va='center',
+                color='white',
+                fontweight='bold'
+            )
+        
+        # Customize summary plot
+        ax_summary.set_title("ICA Components Classification Summary (OpenAI Vision)", fontsize=14)
+        ax_summary.set_xlabel("Component Number", fontsize=12)
+        ax_summary.set_xticks(indices)
+        ax_summary.set_xticklabels([f"IC{i+1}" for i in range(n_components)])
+        ax_summary.set_yticks([])  # Hide y-axis ticks
+        ax_summary.set_ylabel("Classification", fontsize=12)
+        
+        # Add legend
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='green', label='Brain'),
+            Patch(facecolor='red', label='Artifact')
+        ]
+        ax_summary.legend(handles=legend_elements, loc='upper right')
+        
+        # Bottom subplot: Detailed grid of component topomaps
+        ax_topos = fig.add_subplot(gs[1])
+        
+        # Use ICA's plot_components method to add topographies
+        ica.plot_components(picks=range(n_components), axes=ax_topos, show=False)
+        
+        # Save the figure
+        derivatives_dir = Path(self.config["derivatives_dir"])
+        basename = self.config["bids_path"].basename
+        basename = basename.replace("_eeg", "_ica_vision_summary")
+        target_figure = derivatives_dir / basename
+        
+        # Save figure with higher DPI
+        fig.savefig(target_figure, dpi=300, bbox_inches="tight")
+        
+        metadata = {
+            "artifact_reports": {
+                "creationDateTime": datetime.now().isoformat(),
+                "ica_vision_summary": Path(target_figure).name,
+            }
+        }
+        
+        self._update_metadata("plot_ica_vision_results", metadata)
+        
+        return fig
+
     def _plot_ica_components(
         self,
         duration: int = 10,
@@ -496,3 +603,155 @@ class ICAReportingMixin(BaseVizMixin):
         )
 
         fig.savefig(derivatives_dir / "ica_topography.png")
+
+    def compare_vision_iclabel_classifications(self):
+        """Compare ICLabel and Vision API classifications for ICA components.
+        
+        This method creates a comparison report between ICLabel and OpenAI Vision
+        classifications of ICA components, highlighting agreements and disagreements.
+        It requires both classify_ica_components_vision and run_ICLabel to have been run.
+        
+        Returns
+        -------
+        matplotlib.figure.Figure
+            Figure showing the comparison of classifications.
+        """
+        # Check if both ICLabel and Vision classifications exist
+        if not hasattr(self, 'ica_flags') or self.ica_flags is None:
+            message("error", "ICLabel results not found. Please run run_ICLabel first.")
+            return None
+            
+        if not hasattr(self, 'ica_vision_flags') or self.ica_vision_flags is None:
+            message("error", "Vision classification results not found. Please run classify_ica_components_vision first.")
+            return None
+            
+        # Get the classification results
+        iclabel_results = self.ica_flags
+        vision_results = self.ica_vision_flags
+        
+        # Prepare data for comparison
+        n_components = len(iclabel_results)
+        
+        # Create mapping for ICLabel categories to binary brain/artifact
+        iclabel_mapping = {
+            'brain': 'brain',
+            'eog': 'artifact',
+            'muscle': 'artifact',
+            'ecg': 'artifact',
+            'ch_noise': 'artifact',
+            'line_noise': 'artifact',
+            'other': 'artifact'
+        }
+        
+        # Create a figure for the comparison
+        fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 10))
+        
+        # First subplot: Bar chart comparison
+        indices = np.arange(n_components)
+        bar_width = 0.4
+        
+        # Create binary coding (1 for brain, 0 for artifact)
+        iclabel_binary = np.array([1 if iclabel_mapping.get(iclabel_results.iloc[i]['ic_type'].lower(), 'artifact') == 'brain' else 0 
+                                  for i in range(n_components)])
+        vision_binary = np.array([1 if vision_results.iloc[i]['label'] == 'brain' else 0 
+                                 for i in range(n_components)])
+        
+        # Plot bars
+        ax1.bar(indices - bar_width/2, iclabel_binary, bar_width, label='ICLabel', color='blue', alpha=0.6)
+        ax1.bar(indices + bar_width/2, vision_binary, bar_width, label='Vision API', color='orange', alpha=0.6)
+        
+        # Highlight disagreements
+        disagreements = np.where(iclabel_binary != vision_binary)[0]
+        if len(disagreements) > 0:
+            for idx in disagreements:
+                ax1.annotate('*', xy=(idx, 1.1), xytext=(idx, 1.1),
+                           ha='center', va='bottom', fontsize=12, color='red')
+        
+        # Customize plot
+        ax1.set_title("Classification Comparison: ICLabel vs. Vision API", fontsize=14)
+        ax1.set_xlabel("Component Number", fontsize=12)
+        ax1.set_xticks(indices)
+        ax1.set_xticklabels([f"IC{i+1}" for i in range(n_components)])
+        ax1.set_yticks([0, 1])
+        ax1.set_yticklabels(['Artifact', 'Brain'])
+        ax1.legend()
+        
+        # Second subplot: Agreement table
+        ax2.axis('tight')
+        ax2.axis('off')
+        
+        # Prepare table data
+        table_data = []
+        cell_colors = []
+        agreement_count = 0
+        
+        for i in range(n_components):
+            iclabel_category = iclabel_results.iloc[i]['ic_type']
+            iclabel_type = iclabel_mapping.get(iclabel_category.lower(), 'artifact')
+            iclabel_conf = iclabel_results.iloc[i]['confidence']
+            
+            vision_type = vision_results.iloc[i]['label']
+            vision_conf = vision_results.iloc[i]['confidence']
+            
+            agreement = "✓" if iclabel_type == vision_type else "✗"
+            if iclabel_type == vision_type:
+                agreement_count += 1
+                bg_color = "#d4edda"  # Light green
+            else:
+                bg_color = "#f8d7da"  # Light red
+            
+            table_data.append([
+                f"IC{i+1}",
+                iclabel_category,
+                f"{iclabel_conf:.2f}",
+                vision_type.title(),
+                f"{vision_conf:.2f}",
+                agreement
+            ])
+            
+            cell_colors.append([bg_color] * 6)
+        
+        # Add agreement percentage to the end
+        agreement_pct = (agreement_count / n_components) * 100
+        
+        # Create and customize table
+        table = ax2.table(
+            cellText=table_data,
+            colLabels=["Component", "ICLabel Category", "ICLabel Conf.", "Vision Type", "Vision Conf.", "Agreement"],
+            loc="center",
+            cellLoc="center",
+            cellColours=cell_colors
+        )
+        
+        # Customize table appearance
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1.2, 1.5)
+        
+        # Add agreement percentage as text
+        ax2.text(0.5, -0.1, f"Overall Agreement: {agreement_pct:.1f}% ({agreement_count}/{n_components} components)",
+                ha='center', va='center', transform=ax2.transAxes, fontsize=12, fontweight='bold')
+        
+        # Adjust layout
+        plt.tight_layout()
+        fig.subplots_adjust(hspace=0.3)
+        
+        # Save the figure
+        derivatives_dir = Path(self.config["derivatives_dir"])
+        basename = self.config["bids_path"].basename
+        basename = basename.replace("_eeg", "_ica_classification_comparison")
+        target_figure = derivatives_dir / basename
+        
+        # Save figure with higher DPI
+        fig.savefig(target_figure, dpi=300, bbox_inches="tight")
+        
+        metadata = {
+            "artifact_reports": {
+                "creationDateTime": datetime.now().isoformat(),
+                "ica_classification_comparison": Path(target_figure).name,
+            }
+        }
+        
+        self._update_metadata("compare_vision_iclabel_classifications", metadata)
+        
+        return fig
