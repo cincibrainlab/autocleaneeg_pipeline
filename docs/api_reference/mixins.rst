@@ -47,15 +47,15 @@ SignalProcessingMixin
    
    
 
-   segmentation.SegmentationMixin
-   reference.ReferenceMixin
-   resampling.ResamplingMixin
+   basic_steps.BasicStepsMixin
    channels.ChannelsMixin
    artifacts.ArtifactsMixin
    eventid_epochs.EventIDEpochsMixin
    regular_epochs.RegularEpochsMixin
    prepare_epochs_ica.PrepareEpochsICAMixin
    gfp_clean_epochs.GFPCleanEpochsMixin
+   ica.IcaMixin
+   segment_rejection.SegmentRejectionMixin
 
 .. currentmodule:: autoclean.mixins.viz
 

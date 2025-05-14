@@ -18,9 +18,9 @@ class BasicStepsMixin:
 
         The steps included are:
         1. Resample Data
-        2. Drop Outer Layer Channels
-        3. Assign EOG Channels
-        4. Rereference Data
+        2. Filter Data
+        3. Drop Outer Layer Channels
+        4. Assign EOG Channels
         5. Trim Edges
         6. Crop Duration
 
