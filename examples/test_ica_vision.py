@@ -28,75 +28,57 @@ EXAMPLE_ICA_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/der
 
 # --- New Batch Configuration ---
 START_COMPONENT_INDEX = 0  # Starting component index for the batch
-NUM_COMPONENTS_TO_BATCH = 5 # Number of components to process in this batch
+NUM_COMPONENTS_TO_BATCH = 15 # Number of components to process in this batch
 OUTPUT_DIR_PATH = "./ica_vision_test_output" # Directory to save plots and JSON results
 # --- End New Batch Configuration ---
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 # !!!          EDIT YOUR EXPERIMENTAL PROMPT BELOW        !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-CUSTOM_OPENAI_ICA_PROMPT = """Analyze this EEG ICA component image and classify it.
+CUSTOM_OPENAI_ICA_PROMPT = """Analyze this EEG ICA component image and classify into ONE category:
 
-The image displays an Independent Component (IC) from an EEG recording. It includes:
-1. A scalp topography map showing the spatial distribution of the component's activity.
-2. A Power Spectral Density (PSD) plot showing the component's power at different frequencies.
-3. Time series plots of the component's activity over the first 30 seconds.
+- "brain": Dipolar pattern in CENTRAL/PARIETAL/TEMPORAL regions (NOT frontal/edges). 1/f spectrum with possible peaks at 8-12Hz. Wave-like time series WITHOUT step-shifts.
 
-Based on a comprehensive analysis of ALL these features, classify the component into ONE of the following categories:
+- "eye": 
+  * LEFT-RIGHT FRONTAL dipolar pattern (red-blue on opposite sides) = DEFINITIVE for horizontal eye movements, regardless of other features.
+  * Step-like, square-wave patterns in time series are clear indicators of lateral eye movements.
+  * DO NOT be misled by 60Hz notches in the spectrum - these are normal filtering artifacts, NOT line noise.
+  * Important distinction: Eye components have dipolar (two-sided) frontal activity, unlike channel noise which has only a single focal point.
+  * RULE: If you see LEFT-RIGHT FRONTAL dipole pattern, classify as "eye" even if time series or spectrum is ambiguous.
 
-- "brain":
-    - *Topography:* Often looks dipolar (distinct positive and negative poles). A good dipole fit is suggested by a clean, bilobed pattern, and the source appears to be located within the brain. Scalp map is not excessively concentrated to a single electrode. While brain components can be frontal and dipolar, always cross-reference with the time series to exclude eye movement patterns (see 'eye' component description).
-    - *Spectrum:* Shows a 1/f-like decrease in power with increasing frequency (i.e., power diminishes at higher frequencies). Often has distinct peaks in physiological bands (e.g., alpha around 8-12 Hz, but also other peaks between 5-30 Hz are common).
-    - *Time Series:* Often characterized by **rhythmic or quasi-rhythmic oscillations** (e.g., alpha, beta bands) or more complex, but still fundamentally **wave-like activity without sharp, sustained DC offsets or step-like shifts**. It should **not** exhibit abrupt, sustained shifts in amplitude between distinct levels, which are characteristic of eye saccades (see 'eye' time series).
+- "muscle": 
+  * DISTRIBUTED activity along EDGE of scalp (temporal/occipital/neck regions).
+  * MUST show high-frequency power (>20Hz).
+  * NOT isolated to single electrode (unlike channel noise).
+  * Time series often shows spiky, high-frequency activity.
 
-- "eye": (Eye movements or blinks)
-    - *Topography:* Suggests electrical sources near the eyes.
-        - *Vertical eye movements/blinks:* Strong activity at frontal electrodes, often appearing unipolar (all positive or all negative deflection) due to the typical EEG recording montage.
-        - *Horizontal eye movements:* Typically a clear dipolar pattern focused near the frontal regions, with distinct positive polarity on one side (e.g., left frontal) and negative polarity on the other (e.g., right frontal), or vice-versa. This pattern, suggesting a source between or just in front of the eyes, is a key indicator of horizontal/lateral eye movements, *especially when accompanied by characteristic step-like changes in the time series (see below)*.
-    - *Spectrum:* Most power is concentrated at low frequencies (typically < 5 Hz).
-    - *Time Series:*
-        - *Vertical (blinks/looking up/down):* Shows clear, relatively frequent, large-amplitude spikes (blinks) or slow rolling waves/drifts.
-        - *Horizontal (saccades):* Shows **abrupt, rapid shifts connecting distinct, relatively sustained DC levels or plateaus** (the signal 'holds' at one level, then quickly jumps and 'holds' at another, even if briefly or within a somewhat noisy signal). This creates a pattern of 'square waves' or 'boxcar shapes,' which are **non-oscillatory by nature** and lack the continuous rhythmic flow of brain waves. **Crucially, when a frontal dipolar topography (as described above) co-occurs with these non-oscillatory, step-like time series patterns featuring these characteristic sustained level changes, it is a very strong sign of lateral eye movements.**
+- "heart": Broad gradient across scalp. Time series shows regular QRS complexes (~1Hz).
 
-- "muscle": (Muscle activity, EMG)
-    - *Topography:* Can sometimes appear dipolar but is usually very focal/concentrated, indicating a shallow source outside the skull (e.g., scalp, temporal, or neck muscles). The pattern is often less organized than brain dipoles.
-    - *Spectrum:* Dominated by power at higher frequencies (typically > 20 Hz). This power is often broadband, meaning it's spread across a wide range of high frequencies, rather than a sharp peak. Little low-frequency power relative to high-frequency power.
-    - *Time Series:* Often shows sustained or bursting high-frequency, spiky, non-stationary activity.
+- "line_noise": 
+  * MUST show SHARP PEAK at 50/60Hz in spectrum - NOT a notch/dip (notches are filters, not line noise).
+  * NOTE: Almost all components show a notch at 60Hz from filtering - this is NOT line noise!
+  * Line noise requires a POSITIVE PEAK at 50/60Hz, not a negative dip.
 
-- "heart": (Heartbeat artifact, ECG)
-    - *Topography:* Often a near-linear gradient across the scalp or a very broad, diffuse pattern, suggesting a distant and powerful electrical source like the heart. Can sometimes have a left-to-right or inferior-to-superior orientation.
-    - *Spectrum:* May not show specific defining peaks related to the heartbeat itself; the primary evidence is in the time series. Spectrum might be contaminated by other activity.
-    - *Time Series:* Shows clear, regular, repetitive QRS-complex-like waveforms (sharp peak followed by slower wave). These complexes occur at a rate of approximately 1 Hz (around 60 beats per minute, but can vary).
+- "channel_noise": 
+  * SINGLE ELECTRODE "hot/cold spot" - tiny, isolated circular area WITHOUT an opposite pole.
+  * Compare with eye: Channel noise has only ONE focal point, while eye has TWO opposite poles (dipole).
+  * Example: A tiny isolated red or blue spot on one electrode, not a dipolar pattern.
+  * Time series may show any pattern; topography is decisive.
 
-- "line_noise": (Electrical grid interference)
-    - *Topography:* Can vary; not the primary indicator.
-    - *Spectrum:* Must show a VERY SHARP and PROMINENT **PEAK** of power at either 50 Hz or 60 Hz. This peak should be significantly more powerful than the activity at surrounding frequencies.
-      **IMPORTANT CLARIFICATION:** A sharp *DIP*, *NOTCH*, or *ABSENCE OF POWER* at 50 Hz or 60 Hz is **NOT** line noise. Such a feature indicates that a notch filter was applied during preprocessing, which is a normal step to *remove* line noise. Therefore, if you see a notch or dip at these frequencies, do **NOT** classify the component as "line_noise" based on that feature. Line noise is only present if there is an *EXCESSIVE PEAK* of power.
-    - *Time Series:* Often shows continuous or intermittent sinusoidal oscillations at 50 Hz or 60 Hz, corresponding to the spectral peak.
+- "other_artifact": Components not fitting above categories.
 
-- "channel_noise": (Noise specific to one or a few EEG channels)
-    - *Topography:* Extremely focal, with almost all the component's energy concentrated on a single electrode or a very small, isolated group of adjacent electrodes.
-    - *Spectrum:* Typically shows a 1/f-like spectrum (power decreasing with frequency), which can sometimes resemble brain activity. However, the extreme focality of the topography is the key differentiator. This spectral pattern helps distinguish it from muscle components, which have more high-frequency power.
-    - *Time Series:* May show large, erratic, or persistent high-amplitude artifacts, sudden pops, or periods of flat or noisy signal unique to that component.
+CLASSIFICATION PRIORITY:
+1. LEFT-RIGHT FRONTAL dipole → "eye" (frontal red-blue pattern overrides everything except single-electrode focality)
+2. SINGLE ELECTRODE focality (one tiny spot) → "channel_noise" 
+3. PEAK (not notch) at 50/60Hz → "line_noise"
+4. EDGE activity WITH high-frequency → "muscle"
+5. Central/parietal/temporal dipole → "brain"
 
-- "other_artifact": (Artifacts not fitting other categories, or unclear/mixed components)
-    - *Topography:* Often non-dipolar, splotchy, messy, or not clearly interpretable according to the patterns above.
-    - *Spectrum:* May lack clear features, or show a mixture of patterns that don't fit a single category well. Could have weak or unusual peaks.
-    - *General:* Use for components that do not clearly fit any of the above categories. Components with very high IC numbers (e.g., IC 150 of 200, indicating low variance explained) are often in this category. Use this also if features are highly contradictory (e.g., some brain-like spectral features but a very non-brain-like, noisy topography), making a single primary classification difficult.
+IMPORTANT: A 60Hz NOTCH (negative dip) in spectrum is normal filtering, seen in most components, and should NOT be used for classification!
 
-Return your classification in this exact format:
-("label", confidence_score, "detailed_reasoning")
+Return: ("label", confidence_score, "detailed_reasoning")
 
-Where:
-- "label" is one of the exact category strings listed above (e.g., "brain", "eye", "muscle", etc.).
-- confidence_score is a number between 0 and 1 (e.g., 0.95), representing your confidence in the assigned label.
-- "detailed_reasoning" is a concise explanation (1-2 sentences) justifying your classification based on specific visual features observed in the topography, power spectrum, AND time series, referencing the characteristics described for each category.
-
-Example: ("eye", 0.95, "Strong bilateral frontal topography. Spectrum power concentrated below 5 Hz. Time series shows large, recurrent sharp deflections characteristic of eye blinks.")
-Example: ("brain", 0.85, "Dipolar topography primarily over prefrontal areas. Spectrum shows a 1/f trend with some beta band activity. Time series displays continuous, somewhat irregular wave-like activity WITHOUT any sharp, sustained DC level shifts or clear 'boxcar' shapes typically seen in saccadic eye movements.")
-Example: ("muscle", 0.92, "Focal topography over temporal area, shallow appearance. Spectrum is dominated by broadband high-frequency activity (>20Hz). Time series shows sustained spiky, high-frequency bursts.")
-Example: ("line_noise", 0.98, "Spectrum exhibits an extremely sharp and dominant PEAK at 50 Hz, far exceeding other frequencies. Topography is diffuse but the spectral PEAK is unequivocal.")
-Example: ("channel_noise", 0.90, "Topography is highly focal, concentrated on a single frontal electrode. Spectrum shows a 1/f trend. Time series exhibits intermittent large spikes.")
+Example: ("eye", 0.95, "Strong bilateral frontal topography with left-right dipolar pattern (red-blue). Detail view shows characteristic step-like patterns typical of horizontal eye movements.")
 """
 
 
@@ -112,28 +94,60 @@ def _plot_component_for_vision_standalone(
     Standalone version to create a plot for an ICA component.
     Adapted from IcaMixin._plot_component_for_vision.
     """
-    fig = plt.figure(figsize=(10, 10), dpi=120)
-    gs = GridSpec(3, 2, figure=fig, hspace=0.6, wspace=0.3) # Increased hspace slightly for titles
+    fig = plt.figure(figsize=(10, 10), dpi=120)  # Adjusted height back to 10
+    gs = GridSpec(3, 2, figure=fig, hspace=0.6, wspace=0.3)  # Back to 3 rows
     
     ax_topo = fig.add_subplot(gs[0, 0]) 
-    ax_psd_wide = fig.add_subplot(gs[0, 1]) # Renamed from ax_psd
-    ax_psd_focused = fig.add_subplot(gs[1, :])  # Replaces ax_ts_full
-    ax_ts_10s = fig.add_subplot(gs[2, :])  # Remains the same
+    ax_psd_wide = fig.add_subplot(gs[0, 1]) 
+    ax_ts_zoom = fig.add_subplot(gs[1, :])  # Moved up one position
+    ax_ts_full = fig.add_subplot(gs[2, :])  # Moved up one position
     
     sources = ica_obj.get_sources(raw_obj)
     sfreq = sources.info['sfreq']
     component_data_array = sources.get_data(picks=[component_idx])[0]
     
-    # 1. Topography
+    # 1. Topography - Modified to use MATLAB-style colormap and settings
     try:
+        # Create a custom colormap similar to MATLAB's 'jet'
+        import matplotlib.cm as cm
+        
+        # Use a simpler set of parameters for increased compatibility
+        topomap_args = dict(
+            cmap='jet',                 # Use jet colormap (MATLAB-like)
+            contours=6,                 # Number of contour lines
+            sensors=True,               # Show sensors
+            outlines='head'             # Simple head outline
+        )
+        
+        print(f"Plotting topography for component {component_idx} with MATLAB-style settings")
         ica_obj.plot_components(picks=component_idx, axes=ax_topo, ch_type='eeg',
-                               show=False, colorbar=True, title="")
+                              show=False, colorbar=True, title="", **topomap_args)
+        
         ax_topo.set_title(f"IC {component_idx} - Topography")
+        
+        # Safer colorbar adjustment
+        for child in ax_topo.get_children():
+            if isinstance(child, plt.matplotlib.colorbar.ColorbarBase):
+                try:
+                    child.ax.set_box_aspect(10)
+                except:
+                    pass  # Ignore errors in colorbar adjustment
+                break
+                
     except Exception as e:
-        print(f"Error plotting topography: {e}")
-        ax_topo.text(0.5, 0.5, "Topo plot failed", ha='center', va='center')
+        print(f"Error plotting topography with MATLAB style: {e}")
+        print("Falling back to default MNE topography plot")
+        
+        try:
+            # Fallback to default plotting without custom parameters
+            ica_obj.plot_components(picks=component_idx, axes=ax_topo, ch_type='eeg',
+                                  show=False, colorbar=True, title="")
+            ax_topo.set_title(f"IC {component_idx} - Topography")
+        except Exception as e2:
+            print(f"Error in fallback topography plot: {e2}")
+            ax_topo.text(0.5, 0.5, "Topo plot failed", ha='center', va='center')
 
-    # 2. PSD (Wide Range, 1-100 Hz or Nyquist)
+    # 2. PSD (Wide Range, 1-100 Hz) - this is the only PSD plot now
     try:
         from mne.time_frequency import psd_array_welch
         fmin_psd_wide = 1.0
@@ -150,57 +164,94 @@ def _plot_component_for_vision_standalone(
         )
         psds_db_wide = 10 * np.log10(psds_wide)
         ax_psd_wide.plot(freqs_wide, psds_db_wide, color='black', linewidth=1)
-        ax_psd_wide.set_title("PSD (1-100 Hz)")
+        ax_psd_wide.set_title("Power Spectrum")
         ax_psd_wide.set_xlabel("Frequency (Hz)")
         ax_psd_wide.set_ylabel("Power (dB)")
         if len(freqs_wide) > 0 : ax_psd_wide.set_xlim(freqs_wide[0], freqs_wide[-1])
         ax_psd_wide.grid(True, linestyle='--', alpha=0.5)
     except Exception as e:
         print(f"Error plotting wide PSD: {e}")
-        ax_psd_wide.text(0.5, 0.5, "Wide PSD plot failed", ha='center', va='center')
+        ax_psd_wide.text(0.5, 0.5, "PSD plot failed", ha='center', va='center')
 
-    # 3. Focused PSD (1-40 Hz)
+    # 3. Zoomed-in Time Series (2 seconds - ideal for seeing eye movements and neural oscillations)
     try:
-        # Ensure psd_array_welch is imported (it is from above)
-        fmin_psd_focused = 1.0
-        fmax_psd_focused = 40.0
-        # Use the same n_fft for comparable smoothness, or adjust if different resolution is desired for this plot
-        # n_fft_psd is already defined from the wide PSD plot
-
-        # Ensure fmax_psd_focused is valid given sfreq
-        if fmax_psd_focused >= sfreq / 2.0:
-            fmax_psd_focused = sfreq / 2.0 - 0.5 
-            print(f"Warning: Requested fmax for focused PSD ({40.0} Hz) was too high for sfreq ({sfreq} Hz). Adjusted to {fmax_psd_focused:.2f} Hz.")
-
-        if fmax_psd_focused <= fmin_psd_focused:
-             print(f"Skipping focused PSD: fmax ({fmax_psd_focused:.2f} Hz) is not greater than fmin ({fmin_psd_focused:.2f} Hz).")
+        # Find an interesting segment with high variance if possible
+        # This helps show characteristic patterns more clearly
+        segment_length = int(3.0 * sfreq)  # Changed from 2.0 to 3.0 seconds
+        if len(component_data_array) > segment_length * 2:
+            # Calculate variance in 3-second sliding windows with 1.5-second overlap
+            variance_windows = []
+            for i in range(0, len(component_data_array) - segment_length, int(segment_length/2)):
+                window = component_data_array[i:i+segment_length]
+                variance_windows.append((i, np.var(window)))
+            
+            # Select the window with highest variance for eye/muscle components
+            # or a window around 25-50% through the recording for more stable components
+            variance_windows.sort(key=lambda x: x[1], reverse=True)
+            
+            # Use high-variance segment if it's significantly higher than median
+            if variance_windows[0][1] > np.median([v for _, v in variance_windows]) * 1.5:
+                start_idx = variance_windows[0][0]
+            else:
+                start_idx = int(len(component_data_array) * 0.3)  # ~30% through the recording
         else:
-            psds_focused, freqs_focused = psd_array_welch(
-                component_data_array, sfreq=sfreq, fmin=fmin_psd_focused, fmax=fmax_psd_focused, 
-                n_fft=n_fft_psd, n_overlap=0, verbose=False # Using same n_fft as wide PSD
+            start_idx = 0
+        
+        zoom_end_idx = min(start_idx + segment_length, len(component_data_array))
+        zoom_times = np.arange(start_idx, zoom_end_idx) / sfreq
+        zoom_data = component_data_array[start_idx:zoom_end_idx]
+        
+        ax_ts_zoom.plot(zoom_times, zoom_data, linewidth=1.0, color='darkblue')
+        ax_ts_zoom.set_title(f"IC {component_idx} Detail View (3s Segment)")  # Updated to 3s
+        ax_ts_zoom.set_xlabel("Time (s)")
+        ax_ts_zoom.set_ylabel("Amplitude (a.u.)")
+        if len(zoom_times) > 0:
+            ax_ts_zoom.set_xlim(zoom_times[0], zoom_times[-1])
+        
+        # Add high-frequency specific y-limits for better visualization
+        # Set ylim for better visualization based on component characteristics
+        data_range = np.max(zoom_data) - np.min(zoom_data)
+        if data_range > 0:
+            # Add some padding (20%) to the limits
+            ax_ts_zoom.set_ylim(
+                np.min(zoom_data) - 0.1 * data_range,
+                np.max(zoom_data) + 0.1 * data_range
             )
-            psds_db_focused = 10 * np.log10(psds_focused)
-            ax_psd_focused.plot(freqs_focused, psds_db_focused, color='darkgreen', linewidth=1)
-            ax_psd_focused.set_title("PSD (1-40 Hz)")
-            ax_psd_focused.set_xlabel("Frequency (Hz)")
-            ax_psd_focused.set_ylabel("Power (dB)")
-            if len(freqs_focused) > 0 : ax_psd_focused.set_xlim(freqs_focused[0], freqs_focused[-1])
-            ax_psd_focused.grid(True, linestyle='--', alpha=0.5)
-
+        
+        # Add grid for visibility
+        ax_ts_zoom.grid(True, linestyle=':', alpha=0.7)
+        
+        # Add time markers at 0.5-second intervals for eye blink/movement timing
+        for t in np.arange(np.ceil(zoom_times[0] * 2) / 2, zoom_times[-1], 0.5):
+            ax_ts_zoom.axvline(x=t, color='lightgray', linestyle='--', alpha=0.5)
+    
     except Exception as e:
-        print(f"Error plotting focused PSD: {e}")
-        ax_psd_focused.text(0.5, 0.5, "Focused PSD plot failed", ha='center', va='center')
+        print(f"Error plotting zoomed-in time series: {e}")
+        ax_ts_zoom.text(0.5, 0.5, "Zoomed time series plot failed", ha='center', va='center')
 
-    # 4. Time Series Segment (e.g., 30 seconds)
-    duration_segment = 30.0 # Changed from 10.0 to 30.0 seconds
+    # 4. Full Time Series Segment (30 seconds)
+    duration_segment = 30.0
     max_samples_segment = min(int(duration_segment * sfreq), len(component_data_array))
     times_segment = np.arange(max_samples_segment) / sfreq
     
-    ax_ts_10s.plot(times_segment, component_data_array[:max_samples_segment], linewidth=0.7, color='darkblue')
-    ax_ts_10s.set_xlabel("Time (s)"); ax_ts_10s.set_ylabel("Amplitude (a.u.)")
-    ax_ts_10s.set_title(f"IC {component_idx} Time Series ({duration_segment:.0f}s Segment)") # Updated title
-    if max_samples_segment > 0: ax_ts_10s.set_xlim(times_segment[0], times_segment[-1])
-    ax_ts_10s.grid(True, linestyle=':', alpha=0.7)
+    ax_ts_full.plot(times_segment, component_data_array[:max_samples_segment], linewidth=0.7, color='darkblue')
+    ax_ts_full.set_xlabel("Time (s)"); ax_ts_full.set_ylabel("Amplitude (a.u.)")
+    ax_ts_full.set_title(f"IC {component_idx} Full Time Series (30s Segment)")
+    if max_samples_segment > 0: ax_ts_full.set_xlim(times_segment[0], times_segment[-1])
+    ax_ts_full.grid(True, linestyle=':', alpha=0.7)
+    
+    # If we have the zoomed section, highlight it in the full view
+    try:
+        if 'zoom_times' in locals() and len(zoom_times) > 0:
+            # Add a highlight rectangle for the zoomed region
+            zoom_start = zoom_times[0]
+            zoom_end = zoom_times[-1]
+            ylims = ax_ts_full.get_ylim()
+            rect = plt.Rectangle((zoom_start, ylims[0]), zoom_end - zoom_start, ylims[1] - ylims[0], 
+                                fill=True, alpha=0.2, color='red')
+            ax_ts_full.add_patch(rect)
+    except Exception as e:
+        print(f"Error highlighting zoom region: {e}")
     
     fig.suptitle(f"ICA Component {component_idx} for Vision API Test", fontsize=16, y=0.98)
     plt.tight_layout(rect=[0, 0, 1, 0.95])
