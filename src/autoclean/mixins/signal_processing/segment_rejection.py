@@ -248,9 +248,9 @@ class SegmentRejectionMixin:
         - Requires `scipy` for distance matrix and `xarray` for data handling.
         - The `raw` object *must* have a montage set for channel locations.
         - The `first_samp` correction for annotations assumes that
-        `raw.annotations.orig_time` is the true start of the original recording
-        (e.g., `raw.info['meas_date']`). If your `orig_time` is different or `None`,
-        you may need to adjust the onset calculation.
+          `raw.annotations.orig_time` is the true start of the original recording
+          (e.g., `raw.info['meas_date']`). If your `orig_time` is different or `None`,
+          you may need to adjust the onset calculation.
         """
 
         message('header', "Annotating uncorrelated epochs")

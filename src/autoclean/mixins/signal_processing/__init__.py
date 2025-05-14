@@ -4,30 +4,54 @@ This package contains mixin classes that provide signal processing functionality
 that can be shared across different task types.
 """
 
-from autoclean.mixins.signal_processing.artifacts import ArtifactsMixin
-from autoclean.mixins.signal_processing.autoreject_epochs import AutoRejectEpochsMixin
-from autoclean.mixins.signal_processing.base import SignalProcessingMixin
-from autoclean.mixins.signal_processing.channels import ChannelsMixin
-from autoclean.mixins.signal_processing.eventid_epochs import EventIDEpochsMixin
-from autoclean.mixins.signal_processing.gfp_clean_epochs import GFPCleanEpochsMixin
-from autoclean.mixins.signal_processing.prepare_epochs_ica import PrepareEpochsICAMixin
-from autoclean.mixins.signal_processing.reference import ReferenceMixin
-from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
-from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
-from autoclean.mixins.signal_processing.ica import IcaMixin
-from autoclean.mixins.signal_processing.segment_rejection import SegmentRejectionMixin
+import importlib
+import inspect
+import pkgutil
+from pathlib import Path
+from typing import Dict, List, Type
 
-__all__ = [
-    "SignalProcessingMixin",
-    "ArtifactsMixin",
-    "ChannelsMixin",
-    "ReferenceMixin",
-    "EventIDEpochsMixin",
-    "RegularEpochsMixin",
-    "PrepareEpochsICAMixin",
-    "GFPCleanEpochsMixin",
-    "AutoRejectEpochsMixin",
-    "BasicStepsMixin",
-    "IcaMixin",
-    "SegmentRejectionMixin",
-]
+from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin as BaseMixin
+
+# Get the current directory
+_current_dir = Path(__file__).parent
+
+# Collect all python files in the signal_processing directory
+_mixin_modules = {
+    name: importlib.import_module(f"{__package__}.{name}")
+    for finder, name, ispkg in pkgutil.iter_modules([str(_current_dir)])
+    if not name.startswith("_")  # Skip private modules
+}
+
+# Initialize collections
+__all__: List[str] = []
+mixin_registry: Dict[str, Type] = {}
+
+# Dynamically import all Mixin classes from each module
+for module_name, module in _mixin_modules.items():
+    # Get all classes with "Mixin" in the name to avoid including helper or utility classes
+    mixin_classes = {
+        name: obj
+        for name, obj in inspect.getmembers(module, inspect.isclass)
+        if "Mixin" in name and obj.__module__ == module.__name__  # Only include directly defined classes, not imported ones
+    }
+
+    # Add to __all__
+    __all__.extend(mixin_classes.keys())
+
+    # Add to mixin registry
+    mixin_registry.update(mixin_classes)
+
+    # Add classes to the current namespace
+    globals().update(mixin_classes)
+
+# Make sure BaseMixin is always included
+if "SignalProcessingMixin" not in __all__:
+    from autoclean.mixins.signal_processing.base import SignalProcessingMixin
+    __all__.append("SignalProcessingMixin")
+    globals()["SignalProcessingMixin"] = SignalProcessingMixin
+
+# Make sure SignalProcessingMixin is always included
+if "SignalProcessingMixin" not in __all__:
+    from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin
+    __all__.append("SignalProcessingMixin")
+    globals()["SignalProcessingMixin"] = SignalProcessingMixin

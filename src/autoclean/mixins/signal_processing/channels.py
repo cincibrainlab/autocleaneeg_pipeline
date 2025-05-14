@@ -64,8 +64,7 @@ class ChannelsMixin:
 
         See Also
         --------
-        :py:class:`pyprep.find_noisy_channels.NoisyChannels` : 
-        For more information on the NoisyChannels class
+        :py:class:`pyprep.find_noisy_channels.NoisyChannels` : For more information on the NoisyChannels class
         """
         # Determine which data to use
         data = self._get_data_object(data)
