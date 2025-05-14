@@ -179,31 +179,19 @@ Before using your custom mixin, you need to register it in the appropriate categ
 
     This step is crucial as it ensures your mixin is properly imported when the mixins module is loaded.
 
-2.  **Update __init__.py if Necessary:**
-    If you created a new category, you might need to update the main mixins __init__.py file to import from your new category.
+2.  **Update core/task.py if Necessary:**
+    If you created a new category, you might need to update the task.py file to import from your new category.
 
     .. code-block:: python
 
-       # src/autoclean/mixins/__init__.py
+       # src/autoclean/core/task.py
        
        # Import existing categories
-       from autoclean.mixins.signal_processing import *
-       from autoclean.mixins.viz import *
+       from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin
+       from autoclean.mixins.viz.REGISTRY import ReportingMixin
        # Import your new category if applicable
-       from autoclean.mixins.custom import *
+       from autoclean.mixins.custom.REGISTRY import MyCustomMixins
 
-3.  **Import the Mixin in Your Task:**
-    In your custom Task file (e.g., `src/autoclean/tasks/my_visual_paradigm.py`), import your Mixin class.
-
-    .. code-block:: python
-
-       # src/autoclean/tasks/my_visual_paradigm.py
-       from autoclean.core.task import Task
-       # ... other imports
-       from autoclean.mixins.signal_processing import MyArtifactDetectorMixin
-
-4.  **Add Mixin to Task Inheritance:**
-    Include your Mixin in the list of base classes for your Task.
 
 Summary
 -------
