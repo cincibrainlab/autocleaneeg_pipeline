@@ -9,8 +9,8 @@ from typing import Any, Dict, Optional
 import mne  # Core EEG processing library for data containers and processing
 
 # Local imports
-from autoclean.mixins.signal_processing.main import SignalProcessingMixin
-from autoclean.mixins.viz.main import ReportingMixin
+from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin
+from autoclean.mixins.viz.REGISTRY import ReportingMixin
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.utils.logging import message
