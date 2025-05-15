@@ -28,7 +28,7 @@ EXAMPLE_ICA_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/der
 
 # --- New Batch Configuration ---
 START_COMPONENT_INDEX = 0  # Starting component index for the batch
-NUM_COMPONENTS_TO_BATCH = 15 # Number of components to process in this batch
+NUM_COMPONENTS_TO_BATCH = 16 # Number of components to process in this batch
 OUTPUT_DIR_PATH = "./ica_vision_test_output" # Directory to save plots and JSON results
 # --- End New Batch Configuration ---
 
@@ -37,18 +37,22 @@ OUTPUT_DIR_PATH = "./ica_vision_test_output" # Directory to save plots and JSON 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 CUSTOM_OPENAI_ICA_PROMPT = """Analyze this EEG ICA component image and classify into ONE category:
 
-- "brain": Dipolar pattern in CENTRAL/PARIETAL/TEMPORAL regions (NOT frontal/edges). 1/f spectrum with possible peaks at 8-12Hz. Wave-like time series WITHOUT step-shifts.
+- "brain": Dipolar pattern in CENTRAL, PARIETAL, or TEMPORAL regions (NOT FRONTAL or EDGE-FOCUSED). 1/f-like spectrum with possible peaks at 8-12Hz. Rhythmic, wave-like time series WITHOUT abrupt level shifts.
 
 - "eye": 
-  * LEFT-RIGHT FRONTAL dipolar pattern (red-blue on opposite sides) = DEFINITIVE for horizontal eye movements, regardless of other features.
-  * Step-like, square-wave patterns in time series are clear indicators of lateral eye movements.
+  * Two main types of eye components:
+    1. HORIZONTAL eye movements: LEFT-RIGHT FRONTAL dipolar pattern (red-blue on opposite sides). Detail view shows step-like or square-wave patterns.
+    2. VERTICAL eye movements/blinks: FRONTAL midline or bilateral positivity/negativity. Detail view shows distinctive spikes or slow waves.
+  * Both types show power concentrated in lower frequencies (<5Hz).
   * DO NOT be misled by 60Hz notches in the spectrum - these are normal filtering artifacts, NOT line noise.
-  * Important distinction: Eye components have dipolar (two-sided) frontal activity, unlike channel noise which has only a single focal point.
-  * RULE: If you see LEFT-RIGHT FRONTAL dipole pattern, classify as "eye" even if time series or spectrum is ambiguous.
+  * Key distinction: Eye components have activity focused in frontal regions, while brain components are central/parietal/temporal.
+  * RULE: If you see LEFT-RIGHT FRONTAL dipole pattern or STRONG FRONTAL activation with spike patterns, classify as "eye".
 
 - "muscle": 
-  * DISTRIBUTED activity along EDGE of scalp (temporal/occipital/neck regions).
-  * MUST show high-frequency power (>20Hz).
+  * Typically found with high activation near the edges of the scalp (temporal/occipital/neck regions).
+  * If the power spectrum shows a positive slope, it is ALWAYS muscle.
+  * Anything that looks like the source is coming from outside the scalp is typically muscle.
+  * May have a bowtie dipole pattern.
   * NOT isolated to single electrode (unlike channel noise).
   * Time series often shows spiky, high-frequency activity.
 
@@ -60,25 +64,25 @@ CUSTOM_OPENAI_ICA_PROMPT = """Analyze this EEG ICA component image and classify 
   * Line noise requires a POSITIVE PEAK at 50/60Hz, not a negative dip.
 
 - "channel_noise": 
-  * SINGLE ELECTRODE "hot/cold spot" - tiny, isolated circular area WITHOUT an opposite pole.
+  * SINGLE ELECTRODE "hot/cold spot" - tiny, isolated circular area typically without an opposite pole.
   * Compare with eye: Channel noise has only ONE focal point, while eye has TWO opposite poles (dipole).
   * Example: A tiny isolated red or blue spot on one electrode, not a dipolar pattern.
-  * Time series may show any pattern; topography is decisive.
+  * Time series may show any pattern; the focal topography is decisive.
 
 - "other_artifact": Components not fitting above categories.
 
 CLASSIFICATION PRIORITY:
-1. LEFT-RIGHT FRONTAL dipole → "eye" (frontal red-blue pattern overrides everything except single-electrode focality)
-2. SINGLE ELECTRODE focality (one tiny spot) → "channel_noise" 
+1. LEFT-RIGHT FRONTAL dipole or STRONG FRONTAL activation with spikes → "eye"
+2. SINGLE ELECTRODE isolated focality activity → "channel_noise" 
 3. PEAK (not notch) at 50/60Hz → "line_noise"
-4. EDGE activity WITH high-frequency → "muscle"
+4. EDGE activity WITH high-frequency power → "muscle"
 5. Central/parietal/temporal dipole → "brain"
 
 IMPORTANT: A 60Hz NOTCH (negative dip) in spectrum is normal filtering, seen in most components, and should NOT be used for classification!
 
 Return: ("label", confidence_score, "detailed_reasoning")
 
-Example: ("eye", 0.95, "Strong bilateral frontal topography with left-right dipolar pattern (red-blue). Detail view shows characteristic step-like patterns typical of horizontal eye movements.")
+Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar pattern (horizontal eye movement) or frontal positivity with spike-like patterns (vertical eye movement/blinks). Low-frequency dominated spectrum and characteristic time series confirm eye activity.")
 """
 
 
