@@ -419,7 +419,7 @@ class ArtifactsMixin:
         data = self._get_data_object(data)
 
         # Type checking
-        if not isinstance(data, mne.io.Raw):
+        if not isinstance(data, mne.io.base.BaseRaw):
             raise TypeError("Data must be an MNE Raw object for segment rejection")
 
         try:
