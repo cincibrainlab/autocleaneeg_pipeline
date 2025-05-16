@@ -15,6 +15,9 @@ from matplotlib.gridspec import GridSpec
 import mne
 from mne.preprocessing import read_ica # Correct import for reading ICA
 import openai
+import warnings # Added for dipole fitting warnings
+from mne import EvokedArray, make_sphere_model, create_info # Added for dipole fitting
+from mne.time_frequency import psd_array_welch # Ensure this is imported if not already
 
 # --- Configuration ---
 # Ensure your OpenAI API key is set as an environment variable
@@ -23,12 +26,12 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # MODIFY THESE PATHS TO YOUR EXAMPLE DATA
 # It's best to use a small, representative raw file and its corresponding ICA solution
-EXAMPLE_RAW_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-141278/eeg/0101_rest_pre_ica.set"
-EXAMPLE_ICA_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-141278/eeg/0101_rest-ica.fif" 
+EXAMPLE_RAW_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-69253/eeg/0022_VDaudio_ICA_pre_ica.set"
+EXAMPLE_ICA_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-69253/eeg/0022_VDaudio_ICA-ica.fif" 
 
 # --- New Batch Configuration ---
 START_COMPONENT_INDEX = 0  # Starting component index for the batch
-NUM_COMPONENTS_TO_BATCH = 16 # Number of components to process in this batch
+NUM_COMPONENTS_TO_BATCH = 5 # Number of components to process in this batch
 OUTPUT_DIR_PATH = "./ica_vision_test_output" # Directory to save plots and JSON results
 # --- End New Batch Configuration ---
 
@@ -37,24 +40,24 @@ OUTPUT_DIR_PATH = "./ica_vision_test_output" # Directory to save plots and JSON 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 CUSTOM_OPENAI_ICA_PROMPT = """Analyze this EEG ICA component image and classify into ONE category:
 
-- "brain": Dipolar pattern in CENTRAL, PARIETAL, or TEMPORAL regions (NOT FRONTAL or EDGE-FOCUSED). 1/f-like spectrum with possible peaks at 8-12Hz. Rhythmic, wave-like time series WITHOUT abrupt level shifts.
+- "brain": Dipolar pattern in CENTRAL, PARIETAL, or TEMPORAL regions (NOT FRONTAL or EDGE-FOCUSED). 1/f-like spectrum with possible peaks at 8-12Hz. Rhythmic, wave-like time series WITHOUT abrupt level shifts. MUST show decreasing power with increasing frequency (1/f pattern) - a flat or random fluctuating spectrum is NOT brain activity.
 
 - "eye": 
   * Two main types of eye components:
-    1. HORIZONTAL eye movements: LEFT-RIGHT FRONTAL dipolar pattern (red-blue on opposite sides). Detail view shows step-like or square-wave patterns.
+    1. HORIZONTAL eye movements: LEFT-RIGHT FRONTAL dipolar pattern (red-blue on opposite sides of frontal region). Detail view shows step-like or square-wave patterns. LOOK CAREFULLY for RED on one FRONTAL side and BLUE on the other FRONTAL side - this pattern is ALWAYS an eye component, never muscle.
     2. VERTICAL eye movements/blinks: FRONTAL midline or bilateral positivity/negativity. Detail view shows distinctive spikes or slow waves.
   * Both types show power concentrated in lower frequencies (<5Hz).
   * DO NOT be misled by 60Hz notches in the spectrum - these are normal filtering artifacts, NOT line noise.
-  * Key distinction: Eye components have activity focused in frontal regions, while brain components are central/parietal/temporal.
+  * Key distinction: Eye components have activity focused in frontal regions, and will NEVER have activity in the occipital region.
+  * CRITICAL: NEVER classify a component with clear LEFT-RIGHT FRONTAL dipole (red on one frontal side, blue on opposite frontal side) as muscle - this pattern is ALWAYS eye movement.
   * RULE: If you see LEFT-RIGHT FRONTAL dipole pattern or STRONG FRONTAL activation with spike patterns, classify as "eye".
 
 - "muscle": 
-  * Typically found with high activation near the edges of the scalp (temporal/occipital/neck regions).
-  * If the power spectrum shows a positive slope, it is ALWAYS muscle.
-  * Anything that looks like the source is coming from outside the scalp is typically muscle.
-  * May have a bowtie dipole pattern.
-  * NOT isolated to single electrode (unlike channel noise).
-  * Time series often shows spiky, high-frequency activity.
+ * topography often looks like 2 small dots that are different colors and right next to each other (a very shallow dipole/ "bowtie" like pattern) that combined take up less than 25% of the topography
+ * topography can look like DISTRIBUTED activity along EDGE of scalp (temporal/occipital/neck regions).
+ * NOT isolated to single electrode (unlike channel noise).
+ * Power spectrum will show a positive slope (usually trending upwards from around 20Hz and above), are ALWAYS muscle.
+ * Time series often shows spiky, high-frequency activity.
 
 - "heart": Broad gradient across scalp. Time series shows regular QRS complexes (~1Hz).
 
@@ -95,177 +98,222 @@ def _plot_component_for_vision_standalone(
     output_dir: Path
 ) -> Optional[Path]:
     """
-    Standalone version to create a plot for an ICA component.
-    Adapted from IcaMixin._plot_component_for_vision.
+    Updated version to create a plot for an ICA component, matching the example image.
+    Layout: Topo+ContData on left, TS+Dipole+PSD on right.
+    Dipole shown as text info (RV, Pos, Ori) using a sphere model.
     """
-    fig = plt.figure(figsize=(10, 10), dpi=120)  # Adjusted height back to 10
-    gs = GridSpec(3, 2, figure=fig, hspace=0.6, wspace=0.3)  # Back to 3 rows
+    fig = plt.figure(figsize=(12, 9.5), dpi=120)  # Adjusted figsize for better aspect ratio & space
+    # GridSpec to match example: Topo+ContData on left, TS+Dipole+PSD on right
+    # height_ratios: [row0_height, row1_height, row2_height]
+    # width_ratios: [col0_width, col1_width]
+    gs = GridSpec(3, 2, figure=fig, 
+                  height_ratios=[0.915, 0.572, 2.213],  # Adjusted for square continuous data
+                  width_ratios=[0.9, 1],      # Left col slightly narrower
+                  hspace=0.6, wspace=0.35)     # Increased spacing
+
+    # Left column
+    ax_topo = fig.add_subplot(gs[0:2, 0]) # Topography spans 2 rows (row 0 and 1) on left
+    ax_cont_data = fig.add_subplot(gs[2, 0]) # Continuous Data below Topo (row 2 on left)
     
-    ax_topo = fig.add_subplot(gs[0, 0]) 
-    ax_psd_wide = fig.add_subplot(gs[0, 1]) 
-    ax_ts_zoom = fig.add_subplot(gs[1, :])  # Moved up one position
-    ax_ts_full = fig.add_subplot(gs[2, :])  # Moved up one position
-    
+    # Right column
+    ax_ts_scroll = fig.add_subplot(gs[0, 1]) # Scrolling IC Activity (row 0 on right)
+    ax_dipole = fig.add_subplot(gs[1, 1])    # Dipole Position (row 1 on right)
+    ax_psd = fig.add_subplot(gs[2, 1])       # IC Activity Power Spectrum (row 2 on right)
+
     sources = ica_obj.get_sources(raw_obj)
     sfreq = sources.info['sfreq']
     component_data_array = sources.get_data(picks=[component_idx])[0]
-    
-    # 1. Topography - Modified to use MATLAB-style colormap and settings
+
+    # 1. Topography
     try:
-        # Create a custom colormap similar to MATLAB's 'jet'
-        import matplotlib.cm as cm
-        
-        # Use a simpler set of parameters for increased compatibility
-        topomap_args = dict(
-            cmap='jet',                 # Use jet colormap (MATLAB-like)
-            contours=6,                 # Number of contour lines
-            sensors=True,               # Show sensors
-            outlines='head'             # Simple head outline
-        )
-        
-        print(f"Plotting topography for component {component_idx} with MATLAB-style settings")
         ica_obj.plot_components(picks=component_idx, axes=ax_topo, ch_type='eeg',
-                              show=False, colorbar=True, title="", **topomap_args)
+                                show=False, colorbar=False, cmap='jet', outlines='head', 
+                                sensors=True, contours=6) # colorbar=False, will add custom text instead
+        ax_topo.set_title(f"IC{component_idx}", fontsize=12, loc='center') # Centered title
+
+        # Calculate and display "% scalp data var. accounted for"
+        comp_var = np.var(component_data_array)
+        total_source_var = np.sum(np.var(sources.get_data(), axis=1)) # Sum of variances of all IC time courses
+        if total_source_var > 0:
+            var_explained = (comp_var / total_source_var) * 100
+            # Position text below the topography plot area
+            fig.text(0.27, 0.34, f"% scalp data var. accounted for: {var_explained:.1f}%", 
+                     ha='center', va='top', fontsize=8) # Used fig.text for better global positioning
+        else:
+            fig.text(0.27, 0.34, "% scalp data var. accounted for: N/A",
+                     ha='center', va='top', fontsize=8)
         
-        ax_topo.set_title(f"IC {component_idx} - Topography")
-        
-        # Safer colorbar adjustment
-        for child in ax_topo.get_children():
-            if isinstance(child, plt.matplotlib.colorbar.ColorbarBase):
-                try:
-                    child.ax.set_box_aspect(10)
-                except:
-                    pass  # Ignore errors in colorbar adjustment
-                break
-                
+        ax_topo.set_xlabel("")
+        ax_topo.set_ylabel("")
+        ax_topo.set_xticks([])
+        ax_topo.set_yticks([])
+
     except Exception as e:
-        print(f"Error plotting topography with MATLAB style: {e}")
-        print("Falling back to default MNE topography plot")
-        
-        try:
-            # Fallback to default plotting without custom parameters
-            ica_obj.plot_components(picks=component_idx, axes=ax_topo, ch_type='eeg',
-                                  show=False, colorbar=True, title="")
-            ax_topo.set_title(f"IC {component_idx} - Topography")
-        except Exception as e2:
-            print(f"Error in fallback topography plot: {e2}")
-            ax_topo.text(0.5, 0.5, "Topo plot failed", ha='center', va='center')
+        print(f"Error plotting topography for IC{component_idx}: {e}")
+        ax_topo.text(0.5, 0.5, "Topo plot failed", ha='center', va='center', transform=ax_topo.transAxes)
+        # traceback.print_exc() # Optionally uncomment for detailed trace
 
-    # 2. PSD (Wide Range, 1-100 Hz) - this is the only PSD plot now
+    # 2. Scrolling IC Activity (Time Series)
     try:
-        from mne.time_frequency import psd_array_welch
-        fmin_psd_wide = 1.0
-        fmax_psd_wide = min(100.0, sfreq / 2.0 - 0.5)
-        n_fft_psd = int(sfreq * 1.0) # 1-second window for a smoother spectrum
-        if n_fft_psd == 0: 
-            n_fft_psd = min(256, len(component_data_array))
+        duration_segment_ts = 5.0 
+        max_samples_ts = min(int(duration_segment_ts * sfreq), len(component_data_array))
+        times_ts_ms = (np.arange(max_samples_ts) / sfreq) * 1000 
+        
+        ax_ts_scroll.plot(times_ts_ms, component_data_array[:max_samples_ts], linewidth=0.8, color='dodgerblue')
+        ax_ts_scroll.set_title("Scrolling IC Activity", fontsize=10)
+        ax_ts_scroll.set_xlabel("Time (ms)", fontsize=9)
+        ax_ts_scroll.set_ylabel("Amplitude (a.u.)", fontsize=9)
+        if max_samples_ts > 0 and times_ts_ms.size > 0: # Check if times_ts_ms is not empty
+            ax_ts_scroll.set_xlim(times_ts_ms[0], times_ts_ms[-1])
+        ax_ts_scroll.grid(True, linestyle=':', alpha=0.6)
+        ax_ts_scroll.tick_params(axis='both', which='major', labelsize=8)
+    except Exception as e:
+        print(f"Error plotting scrolling IC activity for IC{component_idx}: {e}")
+        ax_ts_scroll.text(0.5, 0.5, "Time series failed", ha='center', va='center', transform=ax_ts_scroll.transAxes)
+        # traceback.print_exc()
 
-        if fmax_psd_wide <= fmin_psd_wide: fmax_psd_wide = sfreq / 2.0 - 0.5
+    # 3. Continuous Data (EEGLAB-style ERP image)
+    try:
+        total_duration_disp_cd = 30.0 
+        segment_duration_ms_cd = 500 
+        
+        segment_len_samples_cd = int(segment_duration_ms_cd / 1000 * sfreq)
+        if segment_len_samples_cd == 0: # Avoid division by zero or empty segments
+             raise ValueError("Segment length in samples is zero. Check sfreq and segment_duration_ms_cd.")
+
+        n_points_total_cd = int(min(total_duration_disp_cd * sfreq, len(component_data_array)))
+        
+        if n_points_total_cd < segment_len_samples_cd:
+            raise ValueError(f"Not enough data ({n_points_total_cd} points) for one segment of {segment_len_samples_cd} points.")
+
+        n_segments_cd = n_points_total_cd // segment_len_samples_cd
+        if n_segments_cd == 0:
+            raise ValueError("Zero segments calculated for Continuous Data plot. Not enough data.")
+            
+        erp_image_data = component_data_array[:n_segments_cd * segment_len_samples_cd].reshape(n_segments_cd, segment_len_samples_cd)
+        
+        v_abs = np.percentile(np.abs(erp_image_data), 98) if erp_image_data.size > 0 else 1.0
+        v_abs = max(v_abs, 1e-9) # Ensure v_abs is not zero for vmin/vmax
+
+        im = ax_cont_data.imshow(erp_image_data, aspect='auto', cmap='jet', interpolation='nearest',
+                                 vmin=-v_abs, vmax=v_abs,
+                                 extent=[0, segment_duration_ms_cd, n_segments_cd, 0])
+        ax_cont_data.set_title("Continuous Data", fontsize=10)
+        ax_cont_data.set_xlabel("Time (ms)", fontsize=9)
+        ax_cont_data.set_ylabel("Data (Segments)", fontsize=9)
+        
+        cbar_cont = fig.colorbar(im, ax=ax_cont_data, orientation='vertical', fraction=0.046, pad=0.1) # Adjusted pad
+        cbar_cont.set_label("Activation (a.u.)", fontsize=8)
+        cbar_cont.ax.tick_params(labelsize=7)
+        ax_cont_data.tick_params(axis='both', which='major', labelsize=8)
+
+    except Exception as e:
+        print(f"Error plotting continuous data for IC{component_idx}: {e}")
+        ax_cont_data.text(0.5, 0.5, "Continuous data failed", ha='center', va='center', transform=ax_cont_data.transAxes)
+        # traceback.print_exc()
+
+    # 4. Dipole Position (Text-based info using sphere model)
+    try:
+        ax_dipole.set_title("Dipole Position", fontsize=10)
+        ax_dipole.set_axis_off() # Turn off axis for text display
+
+        if raw_obj.get_montage() is None:
+            ax_dipole.text(0.5, 0.5, "No montage in raw data.\nCannot fit dipole.", 
+                           ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
+            raise RuntimeError("Raw object does not have a montage.")
+
+        sphere = make_sphere_model(info=raw_obj.info, head_radius=None, verbose=False)
+        component_pattern = ica_obj.get_components()[:, component_idx].reshape(-1, 1)
+
+        # Create EvokedArray info - crucial that ch_names match raw_obj for montage and sphere model
+        ev_info = create_info(ch_names=raw_obj.ch_names, sfreq=raw_obj.info['sfreq'], ch_types='eeg', verbose=False)
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
+            ev_info.set_montage(raw_obj.get_montage())
+        
+        if component_pattern.shape[0] != len(ev_info['ch_names']):
+            # This can happen if ICA was fit on a subset of channels not matching raw_obj.info
+            # Attempt to use ica_obj.ch_names if they exist and match pattern
+            if hasattr(ica_obj, 'ch_names') and len(ica_obj.ch_names) == component_pattern.shape[0]:
+                temp_info_for_ica_channels = create_info(ch_names=list(ica_obj.ch_names), sfreq=raw_obj.info['sfreq'], ch_types='eeg', verbose=False)
+                # We need a montage for these specific channels if different from raw_obj. This is tricky.
+                # For now, we must assume component_pattern channels are in raw_obj.info or fitting is ill-defined for sphere model from raw_obj.info.
+                # Sticking to original ev_info based on raw_obj.ch_names and hoping for subset match or error.
+                # If error, it will be caught.
+                print(f"Warning: Component pattern ({component_pattern.shape[0]} ch) might not match raw_obj.info channels ({len(ev_info['ch_names'])} ch). Using raw_obj.info channels for dipole fitting.")
+
+        evoked_topo = EvokedArray(component_pattern, ev_info, tmin=0, verbose=False)
+        
+        # Fit dipole (cov=None implies identity matrix, common for ICs)
+        dipoles, residual = mne.fit_dipole(evoked_topo, cov=None, bem=sphere, min_dist=1.0, verbose=False)
+        
+        if dipoles is None or len(dipoles) == 0:
+            ax_dipole.text(0.5, 0.5, "Dipole fitting returned no dipoles.", 
+                           ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
+            raise RuntimeError("Dipole fitting failed to return any dipoles.")
+        
+        dip = dipoles[0]
+        rv_text = f"RV: {dip.gof[0]:.1f}%" # MNE's gof is residual variance for fit_dipole
+        pos_text = f"Pos (mm): ({dip.pos[0,0]*1000:.1f}, {dip.pos[0,1]*1000:.1f}, {dip.pos[0,2]*1000:.1f})"
+        ori_text = f"Ori: ({dip.ori[0,0]:.2f}, {dip.ori[0,1]:.2f}, {dip.ori[0,2]:.2f})"
+        full_text = f"{rv_text}\n{pos_text}\n{ori_text}"
+        
+        ax_dipole.text(0.05, 0.9, full_text, ha='left', va='top', fontsize=7.5, wrap=True, 
+                       bbox=dict(boxstyle='round,pad=0.3', fc='aliceblue', alpha=0.7),
+                       transform=ax_dipole.transAxes)
+
+    except Exception as e:
+        print(f"Error in dipole processing for IC{component_idx}: {e}")
+        if not ax_dipole.texts: # Only add text if not already populated by specific error
+            ax_dipole.text(0.5, 0.5, "Dipole info failed", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
+        # traceback.print_exc()
+
+    # 5. IC Activity Power Spectrum
+    try:
+        fmin_psd_wide = 1.0
+        fmax_psd_wide = min(120.0, sfreq / 2.0 - 0.51) # Ensure fmax < sfreq/2
+        
+        # Ensure n_fft is not too large for data, and not zero
+        n_fft_psd = int(sfreq * 2.0)
+        if n_fft_psd > len(component_data_array):
+             n_fft_psd = len(component_data_array)
+        n_fft_psd = max(n_fft_psd, 256 if len(component_data_array) >= 256 else len(component_data_array)) # Min sensible n_fft
+        
+        if n_fft_psd == 0 : raise ValueError("n_fft_psd is zero.")
+
 
         psds_wide, freqs_wide = psd_array_welch(
             component_data_array, sfreq=sfreq, fmin=fmin_psd_wide, fmax=fmax_psd_wide, 
-            n_fft=n_fft_psd, n_overlap=0, verbose=False
+            n_fft=n_fft_psd, n_overlap=int(n_fft_psd*0.5), verbose=False, average='mean'
         )
-        psds_db_wide = 10 * np.log10(psds_wide)
-        ax_psd_wide.plot(freqs_wide, psds_db_wide, color='black', linewidth=1)
-        ax_psd_wide.set_title("Power Spectrum")
-        ax_psd_wide.set_xlabel("Frequency (Hz)")
-        ax_psd_wide.set_ylabel("Power (dB)")
-        if len(freqs_wide) > 0 : ax_psd_wide.set_xlim(freqs_wide[0], freqs_wide[-1])
-        ax_psd_wide.grid(True, linestyle='--', alpha=0.5)
-    except Exception as e:
-        print(f"Error plotting wide PSD: {e}")
-        ax_psd_wide.text(0.5, 0.5, "PSD plot failed", ha='center', va='center')
+        if psds_wide.size == 0: raise ValueError("PSD computation returned empty array.")
 
-    # 3. Zoomed-in Time Series (2 seconds - ideal for seeing eye movements and neural oscillations)
-    try:
-        # Find an interesting segment with high variance if possible
-        # This helps show characteristic patterns more clearly
-        segment_length = int(3.0 * sfreq)  # Changed from 2.0 to 3.0 seconds
-        if len(component_data_array) > segment_length * 2:
-            # Calculate variance in 3-second sliding windows with 1.5-second overlap
-            variance_windows = []
-            for i in range(0, len(component_data_array) - segment_length, int(segment_length/2)):
-                window = component_data_array[i:i+segment_length]
-                variance_windows.append((i, np.var(window)))
-            
-            # Select the window with highest variance for eye/muscle components
-            # or a window around 25-50% through the recording for more stable components
-            variance_windows.sort(key=lambda x: x[1], reverse=True)
-            
-            # Use high-variance segment if it's significantly higher than median
-            if variance_windows[0][1] > np.median([v for _, v in variance_windows]) * 1.5:
-                start_idx = variance_windows[0][0]
-            else:
-                start_idx = int(len(component_data_array) * 0.3)  # ~30% through the recording
-        else:
-            start_idx = 0
+        psds_db_wide = 10 * np.log10(np.maximum(psds_wide, 1e-20)) # Add small constant to avoid log(0)
         
-        zoom_end_idx = min(start_idx + segment_length, len(component_data_array))
-        zoom_times = np.arange(start_idx, zoom_end_idx) / sfreq
-        zoom_data = component_data_array[start_idx:zoom_end_idx]
-        
-        ax_ts_zoom.plot(zoom_times, zoom_data, linewidth=1.0, color='darkblue')
-        ax_ts_zoom.set_title(f"IC {component_idx} Detail View (3s Segment)")  # Updated to 3s
-        ax_ts_zoom.set_xlabel("Time (s)")
-        ax_ts_zoom.set_ylabel("Amplitude (a.u.)")
-        if len(zoom_times) > 0:
-            ax_ts_zoom.set_xlim(zoom_times[0], zoom_times[-1])
-        
-        # Add high-frequency specific y-limits for better visualization
-        # Set ylim for better visualization based on component characteristics
-        data_range = np.max(zoom_data) - np.min(zoom_data)
-        if data_range > 0:
-            # Add some padding (20%) to the limits
-            ax_ts_zoom.set_ylim(
-                np.min(zoom_data) - 0.1 * data_range,
-                np.max(zoom_data) + 0.1 * data_range
-            )
-        
-        # Add grid for visibility
-        ax_ts_zoom.grid(True, linestyle=':', alpha=0.7)
-        
-        # Add time markers at 0.5-second intervals for eye blink/movement timing
-        for t in np.arange(np.ceil(zoom_times[0] * 2) / 2, zoom_times[-1], 0.5):
-            ax_ts_zoom.axvline(x=t, color='lightgray', linestyle='--', alpha=0.5)
-    
+        ax_psd.plot(freqs_wide, psds_db_wide, color='red', linewidth=1.2)
+        ax_psd.set_title(f"IC{component_idx} Activity Power Spectrum", fontsize=10)
+        ax_psd.set_xlabel("Frequency (Hz)", fontsize=9)
+        ax_psd.set_ylabel("Power (dB)", fontsize=9)
+        if len(freqs_wide) > 0:
+            ax_psd.set_xlim(freqs_wide[0], freqs_wide[-1])
+        ax_psd.grid(True, linestyle='--', alpha=0.5)
+        ax_psd.tick_params(axis='both', which='major', labelsize=8)
     except Exception as e:
-        print(f"Error plotting zoomed-in time series: {e}")
-        ax_ts_zoom.text(0.5, 0.5, "Zoomed time series plot failed", ha='center', va='center')
+        print(f"Error plotting PSD for IC{component_idx}: {e}")
+        ax_psd.text(0.5, 0.5, "PSD plot failed", ha='center', va='center', transform=ax_psd.transAxes)
+        # traceback.print_exc()
 
-    # 4. Full Time Series Segment (30 seconds)
-    duration_segment = 30.0
-    max_samples_segment = min(int(duration_segment * sfreq), len(component_data_array))
-    times_segment = np.arange(max_samples_segment) / sfreq
-    
-    ax_ts_full.plot(times_segment, component_data_array[:max_samples_segment], linewidth=0.7, color='darkblue')
-    ax_ts_full.set_xlabel("Time (s)"); ax_ts_full.set_ylabel("Amplitude (a.u.)")
-    ax_ts_full.set_title(f"IC {component_idx} Full Time Series (30s Segment)")
-    if max_samples_segment > 0: ax_ts_full.set_xlim(times_segment[0], times_segment[-1])
-    ax_ts_full.grid(True, linestyle=':', alpha=0.7)
-    
-    # If we have the zoomed section, highlight it in the full view
-    try:
-        if 'zoom_times' in locals() and len(zoom_times) > 0:
-            # Add a highlight rectangle for the zoomed region
-            zoom_start = zoom_times[0]
-            zoom_end = zoom_times[-1]
-            ylims = ax_ts_full.get_ylim()
-            rect = plt.Rectangle((zoom_start, ylims[0]), zoom_end - zoom_start, ylims[1] - ylims[0], 
-                                fill=True, alpha=0.2, color='red')
-            ax_ts_full.add_patch(rect)
-    except Exception as e:
-        print(f"Error highlighting zoom region: {e}")
-    
-    fig.suptitle(f"ICA Component {component_idx} for Vision API Test", fontsize=16, y=0.98)
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
-    
-    filename = f"test_component_{component_idx}.webp"
+    fig.suptitle(f"ICA Component {component_idx} Analysis", fontsize=14, y=0.98) # Adjusted y for suptitle
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjusted rect for suptitle and bottom text space
+
+    filename = f"component_{component_idx}_analysis.webp"
     filepath = output_dir / filename
     try:
-        plt.savefig(filepath, format='webp', bbox_inches='tight', pad_inches=0.1)
+        plt.savefig(filepath, format='webp', bbox_inches='tight', pad_inches=0.2) # Increased pad_inches slightly
+        print(f"Successfully saved plot for IC{component_idx} to {filepath}")
     except Exception as e:
-        print(f"Error saving figure: {e}")
+        print(f"Error saving figure for IC{component_idx}: {e}")
+        # traceback.print_exc() # Optionally uncomment
         plt.close(fig)
         return None
     finally:

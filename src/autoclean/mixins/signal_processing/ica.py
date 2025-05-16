@@ -178,7 +178,7 @@ Example: ("channel_noise", 0.90, "Topography is highly focal, concentrated on a 
 
         self._update_metadata("step_run_ica", metadata)
 
-        save_ica_to_fif(self.final_ica, self.config, self.raw)
+        save_ica_to_fif(self.final_ica, self.config, data)
 
         message("success", "ICA step complete")
 
@@ -227,8 +227,6 @@ Example: ("channel_noise", 0.90, "Topography is highly focal, concentrated on a 
         }
 
         self._update_metadata("step_run_ICLabel", metadata)
-
-        save_ica_to_fif(self.final_ica, self.config, self.raw)
 
         message("success", "ICLabel complete")
 
@@ -357,7 +355,7 @@ Example: ("channel_noise", 0.90, "Topography is highly focal, concentrated on a 
             
         # Save the ICA object with updated exclusions
         if hasattr(self, 'config') and hasattr(self, 'raw'):
-             save_ica_to_fif(self.final_ica, self.config, self.raw) # Consistently save against self.raw context
+            #  save_ica_to_fif(self.final_ica, self.config, self.raw) # Consistently save against self.raw context
              message("debug", "Saved ICA object with updated exclusions after ICLabel rejection.")
         else:
             message("warning", "Cannot save ICA object: self.config or self.raw not found.")
