@@ -13,6 +13,7 @@ class BasicStepsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         use_epochs: bool = False,
+        stage_name: str = "post_basicsteps",
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Runs all basic preprocessing steps sequentially based on configuration.
 
@@ -67,7 +68,7 @@ class BasicStepsMixin:
 
         message("info", "Basic preprocessing steps completed successfully.")
 
-        self._save_raw_result(processed_data, "post_basicsteps")
+        self._save_raw_result(processed_data, stage_name)
 
         return processed_data
 
@@ -292,6 +293,8 @@ class BasicStepsMixin:
         :py:meth:`mne.io.Raw.set_eeg_reference` : For MNE's raw data rereferencing functionality
         :py:meth:`mne.Epochs.set_eeg_reference` : For MNE's epochs rereferencing functionality
         """
+
+        message("header", "Rereferencing data...")
 
         data = self._get_data_object(data, use_epochs)
 

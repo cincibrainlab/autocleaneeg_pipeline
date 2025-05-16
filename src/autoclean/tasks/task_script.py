@@ -59,7 +59,9 @@ class TestingRest(Task):
         self.import_raw()
 
         # Continue with other preprocessing steps
-        self.run_basic_steps()
+        # self.run_basic_steps()
+
+        self.raw.filter(l_freq=1, h_freq=100)
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()
@@ -67,42 +69,51 @@ class TestingRest(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        # self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
 
         self.rereference_data()
 
-        self.annotate_noisy_epochs()
+        # self.annotate_noisy_epochs()
 
-        self.annotate_uncorrelated_epochs()
+        # self.annotate_uncorrelated_epochs()
 
-        # #Segment rejection
-        self.detect_dense_oscillatory_artifacts()
+        # # #Segment rejection
+        # self.detect_dense_oscillatory_artifacts()
 
         # #ICA
         self.run_ica()
 
-        self.classify_ica_components_vision()
+        # self.classify_ica_components_vision()
 
-        # self.run_ICLabel()
+        self.run_ICLabel()
 
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_clean_raw",
-            flagged=self.flagged,
-        )
+        # self.raw.set_annotations(None)
 
-        # --- EPOCHING BLOCK START ---
-        self.create_regular_epochs() # Using fixed-length epochs
+        # self.annotate_noisy_epochs()
 
-        # Prepare epochs for ICA
-        self.prepare_epochs_for_ica()
+        # self.annotate_uncorrelated_epochs()
 
-        # Clean epochs using GFP
-        self.gfp_clean_epochs()
-        # --- EPOCHING BLOCK END ---
+        # # #Segment rejection
+        # self.detect_dense_oscillatory_artifacts()
 
-        # Generate visualization reports
+        # save_raw_to_set(
+        #     raw=self.raw,
+        #     autoclean_dict=self.config,
+        #     stage="post_clean_raw",
+        #     flagged=self.flagged,
+        # )
+
+        # # --- EPOCHING BLOCK START ---
+        # self.create_regular_epochs() # Using fixed-length epochs
+
+        # # Prepare epochs for ICA
+        # self.prepare_epochs_for_ica()
+
+        # # Clean epochs using GFP
+        # self.gfp_clean_epochs()
+        # # --- EPOCHING BLOCK END ---
+
+        # # Generate visualization reports
         self.generate_reports()
 
     def generate_reports(self) -> None:

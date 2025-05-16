@@ -146,7 +146,7 @@ class ArtifactsMixin:
             self._update_metadata("step_detect_dense_oscillatory_artifacts", metadata)
 
             # Save the result
-            # self._save_raw_result(result_raw, stage_name)
+            self._save_raw_result(result_raw, 'post_artifact_detection')
 
             # Update self.raw if we're using it
             self._update_instance_data(data, result_raw)
