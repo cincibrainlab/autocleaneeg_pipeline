@@ -10,7 +10,7 @@ Prerequisites
 *   Autoclean repository cloned on your machine
 
 Steps to use Autoclean with Docker
----------------------------------
+----------------------------------
 
 1.  Clone the Autoclean repository
 

@@ -8,11 +8,6 @@ from typing import Any, Dict
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
-from autoclean.step_functions.continuous import (
-    step_pre_pipeline_processing,
-    step_run_pylossless,
-)
-
 
 class MouseXdatResting(Task):
     """Mouse XDAT Resting State Task"""
@@ -29,7 +24,6 @@ class MouseXdatResting(Task):
         """
         # Initialize instance variables
         self.raw = None
-        self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
 
@@ -59,21 +53,7 @@ class MouseXdatResting(Task):
 
         self.import_data()
 
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_prepipeline",
-            flagged=self.flagged,
-        )
-
-        self.pipeline, self.raw = step_run_pylossless(self.config)
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_pylossless",
-            flagged=self.flagged,
-        )
+        self.basic_steps()
 
         self.create_regular_epochs()
 
@@ -140,8 +120,7 @@ class MouseXdatResting(Task):
         # Validate stage_files structure
         required_stages = [
             "post_import",
-            "post_prepipeline",
-            "post_pylossless",
+            "post_basicsteps",
             "post_epochs",
             "post_autoreject",
         ]

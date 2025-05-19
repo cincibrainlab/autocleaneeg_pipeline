@@ -57,3 +57,5 @@ codefetch/codebase.md
 examples/single_file.py
 /docs/_build
 /docs/api_reference/generated
+/ica_vision_test_output
+examples/batch_run.py

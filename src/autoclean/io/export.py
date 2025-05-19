@@ -392,39 +392,33 @@ def save_epochs_to_set(
     return paths[0]  # Return stage path for consistency
 
 
-def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
+def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
     """Save ICA results to FIF files.
 
     This function saves ICA results to FIF files in the derivatives directory.
 
     Parameters
     ----------
-        pipeline : dict
-            Pipeline dictionary
+        ica : mne.preprocessing.ICA
+            ICA object
         autoclean_dict : dict
             Autoclean dictionary
         pre_ica_raw : mne.io.Raw
             Raw data before ICA
     """
     try:
-        derivatives_dir = pipeline.get_derivative_path(
-            autoclean_dict["bids_path"]
-        ).directory
-        derivatives_dir.mkdir(parents=True, exist_ok=True)
+        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
     except Exception as e: # pylint: disable=broad-exception-caught
         message("error", f"Failed to save ICA to FIF files: {str(e)}")
 
     components = []
 
-    if pipeline.ica1 is not None:
-        ica1_path = derivatives_dir / f"{basename}ica1-ica.fif"
-        pipeline.ica1.save(ica1_path, overwrite=True)
-        components.append(ch for ch in pipeline.ica1.exclude)
-    if pipeline.ica2 is not None:
-        ica2_path = derivatives_dir / f"{basename}ica2-ica.fif"
-        pipeline.ica2.save(ica2_path, overwrite=True)
-        components.append(ch for ch in pipeline.ica2.exclude)
+    if ica is not None:
+        ica_path = derivatives_dir / f"{basename}-ica.fif"
+        ica.save(ica_path, overwrite=True)
+        components.append(ch for ch in ica.exclude)
+
     pre_ica_path = derivatives_dir / f"{basename}_pre_ica.set"
     pre_ica_raw.export(pre_ica_path, fmt="eeglab", overwrite=True)
 
@@ -432,8 +426,7 @@ def save_ica_to_fif(pipeline, autoclean_dict, pre_ica_raw):
         "save_ica_to_fif": {
             "creationDateTime": datetime.now().isoformat(),
             "components": components,
-            "ica1_path": ica1_path.name,
-            "ica2_path": ica2_path.name,
+            "ica_path": ica_path.name,
             "pre_ica_path": pre_ica_path.name,
         }
     }

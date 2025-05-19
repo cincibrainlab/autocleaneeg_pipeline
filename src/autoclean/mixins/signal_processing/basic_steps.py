@@ -13,14 +13,15 @@ class BasicStepsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         use_epochs: bool = False,
+        stage_name: str = "post_basicsteps",
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Runs all basic preprocessing steps sequentially based on configuration.
 
         The steps included are:
         1. Resample Data
-        2. Drop Outer Layer Channels
-        3. Assign EOG Channels
-        4. Rereference Data
+        2. Filter Data
+        3. Drop Outer Layer Channels
+        4. Assign EOG Channels
         5. Trim Edges
         6. Crop Duration
 
@@ -46,109 +47,107 @@ class BasicStepsMixin:
         # 1. Resample
         processed_data = self.resample_data(data=processed_data, use_epochs=use_epochs)
 
-        # 2. Drop Outer Layer
+        # 2. Filter
+        processed_data = self.filter_data(data=processed_data, use_epochs=use_epochs)
+
+        # 3. Drop Outer Layer
         processed_data = self.drop_outer_layer(
             data=processed_data, use_epochs=use_epochs
         )
 
-        # 3. Assign EOG Channels
-        # Note: assign_eog_channels doesn't save intermediate data, only updates metadata
+        # 4. Assign EOG Channels
         processed_data = self.assign_eog_channels(
             data=processed_data, use_epochs=use_epochs
         )
 
-        # 4. Rereference
-        processed_data = self.rereference_data(
-            data=processed_data, use_epochs=use_epochs
-        )
-
-        # 5. Trim Edges
+        # 6. Trim Edges
         processed_data = self.trim_edges(data=processed_data, use_epochs=use_epochs)
 
-        # 6. Crop Duration
+        # 7. Crop Duration
         processed_data = self.crop_duration(data=processed_data, use_epochs=use_epochs)
 
         message("info", "Basic preprocessing steps completed successfully.")
 
-        self._save_raw_result(processed_data, "post_basicsteps")
+        self._save_raw_result(processed_data, stage_name)
 
         return processed_data
 
-    def rereference_data(
+    def filter_data(
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
-        ref_type: str = None,
         use_epochs: bool = False,
-        stage_name: str = "post_rereference",
     ) -> Union[mne.io.Raw, mne.Epochs]:
-        """Rereference raw or epoched data based on configuration settings.
+        """Filter raw or epoched data based on configuration settings.
 
         This method can work with self.raw, self.epochs, or a provided data object.
-        It checks the rereference_step toggle in the configuration if no ref_type is provided.
-
+        It checks the filtering_step toggle in the configuration if no filter_args are provided.
+        
         Parameters
         ----------
         data : Optional
-            The raw data to rereference. If None, uses self.raw or self.epochs.
+            The data object to filter. If None, uses self.raw or self.epochs.
         use_epochs : bool, Optional
             If True and data is None, uses self.epochs instead of self.raw.
-        ref_type : str, Optional
-            The type of reference to use. If None, reads from config.
-        stage_name : str, Optional
-            Name for saving the rereferenced data (default: "post_rereference").
 
         Returns
         -------
         inst : instance of mne.io.Raw or mne.io.Epochs
-            The rereferenced data object (same type as input)
-
+            The filtered data object (same type as input)
+            
         Examples
-        --------    
+        --------
         >>> #Inside a task class that uses the autoclean framework
-        >>> self.rereference_data()
+        >>> self.filter_data()
 
         See Also
         --------
-        :py:meth:`mne.io.Raw.set_eeg_reference` : For MNE's raw data rereferencing functionality
-        :py:meth:`mne.Epochs.set_eeg_reference` : For MNE's epochs rereferencing functionality
+        :py:meth:`mne.io.Raw.filter` : For MNE's raw data filtering functionality
+        :py:meth:`mne.Epochs.filter` : For MNE's epochs filtering functionality
         """
-
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
-        if ref_type is None:
-            is_enabled, config_value = self._check_step_enabled("rereference_step")
+        is_enabled, config_value = self._check_step_enabled("filtering")
 
-            if not is_enabled:
-                message("info", "Rereferencing step is disabled in configuration")
-                return data
+        if not is_enabled:
+            message("info", "Filtering step is disabled in configuration")
+            return data
 
-            ref_type = config_value.get("value", None)
+        filter_args = config_value.get("value", {})
+        if not filter_args:
+            message("warning", "No filter arguments provided, skipping filtering")
+            return data
 
-            if ref_type is None:
-                message("warning", "Rereferencing value not specified, skipping rereferencing")
-                return data
+        message("header", "Filtering data...")
+        filtered_data = data.copy()
 
-        if ref_type == "average":
-            rereferenced_data = data.copy().set_eeg_reference(ref_type, projection=False)
-        else:
-            rereferenced_data = data.copy().set_eeg_reference(ref_type)
+        if "l_freq" in filter_args:
+            filtered_data.filter(l_freq=filter_args["l_freq"], h_freq=None)
 
-        self._save_raw_result(rereferenced_data, stage_name)
+        if "h_freq" in filter_args:
+            filtered_data.filter(l_freq=None, h_freq=filter_args["h_freq"])
+
+        if "notch_freqs" in filter_args:
+            filtered_data.notch_filter(
+                freqs=filter_args["notch_freqs"],
+                notch_widths=filter_args.get("notch_widths", 0.5),
+            )
+
+        self._save_raw_result(filtered_data, "post_filter")
 
         metadata = {
-            "original_ref_type": data.info["ref_type"],
-            "new_ref_type": ref_type,
+            "original_data_type": type(data).__name__,
+            "filtered_data_type": type(filtered_data).__name__,
+            "filter_args": filter_args,
         }
 
-        self._update_instance_data(data, rereferenced_data, use_epochs)
+        self._update_metadata("step_filter_data", metadata)
+        self._update_instance_data(data, filtered_data, use_epochs)
 
-        self._update_metadata("rereference_data", metadata)
+        return filtered_data
 
-        return rereferenced_data
-        
     def resample_data(
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
@@ -227,7 +226,7 @@ class BasicStepsMixin:
 
         try:
             # Resample based on data type
-            if isinstance(data, mne.io.Raw) or isinstance(data, mne.io.base.BaseRaw):
+            if isinstance(data, mne.io.base.BaseRaw):
                 resampled_data = data.copy().resample(target_sfreq)
                 # Save resampled raw data if it's a Raw object
                 self._save_raw_result(resampled_data, stage_name)
@@ -245,7 +244,7 @@ class BasicStepsMixin:
                 else "epochs",
             }
 
-            self._update_metadata("resample_data", metadata)
+            self._update_metadata("step_resample_data", metadata)
 
             # Update self.raw or self.epochs if we're using those
             self._update_instance_data(data, resampled_data, use_epochs)
@@ -255,6 +254,82 @@ class BasicStepsMixin:
         except Exception as e:
             message("error", f"Error during resampling: {str(e)}")
             raise RuntimeError(f"Failed to resample data: {str(e)}") from e
+
+    def rereference_data(
+        self,
+        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        ref_type: str = None,
+        use_epochs: bool = False,
+        stage_name: str = "post_rereference",
+    ) -> Union[mne.io.Raw, mne.Epochs]:
+        """Rereference raw or epoched data based on configuration settings.
+
+        This method can work with self.raw, self.epochs, or a provided data object.
+        It checks the rereference_step toggle in the configuration if no ref_type is provided.
+
+        Parameters
+        ----------
+        data : Optional
+            The raw data to rereference. If None, uses self.raw or self.epochs.
+        use_epochs : bool, Optional
+            If True and data is None, uses self.epochs instead of self.raw.
+        ref_type : str, Optional
+            The type of reference to use. If None, reads from config.
+        stage_name : str, Optional
+            Name for saving the rereferenced data (default: "post_rereference").
+
+        Returns
+        -------
+        inst : instance of mne.io.Raw or mne.io.Epochs
+            The rereferenced data object (same type as input)
+
+        Examples
+        --------    
+        >>> #Inside a task class that uses the autoclean framework
+        >>> self.rereference_data()
+
+        See Also
+        --------
+        :py:meth:`mne.io.Raw.set_eeg_reference` : For MNE's raw data rereferencing functionality
+        :py:meth:`mne.Epochs.set_eeg_reference` : For MNE's epochs rereferencing functionality
+        """
+
+        message("header", "Rereferencing data...")
+
+        data = self._get_data_object(data, use_epochs)
+
+        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+            raise TypeError("Data must be an MNE Raw or Epochs object")
+
+        if ref_type is None:
+            is_enabled, config_value = self._check_step_enabled("reference_step")
+
+            if not is_enabled:
+                message("info", "Rereferencing step is disabled in configuration")
+                return data
+
+            ref_type = config_value.get("value", None)
+
+            if ref_type is None:
+                message("warning", "Rereferencing value not specified, skipping rereferencing")
+                return data
+
+        if ref_type == "average":
+            rereferenced_data = data.copy().set_eeg_reference(ref_type, projection=False)
+        else:
+            rereferenced_data = data.copy().set_eeg_reference(ref_type)
+
+        self._save_raw_result(rereferenced_data, stage_name)
+
+        metadata = {
+            "new_ref_type": ref_type,
+        }
+
+        self._update_instance_data(data, rereferenced_data, use_epochs)
+
+        self._update_metadata("step_rereference_data", metadata)
+
+        return rereferenced_data
 
     def drop_outer_layer(
         self,
@@ -308,14 +383,14 @@ class BasicStepsMixin:
         message("info", f"Channels dropped: {', '.join(channels_to_drop)}")
 
         if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
-             self._save_raw_result(processed_data, stage_name)
+            self._save_raw_result(processed_data, stage_name)
 
         metadata = {
             "dropped_outer_layer_channels": channels_to_drop,
             "original_channel_count": len(data.ch_names),
             "new_channel_count": len(processed_data.ch_names),
         }
-        self._update_metadata("drop_outer_layer", metadata)
+        self._update_metadata("step_drop_outerlayer", metadata)
         self._update_instance_data(data, processed_data, use_epochs)
 
         return processed_data
@@ -384,7 +459,7 @@ class BasicStepsMixin:
         # as channel type changes don't alter the data matrix itself.
 
         metadata = {"assigned_eog_channels": list(eog_channels_map.keys())}
-        self._update_metadata("assign_eog_channels", metadata)
+        self._update_metadata("step_assign_eog_channels", metadata)
 
         # Even though set_channel_types modifies inplace on the copy,
         # we still call update_instance_data to potentially update self.raw/self.epochs
@@ -439,7 +514,8 @@ class BasicStepsMixin:
         if 2 * trim_duration_sec >= original_duration:
             message(
                 "error",
-                f"Total trim duration ({2 * trim_duration_sec}s) is greater than or equal to data duration ({original_duration}s). Cannot trim.",
+                f"Total trim duration ({2 * trim_duration_sec}s) is greater than or equal to data "
+                f"duration ({original_duration}s). Cannot trim.",
             )
             # Consider raising an error or just returning data
             return data # Return original data to avoid erroring out pipeline
@@ -459,15 +535,15 @@ class BasicStepsMixin:
             self._save_raw_result(processed_data, stage_name)
 
         metadata = {
-            "trim_duration_each_end_sec": trim_duration_sec,
-            "original_start_time_sec": original_start_time,
-            "original_end_time_sec": original_end_time,
-            "new_start_time_sec": tmin,
-            "new_end_time_sec": tmax,
-            "original_duration_sec": original_duration,
-            "new_duration_sec": new_duration,
+            "trim_duration": trim_duration_sec,
+            "original_start_time": original_start_time,
+            "original_end_time": original_end_time,
+            "new_start_time": tmin,
+            "new_end_time": tmax,
+            "original_duration": original_duration,
+            "new_duration": new_duration,
         }
-        self._update_metadata("trim_edges", metadata)
+        self._update_metadata("step_trim_edges", metadata)
         self._update_instance_data(data, processed_data, use_epochs)
 
         return processed_data
@@ -529,7 +605,8 @@ class BasicStepsMixin:
         if tmin >= tmax:
             message(
                 "error",
-                f"Invalid crop range: start time ({tmin:.3f}s) is not before end time ({tmax:.3f}s) after adjusting to data bounds. Skipping crop.",
+                f"Invalid crop range: start time ({tmin:.3f}s) is not before end time ({tmax:.3f}s)"
+                f"after adjusting to data bounds. Skipping crop.",
             )
             return data
 
@@ -539,17 +616,16 @@ class BasicStepsMixin:
         message("info", f"Data cropped. New duration: {new_duration:.3f}s")
 
         if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
-             self._save_raw_result(processed_data, stage_name)
+            self._save_raw_result(processed_data, stage_name)
 
         metadata = {
-            "requested_start_time_sec": start_time_sec,
-            "requested_end_time_sec": end_time_sec,
-            "actual_start_time_sec": tmin,
-            "actual_end_time_sec": tmax,
-            "original_duration_sec": original_end - original_start,
-            "new_duration_sec": new_duration,
+            "crop_duration": start_time_sec,
+            "crop_start": tmin,
+            "crop_end": tmax,
+            "original_duration": original_end - original_start,
+            "new_duration": new_duration,
         }
-        self._update_metadata("crop_duration", metadata)
+        self._update_metadata("step_crop_duration", metadata)
         self._update_instance_data(data, processed_data, use_epochs)
 
         return processed_data

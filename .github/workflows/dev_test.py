@@ -30,8 +30,8 @@ def run_test(file_path, task_name):
 
 if __name__ == "__main__":
     # Setup
-    OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean_dev")
-    CONFIG_PATH = Path("C:/Users/Gam9LG/Documents/Autoclean_dev/testing_config.yaml")
+    OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/Autoclean_testing")
+    CONFIG_PATH = Path("C:/Users/Gam9LG/Documents/Autoclean_testing/autoclean_config.yaml")
 
     # Configure logging
     configure_logger(verbose="INFO", output_dir=OUTPUT_DIR)
@@ -47,11 +47,11 @@ if __name__ == "__main__":
 
     # Define test cases
     test_cases = [
-        (Path('C:/Users/Gam9LG/Documents/Autoclean_dev/testing_data/resting_eyes_open.set'), "RestingEyesOpen"),
-        (Path('C:/Users/Gam9LG/Documents/Autoclean_dev/testing_data/resting_eyes_open.raw'), "RestingEyesOpen"),
-        (Path('C:/Users/Gam9LG/Documents/Autoclean_dev/testing_data/hbcd_mmn.set'), "HBCD_MMN"),
-        (Path('C:/Users/Gam9LG/Documents/Autoclean_dev/testing_data/hbcd_mmn.mff'), "HBCD_MMN"),
-        (Path('C:/Users/Gam9LG/Documents/Autoclean_dev/testing_data/mouse_assr.set'), "MouseXdatAssr"),
+        (Path('C:/Users/Gam9LG/Documents/Autoclean_testing/testing_data/resting_eyes_open.set'), "RestingEyesOpen"),
+        (Path('C:/Users/Gam9LG/Documents/Autoclean_testing/testing_data/resting_eyes_open.raw'), "RestingEyesOpen"),
+        (Path('C:/Users/Gam9LG/Documents/Autoclean_testing/testing_data/hbcd_mmn.set'), "HBCD_MMN"),
+        (Path('C:/Users/Gam9LG/Documents/Autoclean_testing/testing_data/hbcd_mmn.mff'), "HBCD_MMN"),
+        (Path('C:/Users/Gam9LG/Documents/Autoclean_testing/testing_data/mouse_assr.set'), "MouseXdatAssr"),
     ]
 
     # Run tests

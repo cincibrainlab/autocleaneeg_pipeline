@@ -294,9 +294,7 @@ class GFPCleanEpochsMixin:
         """
         try:
             # Get derivative path
-            derivatives_path = self.pipeline.get_derivative_path(
-                self.config["bids_path"]
-            )
+            derivatives_path = self.config["derivatives_dir"]
 
             # Create GFP barplot
             plt.figure(figsize=(12, 4))

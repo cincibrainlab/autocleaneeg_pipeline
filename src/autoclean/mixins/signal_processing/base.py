@@ -235,7 +235,7 @@ class SignalProcessingMixin:
         if not hasattr(self, "config"):
             return
 
-        if isinstance(result_data, mne.io.Raw):
+        if isinstance(result_data, mne.io.base.BaseRaw):
             save_raw_to_set(
                 raw=result_data,
                 autoclean_dict=self.config,

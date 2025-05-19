@@ -36,8 +36,46 @@ Configuration:
     checking if their corresponding steps are enabled before execution.
 """
 
-from autoclean.mixins.viz.ica import ICAReportingMixin
-from autoclean.mixins.viz.main import ReportingMixin
-from autoclean.mixins.viz.visualization import VisualizationMixin
+import importlib
+import inspect
+import pkgutil
+from pathlib import Path
+from typing import Dict, List, Type
 
-__all__ = ["ReportingMixin", "VisualizationMixin", "ICAReportingMixin"]
+# Get the current directory
+_current_dir = Path(__file__).parent
+
+# Collect all python files in the viz directory
+_mixin_modules = {
+    name: importlib.import_module(f"{__package__}.{name}")
+    for finder, name, ispkg in pkgutil.iter_modules([str(_current_dir)])
+    if not name.startswith("_")  # Skip private modules
+}
+
+# Initialize collections
+__all__: List[str] = []
+mixin_registry: Dict[str, Type] = {}
+
+# Dynamically import all Mixin classes from each module
+for module_name, module in _mixin_modules.items():
+    # Get all classes with "Mixin" in the name to avoid including helper or utility classes
+    mixin_classes = {
+        name: obj
+        for name, obj in inspect.getmembers(module, inspect.isclass)
+        if "Mixin" in name and obj.__module__ == module.__name__  # Only include directly defined classes, not imported ones
+    }
+
+    # Add to __all__
+    __all__.extend(mixin_classes.keys())
+
+    # Add to mixin registry
+    mixin_registry.update(mixin_classes)
+
+    # Add classes to the current namespace
+    globals().update(mixin_classes)
+
+# Make sure ReportingMixin is always included
+if "ReportingMixin" not in __all__ and "REGISTRY" in _mixin_modules:
+    from autoclean.mixins.viz.REGISTRY import ReportingMixin
+    __all__.append("ReportingMixin")
+    globals()["ReportingMixin"] = ReportingMixin

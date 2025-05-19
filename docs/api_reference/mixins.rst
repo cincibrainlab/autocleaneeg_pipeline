@@ -28,10 +28,6 @@ If you decide to use both mixin functions and non-mixin functions, be careful to
 
 .. code-block:: python
 
-   from autoclean.step_functions.continuous import pre_pipeline_processing
-   self.raw = pre_pipeline_processing(self.raw)  # This is a regular function that
-   # returns a raw object and does not modify self.raw internally
-
    # Since the self.raw attribute has been updated, we can use the mixin function
    self.create_regular_epochs()  # Modifies self.epochs
 
@@ -51,16 +47,15 @@ SignalProcessingMixin
    
    
 
-   segmentation.SegmentationMixin
-   reference.ReferenceMixin
-   resampling.ResamplingMixin
-   pylossless.PyLosslessMixin
+   basic_steps.BasicStepsMixin
    channels.ChannelsMixin
    artifacts.ArtifactsMixin
    eventid_epochs.EventIDEpochsMixin
    regular_epochs.RegularEpochsMixin
    prepare_epochs_ica.PrepareEpochsICAMixin
    gfp_clean_epochs.GFPCleanEpochsMixin
+   ica.IcaMixin
+   segment_rejection.SegmentRejectionMixin
 
 .. currentmodule:: autoclean.mixins.viz
 

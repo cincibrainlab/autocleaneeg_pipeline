@@ -49,7 +49,6 @@ To create a custom task, subclass the Task class and implement the required meth
        
        def __init__(self, config):
            self.raw = None
-           self.pipeline = None
            self.epochs = None
            super().__init__(config)
        

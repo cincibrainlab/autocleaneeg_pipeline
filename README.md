@@ -4,7 +4,7 @@
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
-A modular framework for automated EEG data processing, built on MNE-Python and PyLossless.
+A modular framework for automated EEG data processing, built on MNE-Python.
 
 ## Features
 
@@ -83,7 +83,7 @@ If you use this software in your research, please cite:
 ## Acknowledgments
 
 - Cincinnati Children's Hospital Medical Center
-- Built with [MNE-Python](https://mne.tools/) and [PyLossless](https://github.com/lina-usc/pylossless) 
+- Built with [MNE-Python](https://mne.tools/)
 
 ## Docker Usage
 

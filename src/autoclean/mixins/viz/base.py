@@ -58,30 +58,9 @@ class BaseVizMixin:
             ValueError: If derivatives path cannot be determined
         """
         # If bids_path is provided, use it directly
-        if bids_path is not None:
-            if hasattr(self, "pipeline") and hasattr(
-                self.pipeline, "get_derivative_path"
-            ):
-                return self.pipeline.get_derivative_path(bids_path)
-            else:
-                # Construct derivatives path manually
-                derivatives_dir = (
-                    Path(bids_path.directory) / "derivatives" / "autoclean"
-                )
-                derivatives_dir.mkdir(parents=True, exist_ok=True)
-                return derivatives_dir
-
-        # Try to get from autoclean_dict in config
-        if hasattr(self, "config") and self.config:
-            if "bids_path" in self.config:
-                return self._get_derivatives_path(self.config["bids_path"])
-            elif "derivatives_dir" in self.config:
+        if self.config:
+            if "derivatives_dir" in self.config:
                 return Path(self.config["derivatives_dir"])
-
-        # Try to get from pipeline
-        if hasattr(self, "pipeline") and hasattr(self.pipeline, "get_derivative_path"):
-            if hasattr(self, "config") and "bids_path" in self.config:
-                return self.pipeline.get_derivative_path(self.config["bids_path"])
 
         raise ValueError("Could not determine derivatives path")
 

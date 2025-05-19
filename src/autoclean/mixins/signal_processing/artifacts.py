@@ -123,7 +123,7 @@ class ArtifactsMixin:
                         description=annotation[2],
                     )
                 message(
-                    "info", f"Added {len(artifact_annotations)} artifact annotations"
+                    "info", f"Added {len(artifact_annotations)} potential reference artifact annotations"
                 )
             else:
                 message("info", "No reference artifacts detected")
@@ -146,7 +146,7 @@ class ArtifactsMixin:
             self._update_metadata("step_detect_dense_oscillatory_artifacts", metadata)
 
             # Save the result
-            # self._save_raw_result(result_raw, stage_name)
+            self._save_raw_result(result_raw, 'post_artifact_detection')
 
             # Update self.raw if we're using it
             self._update_instance_data(data, result_raw)
@@ -419,7 +419,7 @@ class ArtifactsMixin:
         data = self._get_data_object(data)
 
         # Type checking
-        if not isinstance(data, mne.io.Raw):
+        if not isinstance(data, mne.io.base.BaseRaw):
             raise TypeError("Data must be an MNE Raw object for segment rejection")
 
         try:

@@ -9,7 +9,6 @@ tasks:
   MouseXdatResting:
     mne_task: "rest"
     description: "Neuronexus Mouse XDAT Resting State"
-    lossless_config: configs/pylossless/lossless_config_mea.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
@@ -17,7 +16,15 @@ tasks:
       resample_step:
         enabled: true        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
-      
+
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+          notch_widths: 5
+
       drop_outerlayer:
         enabled: false
         value: []
@@ -44,6 +51,28 @@ tasks:
         enabled: false
         value: "MEA30"  # Type of EEG cap/electrode layout
 
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
+      
       epoch_settings:
         enabled: true     # Resting state doesn't use epoching
         value:
@@ -57,24 +86,23 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
-    # ARTIFACT REJECTION SETTINGS
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
-      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
-      interpolate_bads_kwargs:
-        method: "MNE"                                          # Method for interpolating bad channels
-      ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
-      ic_rejection_threshold: 0.3                              # Threshold for component rejection
-      remove_flagged_ics: false                                 # Whether to remove marked components   
+
       
   MouseXdatChirp:
     mne_task: "chirp"
     description: "Neuronexus Mouse XDAT Chirp"
-    lossless_config: configs/pylossless/lossless_config_mea.yaml    # Points to additional configuration settings
     settings:
       resample_step:
         enabled: true        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
+
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+          notch_widths: 5
 
       drop_outerlayer:
         enabled: false
@@ -102,6 +130,29 @@ tasks:
         enabled: false
         value: "MEA30"  # Type of EEG cap/electrode layout     
 
+      ICA:
+        enabled: false
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+
+      ICLabel:
+        enabled: false
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
+
       epoch_settings:
         enabled: true     
         value:
@@ -115,21 +166,10 @@ tasks:
           enabled: false
           volt_threshold: 
             eeg: 150e-6
-    # ARTIFACT REJECTION SETTINGS
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
-      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
-      interpolate_bads_kwargs:
-        method: "MNE"                                          # Method for interpolating bad channels
-      ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
-      ic_rejection_threshold: 0.3                              # Threshold for component rejection
-      remove_flagged_ics: false          
-                            # Whether to remove marked components
 
   MouseXdatAssr:
     mne_task: "assr"
     description: "Neuronexus Mouse XDAT assr State"
-    lossless_config: configs/pylossless/lossless_config_mea.yaml    # Points to additional configuration settings
     settings:
       # PROCESSING STEPS
       # Each step can be enabled/disabled and has specific settings
@@ -137,6 +177,14 @@ tasks:
       resample_step:
         enabled: false        # Set to false to skip this step
         value: 250          # New sampling rate in Hz
+
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+          notch_widths: 5
 
       drop_outerlayer:
         enabled: false
@@ -163,6 +211,29 @@ tasks:
       montage:
         enabled: false
         value: "MEA30"  # Type of EEG cap/electrode layout  
+      
+      ICA:
+        enabled: false
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+
+      ICLabel:
+        enabled: false
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
 
       epoch_settings:
         enabled: true     # Resting state doesn't use epoching
@@ -178,15 +249,6 @@ tasks:
           volt_threshold: 
             eeg: 150e-6
 
-    # ARTIFACT REJECTION SETTINGS
-    rejection_policy:
-      ch_flags_to_reject: ["noisy", "uncorrelated", "bridged"]  # Types of bad channels to reject
-      ch_cleaning_mode: "interpolate"                           # How to handle bad channels
-      interpolate_bads_kwargs:
-        method: "MNE"                                          # Method for interpolating bad channels
-      ic_flags_to_reject: ["muscle", "heart", "ch_noise", "line_noise"]  # Types of components to reject
-      ic_rejection_threshold: 0.3                              # Threshold for component rejection
-      remove_flagged_ics: false  
 
 
   
