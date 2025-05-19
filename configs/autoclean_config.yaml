@@ -85,9 +85,9 @@ tasks:
           enabled: false
           window: [null, 0]
         threshold_rejection:
-          enabled: false
+          enabled: true
           volt_threshold: 
-            eeg: 150e-6
+            eeg: 125e-6
                             
   
   ChirpDefault:
@@ -149,9 +149,9 @@ tasks:
           enabled: false
           window: [null, 0]
         threshold_rejection:
-          enabled: false
+          enabled: true
           volt_threshold: 
-            eeg: 150e-6
+            eeg: 125e-6
 
   
   AssrDefault:
@@ -288,9 +288,9 @@ tasks:
           enabled: false
           window: [null, 0]
         threshold_rejection:
-          enabled: false
+          enabled: true
           volt_threshold: 
-            eeg: 150e-6
+            eeg: 125e-6
   
   RawToSet:
     mne_task: "RawToSet"
