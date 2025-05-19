@@ -17,9 +17,9 @@ class ChannelsMixin:
         data: Union[mne.io.Raw, None] = None,
         correlation_thresh: float = 0.35,
         deviation_thresh: float = 2.5,
-        ransac_sample_prop: float = 0.35,
+        ransac_sample_prop: float = 0.5,
         ransac_corr_thresh: float = 0.65,
-        ransac_frac_bad: float = 0.25,
+        ransac_frac_bad: float = 0.1,
         ransac_channel_wise: bool = False,
         random_state: int = 1337,
         cleaning_method: Union[str, None] = None,
@@ -115,7 +115,7 @@ class ChannelsMixin:
                 result_raw, random_state=options["random_state"]
             )
             cleaned_raw.find_bad_by_correlation(
-                correlation_secs=5.0,
+                correlation_secs=1.0,
                 correlation_threshold=options["correlation_thresh"],
                 frac_bad=0.01,
             )
@@ -124,7 +124,7 @@ class ChannelsMixin:
             )
             if options["ransac_corr_thresh"] > 0:
                 cleaned_raw.find_bad_by_ransac(
-                    n_samples=100,
+                    n_samples=1000,
                     sample_prop=options["ransac_sample_prop"],
                     corr_thresh=options["ransac_corr_thresh"],
                     frac_bad=options["ransac_frac_bad"],

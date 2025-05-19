@@ -22,7 +22,7 @@ class SegmentRejectionMixin:
         epoch_overlap: float = 0.0,
         picks: list[str] = None,
         quantile_k: float = 3.0,
-        quantile_flag_crit: float = 0.2,
+        quantile_flag_crit: float = 0.1,
         annotation_description: str = "BAD_noisy_epoch",
     ):
         """
@@ -197,8 +197,8 @@ class SegmentRejectionMixin:
         n_nearest_neighbors: int = 5,
         corr_method: str = "max",
         corr_trim_percent: float = 10.0,
-        outlier_k: float = 4.0,
-        outlier_flag_crit: float = 0.2,
+        outlier_k: float = 3.0,
+        outlier_flag_crit: float = 0.1,
         annotation_description: str = "BAD_uncorrelated_epoch",
     ):
         """
