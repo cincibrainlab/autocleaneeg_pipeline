@@ -15,7 +15,6 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
-    step_pre_pipeline_processing,
 )
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
@@ -37,7 +36,6 @@ class MouseXdatChirp(Task):
         """
         # Initialize instance variables
         self.raw = None
-        self.pipeline = None
         self.cleaned_raw = None
         self.epochs = None
         self.original_raw = None
@@ -102,9 +100,8 @@ class MouseXdatChirp(Task):
         if self.raw is None:
             raise RuntimeError("No data has been imported")
 
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
-
+        self.basic_steps()
+        
         self.original_raw = self.raw.copy()
 
         self.raw, self.config = step_create_bids_path(self.raw, self.config)

@@ -151,53 +151,47 @@ To use your new processing step, add the Mixin class to the inheritance list of 
 
     .. code-block:: python
 
-       # Add the mixin to the list of base classes
-       class MyVisualParadigm(Task, MyArtifactDetectorMixin):
+       class MyVisualParadigm(Task):
            # ... __init__, _validate_task_config, etc. ...
 
            def run(self) -> None:
                # ... (previous steps like import_raw, resample_data) ...
 
-               # --- Call your custom step --- 
-               message("info", "Running custom artifact detection step...")
                self.detect_my_custom_artifacts() # Method is now available via inheritance
 
-               # ... (subsequent steps like epoching, reporting) ...
+Before using your custom mixin, you need to register it in the appropriate category's main module.
 
-Configuring the Custom Step
----------------------------
+1.  **Register the Mixin in the Category's main.py:**
+    Add your mixin to the appropriate category's main.py file (e.g., `src/autoclean/mixins/signal_processing/main.py` for signal processing mixins).
 
-Update your `autoclean_config.yaml` to include parameters for your custom step within the relevant Task's `settings` section. The structure must match the actual config file.
+    .. code-block:: python
 
-*   The key for the step's configuration (e.g., `my_custom_artifact_detection_step`) **must** match the `step_name` used in your Mixin method (`self._check_step_enabled(step_name)`).
+       # src/autoclean/mixins/signal_processing/main.py
+       
+       # Import your mixin
+       from autoclean.mixins.signal_processing.my_artifact_detector import MyArtifactDetectorMixin
+       
+       # Make sure it's included in __all__ list
+       class SignalProcessingMixin(
+           BaseSignalProcessingMixin,
+           MyArtifactDetectorMixin,
+       ):
 
-.. code-block:: yaml
+    This step is crucial as it ensures your mixin is properly imported when the mixins module is loaded.
 
-   tasks:
-     MyVisualParadigm: # Task that uses the custom mixin
-       # ... other task config like description, mne_task, lossless_config ...
-       settings:
-         # ... config for standard steps ...
-         resample_step:
-           enabled: true
-           value: 250
+2.  **Update core/task.py if Necessary:**
+    If you created a new category, you might need to update the task.py file to import from your new category.
 
-         # --- Configuration for your custom step --- 
-         my_custom_artifact_detection_step: # Key MUST match step_name in mixin
-           enabled: true
-           # Parameters for the step are typically placed directly under the step key
-           # (unless the step expects a nested 'value' dictionary)
-           threshold: 7.5 # Parameter read by step_config.get("threshold") in the mixin
-           another_param: "example"
-           # If the step expects a nested 'value':
-           # value: 
-           #  threshold: 7.5 
-           #  another_param: "example"
+    .. code-block:: python
 
-   # Stage file config is global, not per-task
-   stage_files:
-     # ... other stages ... 
-     post_custom_artifacts: { enabled: true, suffix: "_custom_artifact_annot" }
+       # src/autoclean/core/task.py
+       
+       # Import existing categories
+       from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin
+       from autoclean.mixins.viz.REGISTRY import ReportingMixin
+       # Import your new category if applicable
+       from autoclean.mixins.custom.REGISTRY import MyCustomMixins
+
 
 Summary
 -------
@@ -206,5 +200,4 @@ Summary
 *   Implement methods for your steps, including boilerplate for data handling and configuration checks.
 *   Mixin methods should work on data copies, update metadata, update instance data, and return the processed copy.
 *   Add your Mixin to a Task's inheritance list to make the step available.
-*   Configure the step in `autoclean_config.yaml` under the Task's `settings`, using a key that matches the `step_name` checked in the Mixin method.
-*   `stage_files` is configured globally. 
+*   Add the steps stage file to the autoclean_config.yaml file.

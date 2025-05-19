@@ -16,19 +16,6 @@ EEG processing results, such as:
 These visualizations help users understand the effects of preprocessing steps and
 validate the quality of processed data.
 
-Example:
-    ```python
-    from autoclean.core.task import Task
-
-    class MyEEGTask(Task):
-        def process(self, raw, pipeline, autoclean_dict):
-            # Process the data
-            raw_cleaned = self.apply_preprocessing(raw)
-
-            # Generate visualizations
-            self.plot_raw_vs_cleaned_overlay(raw, raw_cleaned, pipeline, autoclean_dict)
-            self.psd_topo_figure(raw, raw_cleaned, pipeline, autoclean_dict)
-    ```
 """
 
 import os
@@ -74,8 +61,6 @@ class VisualizationMixin(BaseVizMixin):
         self,
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
-        pipeline: Any,
-        autoclean_dict: Dict[str, Any],
     ) -> None:
         """Plot raw data channels over the full duration, overlaying the original and cleaned data.
 
@@ -85,12 +70,6 @@ class VisualizationMixin(BaseVizMixin):
                 Original raw EEG data before cleaning.
             raw_cleaned : mne.io.Raw
                 Cleaned raw EEG data after preprocessing.
-            pipeline : Any
-                Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict : Dict[str, Any]
-                Dictionary containing metadata about the processing run.
-            suffix : str, optional
-                Optional suffix to append to the output filename.
 
         Returns
         -------
@@ -218,16 +197,10 @@ class VisualizationMixin(BaseVizMixin):
         plt.tight_layout()
 
         # Create Artifact Report
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-
-        # Target file path
-        target_figure = str(
-            derivatives_path.copy().update(
-                suffix="step_plot_raw_vs_cleaned_overlay",
-                extension=".png",
-                datatype="eeg",
-            )
-        )
+        derivatives_dir = self.config["derivatives_dir"]
+        basename = self.config["bids_path"].basename
+        basename = basename.replace("_eeg", "_raw_vs_cleaned_overlay")
+        target_figure = derivatives_dir / f"{basename}.png"
 
         # Save as PNG with high DPI for quality
         fig.savefig(target_figure, dpi=150, bbox_inches="tight")
@@ -251,7 +224,6 @@ class VisualizationMixin(BaseVizMixin):
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
         pipeline: Any,
-        autoclean_dict: Dict[str, Any],
         zoom_duration: float = 30,
         zoom_start: float = 0,
     ) -> None:
@@ -274,8 +246,6 @@ class VisualizationMixin(BaseVizMixin):
                 Cleaned raw EEG data after interpolation of bad channels.
             pipeline: Any
                 Pipeline object containing pipeline metadata and utility functions.
-            autoclean_dict: Dict[str, Any]
-                Dictionary containing metadata about the processing run.
             zoom_duration: float, Optional
                 Duration in seconds for the zoomed-in time series plot.
             zoom_start: float, Optional
@@ -549,7 +519,7 @@ class VisualizationMixin(BaseVizMixin):
         )
 
         # Create Artifact Report
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
+        derivatives_path = pipeline.get_derivative_path(self.config["bids_path"])
 
         # Target file path
         target_figure = str(
@@ -743,8 +713,6 @@ class VisualizationMixin(BaseVizMixin):
         self,
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
-        pipeline: Any,
-        autoclean_dict: Dict[str, Any],
         bands: Optional[List[Tuple[str, float, float]]] = None,
     ) -> None:
         """Generate and save a single high-resolution image that includes:
@@ -760,10 +728,6 @@ class VisualizationMixin(BaseVizMixin):
             Original raw EEG data before cleaning.
         raw_cleaned : mne.io.Raw
             Cleaned EEG data after preprocessing.
-        pipeline : pylossless.Pipeline
-            Pipeline object.
-        autoclean_dict : dict
-            Dictionary containing autoclean parameters and paths.
         bands : list of tuple, optional
             List of frequency bands to plot. Each tuple should contain
             (band_name, lower_freq, upper_freq).
@@ -786,14 +750,10 @@ class VisualizationMixin(BaseVizMixin):
             ]
 
         # Create Artifact Report
-        derivatives_path = pipeline.get_derivative_path(autoclean_dict["bids_path"])
-
-        # Output figure path
-        target_figure = str(
-            derivatives_path.copy().update(
-                suffix="psd_topo_figure", extension=".png", datatype="eeg"
-            )
-        )
+        derivatives_dir = self.config["derivatives_dir"]
+        basename = self.config["bids_path"].basename
+        basename = basename.replace("_eeg", "_psd_topo_figure")
+        target_figure = derivatives_dir / f"{basename}.png"
 
         # Count number of EEG channels
         channel_types = raw_original.get_channel_types()

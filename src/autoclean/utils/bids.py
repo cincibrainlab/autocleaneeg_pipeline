@@ -177,7 +177,7 @@ def step_convert_to_bids(
 
     # Create derivatives directory structure (outside the lock).
     derivatives_dir = (
-        bids_root / "derivatives" / "pylossless" / f"sub-{subject_id}" / "eeg"
+        bids_root / "derivatives" / f"sub-{subject_id}" / "eeg"
     )
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message("info", f"Created derivatives directory structure at {derivatives_dir}")
@@ -386,7 +386,7 @@ def step_convert_to_bids(
     # Lock is automatically released when exiting the 'with' block.
     message("debug", f"Released participants.tsv lock for {file_name}.")
 
-    return bids_path
+    return bids_path, derivatives_dir
 
 
 def step_sanitize_id(filename):

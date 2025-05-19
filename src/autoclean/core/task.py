@@ -9,8 +9,8 @@ from typing import Any, Dict, Optional
 import mne  # Core EEG processing library for data containers and processing
 
 # Local imports
-from autoclean.mixins.signal_processing.main import SignalProcessingMixin
-from autoclean.mixins.viz.main import ReportingMixin
+from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin
+from autoclean.mixins.viz.REGISTRY import ReportingMixin
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.utils.logging import message
@@ -71,7 +71,9 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         self.epochs: Optional[mne.Epochs] = None  # Holds epoched data segments
         self.flagged = False
         self.flagged_reasons = []
-        self.pipeline = None
+        self.fast_ica: Optional[mne.ICA] = None
+        self.final_ica: Optional[mne.ICA] = None
+        self.ica_flags = None
 
     def import_raw(self) -> None:
         """Import the raw EEG data from file.

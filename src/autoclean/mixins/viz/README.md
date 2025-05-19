@@ -160,14 +160,7 @@ Additional reporting functionality can be added by creating new mixins or extend
 The main `ReportingMixin` is included in the `Task` base class, which means that all task classes automatically inherit the reporting functionality. For example:
 
 ```python
-# Create run report
-self.create_run_report(self.config["run_id"], self.config)
 
-# Generate ICA reports
-self.generate_ica_reports(self.pipeline, self.raw, self.config)
-
-# Plot raw vs cleaned data overlay
-self.plot_raw_vs_cleaned_overlay(self.raw_original, self.raw, self.pipeline, self.config)
 ```
 
 ## Components

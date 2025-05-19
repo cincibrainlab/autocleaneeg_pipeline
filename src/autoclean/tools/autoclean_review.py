@@ -498,13 +498,11 @@ class FileSelector(QWidget):
                         "bids"
                     ]
                 )
-                derivatives_stem = "pylossless"
 
                 # Original derivatives path from database
                 original_derivatives_dir = Path(
                     bids_root,
                     "derivatives",
-                    derivatives_stem,
                     "sub-" + subject_id,
                     "eeg",
                 )
@@ -512,9 +510,9 @@ class FileSelector(QWidget):
                 # Try to remap the path for Docker container environment
                 try:
                     # Extract the relative path structure that should be consistent
-                    # This assumes a structure like /some/path/derivatives/pylossless/sub-XXX/eeg
+                    # This assumes a structure like /some/path/derivatives/sub-XXX/eeg
                     relative_derivatives_path = Path(
-                        "derivatives", derivatives_stem, "sub-" + subject_id, "eeg"
+                        "derivatives", "sub-" + subject_id, "eeg"
                     )
 
                     # First try: Look for the derivatives directory relative to current_dir

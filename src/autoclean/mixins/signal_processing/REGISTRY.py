@@ -8,26 +8,22 @@ from autoclean.mixins.signal_processing.channels import ChannelsMixin
 from autoclean.mixins.signal_processing.eventid_epochs import EventIDEpochsMixin
 from autoclean.mixins.signal_processing.gfp_clean_epochs import GFPCleanEpochsMixin
 from autoclean.mixins.signal_processing.prepare_epochs_ica import PrepareEpochsICAMixin
-from autoclean.mixins.signal_processing.pylossless import PyLosslessMixin
-from autoclean.mixins.signal_processing.reference import ReferenceMixin
 from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
-from autoclean.mixins.signal_processing.resampling import ResamplingMixin
-from autoclean.mixins.signal_processing.segmentation import SegmentationMixin
 from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+from autoclean.mixins.signal_processing.ica import IcaMixin
+from autoclean.mixins.signal_processing.segment_rejection import SegmentRejectionMixin
 
 class SignalProcessingMixin(
     BaseSignalProcessingMixin,
-    ResamplingMixin,
     ArtifactsMixin,
     ChannelsMixin,
-    SegmentationMixin,
-    ReferenceMixin,
-    PyLosslessMixin,
     EventIDEpochsMixin,
     RegularEpochsMixin,
     PrepareEpochsICAMixin,
     GFPCleanEpochsMixin,
     BasicStepsMixin,
+    IcaMixin,
+    SegmentRejectionMixin,
 ):
     """Main mixin class that combines all signal processing functionality.
 

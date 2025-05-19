@@ -17,7 +17,6 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
-    step_pre_pipeline_processing,
 )
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
@@ -46,7 +45,6 @@ class MouseXdatAssr(Task):
         """
         # Initialize instance variables
         self.raw = None
-        self.pipeline = None
         self.original_raw = None
         self.epochs = None
 
@@ -154,8 +152,7 @@ class MouseXdatAssr(Task):
         if self.raw is None:
             raise RuntimeError("No data has been imported")
 
-        self.raw = step_pre_pipeline_processing(self.raw, self.config)
-        save_raw_to_set(self.raw, self.config, "post_prepipeline")
+        self.run_basic_steps()
 
         self.original_raw = self.raw.copy()
 
@@ -220,9 +217,7 @@ class MouseXdatAssr(Task):
             This is automatically called by preprocess().
             Override this method if you need custom visualizations.
         """
-        self.verify_topography_plot(self.config)
-
-        # self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw, self.pipeline, self.config)
+        self.verify_topography_plot()
 
     def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
         # Add your validation logic here
@@ -242,7 +237,7 @@ class MouseXdatAssr(Task):
         # Validate stage_files structure
         required_stages = [
             "post_import",
-            "post_prepipeline",
+            "post_basic_steps",
             "post_epochs",
         ]
 

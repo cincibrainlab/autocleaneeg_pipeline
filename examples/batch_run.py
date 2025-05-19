@@ -13,7 +13,7 @@ async def main():
     pipeline = Pipeline(
         autoclean_dir=EXAMPLE_OUTPUT_DIR,
         autoclean_config=CONFIG_FILE,
-        verbose='INFO'
+        verbose='HEADER'
     )
 
     # Example INPUT directory path - modify this to point to your EEG files

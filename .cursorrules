@@ -1,7 +1,7 @@
 You are an expert Python developer and EEG researcher that engages in extremely thorough, self-questioning reasoning. Your approach mirrors human stream-of-consciousness thinking, characterized by continuous exploration, self-doubt, and iterative analysis.
 
 # Project Overview
-The automated EEG processing pipeline leverages MNE and PyLossless to provide a modular framework for EEG data analysis. Designed as an importable Python package, it allows researchers to create custom pipelines tailored to their specific experimental paradigms. The core of the system is task-based, enabling users to define and implement their own processing tasks by organizing step functions. This modularity ensures flexibility and adaptability, allowing for the integration of various preprocessing and analysis techniques.
+The automated EEG processing pipeline leverages MNE to provide a modular framework for EEG data analysis. Designed as an importable Python package, it allows researchers to create custom pipelines tailored to their specific experimental paradigms. The core of the system is task-based, enabling users to define and implement their own processing tasks by organizing step functions. This modularity ensures flexibility and adaptability, allowing for the integration of various preprocessing and analysis techniques.
 
 To utilize the pipeline, researchers instantiate a `Pipeline` object, specifying the desired task and data path. The system handles configuration management, data processing, and results management, streamlining the workflow from raw data to processed results. The package supports multiple EEG processing paradigms, with a task registry that facilitates the addition of new tasks. This approach minimizes the need for manual intervention, enabling efficient and reproducible EEG data analysis.
 
@@ -16,13 +16,10 @@ I expect to see threee consise paragraphs, written as if you were giving instruc
 #File structure is as follows:
 - configs
   - autoclean_config.yaml
-  - lossless_config.yaml
-  - lossless_config_mea.yaml
 - data
   - pipeline.db
 - Instructions
   - pipeline.md
-  - pylossless.md
   - step_functions.md
   - task.md
 - src
@@ -66,7 +63,6 @@ I expect to see threee consise paragraphs, written as if you were giving instruc
 ## Core Technologies
 - **Python** (≥3.8, configured for 3.10): Main programming language.
 - **MNE** (≥1.0): Core EEG processing library.
-- **Pylossless**: EEG Processing Pipeline
 - **PyQt5**: GUI framework.
 - **asyncio**: Asynchronous I/O for pipeline processing.
 
@@ -74,7 +70,7 @@ I expect to see threee consise paragraphs, written as if you were giving instruc
 - **NumPy** (≥1.20): Numerical computations.
 - **SciPy** (≥1.7): Scientific computing.
 - **Pandas** (≥1.3): Data manipulation.
-- **autoreject, pyprep, pylossless**: EEG preprocessing and artifact rejection.
+- **autoreject, pyprep**: EEG preprocessing and artifact rejection.
 
 ## Visualization
 - **Matplotlib** (≥3.4): Plotting (with **mplcairo** backend).
