@@ -6,6 +6,7 @@ import re
 import json # Added for JSON output
 from pathlib import Path
 from typing import Optional, Tuple, List, Dict, Any # Added List, Dict, Any
+import math
 
 import matplotlib
 matplotlib.use("Agg") # Ensure non-interactive backend for scripts
@@ -18,6 +19,7 @@ import openai
 import warnings # Added for dipole fitting warnings
 from mne import EvokedArray, make_sphere_model, create_info # Added for dipole fitting
 from mne.time_frequency import psd_array_welch # Ensure this is imported if not already
+from scipy.ndimage import uniform_filter1d # Added for vertical smoothing
 
 # --- Configuration ---
 # Ensure your OpenAI API key is set as an environment variable
@@ -26,12 +28,12 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 # MODIFY THESE PATHS TO YOUR EXAMPLE DATA
 # It's best to use a small, representative raw file and its corresponding ICA solution
-EXAMPLE_RAW_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-69253/eeg/0022_VDaudio_ICA_pre_ica.set"
-EXAMPLE_ICA_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-69253/eeg/0022_VDaudio_ICA-ica.fif" 
+EXAMPLE_RAW_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-732282/eeg/0161_VD_noaudio_ICA_pre_ica.set"
+EXAMPLE_ICA_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/derivatives/sub-732282/eeg/0161_VD_noaudio_ICA-ica.fif" 
 
-# --- New Batch Configuration ---
+# --- New Batch Configuration ---   
 START_COMPONENT_INDEX = 0  # Starting component index for the batch
-NUM_COMPONENTS_TO_BATCH = 5 # Number of components to process in this batch
+NUM_COMPONENTS_TO_BATCH =5 # Number of components to process in this batch
 OUTPUT_DIR_PATH = "./ica_vision_test_output" # Directory to save plots and JSON results
 # --- End New Batch Configuration ---
 
@@ -117,7 +119,7 @@ def _plot_component_for_vision_standalone(
     
     # Right column
     ax_ts_scroll = fig.add_subplot(gs[0, 1]) # Scrolling IC Activity (row 0 on right)
-    ax_dipole = fig.add_subplot(gs[1, 1])    # Dipole Position (row 1 on right)
+    ax_dipole = fig.add_subplot(gs[1, 1])    # Dipole Position (row 1 on right) - regular 2D subplot
     ax_psd = fig.add_subplot(gs[2, 1])       # IC Activity Power Spectrum (row 2 on right)
 
     sources = ica_obj.get_sources(raw_obj)
@@ -131,20 +133,8 @@ def _plot_component_for_vision_standalone(
                                 sensors=True, contours=6) # colorbar=False, will add custom text instead
         ax_topo.set_title(f"IC{component_idx}", fontsize=12, loc='center') # Centered title
 
-        # Calculate and display "% scalp data var. accounted for"
-        comp_var = np.var(component_data_array)
-        total_source_var = np.sum(np.var(sources.get_data(), axis=1)) # Sum of variances of all IC time courses
-        if total_source_var > 0:
-            var_explained = (comp_var / total_source_var) * 100
-            # Position text below the topography plot area
-            fig.text(0.27, 0.34, f"% scalp data var. accounted for: {var_explained:.1f}%", 
-                     ha='center', va='top', fontsize=8) # Used fig.text for better global positioning
-        else:
-            fig.text(0.27, 0.34, "% scalp data var. accounted for: N/A",
-                     ha='center', va='top', fontsize=8)
-        
-        ax_topo.set_xlabel("")
-        ax_topo.set_ylabel("")
+        ax_topo.set_xlabel("") # Remove "ICA Components" x-label from topo plot
+        ax_topo.set_ylabel("") # Remove y-label
         ax_topo.set_xticks([])
         ax_topo.set_yticks([])
 
@@ -174,41 +164,93 @@ def _plot_component_for_vision_standalone(
 
     # 3. Continuous Data (EEGLAB-style ERP image)
     try:
-        total_duration_disp_cd = 30.0 
-        segment_duration_ms_cd = 500 
-        
-        segment_len_samples_cd = int(segment_duration_ms_cd / 1000 * sfreq)
-        if segment_len_samples_cd == 0: # Avoid division by zero or empty segments
-             raise ValueError("Segment length in samples is zero. Check sfreq and segment_duration_ms_cd.")
+        # Global offset removal (as in pop_prop.m)
+        comp_data_offset_corrected = component_data_array - np.mean(component_data_array)
 
-        n_points_total_cd = int(min(total_duration_disp_cd * sfreq, len(component_data_array)))
+        # Segmentation strategy (to match pop_prop.m via reference image appearance)
+        target_segment_duration_s = 1.5  # Target 1500 ms for x-axis
+        target_max_segments = 200        # Target 200 lines for y-axis (ERPIMAGELINES)
         
-        if n_points_total_cd < segment_len_samples_cd:
-            raise ValueError(f"Not enough data ({n_points_total_cd} points) for one segment of {segment_len_samples_cd} points.")
+        segment_len_samples_cd = int(target_segment_duration_s * sfreq)
+        if segment_len_samples_cd == 0: # Should not happen with 1.5s unless sfreq is tiny
+            segment_len_samples_cd = 1 
 
-        n_segments_cd = n_points_total_cd // segment_len_samples_cd
+        # Determine how much data to use based on availability and targets
+        available_samples_in_component = comp_data_offset_corrected.shape[0]
+        max_total_samples_to_use_for_plot = int(target_max_segments * target_segment_duration_s * sfreq)
+        
+        samples_to_feed_erpimage = min(available_samples_in_component, max_total_samples_to_use_for_plot)
+        
+        n_segments_cd = 0
+        erp_image_data_for_plot = np.array([[]]) # Default to empty
+
+        if segment_len_samples_cd > 0 : # Ensure segment length is positive
+            n_segments_cd = math.floor(samples_to_feed_erpimage / segment_len_samples_cd)
+
         if n_segments_cd == 0:
-            raise ValueError("Zero segments calculated for Continuous Data plot. Not enough data.")
-            
-        erp_image_data = component_data_array[:n_segments_cd * segment_len_samples_cd].reshape(n_segments_cd, segment_len_samples_cd)
-        
-        v_abs = np.percentile(np.abs(erp_image_data), 98) if erp_image_data.size > 0 else 1.0
-        v_abs = max(v_abs, 1e-9) # Ensure v_abs is not zero for vmin/vmax
+            if samples_to_feed_erpimage > 0: # Data is shorter than one target segment
+                n_segments_cd = 1
+                current_segment_len_samples = samples_to_feed_erpimage
+                erp_image_data_for_plot = comp_data_offset_corrected[:current_segment_len_samples].reshape(n_segments_cd, current_segment_len_samples)
+            else: # No data available at all
+                print(f"Warning: No data available for IC{component_idx} continuous data plot.")
+                erp_image_data_for_plot = np.zeros((1,1)) # Placeholder for empty plot
+                current_segment_len_samples = 1 # Avoid division by zero for xticks later
+        else: # We have at least one full target-duration segment
+            current_segment_len_samples = segment_len_samples_cd
+            final_samples_for_reshape = n_segments_cd * current_segment_len_samples
+            erp_image_data_for_plot = comp_data_offset_corrected[:final_samples_for_reshape].reshape(n_segments_cd, current_segment_len_samples)
 
-        im = ax_cont_data.imshow(erp_image_data, aspect='auto', cmap='jet', interpolation='nearest',
-                                 vmin=-v_abs, vmax=v_abs,
-                                 extent=[0, segment_duration_ms_cd, n_segments_cd, 0])
-        ax_cont_data.set_title("Continuous Data", fontsize=10)
-        ax_cont_data.set_xlabel("Time (ms)", fontsize=9)
-        ax_cont_data.set_ylabel("Data (Segments)", fontsize=9)
+        # Vertical smoothing (3-point moving average across segments, like ei_smooth=3 in pop_prop)
+        if n_segments_cd >= 3:
+            erp_image_data_smoothed = uniform_filter1d(erp_image_data_for_plot, size=3, axis=0, mode='nearest')
+        else:
+            erp_image_data_smoothed = erp_image_data_for_plot
+
+        # Color limits (EEGLAB 'caxis', 2/3 style)
+        if erp_image_data_smoothed.size > 0:
+            max_abs_val = np.max(np.abs(erp_image_data_smoothed))
+            clim_val = (2/3) * max_abs_val
+        else:
+            clim_val = 1.0 
+        clim_val = max(clim_val, 1e-9) # Ensure vmin/vmax are not zero
+        vmin_cd = -clim_val
+        vmax_cd = clim_val
+
+        im = ax_cont_data.imshow(erp_image_data_smoothed, aspect='auto', cmap='jet', interpolation='nearest',
+                                 vmin=vmin_cd, vmax=vmax_cd)
         
-        cbar_cont = fig.colorbar(im, ax=ax_cont_data, orientation='vertical', fraction=0.046, pad=0.1) # Adjusted pad
+        # X-axis ticks and label (Time in ms)
+        ax_cont_data.set_xlabel("Time (ms)", fontsize=9)
+        num_xticks = 4
+        xtick_positions_samples = np.linspace(0, current_segment_len_samples -1 , num_xticks)
+        xtick_labels_ms = (xtick_positions_samples / sfreq * 1000).astype(int)
+        ax_cont_data.set_xticks(xtick_positions_samples)
+        ax_cont_data.set_xticklabels(xtick_labels_ms)
+
+        # Y-axis ticks and label (Trials/Segments)
+        ax_cont_data.set_ylabel("Trials (Segments)", fontsize=9) # Or just "Segments"
+        if n_segments_cd > 1:
+            num_yticks = min(5, n_segments_cd) # Show up to 5 yticks
+            ytick_positions = np.linspace(0, n_segments_cd -1 , num_yticks).astype(int)
+            ax_cont_data.set_yticks(ytick_positions)
+            # Labels are segment numbers, will be inverted by invert_yaxis if needed
+            ax_cont_data.set_yticklabels(ytick_positions) 
+        elif n_segments_cd == 1:
+            ax_cont_data.set_yticks([0])
+            ax_cont_data.set_yticklabels(["0"])
+
+        # Reverse y-axis order: higher segment numbers (later data) at the top
+        if n_segments_cd > 0:
+            ax_cont_data.invert_yaxis()
+
+        # Add colorbar
+        cbar_cont = fig.colorbar(im, ax=ax_cont_data, orientation='vertical', fraction=0.046, pad=0.1)
         cbar_cont.set_label("Activation (a.u.)", fontsize=8)
         cbar_cont.ax.tick_params(labelsize=7)
-        ax_cont_data.tick_params(axis='both', which='major', labelsize=8)
 
-    except Exception as e:
-        print(f"Error plotting continuous data for IC{component_idx}: {e}")
+    except Exception as e_cont:
+        print(f"Error plotting continuous data for IC{component_idx}: {e_cont}")
         ax_cont_data.text(0.5, 0.5, "Continuous data failed", ha='center', va='center', transform=ax_cont_data.transAxes)
         # traceback.print_exc()
 
@@ -222,7 +264,8 @@ def _plot_component_for_vision_standalone(
                            ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
             raise RuntimeError("Raw object does not have a montage.")
 
-        sphere = make_sphere_model(info=raw_obj.info, head_radius=None, verbose=False)
+        # Use a fixed head_radius for make_sphere_model to avoid issues with sparse digitization
+        sphere = make_sphere_model(info=raw_obj.info, head_radius=0.090, verbose=False) # 90mm head radius
         component_pattern = ica_obj.get_components()[:, component_idx].reshape(-1, 1)
 
         # Create EvokedArray info - crucial that ch_names match raw_obj for montage and sphere model
@@ -236,7 +279,7 @@ def _plot_component_for_vision_standalone(
             # Attempt to use ica_obj.ch_names if they exist and match pattern
             if hasattr(ica_obj, 'ch_names') and len(ica_obj.ch_names) == component_pattern.shape[0]:
                 temp_info_for_ica_channels = create_info(ch_names=list(ica_obj.ch_names), sfreq=raw_obj.info['sfreq'], ch_types='eeg', verbose=False)
-                # We need a montage for these specific channels if different from raw_obj. This is tricky.
+                # We need a montage for these specific channels if different from raw_obj.info. This is tricky.
                 # For now, we must assume component_pattern channels are in raw_obj.info or fitting is ill-defined for sphere model from raw_obj.info.
                 # Sticking to original ev_info based on raw_obj.ch_names and hoping for subset match or error.
                 # If error, it will be caught.
@@ -244,8 +287,24 @@ def _plot_component_for_vision_standalone(
 
         evoked_topo = EvokedArray(component_pattern, ev_info, tmin=0, verbose=False)
         
-        # Fit dipole (cov=None implies identity matrix, common for ICs)
-        dipoles, residual = mne.fit_dipole(evoked_topo, cov=None, bem=sphere, min_dist=1.0, verbose=False)
+        # Ensure average reference for dipole fitting
+        evoked_topo.set_eeg_reference('average', projection=False, verbose=False) # Apply average reference non-destructively for fitting
+
+        # Create a diagonal (identity-like) covariance matrix for dipole fitting
+        # This is a common approach for ICA components where noise is assumed to be spatially white
+        n_channels = evoked_topo.info['nchan']
+        # Create an identity matrix scaled by a small factor to represent unit variance noise
+        # fit_dipole is sensitive to the absolute scale of the cov, so an unscaled identity might lead to issues.
+        # However, for IC topographies, the relative scaling is often what matters.
+        # Let's start with a simple identity.
+        noise_cov_data = np.eye(n_channels) 
+        noise_cov = mne.Covariance(noise_cov_data, evoked_topo.info['ch_names'], 
+                                   bads=evoked_topo.info['bads'], # Use bads from evoked_topo.info
+                                   projs=evoked_topo.info['projs'], # Use projs from evoked_topo.info
+                                   nfree=1, verbose=False)
+
+        # Fit dipole
+        dipoles, residual = mne.fit_dipole(evoked_topo, cov=noise_cov, bem=sphere, min_dist=5.0, verbose=False)
         
         if dipoles is None or len(dipoles) == 0:
             ax_dipole.text(0.5, 0.5, "Dipole fitting returned no dipoles.", 
@@ -253,6 +312,8 @@ def _plot_component_for_vision_standalone(
             raise RuntimeError("Dipole fitting failed to return any dipoles.")
         
         dip = dipoles[0]
+        
+        # Display dipole info as text
         rv_text = f"RV: {dip.gof[0]:.1f}%" # MNE's gof is residual variance for fit_dipole
         pos_text = f"Pos (mm): ({dip.pos[0,0]*1000:.1f}, {dip.pos[0,1]*1000:.1f}, {dip.pos[0,2]*1000:.1f})"
         ori_text = f"Ori: ({dip.ori[0,0]:.2f}, {dip.ori[0,1]:.2f}, {dip.ori[0,2]:.2f})"
@@ -265,25 +326,30 @@ def _plot_component_for_vision_standalone(
     except Exception as e:
         print(f"Error in dipole processing for IC{component_idx}: {e}")
         if not ax_dipole.texts: # Only add text if not already populated by specific error
+            # Ensure fallback text is 2D compatible
             ax_dipole.text(0.5, 0.5, "Dipole info failed", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
         # traceback.print_exc()
 
     # 5. IC Activity Power Spectrum
     try:
+        # Get component data for PSD (use non-offset corrected for PSD)
+        component_trace_psd = component_data_array 
+
         fmin_psd_wide = 1.0
-        fmax_psd_wide = min(120.0, sfreq / 2.0 - 0.51) # Ensure fmax < sfreq/2
+        # Match MATLAB script's spectopo freqrange approx [0 80]
+        fmax_psd_wide = min(80.0, sfreq / 2.0 - 0.51) # Ensure fmax < sfreq/2
         
         # Ensure n_fft is not too large for data, and not zero
         n_fft_psd = int(sfreq * 2.0)
-        if n_fft_psd > len(component_data_array):
-             n_fft_psd = len(component_data_array)
-        n_fft_psd = max(n_fft_psd, 256 if len(component_data_array) >= 256 else len(component_data_array)) # Min sensible n_fft
+        if n_fft_psd > len(component_trace_psd):
+             n_fft_psd = len(component_trace_psd)
+        n_fft_psd = max(n_fft_psd, 256 if len(component_trace_psd) >= 256 else len(component_trace_psd)) # Min sensible n_fft
         
         if n_fft_psd == 0 : raise ValueError("n_fft_psd is zero.")
 
 
         psds_wide, freqs_wide = psd_array_welch(
-            component_data_array, sfreq=sfreq, fmin=fmin_psd_wide, fmax=fmax_psd_wide, 
+            component_trace_psd, sfreq=sfreq, fmin=fmin_psd_wide, fmax=fmax_psd_wide, 
             n_fft=n_fft_psd, n_overlap=int(n_fft_psd*0.5), verbose=False, average='mean'
         )
         if psds_wide.size == 0: raise ValueError("PSD computation returned empty array.")
@@ -304,7 +370,7 @@ def _plot_component_for_vision_standalone(
         # traceback.print_exc()
 
     fig.suptitle(f"ICA Component {component_idx} Analysis", fontsize=14, y=0.98) # Adjusted y for suptitle
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Adjusted rect for suptitle and bottom text space
+    # plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Replaced by fig.set_layout_engine("tight")
 
     filename = f"component_{component_idx}_analysis.webp"
     filepath = output_dir / filename
