@@ -372,14 +372,14 @@ stage_files:
     enabled: true          # Set to true to save file after this stage
     suffix: "_postimport"  # This text will be added to the filename
 
-  post_prepipeline:
-    enabled: true
-    suffix: "_postprepipeline"
-
   #Prepipeline steps
   post_resample:
     enabled: false
     suffix: "_postresample"
+
+  post_filter:
+    enabled: true
+    suffix: '_postfilter'
 
   post_outerlayer:
     enabled: false
@@ -393,11 +393,15 @@ stage_files:
     enabled: false
     suffix: "_postcrop"
 
+  post_basic_steps:
+    enabled: true
+    suffix: "_postbasicsteps"
+
   post_artifact_detection:
     enabled: false
     suffix: "_postartifactdetection"
 
-  post_reference:
+  post_rereference:
     enabled: false
     suffix: "_postreference"
   
