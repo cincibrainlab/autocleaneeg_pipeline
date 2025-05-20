@@ -1,12 +1,12 @@
 # src/autoclean/utils/database.py
-"""Database utilities for the autoclean package using UnQLite."""
+"""Database utilities for the autoclean package using SQLite."""
 
+import json
+import sqlite3
 import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
-
-from unqlite import UnQLite # pylint: disable=no-name-in-module
 
 from autoclean.utils.logging import message
 
@@ -45,6 +45,33 @@ class RecordNotFoundError(Exception):
         super().__init__(self.message)
 
 
+def _serialize_for_json(obj: Any) -> Any:
+    """Convert objects to JSON-serializable format.
+
+    Parameters
+    ----------
+    obj : Any
+        Object to serialize.
+
+    Returns
+    -------
+    Any
+        JSON-serializable object.
+    """
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, dict):
+        # Preserve all dictionary keys and values, converting non-serializable values to strings
+        return {k: _serialize_for_json(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_serialize_for_json(item) for item in obj]
+    try:
+        json.dumps(obj)
+        return obj
+    except (TypeError, OverflowError):
+        return str(obj)
+
+
 def get_run_record(run_id: str) -> dict:
     """Get a run record from the database by run ID.
 
@@ -80,6 +107,24 @@ def _validate_metadata(metadata: dict) -> bool:
     return all(isinstance(k, str) for k in metadata.keys())
 
 
+def _get_db_connection(db_path: Path) -> sqlite3.Connection:
+    """Get a database connection with proper configuration.
+
+    Parameters
+    ----------
+    db_path : Path
+        Path to the SQLite database file.
+
+    Returns
+    -------
+    sqlite3.Connection
+        Configured database connection.
+    """
+    conn = sqlite3.connect(str(db_path))
+    conn.row_factory = sqlite3.Row  # Enable row factory for dict-like access
+    return conn
+
+
 def manage_database(
     operation: str,
     run_record: Optional[Dict[str, Any]] = None,
@@ -105,26 +150,66 @@ def manage_database(
     update_record : dict
         The record updates.
 
+    Returns
+    -------
+    Any
+        Operation-specific return value.
     """
-
     db_path = DB_PATH / "pipeline.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     with _db_lock:  # Ensure only one thread can access the database at a time
         try:
-            # Get database connection
-            db = UnQLite(str(db_path))
-            collection = db.collection("pipeline_runs")
+            conn = _get_db_connection(db_path)
+            cursor = conn.cursor()
 
             if operation == "create_collection":
-                if not collection.exists():
-                    collection.create()
-                message("info", f"✓ Created 'pipeline_runs' collection in {db_path}")
+                # Drop existing table if it exists to ensure clean schema
+                cursor.execute("DROP TABLE IF EXISTS pipeline_runs")
+                
+                cursor.execute("""
+                    CREATE TABLE pipeline_runs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        run_id TEXT UNIQUE NOT NULL,
+                        created_at TEXT NOT NULL,
+                        task TEXT,
+                        unprocessed_file TEXT,
+                        status TEXT,
+                        success BOOLEAN,
+                        json_file TEXT,
+                        report_file TEXT,
+                        metadata TEXT,
+                        error TEXT
+                    )
+                """)
+                conn.commit()
+                message("info", f"✓ Created 'pipeline_runs' table in {db_path}")
 
             elif operation == "store":
                 if not run_record:
                     raise ValueError("Missing run_record for store operation")
-                record_id = collection.store(run_record)
+                
+                # Convert metadata to JSON string, handling Path objects
+                metadata_json = json.dumps(_serialize_for_json(run_record.get("metadata", {})))
+                
+                cursor.execute("""
+                    INSERT INTO pipeline_runs (
+                        run_id, created_at, task, unprocessed_file, status,
+                        success, json_file, report_file, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    run_record["run_id"],
+                    run_record.get("timestamp", datetime.now().isoformat()),
+                    run_record.get("task"),
+                    str(run_record.get("unprocessed_file")) if run_record.get("unprocessed_file") else None,
+                    run_record.get("status"),
+                    run_record.get("success", False),
+                    str(run_record.get("json_file")) if run_record.get("json_file") else None,
+                    str(run_record.get("report_file")) if run_record.get("report_file") else None,
+                    metadata_json
+                ))
+                conn.commit()
+                record_id = cursor.lastrowid
                 message("info", f"✓ Stored new record with ID: {record_id}")
                 return record_id
 
@@ -133,63 +218,91 @@ def manage_database(
                     raise ValueError("Missing run_id in update_record")
 
                 run_id = update_record["run_id"]
-                existing_record = collection.filter(lambda x: x["run_id"] == run_id)
-
+                
+                # Check if record exists
+                cursor.execute("SELECT * FROM pipeline_runs WHERE run_id = ?", (run_id,))
+                existing_record = cursor.fetchone()
+                
                 if not existing_record:
                     raise RecordNotFoundError(f"No record found for run_id: {run_id}")
 
-                record = existing_record[0]
-                record_id = record.pop("__id")
-
                 if operation == "update_status":
-                    record["status"] = (
-                        f"{update_record['status']} at {datetime.now().isoformat()}"
-                    )
+                    cursor.execute("""
+                        UPDATE pipeline_runs 
+                        SET status = ? 
+                        WHERE run_id = ?
+                    """, (
+                        f"{update_record['status']} at {datetime.now().isoformat()}",
+                        run_id
+                    ))
                 else:
                     if "metadata" in update_record:
                         if not _validate_metadata(update_record["metadata"]):
                             raise ValueError("Invalid metadata structure")
+                        
+                        # Get existing metadata
+                        cursor.execute("SELECT metadata FROM pipeline_runs WHERE run_id = ?", (run_id,))
+                        existing_metadata = json.loads(cursor.fetchone()["metadata"] or "{}")
+                        
+                        # Update metadata, handling Path objects and non-serializable objects
+                        serialized_metadata = _serialize_for_json(update_record["metadata"])
+                        existing_metadata.update(serialized_metadata)
+                        metadata_json = json.dumps(existing_metadata)
+                        
+                        # Update record with new metadata
+                        update_fields = []
+                        update_values = []
+                        
+                        for key, value in update_record.items():
+                            if key != "metadata":
+                                update_fields.append(f"{key} = ?")
+                                # Convert Path objects to strings
+                                if isinstance(value, Path):
+                                    update_values.append(str(value))
+                                else:
+                                    update_values.append(value)
+                        
+                        update_fields.append("metadata = ?")
+                        update_values.append(metadata_json)
+                        update_values.append(run_id)
+                        
+                        query = f"""
+                            UPDATE pipeline_runs 
+                            SET {', '.join(update_fields)}
+                            WHERE run_id = ?
+                        """
+                        cursor.execute(query, update_values)
 
-                        if "metadata" not in record:
-                            record["metadata"] = {}
-                        elif not isinstance(record["metadata"], dict):
-                            record["metadata"] = {}
-
-                        if isinstance(update_record["metadata"], dict):
-                            record["metadata"].update(update_record["metadata"])
-                        else:
-                            raise ValueError("Metadata must be a dictionary")
-
-                    record.update(
-                        {k: v for k, v in update_record.items() if k != "metadata"}
-                    )
-
-                collection.update(record_id=record_id, record=record)
+                conn.commit()
                 message("debug", f"Record {operation} successful for run_id: {run_id}")
 
             elif operation == "drop_collection":
-                if collection.exists():
-                    collection.drop()
-                message("warning", f"'pipeline_runs' collection dropped from {db_path}")
+                cursor.execute("DROP TABLE IF EXISTS pipeline_runs")
+                conn.commit()
+                message("warning", f"'pipeline_runs' table dropped from {db_path}")
 
             elif operation == "get_collection":
-                if not collection.exists():
-                    raise ValueError("Collection 'pipeline_runs' not found")
-                return collection
+                cursor.execute("SELECT * FROM pipeline_runs")
+                records = [dict(row) for row in cursor.fetchall()]
+                return records
 
             elif operation == "get_record":
                 if not run_record or "run_id" not in run_record:
                     raise ValueError("Missing run_id in run_record")
 
-                record = collection.filter(
-                    lambda x: x["run_id"] == run_record["run_id"]
-                )
-
+                cursor.execute("SELECT * FROM pipeline_runs WHERE run_id = ?", (run_record["run_id"],))
+                record = cursor.fetchone()
+                
                 if not record:
-                    raise RecordNotFoundError(
-                        f"No record found for run_id: {run_record['run_id']}"
-                    )
-                return record[0]
+                    raise RecordNotFoundError(f"No record found for run_id: {run_record['run_id']}")
+                
+                # Convert record to dict and parse metadata JSON
+                record_dict = dict(record)
+                if record_dict.get("metadata"):
+                    record_dict["metadata"] = json.loads(record_dict["metadata"])
+                return record_dict
+
+            conn.close()
 
         except Exception as e:
             error_context = {
