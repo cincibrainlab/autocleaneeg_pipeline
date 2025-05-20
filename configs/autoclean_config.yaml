@@ -376,10 +376,18 @@ stage_files:
     enabled: true
     suffix: "_postprepipeline"
 
+  post_basic_steps:
+    enabled: true
+    suffix: "_postbasicsteps"
+
   #Prepipeline steps
   post_resample:
     enabled: false
     suffix: "_postresample"
+
+  post_filter:
+    enabled: false
+    suffix: "_postfilter"
 
   post_outerlayer:
     enabled: false

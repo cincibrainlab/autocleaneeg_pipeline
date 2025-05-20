@@ -85,7 +85,7 @@ I expect to see threee consise paragraphs, written as if you were giving instruc
 - **PyMuPDF, reportlab**: PDF handling and generation.
 
 ## Database & Storage
-- **UnQLite**: Embedded NoSQL database.
+- **SQLite**: Embedded SQL database (Python standard library).
 - **ULID**: Unique identifier generation.
 
 ## Configuration & Validation
