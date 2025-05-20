@@ -7,17 +7,20 @@ import json # Added for JSON output
 from pathlib import Path
 from typing import Optional, Tuple, List, Dict, Any # Added List, Dict, Any
 import math
+from datetime import datetime # Added for PDF timestamp
+import pandas as pd # Added for DataFrame handling of results
 
 import matplotlib
 matplotlib.use("Agg") # Ensure non-interactive backend for scripts
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages # Added for PDF output
 import numpy as np
 from matplotlib.gridspec import GridSpec
 import mne
 from mne.preprocessing import read_ica # Correct import for reading ICA
 import openai
 import warnings # Added for dipole fitting warnings
-from mne import EvokedArray, make_sphere_model, create_info # Added for dipole fitting
+from mne import EvokedArray, make_sphere_model, create_info, Covariance # Added for dipole fitting, added Covariance
 from mne.time_frequency import psd_array_welch # Ensure this is imported if not already
 from scipy.ndimage import uniform_filter1d # Added for vertical smoothing
 
@@ -91,36 +94,288 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
 """
 
 
+# --- Helper Functions for PDF Report Generation ---
+
+def _create_summary_table_page(
+    pdf_pages_obj: PdfPages,
+    classification_results: pd.DataFrame,
+    component_indices_to_include: List[int],
+    bids_basename_for_title: str
+):
+    """
+    Creates summary table pages for the PDF report.
+    """
+    components_per_page = 20
+    num_total_components_in_list = len(component_indices_to_include)
+    if num_total_components_in_list == 0:
+        return # No components to summarize
+
+    num_pages_for_summary = int(np.ceil(num_total_components_in_list / components_per_page))
+    if num_pages_for_summary == 0 and num_total_components_in_list > 0: # handle case for <20 components
+        num_pages_for_summary = 1
+
+
+    color_map_vision = {
+        "brain": "#d4edda",
+        "eye": "#f9e79f",
+        "muscle": "#f5b7b1",
+        "heart": "#d7bde2",
+        "line_noise": "#add8e6",
+        "channel_noise": "#ffd700",
+        "other_artifact": "#f0f0f0",
+    }
+
+    for page_num in range(num_pages_for_summary):
+        start_idx_overall = page_num * components_per_page
+        end_idx_overall = min((page_num + 1) * components_per_page, num_total_components_in_list)
+        
+        page_component_actual_indices = component_indices_to_include[start_idx_overall:end_idx_overall]
+
+        if not page_component_actual_indices:
+            continue
+
+        fig_table = plt.figure(figsize=(11, 8.5))
+        ax_table = fig_table.add_subplot(111)
+        ax_table.axis('off')
+
+        table_data_page = []
+        table_cell_colors_page = []
+
+        for comp_idx in page_component_actual_indices:
+            if comp_idx not in classification_results.index:
+                print(f"Warning: Component index {comp_idx} not found in classification_results. Skipping in summary table.")
+                continue
+
+            comp_info = classification_results.loc[comp_idx]
+            component_label = comp_info.get('label', 'N/A')
+            component_confidence = comp_info.get('confidence', 0.0)
+            
+            is_rejected_text = "Yes" if component_label != 'brain' else "No"
+            
+            table_data_page.append([
+                f"IC{comp_idx}",
+                str(component_label).title(),
+                f"{component_confidence:.2f}",
+                is_rejected_text
+            ])
+            
+            row_color = color_map_vision.get(component_label, "white")
+            table_cell_colors_page.append([row_color] * 4)
+
+        if not table_data_page:
+             plt.close(fig_table)
+             continue
+
+        table = ax_table.table(
+            cellText=table_data_page,
+            colLabels=["Component", "Vision Label", "Confidence", "Is Artifact?"],
+            loc='center',
+            cellLoc='center',
+            cellColours=table_cell_colors_page,
+            colWidths=[0.2, 0.3, 0.25, 0.25]
+        )
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1.2, 1.3)
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        fig_table.suptitle(
+            f"ICA Vision Classification Summary - {bids_basename_for_title}\n"
+            f"(Page {page_num + 1} of {num_pages_for_summary})\n"
+            f"Generated: {timestamp}",
+            fontsize=12, y=0.95
+        )
+        
+        legend_patches = [plt.Rectangle((0,0), 1, 1, facecolor=color, label=label.title()) 
+                          for label, color in color_map_vision.items()]
+        if legend_patches:
+             ax_table.legend(handles=legend_patches, loc='upper right', bbox_to_anchor=(1.05, 0.85), title="Label Types", fontsize=8)
+
+        plt.subplots_adjust(top=0.85, bottom=0.1, right=0.85) # Adjust right for legend
+        pdf_pages_obj.savefig(fig_table)
+        plt.close(fig_table)
+
+
+def _generate_ica_report_pdf(
+    ica_obj: mne.preprocessing.ICA,
+    raw_obj: mne.io.Raw,
+    classification_results: pd.DataFrame,
+    output_dir: Path,
+    bids_basename: str,
+    duration: int = 10,
+    components_to_plot: str = "all"
+):
+    """
+    Generates a PDF report for ICA components, similar to IcaMixin._plot_ica_components.
+    """
+    report_name_suffix = "ica_vision_report_all"
+    if components_to_plot == "classified_as_artifact":
+        report_name_suffix = "ica_vision_report_artifacts"
+
+    pdf_basename_cleaned = bids_basename.replace("_eeg.set", "").replace(".set","").replace("_eeg.fif","").replace(".fif","")
+    if not pdf_basename_cleaned: 
+        pdf_basename_cleaned = "untitled_eeg_data"
+    pdf_filename = f"{pdf_basename_cleaned}_{report_name_suffix}.pdf"
+    pdf_path = output_dir / pdf_filename
+
+    if pdf_path.exists():
+        try:
+            pdf_path.unlink()
+        except OSError as e:
+            print(f"Warning: Could not delete existing PDF {pdf_path}: {e}")
+
+
+    plot_indices = []
+    if components_to_plot == "all":
+        # Use component_index from the DataFrame's index
+        plot_indices = list(classification_results.index)
+    elif components_to_plot == "classified_as_artifact":
+        if 'label' in classification_results.columns:
+            plot_indices = list(classification_results[classification_results['label'] != 'brain'].index)
+        else:
+            print("Warning: 'label' column not in classification_results. Cannot determine artifact components.")
+            plot_indices = [] # Ensure it's empty
+            
+        if not plot_indices:
+            print(f"No components classified as artifacts. Skipping '{report_name_suffix}' PDF report.")
+            return None
+
+    if not plot_indices:
+        print(f"No components to plot for '{report_name_suffix}'. Skipping PDF report.")
+        return None
+
+    with PdfPages(pdf_path) as pdf:
+        # 1. Summary Table Page(s)
+        _create_summary_table_page(pdf, classification_results, plot_indices, bids_basename)
+
+        # 2. Component Topographies Overview Page
+        try:
+            valid_plot_indices_for_topo = [idx for idx in plot_indices if idx < ica_obj.n_components_]
+            if valid_plot_indices_for_topo:
+                # Plot components in batches if too many, to avoid huge figures
+                max_topo_per_fig = 20 
+                for i in range(0, len(valid_plot_indices_for_topo), max_topo_per_fig):
+                    batch_indices = valid_plot_indices_for_topo[i:i+max_topo_per_fig]
+                    if batch_indices: # Ensure batch is not empty
+                        fig_topo_list = ica_obj.plot_components(picks=batch_indices, show=False)
+                        if isinstance(fig_topo_list, list):
+                            for fig_t in fig_topo_list:
+                                pdf.savefig(fig_t)
+                                plt.close(fig_t)
+                        else:
+                            pdf.savefig(fig_topo_list)
+                            plt.close(fig_topo_list)
+            else:
+                print("No valid components to plot for topographies overview.")
+        except Exception as e_topo:
+            print(f"Error plotting component topographies overview: {e_topo}")
+            fig_err_topo = plt.figure(figsize=(11, 8.5))
+            ax_err_topo = fig_err_topo.add_subplot(111)
+            ax_err_topo.text(0.5, 0.5, "Component topographies plot failed.", ha='center', va='center')
+            pdf.savefig(fig_err_topo)
+            plt.close(fig_err_topo)
+
+        # 3. Individual Component Detail Pages
+        ica_sources = ica_obj.get_sources(raw_obj)
+        sfreq = raw_obj.info["sfreq"]
+        # duration parameter is available from the function arguments for the time series plot
+
+        for comp_idx in plot_indices:
+            if comp_idx >= ica_obj.n_components_:
+                print(f"Skipping IC{comp_idx} detail page: index out of bounds ({ica_obj.n_components_} components).")
+                continue
+            if comp_idx not in classification_results.index:
+                print(f"Skipping IC{comp_idx} detail page: not found in classification_results.")
+                continue
+            
+            comp_info_series = classification_results.loc[comp_idx]
+            vision_label_pdf = comp_info_series.get('label')
+            vision_confidence_pdf = comp_info_series.get('confidence')
+            vision_reason_pdf = comp_info_series.get('reason')
+
+            # Generate the plot using the modified _plot_component_for_vision_standalone
+            fig_detail_page = _plot_component_for_vision_standalone(
+                ica_obj=ica_obj,
+                raw_obj=raw_obj,
+                component_idx=comp_idx,
+                output_dir=None, # Not saving a separate file here
+                classification_label=vision_label_pdf,
+                classification_confidence=vision_confidence_pdf,
+                classification_reason=vision_reason_pdf,
+                return_fig_object=True
+            )
+
+            if fig_detail_page:
+                try:
+                    pdf.savefig(fig_detail_page) # Save the returned figure object to the PDF
+                except Exception as e_save:
+                    print(f"Error saving detail page for IC{comp_idx} to PDF: {e_save}")
+                    # Fallback: create an error page in PDF
+                    fig_err_save = plt.figure()
+                    ax_err_save = fig_err_save.add_subplot(111)
+                    ax_err_save.text(0.5, 0.5, f"Plot for IC{comp_idx}\nsave to PDF failed.", ha='center', va='center')
+                    pdf.savefig(fig_err_save)
+                    plt.close(fig_err_save)
+                finally:
+                    plt.close(fig_detail_page) # Always close the figure after attempting to save
+            else:
+                # If _plot_component_for_vision_standalone returned None (e.g. error during its own plotting)
+                print(f"Failed to generate plot object for IC{comp_idx} for PDF.")
+                fig_err_gen = plt.figure()
+                ax_err_gen = fig_err_gen.add_subplot(111)
+                ax_err_gen.text(0.5, 0.5, f"Plot generation for IC{comp_idx}\nfailed internally.", ha='center', va='center')
+                pdf.savefig(fig_err_gen)
+                plt.close(fig_err_gen)
+
+    print(f"ICA Vision PDF report saved to {pdf_path}")
+    return pdf_path
+
 # --- Adapted Helper Functions (from your IcaMixin) ---
 
 def _plot_component_for_vision_standalone(
     ica_obj: mne.preprocessing.ICA,
     raw_obj: mne.io.Raw,
     component_idx: int,
-    output_dir: Path
-) -> Optional[Path]:
+    output_dir: Optional[Path] = None, # Now optional, but required if not returning fig
+    classification_label: Optional[str] = None,
+    classification_confidence: Optional[float] = None,
+    classification_reason: Optional[str] = None,
+    return_fig_object: bool = False
+) -> Any: # Returns Path or Figure or None
     """
-    Updated version to create a plot for an ICA component, matching the example image.
+    Updated version to create a plot for an ICA component, matching the example image,
+    and optionally include classification details and return the figure object.
     Layout: Topo+ContData on left, TS+Dipole+PSD on right.
     Dipole shown as text info (RV, Pos, Ori) using a sphere model.
     """
-    fig = plt.figure(figsize=(12, 9.5), dpi=120)  # Adjusted figsize for better aspect ratio & space
-    # GridSpec to match example: Topo+ContData on left, TS+Dipole+PSD on right
-    # height_ratios: [row0_height, row1_height, row2_height]
-    # width_ratios: [col0_width, col1_width]
-    gs = GridSpec(3, 2, figure=fig, 
-                  height_ratios=[0.915, 0.572, 2.213],  # Adjusted for square continuous data
-                  width_ratios=[0.9, 1],      # Left col slightly narrower
-                  hspace=0.6, wspace=0.35)     # Increased spacing
+    fig_height = 9.5
+    gridspec_bottom = 0.05 # Default bottom for GridSpec
 
-    # Left column
-    ax_topo = fig.add_subplot(gs[0:2, 0]) # Topography spans 2 rows (row 0 and 1) on left
-    ax_cont_data = fig.add_subplot(gs[2, 0]) # Continuous Data below Topo (row 2 on left)
-    
-    # Right column
-    ax_ts_scroll = fig.add_subplot(gs[0, 1]) # Scrolling IC Activity (row 0 on right)
-    ax_dipole = fig.add_subplot(gs[1, 1])    # Dipole Position (row 1 on right) - regular 2D subplot
-    ax_psd = fig.add_subplot(gs[2, 1])       # IC Activity Power Spectrum (row 2 on right)
+    if return_fig_object and classification_reason:
+        fig_height = 11  # Increase overall figure height for reasoning text
+        gridspec_bottom = 0.18 # Ensure GridSpec leaves space at the bottom for reasoning
+
+    fig = plt.figure(figsize=(12, fig_height), dpi=120)
+
+    main_plot_title_text = f"ICA Component {component_idx} Analysis"
+    gridspec_top = 0.95  # Default top for GridSpec
+    suptitle_y_pos = 0.98 # Default Y for main suptitle
+
+    if return_fig_object and classification_label is not None:
+        gridspec_top = 0.90  # Lower GridSpec top to make space for classification subtitle
+        suptitle_y_pos = 0.96 # Main title slightly lower to accommodate subtitle
+
+    gs = GridSpec(3, 2, figure=fig, 
+                  height_ratios=[0.915, 0.572, 2.213],
+                  width_ratios=[0.9, 1],
+                  hspace=0.7, wspace=0.35, # Adjusted hspace
+                  left=0.05, right=0.95, top=gridspec_top, bottom=gridspec_bottom)
+
+    ax_topo = fig.add_subplot(gs[0:2, 0])
+    ax_cont_data = fig.add_subplot(gs[2, 0])
+    ax_ts_scroll = fig.add_subplot(gs[0, 1])
+    ax_dipole = fig.add_subplot(gs[1, 1])
+    ax_psd = fig.add_subplot(gs[2, 1])
 
     sources = ica_obj.get_sources(raw_obj)
     sfreq = sources.info['sfreq']
@@ -130,18 +385,15 @@ def _plot_component_for_vision_standalone(
     try:
         ica_obj.plot_components(picks=component_idx, axes=ax_topo, ch_type='eeg',
                                 show=False, colorbar=False, cmap='jet', outlines='head', 
-                                sensors=True, contours=6) # colorbar=False, will add custom text instead
-        ax_topo.set_title(f"IC{component_idx}", fontsize=12, loc='center') # Centered title
-
-        ax_topo.set_xlabel("") # Remove "ICA Components" x-label from topo plot
-        ax_topo.set_ylabel("") # Remove y-label
+                                sensors=True, contours=6)
+        ax_topo.set_title(f"IC{component_idx}", fontsize=12, loc='center')
+        ax_topo.set_xlabel("")
+        ax_topo.set_ylabel("")
         ax_topo.set_xticks([])
         ax_topo.set_yticks([])
-
     except Exception as e:
         print(f"Error plotting topography for IC{component_idx}: {e}")
         ax_topo.text(0.5, 0.5, "Topo plot failed", ha='center', va='center', transform=ax_topo.transAxes)
-        # traceback.print_exc() # Optionally uncomment for detailed trace
 
     # 2. Scrolling IC Activity (Time Series)
     try:
@@ -153,200 +405,160 @@ def _plot_component_for_vision_standalone(
         ax_ts_scroll.set_title("Scrolling IC Activity", fontsize=10)
         ax_ts_scroll.set_xlabel("Time (ms)", fontsize=9)
         ax_ts_scroll.set_ylabel("Amplitude (a.u.)", fontsize=9)
-        if max_samples_ts > 0 and times_ts_ms.size > 0: # Check if times_ts_ms is not empty
+        if max_samples_ts > 0 and times_ts_ms.size > 0:
             ax_ts_scroll.set_xlim(times_ts_ms[0], times_ts_ms[-1])
         ax_ts_scroll.grid(True, linestyle=':', alpha=0.6)
         ax_ts_scroll.tick_params(axis='both', which='major', labelsize=8)
     except Exception as e:
         print(f"Error plotting scrolling IC activity for IC{component_idx}: {e}")
         ax_ts_scroll.text(0.5, 0.5, "Time series failed", ha='center', va='center', transform=ax_ts_scroll.transAxes)
-        # traceback.print_exc()
 
     # 3. Continuous Data (EEGLAB-style ERP image)
     try:
-        # Global offset removal (as in pop_prop.m)
         comp_data_offset_corrected = component_data_array - np.mean(component_data_array)
-
-        # Segmentation strategy (to match pop_prop.m via reference image appearance)
-        target_segment_duration_s = 1.5  # Target 1500 ms for x-axis
-        target_max_segments = 200        # Target 200 lines for y-axis (ERPIMAGELINES)
-        
+        target_segment_duration_s = 1.5
+        target_max_segments = 200
         segment_len_samples_cd = int(target_segment_duration_s * sfreq)
-        if segment_len_samples_cd == 0: # Should not happen with 1.5s unless sfreq is tiny
-            segment_len_samples_cd = 1 
+        if segment_len_samples_cd == 0: segment_len_samples_cd = 1 
 
-        # Determine how much data to use based on availability and targets
         available_samples_in_component = comp_data_offset_corrected.shape[0]
         max_total_samples_to_use_for_plot = int(target_max_segments * target_segment_duration_s * sfreq)
-        
         samples_to_feed_erpimage = min(available_samples_in_component, max_total_samples_to_use_for_plot)
         
         n_segments_cd = 0
-        erp_image_data_for_plot = np.array([[]]) # Default to empty
+        erp_image_data_for_plot = np.array([[]])
+        current_segment_len_samples = 1 # Default to avoid later div by zero if no data
 
-        if segment_len_samples_cd > 0 : # Ensure segment length is positive
+        if segment_len_samples_cd > 0 and samples_to_feed_erpimage > 0 :
             n_segments_cd = math.floor(samples_to_feed_erpimage / segment_len_samples_cd)
 
         if n_segments_cd == 0:
-            if samples_to_feed_erpimage > 0: # Data is shorter than one target segment
+            if samples_to_feed_erpimage > 0:
                 n_segments_cd = 1
                 current_segment_len_samples = samples_to_feed_erpimage
                 erp_image_data_for_plot = comp_data_offset_corrected[:current_segment_len_samples].reshape(n_segments_cd, current_segment_len_samples)
-            else: # No data available at all
-                print(f"Warning: No data available for IC{component_idx} continuous data plot.")
-                erp_image_data_for_plot = np.zeros((1,1)) # Placeholder for empty plot
+            else:
+                erp_image_data_for_plot = np.zeros((1,1)) # Placeholder
                 current_segment_len_samples = 1 # Avoid division by zero for xticks later
-        else: # We have at least one full target-duration segment
+        else:
             current_segment_len_samples = segment_len_samples_cd
             final_samples_for_reshape = n_segments_cd * current_segment_len_samples
             erp_image_data_for_plot = comp_data_offset_corrected[:final_samples_for_reshape].reshape(n_segments_cd, current_segment_len_samples)
 
-        # Vertical smoothing (3-point moving average across segments, like ei_smooth=3 in pop_prop)
         if n_segments_cd >= 3:
             erp_image_data_smoothed = uniform_filter1d(erp_image_data_for_plot, size=3, axis=0, mode='nearest')
         else:
             erp_image_data_smoothed = erp_image_data_for_plot
 
-        # Color limits (EEGLAB 'caxis', 2/3 style)
         if erp_image_data_smoothed.size > 0:
             max_abs_val = np.max(np.abs(erp_image_data_smoothed))
-            clim_val = (2/3) * max_abs_val
+            clim_val = (2/3) * max_abs_val if max_abs_val > 1e-9 else 1.0 # Handle near-zero data
         else:
             clim_val = 1.0 
-        clim_val = max(clim_val, 1e-9) # Ensure vmin/vmax are not zero
-        vmin_cd = -clim_val
-        vmax_cd = clim_val
+        clim_val = max(clim_val, 1e-9)
+        vmin_cd, vmax_cd = -clim_val, clim_val
 
         im = ax_cont_data.imshow(erp_image_data_smoothed, aspect='auto', cmap='jet', interpolation='nearest',
                                  vmin=vmin_cd, vmax=vmax_cd)
         
-        # X-axis ticks and label (Time in ms)
         ax_cont_data.set_xlabel("Time (ms)", fontsize=9)
-        num_xticks = 4
-        xtick_positions_samples = np.linspace(0, current_segment_len_samples -1 , num_xticks)
-        xtick_labels_ms = (xtick_positions_samples / sfreq * 1000).astype(int)
-        ax_cont_data.set_xticks(xtick_positions_samples)
-        ax_cont_data.set_xticklabels(xtick_labels_ms)
+        if current_segment_len_samples > 1: # Ensure sensible ticks
+            num_xticks = 4
+            xtick_positions_samples = np.linspace(0, current_segment_len_samples -1 , num_xticks)
+            xtick_labels_ms = (xtick_positions_samples / sfreq * 1000).astype(int)
+            ax_cont_data.set_xticks(xtick_positions_samples)
+            ax_cont_data.set_xticklabels(xtick_labels_ms)
+        else:
+            ax_cont_data.set_xticks([]) # No ticks if only one sample or empty
 
-        # Y-axis ticks and label (Trials/Segments)
-        ax_cont_data.set_ylabel("Trials (Segments)", fontsize=9) # Or just "Segments"
+        ax_cont_data.set_ylabel("Trials (Segments)", fontsize=9)
         if n_segments_cd > 1:
-            num_yticks = min(5, n_segments_cd) # Show up to 5 yticks
+            num_yticks = min(5, n_segments_cd)
             ytick_positions = np.linspace(0, n_segments_cd -1 , num_yticks).astype(int)
             ax_cont_data.set_yticks(ytick_positions)
-            # Labels are segment numbers, will be inverted by invert_yaxis if needed
             ax_cont_data.set_yticklabels(ytick_positions) 
         elif n_segments_cd == 1:
             ax_cont_data.set_yticks([0])
             ax_cont_data.set_yticklabels(["0"])
+        else: # No segments
+            ax_cont_data.set_yticks([])
 
-        # Reverse y-axis order: higher segment numbers (later data) at the top
-        if n_segments_cd > 0:
-            ax_cont_data.invert_yaxis()
+        if n_segments_cd > 0: ax_cont_data.invert_yaxis()
 
-        # Add colorbar
         cbar_cont = fig.colorbar(im, ax=ax_cont_data, orientation='vertical', fraction=0.046, pad=0.1)
         cbar_cont.set_label("Activation (a.u.)", fontsize=8)
         cbar_cont.ax.tick_params(labelsize=7)
-
     except Exception as e_cont:
         print(f"Error plotting continuous data for IC{component_idx}: {e_cont}")
         ax_cont_data.text(0.5, 0.5, "Continuous data failed", ha='center', va='center', transform=ax_cont_data.transAxes)
-        # traceback.print_exc()
 
     # 4. Dipole Position (Text-based info using sphere model)
+    ax_dipole.set_title("Dipole Position", fontsize=10)
+    ax_dipole.set_axis_off()
     try:
-        ax_dipole.set_title("Dipole Position", fontsize=10)
-        ax_dipole.set_axis_off() # Turn off axis for text display
-
         if raw_obj.get_montage() is None:
-            ax_dipole.text(0.5, 0.5, "No montage in raw data.\nCannot fit dipole.", 
-                           ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
-            raise RuntimeError("Raw object does not have a montage.")
+            ax_dipole.text(0.5, 0.5, "No montage.\nCannot fit dipole.", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
+        else:
+            sphere_model = make_sphere_model(info=raw_obj.info, head_radius=0.090, verbose=False)
+            component_pattern_dipole = ica_obj.get_components()[:, component_idx].reshape(-1, 1)
 
-        # Use a fixed head_radius for make_sphere_model to avoid issues with sparse digitization
-        sphere = make_sphere_model(info=raw_obj.info, head_radius=0.090, verbose=False) # 90mm head radius
-        component_pattern = ica_obj.get_components()[:, component_idx].reshape(-1, 1)
+            # Use ica_obj.ch_names as these are the channels ICA was fit on
+            ica_ch_names_for_evoked = list(ica_obj.ch_names)
+            if component_pattern_dipole.shape[0] != len(ica_ch_names_for_evoked):
+                 raise ValueError(f"IC{component_idx}: Dipole fitting channel mismatch. Pattern has {component_pattern_dipole.shape[0]} ch, ICA obj has {len(ica_ch_names_for_evoked)} ch.")
 
-        # Create EvokedArray info - crucial that ch_names match raw_obj for montage and sphere model
-        ev_info = create_info(ch_names=raw_obj.ch_names, sfreq=raw_obj.info['sfreq'], ch_types='eeg', verbose=False)
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", RuntimeWarning)
-            ev_info.set_montage(raw_obj.get_montage())
-        
-        if component_pattern.shape[0] != len(ev_info['ch_names']):
-            # This can happen if ICA was fit on a subset of channels not matching raw_obj.info
-            # Attempt to use ica_obj.ch_names if they exist and match pattern
-            if hasattr(ica_obj, 'ch_names') and len(ica_obj.ch_names) == component_pattern.shape[0]:
-                temp_info_for_ica_channels = create_info(ch_names=list(ica_obj.ch_names), sfreq=raw_obj.info['sfreq'], ch_types='eeg', verbose=False)
-                # We need a montage for these specific channels if different from raw_obj.info. This is tricky.
-                # For now, we must assume component_pattern channels are in raw_obj.info or fitting is ill-defined for sphere model from raw_obj.info.
-                # Sticking to original ev_info based on raw_obj.ch_names and hoping for subset match or error.
-                # If error, it will be caught.
-                print(f"Warning: Component pattern ({component_pattern.shape[0]} ch) might not match raw_obj.info channels ({len(ev_info['ch_names'])} ch). Using raw_obj.info channels for dipole fitting.")
+            ev_info_dipole = create_info(ch_names=ica_ch_names_for_evoked, sfreq=raw_obj.info['sfreq'], ch_types='eeg', verbose=False)
+            
+            # Get the montage that corresponds to the channels ICA was fit on.
+            # This is best done by picking channels on a raw copy BEFORE getting montage if needed,
+            # but here we assume raw_obj.get_montage() is compatible enough or set_montage will handle selection.
+            montage_for_dipole = raw_obj.get_montage()
+            if montage_for_dipole:
+                 with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", RuntimeWarning) # For warnings about non-EEG channels in montage etc.
+                    ev_info_dipole.set_montage(montage_for_dipole)
+            
+            evoked_topo_dipole = EvokedArray(component_pattern_dipole, ev_info_dipole, tmin=0, verbose=False)
+            evoked_topo_dipole.set_eeg_reference('average', projection=False, verbose=False)
+            
+            n_channels_dipole = evoked_topo_dipole.info['nchan']
+            if n_channels_dipole == 0: raise ValueError("No channels found in evoked data for dipole fitting.")
 
-        evoked_topo = EvokedArray(component_pattern, ev_info, tmin=0, verbose=False)
-        
-        # Ensure average reference for dipole fitting
-        evoked_topo.set_eeg_reference('average', projection=False, verbose=False) # Apply average reference non-destructively for fitting
-
-        # Create a diagonal (identity-like) covariance matrix for dipole fitting
-        # This is a common approach for ICA components where noise is assumed to be spatially white
-        n_channels = evoked_topo.info['nchan']
-        # Create an identity matrix scaled by a small factor to represent unit variance noise
-        # fit_dipole is sensitive to the absolute scale of the cov, so an unscaled identity might lead to issues.
-        # However, for IC topographies, the relative scaling is often what matters.
-        # Let's start with a simple identity.
-        noise_cov_data = np.eye(n_channels) 
-        noise_cov = mne.Covariance(noise_cov_data, evoked_topo.info['ch_names'], 
-                                   bads=evoked_topo.info['bads'], # Use bads from evoked_topo.info
-                                   projs=evoked_topo.info['projs'], # Use projs from evoked_topo.info
-                                   nfree=1, verbose=False)
-
-        # Fit dipole
-        dipoles, residual = mne.fit_dipole(evoked_topo, cov=noise_cov, bem=sphere, min_dist=5.0, verbose=False)
-        
-        if dipoles is None or len(dipoles) == 0:
-            ax_dipole.text(0.5, 0.5, "Dipole fitting returned no dipoles.", 
-                           ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
-            raise RuntimeError("Dipole fitting failed to return any dipoles.")
-        
-        dip = dipoles[0]
-        
-        # Display dipole info as text
-        rv_text = f"RV: {dip.gof[0]:.1f}%" # MNE's gof is residual variance for fit_dipole
-        pos_text = f"Pos (mm): ({dip.pos[0,0]*1000:.1f}, {dip.pos[0,1]*1000:.1f}, {dip.pos[0,2]*1000:.1f})"
-        ori_text = f"Ori: ({dip.ori[0,0]:.2f}, {dip.ori[0,1]:.2f}, {dip.ori[0,2]:.2f})"
-        full_text = f"{rv_text}\n{pos_text}\n{ori_text}"
-        
-        ax_dipole.text(0.05, 0.9, full_text, ha='left', va='top', fontsize=7.5, wrap=True, 
-                       bbox=dict(boxstyle='round,pad=0.3', fc='aliceblue', alpha=0.7),
-                       transform=ax_dipole.transAxes)
-
+            noise_cov_data_dipole = np.eye(n_channels_dipole)
+            noise_cov_dipole = Covariance(noise_cov_data_dipole, evoked_topo_dipole.info['ch_names'],
+                                             bads=evoked_topo_dipole.info['bads'], projs=evoked_topo_dipole.info['projs'],
+                                             nfree=1, verbose=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", RuntimeWarning)
+                dipoles_fit, _ = mne.fit_dipole(evoked_topo_dipole, noise_cov_dipole, sphere_model, min_dist=5.0, verbose=False)
+            
+            if dipoles_fit and len(dipoles_fit) > 0:
+                dip = dipoles_fit[0]
+                rv_text = f"RV: {dip.gof[0]:.1f}%"
+                pos_text = f"Pos (mm): ({dip.pos[0,0]*1000:.1f}, {dip.pos[0,1]*1000:.1f}, {dip.pos[0,2]*1000:.1f})"
+                ori_text = f"Ori: ({dip.ori[0,0]:.2f}, {dip.ori[0,1]:.2f}, {dip.ori[0,2]:.2f})"
+                full_text = f"{rv_text}\n{pos_text}\n{ori_text}"
+                ax_dipole.text(0.05, 0.9, full_text, ha='left', va='top', fontsize=7.5, wrap=True,
+                               bbox=dict(boxstyle='round,pad=0.3', fc='aliceblue', alpha=0.7),
+                               transform=ax_dipole.transAxes)
+            else:
+                ax_dipole.text(0.5, 0.5, "Dipole fitting returned no dipoles.", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
     except Exception as e:
         print(f"Error in dipole processing for IC{component_idx}: {e}")
-        if not ax_dipole.texts: # Only add text if not already populated by specific error
-            # Ensure fallback text is 2D compatible
+        if not ax_dipole.texts: 
             ax_dipole.text(0.5, 0.5, "Dipole info failed", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
-        # traceback.print_exc()
 
     # 5. IC Activity Power Spectrum
     try:
-        # Get component data for PSD (use non-offset corrected for PSD)
-        component_trace_psd = component_data_array 
-
+        component_trace_psd = component_data_array
         fmin_psd_wide = 1.0
-        # Match MATLAB script's spectopo freqrange approx [0 80]
-        fmax_psd_wide = min(80.0, sfreq / 2.0 - 0.51) # Ensure fmax < sfreq/2
-        
-        # Ensure n_fft is not too large for data, and not zero
+        fmax_psd_wide = min(80.0, sfreq / 2.0 - 0.51)
         n_fft_psd = int(sfreq * 2.0)
         if n_fft_psd > len(component_trace_psd):
              n_fft_psd = len(component_trace_psd)
-        n_fft_psd = max(n_fft_psd, 256 if len(component_trace_psd) >= 256 else len(component_trace_psd)) # Min sensible n_fft
+        n_fft_psd = max(n_fft_psd, 256 if len(component_trace_psd) >= 256 else len(component_trace_psd))
         
         if n_fft_psd == 0 : raise ValueError("n_fft_psd is zero.")
-
 
         psds_wide, freqs_wide = psd_array_welch(
             component_trace_psd, sfreq=sfreq, fmin=fmin_psd_wide, fmax=fmax_psd_wide, 
@@ -354,7 +566,7 @@ def _plot_component_for_vision_standalone(
         )
         if psds_wide.size == 0: raise ValueError("PSD computation returned empty array.")
 
-        psds_db_wide = 10 * np.log10(np.maximum(psds_wide, 1e-20)) # Add small constant to avoid log(0)
+        psds_db_wide = 10 * np.log10(np.maximum(psds_wide, 1e-20))
         
         ax_psd.plot(freqs_wide, psds_db_wide, color='red', linewidth=1.2)
         ax_psd.set_title(f"IC{component_idx} Activity Power Spectrum", fontsize=10)
@@ -367,24 +579,70 @@ def _plot_component_for_vision_standalone(
     except Exception as e:
         print(f"Error plotting PSD for IC{component_idx}: {e}")
         ax_psd.text(0.5, 0.5, "PSD plot failed", ha='center', va='center', transform=ax_psd.transAxes)
-        # traceback.print_exc()
 
-    fig.suptitle(f"ICA Component {component_idx} Analysis", fontsize=14, y=0.98) # Adjusted y for suptitle
-    # plt.tight_layout(rect=[0, 0.03, 1, 0.95]) # Replaced by fig.set_layout_engine("tight")
+    # Add main title for the component plots section
+    fig.suptitle(main_plot_title_text, fontsize=14, y=suptitle_y_pos)
 
-    filename = f"component_{component_idx}_analysis.webp"
-    filepath = output_dir / filename
-    try:
-        plt.savefig(filepath, format='webp', bbox_inches='tight', pad_inches=0.2) # Increased pad_inches slightly
-        print(f"Successfully saved plot for IC{component_idx} to {filepath}")
-    except Exception as e:
-        print(f"Error saving figure for IC{component_idx}: {e}")
-        # traceback.print_exc() # Optionally uncomment
-        plt.close(fig)
-        return None
-    finally:
-        plt.close(fig)
-    return filepath
+    # Add classification label and confidence as a subtitle (if for PDF)
+    if return_fig_object and classification_label is not None and classification_confidence is not None:
+        subtitle_color = 'red' if classification_label.lower() != 'brain' else 'green'
+        classification_subtitle_text = f"Classification: {str(classification_label).title()} (Confidence: {classification_confidence:.2f})"
+        # Position below the main suptitle
+        fig.text(0.5, suptitle_y_pos - 0.035, classification_subtitle_text, ha='center', va='top',
+                 fontsize=13, fontweight='bold', color=subtitle_color,
+                 transform=fig.transFigure)
+
+    # Add reasoning text box at the bottom (if for PDF and reason is available)
+    if return_fig_object and classification_reason:
+        reason_title = "Reasoning (Vision API):"
+        fig.text(0.05, gridspec_bottom - 0.03, reason_title, ha='left', va='bottom', 
+                 fontsize=9, fontweight='bold', transform=fig.transFigure)
+        fig.text(0.05, 0.02, classification_reason, ha='left', va='top', 
+                 fontsize=8, wrap=True, transform=fig.transFigure,
+                 bbox=dict(boxstyle='round,pad=0.4', fc='aliceblue', alpha=0.75, ec='lightgrey'),
+                 # Figure width for text box: from x=0.05 up to x=0.95 (0.9 of figure width)
+                 # The text box will be constrained by these relative coordinates. Max width = 0.9 * fig_width
+                 ) 
+
+    if return_fig_object:
+        # fig.tight_layout(rect=[0, (gridspec_bottom if classification_reason else 0.01), 1, (gridspec_top - 0.04 if classification_label else gridspec_top)]) # Adjust layout considering text
+        # Using subplots_adjust might be more reliable with fig.text
+        bottom_adj = gridspec_bottom if classification_reason else 0.01
+        top_adj = gridspec_top - (0.05 if classification_label else 0.01) # reduce top slightly more if subtitle present
+        try:
+            fig.subplots_adjust(left=0.05, right=0.95, bottom=bottom_adj, top=top_adj, hspace=0.7, wspace=0.35)
+        except ValueError: # Sometimes tight_layout/subplots_adjust can fail with complex layouts or fig.text
+            print(f"Warning: Could not apply subplots_adjust for IC{component_idx} in PDF.")
+        return fig # Return the figure object to be saved by PdfPages
+    else:
+        # This is for saving .webp for OpenAI API call
+        if output_dir is None:
+            plt.close(fig)
+            raise ValueError("output_dir must be provided if not returning figure object and saving .webp")
+        
+        # No classification/reason text for .webp images sent to OpenAI
+        # If they were added, they would be part of the image sent for classification.
+        # The current logic correctly only adds them if return_fig_object is True.
+
+        filename = f"component_{component_idx}_analysis.webp"
+        filepath = output_dir / filename
+        try:
+            # Use a more constrained layout for the .webp to ensure it matches what was originally designed for OpenAI
+            # fig.tight_layout(rect=[0, 0.03, 1, 0.95]) # Original tight_layout call for .webp
+            # Since we are not adding text for .webp, the original gs and suptitle should be fine.
+            # However, the gs might have changed if return_fig_object was accidentally true logic path was taken.
+            # It's safer to ensure the .webp is generated with its intended layout directly.
+            # For .webp, we don't want the extra space for classification/reasoning text.
+            # The current code structure correctly separates this: if not return_fig_object, extra text is not added.
+            plt.savefig(filepath, format='webp', bbox_inches='tight', pad_inches=0.2)
+            print(f"Successfully saved plot for IC{component_idx} to {filepath}")
+        except Exception as e:
+            print(f"Error saving figure for IC{component_idx}: {e}")
+            plt.close(fig)
+            return None
+        finally:
+            plt.close(fig) # Ensure figure is closed after saving .webp
+        return filepath
 
 def _classify_component_image_openai_standalone(
     image_path: Path,
@@ -499,14 +757,15 @@ def run_test():
 
     # Determine the actual number of components to process in this batch
     # to avoid going out of bounds
+    # Ensure ica.n_components_ is valid before using it
+    if ica.n_components_ is None or not isinstance(ica.n_components_, int) or ica.n_components_ < 0:
+        print(f"Error: Invalid number of ICA components found: {ica.n_components_}. Cannot proceed.")
+        return
+        
     end_component_index = min(START_COMPONENT_INDEX + NUM_COMPONENTS_TO_BATCH, ica.n_components_)
 
-    print(f"Processing components from index {START_COMPONENT_INDEX} to {end_component_index - 1}")
 
-    # Use a single temporary directory for all images if _plot_component_for_vision_standalone needs it,
-    # but since we're saving plots to OUTPUT_DIR_PATH, temp_dir might not be strictly needed here
-    # unless _plot_component_for_vision_standalone *requires* it for intermediate steps.
-    # For now, we'll pass the final output_path to the plotting function.
+    print(f"Processing components from index {START_COMPONENT_INDEX} to {end_component_index - 1}")
 
     for current_component_idx in range(START_COMPONENT_INDEX, end_component_index):
         print(f"\n--- Processing ICA Component: {current_component_idx} ---")
@@ -567,6 +826,46 @@ def run_test():
     except Exception as e_json:
         print(f"Error saving JSON results: {e_json}")
         traceback.print_exc()
+
+    # --- Generate PDF Reports ---
+    if all_results:
+        results_df = pd.DataFrame(all_results)
+        if "component_index" in results_df.columns:
+            results_df = results_df.set_index("component_index")
+            # Sort by index to ensure components are in order in the PDF
+            results_df = results_df.sort_index()
+        else:
+            print("Warning: 'component_index' not found in results. PDF generation might be affected.")
+            # Attempt to use default index if component_index is missing
+            # This might not be ideal if order matters and isn't preserved.
+
+        raw_filename_for_pdf = Path(EXAMPLE_RAW_PATH).name
+        
+        print("\n--- Generating PDF Report for ALL components (Vision API) ---")
+        pdf_all_path = _generate_ica_report_pdf(
+            ica_obj=ica,
+            raw_obj=raw,
+            classification_results=results_df,
+            output_dir=output_path,
+            bids_basename=raw_filename_for_pdf,
+            components_to_plot="all"
+        )
+        if pdf_all_path:
+            print(f"Full ICA Vision report saved to: {pdf_all_path}")
+
+        print("\n--- Generating PDF Report for ARTIFACT components (Vision API) ---")
+        pdf_artifact_path = _generate_ica_report_pdf(
+            ica_obj=ica,
+            raw_obj=raw,
+            classification_results=results_df,
+            output_dir=output_path,
+            bids_basename=raw_filename_for_pdf,
+            components_to_plot="classified_as_artifact"
+        )
+        if pdf_artifact_path:
+            print(f"Artifact ICA Vision report saved to: {pdf_artifact_path}")
+    else:
+        print("No results to generate PDF report.")
             
     print("\n--- Test Complete ---")
 

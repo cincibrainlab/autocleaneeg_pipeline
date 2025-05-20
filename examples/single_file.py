@@ -2,7 +2,7 @@ from pathlib import Path
 from autoclean import Pipeline
 
 # Define paths - modify these to match your system
-EXAMPLE_OUTPUT_DIR = Path("/srv2/RAWDATA/1_NBRT_LAB_STUDIES/Proj_Entrain/BB_long/Autoclean_output")  # Where processed data will be stored
+EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/AutocleanDev2")  # Where processed data will be stored
 CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative to working directory OR absolute path
 
 """Example of processing a single EEG file."""
@@ -17,11 +17,11 @@ pipeline = Pipeline(
 # file_path = Path("C:/Users/Gam9LG/Documents/DATA/hbcd_mmn/sub-896714_ses-V03_task-MMN_acq-eeg_eeg.set")
 # file_path = Path("C:/Users/Gam9LG/Documents/HBCD_exampleFiles/CHCCH0014_V04/CHCCH0014_256983_V04_MMN.mff")
 # file_path = Path("C:/Users/Gam9LG/Documents/HBCD_exampleFiles/CHCCH0014_V04/CHCCH0014_256983_V04_VEP.mff")
-file_path = Path("/srv2/RAWDATA/1_NBRT_LAB_STUDIES/Proj_Entrain/BB_long/RAW/2294_BBLong.raw")
+file_path = Path("C:/Users/Gam9LG/Documents/DATA/chirp/1795_chirplong.set")
 
 
 # Process the file
 pipeline.process_file(
     file_path=file_path,
-    task="BB_Long",  # Choose appropriate task
+    task="ChirpDefault",  # Choose appropriate task
 )
