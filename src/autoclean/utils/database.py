@@ -236,43 +236,52 @@ def manage_database(
                         run_id
                     ))
                 else:
-                    if "metadata" in update_record:
-                        if not _validate_metadata(update_record["metadata"]):
-                            raise ValueError("Invalid metadata structure")
-                        
-                        # Get existing metadata
-                        cursor.execute("SELECT metadata FROM pipeline_runs WHERE run_id = ?", (run_id,))
-                        existing_metadata = json.loads(cursor.fetchone()["metadata"] or "{}")
-                        
-                        # Update metadata, handling Path objects and non-serializable objects
-                        serialized_metadata = _serialize_for_json(update_record["metadata"])
-                        existing_metadata.update(serialized_metadata)
-                        metadata_json = json.dumps(existing_metadata)
-                        
-                        # Update record with new metadata
-                        update_fields = []
-                        update_values = []
-                        
-                        for key, value in update_record.items():
-                            if key != "metadata":
-                                update_fields.append(f"{key} = ?")
-                                # Convert Path objects to strings
-                                if isinstance(value, Path):
-                                    update_values.append(str(value))
-                                else:
-                                    update_values.append(value)
-                        
-                        update_fields.append("metadata = ?")
-                        update_values.append(metadata_json)
-                        update_values.append(run_id)
-                        
-                        query = f"""
-                            UPDATE pipeline_runs 
-                            SET {', '.join(update_fields)}
-                            WHERE run_id = ?
-                        """
-                        cursor.execute(query, update_values)
+                    update_components = []
+                    current_update_values = [] # Using a distinct name for clarity
 
+                    # Handle metadata update if 'metadata' key exists in update_record
+                    if "metadata" in update_record:
+                        metadata_to_update = update_record["metadata"]
+                        if not _validate_metadata(metadata_to_update):
+                            raise ValueError("Invalid metadata structure for update")
+                        
+                        # Fetch existing metadata
+                        cursor.execute("SELECT metadata FROM pipeline_runs WHERE run_id = ?", (run_id,))
+                        row_with_metadata = cursor.fetchone()
+                        existing_metadata_str = row_with_metadata["metadata"] if row_with_metadata else "{}"
+                        current_metadata = json.loads(existing_metadata_str or "{}")
+                        
+                        # Serialize the new metadata fragment and merge it
+                        serialized_new_metadata_fragment = _serialize_for_json(metadata_to_update)
+                        current_metadata.update(serialized_new_metadata_fragment)
+                        final_metadata_json = json.dumps(current_metadata)
+                        
+                        update_components.append("metadata = ?")
+                        current_update_values.append(final_metadata_json)
+
+                    # Handle other fields present in update_record
+                    for key, value in update_record.items():
+                        if key == "run_id" or key == "metadata":
+                            continue
+                        
+                        update_components.append(f"{key} = ?")
+                        if isinstance(value, Path):
+                            current_update_values.append(str(value))
+                        else:
+                            current_update_values.append(value)
+                    
+                    # Only execute the UPDATE SQL statement if there are actual fields to set
+                    if update_components:
+                        # Add the run_id for the WHERE clause; it's the last parameter for the query
+                        current_update_values.append(run_id) 
+                        
+                        set_clause_sql = ", ".join(update_components)
+                        query = f"UPDATE pipeline_runs SET {set_clause_sql} WHERE run_id = ?"
+                        
+                        cursor.execute(query, tuple(current_update_values))
+                    else:
+                        message("debug", f"For 'update' operation on run_id '{run_id}', no non-metadata fields were identified for SET clause. update_record: {update_record}. Metadata might have been updated if processed.")
+                
                 conn.commit()
                 message("debug", f"Record {operation} successful for run_id: {run_id}")
 

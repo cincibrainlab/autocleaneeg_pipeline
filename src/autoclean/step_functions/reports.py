@@ -1232,7 +1232,7 @@ def create_json_summary(run_id: str) -> dict:
         "run_id": run_id,
         "task": run_record["task"],
         "bids_subject": f"sub-{bids_info['bids_subject']}",
-        "timestamp": run_record["timestamp"],
+        "timestamp": run_record["created_at"],
         "basename": import_details["basename"],
         "proc_state": proc_state,
         "exclude_category": exclude_category,
