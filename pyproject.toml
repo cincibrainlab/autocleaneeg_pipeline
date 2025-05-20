@@ -42,7 +42,6 @@ dependencies = [
     "autoreject>=0.3.0",
     "python-ulid>=1.0.0",
     "cython>=0.29.0",
-    "unqlite>=0.9.3",
     "scipy>=1.7.0",
     "loguru>=0.6.0",
     "matplotlib>=3.4.0",
