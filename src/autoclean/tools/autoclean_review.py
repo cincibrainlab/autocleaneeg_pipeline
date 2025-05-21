@@ -491,11 +491,11 @@ class FileSelector(QWidget):
 
                 # Get paths
                 subject_id = self.current_run_record["metadata"][
-                    "step_convert_to_bids"
+                    "step_create_bids_path"
                 ]["bids_subject"]
                 bids_root = Path(
-                    self.current_run_record["metadata"]["step_prepare_directories"][
-                        "bids"
+                    self.current_run_record["metadata"]["step_create_bids_path"][
+                        "bids_root"
                     ]
                 )
 
@@ -1072,12 +1072,12 @@ class FileSelector(QWidget):
                     self.plot_widget = self.current_epochs.plot(
                         n_epochs=10,
                         show=False,
-                        block=True,
+                        block=False,
                         picks="all",
                         events=True,
                         show_scalebars=True,
                         scalings={"eeg": 25e-6},
-                        n_channels=self.current_epochs.info["nchan"],
+                        n_channels=self.current_epochs.info["nchan"]
                     )
                 else:
                     # Create the plot widget for raw data
