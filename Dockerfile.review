@@ -31,6 +31,7 @@ RUN apt-get update && \
     libxcb-render-util0 \
     libxcb-shape0 \
     libxcb-xinerama0 \
+    libqt5pdf5 \
     xvfb \
     x11vnc \
     novnc \
@@ -70,10 +71,10 @@ RUN mkdir -p /app/output && \
 # Create startup script for noVNC with better options
 RUN echo '#!/bin/bash\nset -e\necho "Starting noVNC on port 6080..."\nwebsockify --web=/usr/share/novnc 6080 localhost:5900 --wrap-mode=ignore --heartbeat=30 --verbose' > /usr/local/bin/novnc-start && \
     chmod +x /usr/local/bin/novnc-start && \
-    # Create a simpler, more compatible index page
-    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="refresh" content="0;url=vnc.html?host=localhost&port=6080&autoconnect=true&resize=scale"></head><body>Redirecting to noVNC client...</body></html>' > /usr/share/novnc/index.html
+    # Create a simpler, more compatible index page with cache-control meta tags and cache-busting
+    echo '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" /><meta http-equiv="Pragma" content="no-cache" /><meta http-equiv="Expires" content="0" /><meta http-equiv="refresh" content="0;url=vnc.html?host=localhost&port=6080&autoconnect=true&resize=scale&v=1.0.0"></head><body>Redirecting to noVNC client...</body></html>' > /usr/share/novnc/index.html
 
-# Set up supervisord configuration
+    # Set up supervisord configuration
 RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
     echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'logfile=/var/log/supervisor/supervisord.log' >> /etc/supervisor/conf.d/supervisord.conf && \
