@@ -64,8 +64,8 @@ class RestingEyesOpen(Task):
         self.original_raw = self.raw.copy()
 
         # Create BIDS-compliant paths and filenames
-        self.raw, self.config = step_create_bids_path(self.raw, self.config)
-
+        self.create_bids_path()
+        
         self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True) #reset_bads needs to be true if running ICA later
 
         self.rereference_data()

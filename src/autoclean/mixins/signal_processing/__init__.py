@@ -10,8 +10,6 @@ import pkgutil
 from pathlib import Path
 from typing import Dict, List, Type
 
-from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin as BaseMixin
-
 # Get the current directory
 _current_dir = Path(__file__).parent
 
@@ -44,14 +42,4 @@ for module_name, module in _mixin_modules.items():
     # Add classes to the current namespace
     globals().update(mixin_classes)
 
-# Make sure BaseMixin is always included
-if "SignalProcessingMixin" not in __all__:
-    from autoclean.mixins.signal_processing.base import SignalProcessingMixin
-    __all__.append("SignalProcessingMixin")
-    globals()["SignalProcessingMixin"] = SignalProcessingMixin
 
-# Make sure SignalProcessingMixin is always included
-if "SignalProcessingMixin" not in __all__:
-    from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin
-    __all__.append("SignalProcessingMixin")
-    globals()["SignalProcessingMixin"] = SignalProcessingMixin

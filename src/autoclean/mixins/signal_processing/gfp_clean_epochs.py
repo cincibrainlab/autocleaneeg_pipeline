@@ -96,18 +96,6 @@ class GFPCleanEpochsMixin:
 
 
         """
-        # Check if this step is enabled in the configuration
-        # is_enabled, config_value = self._check_step_enabled("gfp_clean_epochs")
-
-        # if not is_enabled:
-        #     message("info", "GFP clean epochs step is disabled in configuration")
-        #     return None
-
-        # # Get parameters from config if available
-        # if config_value and isinstance(config_value, dict):
-        #     gfp_threshold = config_value.get("gfp_threshold", gfp_threshold)
-        #     number_of_epochs = config_value.get("number_of_epochs", number_of_epochs)
-        #     random_seed = config_value.get("random_seed", random_seed)
 
         # Determine which data to use
         epochs = self._get_data_object(epochs, use_epochs=True)
