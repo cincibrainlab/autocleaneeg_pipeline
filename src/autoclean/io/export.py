@@ -285,50 +285,87 @@ def save_epochs_to_set(
             # Extract events from metadata if available
             if (
                 "additional_events" in epochs.metadata.columns
-                and not epochs.metadata["additional_events"].empty
+                # and not epochs.metadata["additional_events"].empty # This check might be too simple if NaNs are present
             ):
                 # Calculate timing parameters for event reconstruction
                 sfreq = epochs.info["sfreq"]
-                offset = int(round(-epochs.tmin * sfreq))  # Samples from epoch start to time 0
+                # offset = int(round(-epochs.tmin * sfreq))  # Samples from epoch start to time 0. Will recalculate sample pos directly.
                 n_samples = len(epochs.times)  # Total samples per epoch
 
                 # Build event dictionary from all unique event labels
                 all_labels = set()
-                for row in epochs.metadata["additional_events"]:
-                    for label, _ in row:
-                        all_labels.add(label)
+                # Iterate over potentially NaN-containing 'additional_events' Series safely
+                for additional_event_list_for_epoch in epochs.metadata["additional_events"].dropna():
+                    if isinstance(additional_event_list_for_epoch, list):
+                        for event_tuple in additional_event_list_for_epoch:
+                            # Ensure the event_tuple is a tuple/list and has at least one element (the label)
+                            if isinstance(event_tuple, (list, tuple)) and len(event_tuple) >= 1:
+                                label = event_tuple[0] # Get the label
+                                all_labels.add(str(label)) # Ensure label is a string
+                            else:
+                                message("debug", f"Skipping malformed event tuple: {event_tuple} in additional_events.")
+                    # else: it's not a list after dropna(), so it was NaN or another non-list type.
+                
                 event_id_rebuilt = {
-                    label: idx + 1 for idx, label in enumerate(sorted(all_labels))
+                    label: idx + 1 for idx, label in enumerate(sorted(list(all_labels)))
                 }
 
                 # Reconstruct events array with global sample positions
                 events_in_epochs = []
                 used_samples = set()  # Track used samples to prevent collisions
 
-                for i, row in enumerate(
-                    epochs.metadata.itertuples(index=False, name="Row")
+                # Iterate through metadata rows, but ensure we don't go beyond the actual number of events
+                # This directly addresses the "82 vs 77" mismatch.
+                for i, meta_row_tuple in enumerate(
+                    epochs.metadata.head(len(epochs.events)).itertuples(index=False, name="Row")
                 ):
-                    for label, rel_time in row.additional_events:
-                        # Convert relative time to sample position
-                        event_sample_within_epoch = int(round(rel_time * sfreq)) + offset
-                        global_sample = i * n_samples + event_sample_within_epoch
+                    current_additional_events_for_epoch = getattr(meta_row_tuple, "additional_events", None)
+                    if isinstance(current_additional_events_for_epoch, list):
+                        for label, rel_time in current_additional_events_for_epoch:
+                            try:
+                                # rel_time is time from epoch's t=0 (trigger).
+                                # epochs.tmin is the start of the epoch data window relative to t=0.
+                                # Sample index for rel_time within the epoch's data array (0 to n_samples-1) is:
+                                event_sample_within_epoch_data = int(round((float(rel_time) - epochs.tmin) * sfreq))
 
-                        # Prevent sample collisions by incrementing if needed
-                        while global_sample in used_samples:
-                            global_sample += 1
-                        used_samples.add(global_sample)
+                                # Check bounds: sample must be within the current epoch's data segment [0, n_samples-1]
+                                if not (0 <= event_sample_within_epoch_data < n_samples):
+                                    message("warning", f"Epoch {i}, event '{label}': rel_time {rel_time}s -> sample {event_sample_within_epoch_data} is outside epoch data window [0, {n_samples-1}]. Skipping.")
+                                    continue
+                                
+                                # global_sample is for concatenated data, as expected by eeglabio.export_set
+                                # It's the start of the i-th epoch's data block + the sample within that block.
+                                global_sample = (i * n_samples) + event_sample_within_epoch_data
 
-                        # Add to events array with appropriate event code
-                        code = event_id_rebuilt[label]
-                        events_in_epochs.append([global_sample, 0, code])
+                                # Prevent sample collisions by incrementing if needed
+                                while global_sample in used_samples:
+                                    global_sample += 1
+                                used_samples.add(global_sample)
 
-                events_in_epochs = np.array(events_in_epochs, dtype=int)
+                                str_label = str(label) # Ensure label is string for dict lookup
+                                if str_label not in event_id_rebuilt:
+                                    message("warning", f"Label '{str_label}' (from epoch {i}, rel_time {rel_time}) not found in rebuilt event_id. Available: {list(event_id_rebuilt.keys())}. Skipping this event.")
+                                    continue
+                                code = event_id_rebuilt[str_label]
+                                events_in_epochs.append([global_sample, 0, code]) # Assuming duration 0 for point events
+                            except ValueError:
+                                message("warning", f"Epoch {i}, event '{label}': Could not convert rel_time '{rel_time}' to float. Skipping this event.")
+                                continue
+                            except Exception as e_inner: # pylint: disable=broad-exception-caught
+                                message("error", f"Unexpected error processing event '{label}' in epoch {i} (rel_time: {rel_time}): {e_inner}")
+                                continue
+                    # else: current_additional_events_for_epoch is not a list (e.g., NaN), so skip for this epoch.
+
+                if events_in_epochs: # Only convert to numpy array if list is not empty
+                    events_in_epochs = np.array(events_in_epochs, dtype=int)
+                else: # If list is empty, set to None or an empty array as eeglabio expects
+                    events_in_epochs = None # Or np.empty((0,3), dtype=int) depending on eeglabio's preference for empty
+
             else:
-                message("warning", "No additional event metadata found for epochs")
+                message("warning", "No 'additional_events' column found in epochs.metadata or it is empty.")
                 events_in_epochs = None
         except Exception as e: # pylint: disable=broad-exception-caught
             message("error", f"Failed to rebuild events_in_epochs: {str(e)}")
-            events_in_epochs = None
 
     # Save to all target paths
     epochs.info["description"] = autoclean_dict["run_id"]

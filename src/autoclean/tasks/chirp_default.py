@@ -80,7 +80,7 @@ class ChirpDefault(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        # self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
 
         self.rereference_data()
 
@@ -92,9 +92,9 @@ class ChirpDefault(Task):
         self.detect_dense_oscillatory_artifacts()
 
         # #ICA
-        # self.run_ica()
+        self.run_ica()
 
-        # self.run_ICLabel()
+        self.run_ICLabel()
 
         save_raw_to_set(
             raw=self.raw,
@@ -104,7 +104,7 @@ class ChirpDefault(Task):
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_eventid_epochs() # Using fixed-length epochs
+        self.create_eventid_epochs() 
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()

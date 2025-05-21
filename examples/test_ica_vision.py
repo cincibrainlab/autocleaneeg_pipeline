@@ -36,7 +36,7 @@ EXAMPLE_ICA_PATH = "C:/Users/Gam9LG/Documents/AutocleanDev2/TestingRest/bids/der
 
 # --- New Batch Configuration ---   
 START_COMPONENT_INDEX = 0  # Starting component index for the batch
-NUM_COMPONENTS_TO_BATCH =5 # Number of components to process in this batch
+NUM_COMPONENTS_TO_BATCH =30 # Number of components to process in this batch
 OUTPUT_DIR_PATH = "./ica_vision_test_output" # Directory to save plots and JSON results
 # --- End New Batch Configuration ---
 
@@ -49,22 +49,25 @@ CUSTOM_OPENAI_ICA_PROMPT = """Analyze this EEG ICA component image and classify 
 
 - "eye": 
   * Two main types of eye components:
-    1. HORIZONTAL eye movements: LEFT-RIGHT FRONTAL dipolar pattern (red-blue on opposite sides of frontal region). Detail view shows step-like or square-wave patterns. LOOK CAREFULLY for RED on one FRONTAL side and BLUE on the other FRONTAL side - this pattern is ALWAYS an eye component, never muscle.
-    2. VERTICAL eye movements/blinks: FRONTAL midline or bilateral positivity/negativity. Detail view shows distinctive spikes or slow waves.
+    1. HORIZONTAL eye movements: Characterized by a TIGHTLY FOCUSED dipolar pattern, CONFINED PRIMARILY to the LEFT-RIGHT FRONTAL regions (e.g., distinct red on one far-frontal side, blue on the opposite far-frontal side). The active areas should be relatively compact and clearly located frontally. Time series typically shows step-like or square-wave patterns. This pattern is eye UNLESS the time series shows the prominent, sharp, repetitive QRS-like spikes characteristic of "heart".
+    2. VERTICAL eye movements/blinks: FRONTAL midline or bilateral positivity/negativity. Time series shows distinctive spikes or slow waves.
   * Both types show power concentrated in lower frequencies (<5Hz).
   * DO NOT be misled by 60Hz notches in the spectrum - these are normal filtering artifacts, NOT line noise.
-  * Key distinction: Eye components have activity focused in frontal regions, and will NEVER have activity in the occipital region.
-  * CRITICAL: NEVER classify a component with clear LEFT-RIGHT FRONTAL dipole (red on one frontal side, blue on opposite frontal side) as muscle - this pattern is ALWAYS eye movement.
-  * RULE: If you see LEFT-RIGHT FRONTAL dipole pattern or STRONG FRONTAL activation with spike patterns, classify as "eye".
+  * Key distinction: Eye components have activity TIGHTLY FOCUSED in frontal regions. Eye component dipoles are much more FOCUSED and less widespread than the broad gradients seen in "heart" components.
+  * CRITICAL: NEVER classify a component with clear FOCUSED LEFT-RIGHT FRONTAL dipole as muscle. This pattern is eye, BUT ALWAYS CHECK TIME SERIES FOR QRS COMPLEXES TO RULE OUT "heart" if the 'dipole' appears very broad or global.
+  * RULE: If you see TIGHTLY FOCUSED LEFT-RIGHT FRONTAL dipole pattern or STRONG FRONTAL activation with spike patterns, AND NO QRS in time series, classify as "eye".
 
-- "muscle": 
- * topography often looks like 2 small dots that are different colors and right next to each other (a very shallow dipole/ "bowtie" like pattern) that combined take up less than 25% of the topography
- * topography can look like DISTRIBUTED activity along EDGE of scalp (temporal/occipital/neck regions).
- * NOT isolated to single electrode (unlike channel noise).
- * Power spectrum will show a positive slope (usually trending upwards from around 20Hz and above), are ALWAYS muscle.
- * Time series often shows spiky, high-frequency activity.
+- "muscle": (SPECTRAL SIGNATURE IS THE MOST DOMINANT INDICATOR)
+  * DECISIVE SPECTRAL FEATURE (Primary and Often Conclusive Muscle Indicator): The power spectrum exhibits a CLEAR and SUSTAINED POSITIVE SLOPE, meaning power consistently INCREASES with increasing frequency, typically starting from around 20-30Hz and continuing upwards. This often looks like the spectrum is 'curving upwards' or 'scooping upwards' at higher frequencies. IF THIS DISTINCT SPECTRAL SIGNATURE IS OBSERVED, THE COMPONENT IS TO BE CLASSIFIED AS 'muscle', EVEN IF other features might seem ambiguous or resemble other categories. This spectral cue is the strongest determinant for muscle.
+  * OTHER SUPPORTING MUSCLE CHARACTERISTICS (Use if spectral cue is present, or with caution if spectral cue is less definitive but clearly NOT 1/f):
+    *   Topography: Common patterns include (a) very localized 'bowtie' or 'shallow dipole' patterns (two small, adjacent areas of opposite polarity, often taking up <25% of the scalp map, can appear anywhere but frequently temporal/posterior) OR (b) more diffuse activity, typically along the EDGE of the scalp (temporal, occipital, neck regions).
+    *   Time Series: Often shows spiky, high-frequency, and somewhat erratic activity.
 
-- "heart": Broad gradient across scalp. Time series shows regular QRS complexes (~1Hz).
+- "heart":
+  * TOPOGRAPHY: Characterized by a VERY BROAD, diffuse electrical field gradient across a large area of the scalp. This often manifests as large positive (red) and negative (blue) regions on somewhat opposite sides of the head, but these regions are WIDESPREAD and NOT TIGHTLY FOCUSED like an eye dipole. 
+  * TIME SERIES (CRITICAL & DECISIVE IDENTIFIER): Look for PROMINENT, SHARP, REPETITIVE SPIKES in the 'Scrolling IC Activity' plot that stand out significantly from the background rhythm. These are QRS-like complexes (heartbeats). They are typically large in amplitude, can be positive-going or negative-going sharp deflections, and repeat at roughly 0.8-1.5 Hz (around once per second, though ICA can make the rhythm appear less than perfectly regular). THE PRESENCE OF THESE DISTINCTIVE, RECURRING, SHARP SPIKES IS THE STRONGEST AND MOST DEFINITIVE INDICATOR FOR "heart".
+  * IF QRS IS PRESENT: If these clear, sharp, repetitive QRS-like spikes are visible in the time series, the component should be classified as "heart". This QRS signature, when combined with a BROAD topography, takes precedence over superficial resemblances to other patterns.
+  * SPECTRUM: Often noisy or may not show a clear 1/f pattern. May show harmonics of the heart rate.
 
 - "line_noise": 
   * MUST show SHARP PEAK at 50/60Hz in spectrum - NOT a notch/dip (notches are filters, not line noise).
@@ -73,18 +76,22 @@ CUSTOM_OPENAI_ICA_PROMPT = """Analyze this EEG ICA component image and classify 
 
 - "channel_noise": 
   * SINGLE ELECTRODE "hot/cold spot" - tiny, isolated circular area typically without an opposite pole.
-  * Compare with eye: Channel noise has only ONE focal point, while eye has TWO opposite poles (dipole).
+  * Compare with eye: Channel noise has only ONE focal point, while eye has TWO opposite poles (dipole). Eye dipoles are also typically larger and more structured.
   * Example: A tiny isolated red or blue spot on one electrode, not a dipolar pattern.
   * Time series may show any pattern; the focal topography is decisive.
 
 - "other_artifact": Components not fitting above categories.
 
-CLASSIFICATION PRIORITY:
-1. LEFT-RIGHT FRONTAL dipole or STRONG FRONTAL activation with spikes → "eye"
-2. SINGLE ELECTRODE isolated focality activity → "channel_noise" 
-3. PEAK (not notch) at 50/60Hz → "line_noise"
-4. EDGE activity WITH high-frequency power → "muscle"
-5. Central/parietal/temporal dipole → "brain"
+CLASSIFICATION PRIORITY (IMPORTANT: Evaluate in this order. Later rules apply only if earlier conditions are not met or are ambiguous):
+1.  IF 'Scrolling IC Activity' shows PROMINENT, SHARP, REPETITIVE SPIKES (QRS-like complexes...) AND topography is VERY BROAD... → "heart".
+2.  ELSE IF TIGHTLY FOCUSED LEFT-RIGHT FRONTAL dipole... (and NO QRS) → "eye"
+3.  ELSE IF SINGLE ELECTRODE isolated focality → "channel_noise"
+4.  ELSE IF Spectrum shows SHARP PEAK (not notch) at 50/60Hz → "line_noise"
+5.  ELSE IF Power spectrum exhibits a CLEAR and SUSTAINED POSITIVE SLOPE (power INCREASES with increasing frequency from ~20-30Hz upwards, often 'curving' or 'scooping' upwards) → "muscle". (THIS IS A DECISIVE RULE FOR MUSCLE. If this spectral pattern is present, classify as 'muscle' even if the topography isn't a perfect 'bowtie' or edge artifact, and before considering 'brain').
+6.  ELSE IF (Topography is a clear 'bowtie'/'shallow dipole' OR distinct EDGE activity) AND (Time series is spiky/high-frequency OR spectrum is generally high-frequency without being clearly 1/f and also not clearly a positive slope) → "muscle" (Secondary muscle check, for cases where the positive slope is less perfect but other muscle signs are strong and it's definitely not brain).
+7.  ELSE IF Dipolar pattern in CENTRAL, PARIETAL, or TEMPORAL regions (AND NOT already definitively classified as 'muscle' by its spectral signature under rule 5) AND spectrum shows a clear general 1/f pattern (overall DECREASING power with increasing frequency, AND ABSOLUTELY NO sustained positive slope at high frequencies) → "brain"
+8.  ELSE → "other_artifact"
+
 
 IMPORTANT: A 60Hz NOTCH (negative dip) in spectrum is normal filtering, seen in most components, and should NOT be used for classification!
 
@@ -257,7 +264,7 @@ def _generate_ica_report_pdf(
                 for i in range(0, len(valid_plot_indices_for_topo), max_topo_per_fig):
                     batch_indices = valid_plot_indices_for_topo[i:i+max_topo_per_fig]
                     if batch_indices: # Ensure batch is not empty
-                        fig_topo_list = ica_obj.plot_components(picks=batch_indices, show=False)
+                        fig_topo_list = ica_obj.plot_components(picks=batch_indices, show=False, cmap='jet')
                         if isinstance(fig_topo_list, list):
                             for fig_t in fig_topo_list:
                                 pdf.savefig(fig_t)
@@ -374,7 +381,7 @@ def _plot_component_for_vision_standalone(
     ax_topo = fig.add_subplot(gs[0:2, 0])
     ax_cont_data = fig.add_subplot(gs[2, 0])
     ax_ts_scroll = fig.add_subplot(gs[0, 1])
-    ax_dipole = fig.add_subplot(gs[1, 1])
+    # ax_dipole = fig.add_subplot(gs[1, 1]) # Dipole plot removed
     ax_psd = fig.add_subplot(gs[2, 1])
 
     sources = ica_obj.get_sources(raw_obj)
@@ -397,7 +404,7 @@ def _plot_component_for_vision_standalone(
 
     # 2. Scrolling IC Activity (Time Series)
     try:
-        duration_segment_ts = 5.0 
+        duration_segment_ts = 3.0 
         max_samples_ts = min(int(duration_segment_ts * sfreq), len(component_data_array))
         times_ts_ms = (np.arange(max_samples_ts) / sfreq) * 1000 
         
@@ -492,63 +499,7 @@ def _plot_component_for_vision_standalone(
         print(f"Error plotting continuous data for IC{component_idx}: {e_cont}")
         ax_cont_data.text(0.5, 0.5, "Continuous data failed", ha='center', va='center', transform=ax_cont_data.transAxes)
 
-    # 4. Dipole Position (Text-based info using sphere model)
-    ax_dipole.set_title("Dipole Position", fontsize=10)
-    ax_dipole.set_axis_off()
-    try:
-        if raw_obj.get_montage() is None:
-            ax_dipole.text(0.5, 0.5, "No montage.\nCannot fit dipole.", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
-        else:
-            sphere_model = make_sphere_model(info=raw_obj.info, head_radius=0.090, verbose=False)
-            component_pattern_dipole = ica_obj.get_components()[:, component_idx].reshape(-1, 1)
-
-            # Use ica_obj.ch_names as these are the channels ICA was fit on
-            ica_ch_names_for_evoked = list(ica_obj.ch_names)
-            if component_pattern_dipole.shape[0] != len(ica_ch_names_for_evoked):
-                 raise ValueError(f"IC{component_idx}: Dipole fitting channel mismatch. Pattern has {component_pattern_dipole.shape[0]} ch, ICA obj has {len(ica_ch_names_for_evoked)} ch.")
-
-            ev_info_dipole = create_info(ch_names=ica_ch_names_for_evoked, sfreq=raw_obj.info['sfreq'], ch_types='eeg', verbose=False)
-            
-            # Get the montage that corresponds to the channels ICA was fit on.
-            # This is best done by picking channels on a raw copy BEFORE getting montage if needed,
-            # but here we assume raw_obj.get_montage() is compatible enough or set_montage will handle selection.
-            montage_for_dipole = raw_obj.get_montage()
-            if montage_for_dipole:
-                 with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", RuntimeWarning) # For warnings about non-EEG channels in montage etc.
-                    ev_info_dipole.set_montage(montage_for_dipole)
-            
-            evoked_topo_dipole = EvokedArray(component_pattern_dipole, ev_info_dipole, tmin=0, verbose=False)
-            evoked_topo_dipole.set_eeg_reference('average', projection=False, verbose=False)
-            
-            n_channels_dipole = evoked_topo_dipole.info['nchan']
-            if n_channels_dipole == 0: raise ValueError("No channels found in evoked data for dipole fitting.")
-
-            noise_cov_data_dipole = np.eye(n_channels_dipole)
-            noise_cov_dipole = Covariance(noise_cov_data_dipole, evoked_topo_dipole.info['ch_names'],
-                                             bads=evoked_topo_dipole.info['bads'], projs=evoked_topo_dipole.info['projs'],
-                                             nfree=1, verbose=False)
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", RuntimeWarning)
-                dipoles_fit, _ = mne.fit_dipole(evoked_topo_dipole, noise_cov_dipole, sphere_model, min_dist=5.0, verbose=False)
-            
-            if dipoles_fit and len(dipoles_fit) > 0:
-                dip = dipoles_fit[0]
-                rv_text = f"RV: {dip.gof[0]:.1f}%"
-                pos_text = f"Pos (mm): ({dip.pos[0,0]*1000:.1f}, {dip.pos[0,1]*1000:.1f}, {dip.pos[0,2]*1000:.1f})"
-                ori_text = f"Ori: ({dip.ori[0,0]:.2f}, {dip.ori[0,1]:.2f}, {dip.ori[0,2]:.2f})"
-                full_text = f"{rv_text}\n{pos_text}\n{ori_text}"
-                ax_dipole.text(0.05, 0.9, full_text, ha='left', va='top', fontsize=7.5, wrap=True,
-                               bbox=dict(boxstyle='round,pad=0.3', fc='aliceblue', alpha=0.7),
-                               transform=ax_dipole.transAxes)
-            else:
-                ax_dipole.text(0.5, 0.5, "Dipole fitting returned no dipoles.", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
-    except Exception as e:
-        print(f"Error in dipole processing for IC{component_idx}: {e}")
-        if not ax_dipole.texts: 
-            ax_dipole.text(0.5, 0.5, "Dipole info failed", ha='center', va='center', fontsize=8, transform=ax_dipole.transAxes)
-
-    # 5. IC Activity Power Spectrum
+    # 4. IC Activity Power Spectrum
     try:
         component_trace_psd = component_data_array
         fmin_psd_wide = 1.0
@@ -595,9 +546,13 @@ def _plot_component_for_vision_standalone(
     # Add reasoning text box at the bottom (if for PDF and reason is available)
     if return_fig_object and classification_reason:
         reason_title = "Reasoning (Vision API):"
-        fig.text(0.05, gridspec_bottom - 0.03, reason_title, ha='left', va='bottom', 
+        reason_title_y = gridspec_bottom - 0.03 # Position for the top of the reason title
+        reason_text_y = reason_title_y - 0.025   # Position for the top of the reason text box, below title
+
+        fig.text(0.05, reason_title_y, reason_title, ha='left', va='top', 
                  fontsize=9, fontweight='bold', transform=fig.transFigure)
-        fig.text(0.05, 0.02, classification_reason, ha='left', va='top', 
+        
+        fig.text(0.05, reason_text_y, classification_reason, ha='left', va='top', 
                  fontsize=8, wrap=True, transform=fig.transFigure,
                  bbox=dict(boxstyle='round,pad=0.4', fc='aliceblue', alpha=0.75, ec='lightgrey'),
                  # Figure width for text box: from x=0.05 up to x=0.95 (0.9 of figure width)
