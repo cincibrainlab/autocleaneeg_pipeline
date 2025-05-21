@@ -164,11 +164,9 @@ def manage_database(
             cursor = conn.cursor()
 
             if operation == "create_collection":
-                # Drop existing table if it exists to ensure clean schema
-                cursor.execute("DROP TABLE IF EXISTS pipeline_runs")
-                
+                # Create table only if it doesn't exist
                 cursor.execute("""
-                    CREATE TABLE pipeline_runs (
+                    CREATE TABLE IF NOT EXISTS pipeline_runs (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         run_id TEXT UNIQUE NOT NULL,
                         created_at TEXT NOT NULL,
@@ -183,7 +181,7 @@ def manage_database(
                     )
                 """)
                 conn.commit()
-                message("info", f"✓ Created 'pipeline_runs' table in {db_path}")
+                message("info", f"✓ Ensured 'pipeline_runs' table exists in {db_path}")
 
             elif operation == "store":
                 if not run_record:
