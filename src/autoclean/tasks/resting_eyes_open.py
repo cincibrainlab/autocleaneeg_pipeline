@@ -2,10 +2,7 @@
 """Revised task implementation for resting state EEG preprocessing using mixins."""
 
 # Standard library imports
-from typing import Any, Dict, Optional
-
-# Third-party imports
-import mne
+from typing import Any, Dict
 
 # Local imports
 from autoclean.core.task import Task
@@ -13,7 +10,6 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.step_functions.continuous import (
     step_create_bids_path,
 )
-from autoclean.utils.logging import message
 
 
 class RestingEyesOpen(Task):
@@ -34,7 +30,6 @@ class RestingEyesOpen(Task):
         Args:
             config: Configuration dictionary containing all settings.
         """
-        self.original_raw: Optional[mne.io.Raw] = None
 
         self.required_stages = [
             "post_import",

@@ -68,6 +68,7 @@ class Task(ABC, SignalProcessingMixin, ReportingMixin):
         # Initialize MNE data containers to None
         # These will be populated during the processing pipeline
         self.raw: Optional[mne.io.Raw] = None  # Holds continuous EEG data
+        self.original_raw: Optional[mne.io.Raw] = None
         self.epochs: Optional[mne.Epochs] = None  # Holds epoched data segments
         self.flagged = False
         self.flagged_reasons = []

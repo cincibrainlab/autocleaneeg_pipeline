@@ -153,8 +153,6 @@ class EventIDEpochsMixin:
             message("info", f"Found {len(events_trig)} events matching the patterns")
 
             # Create epochs with the filtered events
-            # If keep_all_epochs is True, don't use threshold rejection in the initial epochs creation
-            actual_volt_threshold = None if keep_all_epochs else volt_threshold
             
             # pylint: disable=not-callable
             epochs = mne.Epochs(
@@ -164,7 +162,7 @@ class EventIDEpochsMixin:
                 tmin=tmin,
                 tmax=tmax,
                 baseline=baseline,
-                reject=actual_volt_threshold,
+                reject= (None if keep_all_epochs else volt_threshold),
                 preload=True,
                 reject_by_annotation=(reject_by_annotation and not keep_all_epochs),
             )
@@ -298,18 +296,45 @@ class EventIDEpochsMixin:
                     epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
 
                     message("debug", "reordering metadata after dropping")
-                    if epochs_clean.metadata is not None:
-                        kept_indices = epochs_clean.selection
-                        max_index = epochs.metadata.shape[0] - 1
-                        if kept_indices.max() > max_index:
-                            print("Metadata shape:", epochs.metadata.shape)
-                            print("Regular indices:", kept_indices)
-                            kept_indices = kept_indices - 1
-                            print("Adjusted indices:", kept_indices)
+                    # After epochs_clean.drop(), epochs_clean.events contains the actual surviving events.
+                    # epochs.metadata contains the fully augmented metadata for the original set of epochs
+                    # (before this manual annotation-based drop).
+                    # We need to select rows from epochs.metadata that correspond to the events
+                    # actually remaining in epochs_clean.
 
+                    if epochs_clean.metadata is not None: # Should always be true as it's copied
+                        # Get sample times of events that survived in epochs_clean
+                        surviving_event_samples = epochs_clean.events[:, 0]
+                        
+                        # Get sample times of the events in the original 'epochs' object
+                        # (from which epochs.metadata was derived)
+                        original_event_samples = epochs.events[:, 0]
+
+                        # Find the indices in 'original_event_samples' that match 'surviving_event_samples'.
+                        # This effectively maps the surviving events in epochs_clean back to their
+                        # corresponding rows in the original (and fully augmented) epochs.metadata.
+                        # np.isin creates a boolean mask, np.where converts it to indices.
+                        kept_original_indices = np.where(np.isin(original_event_samples, surviving_event_samples))[0]
+
+                        if len(kept_original_indices) != len(epochs_clean.events):
+                            message(
+                                "error",
+                                f"Mismatch when aligning surviving events to original metadata. "
+                                f"Expected {len(epochs_clean.events)} matches, found {len(kept_original_indices)}. "
+                                f"Metadata might be incorrect."
+                            )
+                            # If there's a mismatch, it indicates a deeper issue, perhaps non-unique event samples
+                            # or an unexpected state. For now, we proceed with potentially incorrect metadata
+                            # or let MNE raise an error if lengths still don't match later.
+                            # A more robust solution might involve raising an error here.
+
+                        # Slice the augmented epochs.metadata using these derived indices.
+                        # The resulting DataFrame will have the same number of rows as len(epochs_clean.events).
                         epochs_clean.metadata = epochs.metadata.iloc[
-                            kept_indices
+                            kept_original_indices
                         ].reset_index(drop=True)
+                    else:
+                        message("warning", "epochs_clean.metadata was None before assignment, which is unexpected.")
 
             # If keeping all epochs, use the original epochs for subsequent processing
             if keep_all_epochs:
