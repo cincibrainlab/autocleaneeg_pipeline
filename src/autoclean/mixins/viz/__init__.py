@@ -73,9 +73,3 @@ for module_name, module in _mixin_modules.items():
 
     # Add classes to the current namespace
     globals().update(mixin_classes)
-
-# Make sure ReportingMixin is always included
-if "ReportingMixin" not in __all__ and "REGISTRY" in _mixin_modules:
-    from autoclean.mixins.viz.REGISTRY import ReportingMixin
-    __all__.append("ReportingMixin")
-    globals()["ReportingMixin"] = ReportingMixin

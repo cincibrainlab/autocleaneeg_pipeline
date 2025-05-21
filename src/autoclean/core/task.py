@@ -9,14 +9,13 @@ from typing import Any, Dict, Optional
 import mne  # Core EEG processing library for data containers and processing
 
 # Local imports
-from autoclean.mixins.signal_processing.REGISTRY import SignalProcessingMixin
-from autoclean.mixins.viz.REGISTRY import ReportingMixin
+from autoclean.mixins import DISCOVERED_MIXINS
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.utils.logging import message
 
 
-class Task(ABC, SignalProcessingMixin, ReportingMixin):
+class Task(ABC, *DISCOVERED_MIXINS):
     """Base class for all EEG processing tasks.
 
     This class defines the interface that all specific EEG tasks must implement.

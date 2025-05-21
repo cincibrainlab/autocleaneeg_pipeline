@@ -21,7 +21,7 @@ validate the quality of processed data.
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -30,14 +30,13 @@ import numpy as np
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 
-from autoclean.mixins.viz.base import BaseVizMixin
 from autoclean.utils.logging import message
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
 
 
-class VisualizationMixin(BaseVizMixin):
+class VisualizationMixin():
     """Mixin providing visualization methods for EEG data.
 
     This mixin extends the base ReportingMixin with specialized methods for

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.1] - 5/21/2025
+
+### Changed
+- Switched database from unqlite to sqlite to prevent build issues and for long term sustainability 
+- Created Mixin base class that defines helper functions for all mixins
+- Changed bids creation step function to a mixin for ease of use
+
+### Fixed
+- Fixed a bug where when using threshold rejection for epoching export would fail due to custom event handling 
+- Fixed issue with cached versions of docker-review gui leading to infinite browser refresh
+
 ## [1.4.0] - 5/15/2025
 
 ### Added
