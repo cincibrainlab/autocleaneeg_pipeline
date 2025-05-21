@@ -32,7 +32,7 @@ class GFPCleanEpochsMixin:
     def gfp_clean_epochs(
         self,
         epochs: Union[mne.Epochs, None] = None,
-        gfp_threshold: float = 2.0,
+        gfp_threshold: float = 3.0,
         number_of_epochs: Optional[int] = None,
         random_seed: Optional[int] = None,
         stage_name: str = "post_gfp_clean",
