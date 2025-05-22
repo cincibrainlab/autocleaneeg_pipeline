@@ -539,7 +539,6 @@ class FileSelector(QWidget):
                                 test_path = (
                                     Path(root)
                                     / "derivatives"
-                                    / derivatives_stem
                                     / f"sub-{subject_id}"
                                     / "eeg"
                                 )
