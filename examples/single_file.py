@@ -10,7 +10,7 @@ CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative t
 pipeline = Pipeline(
     autoclean_dir=EXAMPLE_OUTPUT_DIR,
     autoclean_config=CONFIG_FILE,
-    verbose='INFO' # Set to 'DEBUG' for more detailed logging
+    verbose='DEBUG' # Set to 'DEBUG' for more detailed logging
 )
 
 # Example file path - modify this to point to your EEG file

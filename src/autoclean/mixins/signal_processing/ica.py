@@ -957,8 +957,6 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
                         message("success", "ICA applied with vision-based exclusions.")
                     else:
                         message("info", "No components met vision-based auto-exclusion criteria.")
-                else:
-                    message("info", "Auto-exclusion based on vision is disabled.")
             
             # Save the updated ICA object
             if hasattr(self, 'config') and self.config:
@@ -1297,3 +1295,411 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
             message("error", f"Major error during PDF report generation for ICA vision: {e_pdf_main}")
             # message("error", traceback.format_exc()) # Can be verbose
             return None
+
+    def classify_ica_components_vision_parallel(
+        self, 
+        api_key: Optional[str] = None,
+        confidence_threshold: float = 0.8,
+        auto_exclude: bool = True,
+        labels_to_exclude: Optional[List[str]] = None,
+        model_name: str = "gpt-4.1",
+        batch_size: int = 10,  # Number of images per API request
+        max_concurrency: int = 5  # Maximum number of concurrent API requests
+    ) -> pd.DataFrame:
+        """
+        Parallelized version that classifies ICA components using OpenAI Vision API in batches.
+        
+        This method improves processing speed by:
+        1. Batching multiple images in single API requests
+        2. Processing multiple batches concurrently
+        
+        Parameters
+        ----------
+        api_key : str, optional
+            OpenAI API key. If None, uses OPENAI_API_KEY environment variable or openai.api_key.
+        confidence_threshold : float, default=0.8
+            Minimum confidence for a classification to be accepted for auto-exclusion.
+        auto_exclude : bool, default=True
+            If True, automatically add components to the exclude list in self.final_ica
+            if their label is in `labels_to_exclude` and confidence is met.
+        labels_to_exclude : List[str], optional
+            A list of specific OpenAI labels (e.g., ["muscle", "eye", "heart"]) that should be
+            considered for auto-exclusion. If None, defaults to all OpenAI labels 
+            except "brain".
+        model_name : str, default="gpt-4.1"
+            The OpenAI model to use for classification (e.g., "gpt-4-vision-preview", "gpt-4.1").
+        batch_size : int, default=10
+            Number of ICA component images to include in a single API request. 
+            Recommended range is 5-20 to balance efficiency with API limits.
+        max_concurrency : int, default=5
+            Maximum number of concurrent API requests to send. Higher values improve speed
+            but may exceed API rate limits.
+            
+        Returns
+        ------ pd.DataFrame
+            DataFrame (`self.ica_vision_flags`) containing the classification results 
+            for each component, including columns: `component_index`, `component_name`, 
+            `label` (OpenAI label), `mne_label` (mapped MNE label), `confidence`, 
+            `reason`, `exclude_vision`.
+            
+        Notes
+        -----
+        - Updates `self.final_ica.labels_`, `self.final_ica.labels_scores_`, and `self.final_ica.exclude`.
+        - Applies ICA rejection to `self.raw` (or the data used for ICA) if components are excluded.
+        - Saves the updated `self.final_ica` object.
+        - Generates a PDF report summarizing the classifications.
+        - For very large datasets, consider further adjusting batch_size and max_concurrency
+          based on your OpenAI API tier's rate limits.
+        """
+        import concurrent.futures
+        import asyncio
+        import time
+        from io import BytesIO
+        from PIL import Image
+        import base64
+
+        message("header", f"Running parallelized ICA component classification with OpenAI Vision API ({model_name})")
+        
+        if not hasattr(self, 'final_ica') or self.final_ica is None:
+            message("error", "ICA (self.final_ica) not found. Please run `run_ica` first.")
+            return pd.DataFrame() 
+        
+        ica = self.final_ica
+        data_for_ica = getattr(self, '_ica_fit_data', self.raw) 
+        if data_for_ica is None:
+            message("error", "Data object used for ICA fitting not found. Using self.raw, but this might be incorrect.")
+            data_for_ica = self.raw
+
+        # Define default OpenAI labels to exclude if not provided (all except brain)
+        if labels_to_exclude is None:
+            labels_to_exclude = [lbl for lbl in OPENAI_LABEL_ORDER if lbl != "brain"]
+        
+        message("info", f"Using model: {model_name}")
+        message("info", f"Auto-excluding components with OpenAI labels: {labels_to_exclude} if confidence >= {confidence_threshold}")
+        message("info", f"Processing with batch_size={batch_size}, max_concurrency={max_concurrency}")
+
+        num_components = ica.n_components_
+        if num_components is None or num_components == 0:
+            message("warning", "No ICA components found to classify.")
+            return pd.DataFrame()
+
+        # Step 1: Generate all component images in a temporary directory
+        message("info", f"Preparing to process {num_components} ICA components...")
+        
+        component_image_paths = []
+        component_indices = []
+        
+        with tempfile.TemporaryDirectory(prefix="autoclean_ica_vision_") as temp_dir_str:
+            temp_path = Path(temp_dir_str)
+            message("info", f"Using temporary directory for component images: {temp_path}")
+            
+            # Generate all component images first (this step is not parallelized)
+            for i in range(num_components):
+                try:
+                    image_path = self._plot_component_for_vision_api(ica, data_for_ica, i, temp_path, return_fig_object=False)
+                    if image_path is not None:
+                        component_image_paths.append(image_path)
+                        component_indices.append(i)
+                except Exception as plot_err:
+                    message("warning", f"Failed to plot component IC{i}: {plot_err}. Skipping classification.")
+                    continue  # Skip this component
+            
+            message("info", f"Successfully generated {len(component_image_paths)} images for classification")
+            
+            # Step 2: Divide components into batches
+            batches = []
+            for i in range(0, len(component_image_paths), batch_size):
+                batch_image_paths = component_image_paths[i:i+batch_size]
+                batch_indices = component_indices[i:i+batch_size]
+                batches.append((batch_indices, batch_image_paths))
+            
+            message("info", f"Divided components into {len(batches)} batches for parallel processing")
+            
+            # Step 3: Define the batch classification function
+            def classify_batch(batch_tuple):
+                batch_indices, batch_paths = batch_tuple
+                batch_results = []
+                
+                try:
+                    # Read and encode all images in the batch
+                    batch_images_base64 = []
+                    for img_path in batch_paths:
+                        with open(img_path, "rb") as image_file:
+                            base64_image = base64.b64encode(image_file.read()).decode('utf-8')
+                            batch_images_base64.append(base64_image)
+                    
+                    # Create the content list for the API request with specific prompts for each image
+                    content_list = []
+                    for idx, base64_img in enumerate(batch_images_base64):
+                        comp_idx = batch_indices[idx]
+                        # Add prompt for this specific component
+                        content_list.append({
+                            "type": "text",
+                            "text": f"For IC component {comp_idx}, classify according to the criteria below:"
+                        })
+                        content_list.append({
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/webp;base64,{base64_img}", "detail": "high"}
+                        })
+                    
+                    # Add the classification guidelines at the beginning
+                    content_list.insert(0, {
+                        "type": "text", 
+                        "text": self._OPENAI_ICA_PROMPT + "\n\nIMPORTANT: This request contains multiple component images. For EACH image, provide a separate classification in the format: 'IC{component_number}: (label, confidence, reason)'"
+                    })
+                    
+                    # Make the API call
+                    effective_api_key = api_key or os.getenv("OPENAI_API_KEY")
+                    if not effective_api_key and hasattr(openai, 'api_key') and openai.api_key:
+                        effective_api_key = openai.api_key
+                    
+                    if not effective_api_key:
+                        raise ValueError("OpenAI API key not provided")
+                    
+                    client = openai.OpenAI(api_key=effective_api_key)
+                    message("debug", f"Sending batch with {len(batch_indices)} components to OpenAI Vision API...")
+                    
+                    response = client.chat.completions.create(
+                        model=model_name,
+                        messages=[{
+                            "role": "user",
+                            "content": content_list
+                        }],
+                        max_tokens=1000,
+                        temperature=0.1
+                    )
+                    
+                    # Parse the response
+                    if response.choices and response.choices[0].message and response.choices[0].message.content:
+                        resp_text = response.choices[0].message.content.strip()
+                        message("debug", f"Got batch response: {len(resp_text)} characters")
+                        
+                        # Store for debugging which components couldn't be parsed
+                        unparsed_components = []
+                        
+                        # Extract component-specific responses using regex
+                        for comp_idx in batch_indices:
+                            # Look for "IC{comp_idx}: (label, confidence, reason)" pattern
+                            pattern = rf"IC{comp_idx}:\s*\(\s*['\"]?(brain|eye|muscle|heart|line_noise|channel_noise|other_artifact)['\"]?\s*,\s*([01](?:\.\d+)?)\s*,\s*['\"](.*?)['\"]\s*\)"
+                            match = re.search(pattern, resp_text, re.IGNORECASE | re.DOTALL)
+                            
+                            if match:
+                                label = match.group(1).lower()
+                                confidence = float(match.group(2))
+                                reason = match.group(3).strip()
+                                
+                                batch_results.append({
+                                    "component_index": comp_idx,
+                                    "component_name": f"IC{comp_idx}",
+                                    "label": label,
+                                    "mne_label": OPENAI_TO_MNE_LABEL_MAP.get(label, "other"),
+                                    "confidence": confidence,
+                                    "reason": reason,
+                                    "exclude_vision": auto_exclude and label in labels_to_exclude and confidence >= confidence_threshold
+                                })
+                                
+                                message("debug", f"Parsed IC{comp_idx}: {label} (conf={confidence:.2f})")
+                            else:
+                                # Track unparsed components for detailed debugging
+                                unparsed_components.append(comp_idx)
+                                
+                                # Try a more permissive pattern as fallback
+                                fallback_pattern = rf"IC{comp_idx}[^\(]*?\(\s*['\"]?(\w+)['\"]?\s*,\s*([01](?:\.\d+)?)\s*,\s*['\"]([^\"']+)['\"]"
+                                fallback_match = re.search(fallback_pattern, resp_text, re.IGNORECASE | re.DOTALL)
+                                
+                                if fallback_match:
+                                    # We found something with the fallback pattern
+                                    label_text = fallback_match.group(1).lower()
+                                    # Check if the label is valid
+                                    if label_text in OPENAI_LABEL_ORDER:
+                                        label = label_text
+                                        confidence = float(fallback_match.group(2))
+                                        reason = fallback_match.group(3).strip()
+                                        
+                                        batch_results.append({
+                                            "component_index": comp_idx,
+                                            "component_name": f"IC{comp_idx}",
+                                            "label": label,
+                                            "mne_label": OPENAI_TO_MNE_LABEL_MAP.get(label, "other"),
+                                            "confidence": confidence,
+                                            "reason": reason,
+                                            "exclude_vision": auto_exclude and label in labels_to_exclude and confidence >= confidence_threshold
+                                        })
+                                        
+                                        message("info", f"Parsed IC{comp_idx} using fallback pattern: {label} (conf={confidence:.2f})")
+                                        # Remove from unparsed since we handled it
+                                        unparsed_components.remove(comp_idx)
+                                    else:
+                                        message("warning", f"Fallback pattern matched for IC{comp_idx} but found invalid label: {label_text}")
+                                else:
+                                    # Fallback if not found: mark as other_artifact
+                                    message("warning", f"Could not parse response for IC{comp_idx} in batch result. Defaulting to other_artifact.")
+                                    batch_results.append({
+                                        "component_index": comp_idx,
+                                        "component_name": f"IC{comp_idx}",
+                                        "label": "other_artifact",
+                                        "mne_label": "other",
+                                        "confidence": 1.0,
+                                        "reason": f"Failed to parse response for component in batch",
+                                        "exclude_vision": auto_exclude and "other_artifact" in labels_to_exclude and 1.0 >= confidence_threshold
+                                    })
+                        
+                        # Print detailed debugging info if some components couldn't be parsed
+                        if unparsed_components:
+                            message("debug", "==== RESPONSE PARSING DEBUG INFORMATION ====")
+                            message("debug", f"Components that couldn't be parsed: {unparsed_components}")
+                            
+                            # Print the actual response text
+                            message("debug", f"Full response text: \n{resp_text}\n")
+                            
+                            # Look for any text mentioning the unparsed components
+                            for comp_idx in unparsed_components:
+                                context_pattern = rf"((?:[^\n]*IC{comp_idx}[^\n]*\n?){1,5})"
+                                context_match = re.search(context_pattern, resp_text, re.IGNORECASE)
+                                if context_match:
+                                    context = context_match.group(1).strip()
+                                    message("debug", f"Context around IC{comp_idx}:\n{context}\n")
+                                else:
+                                    message("debug", f"No specific context found for IC{comp_idx}")
+                            
+                            # Print example of successful pattern for comparison
+                            if len(batch_indices) > 0 and len(unparsed_components) < len(batch_indices):
+                                parsed_comp = next(idx for idx in batch_indices if idx not in unparsed_components)
+                                context_pattern = rf"((?:[^\n]*IC{parsed_comp}[^\n]*\n?){1,5})"
+                                context_match = re.search(context_pattern, resp_text, re.IGNORECASE)
+                                if context_match:
+                                    context = context_match.group(1).strip()
+                                    message("debug", f"Example of successfully parsed component IC{parsed_comp}:\n{context}\n")
+                            
+                            message("debug", "==== END DEBUG INFORMATION ====")
+                    else:
+                        message("error", f"Invalid response structure from API for batch")
+
+                except Exception as e:
+                    message("error", f"Error processing batch: {str(e)}")
+                    # Add default results for all components in this batch
+                    for comp_idx in batch_indices:
+                        batch_results.append({
+                            "component_index": comp_idx,
+                            "component_name": f"IC{comp_idx}",
+                            "label": "other_artifact",
+                            "mne_label": "other",
+                            "confidence": 1.0,
+                            "reason": f"Batch processing error: {str(e)}",
+                            "exclude_vision": auto_exclude and "other_artifact" in labels_to_exclude and 1.0 >= confidence_threshold
+                        })
+                
+                return batch_results
+            
+            # Step 4: Process batches in parallel
+            all_results = []
+            with concurrent.futures.ThreadPoolExecutor(max_workers=max_concurrency) as executor:
+                future_to_batch = {executor.submit(classify_batch, batch): batch for batch in batches}
+                
+                total_batches = len(batches)
+                completed_batches = 0
+                
+                for future in concurrent.futures.as_completed(future_to_batch):
+                    batch = future_to_batch[future]
+                    completed_batches += 1
+                    
+                    try:
+                        batch_results = future.result()
+                        all_results.extend(batch_results)
+                        message("info", f"Completed batch {completed_batches}/{total_batches} with {len(batch_results)} components")
+                    except Exception as e:
+                        message("error", f"Batch processing failed: {str(e)}")
+            
+            # Step 5: Process results and update the ICA object
+            classification_results_list = sorted(all_results, key=lambda x: x["component_index"])
+            message("info", f"Total components successfully classified: {len(classification_results_list)}/{num_components}")
+            
+            self.ica_vision_flags = pd.DataFrame(classification_results_list)
+            if not self.ica_vision_flags.empty:
+                self.ica_vision_flags = self.ica_vision_flags.set_index("component_index", drop=False)
+                
+                # Update ICA object (labels_scores_, labels_, exclude)
+                # 1. Update ica.labels_scores_
+                n_label_categories = len(OPENAI_LABEL_ORDER)
+                labels_scores_array = np.zeros((num_components, n_label_categories))
+                
+                for _, row in self.ica_vision_flags.iterrows():
+                    comp_idx = row["component_index"]
+                    openai_label = row["label"]
+                    conf = row["confidence"]
+                    if openai_label in OPENAI_LABEL_ORDER:
+                        label_col_idx = OPENAI_LABEL_ORDER.index(openai_label)
+                        labels_scores_array[comp_idx, label_col_idx] = conf
+                
+                self.final_ica.labels_scores_ = labels_scores_array
+                message("debug", "Updated self.final_ica.labels_scores_ based on vision classification.")
+                
+                # 2. Update ica.labels_
+                self.final_ica.labels_ = {mne_lbl: [] for mne_lbl in OPENAI_TO_MNE_LABEL_MAP.values()}
+                for _, row in self.ica_vision_flags.iterrows():
+                    comp_idx = row["component_index"]
+                    mne_mapped_label = row["mne_label"]
+                    if comp_idx not in self.final_ica.labels_[mne_mapped_label]:
+                        self.final_ica.labels_[mne_mapped_label].append(comp_idx)
+                
+                # Sort lists for consistency
+                for mne_lbl in self.final_ica.labels_:
+                    self.final_ica.labels_[mne_lbl].sort()
+                message("debug", "Updated self.final_ica.labels_ based on vision classification.")
+                
+                # 3. Update ica.exclude and apply ICA
+                if auto_exclude:
+                    components_to_exclude_indices = self.ica_vision_flags[
+                        self.ica_vision_flags['exclude_vision'] == True
+                    ]['component_index'].tolist()
+                    
+                    if components_to_exclude_indices:
+                        message("info", f"Vision identified {len(components_to_exclude_indices)} components for exclusion: {components_to_exclude_indices}")
+                        if self.final_ica.exclude is None:
+                            self.final_ica.exclude = []
+                        
+                        current_exclusions = set(self.final_ica.exclude)
+                        for idx_to_exclude in components_to_exclude_indices:
+                            current_exclusions.add(idx_to_exclude)
+                        self.final_ica.exclude = sorted(list(current_exclusions))
+                        message("info", f"Applying ICA to {getattr(data_for_ica, 'filenames', 'loaded data')}. Updated ICA exclude list: {self.final_ica.exclude}")
+                        self.final_ica.apply(data_for_ica)  # Apply to the original data source
+                        message("success", "ICA applied with vision-based exclusions.")
+                    else:
+                        message("info", "No components met vision-based auto-exclusion criteria.")
+            
+            # Save the updated ICA object and generate PDF report
+            if hasattr(self, 'config') and self.config:
+                save_ica_to_fif(self.final_ica, self.config, data_for_ica)
+                message("debug", "Saved ICA object with vision-based classifications and exclusions.")
+                
+                # Generate PDF report
+                report_path = self._generate_ica_vision_report_pdf(
+                    ica_obj=self.final_ica, 
+                    raw_obj=data_for_ica, 
+                    classification_results_df=self.ica_vision_flags
+                )
+                if report_path:
+                    message("info", f"ICA Vision classification report saved to: {report_path}")
+                else:
+                    message("warning", "Failed to generate ICA Vision PDF report.")
+            else:
+                message("warning", "Cannot save ICA object: self.config not found or incomplete.")
+            
+            # Update metadata
+            metadata = {
+                "ica_vision_classification_parallel": {
+                    "components_processed": len(classification_results_list),
+                    "total_components": num_components,
+                    "model_used": model_name,
+                    "batch_size": batch_size,
+                    "max_concurrency": max_concurrency,
+                    "auto_excluded_count": len(self.final_ica.exclude) if self.final_ica.exclude else 0,
+                    "report_file": str(report_path) if 'report_path' in locals() and report_path else "N/A"
+                }
+            }
+            if hasattr(self, '_update_metadata') and callable(self._update_metadata):
+                self._update_metadata("step_classify_ica_components_vision_parallel", metadata)
+        
+        message("success", "Parallelized ICA component classification complete.")
+        return self.ica_vision_flags
