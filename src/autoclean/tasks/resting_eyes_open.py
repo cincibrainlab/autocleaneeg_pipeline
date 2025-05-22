@@ -70,9 +70,7 @@ class RestingEyesOpen(Task):
 
         self.rereference_data()
 
-        self.annotate_noisy_epochs()
-
-        self.annotate_uncorrelated_epochs()
+        self.annotate_bad_segments_vision()
 
         # #Segment rejection
         self.detect_dense_oscillatory_artifacts()
@@ -80,7 +78,9 @@ class RestingEyesOpen(Task):
         # #ICA
         self.run_ica()
 
-        self.run_ICLabel()
+        # self.run_ICLabel()
+
+        self.classify_ica_components_vision()
 
         save_raw_to_set(
             raw=self.raw,
@@ -128,7 +128,7 @@ class RestingEyesOpen(Task):
         self.step_psd_topo_figure(self.original_raw, self.raw)
 
         # Plot ICA components using mixin method
-        self.plot_ica_full()
+        # self.plot_ica_full()
 
-        # Generate ICA reports using mixin method
-        self.generate_ica_reports()
+        # # Generate ICA reports using mixin method
+        # self.generate_ica_reports()

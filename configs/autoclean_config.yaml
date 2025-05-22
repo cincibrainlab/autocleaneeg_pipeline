@@ -21,7 +21,7 @@ tasks:
       filtering:
         enabled: true
         value:
-          l_freq: 0.5
+          l_freq: 1
           h_freq: 100
           notch_freqs: [60, 120]
           notch_widths: 5
