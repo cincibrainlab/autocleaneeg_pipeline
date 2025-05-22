@@ -70,7 +70,11 @@ class RestingEyesOpen(Task):
 
         self.rereference_data()
 
-        self.annotate_bad_segments_vision()
+        self.annotate_noisy_epochs()
+
+        self.annotate_uncorrelated_epochs()
+
+        # self.annotate_bad_segments_vision()
 
         # #Segment rejection
         self.detect_dense_oscillatory_artifacts()
@@ -80,7 +84,7 @@ class RestingEyesOpen(Task):
 
         # self.run_ICLabel()
 
-        self.classify_ica_components_vision()
+        self.classify_ica_components_vision_parallel()
 
         save_raw_to_set(
             raw=self.raw,
