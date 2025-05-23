@@ -24,9 +24,9 @@ pip install autoclean-eeg
 For development installation:
 
 ```bash
-git clone https://github.com/yourusername/autoclean-eeg.git
+git clone https://github.com/cincibrainlab/autoclean_pipeline.git
 cd autoclean-eeg
-pip install -e ".[dev]"
+uv tool install -e --upgrade ".[dev]"
 ```
 
 ## Quick Start
