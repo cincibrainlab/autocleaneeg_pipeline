@@ -1,0 +1,34 @@
+codecov:
+  require_ci_to_pass: yes
+  notify:
+    wait_for_ci: yes
+
+coverage:
+  status:
+    project:
+      default:
+        target: 70%
+        threshold: 5%
+        base: auto
+    patch:
+      default:
+        target: 60%
+        threshold: 10%
+
+  ignore:
+    - "tests/"
+    - "deprecated/"
+    - "docs/"
+    - "examples/"
+    - "src/autoclean/tasks/TEMPLATE.py"
+    - "src/autoclean/__main__.py"
+
+comment:
+  layout: "header, diff, flags, files"
+  behavior: default
+  require_changes: false
+  require_base: no
+  require_head: yes
+
+github_checks:
+  annotations: true
