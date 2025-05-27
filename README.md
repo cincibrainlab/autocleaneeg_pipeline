@@ -8,12 +8,12 @@ A modular framework for automated EEG data processing, built on MNE-Python.
 
 ## Features
 
-- Automated EEG preprocessing pipeline
-- Support for multiple EEG paradigms (ASSR, Chirp, MMN, Resting State)
-- BIDS-compatible data organization
-- Extensive quality control and reporting
-- Modular task-based architecture
-- Database-backed processing tracking
+- Framework for automated EEG preprocessing with "lego block" modularity
+- Support for multiple EEG paradigms (ASSR, Chirp, MMN, Resting State) 
+- BIDS-compatible data organization and comprehensive quality control
+- Extensible plugin system for file formats, montages, and event processing
+- Research-focused workflow: single file testing → parameter tuning → batch processing
+- Detailed output: logs, stage files, metadata, and quality control visualizations
 
 ## Installation
 
@@ -31,28 +31,35 @@ uv tool install -e --upgrade ".[dev]"
 
 ## Quick Start
 
+AutoClean EEG is designed as a framework for researchers to build custom EEG processing workflows:
+
 ```python
 from autoclean import Pipeline
 
-# Initialize pipeline
+# Initialize pipeline with configuration
 pipeline = Pipeline(
     autoclean_dir="/path/to/output",
-    autoclean_config="config.yaml"
+    autoclean_config="configs/autoclean_config.yaml"
 )
 
-# Process a single file
+# Typical research workflow:
+# 1. Test single file to validate task and tune parameters
 pipeline.process_file(
-    file_path="/path/to/data.raw",
+    file_path="/path/to/test_data.raw", 
     task="rest_eyesopen"
 )
 
-# Process multiple files
-pipeline.process_directory(
-    directory="/path/to/data",
+# 2. Review results in output/derivatives and adjust config as needed
+
+# 3. Process full dataset using batch processing
+pipeline.batch_process(
+    input_dir="/path/to/dataset",
     task="rest_eyesopen",
-    pattern="*.raw"
+    file_pattern="*.raw"
 )
 ```
+
+**Note**: Task selection requires domain knowledge of your EEG paradigm. See `src/autoclean/tasks/` for available tasks or create custom tasks using the modular mixin system.
 
 ## Documentation
 
@@ -87,7 +94,7 @@ If you use this software in your research, please cite:
 
 ## Docker Usage
 
-The pipeline can be run in a containerized environment using Docker. This ensures consistent execution across different systems and isolates the pipeline dependencies.
+For platform-agnostic execution and GUI components (especially the review interface), the pipeline can be run in a containerized environment:
 
 ### Windows PowerShell
 

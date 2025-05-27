@@ -1,0 +1,1 @@
+"""AutoClean EEG test package."""

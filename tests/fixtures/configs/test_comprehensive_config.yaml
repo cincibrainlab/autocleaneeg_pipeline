@@ -1,0 +1,138 @@
+# Comprehensive configuration for integration testing
+tasks:
+  ComprehensiveResting:
+    mne_task: "rest"
+    description: "Full processing pipeline test"
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_widths: 5
+      
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+        value: []
+      
+      trim_step:
+        enabled: true
+        value: 2
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0
+          end: null
+      
+      reference_step:
+        enabled: true
+        value: "average"
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+      
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: 15  # Small number for testing
+          fit_params:
+            ortho: false
+            extended: true
+      
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+          ic_rejection_threshold: 0.5  # More lenient for synthetic data
+      
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: -1
+          tmax: 1
+        event_id: null
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: true
+          volt_threshold:
+            eeg: 125e-6
+
+  ComprehensiveMMN:
+    mne_task: "mmn"
+    description: "Full MMN processing test"
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+      
+      reference_step:
+        enabled: true
+        value: "average"
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+      
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: 15
+      
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+          ic_rejection_threshold: 0.5
+      
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: -0.2
+          tmax: 0.5
+        event_id: {"standard": 1, "deviant": 2}
+        remove_baseline:
+          enabled: true
+          window: [-0.2, 0]
+        threshold_rejection:
+          enabled: true
+          volt_threshold:
+            eeg: 100e-6
+
+stage_files:
+  post_import: true
+  post_clean_raw: true
+  post_ica: true
+  post_epochs: true
+
+database:
+  enabled: false
