@@ -1,0 +1,327 @@
+name: Docker Build and Publish
+
+on:
+  push:
+    branches: [main, develop]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  schedule:
+    # Rebuild weekly to get latest base image updates
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: 'Platforms to build for'
+        required: true
+        default: 'linux/amd64,linux/arm64'
+        type: string
+      push_image:
+        description: 'Push built images'
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-test:
+    name: Build and Test Docker Images
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        dockerfile: [Dockerfile, Dockerfile.production]
+        include:
+          - dockerfile: Dockerfile
+            image_suffix: ''
+            target: ''
+          - dockerfile: Dockerfile.production
+            image_suffix: '-prod'
+            target: 'production'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.image_suffix }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=schedule,pattern=weekly-{{date 'YYYYMMDD'}}
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
+          platforms: ${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}
+          push: ${{ (github.event_name != 'pull_request') && (github.event.inputs.push_image != 'false') }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_DATE=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
+            VERSION=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.version'] }}
+            VCS_REF=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.revision'] }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          # Test that the image can run basic commands
+          IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
+          
+          echo "🧪 Testing Docker image: $IMAGE_TAG"
+          
+          # Test help command
+          docker run --rm $IMAGE_TAG --help
+          
+          # Test Python import
+          docker run --rm $IMAGE_TAG -c "import autoclean; print('AutoClean imported successfully')"
+          
+          # Test version command if available
+          docker run --rm $IMAGE_TAG --version || echo "Version command not available"
+          
+          echo "✅ Docker image tests passed"
+
+      - name: Security scan
+        uses: anchore/scan-action@v3
+        if: github.event_name != 'pull_request'
+        with:
+          image: ${{ steps.meta.outputs.tags }}
+          fail-build: false
+          severity-cutoff: high
+
+      - name: Upload SARIF results
+        if: github.event_name != 'pull_request'
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif
+
+  build-development:
+    name: Build Development Image
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-dev
+          tags: |
+            type=ref,event=branch
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=dev
+
+      - name: Build and push development image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.production
+          target: development
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  docker-compose-test:
+    name: Test Docker Compose
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create test data
+        run: |
+          mkdir -p test_data/input test_data/output
+          
+          # Create minimal test data
+          python3 -c "
+          import numpy as np
+          import mne
+          from pathlib import Path
+          
+          # Create minimal synthetic EEG data
+          info = mne.create_info(['Fz', 'Cz', 'Pz'], sfreq=250.0, ch_types='eeg')
+          data = np.random.randn(3, 1000) * 1e-6  # 4 seconds of data
+          raw = mne.io.RawArray(data, info)
+          
+          # Save test file
+          raw.save('test_data/input/test.fif', overwrite=True, verbose=False)
+          print('✅ Test data created')
+          "
+
+      - name: Test Docker Compose
+        run: |
+          # Test docker-compose configuration
+          if [ -f "docker-compose.yml" ]; then
+            echo "🧪 Testing Docker Compose configuration..."
+            
+            # Build services
+            docker-compose build --parallel
+            
+            # Test autoclean service
+            docker-compose run --rm autoclean --help
+            
+            echo "✅ Docker Compose tests passed"
+          else
+            echo "⚠️ No docker-compose.yml found, skipping compose tests"
+          fi
+
+  image-cleanup:
+    name: Cleanup Old Images
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    
+    steps:
+      - name: Delete old images
+        uses: actions/delete-package-versions@v4
+        with:
+          package-name: ${{ github.repository }}
+          package-type: container
+          min-versions-to-keep: 10
+          delete-only-untagged-versions: true
+
+  vulnerability-scan:
+    name: Vulnerability Scanning
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name != 'pull_request'
+    
+    steps:
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  docker-scout:
+    name: Docker Scout Analysis
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name != 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Docker Scout
+        uses: docker/scout-action@v1
+        with:
+          command: cves
+          image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          only-severities: critical,high
+          exit-code: false
+
+  performance-test:
+    name: Docker Performance Test
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.event_name != 'pull_request'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Performance benchmark
+        run: |
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          
+          echo "🚀 Running performance benchmarks for Docker image..."
+          
+          # Test startup time
+          START_TIME=$(date +%s%N)
+          docker run --rm $IMAGE_TAG --help > /dev/null
+          END_TIME=$(date +%s%N)
+          STARTUP_TIME=$((($END_TIME - $START_TIME) / 1000000))  # Convert to milliseconds
+          
+          echo "⏱️ Container startup time: ${STARTUP_TIME}ms"
+          
+          # Test memory usage
+          docker run --rm --memory=512m $IMAGE_TAG -c "
+          import psutil
+          import os
+          process = psutil.Process(os.getpid())
+          memory_mb = process.memory_info().rss / 1024 / 1024
+          print(f'💾 Memory usage: {memory_mb:.1f}MB')
+          "
+          
+          # Performance assertions
+          if [ $STARTUP_TIME -gt 5000 ]; then
+            echo "⚠️ Warning: Container startup time is slow (${STARTUP_TIME}ms > 5000ms)"
+          else
+            echo "✅ Container startup time is acceptable"
+          fi
+
+  docker-summary:
+    name: Docker Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-and-test, docker-compose-test]
+    if: always()
+    
+    steps:
+      - name: Summary
+        run: |
+          echo "🐳 Docker Build and Publish Summary"
+          echo "================================="
+          echo "Build Status: ${{ needs.build-and-test.result }}"
+          echo "Compose Test: ${{ needs.docker-compose-test.result }}"
+          echo "Event: ${{ github.event_name }}"
+          echo "Ref: ${{ github.ref }}"
+          
+          if [[ "${{ needs.build-and-test.result }}" == "success" ]]; then
+            echo "✅ Docker images built and published successfully"
+          else
+            echo "❌ Docker build failed"
+            exit 1
+          fi
