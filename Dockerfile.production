@@ -1,0 +1,147 @@
+# Multi-stage Dockerfile for production AutoClean EEG Pipeline
+# Optimized for size, security, and performance
+
+# Stage 1: Build environment
+FROM python:3.11-slim as builder
+
+# Build arguments
+ARG BUILD_DATE
+ARG VERSION
+ARG VCS_REF
+
+# Environment variables for build
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    pkg-config \
+    libblas-dev \
+    liblapack-dev \
+    gfortran \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create build user (non-root)
+RUN useradd --create-home --shell /bin/bash builder
+USER builder
+WORKDIR /home/builder
+
+# Install uv for fast dependency management
+RUN pip install --user uv
+
+# Copy project files
+COPY --chown=builder:builder pyproject.toml LICENSE README.md ./
+COPY --chown=builder:builder src/ ./src/
+
+# Create virtual environment and install dependencies
+RUN python -m venv /home/builder/venv
+ENV PATH="/home/builder/venv/bin:$PATH"
+
+# Install Python dependencies
+RUN pip install --upgrade pip wheel setuptools && \
+    pip install -e . --no-deps && \
+    pip install $(pip freeze | grep -v autocleaneeg)
+
+# Stage 2: Production runtime
+FROM python:3.11-slim as production
+
+# Metadata labels
+LABEL org.opencontainers.image.title="AutoClean EEG Pipeline" \
+      org.opencontainers.image.description="Automated EEG data processing pipeline" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.source="https://github.com/cincibrainlab/autoclean_complete" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.vendor="Cincinnati Children's Brain Lab"
+
+# Runtime environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    PATH="/app/venv/bin:$PATH" \
+    AUTOCLEAN_HOME="/app" \
+    AUTOCLEAN_DATA="/data" \
+    AUTOCLEAN_CONFIG="/app/configs"
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libblas3 \
+    liblapack3 \
+    libgfortran5 \
+    libgomp1 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user for running the application
+RUN groupadd --gid 1000 autoclean && \
+    useradd --uid 1000 --gid autoclean --shell /bin/bash --create-home autoclean
+
+# Set up application directory
+WORKDIR /app
+RUN chown -R autoclean:autoclean /app
+
+# Copy virtual environment from builder stage
+COPY --from=builder --chown=autoclean:autoclean /home/builder/venv /app/venv
+
+# Copy application files
+COPY --chown=autoclean:autoclean configs/ ./configs/
+COPY --chown=autoclean:autoclean src/autoclean/ ./src/autoclean/
+
+# Create data directories
+RUN mkdir -p /data/{input,output,logs,temp} && \
+    chown -R autoclean:autoclean /data
+
+# Switch to non-root user
+USER autoclean
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import autoclean; print('AutoClean is healthy')" || exit 1
+
+# Expose default port (if web interface is added later)
+EXPOSE 8080
+
+# Default entrypoint and command
+ENTRYPOINT ["python", "-m", "autoclean"]
+CMD ["--help"]
+
+# Stage 3: Development image (optional)
+FROM production as development
+
+# Switch back to root for development tools installation
+USER root
+
+# Install development tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    vim \
+    htop \
+    curl \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install development Python packages
+USER autoclean
+RUN pip install --user \
+    pytest \
+    pytest-cov \
+    black \
+    isort \
+    ruff \
+    mypy \
+    jupyter \
+    ipython
+
+# Development environment variables
+ENV AUTOCLEAN_ENV=development \
+    PYTHONPATH="/app/src:$PYTHONPATH"
+
+# Override default command for development
+CMD ["/bin/bash"]
