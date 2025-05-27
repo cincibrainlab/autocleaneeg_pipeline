@@ -1,0 +1,38 @@
+# Minimal configuration for fastest testing
+tasks:
+  MinimalResting:
+    mne_task: "rest"
+    description: "Minimal processing for speed"
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 50  # Lower for speed
+      
+      montage:
+        enabled: false  # Skip montage for speed
+      
+      reference_step:
+        enabled: true
+        value: "average"
+      
+      # Skip all heavy processing
+      ICA:
+        enabled: false
+      
+      epoch_settings:
+        enabled: false
+
+stage_files:
+  post_import: true
+  post_clean_raw: false
+  post_ica: false
+  post_epochs: false
+
+database:
+  enabled: false
