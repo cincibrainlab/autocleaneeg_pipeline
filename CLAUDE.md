@@ -171,3 +171,8 @@ class NewTask(Task):  # Inherits all mixins automatically
 - Extensive type hints required (mypy strict mode)
 - Black formatting with 88 character line length
 - pytest with coverage reporting
+
+## Guidelines
+
+- Do not add anything about claude in git commit messages or descriptions
+```
