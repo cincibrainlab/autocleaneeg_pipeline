@@ -1,0 +1,337 @@
+name: Performance Monitoring
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run performance monitoring weekly on Sundays at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  pages: write
+
+jobs:
+  performance-benchmarks:
+    name: Performance Benchmarks
+    runs-on: ${{ matrix.os }}
+    if: "!contains(github.event.head_commit.message, '[skip perf]')"
+    
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.11"]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-py${{ matrix.python-version }}-perf-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-py${{ matrix.python-version }}-perf-
+            ${{ runner.os }}-pip-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libblas-dev liblapack-dev gfortran
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip wheel setuptools
+          pip install pytest pytest-benchmark pytest-cov psutil
+          pip install -e .
+
+      - name: Create performance test data
+        run: |
+          python -c "
+          from tests.fixtures.synthetic_data import generate_all_test_data
+          generate_all_test_data()
+          print('✅ Performance test data generated')
+          "
+
+      - name: Run performance benchmarks
+        run: |
+          pytest tests/performance/benchmark_eeg_processing.py \
+            --benchmark-only \
+            --benchmark-json=benchmark_results.json \
+            --benchmark-min-rounds=3 \
+            --benchmark-max-time=300 \
+            -v \
+            --tb=short
+
+      - name: Generate performance report
+        run: |
+          python tests/performance/benchmark_eeg_processing.py
+          
+      - name: Store benchmark results
+        uses: benchmark-action/github-action-benchmark@v1
+        if: github.ref == 'refs/heads/main'
+        with:
+          tool: 'pytest'
+          output-file-path: benchmark_results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          auto-push: true
+          comment-on-alert: true
+          alert-threshold: '150%'
+          fail-on-alert: false
+          benchmark-data-dir-path: 'dev/bench'
+
+      - name: Upload performance artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-results-${{ matrix.os }}
+          path: |
+            benchmark_results.json
+            performance_report.json
+          retention-days: 30
+
+      - name: Performance regression check
+        if: github.event_name == 'pull_request'
+        run: |
+          python -c "
+          import json
+          import sys
+          
+          # Load current benchmark results
+          try:
+              with open('benchmark_results.json', 'r') as f:
+                  current = json.load(f)
+          except FileNotFoundError:
+              print('No benchmark results found')
+              sys.exit(0)
+          
+          # Simple performance regression detection
+          benchmarks = current.get('benchmarks', [])
+          regressions = []
+          
+          for bench in benchmarks:
+              name = bench.get('name', 'unknown')
+              mean = bench.get('stats', {}).get('mean', 0)
+              
+              # Define acceptable performance bounds (in seconds)
+              bounds = {
+                  'test_synthetic_data_generation_performance': 15.0,
+                  'test_filtering_performance': 45.0,
+                  'test_ica_performance_mocked': 2.0,
+                  'test_complete_pipeline_performance': 120.0
+              }
+              
+              for test_name, max_time in bounds.items():
+                  if test_name in name and mean > max_time:
+                      regressions.append(f'{name}: {mean:.2f}s > {max_time}s')
+          
+          if regressions:
+              print('⚠️ Performance regressions detected:')
+              for regression in regressions:
+                  print(f'  - {regression}')
+              print()
+              print('Please investigate performance issues before merging.')
+              # Don\'t fail the build, just warn
+          else:
+              print('✅ No performance regressions detected')
+          "
+
+  memory-profiling:
+    name: Memory Profiling
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip perf]')"
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libblas-dev liblapack-dev gfortran
+          python -m pip install --upgrade pip
+          pip install pytest memory-profiler psutil
+          pip install -e .
+
+      - name: Create test data
+        run: |
+          python -c "
+          from tests.fixtures.synthetic_data import generate_all_test_data
+          generate_all_test_data()
+          "
+
+      - name: Run memory profiling
+        run: |
+          python -c "
+          import psutil
+          import os
+          from tests.fixtures.synthetic_data import create_synthetic_raw
+          from tests.fixtures.test_utils import MockOperations
+          
+          process = psutil.Process(os.getpid())
+          initial_memory = process.memory_info().rss / 1024 / 1024  # MB
+          
+          print(f'Initial memory: {initial_memory:.1f} MB')
+          
+          # Test memory usage for typical operations
+          operations = [
+              ('Small dataset (30ch, 30s)', lambda: create_synthetic_raw(
+                  montage='standard_1020', n_channels=30, duration=30.0, sfreq=250.0
+              )),
+              ('Medium dataset (64ch, 60s)', lambda: create_synthetic_raw(
+                  montage='standard_1020', n_channels=64, duration=60.0, sfreq=250.0
+              )),
+              ('Large dataset (129ch, 120s)', lambda: create_synthetic_raw(
+                  montage='GSN-HydroCel-129', n_channels=129, duration=120.0, sfreq=250.0
+              ))
+          ]
+          
+          memory_results = []
+          
+          for name, operation in operations:
+              pre_memory = process.memory_info().rss / 1024 / 1024
+              try:
+                  result = operation()
+                  post_memory = process.memory_info().rss / 1024 / 1024
+                  memory_delta = post_memory - pre_memory
+                  memory_results.append((name, memory_delta, True))
+                  print(f'{name}: +{memory_delta:.1f} MB')
+              except Exception as e:
+                  memory_results.append((name, 0, False))
+                  print(f'{name}: FAILED - {e}')
+          
+          # Check for memory leaks
+          final_memory = process.memory_info().rss / 1024 / 1024
+          total_delta = final_memory - initial_memory
+          
+          print(f'Final memory: {final_memory:.1f} MB')
+          print(f'Total memory increase: {total_delta:.1f} MB')
+          
+          # Memory usage assertions
+          if total_delta > 2000:  # 2GB threshold
+              print('⚠️ WARNING: High memory usage detected')
+          else:
+              print('✅ Memory usage within acceptable limits')
+          "
+
+      - name: Upload memory profiling results
+        uses: actions/upload-artifact@v4
+        with:
+          name: memory-profiling-results
+          path: |
+            memory_profile.log
+          retention-days: 7
+
+  performance-comparison:
+    name: Performance Comparison
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Checkout PR code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libblas-dev liblapack-dev gfortran
+          python -m pip install --upgrade pip
+          pip install pytest pytest-benchmark
+          pip install -e .
+
+      - name: Run PR benchmarks
+        run: |
+          python -c "
+          from tests.fixtures.synthetic_data import generate_all_test_data
+          generate_all_test_data()
+          "
+          
+          pytest tests/performance/benchmark_eeg_processing.py::TestEEGProcessingBenchmarks::test_synthetic_data_generation_performance \
+            --benchmark-only \
+            --benchmark-json=pr_benchmark.json \
+            --benchmark-min-rounds=3
+
+      - name: Checkout main branch
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Run main benchmarks
+        run: |
+          python -c "
+          from tests.fixtures.synthetic_data import generate_all_test_data
+          generate_all_test_data()
+          "
+          
+          pytest tests/performance/benchmark_eeg_processing.py::TestEEGProcessingBenchmarks::test_synthetic_data_generation_performance \
+            --benchmark-only \
+            --benchmark-json=main_benchmark.json \
+            --benchmark-min-rounds=3
+
+      - name: Compare performance
+        run: |
+          python -c "
+          import json
+          import sys
+          
+          try:
+              with open('pr_benchmark.json', 'r') as f:
+                  pr_results = json.load(f)
+              with open('main_benchmark.json', 'r') as f:
+                  main_results = json.load(f)
+          except FileNotFoundError:
+              print('Benchmark files not found, skipping comparison')
+              sys.exit(0)
+          
+          # Compare key metrics
+          pr_benchmarks = {b['name']: b['stats']['mean'] for b in pr_results.get('benchmarks', [])}
+          main_benchmarks = {b['name']: b['stats']['mean'] for b in main_results.get('benchmarks', [])}
+          
+          print('📊 Performance Comparison (PR vs Main):')
+          for name in pr_benchmarks:
+              if name in main_benchmarks:
+                  pr_time = pr_benchmarks[name]
+                  main_time = main_benchmarks[name]
+                  ratio = pr_time / main_time
+                  change = (ratio - 1) * 100
+                  
+                  if ratio > 1.2:  # >20% slower
+                      status = '🔴 SLOWER'
+                  elif ratio < 0.8:  # >20% faster
+                      status = '🟢 FASTER'
+                  else:
+                      status = '🟡 SIMILAR'
+                  
+                  print(f'  {status} {name}: {change:+.1f}% ({pr_time:.3f}s vs {main_time:.3f}s)')
+          "
+
+      - name: Upload comparison results
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-comparison
+          path: |
+            pr_benchmark.json
+            main_benchmark.json
+          retention-days: 7
