@@ -19,10 +19,10 @@ except ImportError:
 class TestPipelineInitialization(BaseTestCase):
     """Test Pipeline class initialization and basic functionality."""
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path') 
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_pipeline_init_with_valid_config(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
         """Test Pipeline initialization with valid configuration."""
         # Use the test config file
@@ -57,10 +57,10 @@ class TestPipelineInitialization(BaseTestCase):
                 autoclean_config="/nonexistent/path/config.yaml"
             )
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_pipeline_init_new_directory(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
         """Test Pipeline initialization creates new directory."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -75,10 +75,10 @@ class TestPipelineInitialization(BaseTestCase):
         
         assert pipeline.autoclean_dir == new_dir.absolute()
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_pipeline_task_registry_access(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
         """Test that Pipeline has access to task registry."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -91,10 +91,10 @@ class TestPipelineInitialization(BaseTestCase):
         assert hasattr(pipeline, 'TASK_REGISTRY')
         assert isinstance(pipeline.TASK_REGISTRY, dict)
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_pipeline_verbose_parameter(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
         """Test Pipeline initialization with different verbose settings."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -114,10 +114,10 @@ class TestPipelineInitialization(BaseTestCase):
 class TestPipelineUtilityMethods:
     """Test Pipeline utility and helper methods."""
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_list_tasks(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
         """Test listing available tasks."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -132,10 +132,10 @@ class TestPipelineUtilityMethods:
         # Tasks come from TASK_REGISTRY which is imported from autoclean.tasks
         assert len(tasks) > 0
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_list_stage_files(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
         """Test listing stage files."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -156,10 +156,10 @@ class TestPipelineUtilityMethods:
 class TestPipelineValidation:
     """Test Pipeline validation methods."""
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_validate_task_valid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
         """Test task validation with valid task."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -173,10 +173,10 @@ class TestPipelineValidation:
         result = pipeline._validate_task("TestResting")
         assert result == "TestResting"
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_validate_task_invalid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
         """Test task validation with invalid task."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -190,10 +190,10 @@ class TestPipelineValidation:
         with pytest.raises(ValueError, match="Task 'NonExistentTask' not found in configuration"):
             pipeline._validate_task("NonExistentTask")
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_validate_file_valid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
         """Test file validation with valid file."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -210,10 +210,10 @@ class TestPipelineValidation:
         result = pipeline._validate_file(str(test_file))
         assert result == test_file
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_validate_file_invalid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
         """Test file validation with non-existent file."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
@@ -232,10 +232,10 @@ class TestPipelineValidation:
 class TestPipelineString:
     """Test Pipeline string representation."""
     
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.database.set_database_path')
-    @patch('autoclean.utils.logging.configure_logger')
-    @patch('mne.set_log_level')
+    @patch('autoclean.core.pipeline.manage_database')
+    @patch('autoclean.core.pipeline.set_database_path')
+    @patch('autoclean.core.pipeline.configure_logger')
+    @patch('autoclean.core.pipeline.mne.set_log_level')
     def test_pipeline_string_representation(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
         """Test that Pipeline has a string representation."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
