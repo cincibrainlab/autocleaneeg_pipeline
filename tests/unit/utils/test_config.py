@@ -243,17 +243,23 @@ class TestConfigUtilities:
             "nested": {"value": None}
         }
         
-        result = hash_and_encode_yaml(config_with_none)
-        assert isinstance(result, str)
-        assert len(result) > 0
+        result = hash_and_encode_yaml(config_with_none, is_file=False)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        file_hash, encoded = result
+        assert isinstance(file_hash, str)
+        assert isinstance(encoded, str)
     
     def test_hash_and_encode_yaml_empty_config(self):
         """Test hash and encode with empty config."""
         empty_config = {}
         
-        result = hash_and_encode_yaml(empty_config)
-        assert isinstance(result, str)
-        assert len(result) > 0
+        result = hash_and_encode_yaml(empty_config, is_file=False)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        file_hash, encoded = result
+        assert isinstance(file_hash, str)
+        assert isinstance(encoded, str)
     
     def test_validate_eeg_system(self):
         """Test EEG system validation."""
@@ -265,9 +271,21 @@ class TestConfigUtilities:
         ]
         
         for system in valid_systems:
+            # Create a mock config dict with the EEG system
+            mock_config = {
+                "tasks": {
+                    "TestTask": {
+                        "settings": {
+                            "montage": {"enabled": True, "value": system}
+                        }
+                    }
+                }
+            }
+            
             # Should not raise an exception
             try:
-                validate_eeg_system(system)
+                result = validate_eeg_system(mock_config, "TestTask")
+                assert result == system
             except Exception as e:
                 pytest.fail(f"validate_eeg_system raised exception for valid system {system}: {e}")
 
