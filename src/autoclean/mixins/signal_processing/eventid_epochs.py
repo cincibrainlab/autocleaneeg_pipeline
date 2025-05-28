@@ -87,7 +87,7 @@ class EventIDEpochsMixin:
                 tmax = epoch_value.get("tmax", tmax)
 
             event_id = epoch_config.get("event_id", {})
-            
+
             # Get keep_all_epochs setting if available
             keep_all_epochs = epoch_config.get("keep_all_epochs", keep_all_epochs)
 
@@ -133,7 +133,9 @@ class EventIDEpochsMixin:
             event_patterns = {}  # Name and code of events to epoch by
             for event_key in event_id.keys():
                 # Could lead to undesired results if event_key is a substring of another event
-                matching_events = [k for k in event_id_all.keys() if event_key == str(k)]
+                matching_events = [
+                    k for k in event_id_all.keys() if event_key == str(k)
+                ]
                 for match in matching_events:
                     event_patterns[match] = event_id_all[match]
 
@@ -153,7 +155,7 @@ class EventIDEpochsMixin:
             message("info", f"Found {len(events_trig)} events matching the patterns")
 
             # Create epochs with the filtered events
-            
+
             # pylint: disable=not-callable
             epochs = mne.Epochs(
                 data,
@@ -162,7 +164,7 @@ class EventIDEpochsMixin:
                 tmin=tmin,
                 tmax=tmax,
                 baseline=baseline,
-                reject= (None if keep_all_epochs else volt_threshold),
+                reject=(None if keep_all_epochs else volt_threshold),
                 preload=True,
                 reject_by_annotation=(reject_by_annotation and not keep_all_epochs),
             )
@@ -212,16 +214,18 @@ class EventIDEpochsMixin:
 
             # Create a copy for potential dropping
             epochs_clean = epochs.copy()
-            
+
             # If we're keeping all epochs but still want to mark them, we need to apply additional logic
             if keep_all_epochs:
                 # 1. Mark epochs that would have been rejected by voltage threshold
                 if volt_threshold is not None:
                     # Use MNE's built-in functionality to detect which epochs exceed thresholds
                     # but don't actually drop them
-                    drop_log_thresh = mne.preprocessing.compute_thresholds(epochs, volt_threshold)
+                    drop_log_thresh = mne.preprocessing.compute_thresholds(
+                        epochs, volt_threshold
+                    )
                     bad_epochs_thresh = []
-                    
+
                     for idx, log in enumerate(drop_log_thresh):
                         if len(log) > 0:  # If epoch would have been dropped
                             bad_epochs_thresh.append(idx)
@@ -231,12 +235,12 @@ class EventIDEpochsMixin:
                                 if col_name not in epochs.metadata.columns:
                                     epochs.metadata[col_name] = False
                                 epochs.metadata.loc[idx, col_name] = True
-                    
+
                     message(
                         "info",
-                        f"Marked {len(bad_epochs_thresh)} epochs exceeding voltage thresholds (not dropped)"
+                        f"Marked {len(bad_epochs_thresh)} epochs exceeding voltage thresholds (not dropped)",
                     )
-            
+
             # If not using reject_by_annotation or keeping all epochs, manually track bad annotations
             if not reject_by_annotation or keep_all_epochs:
                 # Find epochs that overlap with any "bad" or "BAD" annotations
@@ -287,9 +291,7 @@ class EventIDEpochsMixin:
                 )
 
                 # Save epochs with bad epochs marked but not dropped
-                self._save_epochs_result(
-                    result_data=epochs, stage_name=stage_name
-                )
+                self._save_epochs_result(result_data=epochs, stage_name=stage_name)
 
                 # Drop bad epochs only if not keeping all epochs
                 if not keep_all_epochs:
@@ -302,10 +304,12 @@ class EventIDEpochsMixin:
                     # We need to select rows from epochs.metadata that correspond to the events
                     # actually remaining in epochs_clean.
 
-                    if epochs_clean.metadata is not None: # Should always be true as it's copied
+                    if (
+                        epochs_clean.metadata is not None
+                    ):  # Should always be true as it's copied
                         # Get sample times of events that survived in epochs_clean
                         surviving_event_samples = epochs_clean.events[:, 0]
-                        
+
                         # Get sample times of the events in the original 'epochs' object
                         # (from which epochs.metadata was derived)
                         original_event_samples = epochs.events[:, 0]
@@ -314,14 +318,16 @@ class EventIDEpochsMixin:
                         # This effectively maps the surviving events in epochs_clean back to their
                         # corresponding rows in the original (and fully augmented) epochs.metadata.
                         # np.isin creates a boolean mask, np.where converts it to indices.
-                        kept_original_indices = np.where(np.isin(original_event_samples, surviving_event_samples))[0]
+                        kept_original_indices = np.where(
+                            np.isin(original_event_samples, surviving_event_samples)
+                        )[0]
 
                         if len(kept_original_indices) != len(epochs_clean.events):
                             message(
                                 "error",
                                 f"Mismatch when aligning surviving events to original metadata. "
                                 f"Expected {len(epochs_clean.events)} matches, found {len(kept_original_indices)}. "
-                                f"Metadata might be incorrect."
+                                f"Metadata might be incorrect.",
                             )
                             # If there's a mismatch, it indicates a deeper issue, perhaps non-unique event samples
                             # or an unexpected state. For now, we proceed with potentially incorrect metadata
@@ -334,12 +340,17 @@ class EventIDEpochsMixin:
                             kept_original_indices
                         ].reset_index(drop=True)
                     else:
-                        message("warning", "epochs_clean.metadata was None before assignment, which is unexpected.")
+                        message(
+                            "warning",
+                            "epochs_clean.metadata was None before assignment, which is unexpected.",
+                        )
 
             # If keeping all epochs, use the original epochs for subsequent processing
             if keep_all_epochs:
                 epochs_clean = epochs
-                message("info", "Keeping all epochs as requested (keep_all_epochs=True)")
+                message(
+                    "info", "Keeping all epochs as requested (keep_all_epochs=True)"
+                )
 
             # Analyze drop log to tally different annotation types
             drop_log = epochs_clean.drop_log
@@ -364,9 +375,14 @@ class EventIDEpochsMixin:
                 message("info", f"Epochs with {annotation}: {count}")
 
             # Add flags if needed (only if not keeping all epochs)
-            if not keep_all_epochs and (good_epochs / total_epochs) < self.EPOCH_RETENTION_THRESHOLD:
-                flagged_reason = (f"WARNING: Only {good_epochs / total_epochs * 100}% "
-                "of epochs were kept")
+            if (
+                not keep_all_epochs
+                and (good_epochs / total_epochs) < self.EPOCH_RETENTION_THRESHOLD
+            ):
+                flagged_reason = (
+                    f"WARNING: Only {good_epochs / total_epochs * 100}% "
+                    "of epochs were kept"
+                )
                 self._update_flagged_status(flagged=True, reason=flagged_reason)
 
             # Add good and total to the annotation_types dictionary
@@ -388,7 +404,9 @@ class EventIDEpochsMixin:
                 "channelCount": len(epochs.ch_names),
                 "annotation_types": annotation_types,
                 "marked_epochs_file": "post_epochs",
-                "cleaned_epochs_file": "post_drop_bads" if not keep_all_epochs else "post_epochs",
+                "cleaned_epochs_file": (
+                    "post_drop_bads" if not keep_all_epochs else "post_epochs"
+                ),
                 "tmin": tmin,
                 "tmax": tmax,
                 "event_id": event_id,
@@ -403,7 +421,7 @@ class EventIDEpochsMixin:
             # Save epochs
             if not keep_all_epochs:
                 self._save_epochs_result(
-                    result_data=epochs_clean, stage_name='post_drop_bad_epochs'
+                    result_data=epochs_clean, stage_name="post_drop_bad_epochs"
                 )
 
             return epochs_clean

@@ -1,7 +1,7 @@
-#./src/autoclean/mixins/viz/visualization.py
-#pylint: disable=too-many-lines
-#pylint: disable=line-too-long
-#pylint: disable=invalid-name
+# ./src/autoclean/mixins/viz/visualization.py
+# pylint: disable=too-many-lines
+# pylint: disable=line-too-long
+# pylint: disable=invalid-name
 """Visualization mixin for EEG data in autoclean tasks.
 
 This module provides specialized visualization functionality for EEG data in the AutoClean
@@ -36,7 +36,7 @@ from autoclean.utils.logging import message
 matplotlib.use("Agg")
 
 
-class VisualizationMixin():
+class VisualizationMixin:
     """Mixin providing visualization methods for EEG data.
 
     This mixin extends the base ReportingMixin with specialized methods for

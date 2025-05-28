@@ -1,4 +1,3 @@
-
 # src/autoclean/tasks/resting_eyes_open_rev.py
 """Revised task implementation for resting state EEG preprocessing using mixins."""
 
@@ -10,10 +9,8 @@ import mne
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.io.export import save_raw_to_set
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
+from autoclean.step_functions.continuous import step_create_bids_path
+
 
 class TestingRest(Task):
     """The template for a task created from the Autoclean Config Wizard.

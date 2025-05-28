@@ -15,8 +15,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
-from matplotlib import pyplot as plt
 import mne
+from matplotlib import pyplot as plt
 
 from autoclean.io import save_epochs_to_set, save_raw_to_set
 from autoclean.utils.database import manage_database
@@ -247,7 +247,9 @@ class BaseMixin:
         if not hasattr(self, "config"):
             return
 
-        if isinstance(result_data, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if isinstance(
+            result_data, mne.Epochs
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             save_epochs_to_set(
                 epochs=result_data,
                 autoclean_dict=self.config,

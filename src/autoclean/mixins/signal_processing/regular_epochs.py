@@ -59,12 +59,12 @@ class RegularEpochsMixin:
         Returns
         -------
         epochs_clean: mne.Epochs
-            The created epochs object with bad epochs marked 
+            The created epochs object with bad epochs marked
             (and dropped if reject_by_annotation=True)
 
         Notes
         -----
-        If reject_by_annotation is False, an intermediate file with bad epochs 
+        If reject_by_annotation is False, an intermediate file with bad epochs
         marked but not dropped is saved.
 
         The epoching parameters can be customized through the configuration file
@@ -318,8 +318,10 @@ class RegularEpochsMixin:
 
             # Add flags if needed
             if (good_epochs / total_epochs) < self.EPOCH_RETENTION_THRESHOLD:
-                flagged_reason = (f"WARNING: Only {good_epochs / total_epochs * 100}% "
-                "of epochs were kept")
+                flagged_reason = (
+                    f"WARNING: Only {good_epochs / total_epochs * 100}% "
+                    "of epochs were kept"
+                )
                 self._update_flagged_status(flagged=True, reason=flagged_reason)
 
             # Add good and total to the annotation_types dictionary

@@ -13,9 +13,7 @@ from pyprep.find_noisy_channels import NoisyChannels
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
+from autoclean.step_functions.continuous import step_create_bids_path
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
 
@@ -101,7 +99,7 @@ class MouseXdatChirp(Task):
             raise RuntimeError("No data has been imported")
 
         self.basic_steps()
-        
+
         self.original_raw = self.raw.copy()
 
         self.raw, self.config = step_create_bids_path(self.raw, self.config)

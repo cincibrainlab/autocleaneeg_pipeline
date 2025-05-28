@@ -6,13 +6,12 @@ from typing import Any, Dict
 # Local imports
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
+from autoclean.step_functions.continuous import step_create_bids_path
 
 
-class HBCD_MMN(Task): # pylint: disable=invalid-name
+class HBCD_MMN(Task):  # pylint: disable=invalid-name
     """Task implementation for HBCD mmn EEG preprocessing."""
+
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -74,7 +73,7 @@ class HBCD_MMN(Task): # pylint: disable=invalid-name
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method="interpolate", reset_bads=True)
 
         self.rereference_data()
 
@@ -98,11 +97,10 @@ class HBCD_MMN(Task): # pylint: disable=invalid-name
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_eventid_epochs() # Using fixed-length epochs
+        self.create_eventid_epochs()  # Using fixed-length epochs
 
         # Generate visualization reports
         self.generate_reports()
-
 
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports.

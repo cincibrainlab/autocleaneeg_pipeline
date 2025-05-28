@@ -6,16 +6,14 @@ from typing import Any, Dict
 # Local imports
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
-from autoclean.utils.logging import message
+from autoclean.step_functions.continuous import step_create_bids_path
 
 # Third-party imports
 
 
-class HBCD_VEP(Task): # pylint: disable=invalid-name
+class HBCD_VEP(Task):  # pylint: disable=invalid-name
     """Task implementation for HBCD VEP EEG preprocessing."""
+
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
@@ -151,7 +149,7 @@ class HBCD_VEP(Task): # pylint: disable=invalid-name
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method="interpolate", reset_bads=True)
 
         self.rereference_data()
 
@@ -175,7 +173,7 @@ class HBCD_VEP(Task): # pylint: disable=invalid-name
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_eventid_epochs() # Using fixed-length epochs
+        self.create_eventid_epochs()  # Using fixed-length epochs
 
         # Generate visualization reports
         self.generate_reports()
