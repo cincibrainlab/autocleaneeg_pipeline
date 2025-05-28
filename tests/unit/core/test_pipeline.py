@@ -34,7 +34,7 @@ class TestPipelineInitialization(BaseTestCase):
                     }
                 }
             },
-            "stage_files": {"post_import": True},
+            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
             "database": {"enabled": False}
         }
         
@@ -121,10 +121,10 @@ class TestPipelineConfiguration:
                 }
             },
             "stage_files": {
-                "post_import": True,
-                "post_clean_raw": True,
-                "post_ica": False,
-                "post_epochs": True
+                "post_import": {"enabled": True, "suffix": "_postimport"},
+                "post_clean_raw": {"enabled": True, "suffix": "_postcleaning"},
+                "post_ica": {"enabled": False, "suffix": "_postica"},
+                "post_epochs": {"enabled": True, "suffix": "_postepochs"}
             },
             "database": {"enabled": False}
         }
@@ -145,7 +145,7 @@ class TestPipelineConfiguration:
     def test_config_with_missing_required_fields(self, tmp_path):
         """Test configuration with missing required fields."""
         # Config missing tasks
-        config = {"stage_files": {"post_import": True}}
+        config = {"stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}}}
         
         config_file = tmp_path / "invalid_config.yaml"
         with open(config_file, 'w') as f:
@@ -186,7 +186,7 @@ class TestPipelineFileProcessing:
                     "settings": {}
                 }
             },
-            "stage_files": {"post_import": True},
+            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
             "database": {"enabled": False}
         }
         
@@ -222,7 +222,7 @@ class TestPipelineFileProcessing:
                     "settings": {}
                 }
             },
-            "stage_files": {"post_import": True},
+            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
             "database": {"enabled": False}
         }
         
@@ -255,7 +255,7 @@ class TestPipelineFileProcessing:
                     "settings": {}
                 }
             },
-            "stage_files": {"post_import": True},
+            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
             "database": {"enabled": False}
         }
         
@@ -321,7 +321,7 @@ class TestPipelineMocked:
         """Test Pipeline initialization with mocked dependencies."""
         mock_config = {
             "tasks": {"TestTask": {"settings": {}}},
-            "stage_files": {"post_import": True},
+            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
             "database": {"enabled": False}
         }
         mock_load_config.return_value = mock_config

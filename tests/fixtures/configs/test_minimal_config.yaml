@@ -29,10 +29,15 @@ tasks:
         enabled: false
 
 stage_files:
-  post_import: true
-  post_clean_raw: false
-  post_ica: false
-  post_epochs: false
-
-database:
-  enabled: false
+  post_import:
+    enabled: true
+    suffix: "_postimport"
+  post_clean_raw:
+    enabled: false
+    suffix: "_postcleaning"
+  post_ica:
+    enabled: false
+    suffix: "_postica"
+  post_epochs:
+    enabled: false
+    suffix: "_postepochs"
