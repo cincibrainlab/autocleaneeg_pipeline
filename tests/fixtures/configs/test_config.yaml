@@ -287,27 +287,81 @@ tasks:
           volt_threshold:
             eeg: 100e-6
 
-# Stage files configuration for testing - must include all stages used by tasks
+# OUTPUT FILE CONFIGURATION
+# Controls which processing stages save intermediate files
+# Useful for quality checking and troubleshooting
 stage_files:
   post_import:
+    enabled: true          # Set to true to save file after this stage
+    suffix: "_postimport"  # This text will be added to the filename
+
+  #Prepipeline steps
+  post_resample:
+    enabled: false
+    suffix: "_postresample"
+
+  post_filter:
     enabled: true
-    suffix: "_postimport"
+    suffix: '_postfilter'
+
+  post_outerlayer:
+    enabled: false
+    suffix: "_postouterlayer"
+
+  post_trim:
+    enabled: false
+    suffix: "_posttrim"
+
+  post_crop:
+    enabled: false
+    suffix: "_postcrop"
+
   post_basic_steps:
     enabled: true
     suffix: "_postbasicsteps"
+
+  post_artifact_detection:
+    enabled: false
+    suffix: "_postartifactdetection"
+
+  post_rereference:
+    enabled: false
+    suffix: "_postreference"
+  
+  post_bad_channels:
+    enabled: true
+    suffix: "_postbadchannels"
+
   post_clean_raw:
     enabled: true
-    suffix: "_postcleaning"
-  post_ica:
-    enabled: true
-    suffix: "_postica"
+    suffix: "_postcleanraw"
+
+  #Epochs steps
   post_epochs:
     enabled: true
     suffix: "_postepochs"
+
+  post_drop_bad_epochs:
+    enabled: true
+    suffix: "_postdropbadepochs"
+
+  post_gfp_clean:
+    enabled: true
+    suffix: "_postgfpclean"
+
+  post_autoreject:
+    enabled: false
+    suffix: "_postautoreject"
+
   post_comp:
     enabled: true
     suffix: "_postcomp"
 
-# Database configuration (minimal for testing)
-database:
-  enabled: false
+  post_edit:
+    enabled: true
+    suffix: "_postedit"
+
+  checkpoint:
+    enabled: true
+    suffix: "_checkpoint"
+
