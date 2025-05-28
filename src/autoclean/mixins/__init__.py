@@ -36,9 +36,9 @@ except ImportError:
 # --- Helper function to check for method collisions ---
 def _warn_on_method_collisions(mixins_tuple: Tuple[Type[Any], ...]) -> None:
     """Checks for method name collisions among the discovered mixins and warns the user."""
-    method_definitions: Dict[
-        str, List[Tuple[str, str]]
-    ] = {}  # method_name: [(class_name, module_name), ...]
+    method_definitions: Dict[str, List[Tuple[str, str]]] = (
+        {}
+    )  # method_name: [(class_name, module_name), ...]
     collision_found = False
 
     for mixin_cls in mixins_tuple:
