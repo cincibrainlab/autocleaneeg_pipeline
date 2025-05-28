@@ -1,0 +1,26 @@
+[run]
+source = src/autoclean
+omit = 
+    */tasks/*.py
+    */plugins/eeg_plugins/*.py
+    */plugins/event_processors/*.py
+    */tools/*.py
+    */__main__.py
+    */step_functions/reports.py
+    */mixins/viz/*.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    if self.debug:
+    if settings.DEBUG
+    raise AssertionError
+    raise NotImplementedError
+    if 0:
+    if __name__ == .__main__.:
+    class .*\bProtocol\):
+    @(abc\.)?abstractmethod
+
+[html]
+directory = htmlcov
