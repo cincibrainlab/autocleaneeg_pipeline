@@ -314,9 +314,7 @@ def import_eeg(
         events = event_dict = events_df = None
         if not is_epochs:
             # Basic event extraction from annotations
-            events, event_dict, events_df = plugin.process_events(
-                eeg_data
-            )
+            events, event_dict, events_df = plugin.process_events(eeg_data)
 
             # Apply task-specific event processing if specified
             if "task" in autoclean_dict and autoclean_dict["task"]:
@@ -464,6 +462,7 @@ class BaseEventProcessor(abc.ABC):
         Returns:
             mne.io.Raw: Raw data with processed events/annotations
         """
+
 
 def register_event_processor(processor_class: Type[BaseEventProcessor]) -> None:
     """Register a new event processor plugin.

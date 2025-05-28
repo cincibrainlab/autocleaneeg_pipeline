@@ -25,7 +25,7 @@ def set_database_path(path: Path) -> None:
     path : Path
         The path to the autoclean directory.
     """
-    global DB_PATH # pylint: disable=global-statement
+    global DB_PATH  # pylint: disable=global-statement
     DB_PATH = path
 
 
@@ -165,7 +165,8 @@ def manage_database(
 
             if operation == "create_collection":
                 # Create table only if it doesn't exist
-                cursor.execute("""
+                cursor.execute(
+                    """
                     CREATE TABLE IF NOT EXISTS pipeline_runs (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         run_id TEXT UNIQUE NOT NULL,
@@ -179,33 +180,51 @@ def manage_database(
                         metadata TEXT,
                         error TEXT
                     )
-                """)
+                """
+                )
                 conn.commit()
                 message("info", f"✓ Ensured 'pipeline_runs' table exists in {db_path}")
 
             elif operation == "store":
                 if not run_record:
                     raise ValueError("Missing run_record for store operation")
-                
+
                 # Convert metadata to JSON string, handling Path objects
-                metadata_json = json.dumps(_serialize_for_json(run_record.get("metadata", {})))
-                
-                cursor.execute("""
+                metadata_json = json.dumps(
+                    _serialize_for_json(run_record.get("metadata", {}))
+                )
+
+                cursor.execute(
+                    """
                     INSERT INTO pipeline_runs (
                         run_id, created_at, task, unprocessed_file, status,
                         success, json_file, report_file, metadata
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    run_record["run_id"],
-                    run_record.get("timestamp", datetime.now().isoformat()),
-                    run_record.get("task"),
-                    str(run_record.get("unprocessed_file")) if run_record.get("unprocessed_file") else None,
-                    run_record.get("status"),
-                    run_record.get("success", False),
-                    str(run_record.get("json_file")) if run_record.get("json_file") else None,
-                    str(run_record.get("report_file")) if run_record.get("report_file") else None,
-                    metadata_json
-                ))
+                """,
+                    (
+                        run_record["run_id"],
+                        run_record.get("timestamp", datetime.now().isoformat()),
+                        run_record.get("task"),
+                        (
+                            str(run_record.get("unprocessed_file"))
+                            if run_record.get("unprocessed_file")
+                            else None
+                        ),
+                        run_record.get("status"),
+                        run_record.get("success", False),
+                        (
+                            str(run_record.get("json_file"))
+                            if run_record.get("json_file")
+                            else None
+                        ),
+                        (
+                            str(run_record.get("report_file"))
+                            if run_record.get("report_file")
+                            else None
+                        ),
+                        metadata_json,
+                    ),
+                )
                 conn.commit()
                 record_id = cursor.lastrowid
                 message("info", f"✓ Stored new record with ID: {record_id}")
@@ -216,44 +235,56 @@ def manage_database(
                     raise ValueError("Missing run_id in update_record")
 
                 run_id = update_record["run_id"]
-                
+
                 # Check if record exists
-                cursor.execute("SELECT * FROM pipeline_runs WHERE run_id = ?", (run_id,))
+                cursor.execute(
+                    "SELECT * FROM pipeline_runs WHERE run_id = ?", (run_id,)
+                )
                 existing_record = cursor.fetchone()
-                
+
                 if not existing_record:
                     raise RecordNotFoundError(f"No record found for run_id: {run_id}")
 
                 if operation == "update_status":
-                    cursor.execute("""
-                        UPDATE pipeline_runs 
-                        SET status = ? 
+                    cursor.execute(
+                        """
+                        UPDATE pipeline_runs
+                        SET status = ?
                         WHERE run_id = ?
-                    """, (
-                        f"{update_record['status']} at {datetime.now().isoformat()}",
-                        run_id
-                    ))
+                    """,
+                        (
+                            f"{update_record['status']} at {datetime.now().isoformat()}",
+                            run_id,
+                        ),
+                    )
                 else:
                     update_components = []
-                    current_update_values = [] # Using a distinct name for clarity
+                    current_update_values = []  # Using a distinct name for clarity
 
                     # Handle metadata update if 'metadata' key exists in update_record
                     if "metadata" in update_record:
                         metadata_to_update = update_record["metadata"]
                         if not _validate_metadata(metadata_to_update):
                             raise ValueError("Invalid metadata structure for update")
-                        
+
                         # Fetch existing metadata
-                        cursor.execute("SELECT metadata FROM pipeline_runs WHERE run_id = ?", (run_id,))
+                        cursor.execute(
+                            "SELECT metadata FROM pipeline_runs WHERE run_id = ?",
+                            (run_id,),
+                        )
                         row_with_metadata = cursor.fetchone()
-                        existing_metadata_str = row_with_metadata["metadata"] if row_with_metadata else "{}"
+                        existing_metadata_str = (
+                            row_with_metadata["metadata"] if row_with_metadata else "{}"
+                        )
                         current_metadata = json.loads(existing_metadata_str or "{}")
-                        
+
                         # Serialize the new metadata fragment and merge it
-                        serialized_new_metadata_fragment = _serialize_for_json(metadata_to_update)
+                        serialized_new_metadata_fragment = _serialize_for_json(
+                            metadata_to_update
+                        )
                         current_metadata.update(serialized_new_metadata_fragment)
                         final_metadata_json = json.dumps(current_metadata)
-                        
+
                         update_components.append("metadata = ?")
                         current_update_values.append(final_metadata_json)
 
@@ -261,25 +292,28 @@ def manage_database(
                     for key, value in update_record.items():
                         if key == "run_id" or key == "metadata":
                             continue
-                        
+
                         update_components.append(f"{key} = ?")
                         if isinstance(value, Path):
                             current_update_values.append(str(value))
                         else:
                             current_update_values.append(value)
-                    
+
                     # Only execute the UPDATE SQL statement if there are actual fields to set
                     if update_components:
                         # Add the run_id for the WHERE clause; it's the last parameter for the query
-                        current_update_values.append(run_id) 
-                        
+                        current_update_values.append(run_id)
+
                         set_clause_sql = ", ".join(update_components)
                         query = f"UPDATE pipeline_runs SET {set_clause_sql} WHERE run_id = ?"
-                        
+
                         cursor.execute(query, tuple(current_update_values))
                     else:
-                        message("debug", f"For 'update' operation on run_id '{run_id}', no non-metadata fields were identified for SET clause. update_record: {update_record}. Metadata might have been updated if processed.")
-                
+                        message(
+                            "debug",
+                            f"For 'update' operation on run_id '{run_id}', no non-metadata fields were identified for SET clause. update_record: {update_record}. Metadata might have been updated if processed.",
+                        )
+
                 conn.commit()
                 message("debug", f"Record {operation} successful for run_id: {run_id}")
 
@@ -297,12 +331,17 @@ def manage_database(
                 if not run_record or "run_id" not in run_record:
                     raise ValueError("Missing run_id in run_record")
 
-                cursor.execute("SELECT * FROM pipeline_runs WHERE run_id = ?", (run_record["run_id"],))
+                cursor.execute(
+                    "SELECT * FROM pipeline_runs WHERE run_id = ?",
+                    (run_record["run_id"],),
+                )
                 record = cursor.fetchone()
-                
+
                 if not record:
-                    raise RecordNotFoundError(f"No record found for run_id: {run_record['run_id']}")
-                
+                    raise RecordNotFoundError(
+                        f"No record found for run_id: {run_record['run_id']}"
+                    )
+
                 # Convert record to dict and parse metadata JSON
                 record_dict = dict(record)
                 if record_dict.get("metadata"):

@@ -3,7 +3,6 @@
 from typing import Dict, List, Union
 
 import mne
-import numpy as np
 from pyprep.find_noisy_channels import NoisyChannels
 
 from autoclean.utils.logging import message
@@ -50,7 +49,7 @@ class ChannelsMixin:
         random_state : int, Optional
             Random state for reproducibility.
         cleaning_method : str, Optional
-            Method to use for cleaning bad channels. 
+            Method to use for cleaning bad channels.
             Options are 'interpolate' or 'drop' or None(default).
         reset_bads : bool, Optional
             Whether to reset bad channels.
@@ -204,8 +203,10 @@ class ChannelsMixin:
                 > self.BAD_CHANNEL_THRESHOLD
             ):
                 self.flagged = True
-                warning = (f"WARNING: {len(self.raw.bad_channels) / result_raw.info['nchan']:.2%} "
-                "bad channels detected")
+                warning = (
+                    f"WARNING: {len(self.raw.bad_channels) / result_raw.info['nchan']:.2%} "
+                    "bad channels detected"
+                )
                 self.flagged_reasons.append(warning)
                 message("warning", f"Flagging: {warning}")
 
@@ -288,7 +289,9 @@ class ChannelsMixin:
         data = self._get_data_object(data, use_epochs)
 
         # Type checking
-        if not isinstance(data, (mne.io.Raw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.Raw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError(
                 "Data must be an MNE Raw or Epochs object for dropping channels"
             )
@@ -368,7 +371,9 @@ class ChannelsMixin:
         data = self._get_data_object(data, use_epochs)
 
         # Type checking
-        if not isinstance(data, (mne.io.Raw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.Raw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError(
                 "Data must be an MNE Raw or Epochs object for setting channel types"
             )

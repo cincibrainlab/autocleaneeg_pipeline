@@ -9,7 +9,7 @@ import zlib
 from pathlib import Path
 
 import yaml
-from schema import Or, Schema, Optional
+from schema import Optional, Or, Schema
 
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
@@ -42,8 +42,12 @@ def load_config(config_file: Path) -> dict:
                             "value": {
                                 "l_freq": Or(int, float, None),
                                 "h_freq": Or(int, float, None),
-                                "notch_freqs": Or(float, int, list[float], list[int], None),
-                                "notch_widths": Or(float, int, list[float], list[int], None),
+                                "notch_freqs": Or(
+                                    float, int, list[float], list[int], None
+                                ),
+                                "notch_widths": Or(
+                                    float, int, list[float], list[int], None
+                                ),
                             },
                         },
                         "resample_step": {
@@ -76,14 +80,14 @@ def load_config(config_file: Path) -> dict:
                                 Optional("max_iter"): Or(int, str, None),
                                 Optional("allow_ref_meg"): Or(bool, None),
                                 Optional("decim"): Or(int, None),
-                            }
+                            },
                         },
                         "ICLabel": {
                             "enabled": bool,
                             "value": {
                                 "ic_flags_to_reject": list,
                                 "ic_rejection_threshold": float,
-                            }
+                            },
                         },
                         "epoch_settings": {
                             "enabled": bool,
@@ -148,9 +152,12 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
         if l_freq is not None and h_freq is not None:
             if l_freq >= h_freq:
                 message(
-                    "error", f"Low-pass filter frequency {l_freq} must be less than high-pass filter frequency {h_freq}"
+                    "error",
+                    f"Low-pass filter frequency {l_freq} must be less than high-pass filter frequency {h_freq}",
                 )
-                raise ValueError(f"Invalid filtering settings: l_freq {l_freq} >= h_freq {h_freq}")
+                raise ValueError(
+                    f"Invalid filtering settings: l_freq {l_freq} >= h_freq {h_freq}"
+                )
 
         resampling_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]
         if resampling_settings["enabled"]:

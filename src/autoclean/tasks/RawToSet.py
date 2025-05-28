@@ -12,8 +12,9 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 
 
-class RawToSet(Task): # pylint: disable=invalid-name
+class RawToSet(Task):  # pylint: disable=invalid-name
     """Converts RAW files to SET"""
+
     def __init__(self, config: Dict[str, Any]) -> None:
         """Initialize a new task instance.
 

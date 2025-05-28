@@ -14,9 +14,9 @@ that affect multiple channels simultaneously, such as movement artifacts, muscle
 or other global disturbances in the EEG signal.
 """
 
+import random
 from pathlib import Path
 from typing import Optional, Union
-import random
 
 import matplotlib.pyplot as plt
 import mne
@@ -101,7 +101,9 @@ class GFPCleanEpochsMixin:
         epochs = self._get_data_object(epochs, use_epochs=True)
 
         # Type checking
-        if not isinstance(epochs, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            epochs, mne.Epochs
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Epochs object for GFP cleaning")
 
         try:
@@ -193,9 +195,11 @@ class GFPCleanEpochsMixin:
             requested_epochs_exceeded = False
             if number_of_epochs is not None:
                 if len(epochs_final) < number_of_epochs:
-                    warning_msg = (f"Requested number_of_epochs={number_of_epochs} "
-                    f"exceeds the available cleaned epochs={len(epochs_final)}. "
-                    "Using all available epochs.")
+                    warning_msg = (
+                        f"Requested number_of_epochs={number_of_epochs} "
+                        f"exceeds the available cleaned epochs={len(epochs_final)}. "
+                        "Using all available epochs."
+                    )
                     message("warning", warning_msg)
                     requested_epochs_exceeded = True
                     number_of_epochs = len(epochs_final)

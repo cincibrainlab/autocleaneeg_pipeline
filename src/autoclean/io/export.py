@@ -80,7 +80,9 @@ def save_stc_to_file(
             stc.save(fname=path, ftype="h5", overwrite=True, verbose=False)
             message("success", f"✓ Saved {stage} STC file to: {path}")
         except Exception as e:
-            raise RuntimeError(f"Failed to save {stage} STC file to {path}: {str(e)}") from e
+            raise RuntimeError(
+                f"Failed to save {stage} STC file to {path}: {str(e)}"
+            ) from e
 
     # Create metadata for database logging
     metadata = {
@@ -180,7 +182,9 @@ def save_raw_to_set(
             raw.export(path, fmt="eeglab", overwrite=True)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
-            raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}") from e
+            raise RuntimeError(
+                f"Failed to save {stage} file to {path}: {str(e)}"
+            ) from e
 
     metadata = {
         "save_raw_to_set": {
@@ -284,7 +288,8 @@ def save_epochs_to_set(
 
             # Extract events from metadata if available
             if (
-                "additional_events" in epochs.metadata.columns
+                "additional_events"
+                in epochs.metadata.columns
                 # and not epochs.metadata["additional_events"].empty # This check might be too simple if NaNs are present
             ):
                 # Calculate timing parameters for event reconstruction
@@ -295,17 +300,25 @@ def save_epochs_to_set(
                 # Build event dictionary from all unique event labels
                 all_labels = set()
                 # Iterate over potentially NaN-containing 'additional_events' Series safely
-                for additional_event_list_for_epoch in epochs.metadata["additional_events"].dropna():
+                for additional_event_list_for_epoch in epochs.metadata[
+                    "additional_events"
+                ].dropna():
                     if isinstance(additional_event_list_for_epoch, list):
                         for event_tuple in additional_event_list_for_epoch:
                             # Ensure the event_tuple is a tuple/list and has at least one element (the label)
-                            if isinstance(event_tuple, (list, tuple)) and len(event_tuple) >= 1:
-                                label = event_tuple[0] # Get the label
-                                all_labels.add(str(label)) # Ensure label is a string
+                            if (
+                                isinstance(event_tuple, (list, tuple))
+                                and len(event_tuple) >= 1
+                            ):
+                                label = event_tuple[0]  # Get the label
+                                all_labels.add(str(label))  # Ensure label is a string
                             else:
-                                message("debug", f"Skipping malformed event tuple: {event_tuple} in additional_events.")
+                                message(
+                                    "debug",
+                                    f"Skipping malformed event tuple: {event_tuple} in additional_events.",
+                                )
                     # else: it's not a list after dropna(), so it was NaN or another non-list type.
-                
+
                 event_id_rebuilt = {
                     label: idx + 1 for idx, label in enumerate(sorted(list(all_labels)))
                 }
@@ -317,54 +330,85 @@ def save_epochs_to_set(
                 # Iterate through metadata rows, but ensure we don't go beyond the actual number of events
                 # This directly addresses the "82 vs 77" mismatch.
                 for i, meta_row_tuple in enumerate(
-                    epochs.metadata.head(len(epochs.events)).itertuples(index=False, name="Row")
+                    epochs.metadata.head(len(epochs.events)).itertuples(
+                        index=False, name="Row"
+                    )
                 ):
-                    current_additional_events_for_epoch = getattr(meta_row_tuple, "additional_events", None)
+                    current_additional_events_for_epoch = getattr(
+                        meta_row_tuple, "additional_events", None
+                    )
                     if isinstance(current_additional_events_for_epoch, list):
                         for label, rel_time in current_additional_events_for_epoch:
                             try:
                                 # rel_time is time from epoch's t=0 (trigger).
                                 # epochs.tmin is the start of the epoch data window relative to t=0.
                                 # Sample index for rel_time within the epoch's data array (0 to n_samples-1) is:
-                                event_sample_within_epoch_data = int(round((float(rel_time) - epochs.tmin) * sfreq))
+                                event_sample_within_epoch_data = int(
+                                    round((float(rel_time) - epochs.tmin) * sfreq)
+                                )
 
                                 # Check bounds: sample must be within the current epoch's data segment [0, n_samples-1]
-                                if not (0 <= event_sample_within_epoch_data < n_samples):
-                                    message("warning", f"Epoch {i}, event '{label}': rel_time {rel_time}s -> sample {event_sample_within_epoch_data} is outside epoch data window [0, {n_samples-1}]. Skipping.")
+                                if not (
+                                    0 <= event_sample_within_epoch_data < n_samples
+                                ):
+                                    message(
+                                        "warning",
+                                        f"Epoch {i}, event '{label}': rel_time {rel_time}s -> sample {event_sample_within_epoch_data} is outside epoch data window [0, {n_samples-1}]. Skipping.",
+                                    )
                                     continue
-                                
+
                                 # global_sample is for concatenated data, as expected by eeglabio.export_set
                                 # It's the start of the i-th epoch's data block + the sample within that block.
-                                global_sample = (i * n_samples) + event_sample_within_epoch_data
+                                global_sample = (
+                                    i * n_samples
+                                ) + event_sample_within_epoch_data
 
                                 # Prevent sample collisions by incrementing if needed
                                 while global_sample in used_samples:
                                     global_sample += 1
                                 used_samples.add(global_sample)
 
-                                str_label = str(label) # Ensure label is string for dict lookup
+                                str_label = str(
+                                    label
+                                )  # Ensure label is string for dict lookup
                                 if str_label not in event_id_rebuilt:
-                                    message("warning", f"Label '{str_label}' (from epoch {i}, rel_time {rel_time}) not found in rebuilt event_id. Available: {list(event_id_rebuilt.keys())}. Skipping this event.")
+                                    message(
+                                        "warning",
+                                        f"Label '{str_label}' (from epoch {i}, rel_time {rel_time}) not found in rebuilt event_id. Available: {list(event_id_rebuilt.keys())}. Skipping this event.",
+                                    )
                                     continue
                                 code = event_id_rebuilt[str_label]
-                                events_in_epochs.append([global_sample, 0, code]) # Assuming duration 0 for point events
+                                events_in_epochs.append(
+                                    [global_sample, 0, code]
+                                )  # Assuming duration 0 for point events
                             except ValueError:
-                                message("warning", f"Epoch {i}, event '{label}': Could not convert rel_time '{rel_time}' to float. Skipping this event.")
+                                message(
+                                    "warning",
+                                    f"Epoch {i}, event '{label}': Could not convert rel_time '{rel_time}' to float. Skipping this event.",
+                                )
                                 continue
-                            except Exception as e_inner: # pylint: disable=broad-exception-caught
-                                message("error", f"Unexpected error processing event '{label}' in epoch {i} (rel_time: {rel_time}): {e_inner}")
+                            except (
+                                Exception
+                            ) as e_inner:  # pylint: disable=broad-exception-caught
+                                message(
+                                    "error",
+                                    f"Unexpected error processing event '{label}' in epoch {i} (rel_time: {rel_time}): {e_inner}",
+                                )
                                 continue
                     # else: current_additional_events_for_epoch is not a list (e.g., NaN), so skip for this epoch.
 
-                if events_in_epochs: # Only convert to numpy array if list is not empty
+                if events_in_epochs:  # Only convert to numpy array if list is not empty
                     events_in_epochs = np.array(events_in_epochs, dtype=int)
-                else: # If list is empty, set to None or an empty array as eeglabio expects
-                    events_in_epochs = None # Or np.empty((0,3), dtype=int) depending on eeglabio's preference for empty
+                else:  # If list is empty, set to None or an empty array as eeglabio expects
+                    events_in_epochs = None  # Or np.empty((0,3), dtype=int) depending on eeglabio's preference for empty
 
             else:
-                message("warning", "No 'additional_events' column found in epochs.metadata or it is empty.")
+                message(
+                    "warning",
+                    "No 'additional_events' column found in epochs.metadata or it is empty.",
+                )
                 events_in_epochs = None
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             message("error", f"Failed to rebuild events_in_epochs: {str(e)}")
 
     # Save to all target paths
@@ -374,7 +418,9 @@ def save_epochs_to_set(
         try:
             # Use specialized export for preserving complex event structures
             if events_in_epochs is not None and len(events_in_epochs) > 0:
-                from eeglabio.epochs import export_set # pylint: disable=import-outside-toplevel
+                from eeglabio.epochs import (  # pylint: disable=import-outside-toplevel
+                    export_set,
+                )
 
                 export_set(
                     fname=str(path),
@@ -398,7 +444,9 @@ def save_epochs_to_set(
             sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
-            raise RuntimeError(f"Failed to save {stage} file to {path}: {str(e)}") from e
+            raise RuntimeError(
+                f"Failed to save {stage} file to {path}: {str(e)}"
+            ) from e
 
     # Record save operation in database
     metadata = {
@@ -446,7 +494,7 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
     try:
         derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
-    except Exception as e: # pylint: disable=broad-exception-caught
+    except Exception as e:  # pylint: disable=broad-exception-caught
         message("error", f"Failed to save ICA to FIF files: {str(e)}")
 
     components = []
