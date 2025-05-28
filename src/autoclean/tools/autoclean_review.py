@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import mne
 import scipy.io as sio
 from dotenv import load_dotenv
-from PyQt5.Qt import *
+from PyQt5.Qt import *  # noqa: F403
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import (
@@ -43,11 +43,11 @@ def check_gui_dependencies():
     """Check if all required GUI dependencies are installed."""
     missing = []
     try:
-        import PyQt5
+        import PyQt5  # noqa: F401
     except ImportError:
         missing.append("PyQt5")
     try:
-        import fitz
+        import fitz  # noqa: F401
     except ImportError:
         missing.append("pymupdf")
 
@@ -625,7 +625,6 @@ class FileSelector(QWidget):
                     print("Still no image files found, performing deeper search...")
                     # Look for any PNG or PDF files in the current directory tree (limit depth to avoid excessive searching)
                     max_depth = 3
-                    current_depth = 0
 
                     def search_directory(directory, current_depth, max_depth):
                         if current_depth > max_depth:

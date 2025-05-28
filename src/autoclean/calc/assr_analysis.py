@@ -187,7 +187,6 @@ def compute_metrics(tf_data, epochs, freq_bands=None, time_windows=None):
         file_basename = "synthetic_epochs"
 
     n_total_trials = len(epochs.drop_log)
-    n_used_trials = len(epochs)
     n_rejected_trials = sum(
         1 for log in epochs.drop_log if log
     )  # Count non-empty drop logs

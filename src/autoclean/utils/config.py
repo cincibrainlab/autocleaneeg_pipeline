@@ -112,9 +112,6 @@ def load_config(config_file: Path) -> dict:
         }
     )
 
-    # Extract the config file path from the config_file
-    config_file_path = Path(config_file)
-
     with open(config_file, encoding="utf-8") as f:
         config = yaml.safe_load(f)
 

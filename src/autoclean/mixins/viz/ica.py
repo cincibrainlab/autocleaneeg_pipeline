@@ -249,8 +249,7 @@ class ICAReportingMixin:
             )
             return None
 
-        # Get raw and ICA from pipeline
-        raw = self.raw.copy()
+        # Get ICA from pipeline
         ica = self.final_ica
 
         # Get the classification results
@@ -266,7 +265,6 @@ class ICAReportingMixin:
         # Prepare data for bar chart
         n_components = len(vision_results)
         indices = np.arange(n_components)
-        bar_heights = np.ones(n_components)  # Fixed height bars
 
         # Color coding based on classification
         bar_colors = []
@@ -275,9 +273,6 @@ class ICAReportingMixin:
                 bar_colors.append("green")
             else:  # artifact
                 bar_colors.append("red")
-
-        # Create bars
-        bars = ax_summary.bar(indices, bar_heights, color=bar_colors)
 
         # Annotate bars with confidence scores
         for idx, (_, row) in enumerate(vision_results.iterrows()):
