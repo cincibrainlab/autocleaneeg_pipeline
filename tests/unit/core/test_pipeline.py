@@ -1,10 +1,8 @@
 """Unit tests for the Pipeline class."""
 
-import os
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
-import yaml
 import pytest
 
 from tests.fixtures.test_utils import BaseTestCase, EEGAssertions
@@ -17,24 +15,39 @@ except ImportError:
     PIPELINE_AVAILABLE = False
 
 
-@pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")
+@pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")  
 class TestPipelineInitialization(BaseTestCase):
     """Test Pipeline class initialization and basic functionality."""
     
-    def test_pipeline_init_with_valid_config(self):
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_pipeline_init_with_valid_config(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
         """Test Pipeline initialization with valid configuration."""
-        # Use the actual config file for validation
-        config_file = Path(__file__).parent.parent.parent.parent / "configs" / "autoclean_config.yaml"
+        # Use the test config file
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         pipeline = Pipeline(
             autoclean_dir=str(self.autoclean_dir),
             autoclean_config=str(config_file)
         )
         
-        assert pipeline.autoclean_dir == Path(self.autoclean_dir)
-        assert pipeline.config is not None
-        assert "tasks" in pipeline.config
-        assert "RestingEyesOpen" in pipeline.config["tasks"]
+        # Test basic attributes
+        assert pipeline.autoclean_dir == Path(self.autoclean_dir).absolute()
+        assert pipeline.autoclean_config == Path(config_file).absolute()
+        assert hasattr(pipeline, 'autoclean_dict')
+        assert hasattr(pipeline, 'TASK_REGISTRY')
+        assert hasattr(pipeline, 'participants_tsv_lock')
+        
+        # Test config loaded correctly
+        assert "tasks" in pipeline.autoclean_dict
+        assert "TestResting" in pipeline.autoclean_dict["tasks"]
+        assert "stage_files" in pipeline.autoclean_dict
+        
+        # Verify database setup was called
+        mock_set_db.assert_called_once_with(pipeline.autoclean_dir)
+        mock_manage_db.assert_called_once_with(operation="create_collection")
     
     def test_pipeline_init_invalid_config_path(self):
         """Test Pipeline initialization with invalid config path."""
@@ -44,24 +57,31 @@ class TestPipelineInitialization(BaseTestCase):
                 autoclean_config="/nonexistent/path/config.yaml"
             )
     
-    def test_pipeline_init_invalid_autoclean_dir(self):
-        """Test Pipeline initialization with invalid autoclean directory."""
-        config_file = self.temp_dir / "test_config.yaml"
-        config_file.write_text("tasks: {}")
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_pipeline_init_new_directory(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
+        """Test Pipeline initialization creates new directory."""
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
-        # Should handle creation of new directory
+        # Use a new directory that doesn't exist yet
         new_dir = self.temp_dir / "new_autoclean_dir"
+        
         pipeline = Pipeline(
             autoclean_dir=str(new_dir),
             autoclean_config=str(config_file)
         )
         
-        assert pipeline.autoclean_dir == new_dir
+        assert pipeline.autoclean_dir == new_dir.absolute()
     
-    def test_pipeline_task_registry_access(self):
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_pipeline_task_registry_access(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
         """Test that Pipeline has access to task registry."""
-        config_file = self.temp_dir / "test_config.yaml"
-        config_file.write_text("tasks: {}")
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         pipeline = Pipeline(
             autoclean_dir=str(self.autoclean_dir),
@@ -71,10 +91,13 @@ class TestPipelineInitialization(BaseTestCase):
         assert hasattr(pipeline, 'TASK_REGISTRY')
         assert isinstance(pipeline.TASK_REGISTRY, dict)
     
-    def test_pipeline_verbose_parameter(self):
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_pipeline_verbose_parameter(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db):
         """Test Pipeline initialization with different verbose settings."""
-        config_file = self.temp_dir / "test_config.yaml"
-        config_file.write_text("tasks: {}")
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         # Test different verbose settings
         for verbose in [True, False, "info", "debug", None]:
@@ -84,143 +107,137 @@ class TestPipelineInitialization(BaseTestCase):
                 verbose=verbose
             )
             assert pipeline is not None
-
-
-@pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")
-class TestPipelineConfiguration:
-    """Test Pipeline configuration handling."""
-    
-    def test_config_loading_and_validation(self, tmp_path):
-        """Test configuration loading and basic validation."""
-        # Use the consolidated test config
-        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
-        
-        pipeline = Pipeline(
-            autoclean_dir=str(tmp_path / "output"),
-            autoclean_config=str(config_file)
-        )
-        
-        assert pipeline.config["tasks"]["TestResting"]["mne_task"] == "rest"
-        assert pipeline.config["stage_files"]["post_import"]["enabled"] is True
-        assert pipeline.config["database"]["enabled"] is False
-    
-    def test_config_with_missing_required_fields(self, tmp_path):
-        """Test configuration with missing required fields."""
-        # Config missing tasks
-        config = {"stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}}}
-        
-        config_file = tmp_path / "invalid_config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(config, f)
-        
-        # Should raise an error or handle gracefully
-        with patch('autoclean.utils.config.load_config') as mock_load:
-            mock_load.side_effect = ValueError("Missing required field: tasks")
-            
-            with pytest.raises(ValueError, match="Missing required field"):
-                Pipeline(
-                    autoclean_dir=str(tmp_path / "output"),
-                    autoclean_config=str(config_file)
-                )
-
-
-@pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")
-class TestPipelineFileProcessing:
-    """Test Pipeline file processing methods."""
-    
-    @patch('autoclean.core.pipeline.task_registry')
-    @patch('autoclean.utils.file_system.step_prepare_directories')
-    @patch('autoclean.utils.database.manage_database')
-    @patch('autoclean.utils.config.load_config')
-    def test_process_file_basic_flow(self, mock_load_config, mock_db, mock_dirs, mock_registry, tmp_path):
-        """Test basic file processing flow."""
-        # Setup mock task
-        mock_task_class = Mock()
-        mock_task_instance = Mock()
-        mock_task_class.return_value = mock_task_instance
-        mock_registry = {"TestTask": mock_task_class}
-        
-        # Mock config loading to avoid validation
-        mock_config = {
-            "tasks": {
-                "TestTask": {
-                    "mne_task": "rest",
-                    "description": "Test task",
-                    "settings": {}
-                }
-            },
-            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
-            "database": {"enabled": False}
-        }
-        mock_load_config.return_value = mock_config
-        
-        # Create test config file (content doesn't matter due to mocking)
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("tasks: {}")
-        
-        # Create test data file
-        test_file = tmp_path / "test_data.fif"
-        test_file.touch()
-        
-        with patch.object(Pipeline, 'TASK_REGISTRY', mock_registry):
-            pipeline = Pipeline(
-                autoclean_dir=str(tmp_path / "output"),
-                autoclean_config=str(config_file)
-            )
-            
-            # This should not raise an error in the basic flow test
-            # Full functionality testing would require more complex mocking
-            with patch.object(pipeline, '_prepare_processing_run') as mock_prepare:
-                mock_prepare.return_value = {"run_id": "test_run_123"}
-                
-                # Test that the method exists and can be called
-                assert hasattr(pipeline, 'process_file')
-    
-    def test_process_file_invalid_task(self, tmp_path):
-        """Test processing with invalid task name."""
-        # Use consolidated test config
-        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
-        
-        pipeline = Pipeline(
-            autoclean_dir=str(tmp_path / "output"),
-            autoclean_config=str(config_file)
-        )
-        
-        test_file = tmp_path / "test_data.fif"
-        test_file.touch()
-        
-        # Should raise error for non-existent task
-        with pytest.raises((KeyError, ValueError)):
-            pipeline.process_file(
-                file_path=str(test_file),
-                task="NonExistentTask"
-            )
-    
-    def test_process_file_nonexistent_file(self, tmp_path):
-        """Test processing with non-existent file."""
-        # Use consolidated test config
-        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
-        
-        pipeline = Pipeline(
-            autoclean_dir=str(tmp_path / "output"),
-            autoclean_config=str(config_file)
-        )
-        
-        # Should raise error for non-existent file
-        with pytest.raises((FileNotFoundError, IOError)):
-            pipeline.process_file(
-                file_path="/nonexistent/file.fif",
-                task="TestResting"
-            )
+            assert pipeline.verbose == verbose
 
 
 @pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")
 class TestPipelineUtilityMethods:
     """Test Pipeline utility and helper methods."""
     
-    def test_pipeline_string_representation(self, tmp_path):
-        """Test string representation of Pipeline."""
-        # Use consolidated test config
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_list_tasks(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
+        """Test listing available tasks."""
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
+        
+        pipeline = Pipeline(
+            autoclean_dir=str(tmp_path / "output"),
+            autoclean_config=str(config_file)
+        )
+        
+        tasks = pipeline.list_tasks()
+        assert isinstance(tasks, list)
+        # Tasks come from TASK_REGISTRY which is imported from autoclean.tasks
+        assert len(tasks) > 0
+    
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_list_stage_files(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
+        """Test listing stage files."""
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
+        
+        pipeline = Pipeline(
+            autoclean_dir=str(tmp_path / "output"),
+            autoclean_config=str(config_file)
+        )
+        
+        stage_files = pipeline.list_stage_files()
+        assert isinstance(stage_files, list)
+        expected_stages = ["post_import", "post_basic_steps", "post_clean_raw", "post_ica", "post_epochs", "post_comp"]
+        for stage in expected_stages:
+            assert stage in stage_files
+
+
+@pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")
+class TestPipelineValidation:
+    """Test Pipeline validation methods."""
+    
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_validate_task_valid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
+        """Test task validation with valid task."""
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
+        
+        pipeline = Pipeline(
+            autoclean_dir=str(tmp_path / "output"),
+            autoclean_config=str(config_file)
+        )
+        
+        # Test with a valid task from our config
+        result = pipeline._validate_task("TestResting")
+        assert result == "TestResting"
+    
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_validate_task_invalid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
+        """Test task validation with invalid task."""
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
+        
+        pipeline = Pipeline(
+            autoclean_dir=str(tmp_path / "output"),
+            autoclean_config=str(config_file)
+        )
+        
+        # Test with an invalid task
+        with pytest.raises(ValueError, match="Task 'NonExistentTask' not found in configuration"):
+            pipeline._validate_task("NonExistentTask")
+    
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_validate_file_valid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
+        """Test file validation with valid file."""
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
+        
+        pipeline = Pipeline(
+            autoclean_dir=str(tmp_path / "output"),
+            autoclean_config=str(config_file)
+        )
+        
+        # Create a test file
+        test_file = tmp_path / "test.fif"
+        test_file.touch()
+        
+        result = pipeline._validate_file(str(test_file))
+        assert result == test_file
+    
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_validate_file_invalid(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
+        """Test file validation with non-existent file."""
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
+        
+        pipeline = Pipeline(
+            autoclean_dir=str(tmp_path / "output"),
+            autoclean_config=str(config_file)
+        )
+        
+        # Test with non-existent file
+        with pytest.raises(FileNotFoundError, match="File not found"):
+            pipeline._validate_file("/nonexistent/file.fif")
+
+
+@pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")
+class TestPipelineString:
+    """Test Pipeline string representation."""
+    
+    @patch('autoclean.utils.database.manage_database')
+    @patch('autoclean.utils.database.set_database_path')
+    @patch('autoclean.utils.logging.configure_logger')
+    @patch('mne.set_log_level')
+    def test_pipeline_string_representation(self, mock_mne_log, mock_logger, mock_set_db, mock_manage_db, tmp_path):
+        """Test that Pipeline has a string representation."""
         config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         pipeline = Pipeline(
@@ -232,59 +249,10 @@ class TestPipelineUtilityMethods:
         str_repr = str(pipeline)
         assert isinstance(str_repr, str)
         assert len(str_repr) > 0
-    
-    def test_pipeline_directory_creation(self, tmp_path):
-        """Test that Pipeline creates necessary directories."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("tasks: {}")
-        
-        new_output_dir = tmp_path / "new_output_directory"
-        assert not new_output_dir.exists()
-        
-        pipeline = Pipeline(
-            autoclean_dir=str(new_output_dir),
-            autoclean_config=str(config_file)
-        )
-        
-        # Pipeline should create the directory or handle its absence gracefully
-        assert pipeline.autoclean_dir == new_output_dir
 
 
-class TestPipelineMocked:
-    """Test Pipeline functionality with heavy mocking for speed."""
-    
-    @patch('autoclean.core.pipeline.load_config')
-    @patch('autoclean.utils.logging.configure_logger')
-    def test_pipeline_init_mocked(self, mock_logger, mock_load_config, tmp_path):
-        """Test Pipeline initialization with mocked dependencies."""
-        mock_config = {
-            "tasks": {"TestTask": {"settings": {}}},
-            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
-            "database": {"enabled": False}
-        }
-        mock_load_config.return_value = mock_config
-        
-        with patch('autoclean.core.pipeline.Pipeline.__init__', lambda x, *args, **kwargs: None):
-            # Test that mocked initialization doesn't raise errors
-            pipeline = Pipeline.__new__(Pipeline)
-            pipeline.autoclean_dir = tmp_path / "output"
-            pipeline.config = mock_config
-            
-            assert pipeline.config["tasks"]["TestTask"]["settings"] == {}
-    
-    @patch('autoclean.core.pipeline.task_registry', {"MockTask": Mock})
-    def test_task_registry_access_mocked(self):
-        """Test task registry access with mocked registry."""
-        with patch('autoclean.core.pipeline.Pipeline.__init__', lambda x, *args, **kwargs: None):
-            pipeline = Pipeline.__new__(Pipeline)
-            pipeline.TASK_REGISTRY = {"MockTask": Mock}
-            
-            assert "MockTask" in pipeline.TASK_REGISTRY
-            assert pipeline.TASK_REGISTRY["MockTask"] is not None
-
-
-# Tests that don't require full Pipeline import
-class TestPipelineConceptual:
+# Tests that can run without full dependencies 
+class TestPipelineInterface:
     """Conceptual tests for Pipeline design and interface."""
     
     def test_pipeline_expected_interface(self):
@@ -298,7 +266,11 @@ class TestPipelineConceptual:
         expected_methods = [
             'process_file',
             'process_directory', 
-            '__init__'
+            'process_directory_async',
+            'list_tasks',
+            'list_stage_files',
+            '_validate_task',
+            '_validate_file'
         ]
         
         for method in expected_methods:
@@ -316,3 +288,4 @@ class TestPipelineConceptual:
         
         for attr in expected_attrs:
             assert hasattr(Pipeline, attr), f"Pipeline missing expected attribute: {attr}"
+

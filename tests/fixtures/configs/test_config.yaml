@@ -287,11 +287,14 @@ tasks:
           volt_threshold:
             eeg: 100e-6
 
-# Stage files configuration for testing
+# Stage files configuration for testing - must include all stages used by tasks
 stage_files:
   post_import:
     enabled: true
     suffix: "_postimport"
+  post_basic_steps:
+    enabled: true
+    suffix: "_postbasicsteps"
   post_clean_raw:
     enabled: true
     suffix: "_postcleaning"
@@ -301,6 +304,9 @@ stage_files:
   post_epochs:
     enabled: true
     suffix: "_postepochs"
+  post_comp:
+    enabled: true
+    suffix: "_postcomp"
 
 # Database configuration (minimal for testing)
 database:
