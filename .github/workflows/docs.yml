@@ -38,7 +38,11 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: './docs/_build/html'
+<<<<<<< Updated upstream
   
+=======
+
+>>>>>>> Stashed changes
   deploy:
     environment:
       name: github-pages
@@ -48,4 +52,8 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
+<<<<<<< Updated upstream
         uses: actions/deploy-pages@v4
+=======
+        uses: actions/deploy-pages@v4
+>>>>>>> Stashed changes

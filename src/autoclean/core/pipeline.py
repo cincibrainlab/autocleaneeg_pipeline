@@ -64,7 +64,6 @@ import matplotlib
 
 # Third-party imports
 import mne
-import yaml
 from tqdm import tqdm
 from ulid import ULID
 
@@ -315,7 +314,6 @@ class Pipeline:
                 "task_hash": task_hash,
                 "task_b64": b64_task,
             }
-
 
             # Merge task-specific config with base config
             run_dict = {**run_dict, **self.autoclean_dict}
@@ -718,7 +716,9 @@ class Pipeline:
         Note: The ideal use of the Review tool is as a docker container.
         """
         try:
-            from autoclean.tools.autoclean_review import run_autoclean_review  # pylint: disable=import-outside-toplevel
+            from autoclean.tools.autoclean_review import (  # pylint: disable=import-outside-toplevel
+                run_autoclean_review,
+            )
 
             run_autoclean_review(self.autoclean_dir)
         except ImportError:

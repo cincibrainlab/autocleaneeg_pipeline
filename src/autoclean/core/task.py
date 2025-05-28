@@ -8,10 +8,11 @@ from typing import Any, Dict, Optional
 # Third-party imports
 import mne  # Core EEG processing library for data containers and processing
 
-# Local imports
-from autoclean.mixins import DISCOVERED_MIXINS
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
+
+# Local imports
+from autoclean.mixins import DISCOVERED_MIXINS
 from autoclean.utils.logging import message
 
 

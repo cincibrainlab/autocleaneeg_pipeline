@@ -55,7 +55,7 @@ def step_convert_to_bids(
     study_name : str
         The name of the study for dataset_description.json.
     autoclean_dict : dict
-        The run configuration, MUST include 'participants_tsv_lock' (a threading.Lock) for concurrent safety. 
+        The run configuration, MUST include 'participants_tsv_lock' (a threading.Lock) for concurrent safety.
 
     Returns
     -------
@@ -94,7 +94,7 @@ def step_convert_to_bids(
     if not lock_valid:
         message(
             "warning",
-            "participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.", # pylint: disable=line-too-long
+            "participants_tsv_lock not found or invalid. Concurrent writes to participants.tsv may be unsafe.",  # pylint: disable=line-too-long
         )
 
         # Use a dummy context manager if no valid lock is found to allow execution.
@@ -176,9 +176,7 @@ def step_convert_to_bids(
     }
 
     # Create derivatives directory structure (outside the lock).
-    derivatives_dir = (
-        bids_root / "derivatives" / f"sub-{subject_id}" / "eeg"
-    )
+    derivatives_dir = bids_root / "derivatives" / f"sub-{subject_id}" / "eeg"
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message("info", f"Created derivatives directory structure at {derivatives_dir}")
 
@@ -197,9 +195,7 @@ def step_convert_to_bids(
                     f"Creating participants.tsv with headers at {participants_file}",
                 )
                 header_df = pd.DataFrame(columns=desired_column_order, dtype=object)
-                header_df.to_csv(
-                    participants_file, sep="	", index=False, na_rep="n/a"
-                )
+                header_df.to_csv(participants_file, sep="	", index=False, na_rep="n/a")
         except Exception as header_err:
             message("error", f"Failed to create participants.tsv header: {header_err}")
             raise
@@ -276,10 +272,10 @@ def step_convert_to_bids(
                 participants_df = pd.DataFrame(
                     columns=desired_column_order, dtype=object
                 )
-            except Exception as pd_read_err: # pylint: disable=broad-except
+            except Exception as pd_read_err:  # pylint: disable=broad-except
                 message(
                     "error",
-                    f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting overwrite.", # pylint: disable=line-too-long
+                    f"Error reading participants.tsv after MNE-BIDS write: {pd_read_err}. Attempting overwrite.",  # pylint: disable=line-too-long
                 )
                 participants_df = pd.DataFrame(
                     columns=desired_column_order, dtype=object
@@ -333,13 +329,13 @@ def step_convert_to_bids(
                         else:
                             message(
                                 "warning",
-                                f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.", # pylint: disable=line-too-long
+                                f"Column '{key}' not found in participants.tsv during update for {participant_col_id}.",  # pylint: disable=line-too-long
                             )
                 else:
                     # Fallback if index search fails.
                     message(
                         "warning",
-                        f"Could not find index for existing participant {participant_col_id}. Appending instead.", # pylint: disable=line-too-long
+                        f"Could not find index for existing participant {participant_col_id}. Appending instead.",  # pylint: disable=line-too-long
                     )
                     new_row_df = pd.DataFrame([new_entry]).astype(dtype=object)
                     participants_df = pd.concat(
@@ -436,7 +432,7 @@ def step_create_dataset_desc(output_path, study_name):
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(dataset_description, f, indent=4)
         message("success", f"Created {filepath.name}")
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("error", f"Failed to create {filepath.name}: {e}")
 
 
@@ -484,5 +480,5 @@ def step_create_participants_json(output_path):
         with open(filepath, "w", encoding="utf-8") as f:
             json.dump(participants_json, f, indent=4)
         message("success", f"Created {filepath.name}")
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("error", f"Failed to create {filepath.name}: {e}")

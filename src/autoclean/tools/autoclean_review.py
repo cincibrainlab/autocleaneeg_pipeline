@@ -68,7 +68,6 @@ if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
 
-
 pyqtRemoveInputHook()
 
 
@@ -431,12 +430,7 @@ class FileSelector(QWidget):
     def viewRunRecord(self):
         from PyQt5.QtCore import Qt
         from PyQt5.QtGui import QPixmap
-        from PyQt5.QtWidgets import (
-            QComboBox,
-            QHBoxLayout,
-            QLabel,
-            QPushButton,
-        )
+        from PyQt5.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton
 
         original_filename = self.current_run_record["metadata"]["import_eeg"][
             "unprocessedFile"
@@ -1076,7 +1070,7 @@ class FileSelector(QWidget):
                         events=True,
                         show_scalebars=True,
                         scalings={"eeg": 25e-6},
-                        n_channels=self.current_epochs.info["nchan"]
+                        n_channels=self.current_epochs.info["nchan"],
                     )
                 else:
                     # Create the plot widget for raw data

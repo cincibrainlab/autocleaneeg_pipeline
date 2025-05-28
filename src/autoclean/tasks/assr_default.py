@@ -3,13 +3,9 @@
 
 from typing import Any, Dict
 
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.io.import_ import import_eeg
-
 from autoclean.core.task import Task
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
+from autoclean.io.export import save_raw_to_set
+from autoclean.step_functions.continuous import step_create_bids_path
 
 
 class AssrDefault(Task):
@@ -35,7 +31,7 @@ class AssrDefault(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method="interpolate", reset_bads=True)
 
         self.rereference_data()
 
@@ -59,7 +55,7 @@ class AssrDefault(Task):
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_eventid_epochs() # Using fixed-length epochs
+        self.create_eventid_epochs()  # Using fixed-length epochs
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
