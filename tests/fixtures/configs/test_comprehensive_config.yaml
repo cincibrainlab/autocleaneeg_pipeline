@@ -129,10 +129,18 @@ tasks:
             eeg: 100e-6
 
 stage_files:
-  post_import: true
-  post_clean_raw: true
-  post_ica: true
-  post_epochs: true
+  post_import:
+    enabled: true
+    suffix: "_postimport"
+  post_clean_raw:
+    enabled: true
+    suffix: "_postcleaning"
+  post_ica:
+    enabled: true
+    suffix: "_postica"
+  post_epochs:
+    enabled: true
+    suffix: "_postepochs"
 
 database:
   enabled: false
