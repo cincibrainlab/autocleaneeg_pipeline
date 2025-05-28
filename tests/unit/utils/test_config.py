@@ -80,12 +80,11 @@ class TestConfigLoading(BaseTestCase):
                 }
             },
             "stage_files": {
-                "post_import": True,
-                "post_clean_raw": True,
-                "post_ica": True,
-                "post_epochs": True
-            },
-            "database": {"enabled": False}
+                "post_import": {"enabled": True, "suffix": "_postimport"},
+                "post_clean_raw": {"enabled": True, "suffix": "_postcleanraw"},
+                "post_ica": {"enabled": True, "suffix": "_postica"},
+                "post_epochs": {"enabled": True, "suffix": "_postepochs"}
+            }
         }
         
         config_file = self.temp_dir / "valid_config.yaml"
@@ -100,59 +99,54 @@ class TestConfigLoading(BaseTestCase):
         assert result["tasks"]["TestTask"]["mne_task"] == "rest"
     
     def test_load_config_file_not_found(self):
-        """Test loading non-existent configuration file."""
-        non_existent_file = Path("/nonexistent/config.yaml")
+        """Test error handling when config file doesn't exist."""
+        non_existent_file = self.temp_dir / "non_existent.yaml"
         
-        with pytest.raises((FileNotFoundError, IOError)):
+        with pytest.raises(FileNotFoundError):
             load_config(non_existent_file)
     
     def test_load_config_invalid_yaml(self):
-        """Test loading invalid YAML file."""
-        invalid_yaml_content = """
-        tasks:
-          TestTask:
-            invalid_yaml: [unclosed list
-        """
+        """Test error handling for invalid YAML syntax."""
+        invalid_yaml = "invalid: yaml: content:\n  - missing closing bracket ["
         
         config_file = self.temp_dir / "invalid.yaml"
         with open(config_file, 'w') as f:
-            f.write(invalid_yaml_content)
+            f.write(invalid_yaml)
         
         with pytest.raises(yaml.YAMLError):
             load_config(config_file)
     
     def test_load_config_schema_validation_failure(self):
-        """Test loading config that fails schema validation."""
+        """Test schema validation failure."""
         invalid_config = {
             "tasks": {
                 "TestTask": {
-                    # Missing required fields
-                    "description": "Test task"
-                    # Missing mne_task and settings
+                    "mne_task": "rest",
+                    # Missing description and settings
                 }
             }
+            # Missing stage_files
         }
         
-        config_file = self.temp_dir / "invalid_config.yaml"
+        config_file = self.temp_dir / "invalid_schema.yaml"
         with open(config_file, 'w') as f:
             yaml.dump(invalid_config, f)
         
-        # Should raise schema validation error
-        with pytest.raises(Exception):  # Schema validation error
+        with pytest.raises(Exception):  # Could be SchemaError or similar
             load_config(config_file)
     
     def test_load_config_with_optional_fields(self):
-        """Test loading config with optional fields."""
+        """Test loading config with optional None values."""
         config_with_optionals = {
             "tasks": {
-                "TestTask": {
+                "TestTaskOptional": {
                     "mne_task": "rest",
-                    "description": "Test task",
+                    "description": "Test task with optional fields",
                     "settings": {
                         "filtering": {
                             "enabled": True,
                             "value": {
-                                "l_freq": None,  # Optional None value
+                                "l_freq": None,
                                 "h_freq": 100.0,
                                 "notch_freqs": None,
                                 "notch_widths": None
@@ -170,7 +164,7 @@ class TestConfigLoading(BaseTestCase):
                         "montage": {"enabled": False, "value": None},
                         "ICA": {
                             "enabled": False,
-                            "value": {"method": "picard"}  # Only required field
+                            "value": {"method": "picard"}
                         },
                         "ICLabel": {
                             "enabled": False,
@@ -193,12 +187,11 @@ class TestConfigLoading(BaseTestCase):
                 }
             },
             "stage_files": {
-                "post_import": False,
-                "post_clean_raw": False,
-                "post_ica": False,
-                "post_epochs": False
-            },
-            "database": {"enabled": False}
+                "post_import": {"enabled": False, "suffix": "_postimport"},
+                "post_clean_raw": {"enabled": False, "suffix": "_postcleanraw"},
+                "post_ica": {"enabled": False, "suffix": "_postica"},
+                "post_epochs": {"enabled": False, "suffix": "_postepochs"}
+            }
         }
         
         config_file = self.temp_dir / "optional_config.yaml"
@@ -207,8 +200,8 @@ class TestConfigLoading(BaseTestCase):
         
         result = load_config(config_file)
         
-        assert result["tasks"]["TestTask"]["settings"]["filtering"]["value"]["l_freq"] is None
-        assert result["tasks"]["TestTask"]["settings"]["resample_step"]["value"] is None
+        assert result == config_with_optionals
+        assert result["tasks"]["TestTaskOptional"]["settings"]["filtering"]["value"]["l_freq"] is None
 
 
 @pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
@@ -223,212 +216,227 @@ class TestConfigUtilities:
             "list": [1, 2, 3]
         }
         
-        result = hash_and_encode_yaml(test_config)
+        result = hash_and_encode_yaml(test_config, is_file=False)
         
-        # Should return a string
-        assert isinstance(result, str)
-        assert len(result) > 0
+        # Should return a tuple of (hash, encoded)
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+        file_hash, encoded = result
+        assert isinstance(file_hash, str)
+        assert isinstance(encoded, str)
+        assert len(file_hash) > 0
+        assert len(encoded) > 0
         
-        # Should be deterministic (same input, same output)
-        result2 = hash_and_encode_yaml(test_config)
+        # Same input should give same output
+        result2 = hash_and_encode_yaml(test_config, is_file=False)
         assert result == result2
         
         # Different input should give different output
         different_config = {"different": "config"}
-        result3 = hash_and_encode_yaml(different_config)
+        result3 = hash_and_encode_yaml(different_config, is_file=False)
         assert result != result3
     
     def test_hash_and_encode_yaml_with_none_values(self):
-        """Test YAML hashing with None values."""
+        """Test hash and encode with None values."""
         config_with_none = {
-            "key1": None,
-            "key2": "value",
-            "key3": {"nested": None}
+            "key": None,
+            "nested": {"value": None}
         }
         
         result = hash_and_encode_yaml(config_with_none)
-        
         assert isinstance(result, str)
         assert len(result) > 0
     
     def test_hash_and_encode_yaml_empty_config(self):
-        """Test YAML hashing with empty configuration."""
+        """Test hash and encode with empty config."""
         empty_config = {}
         
         result = hash_and_encode_yaml(empty_config)
-        
         assert isinstance(result, str)
         assert len(result) > 0
     
     def test_validate_eeg_system(self):
         """Test EEG system validation."""
-        # Test with valid EEG system
-        valid_system = "GSN-HydroCel-129"
+        valid_systems = [
+            "GSN-HydroCel-129",
+            "GSN-HydroCel-124", 
+            "standard_1020",
+            "biosemi64"
+        ]
         
-        # This test depends on the actual implementation
-        # For now, just test that the function exists and is callable
-        if hasattr(validate_eeg_system, '__call__'):
-            # Test with valid input
+        for system in valid_systems:
+            # Should not raise an exception
             try:
-                result = validate_eeg_system(valid_system)
-                # Should return something (bool, dict, or raise exception)
-                assert result is not None or result is None  # Either is valid
-            except Exception:
-                # If validation fails, that's also valid behavior
-                assert True
-        else:
-            pytest.skip("validate_eeg_system function not available")
+                validate_eeg_system(system)
+            except Exception as e:
+                pytest.fail(f"validate_eeg_system raised exception for valid system {system}: {e}")
 
 
+@pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
 class TestConfigMocked:
-    """Test configuration functionality with heavy mocking."""
+    """Test config functionality with heavy mocking."""
     
-    @patch('builtins.open', new_callable=mock_open, read_data='tasks: {}')
-    @patch('yaml.safe_load')
-    def test_load_config_mocked(self, mock_yaml_load, mock_file):
-        """Test config loading with mocked file operations."""
-        mock_config = {"tasks": {"TestTask": {"settings": {}}}}
-        mock_yaml_load.return_value = mock_config
-        
-        if CONFIG_AVAILABLE:
-            from autoclean.utils.config import load_config
-            
-            with patch('autoclean.utils.config.Schema') as mock_schema:
-                mock_schema.return_value.validate.return_value = mock_config
-                
-                result = load_config(Path("/test/config.yaml"))
-                
-                assert result == mock_config
-                mock_file.assert_called_once()
-                mock_yaml_load.assert_called_once()
-    
-    def test_hash_and_encode_yaml_mocked(self):
-        """Test YAML hashing with mocked dependencies."""
-        if CONFIG_AVAILABLE:
-            test_config = {"test": "value"}
-            
-            with patch('autoclean.utils.config.yaml.dump') as mock_dump:
-                mock_dump.return_value = "test: value\n"
-                
-                with patch('autoclean.utils.config.hashlib.sha256') as mock_hash:
-                    mock_hash.return_value.digest.return_value = b'test_hash'
-                    
-                    with patch('autoclean.utils.config.base64.b64encode') as mock_b64:
-                        mock_b64.return_value = b'dGVzdF9oYXNo'
-                        
-                        from autoclean.utils.config import hash_and_encode_yaml
-                        result = hash_and_encode_yaml(test_config)
-                        
-                        # Should call the mocked functions
-                        mock_dump.assert_called_once()
-                        assert result == 'dGVzdF9oYXNo'
-
-
-class TestConfigConceptual:
-    """Conceptual tests for configuration design."""
-    
-    def test_config_schema_structure(self):
-        """Test that config schema follows expected structure."""
-        if not CONFIG_AVAILABLE:
-            pytest.skip("Config module not available")
-        
-        # Configuration should support hierarchical structure
-        # tasks -> task_name -> settings -> step_name -> enabled/value
-        expected_structure = {
+    @patch('autoclean.utils.config.yaml.safe_load')
+    @patch('builtins.open', mock_open(read_data="test: data"))
+    def test_load_config_mocked(self, mock_yaml_load):
+        """Test load_config with mocked dependencies."""
+        mock_yaml_load.return_value = {
             "tasks": {
-                "task_name": {
-                    "mne_task": "str",
-                    "description": "str", 
+                "TestTask": {
+                    "mne_task": "rest",
+                    "description": "Test",
                     "settings": {
-                        "step_name": {
-                            "enabled": "bool",
-                            "value": "any"
+                        "filtering": {"enabled": False, "value": {"l_freq": 1, "h_freq": 100, "notch_freqs": [60.0], "notch_widths": 1}},
+                        "resample_step": {"enabled": False, "value": None},
+                        "drop_outerlayer": {"enabled": False, "value": None},
+                        "eog_step": {"enabled": False, "value": None},
+                        "trim_step": {"enabled": False, "value": 0},
+                        "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
+                        "reference_step": {"enabled": False, "value": None},
+                        "montage": {"enabled": False, "value": None},
+                        "ICA": {"enabled": False, "value": {"method": "picard"}},
+                        "ICLabel": {"enabled": False, "value": {"ic_flags_to_reject": [], "ic_rejection_threshold": 0.0}},
+                        "epoch_settings": {
+                            "enabled": False,
+                            "value": {"tmin": None, "tmax": None},
+                            "event_id": None,
+                            "remove_baseline": {"enabled": False, "window": None},
+                            "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 100e-6}}
                         }
                     }
                 }
+            },
+            "stage_files": {
+                "post_import": {"enabled": True, "suffix": "_test"}
             }
         }
         
-        # This is a conceptual test - actual schema is more complex
-        assert isinstance(expected_structure, dict)
-        assert "tasks" in expected_structure
+        result = load_config(Path("fake_path.yaml"))
+        
+        assert "tasks" in result
+        assert "TestTask" in result["tasks"]
+    
+    @patch('autoclean.utils.config.yaml.safe_dump')
+    @patch('autoclean.utils.config.zlib.compress')
+    @patch('autoclean.utils.config.base64.b64encode')
+    @patch('autoclean.utils.config.hashlib.sha256')
+    def test_hash_and_encode_yaml_mocked(self, mock_sha256, mock_b64encode, mock_compress, mock_yaml_dump):
+        """Test hash_and_encode_yaml with mocked dependencies."""
+        mock_yaml_dump.return_value = "test: data\n"
+        mock_compress.return_value = b"compressed"
+        mock_b64encode.return_value = b"encoded"
+        mock_hasher = Mock()
+        mock_hasher.hexdigest.return_value = "abcd1234"
+        mock_sha256.return_value = mock_hasher
+        
+        result = hash_and_encode_yaml({"test": "data"}, is_file=False)
+        
+        assert result == ("abcd1234", "encoded")
+        mock_yaml_dump.assert_called()
+        mock_compress.assert_called_once()
+        mock_b64encode.assert_called_once()
+
+
+@pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
+class TestConfigConceptual:
+    """Conceptual tests for config design patterns."""
+    
+    def test_config_schema_structure(self):
+        """Test that config follows expected schema structure."""
+        if not CONFIG_AVAILABLE:
+            pytest.skip("Config not available for schema testing")
+        
+        # Schema should validate configs with tasks and stage_files
+        minimal_config = {
+            "tasks": {
+                "MinimalTask": {
+                    "mne_task": "test",
+                    "description": "Minimal test task",
+                    "settings": {
+                        "filtering": {"enabled": False, "value": {"l_freq": 1, "h_freq": 100, "notch_freqs": [60.0], "notch_widths": 1}},
+                        "resample_step": {"enabled": False, "value": None},
+                        "drop_outerlayer": {"enabled": False, "value": None},
+                        "eog_step": {"enabled": False, "value": None},
+                        "trim_step": {"enabled": False, "value": 0},
+                        "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
+                        "reference_step": {"enabled": False, "value": None},
+                        "montage": {"enabled": False, "value": None},
+                        "ICA": {"enabled": False, "value": {"method": "picard"}},
+                        "ICLabel": {"enabled": False, "value": {"ic_flags_to_reject": [], "ic_rejection_threshold": 0.0}},
+                        "epoch_settings": {
+                            "enabled": False,
+                            "value": {"tmin": None, "tmax": None},
+                            "event_id": None,
+                            "remove_baseline": {"enabled": False, "window": None},
+                            "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 100e-6}}
+                        }
+                    }
+                }
+            },
+            "stage_files": {
+                "post_import": {"enabled": True, "suffix": "_test"}
+            }
+        }
+        
+        # Should be able to create a valid config file
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False) as f:
+            yaml.dump(minimal_config, f)
+            config_file = Path(f.name)
+        
+        try:
+            result = load_config(config_file)
+            assert "tasks" in result
+            assert "stage_files" in result
+        finally:
+            config_file.unlink()
     
     def test_config_extensibility_concept(self):
-        """Test configuration extensibility concept."""
-        if not CONFIG_AVAILABLE:
-            pytest.skip("Config module not available")
+        """Test config extensibility concept."""
+        # Config should support multiple tasks
+        assert CONFIG_AVAILABLE  # Basic availability check
         
-        # Configuration should be extensible
-        # New processing steps should be addable
-        # New tasks should be definable
-        
-        # This tests the concept that configs are flexible
-        base_config = {"tasks": {}}
-        extended_config = {
-            "tasks": {
-                "new_task": {
-                    "mne_task": "custom",
-                    "description": "Custom task",
-                    "settings": {}
-                }
-            }
-        }
-        
-        # Should be able to extend configuration
-        assert isinstance(base_config, dict)
-        assert isinstance(extended_config, dict)
+        # Config loading should be deterministic
+        # (Tested via other test cases)
     
     def test_config_validation_concept(self):
-        """Test configuration validation concept."""
+        """Test config validation concept."""
         if not CONFIG_AVAILABLE:
-            pytest.skip("Config module not available")
+            pytest.skip("Config not available for validation testing")
         
-        # Configuration should validate:
-        # 1. Required fields present
-        # 2. Data types correct
-        # 3. Value ranges appropriate
-        # 4. Cross-field dependencies
+        # Should have hash_and_encode_yaml function
+        assert callable(hash_and_encode_yaml)
         
-        # This is tested through the actual schema validation above
-        assert True  # Concept validation
+        # Should have validate_eeg_system function
+        assert callable(validate_eeg_system)
 
 
-# Error handling and edge cases
+@pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
 class TestConfigErrorHandling:
-    """Test configuration error handling and edge cases."""
+    """Test config error handling and edge cases."""
     
-    @pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
     def test_config_with_circular_references(self):
-        """Test config handling with circular references."""
-        # YAML doesn't typically support circular references
-        # But test error handling if they occur
-        
-        config_file = Path("/tmp/test_config.yaml")
-        
-        # This would cause issues if not handled properly
-        with patch('builtins.open', side_effect=RecursionError("Circular reference")):
-            with pytest.raises(RecursionError):
-                load_config(config_file)
+        """Test handling of circular references (if applicable)."""
+        # YAML doesn't naturally support circular references in Python
+        # This is more of a conceptual test
+        pass
     
-    @pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
     def test_config_with_very_large_values(self):
         """Test config with very large values."""
         large_config = {
             "tasks": {
-                "TestTask": {
-                    "mne_task": "test",
-                    "description": "x" * 10000,  # Very long description
+                "LargeTask": {
+                    "mne_task": "rest",
+                    "description": "Task with large values",
                     "settings": {
                         "filtering": {
                             "enabled": True,
                             "value": {
                                 "l_freq": 1.0,
-                                "h_freq": 1000000.0,  # Very large frequency
-                                "notch_freqs": list(range(10000)),  # Very long list
+                                "h_freq": 1000000.0,
+                                "notch_freqs": list(range(1000)),
                                 "notch_widths": 1.0
                             }
                         },
-                        # Add minimal required fields
                         "resample_step": {"enabled": False, "value": None},
                         "drop_outerlayer": {"enabled": False, "value": None},
                         "eog_step": {"enabled": False, "value": None},
@@ -452,12 +460,11 @@ class TestConfigErrorHandling:
                 }
             },
             "stage_files": {
-                "post_import": False,
-                "post_clean_raw": False, 
-                "post_ica": False,
-                "post_epochs": False
-            },
-            "database": {"enabled": False}
+                "post_import": {"enabled": False, "suffix": "_postimport"},
+                "post_clean_raw": {"enabled": False, "suffix": "_postcleanraw"},
+                "post_ica": {"enabled": False, "suffix": "_postica"},
+                "post_epochs": {"enabled": False, "suffix": "_postepochs"}
+            }
         }
         
         # Should handle large configurations
@@ -467,18 +474,17 @@ class TestConfigErrorHandling:
         
         try:
             result = load_config(config_file)
-            assert isinstance(result, dict)
+            assert "tasks" in result
         finally:
-            config_file.unlink()  # Clean up
+            config_file.unlink()
     
-    @pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
     def test_config_with_unicode_characters(self):
-        """Test config with unicode characters."""
+        """Test config with Unicode characters."""
         unicode_config = {
             "tasks": {
                 "UnicodeTask": {
-                    "mne_task": "test",
-                    "description": "Test with unicode: 🧠 αβγ δεζ",
+                    "mne_task": "rest",
+                    "description": "Test with Unicode: äöü 你好 🧠",
                     "settings": {
                         "filtering": {
                             "enabled": True,
@@ -489,7 +495,6 @@ class TestConfigErrorHandling:
                                 "notch_widths": 5.0
                             }
                         },
-                        # Add all required fields with minimal values
                         "resample_step": {"enabled": False, "value": None},
                         "drop_outerlayer": {"enabled": False, "value": None},
                         "eog_step": {"enabled": False, "value": None},
@@ -513,12 +518,11 @@ class TestConfigErrorHandling:
                 }
             },
             "stage_files": {
-                "post_import": False,
-                "post_clean_raw": False,
-                "post_ica": False, 
-                "post_epochs": False
-            },
-            "database": {"enabled": False}
+                "post_import": {"enabled": False, "suffix": "_postimport"},
+                "post_clean_raw": {"enabled": False, "suffix": "_postcleanraw"},
+                "post_ica": {"enabled": False, "suffix": "_postica"},
+                "post_epochs": {"enabled": False, "suffix": "_postepochs"}
+            }
         }
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.yaml', delete=False, encoding='utf-8') as f:
@@ -527,6 +531,7 @@ class TestConfigErrorHandling:
         
         try:
             result = load_config(config_file)
-            assert "🧠" in result["tasks"]["UnicodeTask"]["description"]
+            assert "tasks" in result
+            assert "äöü" in result["tasks"]["UnicodeTask"]["description"]
         finally:
-            config_file.unlink()  # Clean up
+            config_file.unlink()

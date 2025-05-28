@@ -154,21 +154,29 @@ class TestPluginRegistry:
     
     def setup_method(self):
         """Set up clean registry for each test."""
+        from autoclean.io.import_ import _FORMAT_REGISTRY
         self.original_plugin_registry = _PLUGIN_REGISTRY.copy()
+        self.original_format_registry = _FORMAT_REGISTRY.copy()
     
     def teardown_method(self):
         """Restore original registry state."""
+        from autoclean.io.import_ import _FORMAT_REGISTRY
         _PLUGIN_REGISTRY.clear()
         _PLUGIN_REGISTRY.update(self.original_plugin_registry)
+        _FORMAT_REGISTRY.clear()
+        _FORMAT_REGISTRY.update(self.original_format_registry)
     
     def test_register_plugin(self):
         """Test plugin registration."""
-        from autoclean.io.import_ import register_plugin, BaseEEGPlugin
+        from autoclean.io.import_ import register_plugin, BaseEEGPlugin, register_format
+        
+        # First register the test format
+        register_format("test", "TEST_FORMAT")
         
         class TestPlugin(BaseEEGPlugin):
             @classmethod
             def supports_format_montage(cls, format_id: str, montage_name: str) -> bool:
-                return format_id == "TEST_FORMAT" and montage_name == "TEST_MONTAGE"
+                return format_id == "TEST_FORMAT" and montage_name == "GSN-HydroCel-129"
             
             def import_and_configure(self, file_path: Path, autoclean_dict: dict, preload: bool = True):
                 return create_synthetic_raw()
@@ -176,21 +184,25 @@ class TestPluginRegistry:
         # Register plugin
         register_plugin(TestPlugin)
         
-        # Should be in registry
-        assert ("TEST_FORMAT", "TEST_MONTAGE") in _PLUGIN_REGISTRY
-        assert _PLUGIN_REGISTRY[("TEST_FORMAT", "TEST_MONTAGE")] == TestPlugin
+        # Should be in registry with a known montage
+        assert ("TEST_FORMAT", "GSN-HydroCel-129") in _PLUGIN_REGISTRY
+        assert _PLUGIN_REGISTRY[("TEST_FORMAT", "GSN-HydroCel-129")] == TestPlugin
     
     def test_register_plugin_multiple_combinations(self):
         """Test plugin registration for multiple format/montage combinations."""
-        from autoclean.io.import_ import register_plugin, BaseEEGPlugin
+        from autoclean.io.import_ import register_plugin, BaseEEGPlugin, register_format
+        
+        # Register test formats
+        register_format("testa", "FORMAT_A")
+        register_format("testb", "FORMAT_B")
         
         class MultiPlugin(BaseEEGPlugin):
             @classmethod
             def supports_format_montage(cls, format_id: str, montage_name: str) -> bool:
                 supported = [
-                    ("FORMAT_A", "MONTAGE_X"),
-                    ("FORMAT_A", "MONTAGE_Y"),
-                    ("FORMAT_B", "MONTAGE_X")
+                    ("FORMAT_A", "GSN-HydroCel-129"),
+                    ("FORMAT_A", "GSN-HydroCel-124"),
+                    ("FORMAT_B", "standard_1020")
                 ]
                 return (format_id, montage_name) in supported
             
@@ -199,11 +211,11 @@ class TestPluginRegistry:
         
         register_plugin(MultiPlugin)
         
-        # Should register all supported combinations
+        # Should register all supported combinations (using known montages)
         expected_keys = [
-            ("FORMAT_A", "MONTAGE_X"),
-            ("FORMAT_A", "MONTAGE_Y"), 
-            ("FORMAT_B", "MONTAGE_X")
+            ("FORMAT_A", "GSN-HydroCel-129"),
+            ("FORMAT_A", "GSN-HydroCel-124"),
+            ("FORMAT_B", "standard_1020")
         ]
         
         for key in expected_keys:
@@ -212,12 +224,15 @@ class TestPluginRegistry:
     
     def test_register_plugin_override_warning(self):
         """Test warning when overriding existing plugin."""
-        from autoclean.io.import_ import register_plugin, BaseEEGPlugin
+        from autoclean.io.import_ import register_plugin, BaseEEGPlugin, register_format
+        
+        # Register test format
+        register_format("test", "TEST_FORMAT")
         
         class Plugin1(BaseEEGPlugin):
             @classmethod
             def supports_format_montage(cls, format_id: str, montage_name: str) -> bool:
-                return format_id == "TEST_FORMAT" and montage_name == "TEST_MONTAGE"
+                return format_id == "TEST_FORMAT" and montage_name == "GSN-HydroCel-129"
             
             def import_and_configure(self, file_path: Path, autoclean_dict: dict, preload: bool = True):
                 return create_synthetic_raw()
@@ -225,7 +240,7 @@ class TestPluginRegistry:
         class Plugin2(BaseEEGPlugin):
             @classmethod
             def supports_format_montage(cls, format_id: str, montage_name: str) -> bool:
-                return format_id == "TEST_FORMAT" and montage_name == "TEST_MONTAGE"
+                return format_id == "TEST_FORMAT" and montage_name == "GSN-HydroCel-129"
             
             def import_and_configure(self, file_path: Path, autoclean_dict: dict, preload: bool = True):
                 return create_synthetic_raw()
@@ -236,7 +251,7 @@ class TestPluginRegistry:
             
             # Should log warning about override
             mock_message.assert_any_call("warning", 
-                "Overriding existing plugin for (TEST_FORMAT, TEST_MONTAGE)")
+                "Overriding existing plugin for TEST_FORMAT, GSN-HydroCel-129")
 
 
 @pytest.mark.skipif(not IMPORT_AVAILABLE, reason="Import module not available")
