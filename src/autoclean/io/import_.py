@@ -153,7 +153,7 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
         raise TypeError(f"Plugin must inherit from BaseEEGPlugin, got {plugin_class}")
 
     # Create an instance to test supported combinations
-    plugin_instance = plugin_class()
+    plugin_instance = plugin_class()  # noqa: F841
 
     # Check each format and montage combination
     for format_id in list(_CORE_FORMATS.values()) + list(_FORMAT_REGISTRY.values()):
@@ -479,7 +479,7 @@ def register_event_processor(processor_class: Type[BaseEventProcessor]) -> None:
         )
 
     # Create an instance to test supported tasks
-    processor_instance = processor_class()
+    processor_instance = processor_class()  # noqa: F841
 
     # Test with known tasks
     test_tasks = [

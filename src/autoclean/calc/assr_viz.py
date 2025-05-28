@@ -594,7 +594,6 @@ def plot_stp_channels(
     """
     # Unpack time-frequency data
     single_trial_power = tf_data["single_trial_power"]
-    freqs = tf_data["freqs"]
 
     # Check if we're dealing with an EpochsTFR object
     is_epochs_tfr = hasattr(single_trial_power, "average") and callable(
@@ -724,7 +723,6 @@ def plot_global_mean_stp(
     """
     # Unpack time-frequency data
     single_trial_power = tf_data["single_trial_power"]
-    freqs = tf_data["freqs"]
 
     # Check if we're dealing with an EpochsTFR object
     is_epochs_tfr = hasattr(single_trial_power, "average") and callable(
@@ -1134,7 +1132,6 @@ def group_analysis_heatmaps(
         if data_type == "itc":
             cmap = create_itc_colormap()
             vmin, vmax = 0, 0.4
-            cbar_label = "ITC Value"
             title = f"Group Average ITC (n={n_subjects})"
         elif data_type == "ersp":
             cmap = create_ersp_colormap()
@@ -1143,12 +1140,10 @@ def group_analysis_heatmaps(
             # Ensure symmetrical limits for better visualization
             abs_max = max(abs(vmin), abs(vmax))
             vmin, vmax = -abs_max, abs_max
-            cbar_label = "Power (dB)"
             title = f"Group Average ERSP (n={n_subjects})"
         else:  # STP
             cmap = plt.cm.viridis
             vmin, vmax = np.percentile(group_avg, 5), np.percentile(group_avg, 95)
-            cbar_label = "Power (µV²)"
             title = f"Group Average STP (n={n_subjects})"
 
         # Create global mean figure (average across channels)
