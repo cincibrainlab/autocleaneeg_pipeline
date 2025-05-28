@@ -23,24 +23,8 @@ class TestPipelineInitialization(BaseTestCase):
     
     def test_pipeline_init_with_valid_config(self):
         """Test Pipeline initialization with valid configuration."""
-        config = {
-            "tasks": {
-                "TestTask": {
-                    "mne_task": "rest",
-                    "description": "Test task",
-                    "settings": {
-                        "resample_step": {"enabled": True, "value": 250},
-                        "filtering": {"enabled": True, "value": {"l_freq": 1, "h_freq": 100}}
-                    }
-                }
-            },
-            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
-            "database": {"enabled": False}
-        }
-        
-        config_file = self.temp_dir / "test_config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(config, f)
+        # Use the actual config file for validation
+        config_file = Path(__file__).parent.parent.parent.parent / "configs" / "autoclean_config.yaml"
         
         pipeline = Pipeline(
             autoclean_dir=str(self.autoclean_dir),
@@ -50,7 +34,7 @@ class TestPipelineInitialization(BaseTestCase):
         assert pipeline.autoclean_dir == Path(self.autoclean_dir)
         assert pipeline.config is not None
         assert "tasks" in pipeline.config
-        assert "TestTask" in pipeline.config["tasks"]
+        assert "RestingEyesOpen" in pipeline.config["tasks"]
     
     def test_pipeline_init_invalid_config_path(self):
         """Test Pipeline initialization with invalid config path."""
@@ -108,38 +92,16 @@ class TestPipelineConfiguration:
     
     def test_config_loading_and_validation(self, tmp_path):
         """Test configuration loading and basic validation."""
-        config = {
-            "tasks": {
-                "ValidTask": {
-                    "mne_task": "rest",
-                    "description": "Valid test task",
-                    "settings": {
-                        "resample_step": {"enabled": True, "value": 250},
-                        "filtering": {"enabled": True, "value": {"l_freq": 1, "h_freq": 100}},
-                        "montage": {"enabled": True, "value": "GSN-HydroCel-129"}
-                    }
-                }
-            },
-            "stage_files": {
-                "post_import": {"enabled": True, "suffix": "_postimport"},
-                "post_clean_raw": {"enabled": True, "suffix": "_postcleaning"},
-                "post_ica": {"enabled": False, "suffix": "_postica"},
-                "post_epochs": {"enabled": True, "suffix": "_postepochs"}
-            },
-            "database": {"enabled": False}
-        }
-        
-        config_file = tmp_path / "valid_config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(config, f)
+        # Use the consolidated test config
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         pipeline = Pipeline(
             autoclean_dir=str(tmp_path / "output"),
             autoclean_config=str(config_file)
         )
         
-        assert pipeline.config["tasks"]["ValidTask"]["mne_task"] == "rest"
-        assert pipeline.config["stage_files"]["post_import"] is True
+        assert pipeline.config["tasks"]["TestResting"]["mne_task"] == "rest"
+        assert pipeline.config["stage_files"]["post_import"]["enabled"] is True
         assert pipeline.config["database"]["enabled"] is False
     
     def test_config_with_missing_required_fields(self, tmp_path):
@@ -169,7 +131,8 @@ class TestPipelineFileProcessing:
     @patch('autoclean.core.pipeline.task_registry')
     @patch('autoclean.utils.file_system.step_prepare_directories')
     @patch('autoclean.utils.database.manage_database')
-    def test_process_file_basic_flow(self, mock_db, mock_dirs, mock_registry, tmp_path):
+    @patch('autoclean.utils.config.load_config')
+    def test_process_file_basic_flow(self, mock_load_config, mock_db, mock_dirs, mock_registry, tmp_path):
         """Test basic file processing flow."""
         # Setup mock task
         mock_task_class = Mock()
@@ -177,8 +140,8 @@ class TestPipelineFileProcessing:
         mock_task_class.return_value = mock_task_instance
         mock_registry = {"TestTask": mock_task_class}
         
-        # Setup config
-        config = {
+        # Mock config loading to avoid validation
+        mock_config = {
             "tasks": {
                 "TestTask": {
                     "mne_task": "rest",
@@ -189,10 +152,11 @@ class TestPipelineFileProcessing:
             "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
             "database": {"enabled": False}
         }
+        mock_load_config.return_value = mock_config
         
+        # Create test config file (content doesn't matter due to mocking)
         config_file = tmp_path / "config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(config, f)
+        config_file.write_text("tasks: {}")
         
         # Create test data file
         test_file = tmp_path / "test_data.fif"
@@ -214,21 +178,8 @@ class TestPipelineFileProcessing:
     
     def test_process_file_invalid_task(self, tmp_path):
         """Test processing with invalid task name."""
-        config = {
-            "tasks": {
-                "ValidTask": {
-                    "mne_task": "rest",
-                    "description": "Valid task",
-                    "settings": {}
-                }
-            },
-            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
-            "database": {"enabled": False}
-        }
-        
-        config_file = tmp_path / "config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(config, f)
+        # Use consolidated test config
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         pipeline = Pipeline(
             autoclean_dir=str(tmp_path / "output"),
@@ -247,21 +198,8 @@ class TestPipelineFileProcessing:
     
     def test_process_file_nonexistent_file(self, tmp_path):
         """Test processing with non-existent file."""
-        config = {
-            "tasks": {
-                "TestTask": {
-                    "mne_task": "rest",
-                    "description": "Test task",
-                    "settings": {}
-                }
-            },
-            "stage_files": {"post_import": {"enabled": True, "suffix": "_postimport"}},
-            "database": {"enabled": False}
-        }
-        
-        config_file = tmp_path / "config.yaml"
-        with open(config_file, 'w') as f:
-            yaml.dump(config, f)
+        # Use consolidated test config
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         pipeline = Pipeline(
             autoclean_dir=str(tmp_path / "output"),
@@ -272,7 +210,7 @@ class TestPipelineFileProcessing:
         with pytest.raises((FileNotFoundError, IOError)):
             pipeline.process_file(
                 file_path="/nonexistent/file.fif",
-                task="TestTask"
+                task="TestResting"
             )
 
 
@@ -282,8 +220,8 @@ class TestPipelineUtilityMethods:
     
     def test_pipeline_string_representation(self, tmp_path):
         """Test string representation of Pipeline."""
-        config_file = tmp_path / "config.yaml"
-        config_file.write_text("tasks: {}")
+        # Use consolidated test config
+        config_file = Path(__file__).parent.parent.parent / "fixtures" / "configs" / "test_config.yaml"
         
         pipeline = Pipeline(
             autoclean_dir=str(tmp_path / "output"),

@@ -1,0 +1,307 @@
+# Comprehensive test configuration for all testing scenarios
+tasks:
+  # Basic resting state task (fast testing)
+  TestResting:
+    mne_task: "rest"
+    description: "Basic test resting state task"
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+          notch_widths: 5
+      
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+        value: []
+      
+      trim_step:
+        enabled: true
+        value: 2
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0
+          end: null
+      
+      reference_step:
+        enabled: true
+        value: "average"
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+      
+      ICA:
+        enabled: false  # Disabled for fast testing
+        value:
+          method: picard
+          n_components: 15
+      
+      ICLabel:
+        enabled: false
+        value:
+          ic_flags_to_reject: ["muscle", "heart"]
+          ic_rejection_threshold: 0.5
+      
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: -1
+          tmax: 1
+        event_id: null
+        remove_baseline:
+          enabled: false
+          window: null
+        threshold_rejection:
+          enabled: true
+          volt_threshold:
+            eeg: 125e-6
+
+  # Chirp task for event-based testing
+  TestChirp:
+    mne_task: "chirp"
+    description: "Basic test chirp task"
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+          notch_widths: 5
+      
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+        value: []
+      
+      trim_step:
+        enabled: false
+        value: 2
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0
+          end: null
+      
+      reference_step:
+        enabled: true
+        value: "average"
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+      
+      ICA:
+        enabled: false
+        value:
+          method: picard
+          n_components: 15
+      
+      ICLabel:
+        enabled: false
+        value:
+          ic_flags_to_reject: ["muscle", "heart"]
+          ic_rejection_threshold: 0.5
+        
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: -0.1
+          tmax: 0.5
+        event_id: {"chirp": 1}
+        remove_baseline:
+          enabled: false
+          window: null
+        threshold_rejection:
+          enabled: true
+          volt_threshold:
+            eeg: 125e-6
+
+  # Comprehensive task with full processing (for integration tests)
+  TestComprehensive:
+    mne_task: "rest"
+    description: "Full processing pipeline test"
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_widths: 5
+      
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+        value: []
+      
+      trim_step:
+        enabled: true
+        value: 2
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0
+          end: null
+      
+      reference_step:
+        enabled: true
+        value: "average"
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+      
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: 15  # Small number for testing
+          fit_params:
+            ortho: false
+            extended: true
+      
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+          ic_rejection_threshold: 0.5  # More lenient for synthetic data
+      
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: -1
+          tmax: 1
+        event_id: null
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: true
+          volt_threshold:
+            eeg: 125e-6
+
+  # MMN task for event processing tests
+  TestMMN:
+    mne_task: "mmn"
+    description: "Full MMN processing test"
+    settings:
+      resample_step:
+        enabled: true
+        value: 250
+      
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs: [60]
+          notch_widths: 5
+      
+      drop_outerlayer:
+        enabled: false
+        value: []
+      
+      eog_step:
+        enabled: false
+        value: []
+      
+      trim_step:
+        enabled: true
+        value: 2
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0
+          end: null
+      
+      reference_step:
+        enabled: true
+        value: "average"
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"
+      
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: 15
+      
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+          ic_rejection_threshold: 0.5
+      
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: -0.2
+          tmax: 0.5
+        event_id: {"standard": 1, "deviant": 2}
+        remove_baseline:
+          enabled: true
+          window: [-0.2, 0]
+        threshold_rejection:
+          enabled: true
+          volt_threshold:
+            eeg: 100e-6
+
+# Stage files configuration for testing
+stage_files:
+  post_import:
+    enabled: true
+    suffix: "_postimport"
+  post_clean_raw:
+    enabled: true
+    suffix: "_postcleaning"
+  post_ica:
+    enabled: true
+    suffix: "_postica"
+  post_epochs:
+    enabled: true
+    suffix: "_postepochs"
+
+# Database configuration (minimal for testing)
+database:
+  enabled: false
