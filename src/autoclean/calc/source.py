@@ -1,9 +1,15 @@
+import logging
+import os
+
+import h5py
 import matplotlib
 import mne
+import numpy as np
+from joblib import Parallel, delayed
+from scipy import signal
+from tqdm import tqdm
 
-from autoclean.io.export import (
-    save_stc_to_file,
-)
+from autoclean.io.export import save_stc_to_file
 
 
 def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):
@@ -28,8 +34,6 @@ def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):
     from mne.datasets import fetch_fsaverage
 
     fs_dir = fetch_fsaverage()
-    subjects_dir = fs_dir.parent
-    subject = "fsaverage"
     trans = "fsaverage"
     src = mne.read_source_spaces(f"{fs_dir}/bem/fsaverage-ico-5-src.fif")
     bem = mne.read_bem_solution(f"{fs_dir}/bem/fsaverage-5120-5120-5120-bem-sol.fif")
@@ -88,8 +92,6 @@ def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None):
     from mne.datasets import fetch_fsaverage
 
     fs_dir = fetch_fsaverage()
-    subjects_dir = fs_dir.parent
-    subject = "fsaverage"
     trans = "fsaverage"
     src = mne.read_source_spaces(f"{fs_dir}/bem/fsaverage-ico-5-src.fif")
     bem = mne.read_bem_solution(f"{fs_dir}/bem/fsaverage-5120-5120-5120-bem-sol.fif")
@@ -1080,7 +1082,6 @@ def calculate_source_connectivity(
         Path to the saved summary file
     """
     import itertools
-    import logging
     import traceback
 
     import mne
@@ -1456,7 +1457,6 @@ def test_connectivity_function_list():
     Returns:
         bool: True if test passes, False otherwise
     """
-    import logging
     import tempfile
 
     import mne
@@ -1467,7 +1467,6 @@ def test_connectivity_function_list():
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    logger = logging.getLogger("connectivity")
 
     print("Running connectivity function test with simulated data...")
 
@@ -1659,7 +1658,6 @@ def calculate_source_connectivity_list(
         Path to the saved summary file
     """
     import itertools
-    import logging
     import time
     import traceback
 
@@ -2080,7 +2078,6 @@ def test_connectivity_function():
     Returns:
         bool: True if test passes, False otherwise
     """
-    import logging
     import tempfile
 
     import mne
@@ -2091,7 +2088,6 @@ def test_connectivity_function():
         level=logging.INFO,
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
-    logger = logging.getLogger("connectivity")
 
     print("Running connectivity function test with simulated data...")
 
@@ -2282,7 +2278,6 @@ def calculate_aec_connectivity(
         Dictionary containing connectivity matrices for each frequency band
     """
     import itertools
-    import logging
     import time
 
     import mne
@@ -2849,21 +2844,6 @@ def calculate_source_pac(
     return pac_df, file_path
 
 
-import logging
-import os
-
-import h5py
-import mne
-import numpy as np
-from joblib import Parallel, delayed
-from scipy import signal
-from tqdm import tqdm
-
-logging.basicConfig(
-    level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-
 def calculate_vertex_level_spectral_power_list(
     stc_list, bands=None, n_jobs=10, output_dir=None, subject_id=None
 ):
@@ -2891,7 +2871,6 @@ def calculate_vertex_level_spectral_power_list(
     file_path : str
         Path to the saved vertex power file
     """
-    import logging
 
     import matplotlib.pyplot as plt
     import numpy as np
@@ -3933,9 +3912,7 @@ def visualize_fooof_results(
             """Custom function to plot FOOOF fits on linear or log scale"""
             # Get data from FOOOF model
             ap_fit = fm._ap_fit
-            peak_fit = fm._peak_fit
             model_fit = fm.fooofed_spectrum_
-            freq_range = fm.freq_range
             freqs = fm.freqs
             power_spectrum = fm.power_spectrum
 
@@ -4406,7 +4383,6 @@ def calculate_vertex_peak_frequencies(
     def dickinson_method_vertex(powers, vertex_idx):
         log_powers = np.log10(powers)
         log_trend = model_1f_trend(freqs, powers)
-        detrended_log_powers_raw = log_powers - log_trend
         detrended_log_powers = enhanced_smooth_spectrum(log_powers - log_trend)
 
         # Focus on alpha range
@@ -4466,7 +4442,7 @@ def calculate_vertex_peak_frequencies(
                             "r_squared": r_squared,
                             "status": "SUCCESS",
                         }
-                except:
+                except Exception:
                     continue
 
         # If no valid fit found, use the max peak in the alpha range
@@ -4697,7 +4673,6 @@ def convert_stc_to_eeg(
 
     # Get data properties
     n_regions = len(labels)
-    n_times = stc.data.shape[1]
     sfreq = (
         1.0 / stc.tstep if hasattr(stc, "tstep") else 1000.0
     )  # Default 1000Hz if not available
@@ -4840,7 +4815,6 @@ def convert_stc_list_to_eeg(
     # Get data properties from the first stc
     n_epochs = len(stc_list)
     n_regions = len(labels)
-    n_times = n_times_list[0]
     sfreq = 1.0 / stc_list[0].tstep
     ch_names = [label.name for label in labels]
 

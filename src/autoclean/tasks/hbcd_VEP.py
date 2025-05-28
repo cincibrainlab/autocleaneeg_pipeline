@@ -104,7 +104,7 @@ class HBCD_VEP(Task):  # pylint: disable=invalid-name
             "post_comp",
         ]
 
-        for stage in required_stages:
+        for stage in self.required_stages:
             if stage not in config["stage_files"]:
                 raise ValueError(f"Missing stage in stage_files: {stage}")
             stage_config = config["stage_files"][stage]
