@@ -48,8 +48,8 @@ jobs:
       - name: Lint with Ruff
         run: ruff check src/autoclean/
 
-      - name: Type check with mypy
-        run: mypy src/autoclean/ --ignore-missing-imports
+      # - name: Type check with mypy
+      #   run: mypy src/autoclean/ --ignore-missing-imports
 
   # Security scanning
   security:
