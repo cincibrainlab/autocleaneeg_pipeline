@@ -1,8 +1,8 @@
 """Mixin for BIDS functions."""
 
-
 from datetime import datetime
 from typing import Any, Dict, Tuple
+
 import mne
 
 from autoclean.utils.bids import step_convert_to_bids
@@ -12,9 +12,11 @@ from autoclean.utils.logging import message
 class BIDSMixin:
     """Mixin for BIDS functions."""
 
-    def create_bids_path(self, use_epochs: bool = False) -> Tuple[mne.io.Raw, Dict[str, Any]]:
+    def create_bids_path(
+        self, use_epochs: bool = False
+    ) -> Tuple[mne.io.Raw, Dict[str, Any]]:
         """Create BIDS-compliant paths."""
-        
+
         message("header", "step_create_bids_path")
         unprocessed_file = self.config["unprocessed_file"]
         task = self.config["task"]
@@ -24,9 +26,14 @@ class BIDSMixin:
         config_file = self.config["config_file"]
 
         try:
-            line_freq = self.config["tasks"][task]["settings"]["filtering"]["value"]["notch_freqs"][0]
+            line_freq = self.config["tasks"][task]["settings"]["filtering"]["value"][
+                "notch_freqs"
+            ][0]
         except Exception as e:  # pylint: disable=broad-except
-            message("error", f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.")
+            message(
+                "error",
+                f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
+            )
             line_freq = 60.0
 
         if use_epochs:

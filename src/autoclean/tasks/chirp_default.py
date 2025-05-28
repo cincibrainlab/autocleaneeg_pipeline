@@ -5,9 +5,8 @@ from typing import Any, Dict
 
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
+from autoclean.step_functions.continuous import step_create_bids_path
+
 
 class ChirpDefault(Task):
     """Task implementation for chirp EEG preprocessing."""
@@ -80,7 +79,7 @@ class ChirpDefault(Task):
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method="interpolate", reset_bads=True)
 
         self.rereference_data()
 
@@ -104,7 +103,7 @@ class ChirpDefault(Task):
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_eventid_epochs() 
+        self.create_eventid_epochs()
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()

@@ -80,7 +80,7 @@ class RestingStateEventProcessor(BaseEventProcessor):
                     description=[
                         description_format.format(condition=condition.lower())
                     ],
-                ) 
+                )
 
                 # Append to existing annotations
                 if len(raw.annotations) > 0:

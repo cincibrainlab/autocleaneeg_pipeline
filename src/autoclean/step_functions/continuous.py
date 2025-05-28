@@ -1,4 +1,4 @@
-#./src/autoclean/step_functions/continuous.py
+# ./src/autoclean/step_functions/continuous.py
 """Continuous preprocessing steps."""
 # pylint: disable=not-callable
 # pylint: disable=isinstance-second-argument-not-valid-type
@@ -12,6 +12,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
+
 from autoclean.utils.bids import step_convert_to_bids
 from autoclean.utils.database import manage_database
 from autoclean.utils.logging import message
@@ -30,9 +31,14 @@ def step_create_bids_path(
     config_file = autoclean_dict["config_file"]
 
     try:
-        line_freq = autoclean_dict["tasks"][task]["settings"]["filtering"]["value"]["notch_freqs"][0]
+        line_freq = autoclean_dict["tasks"][task]["settings"]["filtering"]["value"][
+            "notch_freqs"
+        ][0]
     except Exception as e:  # pylint: disable=broad-except
-        message("error", f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.")
+        message(
+            "error",
+            f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
+        )
         line_freq = 60.0
 
     try:
@@ -89,7 +95,7 @@ def step_create_bids_path(
         raise e
 
 
-def plot_bad_channels_with_topography( #TODO: Remove this function and add it to viz mixin
+def plot_bad_channels_with_topography(  # TODO: Remove this function and add it to viz mixin
     raw_original, raw_cleaned, autoclean_dict, zoom_duration=30, zoom_start=0
 ):
     """

@@ -7,9 +7,6 @@ from typing import Any, Dict
 # Local imports
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
 
 
 class RestingEyesOpen(Task):
@@ -65,8 +62,10 @@ class RestingEyesOpen(Task):
 
         # Create BIDS-compliant paths and filenames
         self.create_bids_path()
-        
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True) #reset_bads needs to be true if running ICA later
+
+        self.clean_bad_channels(
+            cleaning_method="interpolate", reset_bads=True
+        )  # reset_bads needs to be true if running ICA later
 
         self.rereference_data()
 
@@ -94,7 +93,7 @@ class RestingEyesOpen(Task):
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_regular_epochs() # Using fixed-length epochs
+        self.create_regular_epochs()  # Using fixed-length epochs
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
@@ -105,7 +104,6 @@ class RestingEyesOpen(Task):
 
         # Generate visualization reports
         self.generate_reports()
-
 
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports.

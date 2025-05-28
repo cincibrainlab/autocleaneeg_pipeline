@@ -62,7 +62,9 @@ for module_name, module in _mixin_modules.items():
     mixin_classes = {
         name: obj
         for name, obj in inspect.getmembers(module, inspect.isclass)
-        if "Mixin" in name and obj.__module__ == module.__name__  # Only include directly defined classes, not imported ones
+        if "Mixin" in name
+        and obj.__module__
+        == module.__name__  # Only include directly defined classes, not imported ones
     }
 
     # Add to __all__

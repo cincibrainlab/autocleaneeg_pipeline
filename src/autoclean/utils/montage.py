@@ -26,7 +26,7 @@ def load_valid_montages() -> Dict[str, str]:
         with open(config_path, "r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
             return config["valid_montages"]
-    except Exception as e: # pylint: disable=broad-except
+    except Exception as e:  # pylint: disable=broad-except
         message("error", f"Failed to load montages config: {e}")
         raise
 

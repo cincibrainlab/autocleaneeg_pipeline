@@ -9,6 +9,7 @@ from autoclean.utils.logging import message
 
 class BasicStepsMixin:
     """Mixin class providing basic signal processing steps for autoclean tasks."""
+
     def run_basic_steps(
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
@@ -81,7 +82,7 @@ class BasicStepsMixin:
 
         This method can work with self.raw, self.epochs, or a provided data object.
         It checks the filtering_step toggle in the configuration if no filter_args are provided.
-        
+
         Parameters
         ----------
         data : Optional
@@ -93,7 +94,7 @@ class BasicStepsMixin:
         -------
         inst : instance of mne.io.Raw or mne.io.Epochs
             The filtered data object (same type as input)
-            
+
         Examples
         --------
         >>> #Inside a task class that uses the autoclean framework
@@ -106,7 +107,9 @@ class BasicStepsMixin:
         """
         data = self._get_data_object(data, use_epochs)
 
-        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.base.BaseRaw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         is_enabled, config_value = self._check_step_enabled("filtering")
@@ -189,7 +192,9 @@ class BasicStepsMixin:
         data = self._get_data_object(data, use_epochs)
 
         # Type checking
-        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.base.BaseRaw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         # Access configuration if needed
@@ -239,9 +244,12 @@ class BasicStepsMixin:
             metadata = {
                 "original_sfreq": current_sfreq,
                 "target_sfreq": target_sfreq,
-                "data_type": "raw"
-                if isinstance(data, mne.io.Raw) or isinstance(data, mne.io.base.BaseRaw)
-                else "epochs",
+                "data_type": (
+                    "raw"
+                    if isinstance(data, mne.io.Raw)
+                    or isinstance(data, mne.io.base.BaseRaw)
+                    else "epochs"
+                ),
             }
 
             self._update_metadata("step_resample_data", metadata)
@@ -284,7 +292,7 @@ class BasicStepsMixin:
             The rereferenced data object (same type as input)
 
         Examples
-        --------    
+        --------
         >>> #Inside a task class that uses the autoclean framework
         >>> self.rereference_data()
 
@@ -298,7 +306,9 @@ class BasicStepsMixin:
 
         data = self._get_data_object(data, use_epochs)
 
-        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.base.BaseRaw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         if ref_type is None:
@@ -311,11 +321,16 @@ class BasicStepsMixin:
             ref_type = config_value.get("value", None)
 
             if ref_type is None:
-                message("warning", "Rereferencing value not specified, skipping rereferencing")
+                message(
+                    "warning",
+                    "Rereferencing value not specified, skipping rereferencing",
+                )
                 return data
 
         if ref_type == "average":
-            rereferenced_data = data.copy().set_eeg_reference(ref_type, projection=False)
+            rereferenced_data = data.copy().set_eeg_reference(
+                ref_type, projection=False
+            )
         else:
             rereferenced_data = data.copy().set_eeg_reference(ref_type)
 
@@ -354,7 +369,9 @@ class BasicStepsMixin:
         """
         data = self._get_data_object(data, use_epochs)
 
-        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.base.BaseRaw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         is_enabled, config_value = self._check_step_enabled("drop_outerlayer")
@@ -372,7 +389,8 @@ class BasicStepsMixin:
         channels_to_drop = [ch for ch in outer_layer_channels if ch in data.ch_names]
         if not channels_to_drop:
             message(
-                "info", "Specified outer layer channels not found in data, skipping drop."
+                "info",
+                "Specified outer layer channels not found in data, skipping drop.",
             )
             return data
 
@@ -415,7 +433,9 @@ class BasicStepsMixin:
         """
         data = self._get_data_object(data, use_epochs)
 
-        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.base.BaseRaw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         is_enabled, config_value = self._check_step_enabled("eog_step")
@@ -438,21 +458,29 @@ class BasicStepsMixin:
             ch
             for idx, ch in enumerate(data.ch_names)
             if idx + 1 in eog_channel_indices or ch in eog_channel_indices
-        ] # Handling both indices (1-based) and names
+        ]  # Handling both indices (1-based) and names
 
         eog_channels_map = {
             ch: "eog" for ch in eog_channels_to_set if ch in data.ch_names
         }
 
         if not eog_channels_map:
-            message("warning", "Specified EOG channels not found in data, skipping step.")
+            message(
+                "warning", "Specified EOG channels not found in data, skipping step."
+            )
             return data
 
-        message("header", f"Assigning EOG channel types for: {', '.join(eog_channels_map.keys())}")
+        message(
+            "header",
+            f"Assigning EOG channel types for: {', '.join(eog_channels_map.keys())}",
+        )
         # Process a copy to avoid modifying the original data object directly
         processed_data = data.copy()
         processed_data.set_channel_types(eog_channels_map)
-        message("info", f"EOG channel types assigned for: {', '.join(eog_channels_map.keys())}")
+        message(
+            "info",
+            f"EOG channel types assigned for: {', '.join(eog_channels_map.keys())}",
+        )
 
         # Note: set_channel_types modifies in place, but we operate on a copy.
         # No need to save intermediate step here unless explicitly required,
@@ -490,7 +518,9 @@ class BasicStepsMixin:
         """
         data = self._get_data_object(data, use_epochs)
 
-        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.base.BaseRaw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         is_enabled, config_value = self._check_step_enabled("trim_step")
@@ -518,7 +548,7 @@ class BasicStepsMixin:
                 f"duration ({original_duration}s). Cannot trim.",
             )
             # Consider raising an error or just returning data
-            return data # Return original data to avoid erroring out pipeline
+            return data  # Return original data to avoid erroring out pipeline
 
         tmin = original_start_time + trim_duration_sec
         tmax = original_end_time - trim_duration_sec
@@ -571,7 +601,9 @@ class BasicStepsMixin:
         """
         data = self._get_data_object(data, use_epochs)
 
-        if not isinstance(data, (mne.io.base.BaseRaw, mne.Epochs)):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            data, (mne.io.base.BaseRaw, mne.Epochs)
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Raw or Epochs object")
 
         is_enabled, config_value = self._check_step_enabled("crop_step")
@@ -610,7 +642,9 @@ class BasicStepsMixin:
             )
             return data
 
-        message("header", f"Cropping data duration to range: {tmin:.3f}s to {tmax:.3f}s")
+        message(
+            "header", f"Cropping data duration to range: {tmin:.3f}s to {tmax:.3f}s"
+        )
         processed_data = data.copy().crop(tmin=tmin, tmax=tmax)
         new_duration = processed_data.times[-1] - processed_data.times[0]
         message("info", f"Data cropped. New duration: {new_duration:.3f}s")

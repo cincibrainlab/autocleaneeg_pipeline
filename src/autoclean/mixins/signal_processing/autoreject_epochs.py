@@ -22,6 +22,7 @@ from autoreject import AutoReject
 
 from autoclean.utils.logging import message
 
+
 class AutoRejectEpochsMixin:
     """Mixin class providing functionality to clean epochs using AutoReject.
 
@@ -71,7 +72,7 @@ class AutoRejectEpochsMixin:
             stage_name: Name for saving and metadata tracking
 
         Returns:
-            mne.Epochs: The cleaned epochs object with bad epochs removed 
+            mne.Epochs: The cleaned epochs object with bad epochs removed
             and bad channels interpolated
 
         Raises:
@@ -109,7 +110,9 @@ class AutoRejectEpochsMixin:
         epochs = self._get_epochs_object(epochs)
 
         # Type checking
-        if not isinstance(epochs, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            epochs, mne.Epochs
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Epochs object for AutoReject")
 
         try:

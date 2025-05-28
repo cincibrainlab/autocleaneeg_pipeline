@@ -32,15 +32,9 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
-from reportlab.platypus import (
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-)
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.platypus import Table as ReportLabTable
-from reportlab.platypus import (
-    TableStyle,
-)
+from reportlab.platypus import TableStyle
 
 from autoclean.utils.database import get_run_record, manage_database
 from autoclean.utils.logging import message
@@ -238,7 +232,9 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     data = [
         [
             Paragraph("Import Information", heading_style),
-            Paragraph("Processing Details", heading_style), # Changed from "Preprocessing Parameters"
+            Paragraph(
+                "Processing Details", heading_style
+            ),  # Changed from "Preprocessing Parameters"
         ]
     ]
 
@@ -317,7 +313,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         )
     )
 
-    # Middle column: Processing Details 
+    # Middle column: Processing Details
     processing_details_info = []
     try:
         # Check if JSON summary and processing_details exist
@@ -327,82 +323,114 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             # Ensure current_processing_details is a dictionary
             if isinstance(current_processing_details, dict):
                 # Filter
-                l_freq = current_processing_details.get('l_freq', 'N/A')
-                h_freq = current_processing_details.get('h_freq', 'N/A')
+                l_freq = current_processing_details.get("l_freq", "N/A")
+                h_freq = current_processing_details.get("h_freq", "N/A")
                 filter_display = "N/A"
-                if l_freq != 'N/A' or h_freq != 'N/A':
+                if l_freq != "N/A" or h_freq != "N/A":
                     filter_display = f"{l_freq if l_freq is not None else 'N/A'}-{h_freq if h_freq is not None else 'N/A'} Hz"
                 processing_details_info.append(["Filter", filter_display])
 
                 # Notch
-                notch_freqs_list = current_processing_details.get('notch_freqs', [])
-                notch_freq_display = 'N/A'
+                notch_freqs_list = current_processing_details.get("notch_freqs", [])
+                notch_freq_display = "N/A"
                 actual_notch_freqs = []
                 if isinstance(notch_freqs_list, list):
-                    actual_notch_freqs = [str(f) for f in notch_freqs_list if f is not None]
-                elif isinstance(notch_freqs_list, (int, float, str)) and notch_freqs_list not in [None, '']: # Handle scalar if somehow it's not a list
+                    actual_notch_freqs = [
+                        str(f) for f in notch_freqs_list if f is not None
+                    ]
+                elif isinstance(
+                    notch_freqs_list, (int, float, str)
+                ) and notch_freqs_list not in [
+                    None,
+                    "",
+                ]:  # Handle scalar if somehow it's not a list
                     actual_notch_freqs = [str(notch_freqs_list)]
-                
+
                 if actual_notch_freqs:
                     notch_freq_display = f"{', '.join(actual_notch_freqs)} Hz"
                 processing_details_info.append(["Notch", notch_freq_display])
-                
+
                 # Resample Rate
-                resample_rate = current_processing_details.get('target_sfreq')
-                resample_display = f"{resample_rate} Hz" if resample_rate is not None else "N/A"
+                resample_rate = current_processing_details.get("target_sfreq")
+                resample_display = (
+                    f"{resample_rate} Hz" if resample_rate is not None else "N/A"
+                )
                 processing_details_info.append(["Resample Rate", resample_display])
 
                 # Trim Duration
-                trim_duration = current_processing_details.get('trim_duration')
+                trim_duration = current_processing_details.get("trim_duration")
                 if trim_duration is not None:
-                    processing_details_info.append(["Trim Duration", f"{trim_duration} sec"])
+                    processing_details_info.append(
+                        ["Trim Duration", f"{trim_duration} sec"]
+                    )
 
                 # Crop Info
-                crop_s = current_processing_details.get('crop_start')
-                crop_e = current_processing_details.get('crop_end')
-                crop_d = current_processing_details.get('crop_duration') # from create_json_summary
-                
+                crop_s = current_processing_details.get("crop_start")
+                crop_e = current_processing_details.get("crop_end")
+                crop_d = current_processing_details.get(
+                    "crop_duration"
+                )  # from create_json_summary
+
                 crop_display_val = None
                 if crop_s is not None and crop_e is not None:
                     crop_display_val = f"{crop_s:.2f}s to {crop_e:.2f}s"
                     processing_details_info.append(["Crop Window", crop_display_val])
-                elif crop_d is not None : # if specific start/end aren't there, maybe overall duration is
+                elif (
+                    crop_d is not None
+                ):  # if specific start/end aren't there, maybe overall duration is
                     crop_display_val = f"{crop_d:.2f} sec"
                     processing_details_info.append(["Crop Duration", crop_display_val])
 
-
                 # EOG Channels
-                eog_channels = current_processing_details.get('eog_channels', [])
-                if isinstance(eog_channels, list) and eog_channels: # Only show if present and not empty
-                    processing_details_info.append(["EOG Channels", ", ".join(eog_channels)])
-                
+                eog_channels = current_processing_details.get("eog_channels", [])
+                if (
+                    isinstance(eog_channels, list) and eog_channels
+                ):  # Only show if present and not empty
+                    processing_details_info.append(
+                        ["EOG Channels", ", ".join(eog_channels)]
+                    )
+
                 # Dropped Outer Layer Channels
-                dropped_ch_list = current_processing_details.get('dropped_channels', [])
+                dropped_ch_list = current_processing_details.get("dropped_channels", [])
                 # Ensure dropped_ch_list is a list before calling len()
-                num_dropped = len(dropped_ch_list) if isinstance(dropped_ch_list, list) else 0
-                if num_dropped > 0: # Only show if channels were actually dropped
-                    processing_details_info.append(["Outer Chans Dropped", str(num_dropped)])
+                num_dropped = (
+                    len(dropped_ch_list) if isinstance(dropped_ch_list, list) else 0
+                )
+                if num_dropped > 0:  # Only show if channels were actually dropped
+                    processing_details_info.append(
+                        ["Outer Chans Dropped", str(num_dropped)]
+                    )
 
                 # Reference Type
-                ref_type = current_processing_details.get('ref_type')
-                if ref_type: # Only show if present
+                ref_type = current_processing_details.get("ref_type")
+                if ref_type:  # Only show if present
                     processing_details_info.append(["Reference", str(ref_type)])
-                
+
             else:
-                message("debug", f"json_summary['processing_details'] is not a dictionary: {type(current_processing_details)}")
+                message(
+                    "debug",
+                    f"json_summary['processing_details'] is not a dictionary: {type(current_processing_details)}",
+                )
         else:
             # This case means json_summary or json_summary["processing_details"] is missing.
             # The 'if not processing_details_info:' check below will handle it.
-            message("debug", "processing_details not found in json_summary. 'Processing Details' section will be sparse or N/A.")
+            message(
+                "debug",
+                "processing_details not found in json_summary. 'Processing Details' section will be sparse or N/A.",
+            )
 
     except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error populating 'Processing Details' section: {str(e)}")
-        processing_details_info = [["Error processing details", str(e)]] # Show error in report
+        processing_details_info = [
+            ["Error processing details", str(e)]
+        ]  # Show error in report
 
-    if not processing_details_info: # If after all attempts, it's still empty
+    if not processing_details_info:  # If after all attempts, it's still empty
         processing_details_info = [["Processing data N/A", ""]]
 
-    processing_details_table = ReportLabTable(processing_details_info, colWidths=[1.2 * inch, 2.1 * inch])
+    processing_details_table = ReportLabTable(
+        processing_details_info, colWidths=[1.2 * inch, 2.1 * inch]
+    )
     processing_details_table.setStyle(
         TableStyle(
             [
@@ -411,15 +439,19 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                     "BACKGROUND",
                     (0, 0),
                     (-1, -1),
-                    colors.HexColor("#EFF8F9"), # Light blue background for this section
+                    colors.HexColor(
+                        "#EFF8F9"
+                    ),  # Light blue background for this section
                 ),
             ]
         )
     )
 
     # Add tables to main layout with spacing
-    data.append([import_table, processing_details_table]) 
-    main_table = ReportLabTable(data, colWidths=[2.5 * inch, 3.5 * inch]) # Adjusted for 2 columns
+    data.append([import_table, processing_details_table])
+    main_table = ReportLabTable(
+        data, colWidths=[2.5 * inch, 3.5 * inch]
+    )  # Adjusted for 2 columns
     main_table.setStyle(
         TableStyle(
             [
@@ -779,7 +811,9 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     return pdf_path
 
 
-def update_task_processing_log(summary_dict: Dict[str, Any], flagged_reasons: list[str] = []):
+def update_task_processing_log(
+    summary_dict: Dict[str, Any], flagged_reasons: list[str] = []
+):
     """Update the task-specific processing log CSV file with processing details.
 
 
@@ -1141,7 +1175,9 @@ def create_json_summary(run_id: str) -> dict:
     dropped_channels = []
     if "step_drop_outerlayer" in metadata:
         try:
-            dropped_channels = metadata["step_drop_outerlayer"]["dropped_outer_layer_channels"]
+            dropped_channels = metadata["step_drop_outerlayer"][
+                "dropped_outer_layer_channels"
+            ]
             if dropped_channels is None:
                 dropped_channels = []
             import_details["dropped_channels"] = dropped_channels
@@ -1162,26 +1198,50 @@ def create_json_summary(run_id: str) -> dict:
 
     processing_details = {}
     if "step_filter_data" in metadata:
-        processing_details["h_freq"] = metadata["step_filter_data"]["filter_args"]["h_freq"]
-        processing_details["l_freq"] = metadata["step_filter_data"]["filter_args"]["l_freq"]
-        processing_details["notch_freqs"] = metadata["step_filter_data"]["filter_args"]["notch_freqs"]
-        processing_details["notch_widths"] = metadata["step_filter_data"]["filter_args"]["notch_widths"]
+        processing_details["h_freq"] = metadata["step_filter_data"]["filter_args"][
+            "h_freq"
+        ]
+        processing_details["l_freq"] = metadata["step_filter_data"]["filter_args"][
+            "l_freq"
+        ]
+        processing_details["notch_freqs"] = metadata["step_filter_data"]["filter_args"][
+            "notch_freqs"
+        ]
+        processing_details["notch_widths"] = metadata["step_filter_data"][
+            "filter_args"
+        ]["notch_widths"]
     if "step_resample_data" in metadata:
-        processing_details["resample_rate"] = metadata["step_resample_data"]["target_sfreq"]
+        processing_details["resample_rate"] = metadata["step_resample_data"][
+            "target_sfreq"
+        ]
     if "step_trim_edges" in metadata:
-        processing_details["trim_duration"] = metadata["step_trim_edges"]["trim_duration"]
+        processing_details["trim_duration"] = metadata["step_trim_edges"][
+            "trim_duration"
+        ]
     if "step_crop_duration" in metadata:
-        processing_details["crop_duration"] = metadata["step_crop_duration"]["crop_duration"]
+        processing_details["crop_duration"] = metadata["step_crop_duration"][
+            "crop_duration"
+        ]
         processing_details["crop_start"] = metadata["step_crop_duration"]["crop_start"]
         processing_details["crop_end"] = metadata["step_crop_duration"]["crop_end"]
     if "step_assign_eog_channels" in metadata:
-        processing_details["eog_channels"] = metadata["step_assign_eog_channels"]["assigned_eog_channels"]
+        processing_details["eog_channels"] = metadata["step_assign_eog_channels"][
+            "assigned_eog_channels"
+        ]
     if "step_drop_outerlayer" in metadata:
-        processing_details["dropped_channels"] = metadata["step_drop_outerlayer"]["dropped_outer_layer_channels"]
-        processing_details["original_channel_count"] = metadata["step_drop_outerlayer"]["original_channel_count"]
-        processing_details["new_channel_count"] = metadata["step_drop_outerlayer"]["new_channel_count"]
+        processing_details["dropped_channels"] = metadata["step_drop_outerlayer"][
+            "dropped_outer_layer_channels"
+        ]
+        processing_details["original_channel_count"] = metadata["step_drop_outerlayer"][
+            "original_channel_count"
+        ]
+        processing_details["new_channel_count"] = metadata["step_drop_outerlayer"][
+            "new_channel_count"
+        ]
     if "step_rereference_data" in metadata:
-        processing_details["ref_type"] = metadata["step_rereference_data"]["new_ref_type"]
+        processing_details["ref_type"] = metadata["step_rereference_data"][
+            "new_ref_type"
+        ]
 
     # FIND EXPORT DETAILS
     export_details = {}

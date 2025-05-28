@@ -101,7 +101,9 @@ class PrepareEpochsICAMixin:
         epochs = self._get_data_object(epochs, use_epochs=True)
 
         # Type checking
-        if not isinstance(epochs, mne.Epochs):  # pylint: disable=isinstance-second-argument-not-valid-type
+        if not isinstance(
+            epochs, mne.Epochs
+        ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError("Data must be an MNE Epochs object for ICA preparation")
 
         try:

@@ -8,13 +8,10 @@ from typing import Any, Dict
 from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
-from autoclean.step_functions.continuous import (
-    step_create_bids_path,
-)
+from autoclean.step_functions.continuous import step_create_bids_path
 
 
-
-class BB_Long(Task): # pylint: disable=invalid-name
+class BB_Long(Task):  # pylint: disable=invalid-name
     """Task implementation for resting state EEG preprocessing."""
 
     def __init__(self, config: Dict[str, Any]):
@@ -42,7 +39,9 @@ class BB_Long(Task): # pylint: disable=invalid-name
         # Create BIDS-compliant paths and filenames
         self.raw, self.config = step_create_bids_path(self.raw, self.config)
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True) #reset_bads needs to be true if running ICA later
+        self.clean_bad_channels(
+            cleaning_method="interpolate", reset_bads=True
+        )  # reset_bads needs to be true if running ICA later
 
         self.rereference_data()
 
@@ -66,7 +65,7 @@ class BB_Long(Task): # pylint: disable=invalid-name
         )
 
         # --- EPOCHING BLOCK START ---
-        self.create_regular_epochs() # Using fixed-length epochs
+        self.create_regular_epochs()  # Using fixed-length epochs
 
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
@@ -136,7 +135,7 @@ class BB_Long(Task): # pylint: disable=invalid-name
         # Validate stage_files structure
         required_stages = [
             "post_import",
-            "post_basic_steps", #filtering, cropping, trimming, etc.
+            "post_basic_steps",  # filtering, cropping, trimming, etc.
             "post_cleaned_raw",
             "post_comp",
         ]

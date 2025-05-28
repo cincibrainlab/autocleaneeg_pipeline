@@ -9,8 +9,10 @@ from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 
+
 class MouseXdatResting(Task):
     """Mouse XDAT Resting State Task"""
+
     def __init__(self, config: Dict[str, Any]):
         """Initialize a new task instance.
 
