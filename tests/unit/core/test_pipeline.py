@@ -147,7 +147,8 @@ class TestPipelineUtilityMethods:
         
         stage_files = pipeline.list_stage_files()
         assert isinstance(stage_files, list)
-        expected_stages = ["post_import", "post_basic_steps", "post_clean_raw", "post_ica", "post_epochs", "post_comp"]
+        # Check that some key stages are present (those enabled in config)
+        expected_stages = ["post_import", "post_filter", "post_basic_steps", "post_bad_channels", "post_clean_raw", "post_epochs", "post_comp"]
         for stage in expected_stages:
             assert stage in stage_files
 
