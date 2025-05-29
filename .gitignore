@@ -63,3 +63,5 @@ examples/single_file.py
 /docs/api_reference/generated
 /ica_vision_test_output
 examples/batch_run.py
+/.claude
+/.claude
