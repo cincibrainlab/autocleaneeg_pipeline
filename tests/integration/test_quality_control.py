@@ -155,10 +155,10 @@ class TestQualityControlThresholds:
         with patch.multiple(
             'autoclean.mixins.signal_processing.ica.IcaMixin',
             run_ica=MockOperations.mock_ica,
-            apply_ica=MockOperations.mock_apply_ica
+            apply_iclabel_rejection=MockOperations.mock_apply_ica
         ), patch.multiple(
-            'autoclean.mixins.signal_processing.autoreject_epochs.AutorejectEpochsMixin',
-            run_autoreject=MockOperations.mock_autoreject,
+            'autoclean.mixins.signal_processing.autoreject_epochs.AutoRejectEpochsMixin',
+            
             apply_autoreject=MockOperations.mock_apply_autoreject
         ):
             yield
@@ -413,7 +413,7 @@ class TestAutomaticFlagging:
             with patch.multiple(
                 'autoclean.mixins.signal_processing.ica.IcaMixin',
                 run_ica=MockOperations.mock_ica,
-                apply_ica=MockOperations.mock_apply_ica
+                apply_iclabel_rejection=MockOperations.mock_apply_ica
             ):
                 pipeline = Pipeline(
                     autoclean_dir=temp_workspace / "output",
@@ -462,7 +462,7 @@ class TestAutomaticFlagging:
             with patch.multiple(
                 'autoclean.mixins.signal_processing.ica.IcaMixin',
                 run_ica=MockOperations.mock_ica,
-                apply_ica=MockOperations.mock_apply_ica
+                apply_iclabel_rejection=MockOperations.mock_apply_ica
             ):
                 pipeline = Pipeline(
                     autoclean_dir=temp_workspace / "output",
@@ -566,7 +566,7 @@ class TestVisualizationGeneration:
                  patch.multiple(
                      'autoclean.mixins.signal_processing.ica.IcaMixin',
                      run_ica=MockOperations.mock_ica,
-                     apply_ica=MockOperations.mock_apply_ica
+                     apply_iclabel_rejection=MockOperations.mock_apply_ica
                  ):
                 
                 pipeline = Pipeline(
@@ -621,7 +621,7 @@ class TestVisualizationGeneration:
             with patch.multiple(
                 'autoclean.mixins.signal_processing.ica.IcaMixin',
                 run_ica=MockOperations.mock_ica,
-                apply_ica=MockOperations.mock_apply_ica
+                apply_iclabel_rejection=MockOperations.mock_apply_ica
             ):
                 pipeline = Pipeline(
                     autoclean_dir=temp_workspace / "output",
