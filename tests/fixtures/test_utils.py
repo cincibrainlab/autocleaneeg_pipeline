@@ -285,6 +285,31 @@ class MockOperations:
         # Pick channels to mark as bad (avoid first and last for consistency)
         bad_indices = np.linspace(1, len(raw.ch_names)-2, n_bad, dtype=int)
         return [raw.ch_names[i] for i in bad_indices]
+    
+    @staticmethod
+    def mock_ica(raw: Raw, n_components: int = 15):
+        """Mock ICA fitting for integration tests."""
+        return MockOperations.mock_ica_fit(raw, n_components)
+    
+    @staticmethod
+    def mock_apply_ica(raw: Raw, ica_object=None, exclude=None):
+        """Mock ICA application."""
+        return raw.copy()
+    
+    @staticmethod
+    def mock_autoreject(epochs, verbose=False):
+        """Mock autoreject for integration tests."""
+        return MockOperations.mock_autoreject_fit(epochs, verbose)
+    
+    @staticmethod
+    def mock_apply_autoreject(epochs, autoreject_object=None):
+        """Mock autoreject application."""
+        return MockOperations.mock_autoreject_fit(epochs)
+    
+    @staticmethod
+    def mock_ransac(raw: Raw, n_bad: int = 2):
+        """Mock RANSAC for integration tests."""
+        return MockOperations.mock_ransac_channels(raw, n_bad)
 
 
 def setup_test_data_files(test_data_dir: Path) -> Dict[str, Path]:
