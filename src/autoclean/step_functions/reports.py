@@ -1095,8 +1095,8 @@ def create_json_summary(run_id: str) -> dict:
     metadata = run_record.get("metadata", {})
 
     # Create a JSON summary of the metadata
-    if "step_convert_to_bids" in run_record["metadata"]:
-        bids_info = run_record["metadata"]["step_convert_to_bids"]
+    if "step_create_bids_path" in run_record["metadata"]:
+        bids_info = run_record["metadata"]["step_create_bids_path"]
         derivatives_dir = Path(bids_info["derivatives_dir"])
     else:
         message(
