@@ -44,6 +44,10 @@ ENV/
 *.log
 logs/
 
+# Test data
+tests/fixtures/data/*.fif
+tests/fixtures/data/corrupted/*.fif
+
 # EEGLAB temporary files
 *.m~
 *.asv 
