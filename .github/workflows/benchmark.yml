@@ -49,6 +49,13 @@ jobs:
             -v
         continue-on-error: true
 
+      - name: Clean up test data before benchmark storage
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git status
+          git clean -fd tests/fixtures/data/ || true
+          git stash || true
+
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
         if: github.ref == 'refs/heads/main'

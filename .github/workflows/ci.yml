@@ -158,16 +158,7 @@ jobs:
           "
 
       - name: Run unit tests with coverage
-        run: |
-          pytest tests/unit/ \
-            --cov=autoclean \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=15 \
-            -v \
-            --tb=short \
-            --maxfail=10 \
-            -x
+        run: pytest tests/unit/ --cov=autoclean --cov-report=xml --cov-report=term-missing --cov-fail-under=15 -v --tb=short --maxfail=10 -x
 
       - name: Upload coverage reports
         uses: codecov/codecov-action@v5
