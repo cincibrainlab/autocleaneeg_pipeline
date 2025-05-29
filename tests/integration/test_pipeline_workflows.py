@@ -116,10 +116,10 @@ class TestPipelineWorkflows:
         with patch.multiple(
             'autoclean.mixins.signal_processing.ica.IcaMixin',
             run_ica=MockOperations.mock_ica,
-            apply_ica=MockOperations.mock_apply_ica
+            apply_iclabel_rejection=MockOperations.mock_apply_ica
         ), patch.multiple(
-            'autoclean.mixins.signal_processing.autoreject_epochs.AutorejectEpochsMixin',
-            run_autoreject=MockOperations.mock_autoreject,
+            'autoclean.mixins.signal_processing.autoreject_epochs.AutoRejectEpochsMixin',
+            
             apply_autoreject=MockOperations.mock_apply_autoreject
         ), patch.multiple(
             'autoclean.mixins.signal_processing.basic_steps.BasicStepsMixin',
@@ -432,7 +432,7 @@ class TestPipelineMemoryAndPerformance:
         with patch.multiple(
             'autoclean.mixins.signal_processing.ica.IcaMixin',
             run_ica=MockOperations.mock_ica,
-            apply_ica=MockOperations.mock_apply_ica
+            apply_iclabel_rejection=MockOperations.mock_apply_ica
         ):
             try:
                 pipeline = Pipeline(
@@ -492,7 +492,7 @@ class TestPipelineMemoryAndPerformance:
         with patch.multiple(
             'autoclean.mixins.signal_processing.ica.IcaMixin',
             run_ica=MockOperations.mock_ica,
-            apply_ica=MockOperations.mock_apply_ica
+            apply_iclabel_rejection=MockOperations.mock_apply_ica
         ):
             try:
                 pipeline = Pipeline(

@@ -85,10 +85,10 @@ class TestBIDSStructureGeneration:
         with patch.multiple(
             'autoclean.mixins.signal_processing.ica.IcaMixin',
             run_ica=MockOperations.mock_ica,
-            apply_ica=MockOperations.mock_apply_ica
+            apply_iclabel_rejection=MockOperations.mock_apply_ica
         ), patch.multiple(
-            'autoclean.mixins.signal_processing.autoreject_epochs.AutorejectEpochsMixin',
-            run_autoreject=MockOperations.mock_autoreject,
+            'autoclean.mixins.signal_processing.autoreject_epochs.AutoRejectEpochsMixin',
+            
             apply_autoreject=MockOperations.mock_apply_autoreject
         ):
             yield
@@ -295,7 +295,7 @@ class TestStageFileGeneration:
             with patch.multiple(
                 'autoclean.mixins.signal_processing.ica.IcaMixin',
                 run_ica=MockOperations.mock_ica,
-                apply_ica=MockOperations.mock_apply_ica
+                apply_iclabel_rejection=MockOperations.mock_apply_ica
             ):
                 pipeline = Pipeline(
                     autoclean_dir=temp_workspace / "output",
@@ -345,7 +345,7 @@ class TestStageFileGeneration:
             with patch.multiple(
                 'autoclean.mixins.signal_processing.ica.IcaMixin',
                 run_ica=MockOperations.mock_ica,
-                apply_ica=MockOperations.mock_apply_ica
+                apply_iclabel_rejection=MockOperations.mock_apply_ica
             ):
                 pipeline = Pipeline(
                     autoclean_dir=temp_workspace / "output",
@@ -454,7 +454,7 @@ class TestOutputFormats:
             with patch.multiple(
                 'autoclean.mixins.signal_processing.ica.IcaMixin',
                 run_ica=MockOperations.mock_ica,
-                apply_ica=MockOperations.mock_apply_ica
+                apply_iclabel_rejection=MockOperations.mock_apply_ica
             ):
                 pipeline = Pipeline(
                     autoclean_dir=temp_workspace / "output",
