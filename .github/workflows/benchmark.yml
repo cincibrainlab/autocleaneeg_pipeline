@@ -43,7 +43,7 @@ jobs:
 
       - name: Run performance benchmarks
         run: |
-          pytest tests/unit/test_synthetic_data.py::test_synthetic_data_generation_performance \
+          pytest tests/performance/benchmark_eeg_processing.py::TestEEGProcessingBenchmarks::test_synthetic_data_generation_performance \
             --benchmark-only \
             --benchmark-json=benchmark_results.json \
             -v

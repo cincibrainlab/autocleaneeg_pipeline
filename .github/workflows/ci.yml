@@ -154,7 +154,7 @@ jobs:
           python -c "
           from tests.fixtures.synthetic_data import generate_all_test_data
           generate_all_test_data()
-          print('✅ Synthetic test data generated successfully')
+          print('Synthetic test data generated successfully')
           "
 
       - name: Run unit tests with coverage
