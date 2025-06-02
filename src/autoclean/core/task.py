@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 # Third-party imports
 import mne  # Core EEG processing library for data containers and processing
 
-from autoclean.io.export import save_raw_to_set
+from autoclean.io.export import save_raw_to_set, save_epochs_to_set
 from autoclean.io.import_ import import_eeg
 
 # Local imports
@@ -95,6 +95,25 @@ class Task(ABC, *DISCOVERED_MIXINS):
             ]
         save_raw_to_set(
             raw=self.raw,
+            autoclean_dict=self.config,
+            stage="post_import",
+            flagged=self.flagged,
+        )
+
+    def import_epochs(self) -> None:
+        """Import the epochs from file.
+
+        Notes
+        -----
+        Imports data using the configured import function and saves the imported 
+        data as a post-import stage file.
+
+        """
+
+        self.epochs = import_eeg(self.config)
+
+        save_epochs_to_set(
+            epochs=self.epochs,
             autoclean_dict=self.config,
             stage="post_import",
             flagged=self.flagged,

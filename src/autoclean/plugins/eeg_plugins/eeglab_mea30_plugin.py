@@ -39,9 +39,15 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
 
         try:
             # Step 1: Import the .set file
-            raw = mne.io.read_raw_eeglab(
-                input_fname=file_path, preload=preload, verbose=True
-            )
+            try:
+                raw = mne.io.read_raw_eeglab(
+                    input_fname=file_path, preload=preload, verbose=True
+                )
+            except ValueError as e:
+                if "trials" in str(e) and "read_epochs_eeglab" in str(e):
+                    raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
+                else:
+                    raise e
             message("success", "Successfully loaded .set file")
 
             # Step 2: Configure the MEA30 montage
