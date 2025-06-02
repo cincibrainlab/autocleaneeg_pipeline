@@ -308,7 +308,7 @@ def import_eeg(
             unprocessed_file, autoclean_dict, preload
         )
 
-        is_epochs = isinstance(eeg_data, mne.Epochs)
+        is_epochs = isinstance(eeg_data, mne.BaseEpochs)
 
         # Process events if we have Raw data
         events = event_dict = events_df = None
@@ -377,6 +377,7 @@ def import_eeg(
                     "tmin": eeg_data.tmin,
                     "tmax": eeg_data.tmax,
                     "baseline": eeg_data.baseline,
+                    "durationSec": len(eeg_data) * (eeg_data.tmax - eeg_data.tmin),
                 }
             )
 
