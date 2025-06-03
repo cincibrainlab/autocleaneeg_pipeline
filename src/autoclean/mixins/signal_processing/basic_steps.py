@@ -14,7 +14,7 @@ class BasicStepsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         use_epochs: bool = False,
-        stage_name: str = "post_basic_steps",
+        stage_name: str = "post_basicsteps",
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Runs all basic preprocessing steps sequentially based on configuration.
 

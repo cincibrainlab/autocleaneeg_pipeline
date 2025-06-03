@@ -1,0 +1,205 @@
+tasks:
+  TestingRest:
+    mne_task: GavinRest
+    description: Custom task configuration
+    settings:
+      resample_step:
+        enabled: true
+        value: 500
+      filtering:
+        enabled: true
+        value:
+          l_freq: 1
+          h_freq: 100
+          notch_freqs:
+            - 60
+          notch_widths: 3
+      drop_outerlayer:
+        enabled: false
+        value: []
+      eog_step:
+        enabled: false
+        value: []
+      trim_step:
+        enabled: true
+        value: 4
+      crop_step:
+        enabled: true
+        value:
+          start: 0
+          end: 80
+      reference_step:
+        enabled: true
+        value: average
+      montage:
+        enabled: true
+        value: GSN-HydroCel-129
+      ICA:
+        enabled: true
+        value:
+          method: fastica
+          n_components: null
+          fit_params: {}
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+          ic_rejection_threshold: 0.3
+      epoch_settings:
+        enabled: false
+        value:
+          tmin: -1
+          tmax: 1
+        event_id: null
+        remove_baseline:
+          enabled: false
+          window:
+            - null
+            - 0
+        threshold_rejection:
+          enabled: false
+          volt_threshold:
+            eeg: 0.000125
+
+  StatisticalLearning:
+    mne_task: "Statistical Learning"
+    description: "Statistical Learning auditory stimulus task"
+    settings:
+      # PROCESSING STEPS
+      # Each step can be enabled/disabled and has specific settings
+      
+      resample_step:
+        enabled: true        # Set to false to skip this step
+        value: 250          # New sampling rate in Hz
+
+      filtering:
+        enabled: true
+        value:
+          l_freq: 0.5
+          h_freq: 100
+          notch_freqs: [60, 120]
+          notch_widths: 5
+      
+      drop_outerlayer:
+        enabled: true
+        value: ["E17", "E38", "E43", "E44", "E48", "E49", "E113", "E114", "E119",
+                "E120", "E121", "E125", "E126", "E127", "E128", "E56", "E63", "E68", "E73", "E81", "E88", "E94",
+                "E99", "E107" ]
+
+      eog_step:
+        enabled: false
+        value: [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128]  # Channel numbers for eye movement detection
+      
+      trim_step:
+        enabled: true
+        value: 4            # Number of seconds to trim from start/end
+      
+      crop_step:
+        enabled: false
+        value:
+          start: 0          # Start time in seconds
+          end: 60         # null means use entire recording, or specify time in seconds (e.g., 30.0)
+      
+      reference_step:
+        enabled: true
+        value: "average"    # Type of EEG reference to use
+      
+      montage:
+        enabled: true
+        value: "GSN-HydroCel-129"  # Type of EEG cap/electrode layout
+
+      ICA:
+        enabled: true
+        value:
+          method: picard
+          n_components: null
+          fit_params:
+            ortho: false
+            extended: true
+
+      ICLabel:
+        enabled: true
+        value:
+          ic_flags_to_reject:
+            - muscle
+            - heart
+            - eog
+            - ch_noise
+            - line_noise
+            - eye
+            - channel noise
+            - line noise
+          ic_rejection_threshold: 0.3
+
+      epoch_settings:
+        enabled: true
+        value:
+          tmin: 0
+          tmax: 5.4
+        event_id: null      # null means no triggers/events to use (disabled)
+        remove_baseline:
+          enabled: false
+          window: [null, 0]
+        threshold_rejection:
+          enabled: false
+          volt_threshold: 
+            eeg: 125e-6
+
+
+stage_files:
+  post_import:
+    enabled: true
+    suffix: _postimport
+  post_resample:
+    enabled: false
+    suffix: _postresample
+  post_filter:
+    enabled: true
+    suffix: _postfilter
+  post_outerlayer:
+    enabled: false
+    suffix: _postouterlayer
+  post_trim:
+    enabled: false
+    suffix: _posttrim
+  post_crop:
+    enabled: false
+    suffix: _postcrop
+  post_basicsteps:
+    enabled: true
+    suffix: _postbasicsteps
+  post_artifact_detection:
+    enabled: false
+    suffix: _postartifactdetection
+  post_rereference:
+    enabled: false
+    suffix: _postreference
+  post_bad_channels:
+    enabled: true
+    suffix: _postbadchannels
+  post_clean_raw:
+    enabled: true
+    suffix: _postcleanraw
+  post_epochs:
+    enabled: true
+    suffix: _postepochs
+  post_drop_bad_epochs:
+    enabled: true
+    suffix: _postdropbadepochs
+  post_gfp_clean:
+    enabled: true
+    suffix: _postgfpclean
+  post_autoreject:
+    enabled: false
+    suffix: _postautoreject
+  post_comp:
+    enabled: true
+    suffix: _postcomp
+  post_edit:
+    enabled: true
+    suffix: _postedit

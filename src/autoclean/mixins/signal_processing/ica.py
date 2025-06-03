@@ -133,7 +133,7 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
             message("warning", "ICA is not enabled in the config")
             return
 
-        data = self._get_data_object(use_epochs = use_epochs)
+        data = self._get_data_object(data = None, use_epochs = use_epochs)
 
         # Run ICA
         if is_enabled:
