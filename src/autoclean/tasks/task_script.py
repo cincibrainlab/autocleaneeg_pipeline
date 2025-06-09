@@ -1,4 +1,4 @@
-# src/autoclean/tasks/resting_eyes_open_rev.py
+# src/autoclean/tasks/task_script.py
 """Revised task implementation for resting state EEG preprocessing using mixins."""
 
 # Standard library imports
@@ -9,7 +9,6 @@ import mne
 
 # Local imports
 from autoclean.core.task import Task
-from autoclean.step_functions.continuous import step_create_bids_path
 
 
 class TestingRest(Task):
@@ -49,33 +48,25 @@ class TestingRest(Task):
         4. Epoching
         5. Report generation
 
-        Raises:
+        Raises: 
             RuntimeError: If data hasn't been imported successfully
         """
         # Import and save raw EEG data
-        self.import_raw()
-
-        # Continue with other preprocessing steps
-        # self.run_basic_steps()
-
-        self.raw.filter(l_freq=1, h_freq=100)
-
-        # Store a copy of the pre-cleaned raw data for comparison in reports
-        self.original_raw = self.raw.copy()
+        self.import_epochs()
 
         # Create BIDS-compliant paths and filenames
-        self.raw, self.config = step_create_bids_path(self.raw, self.config)
+        self.create_bids_path(use_epochs=True)
 
-        # self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
 
         self.rereference_data()
 
-        # self.annotate_noisy_epochs()
+        self.annotate_noisy_epochs()
 
-        # self.annotate_uncorrelated_epochs()
+        self.annotate_uncorrelated_epochs()
 
-        # # #Segment rejection
-        # self.detect_dense_oscillatory_artifacts()
+        # #Segment rejection
+        self.detect_dense_oscillatory_artifacts()
 
         # #ICA
         self.run_ica()
@@ -83,22 +74,6 @@ class TestingRest(Task):
         # self.classify_ica_components_vision()
 
         self.run_ICLabel()
-
-        # self.raw.set_annotations(None)
-
-        # self.annotate_noisy_epochs()
-
-        # self.annotate_uncorrelated_epochs()
-
-        # # #Segment rejection
-        # self.detect_dense_oscillatory_artifacts()
-
-        # save_raw_to_set(
-        #     raw=self.raw,
-        #     autoclean_dict=self.config,
-        #     stage="post_clean_raw",
-        #     flagged=self.flagged,
-        # )
 
         # # --- EPOCHING BLOCK START ---
         # self.create_regular_epochs() # Using fixed-length epochs

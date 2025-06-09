@@ -24,7 +24,7 @@ services:
       dockerfile: Dockerfile.review
     image: autoclean-review:latest
     volumes:
-      - C:/Users/Gam9LG/Documents/AutocleanDev:/app/output
+      - C:/Users/Gam9LG/Documents/AutocleanStat:/app/output
     environment:
       - PYTHONUNBUFFERED=1
       - QT_QPA_PLATFORM=xcb

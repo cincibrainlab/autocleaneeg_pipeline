@@ -13,7 +13,8 @@
       "Bash(python -m pytest tests/integration/test_pipeline_workflows.py::TestPipelineWorkflows::test_single_file_resting_processing -v --tb=short --maxfail=1)",
       "Bash(rg:*)",
       "Bash(python3 -m pytest tests/integration/test_multi_task_workflows.py::TestTaskParameterVariations::test_filter_parameter_variations -v -s --tb=short)",
-      "Bash(python3 -m pytest tests/integration/test_multi_task_workflows.py::TestMultiTaskWorkflows::test_sequential_different_tasks -v -s --tb=short)"
+      "Bash(python3 -m pytest tests/integration/test_multi_task_workflows.py::TestMultiTaskWorkflows::test_sequential_different_tasks -v -s --tb=short)",
+      "Bash(grep:*)"
     ],
     "deny": []
   },
