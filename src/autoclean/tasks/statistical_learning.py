@@ -82,15 +82,6 @@ class StatisticalLearning(Task):
 
         self.run_ICLabel()
 
-        self.raw.set_annotations(None)
-
-        self.annotate_noisy_epochs()
-
-        self.annotate_uncorrelated_epochs()
-
-        # Segment rejection
-        self.detect_dense_oscillatory_artifacts()
-
         save_raw_to_set(
             raw=self.raw,
             autoclean_dict=self.config,
