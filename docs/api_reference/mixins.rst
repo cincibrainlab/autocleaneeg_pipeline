@@ -50,6 +50,8 @@ SignalProcessingMixin
    basic_steps.BasicStepsMixin
    channels.ChannelsMixin
    artifacts.ArtifactsMixin
+   autoreject_epochs.AutoRejectEpochsMixin
+   channels.ChannelsMixin
    eventid_epochs.EventIDEpochsMixin
    regular_epochs.RegularEpochsMixin
    prepare_epochs_ica.PrepareEpochsICAMixin
