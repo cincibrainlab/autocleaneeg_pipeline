@@ -47,9 +47,15 @@ def save_stc_to_file(
             Path to the saved file (stage path)
 
     """
-    # Validate stage configuration
+    # Handle missing stage configurations gracefully
     if stage not in autoclean_dict["stage_files"]:
-        raise ValueError(f"Stage not configured: {stage}")
+        message("info", f"Stage '{stage}' not configured, auto-generating configuration")
+        # Auto-generate stage configuration
+        stage_suffix = f"_{stage.replace('post_', '')}"
+        autoclean_dict["stage_files"][stage] = {
+            "enabled": True,
+            "suffix": stage_suffix
+        }
 
     if not autoclean_dict["stage_files"][stage]["enabled"]:
         message("info", f"Saving disabled for stage: {stage}")
@@ -77,12 +83,17 @@ def save_stc_to_file(
     # Save the STC to all specified paths
     for path in paths:
         try:
+            # Ensure parent directory exists
+            path.parent.mkdir(parents=True, exist_ok=True)
             stc.save(fname=path, ftype="h5", overwrite=True, verbose=False)
             message("success", f"✓ Saved {stage} STC file to: {path}")
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to save {stage} STC file to {path}: {str(e)}"
-            ) from e
+            error_msg = f"Failed to save {stage} STC file to {path}: {str(e)}"
+            message("error", error_msg)
+            # For dynamic stages, provide more helpful error information
+            if stage not in autoclean_dict.get("stage_files", {}):
+                message("info", f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.")
+            raise RuntimeError(error_msg) from e
 
     # Create metadata for database logging
     metadata = {
@@ -145,8 +156,15 @@ def save_raw_to_set(
 
     """
 
+    # Handle missing stage configurations gracefully
     if stage not in autoclean_dict["stage_files"]:
-        raise ValueError(f"Stage not configured: {stage}")
+        message("info", f"Stage '{stage}' not configured, auto-generating configuration")
+        # Auto-generate stage configuration
+        stage_suffix = f"_{stage.replace('post_', '')}"
+        autoclean_dict["stage_files"][stage] = {
+            "enabled": True,
+            "suffix": stage_suffix
+        }
 
     if not autoclean_dict["stage_files"][stage]["enabled"]:
         message("info", f"Saving disabled for stage: {stage}")
@@ -179,12 +197,17 @@ def save_raw_to_set(
     raw.info["description"] = autoclean_dict["run_id"]
     for path in paths:
         try:
+            # Ensure parent directory exists
+            path.parent.mkdir(parents=True, exist_ok=True)
             raw.export(path, fmt="eeglab", overwrite=True)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to save {stage} file to {path}: {str(e)}"
-            ) from e
+            error_msg = f"Failed to save {stage} file to {path}: {str(e)}"
+            message("error", error_msg)
+            # For dynamic stages, provide more helpful error information
+            if stage not in autoclean_dict["stage_files"]:
+                message("info", f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.")
+            raise RuntimeError(error_msg) from e
 
     metadata = {
         "save_raw_to_set": {
@@ -239,9 +262,15 @@ def save_epochs_to_set(
 
     """
 
-    # Validate stage configuration
+    # Handle missing stage configurations gracefully
     if stage not in autoclean_dict["stage_files"]:
-        raise ValueError(f"Stage not configured: {stage}")
+        message("info", f"Stage '{stage}' not configured, auto-generating configuration")
+        # Auto-generate stage configuration
+        stage_suffix = f"_{stage.replace('post_', '')}"
+        autoclean_dict["stage_files"][stage] = {
+            "enabled": True,
+            "suffix": stage_suffix
+        }
 
     if not autoclean_dict["stage_files"][stage]["enabled"]:
         message("info", f"Saving disabled for stage: {stage}")
@@ -416,6 +445,9 @@ def save_epochs_to_set(
     epochs.apply_proj()  # Apply projectors before saving
     for path in paths:
         try:
+            # Ensure parent directory exists
+            path.parent.mkdir(parents=True, exist_ok=True)
+            
             # Use specialized export for preserving complex event structures
             if events_in_epochs is not None and len(events_in_epochs) > 0:
                 from eeglabio.epochs import (  # pylint: disable=import-outside-toplevel
@@ -444,9 +476,12 @@ def save_epochs_to_set(
             sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to save {stage} file to {path}: {str(e)}"
-            ) from e
+            error_msg = f"Failed to save {stage} file to {path}: {str(e)}"
+            message("error", error_msg)
+            # For dynamic stages, provide more helpful error information
+            if stage not in autoclean_dict.get("stage_files", {}):
+                message("info", f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.")
+            raise RuntimeError(error_msg) from e
 
     # Record save operation in database
     metadata = {
@@ -525,8 +560,32 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
 
 # Keep the existing save functions with minor updates to ensure backward compatibility
 def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
-    """Get two-digit number based on enabled stages order."""
+    """Get two-digit number based on enabled stages order.
+    
+    Handles dynamic stage creation by assigning numbers based on 
+    the order stages appear in the stage_files configuration.
+    
+    Args:
+        stage: Name of the stage to get number for
+        autoclean_dict: Configuration dictionary
+        
+    Returns:
+        Two-digit string representation of stage number
+    """
+    if "stage_files" not in autoclean_dict:
+        message("warning", "No stage_files configuration found, using default numbering")
+        return "01"
+        
     enabled_stages = [
-        s for s, cfg in autoclean_dict["stage_files"].items() if cfg["enabled"]
+        s for s, cfg in autoclean_dict["stage_files"].items() 
+        if isinstance(cfg, dict) and cfg.get("enabled", False)
     ]
-    return f"{enabled_stages.index(stage) + 1:02d}"
+    
+    try:
+        return f"{enabled_stages.index(stage) + 1:02d}"
+    except ValueError:
+        # Stage not found in enabled stages - should not happen after auto-generation
+        # but provide a fallback
+        message("warning", f"Stage '{stage}' not found in enabled stages, using default numbering")
+        # Assign next available number
+        return f"{len(enabled_stages) + 1:02d}"

@@ -20,21 +20,35 @@ class BIDSMixin:
         message("header", "step_create_bids_path")
         unprocessed_file = self.config["unprocessed_file"]
         task = self.config["task"]
-        mne_task = self.config["tasks"][task]["mne_task"]
         bids_dir = self.config["bids_dir"]
         eeg_system = self.config["eeg_system"]
         config_file = self.config["config_file"]
 
-        try:
-            line_freq = self.config["tasks"][task]["settings"]["filtering"]["value"][
-                "notch_freqs"
-            ][0]
-        except Exception as e:  # pylint: disable=broad-except
-            message(
-                "error",
-                f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
-            )
-            line_freq = 60.0
+        # Handle both YAML and Python task configurations
+        if task in self.config.get("tasks", {}):
+            # YAML-based task
+            mne_task = self.config["tasks"][task]["mne_task"]
+            try:
+                line_freq = self.config["tasks"][task]["settings"]["filtering"]["value"][
+                    "notch_freqs"
+                ][0]
+            except Exception as e:  # pylint: disable=broad-except
+                message(
+                    "error",
+                    f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
+                )
+                line_freq = 60.0
+        else:
+            # Python-based task - use defaults
+            mne_task = task.lower()  # Use task name as default
+            # Try to get line frequency from task settings
+            if hasattr(self, 'settings') and self.settings and 'filtering' in self.settings:
+                try:
+                    line_freq = self.settings['filtering']['value']['notch_freqs'][0]
+                except (KeyError, IndexError, TypeError):
+                    line_freq = 60.0  # Default line frequency
+            else:
+                line_freq = 60.0  # Default line frequency
 
         if use_epochs:
             epochs_data = self._get_data_object(self.epochs, use_epochs=True)

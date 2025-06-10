@@ -208,7 +208,19 @@ def validate_eeg_system(autoclean_dict: dict, task: str) -> str:
         The validated EEG system.
     """
 
-    eeg_system = autoclean_dict["tasks"][task]["settings"]["montage"]["value"]
+    # Handle both YAML-based and Python-based task configurations
+    if task in autoclean_dict.get("tasks", {}):
+        # YAML-based task configuration
+        eeg_system = autoclean_dict["tasks"][task]["settings"]["montage"]["value"]
+    else:
+        # Python-based task - extract from task_config if available
+        task_config = autoclean_dict.get("task_config", {})
+        if "montage" in task_config and "value" in task_config["montage"]:
+            eeg_system = task_config["montage"]["value"]
+        else:
+            # Default or skip validation for Python tasks without explicit montage
+            message("warning", f"No montage specified for Python task '{task}', skipping EEG system validation")
+            return None
 
     if eeg_system in VALID_MONTAGES:
         message("success", f"✓ EEG system validated: {eeg_system}")

@@ -53,9 +53,11 @@ class MouseXdatResting(Task):
             messages and final report.
         """
 
-        self.import_data()
+        self.import_raw()
 
-        self.basic_steps()
+        self.create_bids_path()
+
+        self.run_basic_steps()
 
         self.create_regular_epochs()
 
@@ -78,64 +80,5 @@ class MouseXdatResting(Task):
             Override this method if you need custom visualizations.
         """
 
-        self.verify_topography_plot(self.config)
+        self.verify_topography_plot()
 
-    def import_data(self) -> None:
-        """Import raw EEG data for this task.
-
-        This method should handle:
-        1. Loading the raw EEG data file
-        2. Basic data validation
-        3. Any task-specific import preprocessing
-        4. Saving the imported data if configured
-
-        Raises:
-            FileNotFoundError: If file doesn't exist
-            ValueError: If file format is invalid
-            RuntimeError: If import fails
-
-        Note:
-            The imported data should be stored in self.raw as an MNE Raw object.
-            Use save_raw_to_set() to save intermediate results if needed.
-        """
-        # Import raw data using standard function
-        self.raw = import_eeg(self.config)
-
-        # Save imported data if configured
-        save_raw_to_set(self.raw, self.config, "post_import")
-
-    def _validate_task_config(self, config: Dict[str, Any]) -> Dict[str, Any]:
-        # Add your validation logic here
-        # This is just an example - customize for your needs
-        required_fields = {
-            "task": str,
-            "eeg_system": str,
-            "tasks": dict,
-        }
-
-        for field, field_type in required_fields.items():
-            if field not in config:
-                raise ValueError(f"Missing required field: {field}")
-            if not isinstance(config[field], field_type):
-                raise TypeError(f"Field {field} must be {field_type}")
-
-        # Validate stage_files structure
-        required_stages = [
-            "post_import",
-            "post_basicsteps",
-            "post_epochs",
-            "post_autoreject",
-        ]
-
-        for stage in required_stages:
-            if stage not in config["stage_files"]:
-                raise ValueError(f"Missing stage in stage_files: {stage}")
-            stage_config = config["stage_files"][stage]
-            if not isinstance(stage_config, dict):
-                raise ValueError(f"Stage {stage} configuration must be a dictionary")
-            if "enabled" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'enabled' field")
-            if "suffix" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'suffix' field")
-
-        return config
