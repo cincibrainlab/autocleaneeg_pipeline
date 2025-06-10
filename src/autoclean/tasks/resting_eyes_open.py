@@ -194,8 +194,8 @@ class RestingEyesOpen(Task):
         # Epoching with export
         self.create_regular_epochs(export=True)  # Export epochs
         
-        # Prepare epochs for ICA
-        self.prepare_epochs_for_ica()
+        # Detect outlier epochs
+        self.detect_outlier_epochs()
         
         # Clean epochs using GFP with export
         self.gfp_clean_epochs() 
