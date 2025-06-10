@@ -36,6 +36,7 @@ class GFPCleanEpochsMixin:
         number_of_epochs: Optional[int] = None,
         random_seed: Optional[int] = None,
         stage_name: str = "post_gfp_clean",
+        export: bool = False,
     ) -> mne.Epochs:
         """Clean an MNE Epochs object by removing outlier epochs based on Global Field Power.
 
@@ -52,6 +53,8 @@ class GFPCleanEpochsMixin:
             Seed for random number generator when selecting epochs.
         stage_name: str
             Name for saving and metadata tracking. By default "post_gfp_clean".
+        export : bool, optional
+            If True, exports the cleaned epochs to the stage directory. Default is False.
 
         Returns
         -------
@@ -266,8 +269,11 @@ class GFPCleanEpochsMixin:
 
             self._update_instance_data(epochs, epochs_final, use_epochs=True)
 
-            # Save epochs
+            # Save epochs with default naming
             self._save_epochs_result(epochs_final, stage_name)
+
+            # Export if requested
+            self._auto_export_if_enabled(epochs_final, stage_name, export)
 
             message("info", "Epoch GFP cleaning process completed")
             return epochs_final
