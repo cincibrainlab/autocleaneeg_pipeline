@@ -1,4 +1,3 @@
-from typing import Any, Dict
 from autoclean.core.task import Task
 
 # =============================================================================
@@ -16,12 +15,9 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
-    
     # -------------------------------------------------------------------------
     # 📊 DATA RESAMPLING
     # -------------------------------------------------------------------------
-    # Reduces file size and speeds up processing by lowering the sampling rate.
-    # Most EEG analysis doesn't need sampling rates above 250-500 Hz.
     'resample_step': {
         'enabled': True,
         'value': 250  # Target sampling rate in Hz
@@ -169,10 +165,7 @@ class RestingEyesOpen(Task):
         self.create_bids_path()
         
         # Channel cleaning
-        self.clean_bad_channels(
-            cleaning_method="interpolate", 
-            reset_bads=True
-        )
+        self.clean_bad_channels()
         
         # Re-referencing
         self.rereference_data()
@@ -183,17 +176,8 @@ class RestingEyesOpen(Task):
         self.detect_dense_oscillatory_artifacts()
         
         # ICA processing with optional export
-        self.run_ica(export=True)  # Export after ICA
+        self.run_ica()  # Export after ICA
         self.run_ICLabel()
-        
-        # Manual save for compatibility (can be removed once all mixins updated)
-        from autoclean.io.export import save_raw_to_set
-        save_raw_to_set(
-            raw=self.raw,
-            autoclean_dict=self.config,
-            stage="post_clean_raw",
-            flagged=self.flagged,
-        )
         
         # Epoching with export
         self.create_regular_epochs(export=True)  # Export epochs
@@ -221,14 +205,3 @@ class RestingEyesOpen(Task):
         # Additional report generation can be added here
 
 
-    def __init__(self, config: Dict[str, Any]):
-        """Initialize the resting state task with embedded settings.
-        
-        Args:
-            config: Configuration dictionary from the pipeline.
-        """
-        # Use the embedded settings from the module-level config variable
-        self.settings = globals()['config']
-        
-        # Initialize the base class
-        super().__init__(config)
