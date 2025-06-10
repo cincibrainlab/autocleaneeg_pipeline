@@ -1,18 +1,17 @@
-"""Prepare epochs for ICA mixin for autoclean tasks.
+"""Outlier detection mixin for autoclean tasks.
 
-This module provides functionality for preparing epochs for Independent Component
-Analysis (ICA) by identifying and removing outlier epochs that could negatively
-impact the ICA decomposition.
+This module provides functionality for detecting and removing outlier epochs
+based on statistical measures. This helps improve data quality by removing
+epochs with extreme amplitude characteristics that could negatively impact
+subsequent processing steps.
 
-The PrepareEpochsICAMixin class implements methods for detecting outlier epochs
+The OutlierDetectionMixin class implements methods for detecting outlier epochs
 based on various statistical measures, following the principles of the FASTER
 (Fully Automated Statistical Thresholding for EEG artifact Rejection) algorithm.
 
-Preparing epochs for ICA is a critical step in the EEG processing pipeline, as
-the quality of the ICA decomposition heavily depends on the quality of the input
-data. Removing outlier epochs before ICA helps ensure that the resulting components
-reflect true brain activity and artifacts rather than being influenced by extreme
-outliers in the data.
+Outlier detection is a critical step in the EEG processing pipeline, as
+removing extreme outliers helps ensure better quality for downstream processing
+steps like ICA and other analyses.
 """
 
 from typing import Union
@@ -23,27 +22,26 @@ import numpy as np
 from autoclean.utils.logging import message
 
 
-class PrepareEpochsICAMixin:
-    """Mixin class providing functionality to prepare epochs for ICA analysis.
+class OutlierDetectionMixin:
+    """Mixin class providing functionality for outlier detection in epochs.
 
-    This mixin provides methods for preparing epochs for Independent Component Analysis
-    (ICA) by identifying and removing outlier epochs that could negatively impact the
-    ICA decomposition. It implements statistical approaches based on the FASTER algorithm
-    to detect outliers across multiple dimensions.
+    This mixin provides methods for detecting and removing outlier epochs based on
+    statistical measures. It implements statistical approaches based on the FASTER
+    algorithm to detect outliers across multiple dimensions.
 
-    The preparation process involves calculating various statistical measures for each
+    The detection process involves calculating various statistical measures for each
     epoch (amplitude range, variance, mean gradient) and identifying epochs that deviate
     significantly from the distribution of these measures across all epochs. Epochs
-    identified as outliers are marked as bad and can be excluded from the ICA calculation.
+    identified as outliers are marked as bad and can be excluded from further processing.
 
     The mixin respects configuration settings from the autoclean_config.yaml file,
     allowing users to customize the outlier detection threshold and other parameters.
     """
 
-    def prepare_epochs_for_ica(
+    def detect_outlier_epochs(
         self, epochs: Union[mne.Epochs, None] = None, threshold: float = 3.0
     ) -> mne.Epochs:
-        """Prepare epochs for ICA by dropping epochs marked bad based on global outlier detection.
+        """Detect and remove outlier epochs based on statistical measures.
 
         This method identifies and marks epochs that are statistical outliers based on
         multiple measures, following the principles of the FASTER algorithm. It calculates
@@ -74,11 +72,11 @@ class PrepareEpochsICAMixin:
 
         Examples
         --------
-        >>> # Prepare epochs for ICA with default parameters
-        >>> self.prepare_epochs_for_ica() #Modifies self.epochs
+        >>> # Detect outlier epochs with default parameters
+        >>> self.detect_outlier_epochs() #Modifies self.epochs
 
-        >>> # Prepare epochs with a stricter threshold
-        >>> self.prepare_epochs_for_ica(threshold=2.5) #Modifies self.epochs
+        >>> # Detect outlier epochs with a stricter threshold
+        >>> self.detect_outlier_epochs(threshold=2.5) #Modifies self.epochs
 
         >>> # Check how many epochs were marked as bad
         >>> n_good = len(self.epochs)
@@ -104,10 +102,10 @@ class PrepareEpochsICAMixin:
         if not isinstance(
             epochs, mne.Epochs
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Epochs object for ICA preparation")
+            raise TypeError("Data must be an MNE Epochs object for outlier detection")
 
         try:
-            message("header", "Preparing epochs for ICA by removing outliers")
+            message("header", "Detecting and removing outlier epochs")
 
             # Force preload to avoid RuntimeError
             if not epochs.preload:
@@ -176,7 +174,7 @@ class PrepareEpochsICAMixin:
                 "channel_count": len(epochs.ch_names),
             }
 
-            self._update_metadata("step_prepare_epochs_for_ica", metadata)
+            self._update_metadata("step_detect_outlier_epochs", metadata)
 
             # Store epochs
             self._update_instance_data(epochs, epochs_clean, use_epochs=True)
@@ -184,5 +182,5 @@ class PrepareEpochsICAMixin:
             return epochs_clean
 
         except Exception as e:
-            message("error", f"Error during epochs preparation for ICA: {str(e)}")
-            raise RuntimeError(f"Failed to prepare epochs for ICA: {str(e)}") from e
+            message("error", f"Error during outlier epoch detection: {str(e)}")
+            raise RuntimeError(f"Failed to detect outlier epochs: {str(e)}") from e

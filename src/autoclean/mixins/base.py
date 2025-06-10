@@ -340,7 +340,7 @@ class BaseMixin:
             "rereference_data": "post_reference",
             "clean_bad_channels": "post_channel_cleaning",
             "gfp_clean_epochs": "post_gfp_cleaning",
-            "prepare_epochs_for_ica": "post_epochs_prep"
+            "detect_outlier_epochs": "post_epochs_prep"
         }
         
         return method_to_stage.get(method_name, f"post_{method_name}")

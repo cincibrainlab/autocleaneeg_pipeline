@@ -20,7 +20,7 @@ matplotlib.use('Agg')  # Ensure non-interactive backend for all plots
 __all__ = [
     "step_create_regular_epochs",
     "step_create_eventid_epochs",
-    "step_prepare_epochs_for_ica",
+    "step_detect_outlier_epochs",
     "step_gfp_clean_epochs",
     "step_apply_autoreject",
 ]
@@ -304,7 +304,7 @@ def step_create_eventid_epochs(
     return epochs
 
 
-def step_prepare_epochs_for_ica(
+def step_detect_outlier_epochs(
     epochs: mne.Epochs, pipeline: Any, autoclean_dict: Dict[str, Any]
 ) -> mne.Epochs:
     """
@@ -320,7 +320,7 @@ def step_prepare_epochs_for_ica(
     -------
     Epochs instance
     """
-    message("header", "step_prepare_epochs_for_ica")
+    message("header", "step_detect_outlier_epochs")
 
     def _deviation(data: np.ndarray) -> np.ndarray:
         """
@@ -356,7 +356,7 @@ def step_prepare_epochs_for_ica(
     epochs_faster = epochs.copy().drop(bad_epochs, reason="BAD_EPOCHS")
 
     metadata = {
-        "step_prepare_epochs_for_ica": {
+        "step_detect_outlier_epochs": {
             "creationDateTime": datetime.now().isoformat(),
             "initial_epochs": len(epochs),
             "final_epochs": len(epochs_faster),
