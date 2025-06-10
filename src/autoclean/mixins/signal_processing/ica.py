@@ -97,7 +97,6 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
         eog_channel: str = None, 
         use_epochs: bool = False, 
         stage_name: str = "post_ica",
-        export: bool = False,
         **kwargs
     ) -> ICA:
         """Run ICA on the raw data.
@@ -186,14 +185,11 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
 
         save_ica_to_fif(self.final_ica, self.config, data)
 
-        # Export if requested
-        self._auto_export_if_enabled(data, stage_name, export)
-
         message("success", "ICA step complete")
 
         return self.final_ica
 
-    def run_ICLabel(self):  # pylint: disable=invalid-name
+    def run_ICLabel(self, stage_name: str = "post_component_removal", export: bool = False):  # pylint: disable=invalid-name
         """Run ICLabel on the raw data.
 
         Returns
@@ -246,6 +242,9 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
         message("success", "ICLabel complete")
 
         self.apply_iclabel_rejection()
+
+        # Export if requested
+        self._auto_export_if_enabled(self.raw, stage_name, export)
 
         return self.ica_flags
 

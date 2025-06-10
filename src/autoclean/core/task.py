@@ -53,23 +53,27 @@ class Task(ABC, *DISCOVERED_MIXINS):
             For YAML-based tasks, also includes:
             - tasks (dict): Task-specific settings from YAML
             
-            For Python-based tasks, the child class should set self.settings
-            before calling super().__init__(config).
+            For Python-based tasks, the base class automatically detects
+            a module-level 'config' variable and uses it for self.settings.
 
         Examples
         --------
-        >>> # Python task file approach
+        >>> # Python task file approach - no __init__ needed!
+        >>> config = {'resample': {'enabled': True, 'value': 250}}
         >>> class MyTask(Task):
-        ...     def __init__(self, config):
-        ...         self.settings = {
-        ...             'resample': {'enabled': True, 'value': 250},
-        ...             'filtering': {'enabled': True, 'l_freq': 1, 'h_freq': 40}
-        ...         }
-        ...         super().__init__(config)
+        ...     def run(self):
+        ...         self.import_raw()
+        ...         # Processing steps here
         """
-        # Validate that self.settings exists if this is a Python task
+        # Auto-detect module-level config for Python tasks
         if not hasattr(self, 'settings'):
-            self.settings = None
+            # Get the module where this class was defined
+            import inspect
+            module = inspect.getmodule(self.__class__)
+            if module and hasattr(module, 'config'):
+                self.settings = module.config
+            else:
+                self.settings = None
         
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
@@ -175,8 +179,12 @@ class Task(ABC, *DISCOVERED_MIXINS):
             "run_id": str,  # Unique identifier for tracking
             "unprocessed_file": Path,  # Input file path
             "task": str,  # Task identifier
-            "tasks": dict,  # Task-specific settings
             "stage_files": dict,  # Intermediate file config
+        }
+        
+        # Optional fields for YAML-based tasks
+        optional_fields = {
+            "tasks": dict,  # Task-specific settings (YAML tasks only)
         }
 
         # Two-stage validation: first check existence, then type
@@ -187,6 +195,14 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
             # Stage 2: Validate field type using isinstance for safety
             if not isinstance(config[field], field_type):
+                raise TypeError(
+                    f"Field '{field}' must be of type {field_type.__name__}, "
+                    f"got {type(config[field]).__name__} instead"
+                )
+        
+        # Check optional fields if they exist
+        for field, field_type in optional_fields.items():
+            if field in config and not isinstance(config[field], field_type):
                 raise TypeError(
                     f"Field '{field}' must be of type {field_type.__name__}, "
                     f"got {type(config[field]).__name__} instead"
