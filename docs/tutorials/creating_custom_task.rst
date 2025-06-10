@@ -79,7 +79,7 @@ The easiest way to create a custom task is to copy and adjust the `TEMPLATE.py` 
                # 7. Epoching (Example using Mixin Methods)
                self.create_eventid_epochs() # Reads config
                if self.epochs: 
-                   self.prepare_epochs_for_ica() # Reads config
+                   self.detect_outlier_epochs() # Reads config
                    self.gfp_clean_epochs() # Reads config
                    # save_epochs_to_set(self.epochs, self.config, "post_comp", self.flagged)
 

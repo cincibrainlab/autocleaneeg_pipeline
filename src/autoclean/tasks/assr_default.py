@@ -58,7 +58,7 @@ class AssrDefault(Task):
         self.create_eventid_epochs()  # Using fixed-length epochs
 
         # Prepare epochs for ICA
-        self.prepare_epochs_for_ica()
+        self.detect_outlier_epochs()
 
         # Clean epochs using GFP
         self.gfp_clean_epochs()
