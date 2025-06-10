@@ -19,21 +19,28 @@ def step_create_bids_path(
     message("header", "step_create_bids_path")
     unprocessed_file = autoclean_dict["unprocessed_file"]
     task = autoclean_dict["task"]
-    mne_task = autoclean_dict["tasks"][task]["mne_task"]
     bids_dir = autoclean_dict["bids_dir"]
     eeg_system = autoclean_dict["eeg_system"]
     config_file = autoclean_dict["config_file"]
-
-    try:
-        line_freq = autoclean_dict["tasks"][task]["settings"]["filtering"]["value"][
-            "notch_freqs"
-        ][0]
-    except Exception as e:  # pylint: disable=broad-except
-        message(
-            "error",
-            f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
-        )
-        line_freq = 60.0
+    
+    # Handle both YAML and Python task configurations
+    if task in autoclean_dict.get("tasks", {}):
+        # YAML-based task
+        mne_task = autoclean_dict["tasks"][task]["mne_task"]
+        try:
+            line_freq = autoclean_dict["tasks"][task]["settings"]["filtering"]["value"][
+                "notch_freqs"
+            ][0]
+        except Exception as e:  # pylint: disable=broad-except
+            message(
+                "error",
+                f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
+            )
+            line_freq = 60.0
+    else:
+        # Python-based task - use defaults
+        mne_task = task.lower()  # Use task name as default
+        line_freq = 60.0  # Default line frequency
 
     try:
         bids_path, derivatives_dir = step_convert_to_bids(

@@ -29,14 +29,6 @@ class StatisticalLearning(Task):
         """
         self.original_raw: Optional[mne.io.Raw] = None
 
-        self.required_stages = [
-            "post_import",
-            "post_basicsteps",
-            "post_clean_raw",
-            "post_epochs",
-            "post_comp",
-        ]
-
         super().__init__(config)  # Initialize the base class
 
     def run(self) -> None:

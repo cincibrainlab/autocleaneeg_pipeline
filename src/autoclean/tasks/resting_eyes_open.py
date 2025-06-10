@@ -1,136 +1,179 @@
-# src/autoclean/tasks/resting_eyes_open_rev.py
-"""Revised task implementation for resting state EEG preprocessing using mixins."""
+"""New-style Python task file for resting state EEG preprocessing.
 
-# Standard library imports
+This demonstrates the new approach where configuration and processing logic
+are combined in a single Python file.
+"""
+
 from typing import Any, Dict
-
-# Local imports
 from autoclean.core.task import Task
-from autoclean.io.export import save_raw_to_set
 
+config = {'resample_step': {
+            'enabled': True,
+            'value': 250  # New sampling rate in Hz
+        },
+        'filtering': {
+            'enabled': True,
+            'value': {
+                'l_freq': 1,
+                'h_freq': 100,
+                'notch_freqs': [60, 120],
+                'notch_widths': 5
+            }
+        },
+        'drop_outerlayer': {
+            'enabled': False,
+            'value': []
+        },
+        'eog_step': {
+            'enabled': False,
+            'value': []
+        },
+        'trim_step': {
+            'enabled': True,
+            'value': 4  # Number of seconds to trim from start/end
+        },
+        'crop_step': {
+            'enabled': False,
+            'value': {
+                'start': 0,
+                'end': 60
+            }
+        },
+        'reference_step': {
+            'enabled': True,
+            'value': "average"
+        },
+        'montage': {
+            'enabled': True,
+            'value': "GSN-HydroCel-129"
+        },
+        'ICA': {
+            'enabled': True,
+            'value': {
+                'method': 'picard',
+                'n_components': None,
+                'fit_params': {
+                    'ortho': False,
+                    'extended': True
+                }
+            }
+        },
+        'ICLabel': {
+            'enabled': True,
+            'value': {
+                'ic_flags_to_reject': [
+                    'muscle', 'heart', 'eog', 'ch_noise', 
+                    'line_noise', 'eye', 'channel noise', 'line noise'
+                ],
+                'ic_rejection_threshold': 0.3
+            }
+        },
+        'epoch_settings': {
+            'enabled': True,
+            'value': {
+                'tmin': -1,
+                'tmax': 1
+            },
+            'event_id': None,
+            'remove_baseline': {
+                'enabled': False,
+                'window': [None, 0]
+            },
+            'threshold_rejection': {
+                'enabled': False,
+                'volt_threshold': {
+                    'eeg': 125e-6
+                }
+            }
+        }
+    }
 
 class RestingEyesOpen(Task):
-    """Revised task implementation for resting state EEG preprocessing.
-
-    This class extends the base Task class which now includes functionality from mixins,
-    demonstrating a more modular approach to task implementation.
-
-    Attributes:
-        raw (mne.io.Raw): Raw EEG data that gets progressively cleaned through the pipeline
-        epochs (mne.Epochs): Epoched data after processing
-        original_raw (mne.io.Raw): Original unprocessed raw data, preserved for comparison
+    """Resting state EEG preprocessing task using the new Python task file approach.
+    
+    This class combines both configuration and processing logic in a single file,
+    eliminating the need for separate YAML configuration files.
     """
-
-    def __init__(self, config: Dict[str, Any]):
-        """Initialize the resting state task.
-
-        Args:
-            config: Configuration dictionary containing all settings.
-        """
-
-        self.required_stages = [
-            "post_import",
-            "post_basic_steps",
-            "post_clean_raw",
-            "post_epochs",
-            "post_comp",
-        ]
-
-        super().__init__(config)  # Initialize the base class
 
     def run(self) -> None:
         """Execute the complete resting state EEG processing pipeline.
-
-        This method orchestrates the complete processing sequence including:
-        1. Data import
-        2. Preprocessing (resampling, filtering)
-        3. Artifact detection and rejection
-        4. Epoching
-        5. Report generation
-
-        Raises:
-            RuntimeError: If data hasn't been imported successfully
+        
+        This method demonstrates the new export=True functionality,
+        allowing selective exporting at each processing step.
         """
-        # Import and save raw EEG data
+        # Import raw EEG data
         self.import_raw()
+        
+        # Basic preprocessing with optional export
+        self.filter_data()
 
-        # Continue with other preprocessing steps
-        self.run_basic_steps()
 
-        # Store a copy of the pre-cleaned raw data for comparison in reports
-        self.original_raw = self.raw.copy()
-
+        self.run_basic_steps(export=True)  # Export after basic steps
+        
         # Create BIDS-compliant paths and filenames
         self.create_bids_path()
-
+        
+        # Channel cleaning
         self.clean_bad_channels(
-            cleaning_method="interpolate", reset_bads=True
-        )  # reset_bads needs to be true if running ICA later
-
+            cleaning_method="interpolate", 
+            reset_bads=True
+        )
+        
+        # Re-referencing
         self.rereference_data()
-
+        
+        # Artifact detection
         self.annotate_noisy_epochs()
-
         self.annotate_uncorrelated_epochs()
-
-        # self.annotate_bad_segments_vision()
-
-        # #Segment rejection
         self.detect_dense_oscillatory_artifacts()
-
-        # #ICA
-        self.run_ica()
-
-        # self.run_ICLabel()
-
-        self.classify_ica_components_vision_parallel()
-
+        
+        # ICA processing with optional export
+        self.run_ica(export=True)  # Export after ICA
+        self.run_ICLabel()
+        
+        # Manual save for compatibility (can be removed once all mixins updated)
+        from autoclean.io.export import save_raw_to_set
         save_raw_to_set(
             raw=self.raw,
             autoclean_dict=self.config,
             stage="post_clean_raw",
             flagged=self.flagged,
         )
-
-        # --- EPOCHING BLOCK START ---
-        self.create_regular_epochs()  # Using fixed-length epochs
-
+        
+        # Epoching with export
+        self.create_regular_epochs(export=True)  # Export epochs
+        
         # Prepare epochs for ICA
         self.prepare_epochs_for_ica()
-
-        # Clean epochs using GFP
-        self.gfp_clean_epochs()
-        # --- EPOCHING BLOCK END ---
-
+        
+        # Clean epochs using GFP with export
+        self.gfp_clean_epochs(export=True)  # Export cleaned epochs
+        
         # Generate visualization reports
         self.generate_reports()
 
     def generate_reports(self) -> None:
-        """Generate quality control visualizations and reports.
-
-        Creates standard visualization reports including:
-        1. Raw vs cleaned data overlay
-        2. ICA components
-        3. ICA details
-        4. PSD topography
-
-        The reports are saved in the debug directory specified
-        in the configuration.
-
-        Note:
-            This is automatically called by run().
-        """
+        """Generate quality control visualizations and reports."""
         if self.raw is None or self.original_raw is None:
             return
-
+            
         # Plot raw vs cleaned overlay using mixin method
         self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
-
+        
         # Plot PSD topography using mixin method
         self.step_psd_topo_figure(self.original_raw, self.raw)
+        
+        # Additional report generation can be added here
 
-        # Plot ICA components using mixin method
-        # self.plot_ica_full()
 
-        # # Generate ICA reports using mixin method
-        # self.generate_ica_reports()
+    def __init__(self, config: Dict[str, Any]):
+        """Initialize the resting state task with embedded settings.
+        
+        Args:
+            config: Configuration dictionary from the pipeline.
+        """
+        # Use the embedded settings from the module-level config variable
+        self.settings = globals()['config']
+        
+        # Initialize the base class
+        super().__init__(config)

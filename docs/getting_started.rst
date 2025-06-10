@@ -23,24 +23,72 @@ Development Installations are recommended in order to fully utilize the features
 Basic Usage
 -----------
 
-Single File
-^^^^^^^^^^^
+AutoClean EEG supports two approaches for creating processing workflows:
 
-In order to run a task on a dataset you will use the :class:`~autoclean.core.pipeline.Pipeline` class.
+Python Task Files (Recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+The new Python task file approach combines configuration and processing logic in a single file:
+
+.. code-block:: python
+
+   # my_task.py
+   from typing import Any, Dict
+   from autoclean.core.task import Task
+
+   # Embedded configuration
+   config = {
+       'resample_step': {'enabled': True, 'value': 250},
+       'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 100}},
+       'ICA': {'enabled': True, 'value': {'method': 'picard'}},
+       'epoch_settings': {'enabled': True, 'value': {'tmin': -1, 'tmax': 1}}
+   }
+
+   class MyRestingTask(Task):
+       def __init__(self, config: Dict[str, Any]):
+           self.settings = globals()['config']
+           super().__init__(config)
+       
+       def run(self) -> None:
+           self.import_raw()
+           self.run_basic_steps(export=True)
+           self.run_ica(export=True)
+           self.create_regular_epochs(export=True)
+
+Using the task:
 
 .. code-block:: python
 
    from autoclean import Pipeline
 
-   # Initialize the pipeline with configuration
+   # Initialize pipeline (no YAML config needed)
+   pipeline = Pipeline(autoclean_dir="/path/to/output")
+
+   # Register your task file
+   pipeline.add_task("my_task.py")
+
+   # Process a single file
+   pipeline.process_file(
+       file_path="/path/to/data.set",
+       task="MyRestingTask"
+   )
+
+Traditional YAML Configuration
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For complex workflows or when you prefer separate config files:
+
+.. code-block:: python
+
+   from autoclean import Pipeline
+
+   # Initialize the pipeline with YAML configuration
    pipeline = Pipeline(
        autoclean_dir="/path/to/output",
        autoclean_config="configs/autoclean_config.yaml"
    )
 
-
-   # Process a single file
+   # Process a single file using built-in task
    pipeline.process_file(
        file_path="/path/to/data.set",
        task="RestingEyesOpen"
