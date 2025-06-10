@@ -157,9 +157,21 @@ class RestingEyesOpen(Task):
     def run(self) -> None:
         # Import raw EEG data
         self.import_raw()
-        
-        # Basic preprocessing with optional export
-        self.run_basic_steps(export=True)  # Export after basic steps
+
+        #Basic preprocessing steps
+        self.resample_data()
+
+        self.filter_data()
+
+        self.drop_outer_layer()
+
+        self.assign_eog_channels()
+
+        self.trim_edges()
+
+        self.crop_duration()
+
+        self.original_raw = self.raw.copy()
         
         # Create BIDS-compliant paths and filenames
         self.create_bids_path()
@@ -186,10 +198,11 @@ class RestingEyesOpen(Task):
         self.prepare_epochs_for_ica()
         
         # Clean epochs using GFP with export
-        self.gfp_clean_epochs(export=True)  # Export cleaned epochs
-        
+        self.gfp_clean_epochs() 
+
         # Generate visualization reports
         self.generate_reports()
+
 
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports."""
