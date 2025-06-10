@@ -95,25 +95,7 @@ class HBCD_VEP(Task):  # pylint: disable=invalid-name
             if not isinstance(config[field], field_type):
                 raise TypeError(f"Field {field} must be {field_type}")
 
-        # Validate stage_files structure
-        self.required_stages = [
-            "post_import",
-            "post_basic_steps",
-            "post_clean_raw",
-            "post_epochs",
-            "post_comp",
-        ]
-
-        for stage in self.required_stages:
-            if stage not in config["stage_files"]:
-                raise ValueError(f"Missing stage in stage_files: {stage}")
-            stage_config = config["stage_files"][stage]
-            if not isinstance(stage_config, dict):
-                raise ValueError(f"Stage {stage} configuration must be a dictionary")
-            if "enabled" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'enabled' field")
-            if "suffix" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'suffix' field")
+        # Stage files are now created dynamically when export=True is used
 
         return config
 

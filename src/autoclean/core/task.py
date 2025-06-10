@@ -48,20 +48,29 @@ class Task(ABC, *DISCOVERED_MIXINS):
             - run_id (str): Unique identifier for this processing run
             - unprocessed_file (Path): Path to the raw EEG data file
             - task (str): Name of the task (e.g., "rest_eyesopen")
-            - tasks (dict): Task-specific settings
             - stage_files (dict): Configuration for saving intermediate results
+            
+            For YAML-based tasks, also includes:
+            - tasks (dict): Task-specific settings from YAML
+            
+            For Python-based tasks, the child class should set self.settings
+            before calling super().__init__(config).
 
         Examples
         --------
-        >>> config = {
-        ...     'run_id': '12345',
-        ...     'unprocessed_file': Path('data/sub-01_task-rest_eeg.raw'),
-        ...     'task': 'rest_eyesopen',
-        ...     'tasks': {'rest_eyesopen': {...}},
-        ...     'stage_files': {'post_import': {'enabled': True}}
-        ... }
-        >>> task = MyTask(config)
+        >>> # Python task file approach
+        >>> class MyTask(Task):
+        ...     def __init__(self, config):
+        ...         self.settings = {
+        ...             'resample': {'enabled': True, 'value': 250},
+        ...             'filtering': {'enabled': True, 'l_freq': 1, 'h_freq': 40}
+        ...         }
+        ...         super().__init__(config)
         """
+        # Validate that self.settings exists if this is a Python task
+        if not hasattr(self, 'settings'):
+            self.settings = None
+        
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 
@@ -183,35 +192,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                     f"got {type(config[field]).__name__} instead"
                 )
 
-        # Check if the task has defined required_stages
-        if not hasattr(self, "required_stages"):
-            message(
-                "warning",
-                f"Task {self.__class__.__name__} does not define required_stages attribute. "
-                "Defaulting to ['post_import', 'post_clean_raw', 'post_epochs', 'post_comp']",
-            )
-            message(
-                "warning",
-                "Please define self.required_stages in the __init__ method of your task class.",
-            )
-            # Initialize with empty list to prevent errors in subsequent validation
-            self.required_stages = [
-                "post_import",
-                "post_clean_raw",
-                "post_epochs",
-                "post_comp",
-            ]
-
-        for stage in self.required_stages:
-            if stage not in config["stage_files"]:
-                raise ValueError(f"Missing stage in stage_files: {stage}")
-            stage_config = config["stage_files"][stage]
-            if not isinstance(stage_config, dict):
-                raise ValueError(f"Stage {stage} configuration must be a dictionary")
-            if "enabled" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'enabled' field")
-            if "suffix" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'suffix' field")
+        # No longer validate required_stages - stages are created dynamically when export=True is used
 
         return config
 
