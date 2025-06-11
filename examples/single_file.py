@@ -6,15 +6,13 @@ EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/AutocleanTesting")  # Where
 
 """Example of processing a single EEG file."""
 # Create pipeline instance
-pipeline = Pipeline(output_dir=EXAMPLE_OUTPUT_DIR)
-
-pipeline.add_task("examples/resting_eyes_open.py")
+pipeline = Pipeline(output_dir=EXAMPLE_OUTPUT_DIR, verbose='INFO')
 
 # Example file path - modify this to point to your EEG file
 directory_path = Path("C:/Users/Gam9LG/Documents/DATA/rest_eyesopen")
 
 # Process the file
-pipeline.process_directory_async(
+pipeline.process_directoCanry_async(
     directory_path=directory_path,
     task="RestingEyesOpen",  # Choose appropriate task
 )
