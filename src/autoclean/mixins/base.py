@@ -303,22 +303,13 @@ class BaseMixin:
             message("error", f"Failed to export {stage_name}: {str(e)}")
 
     def _ensure_stage_exists(self, stage_name: str) -> None:
-        """Ensure a stage exists in the configuration, create if missing.
+        """No longer needed - stages are handled by export functions.
         
         Args:
             stage_name: Name of the stage to ensure exists
         """
-        if not hasattr(self, "config") or "stage_files" not in self.config:
-            return
-            
-        if stage_name not in self.config["stage_files"]:
-            # Auto-generate stage configuration
-            stage_suffix = f"_{stage_name.replace('post_', '')}"
-            self.config["stage_files"][stage_name] = {
-                "enabled": True,
-                "suffix": stage_suffix
-            }
-            message("info", f"Auto-generated stage configuration for '{stage_name}'")
+        # No action needed - export functions handle stage creation automatically
+        pass
 
     def _generate_stage_name(self, method_name: str) -> str:
         """Generate appropriate stage name from method name.

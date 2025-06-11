@@ -22,7 +22,7 @@ class BIDSMixin:
         task = self.config["task"]
         bids_dir = self.config["bids_dir"]
         eeg_system = self.config["eeg_system"]
-        config_file = self.config["config_file"]
+        config_file = "python_task_config"  # No config file for Python tasks
 
         # Handle both YAML and Python task configurations
         if task in self.config.get("tasks", {}):

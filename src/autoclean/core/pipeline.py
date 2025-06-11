@@ -80,7 +80,6 @@ from autoclean.step_functions.reports import (
 from autoclean.tasks import task_registry
 from autoclean.utils.config import (
     hash_and_encode_yaml,
-    load_config,
     validate_eeg_system,
 )
 from autoclean.utils.database import get_run_record, manage_database, set_database_path
@@ -587,7 +586,7 @@ class Pipeline:
 
     async def process_directory_async(
         self,
-        directory: str | Path,
+        directory_path: str | Path,
         task: str,
         pattern: str = "*.raw",
         sub_directories: bool = False,
@@ -597,7 +596,7 @@ class Pipeline:
 
         Parameters
         ----------
-        directory : str or Path
+        directory_path : str or Path
             Path to the directory containing the EEG files.
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
@@ -619,9 +618,9 @@ class Pipeline:
         for resource management. Processes files in optimized batches
         while maintaining progress tracking and error isolation.
         """
-        directory = Path(directory)
-        if not directory.is_dir():
-            raise NotADirectoryError(f"Directory not found: {directory}")
+        directory_path = Path(directory_path)
+        if not directory_path.is_dir():
+            raise NotADirectoryError(f"Directory not found: {directory_path}")
 
         # Find all matching files using glob pattern
         if sub_directories:
@@ -629,9 +628,9 @@ class Pipeline:
         else:
             search_pattern = pattern  # Search only in current directory
 
-        files = list(directory.glob(search_pattern))
+        files = list(directory_path.glob(search_pattern))
         if not files:
-            message("warning", f"No files matching '{pattern}' found in {directory}")
+            message("warning", f"No files matching '{pattern}' found in {directory_path}")
             return
 
         message(
