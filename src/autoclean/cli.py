@@ -30,9 +30,6 @@ Examples:
   autoclean process --task RestingEyesOpen --file data.raw --output results/
   autoclean process --task RestingEyesOpen --dir data/ --output results/
   
-  # Use custom config file
-  autoclean process RestingEyesOpen data.raw --config my_config.yaml
-  
   # Use Python task file
   autoclean process --task-file my_task.py --file data.raw
   
@@ -50,6 +47,9 @@ Examples:
   
   # Remove a custom task
   autoclean task remove MyCustomTask
+  
+  # Run setup wizard
+  autoclean setup
   
   # Show user config location
   autoclean config show
@@ -87,11 +87,8 @@ Examples:
     )
     
     process_parser.add_argument(
-        '--output', type=Path, default=Path('./autoclean_output'),
-        help='Output directory (default: ./autoclean_output)'
-    )
-    process_parser.add_argument(
-        '--config', type=Path, help='Custom configuration file'
+        '--output', type=Path, default=None,
+        help='Output directory (default: workspace/output)'
     )
     process_parser.add_argument(
         '--dry-run', action='store_true',
@@ -100,9 +97,6 @@ Examples:
     
     # List tasks command
     list_parser = subparsers.add_parser('list-tasks', help='List available tasks')
-    list_parser.add_argument(
-        '--config', type=Path, help='Configuration file to load tasks from'
-    )
     list_parser.add_argument(
         '--include-custom', action='store_true',
         help='Include custom tasks from user configuration'
@@ -150,6 +144,9 @@ Examples:
     # Show config location
     config_subparsers.add_parser('show', help='Show configuration directory location')
     
+    # Setup/reconfigure workspace
+    config_subparsers.add_parser('setup', help='Reconfigure workspace location')
+    
     # Reset config
     reset_parser = config_subparsers.add_parser('reset', help='Reset configuration to defaults')
     reset_parser.add_argument(
@@ -166,6 +163,9 @@ Examples:
     import_parser.add_argument(
         'import_path', type=Path, help='Directory to import configuration from'
     )
+    
+    # Setup command
+    subparsers.add_parser('setup', help='Run first-time setup wizard')
     
     # Version command
     subparsers.add_parser('version', help='Show version information')
@@ -201,10 +201,6 @@ def validate_args(args) -> bool:
         args.final_task = task_name
         args.final_input = input_path
         
-        # Check config file exists if provided
-        if args.config and not args.config.exists():
-            message("error", f"Config file does not exist: {args.config}")
-            return False
             
         # Check task file exists if provided
         if args.task_file and not args.task_file.exists():
@@ -227,11 +223,9 @@ def cmd_process(args) -> int:
         
         # Initialize pipeline
         pipeline_kwargs = {
-            'autoclean_dir': args.output
+            'output_dir': args.output
         }
         
-        if args.config:
-            pipeline_kwargs['autoclean_config'] = args.config
             
         pipeline = Pipeline(**pipeline_kwargs)
         
@@ -284,10 +278,8 @@ def cmd_list_tasks(args) -> int:
         from autoclean.core.pipeline import Pipeline
         
         pipeline_kwargs = {
-            'autoclean_dir': Path('./temp_autoclean')  # Temporary dir for listing tasks
+            'output_dir': Path('./temp_autoclean')  # Temporary dir for listing tasks
         }
-        if args.config:
-            pipeline_kwargs['autoclean_config'] = args.config
             
         pipeline = Pipeline(**pipeline_kwargs)
         
@@ -333,7 +325,7 @@ def cmd_review(args) -> int:
         # Lazy import Pipeline only when needed
         from autoclean.core.pipeline import Pipeline
         
-        pipeline = Pipeline(autoclean_dir=args.output)
+        pipeline = Pipeline(output_dir=args.output)
         
         message("info", f"Starting review GUI for: {args.output}")
         pipeline.start_autoclean_review()
@@ -342,6 +334,17 @@ def cmd_review(args) -> int:
         
     except Exception as e:
         message("error", f"Failed to start review GUI: {str(e)}")
+        return 1
+
+
+def cmd_setup(args) -> int:
+    """Run the first-time setup wizard."""
+    try:
+        new_config_dir = user_config.reconfigure_workspace()
+        print(f"\n🎉 Setup completed! Your workspace is ready at: {new_config_dir}")
+        return 0
+    except Exception as e:
+        message("error", f"Setup failed: {str(e)}")
         return 1
 
 
@@ -448,6 +451,8 @@ def cmd_config(args) -> int:
     """Execute configuration management commands."""
     if args.config_action == 'show':
         return cmd_config_show(args)
+    elif args.config_action == 'setup':
+        return cmd_config_setup(args)
     elif args.config_action == 'reset':
         return cmd_config_reset(args)
     elif args.config_action == 'export':
@@ -470,6 +475,17 @@ def cmd_config_show(args) -> int:
     print(f"  • Config file: {config_dir / 'user_config.json'}")
     
     return 0
+
+
+def cmd_config_setup(args) -> int:
+    """Reconfigure workspace location."""
+    try:
+        new_config_dir = user_config.reconfigure_workspace()
+        message("info", f"Workspace reconfigured: {new_config_dir}")
+        return 0
+    except Exception as e:
+        message("error", f"Failed to reconfigure workspace: {str(e)}")
+        return 1
 
 
 def cmd_config_reset(args) -> int:
@@ -536,6 +552,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_task(args)
     elif args.command == 'config':
         return cmd_config(args)
+    elif args.command == 'setup':
+        return cmd_setup(args)
     elif args.command == 'version':
         return cmd_version(args)
     else:

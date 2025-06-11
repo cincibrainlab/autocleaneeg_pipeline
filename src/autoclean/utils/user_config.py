@@ -19,8 +19,8 @@ class UserConfigManager:
     
     def __init__(self):
         """Initialize the user configuration manager."""
-        # Use platformdirs for cross-platform config directory
-        self.config_dir = Path(platformdirs.user_config_dir("autoclean", "autoclean"))
+        # Check if this is first time setup
+        self.config_dir = self._get_or_setup_config_directory()
         self.config_file = self.config_dir / "user_config.json"
         self.tasks_dir = self.config_dir / "tasks"
         
@@ -49,7 +49,7 @@ class UserConfigManager:
             "version": "1.0",
             "custom_tasks": {},
             "preferences": {
-                "default_output_dir": "autoclean_output",
+                "default_output_dir": str(self.config_dir / "output"),
                 "auto_save_tasks": True,
                 "confirm_overwrite": True
             },
@@ -149,6 +149,8 @@ class UserConfigManager:
         Returns:
             Dictionary of task names and their metadata
         """
+        # Auto-discover new tasks before listing
+        self._auto_discover_tasks()
         return self._config["custom_tasks"].copy()
     
     def get_custom_task_path(self, task_name: str) -> Optional[Path]:
@@ -161,6 +163,9 @@ class UserConfigManager:
         Returns:
             Path to the task file, or None if not found
         """
+        # Auto-discover new tasks before looking up
+        self._auto_discover_tasks()
+        
         if task_name in self._config["custom_tasks"]:
             task_path = Path(self._config["custom_tasks"][task_name]["file_path"])
             if task_path.exists():
@@ -298,6 +303,102 @@ class UserConfigManager:
         """Get the user configuration directory path."""
         return self.config_dir
     
+    def get_default_output_dir(self) -> Path:
+        """Get the default output directory for pipeline processing."""
+        return self.config_dir / "output"
+    
+    def reconfigure_workspace(self) -> Path:
+        """Allow user to reconfigure their workspace location."""
+        # Check if this is a completely fresh installation
+        global_config_file = Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        
+        if not global_config_file.exists():
+            # True first-time setup
+            return self._run_first_time_setup(is_reconfigure=False)
+        
+        # This is a reconfiguration
+        print("\n" + "="*60)
+        print("🔧 Reconfigure AutoClean Workspace")
+        print("="*60)
+        print(f"Current workspace: {self.config_dir}")
+        print()
+        
+        # Run setup again
+        new_config_dir = self._run_first_time_setup(is_reconfigure=True)
+        
+        # If user chose a different directory, offer to migrate
+        if new_config_dir != self.config_dir:
+            print("Would you like to migrate your existing tasks and configuration?")
+            try:
+                migrate = input("Type 'yes' to migrate, or 'no' to start fresh: ").strip().lower()
+                if migrate in ['yes', 'y']:
+                    self._migrate_workspace(self.config_dir, new_config_dir)
+            except (EOFError, KeyboardInterrupt):
+                print("Skipping migration.")
+            
+            # Update current instance
+            self.config_dir = new_config_dir
+            self.config_file = self.config_dir / "user_config.json"
+            self.tasks_dir = self.config_dir / "tasks"
+            self.config_dir.mkdir(parents=True, exist_ok=True)
+            self.tasks_dir.mkdir(parents=True, exist_ok=True)
+            self._config = self._load_config()
+        
+        return new_config_dir
+    
+    def _migrate_workspace(self, old_dir: Path, new_dir: Path) -> None:
+        """Migrate workspace from old to new location."""
+        try:
+            if not old_dir.exists():
+                print("No existing workspace to migrate.")
+                return
+                
+            import shutil
+            
+            # Ensure new directory exists
+            new_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Copy all contents
+            items_copied = 0
+            for item in old_dir.iterdir():
+                dest = new_dir / item.name
+                try:
+                    if item.is_file():
+                        shutil.copy2(item, dest)
+                        items_copied += 1
+                    elif item.is_dir():
+                        shutil.copytree(item, dest, dirs_exist_ok=True)
+                        items_copied += 1
+                except Exception as e:
+                    print(f"⚠️  Could not copy {item.name}: {e}")
+            
+            if items_copied > 0:
+                print(f"✅ Successfully copied {items_copied} items to {new_dir}")
+                
+                # Always offer to clean up old directory
+                print(f"\nKeep the old workspace directory at {old_dir}?")
+                try:
+                    import sys
+                    if hasattr(sys, 'ps1') or 'ipykernel' in sys.modules:
+                        # In interactive/Jupyter - default to keeping
+                        print("Keeping old workspace (you can delete it manually if desired)")
+                    else:
+                        # Command line - can prompt
+                        cleanup = input("Type 'no' to remove it, or press Enter to keep: ").strip().lower()
+                        if cleanup in ['no', 'n']:
+                            shutil.rmtree(old_dir)
+                            print("✅ Old workspace removed")
+                        else:
+                            print("Old workspace kept - you can delete it manually if desired")
+                except (EOFError, KeyboardInterrupt):
+                    print("Old workspace kept")
+            else:
+                print("No items found to migrate.")
+                    
+        except Exception as e:
+            print(f"⚠️  Migration failed: {e}")
+            print("You may need to manually copy your files.")
+    
     def _extract_task_info(self, task_file: Path) -> tuple[str, str]:
         """Extract class name and description from task file."""
         try:
@@ -327,6 +428,154 @@ class UserConfigManager:
             
         except Exception:
             return task_file.stem, f"Custom task from {task_file.name}"
+    
+    def _auto_discover_tasks(self) -> None:
+        """Auto-discover and register new task files in the tasks directory."""
+        if not self.tasks_dir.exists():
+            return
+            
+        discovered_tasks = []
+        
+        # Scan for Python files in tasks directory
+        for task_file in self.tasks_dir.glob("*.py"):
+            if task_file.name.startswith("_"):  # Skip private files
+                continue
+                
+            # Check if already registered
+            file_path_str = str(task_file)
+            already_registered = any(
+                task_info.get("file_path") == file_path_str 
+                for task_info in self._config["custom_tasks"].values()
+            )
+            
+            if not already_registered:
+                try:
+                    # Extract task info
+                    class_name, description = self._extract_task_info(task_file)
+                    
+                    # Generate unique task name
+                    task_name = class_name
+                    base_name = task_name
+                    counter = 1
+                    while task_name in self._config["custom_tasks"]:
+                        task_name = f"{base_name}_{counter}"
+                        counter += 1
+                    
+                    # Register the task
+                    self._config["custom_tasks"][task_name] = {
+                        "file_path": str(task_file),
+                        "original_path": str(task_file),  # Same as file_path for discovered tasks
+                        "added_date": self._current_timestamp(),
+                        "description": description,
+                        "class_name": class_name,
+                        "auto_discovered": True  # Mark as auto-discovered
+                    }
+                    
+                    discovered_tasks.append(task_name)
+                    
+                except Exception as e:
+                    # Skip files that can't be parsed
+                    message("warning", f"Could not parse task file {task_file.name}: {e}")
+                    continue
+        
+        # Save config if new tasks were discovered
+        if discovered_tasks:
+            self._save_config()
+            for task_name in discovered_tasks:
+                message("info", f"Auto-discovered custom task: {task_name}")
+    
+    def _get_or_setup_config_directory(self) -> Path:
+        """Get the config directory, setting it up if this is the first time."""
+        # Check if user has already set up a config directory
+        global_config_file = Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        
+        if global_config_file.exists():
+            try:
+                with open(global_config_file, 'r', encoding='utf-8') as f:
+                    setup_config = json.load(f)
+                    return Path(setup_config["config_directory"])
+            except (json.JSONDecodeError, KeyError, FileNotFoundError):
+                pass  # Fall through to setup
+        
+        # First time setup - guide user through configuration
+        return self._run_first_time_setup()
+    
+    def _run_first_time_setup(self, is_reconfigure: bool = False) -> Path:
+        """Guide user through configuration setup."""
+        print("\n" + "="*60)
+        print("🧠 Welcome to AutoClean EEG Pipeline!")
+        print("="*60)
+        if is_reconfigure:
+            print("Workspace setup: Let's configure your workspace location.")
+        else:
+            print("First-time setup: Let's configure your workspace.")
+        print()
+        
+        # Default to Documents folder
+        default_dir = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
+        
+        print(f"Where would you like to store your custom tasks and configuration?")
+        print(f"Default: {default_dir}")
+        print()
+        print("This folder will contain:")
+        print("  • Your custom EEG processing tasks")
+        print("  • Configuration settings")
+        print("  • Default output directory for processing results")
+        print("  • Easy access for editing and backup")
+        print()
+        
+        # In Jupyter/interactive environments, we can't easily prompt, so use default
+        try:
+            # Check if we're in an interactive environment
+            import sys
+            if hasattr(sys, 'ps1') or 'ipykernel' in sys.modules:
+                # Interactive Python or Jupyter - use default
+                chosen_dir = default_dir
+                print(f"Using default location: {chosen_dir}")
+            else:
+                # Command line - can prompt
+                response = input(f"Press Enter for default, or type a custom path: ").strip()
+                if response:
+                    chosen_dir = Path(response).expanduser()
+                else:
+                    chosen_dir = default_dir
+        except (EOFError, KeyboardInterrupt):
+            # Fallback to default if input fails
+            chosen_dir = default_dir
+            print(f"Using default location: {chosen_dir}")
+        
+        # Save the setup configuration
+        global_config_file = Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        global_config_file.parent.mkdir(parents=True, exist_ok=True)
+        
+        setup_config = {
+            "config_directory": str(chosen_dir),
+            "setup_date": self._current_timestamp(),
+            "version": "1.0"
+        }
+        
+        try:
+            with open(global_config_file, 'w', encoding='utf-8') as f:
+                json.dump(setup_config, f, indent=2)
+        except Exception as e:
+            message("warning", f"Could not save setup configuration: {e}")
+        
+        print()
+        if is_reconfigure:
+            print("✅ Workspace configuration updated!")
+        else:
+            print("✅ Setup complete!")
+        print(f"📁 Your AutoClean workspace: {chosen_dir}")
+        print()
+        if not is_reconfigure:
+            print("Next steps:")
+            print("1. Visit the web UI configuration wizard to create custom tasks")
+            print("2. Save task files to your tasks folder")
+            print("3. Use them in Jupyter notebooks or scripts!")
+            print()
+        print("="*60)
+        
+        return chosen_dir
     
     def _current_timestamp(self) -> str:
         """Get current timestamp as ISO string."""
