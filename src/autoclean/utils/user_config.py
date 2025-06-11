@@ -575,12 +575,98 @@ class UserConfigManager:
             print()
         print("="*60)
         
+        # Create example script in the workspace
+        self._create_example_script(chosen_dir)
+        
         return chosen_dir
     
     def _current_timestamp(self) -> str:
         """Get current timestamp as ISO string."""
         from datetime import datetime
         return datetime.now().isoformat()
+    
+    def _create_example_script(self, workspace_dir: Path) -> None:
+        """Create an example script in the workspace directory."""
+        try:
+            # Path to the example file in the package
+            import autoclean
+            package_dir = Path(autoclean.__file__).parent.parent.parent  # Go up to autoclean_pipeline
+            examples_dir = package_dir / "examples"
+            source_file = examples_dir / "basic_usage.py"
+            
+            # Destination in workspace
+            dest_file = workspace_dir / "example_basic_usage.py"
+            
+            # Copy the example file if it exists
+            if source_file.exists():
+                import shutil
+                shutil.copy2(source_file, dest_file)
+                print(f"📄 Example script created: {dest_file}")
+                print("   Edit this file to customize for your data paths and processing needs!")
+            else:
+                # Fallback: create a simple example inline
+                self._create_fallback_example(dest_file)
+                
+        except Exception as e:
+            message("warning", f"Could not create example script: {e}")
+            # Try fallback method
+            try:
+                self._create_fallback_example(workspace_dir / "example_basic_usage.py")
+            except Exception:
+                pass  # Silently fail if fallback also fails
+    
+    def _create_fallback_example(self, dest_file: Path) -> None:
+        """Create a simple example script as fallback."""
+        example_content = '''import asyncio
+from pathlib import Path
+
+from autoclean import Pipeline
+
+EXAMPLE_OUTPUT_DIR = Path("path/to/output/directory")  # Where processed data will be stored
+
+async def batch_run():
+    """Example of batch processing multiple EEG files asynchronously."""
+    # Create pipeline instance
+    pipeline = Pipeline(
+        output_dir=EXAMPLE_OUTPUT_DIR,
+        verbose='HEADER'
+    )
+    # Example INPUT directory path - modify this to point to your EEG files
+    directory = Path("path/to/input/directory")
+
+    # Process all files in directory
+    await pipeline.process_directory_async(
+        directory=directory,
+        task="RestingEyesOpen",  # Choose appropriate task
+        sub_directories=False, # Optional: process files in subfolders
+        pattern="*.set", # Optional: specify a pattern to filter files (use "*.extention" for all files of that extension)
+        max_concurrent=3 # Optional: specify the maximum number of concurrent files to process
+    )
+
+def single_file_run():
+    pipeline = Pipeline(
+        output_dir=EXAMPLE_OUTPUT_DIR,
+        verbose='HEADER'
+    )
+    file_path = Path("path/to/input/file")
+
+    pipeline.process_file(
+        file_path=file_path,
+        task="RestingEyesOpen",  # Choose appropriate task
+    )
+    
+if __name__ == "__main__":
+    #Batch run example
+    asyncio.run(batch_run())
+
+    #Single file run example
+    single_file_run()
+'''
+        
+        with open(dest_file, 'w', encoding='utf-8') as f:
+            f.write(example_content)
+        print(f"📄 Example script created: {dest_file}")
+        print("   Edit this file to customize for your data paths and processing needs!")
 
 
 # Global instance
