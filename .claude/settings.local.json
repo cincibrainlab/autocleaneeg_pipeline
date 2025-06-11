@@ -16,7 +16,8 @@
       "Bash(python3 -m pytest tests/integration/test_multi_task_workflows.py::TestMultiTaskWorkflows::test_sequential_different_tasks -v -s --tb=short)",
       "Bash(grep:*)",
       "Bash(python test_dev_syntax.py:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(python3:*)"
     ],
     "deny": []
   },

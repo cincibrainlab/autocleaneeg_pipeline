@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """
-Install development tools for AutoClean EEG Pipeline.
+Install development tools for AutoClean EEG Pipeline using uv tool.
 
-This script installs all the code quality tools needed for local development,
-matching the exact versions and configurations used in CI.
+This script installs all the code quality tools needed for local development
+using uv tool for isolated tool management. Each tool runs in its own environment
+to prevent dependency conflicts.
 """
 
 import subprocess
 import sys
+import shutil
 
 
 def run_command(cmd, description):
@@ -22,49 +24,52 @@ def run_command(cmd, description):
         return False
 
 
+def check_uv_available():
+    """Check if uv is available, suggest installation if not."""
+    if not shutil.which('uv'):
+        print("❌ uv is not installed or not in PATH")
+        print("   Please install uv first:")
+        print("   • Linux/macOS: curl -LsSf https://astral.sh/uv/install.sh | sh")
+        print("   • Windows: powershell -ExecutionPolicy ByPass -c 'irm https://astral.sh/uv/install.ps1 | iex'")
+        print("   • Or with pip: pip install uv")
+        return False
+    return True
+
 def main():
-    """Install development tools."""
-    print("🚀 Installing AutoClean Development Tools")
+    """Install development tools using uv tool."""
+    print("🚀 Installing AutoClean Development Tools with uv tool")
     print("=" * 50)
+    
+    # Check if uv is available
+    if not check_uv_available():
+        return 1
+    
+    print("✅ uv detected - using isolated tool environments")
+    print("   No virtual environment conflicts possible!")
 
-    # Check if we're in a virtual environment
-    in_venv = hasattr(sys, "real_prefix") or (
-        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
-    )
-
-    if not in_venv:
-        print("⚠️  Warning: Not in a virtual environment")
-        print("   Consider activating a virtual environment first")
-        response = input("   Continue anyway? (y/N): ")
-        if response.lower() != "y":
-            print("Aborted.")
-            return 1
-
-    # Core development tools
+    # Core development tools using uv tool (isolated environments)
     tools = [
-        ("pip install --upgrade pip", "Upgrading pip"),
-        ("pip install black", "Installing Black (code formatter)"),
-        ("pip install isort", "Installing isort (import sorter)"),
-        ("pip install ruff", "Installing Ruff (fast linter)"),
-        ("pip install mypy", "Installing mypy (type checker)"),
-        ("pip install pre-commit", "Installing pre-commit (optional git hooks)"),
+        ("uv tool install black", "Installing Black (code formatter)"),
+        ("uv tool install isort", "Installing isort (import sorter)"),
+        ("uv tool install ruff", "Installing Ruff (fast linter)"),
+        ("uv tool install mypy", "Installing mypy (type checker)"),
+        ("uv tool install pre-commit", "Installing pre-commit (git hooks)"),
     ]
 
-    # Testing tools
+    # Testing tools (installed in project environment since they're project dependencies)
     test_tools = [
-        ("pip install pytest", "Installing pytest (test runner)"),
-        ("pip install pytest-cov", "Installing pytest-cov (coverage)"),
-        ("pip install pytest-benchmark", "Installing pytest-benchmark (performance)"),
-        ("pip install pytest-mock", "Installing pytest-mock (mocking)"),
-        ("pip install pytest-xdist", "Installing pytest-xdist (parallel testing)"),
+        ("uv pip install pytest", "Installing pytest (test runner)"),
+        ("uv pip install pytest-cov", "Installing pytest-cov (coverage)"),
+        ("uv pip install pytest-benchmark", "Installing pytest-benchmark (performance)"),
+        ("uv pip install pytest-mock", "Installing pytest-mock (mocking)"),
+        ("uv pip install pytest-xdist", "Installing pytest-xdist (parallel testing)"),
     ]
 
-    # Additional development tools
+    # Additional development tools using uv tool
     dev_tools = [
-        ("pip install jupyterlab", "Installing JupyterLab (optional)"),
-        ("pip install ipython", "Installing IPython (better REPL)"),
-        ("pip install memory-profiler", "Installing memory-profiler (performance)"),
-        ("pip install psutil", "Installing psutil (system monitoring)"),
+        ("uv tool install jupyterlab", "Installing JupyterLab (notebook environment)"),
+        ("uv tool install ipython", "Installing IPython (better REPL)"),
+        ("uv tool install memory-profiler", "Installing memory-profiler (performance)"),
     ]
 
     all_tools = tools + test_tools + dev_tools
@@ -88,8 +93,10 @@ def main():
 
     print("\n💡 Next steps:")
     print("   1. Run: python scripts/check_code_quality.py")
-    print("   2. (Optional) Set up pre-commit: pre-commit install")
-    print("   3. Start developing with confidence!")
+    print("   2. (Optional) Set up pre-commit: uv tool run pre-commit install")
+    print("   3. List installed tools: uv tool list")
+    print("   4. Start developing with confidence!")
+    print("\n🎯 Benefit: All tools are isolated - no dependency conflicts!")
 
     return 0 if not failed_tools else 1
 
