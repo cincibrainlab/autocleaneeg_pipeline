@@ -47,22 +47,8 @@ def save_stc_to_file(
             Path to the saved file (stage path)
 
     """
-    # Handle missing stage configurations gracefully
-    if stage not in autoclean_dict["stage_files"]:
-        message("info", f"Stage '{stage}' not configured, auto-generating configuration")
-        # Auto-generate stage configuration
-        stage_suffix = f"_{stage.replace('post_', '')}"
-        autoclean_dict["stage_files"][stage] = {
-            "enabled": True,
-            "suffix": stage_suffix
-        }
-
-    if not autoclean_dict["stage_files"][stage]["enabled"]:
-        message("info", f"Saving disabled for stage: {stage}")
-        return None
-
-    # Extract configuration details
-    suffix = autoclean_dict["stage_files"][stage]["suffix"]
+    # Generate suffix from stage name
+    suffix = f"_{stage.replace('post_', '')}"
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
@@ -90,9 +76,6 @@ def save_stc_to_file(
         except Exception as e:
             error_msg = f"Failed to save {stage} STC file to {path}: {str(e)}"
             message("error", error_msg)
-            # For dynamic stages, provide more helpful error information
-            if stage not in autoclean_dict.get("stage_files", {}):
-                message("info", f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.")
             raise RuntimeError(error_msg) from e
 
     # Create metadata for database logging
@@ -156,21 +139,8 @@ def save_raw_to_set(
 
     """
 
-    # Handle missing stage configurations gracefully
-    if stage not in autoclean_dict["stage_files"]:
-        message("info", f"Stage '{stage}' not configured, auto-generating configuration")
-        # Auto-generate stage configuration
-        stage_suffix = f"_{stage.replace('post_', '')}"
-        autoclean_dict["stage_files"][stage] = {
-            "enabled": True,
-            "suffix": stage_suffix
-        }
-
-    if not autoclean_dict["stage_files"][stage]["enabled"]:
-        message("info", f"Saving disabled for stage: {stage}")
-        return None
-
-    suffix = autoclean_dict["stage_files"][stage]["suffix"]
+    # Generate suffix from stage name
+    suffix = f"_{stage.replace('post_', '')}"
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
@@ -262,22 +232,8 @@ def save_epochs_to_set(
 
     """
 
-    # Handle missing stage configurations gracefully
-    if stage not in autoclean_dict["stage_files"]:
-        message("info", f"Stage '{stage}' not configured, auto-generating configuration")
-        # Auto-generate stage configuration
-        stage_suffix = f"_{stage.replace('post_', '')}"
-        autoclean_dict["stage_files"][stage] = {
-            "enabled": True,
-            "suffix": stage_suffix
-        }
-
-    if not autoclean_dict["stage_files"][stage]["enabled"]:
-        message("info", f"Saving disabled for stage: {stage}")
-        return None
-
-    # Prepare file paths
-    suffix = autoclean_dict["stage_files"][stage]["suffix"]
+    # Generate suffix from stage name
+    suffix = f"_{stage.replace('post_', '')}"
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
@@ -478,9 +434,6 @@ def save_epochs_to_set(
         except Exception as e:
             error_msg = f"Failed to save {stage} file to {path}: {str(e)}"
             message("error", error_msg)
-            # For dynamic stages, provide more helpful error information
-            if stage not in autoclean_dict.get("stage_files", {}):
-                message("info", f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.")
             raise RuntimeError(error_msg) from e
 
     # Record save operation in database
@@ -560,10 +513,9 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
 
 # Keep the existing save functions with minor updates to ensure backward compatibility
 def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
-    """Get two-digit number based on enabled stages order.
+    """Get two-digit number based on export counter.
     
-    Handles dynamic stage creation by assigning numbers based on 
-    the order stages appear in the stage_files configuration.
+    Increments and tracks export count to assign sequential stage numbers.
     
     Args:
         stage: Name of the stage to get number for
@@ -572,20 +524,11 @@ def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
     Returns:
         Two-digit string representation of stage number
     """
-    if "stage_files" not in autoclean_dict:
-        message("warning", "No stage_files configuration found, using default numbering")
-        return "01"
-        
-    enabled_stages = [
-        s for s, cfg in autoclean_dict["stage_files"].items() 
-        if isinstance(cfg, dict) and cfg.get("enabled", False)
-    ]
+    # Initialize export counter if not present
+    if "_export_counter" not in autoclean_dict:
+        autoclean_dict["_export_counter"] = 0
     
-    try:
-        return f"{enabled_stages.index(stage) + 1:02d}"
-    except ValueError:
-        # Stage not found in enabled stages - should not happen after auto-generation
-        # but provide a fallback
-        message("warning", f"Stage '{stage}' not found in enabled stages, using default numbering")
-        # Assign next available number
-        return f"{len(enabled_stages) + 1:02d}"
+    # Increment counter for this export
+    autoclean_dict["_export_counter"] += 1
+    
+    return f"{autoclean_dict['_export_counter']:02d}"
