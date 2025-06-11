@@ -48,13 +48,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
             - run_id (str): Unique identifier for this processing run
             - unprocessed_file (Path): Path to the raw EEG data file
             - task (str): Name of the task (e.g., "rest_eyesopen")
-            - stage_files (dict): Configuration for saving intermediate results
             
-            For YAML-based tasks, also includes:
-            - tasks (dict): Task-specific settings from YAML
-            
-            For Python-based tasks, the base class automatically detects
-            a module-level 'config' variable and uses it for self.settings.
+            The base class automatically detects a module-level 'config' variable 
+            and uses it for self.settings in Python-based tasks.
 
         Examples
         --------
@@ -179,12 +175,6 @@ class Task(ABC, *DISCOVERED_MIXINS):
             "run_id": str,  # Unique identifier for tracking
             "unprocessed_file": Path,  # Input file path
             "task": str,  # Task identifier
-            "stage_files": dict,  # Intermediate file config
-        }
-        
-        # Optional fields for YAML-based tasks
-        optional_fields = {
-            "tasks": dict,  # Task-specific settings (YAML tasks only)
         }
 
         # Two-stage validation: first check existence, then type
@@ -200,14 +190,6 @@ class Task(ABC, *DISCOVERED_MIXINS):
                     f"got {type(config[field]).__name__} instead"
                 )
         
-        # Check optional fields if they exist
-        for field, field_type in optional_fields.items():
-            if field in config and not isinstance(config[field], field_type):
-                raise TypeError(
-                    f"Field '{field}' must be of type {field_type.__name__}, "
-                    f"got {type(config[field]).__name__} instead"
-                )
-
         # No longer validate required_stages - stages are created dynamically when export=True is used
 
         return config
