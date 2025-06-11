@@ -6,7 +6,7 @@ EXAMPLE_OUTPUT_DIR = Path("C:/Users/Gam9LG/Documents/AutocleanTesting")  # Where
 
 """Example of processing a single EEG file."""
 # Create pipeline instance
-pipeline = Pipeline(autoclean_dir=EXAMPLE_OUTPUT_DIR)
+pipeline = Pipeline(output_dir=EXAMPLE_OUTPUT_DIR)
 
 pipeline.add_task("examples/resting_eyes_open.py")
 
