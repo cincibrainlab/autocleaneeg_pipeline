@@ -24,10 +24,7 @@ Examples
 Basic usage for processing a single file:
 
 >>> from autoclean import Pipeline
->>> pipeline = Pipeline(
-...     autoclean_dir="/path/to/output",
-...     autoclean_config="config.yaml"
-... )
+>>> pipeline = Pipeline(output_dir="/path/to/output")
 >>> pipeline.process_file(
 ...     file_path="/path/to/data.set",
 ...     task="rest_eyesopen"
@@ -73,6 +70,7 @@ from ulid import ULID
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.utils.user_config import user_config
 from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,
@@ -138,21 +136,17 @@ class Pipeline:
 
     def __init__(
         self,
-        autoclean_dir: str | Path,
-        autoclean_config: Optional[str | Path] = None,
+        output_dir: Optional[str | Path] = None,
         verbose: Optional[Union[bool, str, int]] = None,
     ):
         """Initialize a new processing pipeline.
 
         Parameters
         ----------
-        autoclean_dir : str or Path
+        output_dir : str or Path, optional
             Root directory where all processing outputs will be saved.
             The pipeline will create subdirectories for each task.
-        autoclean_config : str or Path, optional
-            Path to the YAML configuration file that defines
-            processing parameters for all tasks. If None, will use
-            default configuration when processing Python task files.
+            If None, defaults to the user's workspace output directory.
         verbose : bool, str, int, or None, optional
             Controls logging verbosity, by default None.
 
@@ -164,21 +158,26 @@ class Pipeline:
 
         Examples
         --------
-        >>> # Traditional YAML-based approach
-        >>> pipeline = Pipeline(
-        ...     autoclean_dir="results/",
-        ...     autoclean_config="configs/default.yaml",
-        ...     verbose="debug"
-        ... )
+        >>> # Simple usage with custom output directory
+        >>> pipeline = Pipeline(output_dir="results/", verbose="debug")
+        >>> pipeline.process_file("data.raw", task="RestingEyesOpen")
         
-        >>> # New Python task file approach
-        >>> pipeline = Pipeline(autoclean_dir="results/")
+        >>> # Use default workspace output directory
+        >>> pipeline = Pipeline()  # Uses ~/Documents/Autoclean-EEG/output
+        >>> pipeline.process_file("data.raw", task="MyCustomTask")
+        
+        >>> # Add custom task and use it
+        >>> pipeline = Pipeline()
         >>> pipeline.add_task("my_custom_task.py")
-        >>> pipeline.process_file("data.set", task="MyCustomTask")
+        >>> pipeline.process_file("data.raw", task="MyCustomTask")
         """
+        # Use default output directory if none provided
+        if output_dir is None:
+            output_dir = user_config.get_default_output_dir()
+            message("info", f"Using default output directory: {output_dir}")
+        
         # Convert paths to absolute Path objects
-        self.autoclean_dir = Path(autoclean_dir).absolute()
-        self.autoclean_config = Path(autoclean_config).absolute() if autoclean_config else None
+        self.autoclean_dir = Path(output_dir).absolute()
         
         # Configure logging first with output directory
         self.verbose = verbose
@@ -193,12 +192,8 @@ class Pipeline:
 
         message("header", "Welcome to AutoClean!")
 
-        # Load YAML config into memory for repeated access during processing
-        # If no config provided, will generate default config for Python tasks
-        if self.autoclean_config:
-            self.autoclean_dict = load_config(self.autoclean_config)
-        else:
-            self.autoclean_dict = self._generate_default_config()
+        # All configuration now comes from task files directly
+        # No external YAML configuration needed
 
         # Set global database path
         set_database_path(self.autoclean_dir)
@@ -276,27 +271,8 @@ class Pipeline:
             # Perform core validation steps
             self._validate_file(unprocessed_file)
             
-            # For Python tasks, temporarily create task instance to extract settings
-            if task.lower() in self.session_task_registry:
-                # Create a minimal config for task instantiation
-                temp_config = {
-                    "run_id": "temp_validation",
-                    "unprocessed_file": unprocessed_file,
-                    "task": task,
-                    "tasks": {},
-                    "stage_files": {}
-                }
-                
-                try:
-                    temp_task = self.session_task_registry[task.lower()](temp_config)
-                    if hasattr(temp_task, 'settings') and temp_task.settings:
-                        # Extract task configuration from Python task settings
-                        self.autoclean_dict["task_config"] = temp_task.settings
-                except Exception as e:
-                    message("warning", f"Could not extract settings from Python task '{task}': {str(e)}")
-            
-            # Validate EEG system configuration for task
-            eeg_system = validate_eeg_system(self.autoclean_dict, task)
+            # EEG system will be auto-detected from the data
+            eeg_system = "auto"
 
             # Prepare directory structure for processing outputs
             (
@@ -327,26 +303,11 @@ class Pipeline:
                 },
             )
 
-            # Secure configuration files
-            if self.autoclean_config is not None:
-                b64_config, config_hash = hash_and_encode_yaml(
-                    self.autoclean_config, is_file=True
-                )
-            else:
-                # For Python tasks without YAML config, create minimal config
-                minimal_config = {"version": "1.0", "type": "python_tasks_only"}
-                b64_config, config_hash = hash_and_encode_yaml(
-                    minimal_config, is_file=False
-                )
-            
-            # Handle task configuration for both YAML and Python tasks
-            if task in self.autoclean_dict.get("tasks", {}):
-                # YAML-based task
-                task_config = self.autoclean_dict["tasks"][task]
-            else:
-                # Python-based task - use minimal config
-                task_config = {"type": "python_task", "class_name": task}
-            
+            # Create minimal config for Python task tracking
+            task_config = {"type": "python_task", "class_name": task}
+            b64_config, config_hash = hash_and_encode_yaml(
+                {"version": "1.0", "type": "python_tasks_only"}, is_file=False
+            )
             b64_task, task_hash = hash_and_encode_yaml(task_config, is_file=False)
 
             # Prepare configuration for task execution
@@ -354,8 +315,6 @@ class Pipeline:
                 "run_id": run_id,
                 "task": task,
                 "eeg_system": eeg_system,
-                "config_file": self.autoclean_config,
-                "stage_files": self.autoclean_dict["stage_files"],
                 "unprocessed_file": unprocessed_file,
                 "autoclean_dir": autoclean_dir,
                 "bids_dir": bids_dir,
@@ -369,9 +328,6 @@ class Pipeline:
                 "task_hash": task_hash,
                 "task_b64": b64_task,
             }
-
-            # Merge task-specific config with base config
-            run_dict = {**run_dict, **self.autoclean_dict}
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
             # Record full run configuration
@@ -741,23 +697,22 @@ class Pipeline:
         return list(self.session_task_registry.keys())
 
     def list_stage_files(self) -> list[str]:
-        """Get a list of configured stage file types.
+        """Get a list of default stage file types.
 
         Returns
         -------
         list of str
-            Names of all configured stage file types.
+            Names of all default stage file types.
 
-        Provides access to intermediate processing stage definitions from
-        configuration. Critical for understanding processing flow and
-        debugging pipeline state.
+        Provides access to intermediate processing stage definitions.
+        Critical for understanding processing flow and debugging pipeline state.
 
         Examples
         --------
         >>> pipeline.list_stage_files()
-        ['post_import', 'post_prepipeline', 'post_clean']
+        ['post_import', 'post_basic_steps', 'post_clean_raw', 'post_epochs', 'post_comp']
         """
-        return list(self.autoclean_dict["stage_files"].keys())
+        return ["post_import", "post_basic_steps", "post_clean_raw", "post_epochs", "post_comp"]
 
     def start_autoclean_review(self):
         """Launch the AutoClean Review GUI tool.
@@ -874,50 +829,6 @@ class Pipeline:
         
         return task_classes[0]
 
-    def _generate_default_config(self) -> Dict:
-        """Generate a default configuration for Python task files.
-        
-        Returns
-        -------
-        Dict
-            Default configuration dictionary with stage_files and basic settings.
-        """
-        return {
-            "stage_files": self._generate_default_stage_config(),
-            "tasks": {},  # Empty - Python tasks define their own settings
-            "eeg_system": "auto",  # Will be determined from data
-        }
-
-    def _generate_default_stage_config(self) -> Dict:
-        """Generate default stage_files configuration.
-        
-        Returns
-        -------
-        Dict
-            Default stage configuration with standard processing stages.
-        """
-        return {
-            "post_import": {
-                "enabled": True,
-                "suffix": "_imported"
-            },
-            "post_basic_steps": {
-                "enabled": True,
-                "suffix": "_basic"
-            },
-            "post_clean_raw": {
-                "enabled": True,
-                "suffix": "_clean"
-            },
-            "post_epochs": {
-                "enabled": True,
-                "suffix": "_epochs"
-            },
-            "post_comp": {
-                "enabled": True,
-                "suffix": "_final"
-            }
-        }
 
     def _validate_task(self, task: str) -> str:
         """Validate that a task type is supported and properly configured.
@@ -947,13 +858,20 @@ class Pipeline:
 
         # First check if task exists in session registry (includes Python tasks)
         if task.lower() not in self.session_task_registry:
-            raise ValueError(f"Task '{task}' not found in task registry. Available tasks: {list(self.session_task_registry.keys())}")
+            # Check if it's a custom task in user config (auto-discovers new tasks)
+            custom_task_path = user_config.get_custom_task_path(task)
+            if custom_task_path:
+                # Load the custom task into session registry
+                loaded_task_name = self.add_task(custom_task_path)
+                message("info", f"Loaded custom task '{task}' from user configuration")
+                return loaded_task_name
+            else:
+                available_tasks = list(self.session_task_registry.keys())
+                custom_tasks = list(user_config.list_custom_tasks().keys())
+                if custom_tasks:
+                    available_tasks.extend([f"{t} (custom)" for t in custom_tasks])
+                raise ValueError(f"Task '{task}' not found. Available tasks: {available_tasks}")
 
-        # For YAML-based tasks, also check if they exist in configuration
-        if self.autoclean_config and "tasks" in self.autoclean_dict:
-            if task not in self.autoclean_dict["tasks"]:
-                message("info", f"Task '{task}' found in registry but not in YAML configuration - assuming Python task file")
-        
         message("success", f"✓ Task '{task}' validated")
         return task
 
