@@ -67,18 +67,53 @@ class NewTask(Task):  # Inherits all mixins automatically
 
 ## Development Commands
 
-### Code Quality
+### Tool Installation (uv tool - Recommended)
 ```bash
-# Format code
+# Install all development tools in isolated environments
+python scripts/install_dev_tools.py
+
+# Or install directly with uv
+python scripts/uv_tools.py install
+
+# List installed tools
+python scripts/uv_tools.py list
+
+# Upgrade all tools
+python scripts/uv_tools.py upgrade
+```
+
+### Code Quality (uv tool)
+```bash
+# Run all quality checks (uses uv tool automatically)
+python scripts/check_code_quality.py
+python scripts/check_code_quality.py --fix    # Auto-fix issues
+
+# Individual tools via uv
+python scripts/uv_tools.py run black src/autoclean/
+python scripts/uv_tools.py run isort src/autoclean/
+python scripts/uv_tools.py run ruff check src/autoclean/
+python scripts/uv_tools.py run mypy src/autoclean/
+
+# Makefile commands (uses uv tool)
+make format                    # Auto-format code
+make lint                      # Run linting
+make check                     # Run all checks
+```
+
+### Code Quality (Fallback - Direct Commands)
+```bash
+# If uv is not available, use direct commands
+python scripts/check_code_quality.py --no-uv
+
+# Or direct tool usage
 black src/autoclean/
 isort src/autoclean/
-
-# Type checking
-mypy src/autoclean/
-
-# Linting
 ruff check src/autoclean/
+mypy src/autoclean/
+```
 
+### Testing
+```bash
 # Testing with coverage
 pytest --cov=autoclean
 
@@ -98,6 +133,28 @@ pip install -e ".[gui]"
 
 # Build package
 python -m build
+```
+
+### Using AutoClean as a uv tool (Recommended for Users)
+```bash
+# Install AutoClean as a standalone uv tool
+uv tool install .                    # From source (development)
+uv tool install autocleaneeg         # From PyPI (when published)
+
+# Use AutoClean CLI (isolated environment, no conflicts!)
+uv tool run autoclean --help
+uv tool run autoclean process --task RestingEyesOpen --file data.raw --output results/
+uv tool run autoclean list-tasks
+uv tool run autoclean review --output results/
+
+# Manage AutoClean tool
+uv tool list                         # Show installed tools
+uv tool upgrade autocleaneeg         # Upgrade AutoClean
+uv tool uninstall autocleaneeg       # Remove AutoClean
+
+# Makefile shortcuts
+make install-uv-tool                 # Install AutoClean as uv tool
+make uninstall-uv-tool               # Uninstall AutoClean uv tool
 ```
 
 ### Docker Development
