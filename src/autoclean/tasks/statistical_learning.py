@@ -29,14 +29,6 @@ class StatisticalLearning(Task):
         """
         self.original_raw: Optional[mne.io.Raw] = None
 
-        self.required_stages = [
-            "post_import",
-            "post_basicsteps",
-            "post_clean_raw",
-            "post_epochs",
-            "post_comp",
-        ]
-
         super().__init__(config)  # Initialize the base class
 
     def run(self) -> None:
@@ -64,7 +56,7 @@ class StatisticalLearning(Task):
         # Create BIDS-compliant paths and filenames
         self.create_bids_path()
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method="interpolate", reset_bads=True)
 
         self.rereference_data()
 
@@ -87,13 +79,13 @@ class StatisticalLearning(Task):
             autoclean_dict=self.config,
             stage="post_clean_raw",
             flagged=self.flagged,
-         )
+        )
 
         # --- EPOCHING BLOCK START ---
-        self.create_sl_epochs() # Using fixed-length epochs
+        self.create_sl_epochs()  # Using fixed-length epochs
 
         # Prepare epochs for ICA
-        self.prepare_epochs_for_ica()
+        self.detect_outlier_epochs()
 
         # Clean epochs using GFP
         self.gfp_clean_epochs()

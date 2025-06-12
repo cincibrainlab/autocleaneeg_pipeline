@@ -1,27 +1,38 @@
 #!/usr/bin/env python3
 """
-Local code quality checker for AutoClean EEG Pipeline.
+Local code quality checker for AutoClean EEG Pipeline using uv tool.
 
 This script runs the same code quality checks that are performed in CI,
-allowing developers to fix issues locally before committing.
+allowing developers to fix issues locally before committing. Uses uv tool run
+for isolated tool execution without installation conflicts.
 """
 
 import argparse
 import subprocess
 import sys
+import shutil
 from pathlib import Path
 from typing import List, Tuple
 
 
 class CodeQualityChecker:
-    """Run code quality checks locally."""
+    """Run code quality checks locally using uv tool."""
 
-    def __init__(self, src_dir: Path = None, fix: bool = False, verbose: bool = True):
+    def __init__(self, src_dir: Path = None, fix: bool = False, verbose: bool = True, use_uv: bool = None):
         """Initialize code quality checker."""
         self.src_dir = src_dir or Path("src/autoclean")
         self.fix = fix
         self.verbose = verbose
         self.results = []
+        
+        # Auto-detect uv if not specified
+        if use_uv is None:
+            self.use_uv = shutil.which('uv') is not None
+        else:
+            self.use_uv = use_uv
+            
+        if self.verbose and self.use_uv:
+            print("📦 Using uv tool for isolated command execution")
 
     def run_command(
         self, cmd: List[str], description: str, can_fix: bool = False
@@ -51,38 +62,59 @@ class CodeQualityChecker:
             return success, output
 
         except FileNotFoundError:
-            error_msg = f"Command not found: {cmd[0]}. Please install it with: pip install {cmd[0]}"
+            if self.use_uv:
+                error_msg = f"Command not found: {cmd[0]}. Please install it with: uv tool install {cmd[0]}"
+            else:
+                error_msg = f"Command not found: {cmd[0]}. Please install it with: pip install {cmd[0]}"
             if self.verbose:
                 print(f"   ❌ {error_msg}")
             return False, error_msg
 
     def check_black(self) -> Tuple[bool, str]:
         """Check code formatting with Black."""
-        cmd = ["black", "--check", "--diff", str(self.src_dir)]
-        if self.fix:
-            cmd = ["black", str(self.src_dir)]
+        if self.use_uv:
+            cmd = ["uv", "tool", "run", "black", "--check", "--diff", str(self.src_dir)]
+            if self.fix:
+                cmd = ["uv", "tool", "run", "black", str(self.src_dir)]
+        else:
+            cmd = ["black", "--check", "--diff", str(self.src_dir)]
+            if self.fix:
+                cmd = ["black", str(self.src_dir)]
 
         return self.run_command(cmd, "Black code formatting", can_fix=True)
 
     def check_isort(self) -> Tuple[bool, str]:
         """Check import sorting with isort."""
-        cmd = ["isort", "--check-only", "--diff", str(self.src_dir)]
-        if self.fix:
-            cmd = ["isort", str(self.src_dir)]
+        if self.use_uv:
+            cmd = ["uv", "tool", "run", "isort", "--check-only", "--diff", str(self.src_dir)]
+            if self.fix:
+                cmd = ["uv", "tool", "run", "isort", str(self.src_dir)]
+        else:
+            cmd = ["isort", "--check-only", "--diff", str(self.src_dir)]
+            if self.fix:
+                cmd = ["isort", str(self.src_dir)]
 
         return self.run_command(cmd, "isort import sorting", can_fix=True)
 
     def check_ruff(self) -> Tuple[bool, str]:
         """Check code with Ruff linter."""
-        cmd = ["ruff", "check", str(self.src_dir)]
-        if self.fix:
-            cmd = ["ruff", "check", "--fix", str(self.src_dir)]
+        if self.use_uv:
+            cmd = ["uv", "tool", "run", "ruff", "check", str(self.src_dir)]
+            if self.fix:
+                cmd = ["uv", "tool", "run", "ruff", "check", "--fix", str(self.src_dir)]
+        else:
+            cmd = ["ruff", "check", str(self.src_dir)]
+            if self.fix:
+                cmd = ["ruff", "check", "--fix", str(self.src_dir)]
 
         return self.run_command(cmd, "Ruff linting", can_fix=True)
 
     def check_mypy(self) -> Tuple[bool, str]:
         """Check types with mypy."""
-        cmd = ["mypy", str(self.src_dir), "--ignore-missing-imports"]
+        if self.use_uv:
+            cmd = ["uv", "tool", "run", "mypy", str(self.src_dir), "--ignore-missing-imports"]
+        else:
+            cmd = ["mypy", str(self.src_dir), "--ignore-missing-imports"]
 
         return self.run_command(cmd, "mypy type checking", can_fix=False)
 
@@ -100,6 +132,7 @@ class CodeQualityChecker:
             print("=" * 50)
             print(f"Source directory: {self.src_dir}")
             print(f"Fix mode: {'ON' if self.fix else 'OFF'}")
+            print(f"Tool execution: {'uv tool run' if self.use_uv else 'direct command'}")
 
         all_passed = True
 
@@ -135,9 +168,10 @@ class CodeQualityChecker:
             print("🎉 All code quality checks passed! Ready to commit.")
         else:
             print("⚠️  Some checks failed. Run with --fix to auto-correct issues.")
-            print(
-                "💡 Tip: Use 'python scripts/check_code_quality.py --fix' to automatically fix most issues"
-            )
+            tip_msg = "💡 Tip: Use 'python scripts/check_code_quality.py --fix' to automatically fix most issues"
+            if self.use_uv:
+                tip_msg += "\n💡 Using uv tool run for isolated execution (no dependency conflicts!)"
+            print(tip_msg)
 
 
 def main():
@@ -147,7 +181,8 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python scripts/check_code_quality.py                    # Check code quality
+  python scripts/check_code_quality.py                    # Check code quality (with uv tool)
+  python scripts/check_code_quality.py --no-uv            # Use direct commands (fallback)
   python scripts/check_code_quality.py --fix              # Fix issues automatically
   python scripts/check_code_quality.py --quiet            # Run silently
   python scripts/check_code_quality.py --src tests/       # Check tests directory
@@ -165,6 +200,9 @@ Examples:
     )
     parser.add_argument("--quiet", action="store_true", help="Reduce output verbosity")
     parser.add_argument(
+        "--no-uv", action="store_true", help="Use direct commands instead of 'uv tool run'"
+    )
+    parser.add_argument(
         "--check",
         choices=["black", "isort", "ruff", "mypy", "all"],
         default="all",
@@ -179,7 +217,12 @@ Examples:
         return 1
 
     # Initialize checker
-    checker = CodeQualityChecker(src_dir=args.src, fix=args.fix, verbose=not args.quiet)
+    checker = CodeQualityChecker(
+        src_dir=args.src, 
+        fix=args.fix, 
+        verbose=not args.quiet,
+        use_uv=not args.no_uv
+    )
 
     # Run checks
     if args.check == "all":

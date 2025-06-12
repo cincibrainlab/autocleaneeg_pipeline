@@ -9,9 +9,8 @@ CONFIG_FILE = Path("C:/Users/Gam9LG/Documents/Autoclean_testing/autoclean_config
 """Example of processing a single EEG file."""
 # Create pipeline instance
 pipeline = Pipeline(
-    autoclean_dir=EXAMPLE_OUTPUT_DIR,
-    autoclean_config=CONFIG_FILE,
-    verbose='INFO' # Set to 'DEBUG' for more detailed logging
+    output_dir=EXAMPLE_OUTPUT_DIR,
+        verbose='INFO' # Set to 'DEBUG' for more detailed logging
 )
 
 pipeline.start_autoclean_review()

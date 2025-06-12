@@ -1,57 +1,92 @@
-Autoclean
-====================================
+AutoClean EEG Pipeline
+======================
 
-**Autoclean** is an automated EEG processing pipeline leveraging MNE. It provides a modular, task-based framework for EEG data analysis, designed as an importable Python package. Create custom pipelines tailored to your specific experimental needs.
+**AutoClean** makes EEG data processing simple and accessible for everyone - from researchers with no programming experience to advanced developers building custom analysis workflows.
 
-Features
---------
-* **Modular Architecture**: Task-based system for custom processing pipelines
-* **Automated Preprocessing**: Streamlined workflows for EEG data cleaning
-* **Artifact Detection**: Advanced algorithms for removing common EEG artifacts
-* **Flexible Configuration**: YAML-based configuration for reproducible analysis
-* **Comprehensive Reporting**: Detailed visual reports for quality control
-* **Database Integration**: Tracking of processing runs and results
+🎯 **For Non-Technical Users**
+------------------------------
 
-Who is this for?
-----------------
+If you're new to EEG processing or programming, AutoClean provides:
 
-This pipeline is designed for:
+* **One-click setup**: Install and configure your workspace in minutes
+* **Web-based task builder**: Create processing pipelines through an intuitive interface  
+* **Drop-and-go workflow**: Simply drop your task files and run
+* **No coding required**: Process your data with simple commands
 
-**EEG Researchers:** Streamline your preprocessing and analysis workflows with reproducible and configurable pipelines.
+🔧 **For Technical Users**  
+--------------------------
 
-**Why use this pipeline?** 
-Preprocessing EEG data often suffers from variability, even among highly trained researchers, due to differences in methods and quality standards. Additionally, existing pipelines may lack flexibility or fail to include critical processing steps required by specific experiments. To address these challenges, Autoclean provides a fully customizable, modular pipeline using a task-based architecture. While initial setup involves creating and configuring tasks to precisely fit your analysis needs, the result is a robust, reproducible, and automated workflow that can include both preprocessing and analysis. This ensures consistent, high-quality outputs tailored specifically to your dataset, significantly improving both the reliability and efficiency of your EEG data analysis.
+If you're a programmer or advanced researcher, AutoClean offers:
+
+* **Python integration**: Full API access for custom scripts and Jupyter notebooks
+* **Modular architecture**: Build custom processing pipelines with reusable components
+* **Advanced customization**: Create sophisticated workflows with mixins and plugins
+* **Developer tools**: CLI commands and configuration management
+
+Key Features
+------------
+* **Automated Preprocessing**: Intelligent artifact detection and removal
+* **Quality Control Reports**: Visual summaries of processing results  
+* **User-Friendly Workspace**: Organized file structure in your Documents folder
+* **Cross-Platform**: Works on Windows, Mac, and Linux
+* **Reproducible**: Consistent results across different users and systems
+* **Extensible**: Easy to add new processing methods and experimental paradigms
+
+Why Choose AutoClean?
+---------------------
+
+**Consistent Results**: Eliminates variability between researchers and labs by providing standardized, validated processing workflows.
+
+**Easy to Use**: Whether you're clicking through a web interface or writing Python code, AutoClean adapts to your preferred way of working.
+
+**Research-Focused**: Built by neuroscientists for neuroscientists, with features that address real research needs and workflows.
 
 Core Concepts
 -------------
 
-The pipeline is built around a few key ideas:
+AutoClean is built around simple, intuitive concepts:
 
-*   **Pipeline:** The central orchestrator that manages configuration, data flow, and task execution.
-*   **Task:** A defined sequence of processing steps for a specific experimental paradigm (e.g., resting-state, auditory steady-state response). You can use pre-built tasks or create your own.
-*   **Config:** A YAML file that defines the parameters for the pipeline and tasks.
-*   **Mixins:** Individual, reusable processing units (e.g., loading data, filtering, artifact rejection, reporting) that make up a Task.
-*   **Step Functions:** Legacy functions that may still be used to process data.
-*   **Plugins:** Plugins handle importing different formats and montages as well as different event types
+**Workspace**
+   Your personal folder (in Documents/Autoclean-EEG) containing all your custom tasks, configuration, and processing results.
 
-Quick Example
--------------
+**Tasks** 
+   Pre-configured processing workflows for specific experiments (e.g., resting-state, auditory experiments). Each task contains all the settings and steps needed to process your data.
+
+**Pipeline**
+   The processing engine that takes your data and task, then automatically handles all the complex EEG preprocessing steps.
+
+**Auto-Discovery**
+   Simply drop task files into your workspace - AutoClean automatically finds and makes them available for use.
+
+Quick Start Examples
+-------------------
+
+**🎯 For Non-Technical Users (Command Line)**
+
+.. code-block:: bash
+
+   # Install AutoClean
+   pip install autocleaneeg
+   
+   # Run first-time setup
+   autoclean setup
+   
+   # Process your data (that's it!)
+   autoclean process RestingEyesOpen my_eeg_data.raw
+
+**🔧 For Technical Users (Python)**
 
 .. code-block:: python
 
    from autoclean import Pipeline
 
-   # Initialize the pipeline with configuration and output directory
-   pipeline = Pipeline(
-       autoclean_dir="path/to/your/results",
-       autoclean_config="path/to/your/autoclean_config.yaml",
-   )
-
-   # Process a single EEG file using a specific task
-   pipeline.process_file(
-       file_path="path/to/your/data/sub-01_task-rest_eeg.set", # Example file
-       task="resting_eyes_open"  # Example task
-   )
+   # Simple usage - uses your workspace automatically  
+   pipeline = Pipeline()
+   pipeline.process_file("my_data.raw", "RestingEyesOpen")
+   
+   # Custom output location
+   pipeline = Pipeline(output_dir="my_results/")
+   pipeline.process_file("my_data.raw", "CustomTask")
 
 .. toctree::
    :maxdepth: 2
