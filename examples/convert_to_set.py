@@ -10,9 +10,8 @@ CONFIG_FILE = Path("configs/autoclean_config.yaml")  # Path to config relative t
 EXAMPLE_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 pipeline = Pipeline(
-    autoclean_dir=EXAMPLE_OUTPUT_DIR,
-    autoclean_config=CONFIG_FILE,
-    verbose='debug'
+    output_dir=EXAMPLE_OUTPUT_DIR,
+        verbose='debug'
 )
 
 directory = Path("/path/to/input/directory")

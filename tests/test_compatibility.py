@@ -14,9 +14,8 @@ def test_yaml_compatibility():
     try:
         # Test with existing YAML configuration
         pipeline = Pipeline(
-            autoclean_dir=tempfile.mkdtemp(),
-            autoclean_config="configs/autoclean_config.yaml"
-        )
+            output_dir=tempfile.mkdtemp(),
+                    )
         
         # List available YAML tasks
         yaml_tasks = pipeline.list_tasks()
@@ -83,9 +82,8 @@ def test_mixed_usage():
     try:
         # Create pipeline with YAML config
         pipeline = Pipeline(
-            autoclean_dir=tempfile.mkdtemp(),
-            autoclean_config="configs/autoclean_config.yaml"
-        )
+            output_dir=tempfile.mkdtemp(),
+                    )
         
         # Get initial YAML tasks
         initial_tasks = pipeline.list_tasks()
@@ -122,9 +120,8 @@ def test_configuration_priority():
         # For now, just verify the mechanism works
         
         pipeline = Pipeline(
-            autoclean_dir=tempfile.mkdtemp(),
-            autoclean_config="configs/autoclean_config.yaml"
-        )
+            output_dir=tempfile.mkdtemp(),
+                    )
         
         # Add a Python task
         task_path = Path("examples/simple_resting_task.py")
