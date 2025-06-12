@@ -1,151 +1,93 @@
-Your First EEG Analysis with AutoClean
-=======================================
+EEG Processing Tutorial
+=======================
 
-This tutorial walks you through processing your first EEG file with AutoClean, from installation to viewing results. Perfect for beginners!
+This tutorial demonstrates how to process EEG data using AutoClean's built-in tasks and Python API.
 
-🎯 What You'll Learn
---------------------
+Prerequisites
+-------------
 
-By the end of this tutorial, you'll know how to:
-- Install and set up AutoClean
-- Choose the right task for your experiment
-- Process an EEG file
-- Find and understand your results
-- Troubleshoot common issues
+- EEG data file (.raw, .set, .eeg, or .bdf format)
+- Python 3.10+ with pip installed
+- Basic understanding of your experimental paradigm
 
-📋 What You'll Need
--------------------
+Supported paradigms include resting state, auditory steady-state response (ASSR), chirp stimuli, and mismatch negativity (MMN).
 
-**Before starting:**
-- An EEG data file (.raw, .set, .eeg, or .bdf format)
-- Basic knowledge of what experiment the data is from
-- About 15 minutes
+Installation
+------------
 
-**Common experiment types we'll cover:**
-- Resting state (eyes open/closed)
-- Auditory experiments (tones, speech, music)
-- Visual experiments  
-- Cognitive tasks
-
-🚀 Step 1: Install AutoClean
-----------------------------
-
-If you haven't installed AutoClean yet:
+Install AutoClean from PyPI:
 
 .. code-block:: bash
 
    pip install autocleaneeg
 
-**Troubleshooting installation:**
-- If you get "pip not found", you may need to install Python first
-- Ask your IT department for help if needed
-- Some systems use `pip3` instead of `pip`
-
-✅ **Test your installation:**
+Verify the installation:
 
 .. code-block:: bash
 
    autoclean version
 
-You should see something like "AutoClean EEG Pipeline v2.0.0"
+This should display the current version (e.g., "AutoClean EEG Pipeline v2.0.0").
 
-⚙️ Step 2: Set Up Your Workspace
---------------------------------
+Workspace Setup
+---------------
 
-This creates your personal AutoClean folder where everything will be organized:
+Initialize your workspace directory:
 
 .. code-block:: bash
 
    autoclean setup
 
-**What you'll see:**
+This creates a workspace directory structure with folders for custom tasks, output results, and configuration. The default location is platform-specific (typically in your Documents folder).
 
-.. code-block:: text
-
-   ╭─ 🧠 Welcome to AutoClean! ─╮
-   ╰────────────────────────────╯
-
-   Workspace location: /Users/yourname/Documents/Autoclean-EEG
-   • Custom tasks  • Configuration  • Results  • Easy backup
-
-   Press Enter for default, or type a custom path: 
-
-**What happens:**
-- Creates a clean workspace folder in your Documents
-- Creates an example script to get you started
-- Sets up folder structure for tasks and results
-- No complex configuration files to manage
-
-**If asked where to put your workspace:**
-- Press Enter to use the default (Documents/Autoclean-EEG)
-- Or type a custom path if you prefer
-
-🎯 Step 3: Choose Your Task
+Selecting a Processing Task
 ---------------------------
 
-Different experiments need different processing approaches. AutoClean includes several built-in tasks:
-
-**See what's available:**
+AutoClean includes built-in tasks for common EEG paradigms:
 
 .. code-block:: bash
 
-   # Built-in tasks only
    autoclean list-tasks
-   
-   # Include any custom tasks you've added
-   autoclean list-tasks --include-custom
 
-**Built-in tasks you'll see:**
+Available built-in tasks:
 
 **RestingEyesOpen**
-   For resting state recordings where participants keep their eyes open
+   Resting state recordings with eyes open
    
 **ChirpDefault**  
-   For auditory experiments using chirp stimuli
+   Auditory experiments using chirp stimuli
    
-**AssrDefault**
-   For auditory steady-state response experiments
+**ASSR**
+   Auditory steady-state response experiments
    
 **HBCD_MMN**
-   For mismatch negativity experiments
+   Mismatch negativity experiments
 
-**How to choose:**
+**StatisticalLearning**
+   Statistical learning paradigms
 
-1. **Resting state data?** → Use "RestingEyesOpen"
-2. **Auditory experiment?** → Try "ChirpDefault" or "AssrDefault"  
-3. **Not sure?** → Start with "RestingEyesOpen" (works for most data)
-4. **Need something custom?** → See our task creation guides later
+Select the task that matches your experimental paradigm. If none match exactly, ``RestingEyesOpen`` provides a good general-purpose processing pipeline.
 
-📁 Step 4: Locate Your Data File
---------------------------------
+Processing EEG Data
+-------------------
 
-**Find your EEG file:**
+AutoClean supports common EEG file formats including .raw, .set, .eeg, .bdf, and .fif files. 
+
+**Command Line Processing**
+
+Process a single file:
 
 .. code-block:: bash
 
-   # Navigate to where your data is stored
-   cd Documents/My_EEG_Data
-   
-   # See what files are there
-   ls    # Mac/Linux
-   dir   # Windows
+   autoclean process RestingEyesOpen subject01_rest.raw
 
-**Common file extensions:**
-- `.raw` - Continuous EEG data
-- `.set` - EEGLAB format  
-- `.eeg` - BrainVision format
-- `.bdf` - BioSemi format
-- `.fif` - MNE format
+Process multiple files in a directory:
 
-**Example filenames you might see:**
-- subject001_rest.raw
-- participant_01.set
-- sub-01_task-rest_eeg.raw
+.. code-block:: bash
 
-🎬 Step 5: Process Your Data
-----------------------------
+   autoclean process RestingEyesOpen data_directory/
 
-Now for the magic! This single command processes your entire EEG file:
+**Python API Processing**
 
 .. code-block:: bash
 
