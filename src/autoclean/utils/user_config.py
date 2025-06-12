@@ -355,4 +355,3 @@ if __name__ == "__main__":
 
 # Global instance
 user_config = UserConfigManager()
-
