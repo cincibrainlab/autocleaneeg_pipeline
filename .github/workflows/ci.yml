@@ -169,7 +169,7 @@ jobs:
           from autoclean import Pipeline
           
           with tempfile.TemporaryDirectory() as temp_dir:
-              pipeline = Pipeline(autoclean_dir=temp_dir)
+              pipeline = Pipeline(output_dir=temp_dir)
               
               # Test adding example task files
               examples_dir = Path('examples')
@@ -205,14 +205,13 @@ jobs:
               try:
                   # Test with YAML config
                   pipeline = Pipeline(
-                      autoclean_dir=temp_dir,
-                      autoclean_config='configs/autoclean_config.yaml'
+                      output_dir=temp_dir
                   )
                   yaml_tasks = pipeline.list_tasks()
                   print(f'✓ YAML tasks loaded: {len(yaml_tasks)}')
                   
                   # Test without YAML config  
-                  pipeline2 = Pipeline(autoclean_dir=temp_dir)
+                  pipeline2 = Pipeline(output_dir=temp_dir)
                   print('✓ Pipeline works without YAML config')
                   
                   print('✅ Backward compatibility maintained')

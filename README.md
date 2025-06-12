@@ -66,7 +66,7 @@ class MyRestingTask(Task):
 # Use your custom task
 from autoclean import Pipeline
 
-pipeline = Pipeline(autoclean_dir="/path/to/output")
+pipeline = Pipeline(output_dir="/path/to/output")
 pipeline.add_task("my_task.py")
 pipeline.process_file("/path/to/data.raw", task="MyRestingTask")
 ```
@@ -80,8 +80,7 @@ from autoclean import Pipeline
 
 # Initialize pipeline with YAML configuration
 pipeline = Pipeline(
-    autoclean_dir="/path/to/output",
-    autoclean_config="configs/autoclean_config.yaml"
+    output_dir="/path/to/output"
 )
 
 # Process using built-in tasks
