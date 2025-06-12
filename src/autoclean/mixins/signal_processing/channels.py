@@ -21,8 +21,8 @@ class ChannelsMixin:
         ransac_frac_bad: float = 0.25,
         ransac_channel_wise: bool = False,
         random_state: int = 1337,
-        cleaning_method: Union[str, None] = None,
-        reset_bads: bool = False,
+        cleaning_method: Union[str, None] = "interpolate",
+        reset_bads: bool = True,
         stage_name: str = "post_bad_channels",
     ) -> mne.io.Raw:
         """Detect and mark bad channels using various methods.

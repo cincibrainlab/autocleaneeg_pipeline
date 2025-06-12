@@ -14,7 +14,8 @@ class BasicStepsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         use_epochs: bool = False,
-        stage_name: str = "post_basicsteps",
+        stage_name: str = "post_basic_steps",
+        export: bool = False,
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Runs all basic preprocessing steps sequentially based on configuration.
 
@@ -34,6 +35,10 @@ class BasicStepsMixin:
             The data object to process. If None, uses self.raw or self.epochs.
         use_epochs : bool, Optional
             If True and data is None, uses self.epochs instead of self.raw.
+        stage_name : str, Optional
+            Name of the processing stage for export. Default is "post_basic_steps".
+        export : bool, Optional
+            If True, exports the processed data to the stage directory. Default is False.
 
         Returns
         -------
@@ -69,7 +74,14 @@ class BasicStepsMixin:
 
         message("info", "Basic preprocessing steps completed successfully.")
 
-        self._save_raw_result(processed_data, stage_name)
+        # Update instance data
+        self._update_instance_data(data, processed_data, use_epochs)
+
+        # Store a copy of the pre-cleaned raw data for comparison
+        self.original_raw = self.raw.copy()
+
+        # Export if requested
+        self._auto_export_if_enabled(processed_data, stage_name, export)
 
         return processed_data
 

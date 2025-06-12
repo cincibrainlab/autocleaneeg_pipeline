@@ -31,35 +31,85 @@ uv tool install -e --upgrade ".[dev]"
 
 ## Quick Start
 
-AutoClean EEG is designed as a framework for researchers to build custom EEG processing workflows:
+AutoClean EEG offers two approaches for building custom EEG processing workflows:
+
+### Option 1: Python Task Files (Recommended for New Users)
+
+Create simple Python files that combine configuration and processing logic:
+
+```python
+# my_task.py
+from typing import Any, Dict
+from autoclean.core.task import Task
+
+# Embedded configuration
+config = {
+    'resample_step': {'enabled': True, 'value': 250},
+    'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 100}},
+    'ICA': {'enabled': True, 'value': {'method': 'picard'}},
+    'epoch_settings': {'enabled': True, 'value': {'tmin': -1, 'tmax': 1}}
+}
+
+class MyRestingTask(Task):
+    def __init__(self, config: Dict[str, Any]):
+        self.settings = globals()['config']
+        super().__init__(config)
+    
+    def run(self) -> None:
+        self.import_raw()
+        self.run_basic_steps(export=True)
+        self.run_ica(export=True)
+        self.create_regular_epochs(export=True)
+```
+
+```python
+# Use your custom task
+from autoclean import Pipeline
+
+pipeline = Pipeline(output_dir="/path/to/output")
+pipeline.add_task("my_task.py")
+pipeline.process_file("/path/to/data.raw", task="MyRestingTask")
+```
+
+### Option 2: Traditional YAML Configuration
+
+For complex workflows or when you prefer separate config files:
 
 ```python
 from autoclean import Pipeline
 
-# Initialize pipeline with configuration
+# Initialize pipeline with YAML configuration
 pipeline = Pipeline(
-    autoclean_dir="/path/to/output",
-    autoclean_config="configs/autoclean_config.yaml"
+    output_dir="/path/to/output"
 )
 
-# Typical research workflow:
-# 1. Test single file to validate task and tune parameters
+# Process using built-in tasks
 pipeline.process_file(
     file_path="/path/to/test_data.raw", 
     task="rest_eyesopen"
 )
+```
 
-# 2. Review results in output/derivatives and adjust config as needed
+### Typical Research Workflow
 
-# 3. Process full dataset using batch processing
-pipeline.batch_process(
-    input_dir="/path/to/dataset",
-    task="rest_eyesopen",
-    file_pattern="*.raw"
+1. **Test single file** to validate task and tune parameters
+2. **Review results** in output directories and adjust as needed  
+3. **Process full dataset** using batch processing
+
+```python
+# Batch processing (works with both approaches)
+pipeline.process_directory(
+    directory="/path/to/dataset",
+    task="MyRestingTask",  # or built-in task name
+    pattern="*.raw"
 )
 ```
 
-**Note**: Task selection requires domain knowledge of your EEG paradigm. See `src/autoclean/tasks/` for available tasks or create custom tasks using the modular mixin system.
+**Key Benefits of Python Task Files:**
+- **Simpler**: No separate YAML files to manage
+- **Self-contained**: Configuration and logic in one file
+- **Flexible**: Optional `export=True` parameters control file outputs
+- **Intuitive**: Pandas-like API with sensible defaults
 
 ## Documentation
 

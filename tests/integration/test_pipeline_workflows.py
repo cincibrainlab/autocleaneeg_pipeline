@@ -104,8 +104,8 @@ class TestPipelineWorkflows:
             seed=42
         )
         
-        # Save as .fif file
-        input_file = temp_workspace / "input" / "test_subject_001.fif"
+        # Save as proper _raw.fif file
+        input_file = temp_workspace / "input" / "test_subject_001_raw.fif"
         raw.save(input_file, overwrite=True, verbose=False)
         
         return input_file
@@ -119,11 +119,7 @@ class TestPipelineWorkflows:
             apply_iclabel_rejection=MockOperations.mock_apply_ica
         ), patch.multiple(
             'autoclean.mixins.signal_processing.autoreject_epochs.AutoRejectEpochsMixin',
-            
             apply_autoreject=MockOperations.mock_apply_autoreject
-        ), patch.multiple(
-            'autoclean.mixins.signal_processing.basic_steps.BasicStepsMixin',
-            run_ransac=MockOperations.mock_ransac
         ):
             yield
     
@@ -135,9 +131,8 @@ class TestPipelineWorkflows:
         
         # Initialize pipeline
         pipeline = Pipeline(
-            autoclean_dir=temp_workspace / "output",
-            autoclean_config=minimal_config,
-            verbose="ERROR"
+            output_dir=temp_workspace / "output",
+                        verbose="ERROR"
         )
         
         # Process file
@@ -183,9 +178,8 @@ class TestPipelineWorkflows:
         
         # Initialize pipeline
         pipeline = Pipeline(
-            autoclean_dir=temp_workspace / "output",
-            autoclean_config=minimal_config,
-            verbose="ERROR"
+            output_dir=temp_workspace / "output",
+                        verbose="ERROR"
         )
         
         # Process all files
@@ -227,9 +221,8 @@ class TestPipelineWorkflows:
         
         # Initialize pipeline
         pipeline = Pipeline(
-            autoclean_dir=temp_workspace / "output",
-            autoclean_config=minimal_config,
-            verbose="ERROR"
+            output_dir=temp_workspace / "output",
+                        verbose="ERROR"
         )
         
         successful_tasks = []
@@ -286,9 +279,8 @@ class TestPipelineWorkflows:
         
         # Initialize pipeline
         pipeline = Pipeline(
-            autoclean_dir=temp_workspace / "output",
-            autoclean_config=minimal_config,
-            verbose="ERROR"
+            output_dir=temp_workspace / "output",
+                        verbose="ERROR"
         )
         
         # Test 1: Non-existent file
@@ -370,9 +362,8 @@ class TestPipelineWorkflows:
             # Test pipeline with this config
             try:
                 pipeline = Pipeline(
-                    autoclean_dir=temp_workspace / "output" / config_name,
-                    autoclean_config=config_path,
-                    verbose="ERROR"
+                    output_dir=temp_workspace / "output" / config_name,
+                                        verbose="ERROR"
                 )
                 
                 result = pipeline.process_file(
@@ -415,7 +406,7 @@ class TestPipelineMemoryAndPerformance:
             sfreq=250.0
         )
         
-        input_file = tmp_path / "memory_test.fif"
+        input_file = tmp_path / "memory_test_raw.fif"
         raw.save(input_file, overwrite=True, verbose=False)
         
         # Create minimal config
@@ -436,8 +427,7 @@ class TestPipelineMemoryAndPerformance:
         ):
             try:
                 pipeline = Pipeline(
-                    autoclean_dir=tmp_path / "output",
-                    autoclean_config=config_path,
+                    output_dir=tmp_path / "output",
                     verbose="ERROR"
                 )
                 
@@ -473,7 +463,7 @@ class TestPipelineMemoryAndPerformance:
             sfreq=250.0
         )
         
-        input_file = tmp_path / "timing_test.fif"
+        input_file = tmp_path / "timing_test_raw.fif"
         raw.save(input_file, overwrite=True, verbose=False)
         
         # Create minimal config
@@ -496,8 +486,7 @@ class TestPipelineMemoryAndPerformance:
         ):
             try:
                 pipeline = Pipeline(
-                    autoclean_dir=tmp_path / "output",
-                    autoclean_config=config_path,
+                    output_dir=tmp_path / "output",
                     verbose="ERROR"
                 )
                 

@@ -93,7 +93,11 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
 """
 
     def run_ica(
-        self, eog_channel: str = None, use_epochs: bool = False, **kwargs
+        self,
+        eog_channel: str = None,
+        use_epochs: bool = False,
+        stage_name: str = "post_ica",
+        **kwargs,
     ) -> ICA:
         """Run ICA on the raw data.
 
@@ -101,13 +105,16 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
         ICA object is stored in self.final_ica.
         Uses optional kwargs from the autoclean_config file to fit the mne ICA object.
 
-
         Parameters
         ----------
         eog_channel : str, optional
             The EOG channel to use for ICA. If None, no EOG detection will be performed.
         use_epochs : bool, optional
             If True, epoch data stored in self.epochs will be used.
+        stage_name : str, optional
+            Name of the processing stage for export. Default is "post_ica".
+        export : bool, optional
+            If True, exports the processed data to the stage directory. Default is False.
 
         Returns
         -------
@@ -117,8 +124,7 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
         Examples
         --------
         >>> self.run_ica()
-
-        >>> self.run_ica(eog_channel="E27")
+        >>> self.run_ica(eog_channel="E27", export=True)
 
         See Also
         --------
@@ -133,7 +139,7 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
             message("warning", "ICA is not enabled in the config")
             return
 
-        data = self._get_data_object(data = None, use_epochs = use_epochs)
+        data = self._get_data_object(data=None, use_epochs=use_epochs)
 
         # Run ICA
         if is_enabled:
@@ -183,7 +189,9 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
 
         return self.final_ica
 
-    def run_ICLabel(self):  # pylint: disable=invalid-name
+    def run_ICLabel(
+        self, stage_name: str = "post_component_removal", export: bool = False
+    ):  # pylint: disable=invalid-name
         """Run ICLabel on the raw data.
 
         Returns
@@ -237,6 +245,9 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
 
         self.apply_iclabel_rejection()
 
+        # Export if requested
+        self._auto_export_if_enabled(self.raw, stage_name, export)
+
         return self.ica_flags
 
     def apply_iclabel_rejection(self, data_to_clean=None):
@@ -283,10 +294,10 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
         if not hasattr(self, "ica_flags") or self.ica_flags is None:
             message(
                 "error",
-                "ICLabel results (self.ica_flags) not found. Skipping ICLabel rejection.",
+                "ICA results (self.ica_flags) not found. Skipping ICLabel rejection.",
             )
             raise RuntimeError(
-                "ICLabel results (self.ica_flags) not found. Please run `run_ICLabel` first."
+                "ICA results (self.ica_flags) not found. Please run `run_ICLabel` first."
             )
 
         is_enabled, step_config_main_dict = self._check_step_enabled("ICLabel")
@@ -400,18 +411,6 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
             message(
                 "warning",
                 "_update_metadata method not found. Cannot save metadata for ICLabel rejection.",
-            )
-
-        # Save the ICA object with updated exclusions
-        if hasattr(self, "config") and hasattr(self, "raw"):
-            #  save_ica_to_fif(self.final_ica, self.config, self.raw) # Consistently save against self.raw context
-            message(
-                "debug",
-                "Saved ICA object with updated exclusions after ICLabel rejection.",
-            )
-        else:
-            message(
-                "warning", "Cannot save ICA object: self.config or self.raw not found."
             )
 
         message("success", "ICLabel-based component rejection complete.")

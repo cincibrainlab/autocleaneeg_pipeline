@@ -54,7 +54,7 @@ SignalProcessingMixin
    channels.ChannelsMixin
    eventid_epochs.EventIDEpochsMixin
    regular_epochs.RegularEpochsMixin
-   prepare_epochs_ica.PrepareEpochsICAMixin
+   outlier_detection.OutlierDetectionMixin
    gfp_clean_epochs.GFPCleanEpochsMixin
    ica.IcaMixin
    segment_rejection.SegmentRejectionMixin

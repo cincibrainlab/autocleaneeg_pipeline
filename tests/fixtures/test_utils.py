@@ -53,8 +53,7 @@ class BaseTestCase:
             yaml.dump(config, f)
         
         return Pipeline(
-            autoclean_dir=str(self.autoclean_dir),
-            autoclean_config=str(config_file)
+            output_dir=str(self.autoclean_dir)
         )
     
     def get_minimal_config(self) -> Dict[str, Any]:

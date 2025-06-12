@@ -29,15 +29,6 @@ class HBCD_MMN(Task):  # pylint: disable=invalid-name
         self.epochs = None
         self.original_raw = None
 
-        # Stages that should be configured in the autoclean_config.yaml file
-        self.required_stages = [
-            "post_import",
-            "post_basic_steps",
-            "post_clean_raw",
-            "post_epochs",
-            "post_comp",
-        ]
-
         # Call parent initialization
         super().__init__(config)
 

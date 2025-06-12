@@ -20,21 +20,39 @@ class BIDSMixin:
         message("header", "step_create_bids_path")
         unprocessed_file = self.config["unprocessed_file"]
         task = self.config["task"]
-        mne_task = self.config["tasks"][task]["mne_task"]
         bids_dir = self.config["bids_dir"]
         eeg_system = self.config["eeg_system"]
-        config_file = self.config["config_file"]
+        config_file = "python_task_config"  # No config file for Python tasks
 
-        try:
-            line_freq = self.config["tasks"][task]["settings"]["filtering"]["value"][
-                "notch_freqs"
-            ][0]
-        except Exception as e:  # pylint: disable=broad-except
-            message(
-                "error",
-                f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
-            )
-            line_freq = 60.0
+        # Handle both YAML and Python task configurations
+        if task in self.config.get("tasks", {}):
+            # YAML-based task
+            mne_task = self.config["tasks"][task]["mne_task"]
+            try:
+                line_freq = self.config["tasks"][task]["settings"]["filtering"][
+                    "value"
+                ]["notch_freqs"][0]
+            except Exception as e:  # pylint: disable=broad-except
+                message(
+                    "error",
+                    f"Failed to load line frequency: {str(e)}. Using default value of 60 Hz.",
+                )
+                line_freq = 60.0
+        else:
+            # Python-based task - use defaults
+            mne_task = task.lower()  # Use task name as default
+            # Try to get line frequency from task settings
+            if (
+                hasattr(self, "settings")
+                and self.settings
+                and "filtering" in self.settings
+            ):
+                try:
+                    line_freq = self.settings["filtering"]["value"]["notch_freqs"][0]
+                except (KeyError, IndexError, TypeError):
+                    line_freq = 60.0  # Default line frequency
+            else:
+                line_freq = 60.0  # Default line frequency
 
         if use_epochs:
             epochs_data = self._get_data_object(self.epochs, use_epochs=True)
@@ -85,49 +103,51 @@ class BIDSMixin:
 
     def create_mock_raw_from_epochs(self, epochs: mne.Epochs) -> mne.io.Raw:
         """Create a mock Raw object from Epochs data for BIDS conversion.
-        
+
         The BIDS conversion functions expect mne.io.Raw objects, but we have epoched data.
         This method creates a synthetic Raw object that contains the concatenated epoch
         data and mimics the required attributes for BIDS conversion.
-        
+
         Args:
             epochs: The epochs data to convert
-            
+
         Returns:
             Mock Raw object suitable for BIDS conversion
         """
-        import numpy as np
-        
+
         message("info", "Creating mock Raw object from Epochs for BIDS conversion")
-        
+
         # Concatenate all epoch data along the time axis
         # epochs.get_data() returns (n_epochs, n_channels, n_times)
         epoch_data = epochs.get_data()
         n_epochs, n_channels, n_times = epoch_data.shape
-        
+
         # Flatten epochs into continuous data: (n_channels, n_epochs * n_times)
         continuous_data = epoch_data.transpose(1, 0, 2).reshape(n_channels, -1)
-        
+
         # Create info object (copy from epochs to preserve channel info)
         info = epochs.info.copy()
-        
+
         # Create the mock Raw object
         mock_raw = mne.io.RawArray(continuous_data, info, verbose=False)
-        
+
         # Handle the filename/filenames attribute difference
         # Epochs has 'filename', Raw expects 'filenames' (list)
-        if hasattr(epochs, 'filename') and epochs.filename:
+        if hasattr(epochs, "filename") and epochs.filename:
             mock_raw.filenames = [epochs.filename]
-        elif hasattr(epochs, 'filenames') and epochs.filenames:
+        elif hasattr(epochs, "filenames") and epochs.filenames:
             mock_raw.filenames = epochs.filenames
         else:
             # Fallback - create a dummy filename
-            mock_raw.filenames = ['epoched_data.set']
-            
+            mock_raw.filenames = ["epoched_data.set"]
+
         # Copy any annotations if they exist
-        if hasattr(epochs, 'annotations') and epochs.annotations:
+        if hasattr(epochs, "annotations") and epochs.annotations:
             mock_raw.set_annotations(epochs.annotations)
-            
-        message("success", f"Created mock Raw object: {n_channels} channels, {continuous_data.shape[1]} samples")
-        
+
+        message(
+            "success",
+            f"Created mock Raw object: {n_channels} channels, {continuous_data.shape[1]} samples",
+        )
+
         return mock_raw

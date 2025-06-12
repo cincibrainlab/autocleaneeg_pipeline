@@ -1,7 +1,7 @@
 """Statistical Learning epochs creation mixin for autoclean tasks.
 
 This module provides functionality for creating fixed-length epochs from
-Statistical Learning continuous EEG data. Statistical Learning fixed-length epochs 
+Statistical Learning continuous EEG data. Statistical Learning fixed-length epochs
 are time segments of equal duration that are created at fixed intervals throughout the recording, based on event markers specific to the SL paradigm.
 
 The StatisticalLearningEpochsMixin class implements methods for creating these epochs and
@@ -13,13 +13,12 @@ the data needs to be segmented into manageable chunks for further processing and
 
 """
 
-
-
-
 from typing import Dict, Optional, Union
+
 import mne
 import numpy as np
 import pandas as pd
+
 from autoclean.utils.logging import message
 
 
@@ -75,7 +74,9 @@ class StatisticalLearningEpochsMixin:
                 tmax = epoch_value.get("tmax", tmax)
 
             threshold_settings = config_value.get("threshold_rejection", {})
-            if isinstance(threshold_settings, dict) and threshold_settings.get("enabled", False):
+            if isinstance(threshold_settings, dict) and threshold_settings.get(
+                "enabled", False
+            ):
                 threshold_config = threshold_settings.get("volt_threshold", {})
                 if isinstance(threshold_config, (int, float)):
                     volt_threshold = {"eeg": float(threshold_config)}
@@ -90,48 +91,69 @@ class StatisticalLearningEpochsMixin:
         try:
             # Define event codes
             syllable_codes = [
-                'DIN1', 'DIN2', 'DIN3', 'DIN4', 'DIN5', 'DIN6', 'DIN7', 'DIN8', 'DIN9', 'DI10', 'DI11', 'DI12'
+                "DIN1",
+                "DIN2",
+                "DIN3",
+                "DIN4",
+                "DIN5",
+                "DIN6",
+                "DIN7",
+                "DIN8",
+                "DIN9",
+                "DI10",
+                "DI11",
+                "DI12",
             ]
-            events_to_remove = ['DI64']
-            word_onset_codes = ['DIN1', 'DIN8', 'DIN9', 'DI11']
-            if subject_id == '2310':
-                syllable_codes = [f'D1{i:02d}' for i in range(1, 13)]
-                word_onset_codes = ['D101', 'D108', 'D109', 'D111']
-        
+            word_onset_codes = ["DIN1", "DIN8", "DIN9", "DI11"]
+            if subject_id == "2310":
+                syllable_codes = [f"D1{i:02d}" for i in range(1, 13)]
+                word_onset_codes = ["D101", "D108", "D109", "D111"]
+
             # Remove DI64 events from annotations before extracting events
             message("header", "Removing DI64 events from annotations...")
             if data.annotations is not None:
                 # Get indices of DI64 annotations
-                di64_indices = [i for i, desc in enumerate(data.annotations.description) if desc == 'DI64']
+                di64_indices = [
+                    i
+                    for i, desc in enumerate(data.annotations.description)
+                    if desc == "DI64"
+                ]
                 if di64_indices:
                     # Create new annotations without DI64
                     new_annotations = data.annotations.copy()
                     new_annotations.delete(di64_indices)
                     data.set_annotations(new_annotations)
-                    message("debug", f"Removed {len(di64_indices)} DI64 events from annotations")
-            
+                    message(
+                        "debug",
+                        f"Removed {len(di64_indices)} DI64 events from annotations",
+                    )
+
             # Extract all events from cleaned annotations
             message("header", "Extracting events from annotations...")
             events_all, event_id_all = mne.events_from_annotations(data)
 
             # Get the event IDs that correspond to our word onset codes
-            word_onset_ids = [event_id_all[code] for code in word_onset_codes if code in event_id_all]
+            word_onset_ids = [
+                event_id_all[code] for code in word_onset_codes if code in event_id_all
+            ]
             if not word_onset_ids:
                 raise ValueError("No word onset events found in annotations")
             word_onset_events = events_all[np.isin(events_all[:, 2], word_onset_ids)]
 
             # Validate epochs for 18 syllable events
             message("info", "Validating epochs for 18 syllable events...")
-            syllable_code_ids = [event_id_all[code] for code in syllable_codes if code in event_id_all]
+            syllable_code_ids = [
+                event_id_all[code] for code in syllable_codes if code in event_id_all
+            ]
 
-            #Working up to here
+            # Working up to here
             valid_events = []
             num_syllables_per_epoch = 18
 
             for i, onset_event in enumerate(word_onset_events):
                 # MATLAB: # Skip first 4 events (3 start codes + 1st syllable)
                 # Python: # Skip first 1 event of word onset events (1st syllable)
-                if i < 1:  
+                if i < 1:
                     continue
 
                 candidate_sample = onset_event[0]
@@ -142,8 +164,11 @@ class StatisticalLearningEpochsMixin:
                 current_idx = current_idx[0]
 
                 # Count syllables from candidate onset
-                #Events are invalidated because of DI64
-                for j in range(current_idx, min(current_idx + num_syllables_per_epoch, len(events_all))):
+                # Events are invalidated because of DI64
+                for j in range(
+                    current_idx,
+                    min(current_idx + num_syllables_per_epoch, len(events_all)),
+                ):
                     event_code = events_all[j, 2]
                     event_label = event_id_all.get(event_code, f"code_{event_code}")
                     if event_code in syllable_code_ids:
@@ -156,11 +181,16 @@ class StatisticalLearningEpochsMixin:
 
                     if syllable_count == num_syllables_per_epoch:
                         valid_events.append(onset_event)
-                        message("debug", f"Valid epoch found at sample {candidate_sample}")
+                        message(
+                            "debug", f"Valid epoch found at sample {candidate_sample}"
+                        )
                         break
 
                 if syllable_count < num_syllables_per_epoch - 1:  # Allow 17 syllables
-                    message("info", f"Epoch at sample {candidate_sample} has only {syllable_count} syllables, skipping")
+                    message(
+                        "info",
+                        f"Epoch at sample {candidate_sample} has only {syllable_count} syllables, skipping",
+                    )
 
             valid_events = np.array(valid_events, dtype=int)
             if valid_events.size == 0:
@@ -365,7 +395,8 @@ class StatisticalLearningEpochsMixin:
                 "final_epoch_count": len(epochs_clean),
                 "single_epoch_duration": epochs.times[-1] - epochs.times[0],
                 "single_epoch_samples": epochs.times.shape[0],
-                "initial_duration": (epochs.times[-1] - epochs.times[0]) * len(epochs_clean),
+                "initial_duration": (epochs.times[-1] - epochs.times[0])
+                * len(epochs_clean),
                 "numberSamples": epochs.times.shape[0] * len(epochs_clean),
                 "channelCount": len(epochs.ch_names),
                 "annotation_types": annotation_types,
@@ -379,7 +410,9 @@ class StatisticalLearningEpochsMixin:
             # Store and save epochs
             if hasattr(self, "config") and self.config.get("run_id"):
                 self.epochs = epochs_clean
-            self._save_epochs_result(result_data=epochs_clean, stage_name="post_drop_bad_epochs")
+            self._save_epochs_result(
+                result_data=epochs_clean, stage_name="post_drop_bad_epochs"
+            )
 
             return epochs_clean
 

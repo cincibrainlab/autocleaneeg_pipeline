@@ -486,7 +486,9 @@ class SegmentRejectionMixin:
             if annot["description"] == desc:
                 total_duration += annot["duration"]
         if total_duration > 0:
-            print(f"Total duration for '{desc}': {total_duration:.2f} seconds.")
+            message(
+                "info", f"Total duration for '{desc}': {total_duration:.2f} seconds."
+            )
 
     def _chan_neighbour_r(
         self, epochs, n_nearest_neighbors, corr_method="max", corr_trim_percent=10.0
