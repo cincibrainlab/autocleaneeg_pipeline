@@ -338,10 +338,9 @@ def cmd_review(args) -> int:
 
 
 def cmd_setup(args) -> int:
-    """Run the first-time setup wizard."""
+    """Run the setup wizard."""
     try:
-        new_config_dir = user_config.reconfigure_workspace()
-        print(f"\n🎉 Setup completed! Your workspace is ready at: {new_config_dir}")
+        user_config.setup_workspace()
         return 0
     except Exception as e:
         message("error", f"Setup failed: {str(e)}")
@@ -480,8 +479,7 @@ def cmd_config_show(args) -> int:
 def cmd_config_setup(args) -> int:
     """Reconfigure workspace location."""
     try:
-        new_config_dir = user_config.reconfigure_workspace()
-        message("info", f"Workspace reconfigured: {new_config_dir}")
+        user_config.setup_workspace()
         return 0
     except Exception as e:
         message("error", f"Failed to reconfigure workspace: {str(e)}")
