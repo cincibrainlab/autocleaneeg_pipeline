@@ -47,7 +47,7 @@ If you haven't installed AutoClean yet:
 
    autoclean version
 
-You should see something like "AutoClean EEG Pipeline v1.4.1"
+You should see something like "AutoClean EEG Pipeline v2.0.0"
 
 ⚙️ Step 2: Set Up Your Workspace
 --------------------------------
