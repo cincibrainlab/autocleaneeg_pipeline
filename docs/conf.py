@@ -26,7 +26,7 @@ author = 'Gavin Gammoh, Ernest Pedapati'
 
 # The full version, including alpha/beta/rc tags
 # from autoclean import __version__ as version
-version = '1.2.0'  # Hardcoded to avoid import errors
+version = '2.0.0'  # Hardcoded to avoid import errors
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -172,5 +172,5 @@ autodoc_mock_imports = [
     'rich', 'dotenv', 'pyyaml', 'schema', 'mne_bids', 
     'pybv', 'torch', 'pyprep', 'eeglabio', 'autoreject', 'ulid',
     'unqlite', 'loguru', 'reportlab', 'pyqt5', 'pyvistaqt',
-    'tqdm', 'yaml', 'asyncio', 'json', 'datetime',
+    'tqdm', 'yaml', 'asyncio', 'json', 'datetime', 'xarray',
 ] 
