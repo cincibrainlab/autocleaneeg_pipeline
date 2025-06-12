@@ -1,97 +1,171 @@
-EEG Processing Tutorial
-=======================
+Python-Based EEG Processing
+===========================
 
-This tutorial demonstrates how to process EEG data using AutoClean's built-in tasks and Python API.
+This tutorial shows how to process EEG data using AutoClean's Python API with file manager navigation and the Config Wizard for creating custom tasks.
 
-Prerequisites
+What You Need
 -------------
 
-- EEG data file (.raw, .set, .eeg, or .bdf format)
-- Python 3.10+ with pip installed
-- Basic understanding of your experimental paradigm
+- Python environment with AutoClean installed
+- EEG data files in supported formats (.raw, .set, .eeg, .bdf, .fif)
+- Access to your system's file manager (Finder, File Explorer, Files)
+- Web browser for the Config Wizard
 
-Supported paradigms include resting state, auditory steady-state response (ASSR), chirp stimuli, and mismatch negativity (MMN).
+Setup Your Environment
+----------------------
 
-Installation
-------------
+Install and set up AutoClean:
 
-Install AutoClean from PyPI:
+.. code-block:: python
 
-.. code-block:: bash
-
-   pip install autocleaneeg
-
-Verify the installation:
-
-.. code-block:: bash
-
-   autoclean version
-
-This should display the current version (e.g., "AutoClean EEG Pipeline v2.0.0").
-
-Workspace Setup
----------------
-
-Initialize your workspace directory:
-
-.. code-block:: bash
-
-   autoclean setup
-
-This creates a workspace directory structure with folders for custom tasks, output results, and configuration. The default location is platform-specific (typically in your Documents folder).
-
-Selecting a Processing Task
----------------------------
-
-AutoClean includes built-in tasks for common EEG paradigms:
-
-.. code-block:: bash
-
-   autoclean list-tasks
-
-Available built-in tasks:
-
-**RestingEyesOpen**
-   Resting state recordings with eyes open
+   # Install if needed
+   import subprocess
+   subprocess.run(["pip", "install", "autocleaneeg"])
    
-**ChirpDefault**  
-   Auditory experiments using chirp stimuli
+   # Set up workspace
+   subprocess.run(["autoclean", "setup"])
+
+This creates your workspace folder (typically ``~/Documents/AutoClean-EEG``) with the drop-and-go structure.
+
+Basic Processing with Built-in Tasks
+-------------------------------------
+
+Start by processing data with AutoClean's built-in tasks:
+
+.. code-block:: python
+
+   from autoclean import Pipeline
+   from pathlib import Path
    
-**ASSR**
-   Auditory steady-state response experiments
+   # Initialize pipeline
+   pipeline = Pipeline(output_dir="my_results")
    
-**HBCD_MMN**
-   Mismatch negativity experiments
+   # Use file manager to find your data file path
+   data_file = "/path/to/your/data.raw"  # Copy path from file manager
+   
+   # Process with a built-in task
+   pipeline.process_file(data_file, task="RestingEyesOpen")
 
-**StatisticalLearning**
-   Statistical learning paradigms
+**Available Built-in Tasks:**
+- ``RestingEyesOpen`` - Resting state with eyes open
+- ``ASSR`` - Auditory steady-state response  
+- ``ChirpDefault`` - Chirp auditory stimuli
+- ``HBCD_MMN`` - Mismatch negativity
+- ``StatisticalLearning`` - Statistical learning paradigms
 
-Select the task that matches your experimental paradigm. If none match exactly, ``RestingEyesOpen`` provides a good general-purpose processing pipeline.
+Creating Custom Tasks with Config Wizard
+-----------------------------------------
 
-Processing EEG Data
--------------------
+For your specific experimental needs, create custom tasks using the web-based Config Wizard:
 
-AutoClean supports common EEG file formats including .raw, .set, .eeg, .bdf, and .fif files. 
+**Step 1: Open the Config Wizard**
 
-**Command Line Processing**
+Navigate to https://cincibrainlab.github.io/Autoclean-ConfigWizard/ in your web browser.
 
-Process a single file:
+**Step 2: Configure Your Task**
 
-.. code-block:: bash
+1. **Select EEG System** - Choose your hardware (e.g., EGI, BrainVision, BioSemi)
+2. **Choose Paradigm** - Select your experimental type (resting, auditory, visual, etc.)
+3. **Set Processing Options** - Configure filtering, ICA, epoching parameters
+4. **Download Task File** - Get your custom Python task file
 
-   autoclean process RestingEyesOpen subject01_rest.raw
+**Step 3: Drop Into Workspace**
 
-Process multiple files in a directory:
+Use your file manager to save the downloaded task file:
 
-.. code-block:: bash
+1. Open your file manager (Finder/File Explorer/Files)
+2. Navigate to your AutoClean workspace (typically ``~/Documents/AutoClean-EEG``)
+3. Drop the downloaded Python file into the ``tasks`` folder
+4. Done! AutoClean automatically discovers the new task
 
-   autoclean process RestingEyesOpen data_directory/
+**Step 4: Use Your Custom Task**
 
-**Python API Processing**
+.. code-block:: python
 
-.. code-block:: bash
+   from autoclean import Pipeline
+   
+   pipeline = Pipeline(output_dir="results")
+   
+   # Your custom task is now available
+   pipeline.process_file("data.raw", task="MyCustomTask")
 
-   autoclean process RestingEyesOpen your_file_name.raw
+File Management with GUI
+-------------------------
+
+Use your system's file manager throughout the process:
+
+**Finding Data Files:**
+1. Open Finder/File Explorer/Files
+2. Navigate to your EEG data folder
+3. Right-click on files/folders to copy paths for Python scripts
+
+**Viewing Results:**
+1. Navigate to your output directory
+2. Browse timestamped result folders
+3. Open quality reports (HTML/PDF files) by double-clicking
+
+**Managing Tasks:**
+1. Open workspace ``tasks`` folder in file manager
+2. Drag and drop new task files from downloads
+3. Remove tasks by moving files to trash
+
+Processing Multiple Files
+-------------------------
+
+Use Python loops with file manager navigation for batch processing:
+
+.. code-block:: python
+
+   from pathlib import Path
+   from autoclean import Pipeline
+   
+   # Use file manager to find your data directory
+   data_dir = Path("/path/to/data/folder")  # Copy from file manager
+   pipeline = Pipeline(output_dir="batch_results")
+   
+   # Process all .raw files
+   for eeg_file in data_dir.glob("*.raw"):
+       print(f"Processing: {eeg_file.name}")
+       pipeline.process_file(str(eeg_file), task="RestingEyesOpen")
+   
+   print("Batch processing complete!")
+
+**GUI Workflow for Batch Processing:**
+1. Use file manager to navigate to your data folder
+2. Note the folder path for your Python script
+3. Run the script to process all files
+4. Use file manager to browse individual result folders
+
+Complete Example
+----------------
+
+Here's a complete workflow from setup to results:
+
+.. code-block:: python
+
+   from pathlib import Path
+   from autoclean import Pipeline
+   
+   # Step 1: Setup (run once)
+   import subprocess
+   subprocess.run(["autoclean", "setup"])
+   
+   # Step 2: Create custom task at Config Wizard
+   # Visit: https://cincibrainlab.github.io/Autoclean-ConfigWizard/
+   # Download task file and drop into workspace/tasks/ folder
+   
+   # Step 3: Process your data
+   data_path = Path("/Users/researcher/EEG_Study/subject01.raw")
+   output_path = Path("/Users/researcher/Results")
+   
+   pipeline = Pipeline(output_dir=str(output_path))
+   result = pipeline.process_file(str(data_path), task="MyCustomTask")
+   
+   # Step 4: View results in file manager
+   print(f"Results saved to: {output_path}")
+   print("Open the folder in your file manager to view reports!")
+
+This workflow integrates Python processing with familiar file management, making EEG analysis accessible while maintaining the power of programmatic control.
 
 **Real example:**
 
