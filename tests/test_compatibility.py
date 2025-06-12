@@ -44,7 +44,7 @@ def test_python_task_files():
     
     try:
         # Test without YAML configuration
-        pipeline = Pipeline(autoclean_dir=tempfile.mkdtemp())
+        pipeline = Pipeline(output_dir=tempfile.mkdtemp())
         
         # Test adding Python task files
         example_files = [
