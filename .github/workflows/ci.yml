@@ -183,14 +183,14 @@ jobs:
                   file_path = examples_dir / task_file
                   if file_path.exists():
                       pipeline.add_task(str(file_path))
-                      print(f'✓ Successfully loaded {task_file}')
+                      print(f'[OK] Successfully loaded {task_file}')
                   else:
-                      print(f'⚠️  {task_file} not found')
+                      print(f'[WARN] {task_file} not found')
               
               tasks = pipeline.list_tasks()
               print(f'Total tasks available: {len(tasks)}')
               print(f'Tasks: {tasks}')
-              print('✅ Python task file system working correctly')
+              print('[SUCCESS] Python task file system working correctly')
           "
 
       - name: Test backward compatibility
@@ -208,15 +208,15 @@ jobs:
                       output_dir=temp_dir
                   )
                   yaml_tasks = pipeline.list_tasks()
-                  print(f'✓ YAML tasks loaded: {len(yaml_tasks)}')
+                  print(f'[OK] YAML tasks loaded: {len(yaml_tasks)}')
                   
                   # Test without YAML config  
                   pipeline2 = Pipeline(output_dir=temp_dir)
-                  print('✓ Pipeline works without YAML config')
+                  print('[OK] Pipeline works without YAML config')
                   
-                  print('✅ Backward compatibility maintained')
+                  print('[SUCCESS] Backward compatibility maintained')
               except Exception as e:
-                  print(f'⚠️  Backward compatibility test: {e}')
+                  print(f'[WARN] Backward compatibility test: {e}')
           "
 
       - name: Upload coverage reports
@@ -338,10 +338,10 @@ jobs:
                 "${{ needs.security.result }}" == "success" && \
                 "${{ needs.test.result }}" == "success" && \
                 "${{ needs.build.result }}" == "success" ]]; then
-            echo "✅ All required CI checks passed!"
+            echo "[SUCCESS] All required CI checks passed!"
             exit 0
           else
-            echo "❌ Some required CI checks failed:"
+            echo "[FAILED] Some required CI checks failed:"
             echo "  Code Quality: ${{ needs.code-quality.result }}"
             echo "  Security: ${{ needs.security.result }}"
             echo "  Tests: ${{ needs.test.result }}"
