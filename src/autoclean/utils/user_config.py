@@ -144,18 +144,52 @@ class UserConfigManager:
     
     def list_custom_tasks(self) -> Dict[str, Dict[str, Any]]:
         """
-        List all custom tasks in the user's collection.
+        List all custom tasks by scanning the tasks directory directly.
         
         Returns:
             Dictionary of task names and their metadata
         """
-        # Auto-discover new tasks before listing
-        self._auto_discover_tasks()
-        return self._config["custom_tasks"].copy()
+        custom_tasks = {}
+        
+        if not self.tasks_dir.exists():
+            return custom_tasks
+            
+        # Scan for Python files in tasks directory
+        for task_file in self.tasks_dir.glob("*.py"):
+            if task_file.name.startswith("_"):  # Skip private files
+                continue
+                
+            try:
+                # Extract task info
+                class_name, description = self._extract_task_info(task_file)
+                
+                # If duplicate class name, use the most recently modified file
+                if class_name in custom_tasks:
+                    existing_file = Path(custom_tasks[class_name]["file_path"])
+                    if task_file.stat().st_mtime > existing_file.stat().st_mtime:
+                        # This file is newer, replace the existing entry
+                        message("info", f"Using newer version of task '{class_name}' from {task_file.name}")
+                    else:
+                        # Keep the existing (newer) file
+                        continue
+                
+                custom_tasks[class_name] = {
+                    "file_path": str(task_file),
+                    "description": description,
+                    "class_name": class_name,
+                    "modified_time": task_file.stat().st_mtime
+                }
+                
+            except Exception as e:
+                # Skip files that can't be parsed
+                message("warning", f"Could not parse task file {task_file.name}: {e}")
+                continue
+        
+        return custom_tasks
     
     def get_custom_task_path(self, task_name: str) -> Optional[Path]:
         """
-        Get the path to a custom task file.
+        Get the path to a custom task file by scanning the tasks directory.
         
         Args:
             task_name: Name of the custom task
@@ -163,13 +197,9 @@ class UserConfigManager:
         Returns:
             Path to the task file, or None if not found
         """
-        # Auto-discover new tasks before looking up
-        self._auto_discover_tasks()
-        
-        if task_name in self._config["custom_tasks"]:
-            task_path = Path(self._config["custom_tasks"][task_name]["file_path"])
-            if task_path.exists():
-                return task_path
+        custom_tasks = self.list_custom_tasks()
+        if task_name in custom_tasks:
+            return Path(custom_tasks[task_name]["file_path"])
         return None
     
     def update_preference(self, key: str, value: Any) -> bool:
@@ -430,59 +460,13 @@ class UserConfigManager:
             return task_file.stem, f"Custom task from {task_file.name}"
     
     def _auto_discover_tasks(self) -> None:
-        """Auto-discover and register new task files in the tasks directory."""
-        if not self.tasks_dir.exists():
-            return
-            
-        discovered_tasks = []
+        """Legacy auto-discovery function - no longer needed.
         
-        # Scan for Python files in tasks directory
-        for task_file in self.tasks_dir.glob("*.py"):
-            if task_file.name.startswith("_"):  # Skip private files
-                continue
-                
-            # Check if already registered
-            file_path_str = str(task_file)
-            already_registered = any(
-                task_info.get("file_path") == file_path_str 
-                for task_info in self._config["custom_tasks"].values()
-            )
-            
-            if not already_registered:
-                try:
-                    # Extract task info
-                    class_name, description = self._extract_task_info(task_file)
-                    
-                    # Generate unique task name
-                    task_name = class_name
-                    base_name = task_name
-                    counter = 1
-                    while task_name in self._config["custom_tasks"]:
-                        task_name = f"{base_name}_{counter}"
-                        counter += 1
-                    
-                    # Register the task
-                    self._config["custom_tasks"][task_name] = {
-                        "file_path": str(task_file),
-                        "original_path": str(task_file),  # Same as file_path for discovered tasks
-                        "added_date": self._current_timestamp(),
-                        "description": description,
-                        "class_name": class_name,
-                        "auto_discovered": True  # Mark as auto-discovered
-                    }
-                    
-                    discovered_tasks.append(task_name)
-                    
-                except Exception as e:
-                    # Skip files that can't be parsed
-                    message("warning", f"Could not parse task file {task_file.name}: {e}")
-                    continue
-        
-        # Save config if new tasks were discovered
-        if discovered_tasks:
-            self._save_config()
-            for task_name in discovered_tasks:
-                message("info", f"Auto-discovered custom task: {task_name}")
+        Task discovery now happens on-demand by scanning the filesystem directly.
+        This eliminates the need for complex JSON tracking.
+        """
+        # No longer needed - task discovery is now done directly from filesystem
+        pass
     
     def _get_or_setup_config_directory(self) -> Path:
         """Get the config directory, setting it up if this is the first time."""
