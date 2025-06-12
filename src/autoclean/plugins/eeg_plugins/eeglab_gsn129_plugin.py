@@ -43,7 +43,9 @@ class EEGLABSetGSN129Plugin(BaseEEGPlugin):
         try:
             # Step 1: Import the .set file
             try:
-                raw = mne.io.read_raw_eeglab(input_fname=file_path, preload=preload, verbose=True)
+                raw = mne.io.read_raw_eeglab(
+                    input_fname=file_path, preload=preload, verbose=True
+                )
             except TypeError as e:
                 if "trials" in str(e) and "read_epochs_eeglab" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)

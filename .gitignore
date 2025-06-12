@@ -39,6 +39,8 @@ htmlcov/
 env/
 venv/
 ENV/
+*.DS_Store
+.cursorrules
 
 # Logs
 *.log
@@ -63,5 +65,13 @@ examples/single_file.py
 /docs/api_reference/generated
 /ica_vision_test_output
 examples/batch_run.py
-/.claude
-/.claude
+
+
+.claude/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.vscode/
+.cursor/
+scripts/
+/scripts

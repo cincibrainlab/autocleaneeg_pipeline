@@ -8,12 +8,11 @@ from typing import Any, Dict, Optional
 # Third-party imports
 import mne  # Core EEG processing library for data containers and processing
 
-from autoclean.io.export import save_raw_to_set, save_epochs_to_set
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.io.import_ import import_eeg
 
 # Local imports
 from autoclean.mixins import DISCOVERED_MIXINS
-from autoclean.utils.logging import message
 
 
 class Task(ABC, *DISCOVERED_MIXINS):
@@ -48,20 +47,30 @@ class Task(ABC, *DISCOVERED_MIXINS):
             - run_id (str): Unique identifier for this processing run
             - unprocessed_file (Path): Path to the raw EEG data file
             - task (str): Name of the task (e.g., "rest_eyesopen")
-            - tasks (dict): Task-specific settings
-            - stage_files (dict): Configuration for saving intermediate results
+
+            The base class automatically detects a module-level 'config' variable
+            and uses it for self.settings in Python-based tasks.
 
         Examples
         --------
-        >>> config = {
-        ...     'run_id': '12345',
-        ...     'unprocessed_file': Path('data/sub-01_task-rest_eeg.raw'),
-        ...     'task': 'rest_eyesopen',
-        ...     'tasks': {'rest_eyesopen': {...}},
-        ...     'stage_files': {'post_import': {'enabled': True}}
-        ... }
-        >>> task = MyTask(config)
+        >>> # Python task file approach - no __init__ needed!
+        >>> config = {'resample': {'enabled': True, 'value': 250}}
+        >>> class MyTask(Task):
+        ...     def run(self):
+        ...         self.import_raw()
+        ...         # Processing steps here
         """
+        # Auto-detect module-level config for Python tasks
+        if not hasattr(self, "settings"):
+            # Get the module where this class was defined
+            import inspect
+
+            module = inspect.getmodule(self.__class__)
+            if module and hasattr(module, "config"):
+                self.settings = module.config
+            else:
+                self.settings = None
+
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 
@@ -105,7 +114,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
         Notes
         -----
-        Imports data using the configured import function and saves the imported 
+        Imports data using the configured import function and saves the imported
         data as a post-import stage file.
 
         """
@@ -166,8 +175,6 @@ class Task(ABC, *DISCOVERED_MIXINS):
             "run_id": str,  # Unique identifier for tracking
             "unprocessed_file": Path,  # Input file path
             "task": str,  # Task identifier
-            "tasks": dict,  # Task-specific settings
-            "stage_files": dict,  # Intermediate file config
         }
 
         # Two-stage validation: first check existence, then type
@@ -183,35 +190,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                     f"got {type(config[field]).__name__} instead"
                 )
 
-        # Check if the task has defined required_stages
-        if not hasattr(self, "required_stages"):
-            message(
-                "warning",
-                f"Task {self.__class__.__name__} does not define required_stages attribute. "
-                "Defaulting to ['post_import', 'post_clean_raw', 'post_epochs', 'post_comp']",
-            )
-            message(
-                "warning",
-                "Please define self.required_stages in the __init__ method of your task class.",
-            )
-            # Initialize with empty list to prevent errors in subsequent validation
-            self.required_stages = [
-                "post_import",
-                "post_clean_raw",
-                "post_epochs",
-                "post_comp",
-            ]
-
-        for stage in self.required_stages:
-            if stage not in config["stage_files"]:
-                raise ValueError(f"Missing stage in stage_files: {stage}")
-            stage_config = config["stage_files"][stage]
-            if not isinstance(stage_config, dict):
-                raise ValueError(f"Stage {stage} configuration must be a dictionary")
-            if "enabled" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'enabled' field")
-            if "suffix" not in stage_config:
-                raise ValueError(f"Stage {stage} must have 'suffix' field")
+        # No longer validate required_stages - stages are created dynamically when export=True is used
 
         return config
 

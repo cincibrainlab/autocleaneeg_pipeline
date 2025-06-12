@@ -1,5 +1,6 @@
 # AutoClean EEG Pipeline - Development Makefile
 # Provides convenient commands for local development and code quality checks
+# Uses uv tool for isolated tool management (no dependency conflicts!)
 
 .PHONY: help install-dev check format lint test clean all
 
@@ -9,14 +10,21 @@ help: ## Show this help message
 	@echo "============================================="
 	@echo ""
 	@echo "Setup:"
-	@echo "  install-dev    Install development tools"
-	@echo "  install        Install package in development mode"
+	@echo "  install-dev      Install development tools (uv tool)"
+	@echo "  install-dev-uv   Install development tools directly with uv"
+	@echo "  install          Install package in development mode"
+	@echo "  install-uv-tool  Install AutoClean as a uv tool (standalone)"
+	@echo "  uninstall-uv-tool Uninstall AutoClean uv tool"
+	@echo "  upgrade-tools    Upgrade all development tools"
+	@echo "  list-tools       List installed development tools"
 	@echo ""
-	@echo "Code Quality:"
+	@echo "Code Quality (uv tool):"
 	@echo "  check          Run all code quality checks"
 	@echo "  format         Auto-format code (black + isort)"
 	@echo "  lint           Run linting (ruff + mypy)"
 	@echo "  format-check   Check formatting without fixing"
+	@echo "  format-direct  Format with direct commands (fallback)"
+	@echo "  lint-direct    Lint with direct commands (fallback)"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test           Run unit tests"
@@ -32,29 +40,58 @@ help: ## Show this help message
 	@echo "  all            Run format, lint, and test"
 
 # Installation
-install-dev: ## Install development tools
+install-dev: ## Install development tools using uv tool
 	@python3 scripts/install_dev_tools.py
+
+install-dev-uv: ## Install development tools using uv tool directly
+	@python3 scripts/uv_tools.py install
+
+upgrade-tools: ## Upgrade all development tools
+	@python3 scripts/uv_tools.py upgrade
+
+list-tools: ## List installed development tools
+	@python3 scripts/uv_tools.py list
 
 install: ## Install package in development mode
 	@echo "📦 Installing AutoClean in development mode..."
 	@pip install -e .
 
+install-uv-tool: ## Install AutoClean as a uv tool (standalone)
+	@echo "🚀 Installing AutoClean as a uv tool..."
+	@uv tool install .
+	@echo "✅ AutoClean installed! Try: uv tool run autoclean --help"
+
+uninstall-uv-tool: ## Uninstall AutoClean uv tool
+	@echo "🗑️ Uninstalling AutoClean uv tool..."
+	@uv tool uninstall autocleaneeg
+
 # Code Quality - Individual Tools
-format: ## Auto-format code with black and isort
-	@echo "🎨 Formatting code..."
+format: ## Auto-format code with black and isort (using uv tool)
+	@echo "🎨 Formatting code with uv tool..."
+	@python3 scripts/uv_tools.py run black src/autoclean/
+	@python3 scripts/uv_tools.py run isort src/autoclean/
+	@echo "✅ Code formatting completed"
+
+format-direct: ## Auto-format code with direct commands (fallback)
+	@echo "🎨 Formatting code with direct commands..."
 	@black src/autoclean/
 	@isort src/autoclean/
 	@echo "✅ Code formatting completed"
 
-format-check: ## Check code formatting without making changes
-	@echo "🔍 Checking code formatting..."
-	@black --check --diff src/autoclean/
-	@isort --check-only --diff src/autoclean/
+format-check: ## Check code formatting without making changes (using uv tool)
+	@echo "🔍 Checking code formatting with uv tool..."
+	@python3 scripts/uv_tools.py run black --check --diff src/autoclean/
+	@python3 scripts/uv_tools.py run isort --check-only --diff src/autoclean/
 
-lint: ## Run linting with ruff and type checking with mypy
-	@echo "🔍 Running linting..."
-	@ruff check src/autoclean/
+lint: ## Run linting with ruff and type checking with mypy (using uv tool)
+	@echo "🔍 Running linting with uv tool..."
+	@python3 scripts/uv_tools.py run ruff check src/autoclean/
 	@echo "⚠️ Type checking (mypy) temporarily disabled"
+	# @python3 scripts/uv_tools.py run mypy src/autoclean/ --ignore-missing-imports
+
+lint-direct: ## Run linting with direct commands (fallback)
+	@echo "🔍 Running linting with direct commands..."
+	@ruff check src/autoclean/
 	# @mypy src/autoclean/ --ignore-missing-imports
 
 # Code Quality - Combined
@@ -103,9 +140,9 @@ ci-check: ## Run the same checks as CI pipeline
 	@echo ""
 	@echo "✅ CI simulation completed!"
 
-pre-commit: ## Run pre-commit hooks manually
-	@echo "🪝 Running pre-commit hooks..."
-	@pre-commit run --all-files || echo "⚠️ Pre-commit not installed. Run 'pre-commit install' first."
+pre-commit: ## Run pre-commit hooks manually (using uv tool)
+	@echo "🪝 Running pre-commit hooks with uv tool..."
+	@python3 scripts/uv_tools.py run pre-commit run --all-files || echo "⚠️ Pre-commit not installed. Run 'make install-dev' first."
 
 # Development workflow
 dev-setup: install install-dev ## Complete development setup

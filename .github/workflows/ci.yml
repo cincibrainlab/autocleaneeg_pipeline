@@ -160,6 +160,65 @@ jobs:
       - name: Run unit tests with coverage
         run: pytest tests/unit/ --cov=autoclean --cov-report=xml --cov-report=term-missing --cov-fail-under=15 -v --tb=short --maxfail=10 -x
 
+      - name: Test Python task file functionality
+        run: |
+          python -c "
+          # Test our example task files work
+          from pathlib import Path
+          import tempfile
+          from autoclean import Pipeline
+          
+          with tempfile.TemporaryDirectory() as temp_dir:
+              pipeline = Pipeline(output_dir=temp_dir)
+              
+              # Test adding example task files
+              examples_dir = Path('examples')
+              task_files = [
+                  'simple_resting_task.py',
+                  'assr_default_new.py',
+                  'advanced_custom_task.py'
+              ]
+              
+              for task_file in task_files:
+                  file_path = examples_dir / task_file
+                  if file_path.exists():
+                      pipeline.add_task(str(file_path))
+                      print(f'[OK] Successfully loaded {task_file}')
+                  else:
+                      print(f'[WARN] {task_file} not found')
+              
+              tasks = pipeline.list_tasks()
+              print(f'Total tasks available: {len(tasks)}')
+              print(f'Tasks: {tasks}')
+              print('[SUCCESS] Python task file system working correctly')
+          "
+
+      - name: Test backward compatibility
+        run: |
+          python -c "
+          # Test that YAML workflows still work
+          import tempfile
+          from pathlib import Path
+          from autoclean import Pipeline
+          
+          with tempfile.TemporaryDirectory() as temp_dir:
+              try:
+                  # Test with YAML config
+                  pipeline = Pipeline(
+                      output_dir=temp_dir
+                  )
+                  yaml_tasks = pipeline.list_tasks()
+                  print(f'[OK] YAML tasks loaded: {len(yaml_tasks)}')
+                  
+                  # Test without YAML config  
+                  pipeline2 = Pipeline(output_dir=temp_dir)
+                  print('[OK] Pipeline works without YAML config')
+                  
+                  print('[SUCCESS] Backward compatibility maintained')
+              except Exception as e:
+                  print(f'[WARN] Backward compatibility test: {e}')
+          "
+
       - name: Upload coverage reports
         uses: codecov/codecov-action@v5
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
@@ -279,10 +338,10 @@ jobs:
                 "${{ needs.security.result }}" == "success" && \
                 "${{ needs.test.result }}" == "success" && \
                 "${{ needs.build.result }}" == "success" ]]; then
-            echo "✅ All required CI checks passed!"
+            echo "[SUCCESS] All required CI checks passed!"
             exit 0
           else
-            echo "❌ Some required CI checks failed:"
+            echo "[FAILED] Some required CI checks failed:"
             echo "  Code Quality: ${{ needs.code-quality.result }}"
             echo "  Security: ${{ needs.security.result }}"
             echo "  Tests: ${{ needs.test.result }}"

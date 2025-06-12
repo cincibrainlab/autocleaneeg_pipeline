@@ -35,6 +35,7 @@ class RegularEpochsMixin:
         volt_threshold: Optional[Dict[str, float]] = None,
         stage_name: str = "post_epochs",
         reject_by_annotation: bool = False,
+        export: bool = False,
     ) -> mne.Epochs:
         """Create regular fixed-length epochs from raw data.
 
@@ -55,6 +56,8 @@ class RegularEpochsMixin:
         reject_by_annotation : bool, Optional
             Whether to automatically reject epochs that overlap with bad annotations,
             or just mark them in the metadata for later processing. Default is False.
+        export : bool, Optional
+            If True, exports the processed epochs to the stage directory. Default is False.
 
         Returns
         -------
@@ -353,10 +356,13 @@ class RegularEpochsMixin:
             if hasattr(self, "config") and self.config.get("run_id"):
                 self.epochs = epochs_clean
 
-            # Save epochs
+            # Save epochs with default naming
             self._save_epochs_result(
                 result_data=epochs_clean, stage_name="post_drop_bad_epochs"
             )
+
+            # Export if requested
+            self._auto_export_if_enabled(epochs_clean, stage_name, export)
 
             return epochs_clean
 
