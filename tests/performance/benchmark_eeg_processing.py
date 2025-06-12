@@ -19,6 +19,13 @@ import tempfile
 import shutil
 import yaml
 
+import sys
+from pathlib import Path
+
+# Add the project root to the Python path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 from tests.fixtures.synthetic_data import create_synthetic_raw, create_synthetic_events
 from tests.fixtures.test_utils import MockOperations
 
@@ -318,8 +325,7 @@ class TestEEGProcessingBenchmarks:
                 apply_autoreject=MockOperations.mock_apply_autoreject
             ):
                 pipeline = Pipeline(
-                    autoclean_dir=benchmark_workspace / "output",
-                    autoclean_config=benchmark_config,
+                    output_dir=benchmark_workspace / "output",
                     verbose="ERROR"
                 )
                 
