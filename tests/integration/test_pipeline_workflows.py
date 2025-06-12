@@ -362,7 +362,7 @@ class TestPipelineWorkflows:
             # Test pipeline with this config
             try:
                 pipeline = Pipeline(
-                    autoclean_dir=temp_workspace / "output" / config_name,
+                    output_dir=temp_workspace / "output" / config_name,
                                         verbose="ERROR"
                 )
                 

@@ -53,8 +53,7 @@ if IN_CONTAINER:
 
         # Initialize pipeline with fixed paths
         pipeline = Pipeline(
-            autoclean_dir=OUTPUT_DIR,
-            autoclean_config=f"{CONFIG_DIR}/autoclean_config.yaml",
+            output_dir=OUTPUT_DIR,
         )
 
         # Check if input is file or directory
