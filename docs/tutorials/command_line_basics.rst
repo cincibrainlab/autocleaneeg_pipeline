@@ -90,13 +90,17 @@ This should show you the AutoClean version number.
 
    autoclean setup
 
-This creates your personal AutoClean folder and walks you through configuration.
+This runs a clean setup wizard that creates your personal AutoClean workspace in Documents/Autoclean-EEG.
 
 **3. See what tasks are available:**
 
 .. code-block:: bash
 
+   # Built-in tasks only
    autoclean list-tasks
+   
+   # Include your custom tasks too
+   autoclean list-tasks --include-custom
 
 This shows all the processing workflows you can use.
 
@@ -108,7 +112,20 @@ This shows all the processing workflows you can use.
 
 Replace "RestingEyesOpen" with your task name and "my_data_file.raw" with your actual file.
 
-**5. Check your results:**
+**5. Manage your custom tasks:**
+
+.. code-block:: bash
+
+   # Add a custom task
+   autoclean task add my_custom_task.py
+   
+   # List your custom tasks
+   autoclean task list
+   
+   # Remove a custom task
+   autoclean task remove MyTaskName
+
+**6. Check your results:**
 
 .. code-block:: bash
 
@@ -235,4 +252,4 @@ The command line becomes easier with practice. Start with these basics and gradu
 **Next steps:**
 - Try the :doc:`first_time_processing` tutorial
 - Learn about :doc:`understanding_results`
-- Explore :doc:`common_workflows` for your research
+- Explore :doc:`creating_custom_task` for your research

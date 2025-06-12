@@ -176,7 +176,10 @@ def save_raw_to_set(
             message("error", error_msg)
             # For dynamic stages, provide more helpful error information
             if stage not in autoclean_dict["stage_files"]:
-                message("info", f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.")
+                message(
+                    "info",
+                    f"Note: Stage '{stage}' was auto-generated. Check directory permissions and disk space.",
+                )
             raise RuntimeError(error_msg) from e
 
     metadata = {
@@ -403,7 +406,7 @@ def save_epochs_to_set(
         try:
             # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
-            
+
             # Use specialized export for preserving complex event structures
             if events_in_epochs is not None and len(events_in_epochs) > 0:
                 from eeglabio.epochs import (  # pylint: disable=import-outside-toplevel
@@ -514,21 +517,21 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
 # Keep the existing save functions with minor updates to ensure backward compatibility
 def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
     """Get two-digit number based on export counter.
-    
+
     Increments and tracks export count to assign sequential stage numbers.
-    
+
     Args:
         stage: Name of the stage to get number for
         autoclean_dict: Configuration dictionary
-        
+
     Returns:
         Two-digit string representation of stage number
     """
     # Initialize export counter if not present
     if "_export_counter" not in autoclean_dict:
         autoclean_dict["_export_counter"] = 0
-    
+
     # Increment counter for this export
     autoclean_dict["_export_counter"] += 1
-    
+
     return f"{autoclean_dict['_export_counter']:02d}"

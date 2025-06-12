@@ -88,6 +88,12 @@ Create a new Python file in your workspace tasks folder:
 
 .. code-block:: bash
 
+   # Option 1: Drop the file into your workspace tasks folder
+   # ~/Documents/Autoclean-EEG/tasks/my_custom_task.py
+   
+   # Option 2: Use CLI to add the task
+   autoclean task add my_custom_task.py
+   
    # AutoClean automatically discovers it
    autoclean task list
    
@@ -424,9 +430,12 @@ Your task configuration controls every aspect of processing. Here are the key se
 .. code-block:: bash
 
    # Check task was discovered
-   autoclean task list
+   autoclean task list --include-custom
    
    # Verify file is in correct location
+   autoclean config show
+   
+   # List files in tasks directory
    ls ~/Documents/Autoclean-EEG/tasks/
 
 **Processing errors:**
@@ -459,101 +468,6 @@ Now that you can create custom tasks:
 
 **Recommended follow-up tutorials:**
 - :doc:`creating_a_custom_mixin` - Build entirely new processing methods
-- :doc:`python_integration` - Integrate tasks with analysis workflows
-- :doc:`quality_control_best_practices` - Ensure reliable processing
-
-
-3.  **Implement the `run` Method:**
-    Define your specific sequence of processing steps, calling imported `step_` functions and `self.` methods from mixins. Call `save_raw_to_set` or `save_epochs_to_set` as needed after specific stages.
-
-    .. code-block:: python
-
-       # Inside MyParadigm class...
-
-           def run(self) -> None:
-               """Execute the processing pipeline for MyParadigm."""
-               message("header", f"Starting MyParadigm pipeline for {self.config['unprocessed_file'].name}")
-
-               # 1. Import
-               self.import_raw()
-               if self.raw is None: return # Early exit if import fails
-               self.original_raw = self.raw.copy()
-
-
-               # 3. BIDS Path Step Function
-               self.raw, self.config = step_create_bids_path(self.raw, self.config)
-
-
-               # 6. Channel Cleaning (Example using Mixin Method)
-               self.clean_bad_channels(cleaning_method="interpolate") # Reads config
-               save_raw_to_set(self.raw, self.config, "post_clean_raw", self.flagged)
-
-               # 7. Epoching (Example using Mixin Methods)
-               self.create_eventid_epochs() # Reads config
-               if self.epochs: 
-                   self.detect_outlier_epochs() # Reads config
-                   self.gfp_clean_epochs() # Reads config
-                   # save_epochs_to_set(self.epochs, self.config, "post_comp", self.flagged)
-
-               # 8. Generate Reports
-               self._generate_reports()
-
-               message("header", f"MyParadigm pipeline finished.")
-
-4.  **Implement `_generate_reports`:**
-    Call plotting methods provided by mixins (like `ReportingMixin`). Check if the necessary data exists before plotting.
-
-    .. code-block:: python
-
-       # Inside MyParadigm class...
-
-           def _generate_reports(self) -> None:
-                """Generate standard reports."""
-                if self.raw is None or self.original_raw is None:
-                    return
-
-                # if self.epochs:
-                #    self.plot_epochs_image(self.epochs)
-
-                message("info", "Finished generating reports.")
-
-5.  **Configure the Task:**
-    In `autoclean_config.yaml`, add a section under `tasks:` with a key matching your class name (e.g., `MyParadigm`). Configure the `settings` needed by the steps in your `run` method.
-
-    .. code-block:: yaml
-
-       # In autoclean_config.yaml
-       tasks:
-         MyParadigm:
-           description: "Processing for MyParadigm"
-           settings:
-             # Config for basic_steps
-             resample_step: { enabled: true, value: 250 }
-             filter_step: { enabled: true, value: { l_freq: 0.1, h_freq: 40 } }
-             # Config for clean_bad_channels 
-             bad_channel_step: { enabled: true, cleaning_method: "interpolate" }
-             # Config for epoching methods 
-             epoch_settings: { enabled: true, event_id: { Stim: 1 }, value: { tmin: -0.1, tmax: 0.5 } }
-             # Config for gfp_clean_epochs 
-             gfp_cleaning_step: { enabled: true, threshold: 3.0 }
-             # Task-specific config checked in _validate_task_config
-             my_required_setting: "value"
-
-
-7.  **Run the Task:**
-    Use the class name when running the pipeline.
-
-    .. code-block:: python
-
-       pipeline.process_file(..., task="MyParadigm")
-
-Summary
--------
-
-*   Create Task classes in `src/autoclean/tasks/` inheriting `autoclean.core.task.Task`.
-*   Implement `__init__`, `_validate_task_config`, `run`, and `_generate_reports` based on `TEMPLATE.py`.
-*   The `run` method calls a mix of imported `step_` functions and inherited `self.` mixin methods.
-*   Processing methods often read parameters directly from `self.config`.
-*   `_validate_task_config` checks top-level config, global `stage_files`, and task-specific settings.
-*   Configure the Task in `autoclean_config.yaml` using its class name.
-*   Run the pipeline using the Task's class name. 
+- :doc:`understanding_results` - Working with AutoClean outputs
+- :doc:`first_time_processing` - Basic processing workflows
+ 
