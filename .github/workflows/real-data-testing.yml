@@ -433,8 +433,7 @@ jobs:
                           
                           # Initialize pipeline
                           pipeline = Pipeline(
-                              autoclean_dir=temp_output,
-                              autoclean_config='$SECURE_WORKSPACE/configs/real_data_config.yaml',
+                              output_dir=temp_output,
                               verbose='ERROR'
                           )
                           

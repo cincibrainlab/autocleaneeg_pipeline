@@ -60,7 +60,6 @@ class TestTaskInitialization:
         # Create concrete Task for testing
         class ConcreteTask(Task):
             def __init__(self, config):
-                self.required_stages = ["post_import", "post_clean_raw"]
                 super().__init__(config)
             
             def run(self):
@@ -97,6 +96,61 @@ class TestTaskInitialization:
         # Should not raise error with valid config
         task = ConcreteTask(valid_config)
         assert task.config == valid_config
+
+    def test_python_task_with_settings(self):
+        """Test Python task with embedded settings."""
+        from autoclean.core.task import Task
+        
+        class PythonTask(Task):
+            def __init__(self, config):
+                # Embedded settings (Python task style)
+                self.settings = {
+                    'resample_step': {'enabled': True, 'value': 250},
+                    'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40}}
+                }
+                super().__init__(config)
+            
+            def run(self):
+                pass
+        
+        # Minimal config for Python tasks
+        python_config = {
+            "run_id": "test_run_456",
+            "unprocessed_file": Path("/path/to/test.fif"),
+            "task": "PythonTask",
+            "tasks": {},  # Empty for Python tasks
+            "stage_files": {}  # Auto-generated for Python tasks
+        }
+        
+        # Should work with Python task
+        task = PythonTask(python_config)
+        assert task.config == python_config
+        assert hasattr(task, 'settings')
+        assert task.settings['resample_step']['enabled'] is True
+
+    def test_task_without_required_stages(self):
+        """Test that tasks work without defining required_stages."""
+        from autoclean.core.task import Task
+        
+        class FlexibleTask(Task):
+            def __init__(self, config):
+                # No required_stages defined - should work with new system
+                super().__init__(config)
+            
+            def run(self):
+                pass
+        
+        minimal_config = {
+            "run_id": "test_run_789",
+            "unprocessed_file": Path("/path/to/test.fif"),
+            "task": "FlexibleTask",
+            "tasks": {},
+            "stage_files": {}
+        }
+        
+        # Should not raise error even without required_stages
+        task = FlexibleTask(minimal_config)
+        assert task.config == minimal_config
     
     def test_task_config_validation(self):
         """Test Task configuration validation."""
@@ -105,29 +159,35 @@ class TestTaskInitialization:
         # Create concrete Task for testing
         class ConcreteTask(Task):
             def __init__(self, config):
-                self.required_stages = ["post_import"]
                 super().__init__(config)
             
             def run(self):
                 pass
         
-        # Test with missing required fields
+        # Test with missing required fields (only run_id, unprocessed_file, task are required)
         invalid_configs = [
             {},  # Empty config
             {"run_id": "test"},  # Missing unprocessed_file
             {"run_id": "test", "unprocessed_file": Path("/test.fif")},  # Missing task
-            {
-                "run_id": "test", 
-                "unprocessed_file": Path("/test.fif"), 
-                "task": "test_task"
-                # Missing tasks and stage_files
-            }
         ]
         
+        # Test a valid config that should NOT raise an error
+        valid_config = {
+            "run_id": "test", 
+            "unprocessed_file": Path("/test.fif"), 
+            "task": "test_task"
+            # stage_files no longer required in simplified implementation
+        }
+        
+        # Test invalid configs
         for invalid_config in invalid_configs:
             # Task should validate config in __init__ and raise ValueError
             with pytest.raises(ValueError, match="Missing required field"):
                 ConcreteTask(invalid_config)
+        
+        # Test valid config should NOT raise error
+        task = ConcreteTask(valid_config)
+        assert task.config == valid_config
 
 
 @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
@@ -172,7 +232,6 @@ class TestTaskConcrete:
             """Concrete test task implementation."""
             
             def __init__(self, config):
-                self.required_stages = ["post_import"]
                 super().__init__(config)
             
             def run(self):
@@ -212,7 +271,6 @@ class TestTaskConcrete:
         
         class TestTask(Task):
             def __init__(self, config):
-                self.required_stages = ["post_import"]
                 super().__init__(config)
             
             def run(self):
@@ -337,7 +395,6 @@ class TestTaskConceptual:
         # Should be extensible through inheritance
         class CustomTask(Task):
             def __init__(self, config):
-                self.required_stages = ["post_import"]
                 super().__init__(config)
             
             def run(self):
@@ -377,7 +434,6 @@ class TestTaskErrorHandling:
         
         class TestTask(Task):
             def __init__(self, config):
-                self.required_stages = ["post_import"]
                 super().__init__(config)
             
             def run(self):
@@ -395,7 +451,6 @@ class TestTaskErrorHandling:
         
         class TestTask(Task):
             def __init__(self, config):
-                self.required_stages = ["post_import"]
                 super().__init__(config)
             
             def run(self):

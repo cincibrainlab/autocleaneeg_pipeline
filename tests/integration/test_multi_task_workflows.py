@@ -126,10 +126,9 @@ class TestMultiTaskWorkflows:
         # Configure logging
         configure_logger(verbose="ERROR", output_dir=temp_workspace)
         
-        # Initialize pipeline once
+        # Initialize pipeline once (no YAML config needed for built-in tasks)
         pipeline = Pipeline(
-            autoclean_dir=temp_workspace / "output",
-            autoclean_config=universal_config,
+            output_dir=temp_workspace / "output",
             verbose="ERROR"
         )
         
@@ -163,8 +162,8 @@ class TestMultiTaskWorkflows:
                     # Events creation might fail - continue without events
                     pass
             
-            # Save input file
-            input_file = temp_workspace / "input" / f"{scenario['name']}_test.fif"
+            # Save input file with proper naming convention
+            input_file = temp_workspace / "input" / f"{scenario['name']}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             # Process with appropriate task
@@ -197,10 +196,9 @@ class TestMultiTaskWorkflows:
         # Configure logging
         configure_logger(verbose="ERROR", output_dir=temp_workspace)
         
-        # Initialize pipeline
+        # Initialize pipeline (no YAML config needed)
         pipeline = Pipeline(
-            autoclean_dir=temp_workspace / "output",
-            autoclean_config=universal_config,
+            output_dir=temp_workspace / "output",
             verbose="ERROR"
         )
         
@@ -217,7 +215,7 @@ class TestMultiTaskWorkflows:
                 seed=42 + i
             )
             
-            input_file = temp_workspace / "input" / f"perf_test_{i}.fif"
+            input_file = temp_workspace / "input" / f"perf_test_{i}_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             test_files.append((input_file, task))
         
@@ -285,14 +283,14 @@ class TestMultiTaskWorkflows:
                 seed=42
             )
             
-            input_file = temp_workspace / "input" / f"{config_name}_test.fif"
+            input_file = temp_workspace / "input" / f"{config_name}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             try:
                 # Use separate output directory for each config
+                # (simplified - no YAML config needed)
                 pipeline = Pipeline(
-                    autoclean_dir=temp_workspace / "output" / config_name,
-                    autoclean_config=config_path,
+                    output_dir=temp_workspace / "output" / config_name,
                     verbose="ERROR"
                 )
                 
@@ -367,7 +365,7 @@ class TestTaskParameterVariations:
                 seed=42
             )
             
-            input_file = temp_workspace / "input" / f"filter_{i}_test.fif"
+            input_file = temp_workspace / "input" / f"filter_{i}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             try:
@@ -377,8 +375,7 @@ class TestTaskParameterVariations:
                     apply_iclabel_rejection=MockOperations.mock_apply_ica
                 ):
                     pipeline = Pipeline(
-                        autoclean_dir=temp_workspace / "output" / f"filter_{i}",
-                        autoclean_config=config_path,
+                        output_dir=temp_workspace / "output" / f"filter_{i}",
                         verbose="ERROR"
                     )
                     
@@ -440,7 +437,7 @@ class TestTaskParameterVariations:
                 description=['stimulus'] * 5
             )
             
-            input_file = temp_workspace / "input" / f"epoch_{i}_test.fif"
+            input_file = temp_workspace / "input" / f"epoch_{i}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             try:
@@ -450,8 +447,7 @@ class TestTaskParameterVariations:
                     apply_iclabel_rejection=MockOperations.mock_apply_ica
                 ):
                     pipeline = Pipeline(
-                        autoclean_dir=temp_workspace / "output" / f"epoch_{i}",
-                        autoclean_config=config_path,
+                        output_dir=temp_workspace / "output" / f"epoch_{i}",
                         verbose="ERROR"
                     )
                     
