@@ -164,8 +164,8 @@ Examples:
         'import_path', type=Path, help='Directory to import configuration from'
     )
     
-    # Setup command
-    subparsers.add_parser('setup', help='Run first-time setup wizard')
+    # Setup command (same as config setup for simplicity)
+    subparsers.add_parser('setup', help='Setup or reconfigure workspace')
     
     # Version command
     subparsers.add_parser('version', help='Show version information')

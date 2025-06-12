@@ -338,7 +338,7 @@ class UserConfigManager:
         return self.config_dir / "output"
     
     def reconfigure_workspace(self) -> Path:
-        """Allow user to reconfigure their workspace location."""
+        """Setup or reconfigure workspace location."""
         # Check if this is a completely fresh installation
         global_config_file = Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         
@@ -346,14 +346,23 @@ class UserConfigManager:
             # True first-time setup
             return self._run_first_time_setup(is_reconfigure=False)
         
-        # This is a reconfiguration
+        # This is a reconfiguration - ask user if they want to change location
         print("\n" + "="*60)
         print("🔧 Reconfigure AutoClean Workspace")
         print("="*60)
         print(f"Current workspace: {self.config_dir}")
         print()
         
-        # Run setup again
+        try:
+            response = input("Do you want to change your workspace location? (y/N): ").strip().lower()
+            if response not in ['y', 'yes']:
+                print("✅ Keeping current workspace location")
+                return self.config_dir
+        except (EOFError, KeyboardInterrupt):
+            print("✅ Keeping current workspace location")
+            return self.config_dir
+        
+        # Run setup to choose new location
         new_config_dir = self._run_first_time_setup(is_reconfigure=True)
         
         # If user chose a different directory, offer to migrate
@@ -572,6 +581,9 @@ class UserConfigManager:
     def _create_example_script(self, workspace_dir: Path) -> None:
         """Create an example script in the workspace directory."""
         try:
+            # Ensure workspace directory exists
+            workspace_dir.mkdir(parents=True, exist_ok=True)
+            
             # Path to the example file in the package
             import autoclean
             package_dir = Path(autoclean.__file__).parent.parent.parent  # Go up to autoclean_pipeline
