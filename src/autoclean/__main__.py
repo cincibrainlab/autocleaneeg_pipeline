@@ -21,9 +21,14 @@ if IN_CONTAINER:
         """Main entry point for the autoclean package in Docker container."""
         import argparse
 
-        parser = argparse.ArgumentParser(description="AutoClean EEG Processing Pipeline")
+        parser = argparse.ArgumentParser(
+            description="AutoClean EEG Processing Pipeline"
+        )
         parser.add_argument(
-            "--task", type=str, required=True, help="Task to run (e.g., RestingEyesOpen)"
+            "--task",
+            type=str,
+            required=True,
+            help="Task to run (e.g., RestingEyesOpen)",
         )
         parser.add_argument(
             "--data", type=str, required=True, help="Path to data file or directory"
@@ -48,7 +53,8 @@ if IN_CONTAINER:
 
         # Initialize pipeline with fixed paths
         pipeline = Pipeline(
-            autoclean_dir=OUTPUT_DIR, autoclean_config=f"{CONFIG_DIR}/autoclean_config.yaml"
+            autoclean_dir=OUTPUT_DIR,
+            autoclean_config=f"{CONFIG_DIR}/autoclean_config.yaml",
         )
 
         # Check if input is file or directory

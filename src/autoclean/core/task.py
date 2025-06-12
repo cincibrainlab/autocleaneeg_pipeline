@@ -8,12 +8,11 @@ from typing import Any, Dict, Optional
 # Third-party imports
 import mne  # Core EEG processing library for data containers and processing
 
-from autoclean.io.export import save_raw_to_set, save_epochs_to_set
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.io.import_ import import_eeg
 
 # Local imports
 from autoclean.mixins import DISCOVERED_MIXINS
-from autoclean.utils.logging import message
 
 
 class Task(ABC, *DISCOVERED_MIXINS):
@@ -48,8 +47,8 @@ class Task(ABC, *DISCOVERED_MIXINS):
             - run_id (str): Unique identifier for this processing run
             - unprocessed_file (Path): Path to the raw EEG data file
             - task (str): Name of the task (e.g., "rest_eyesopen")
-            
-            The base class automatically detects a module-level 'config' variable 
+
+            The base class automatically detects a module-level 'config' variable
             and uses it for self.settings in Python-based tasks.
 
         Examples
@@ -62,15 +61,16 @@ class Task(ABC, *DISCOVERED_MIXINS):
         ...         # Processing steps here
         """
         # Auto-detect module-level config for Python tasks
-        if not hasattr(self, 'settings'):
+        if not hasattr(self, "settings"):
             # Get the module where this class was defined
             import inspect
+
             module = inspect.getmodule(self.__class__)
-            if module and hasattr(module, 'config'):
+            if module and hasattr(module, "config"):
                 self.settings = module.config
             else:
                 self.settings = None
-        
+
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 
@@ -114,7 +114,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
         Notes
         -----
-        Imports data using the configured import function and saves the imported 
+        Imports data using the configured import function and saves the imported
         data as a post-import stage file.
 
         """
@@ -189,7 +189,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                     f"Field '{field}' must be of type {field_type.__name__}, "
                     f"got {type(config[field]).__name__} instead"
                 )
-        
+
         # No longer validate required_stages - stages are created dynamically when export=True is used
 
         return config

@@ -56,7 +56,7 @@ class StatisticalLearning(Task):
         # Create BIDS-compliant paths and filenames
         self.create_bids_path()
 
-        self.clean_bad_channels(cleaning_method = 'interpolate', reset_bads = True)
+        self.clean_bad_channels(cleaning_method="interpolate", reset_bads=True)
 
         self.rereference_data()
 
@@ -79,10 +79,10 @@ class StatisticalLearning(Task):
             autoclean_dict=self.config,
             stage="post_clean_raw",
             flagged=self.flagged,
-         )
+        )
 
         # --- EPOCHING BLOCK START ---
-        self.create_sl_epochs() # Using fixed-length epochs
+        self.create_sl_epochs()  # Using fixed-length epochs
 
         # Prepare epochs for ICA
         self.detect_outlier_epochs()

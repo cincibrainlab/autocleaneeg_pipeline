@@ -164,23 +164,30 @@ class TestTaskInitialization:
             def run(self):
                 pass
         
-        # Test with missing required fields
+        # Test with missing required fields (only run_id, unprocessed_file, task are required)
         invalid_configs = [
             {},  # Empty config
             {"run_id": "test"},  # Missing unprocessed_file
             {"run_id": "test", "unprocessed_file": Path("/test.fif")},  # Missing task
-            {
-                "run_id": "test", 
-                "unprocessed_file": Path("/test.fif"), 
-                "task": "test_task"
-                # Missing tasks and stage_files
-            }
         ]
         
+        # Test a valid config that should NOT raise an error
+        valid_config = {
+            "run_id": "test", 
+            "unprocessed_file": Path("/test.fif"), 
+            "task": "test_task"
+            # stage_files no longer required in simplified implementation
+        }
+        
+        # Test invalid configs
         for invalid_config in invalid_configs:
             # Task should validate config in __init__ and raise ValueError
             with pytest.raises(ValueError, match="Missing required field"):
                 ConcreteTask(invalid_config)
+        
+        # Test valid config should NOT raise error
+        task = ConcreteTask(valid_config)
+        assert task.config == valid_config
 
 
 @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")

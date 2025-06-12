@@ -79,14 +79,14 @@ class BaseMixin:
             step_settings = self.settings.get(step_name, {})
             if step_settings:  # If step exists in settings
                 is_enabled = step_settings.get("enabled", False)
-                
+
                 # Create a copy of step_settings without the 'enabled' key
                 settings_copy = step_settings.copy()
                 if "enabled" in settings_copy:
                     settings_copy.pop("enabled")
-                
+
                 return is_enabled, settings_copy
-        
+
         # Priority 2: Fall back to YAML config (backward compatibility)
         if not hasattr(self, "config"):
             return True, None
@@ -270,13 +270,13 @@ class BaseMixin:
             )
 
     def _auto_export_if_enabled(
-        self, 
-        data: Union[mne.io.Raw, mne.Epochs], 
-        stage_name: str, 
-        export_enabled: bool = False
+        self,
+        data: Union[mne.io.Raw, mne.Epochs],
+        stage_name: str,
+        export_enabled: bool = False,
     ) -> None:
         """Automatically export data if export is enabled.
-        
+
         Args:
             data: The data to export (Raw or Epochs)
             stage_name: Name of the processing stage for export
@@ -284,27 +284,30 @@ class BaseMixin:
         """
         if not export_enabled:
             return
-            
+
         if not hasattr(self, "config"):
             message("warning", f"Cannot export {stage_name}: no config available")
             return
-            
+
         # Ensure stage exists in config, create if needed
         self._ensure_stage_exists(stage_name)
-        
+
         try:
             if isinstance(data, mne.io.base.BaseRaw):
                 self._save_raw_result(data, stage_name)
             elif isinstance(data, mne.Epochs):
                 self._save_epochs_result(data, stage_name)
             else:
-                message("warning", f"Cannot export {stage_name}: unsupported data type {type(data)}")
+                message(
+                    "warning",
+                    f"Cannot export {stage_name}: unsupported data type {type(data)}",
+                )
         except Exception as e:
             message("error", f"Failed to export {stage_name}: {str(e)}")
 
     def _ensure_stage_exists(self, stage_name: str) -> None:
         """No longer needed - stages are handled by export functions.
-        
+
         Args:
             stage_name: Name of the stage to ensure exists
         """
@@ -313,17 +316,17 @@ class BaseMixin:
 
     def _generate_stage_name(self, method_name: str) -> str:
         """Generate appropriate stage name from method name.
-        
+
         Args:
             method_name: Name of the method being called
-            
+
         Returns:
             Generated stage name (e.g., "post_basic_steps")
         """
         # Map common method names to stage names
         method_to_stage = {
             "run_basic_steps": "post_basic_steps",
-            "run_ica": "post_ica", 
+            "run_ica": "post_ica",
             "create_regular_epochs": "post_epochs",
             "create_epochs": "post_epochs",
             "filter_data": "post_filter",
@@ -331,18 +334,19 @@ class BaseMixin:
             "rereference_data": "post_reference",
             "clean_bad_channels": "post_channel_cleaning",
             "gfp_clean_epochs": "post_gfp_cleaning",
-            "detect_outlier_epochs": "post_epochs_prep"
+            "detect_outlier_epochs": "post_epochs_prep",
         }
-        
+
         return method_to_stage.get(method_name, f"post_{method_name}")
 
     def _get_current_method_name(self) -> str:
         """Get the name of the calling method for automatic stage naming.
-        
+
         Returns:
             Name of the method that called this function
         """
         import inspect
+
         frame = inspect.currentframe()
         try:
             # Go up the call stack to find the calling method
