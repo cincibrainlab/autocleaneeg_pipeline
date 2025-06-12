@@ -219,7 +219,10 @@ def validate_eeg_system(autoclean_dict: dict, task: str) -> str:
             eeg_system = task_config["montage"]["value"]
         else:
             # Default or skip validation for Python tasks without explicit montage
-            message("warning", f"No montage specified for Python task '{task}', skipping EEG system validation")
+            message(
+                "warning",
+                f"No montage specified for Python task '{task}', skipping EEG system validation",
+            )
             return None
 
     if eeg_system in VALID_MONTAGES:

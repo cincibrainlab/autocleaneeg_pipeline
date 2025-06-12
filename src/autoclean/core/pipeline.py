@@ -51,10 +51,10 @@ Async processing of multiple files:
 import asyncio
 import importlib.util
 import inspect
-import sys
 
 # Standard library imports
 import json
+import sys
 import threading  # Add threading import
 from datetime import datetime
 from pathlib import Path
@@ -70,7 +70,6 @@ from ulid import ULID
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
 from autoclean.io.export import save_epochs_to_set, save_raw_to_set
-from autoclean.utils.user_config import user_config
 from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,
@@ -80,11 +79,11 @@ from autoclean.step_functions.reports import (
 from autoclean.tasks import task_registry
 from autoclean.utils.config import (
     hash_and_encode_yaml,
-    validate_eeg_system,
 )
 from autoclean.utils.database import get_run_record, manage_database, set_database_path
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
+from autoclean.utils.user_config import user_config
 
 # Force matplotlib to use non-interactive backend for async operations
 # This prevents GUI thread conflicts during parallel processing
@@ -96,7 +95,7 @@ class Pipeline:
 
     Parameters
     ----------
-    autoclean_dir : str or Path
+    output_dir : str or Path
         Root directory where all processing outputs will be saved.
         The pipeline will create subdirectories for each task.
     autoclean_config : str or Path
@@ -124,7 +123,7 @@ class Pipeline:
     --------
     >>> from autoclean import Pipeline
     >>> pipeline = Pipeline(
-    ...     autoclean_dir="results/",
+    ...     output_dir="results/",
     ...     autoclean_config="configs/default.yaml",
     ...     verbose="debug"  # Enable detailed logging
     ... )
@@ -160,11 +159,11 @@ class Pipeline:
         >>> # Simple usage with custom output directory
         >>> pipeline = Pipeline(output_dir="results/", verbose="debug")
         >>> pipeline.process_file("data.raw", task="RestingEyesOpen")
-        
+
         >>> # Use default workspace output directory
         >>> pipeline = Pipeline()  # Uses ~/Documents/Autoclean-EEG/output
         >>> pipeline.process_file("data.raw", task="MyCustomTask")
-        
+
         >>> # Add custom task and use it
         >>> pipeline = Pipeline()
         >>> pipeline.add_task("my_custom_task.py")
@@ -174,13 +173,13 @@ class Pipeline:
         if output_dir is None:
             output_dir = user_config.get_default_output_dir()
             message("info", f"Using default output directory: {output_dir}")
-        
+
         # Convert paths to absolute Path objects
-        self.autoclean_dir = Path(output_dir).absolute()
-        
+        self.output_dir = Path(output_dir).absolute()
+
         # Configure logging first with output directory
         self.verbose = verbose
-        mne_verbose = configure_logger(verbose, output_dir=self.autoclean_dir)
+        mne_verbose = configure_logger(verbose, output_dir=self.output_dir)
         mne.set_log_level(mne_verbose)
 
         # Add a threading lock for the participants.tsv file
@@ -195,7 +194,7 @@ class Pipeline:
         # No external YAML configuration needed
 
         # Set global database path
-        set_database_path(self.autoclean_dir)
+        set_database_path(self.output_dir)
 
         # Initialize SQLite collection for run tracking
         # This creates tables if they don't exist
@@ -203,7 +202,7 @@ class Pipeline:
 
         message(
             "success",
-            f"✓ Pipeline initialized with output directory: {self.autoclean_dir}",
+            f"✓ Pipeline initialized with output directory: {self.output_dir}",
         )
 
     def _entrypoint(
@@ -265,11 +264,11 @@ class Pipeline:
 
         # Initialize run_dict early for error handling
         run_dict = None
-        
+
         try:
             # Perform core validation steps
             self._validate_file(unprocessed_file)
-            
+
             # EEG system will be auto-detected from the data
             eeg_system = "auto"
 
@@ -282,7 +281,7 @@ class Pipeline:
                 stage_dir,  # Intermediate processing stages
                 logs_dir,  # Debug information and logs
                 flagged_dir,  # Flagged data output
-            ) = step_prepare_directories(task, self.autoclean_dir)
+            ) = step_prepare_directories(task, self.output_dir)
 
             # Update database with directory structure
             manage_database(
@@ -315,7 +314,7 @@ class Pipeline:
                 "task": task,
                 "eeg_system": eeg_system,
                 "unprocessed_file": unprocessed_file,
-                "autoclean_dir": autoclean_dir,
+                "output_dir": self.output_dir,
                 "bids_dir": bids_dir,
                 "metadata_dir": metadata_dir,
                 "clean_dir": clean_dir,
@@ -630,7 +629,9 @@ class Pipeline:
 
         files = list(directory_path.glob(search_pattern))
         if not files:
-            message("warning", f"No files matching '{pattern}' found in {directory_path}")
+            message(
+                "warning", f"No files matching '{pattern}' found in {directory_path}"
+            )
             return
 
         message(
@@ -711,7 +712,13 @@ class Pipeline:
         >>> pipeline.list_stage_files()
         ['post_import', 'post_basic_steps', 'post_clean_raw', 'post_epochs', 'post_comp']
         """
-        return ["post_import", "post_basic_steps", "post_clean_raw", "post_epochs", "post_comp"]
+        return [
+            "post_import",
+            "post_basic_steps",
+            "post_clean_raw",
+            "post_epochs",
+            "post_comp",
+        ]
 
     def start_autoclean_review(self):
         """Launch the AutoClean Review GUI tool.
@@ -728,7 +735,7 @@ class Pipeline:
                 run_autoclean_review,
             )
 
-            run_autoclean_review(self.autoclean_dir)
+            run_autoclean_review(self.output_dir)
         except ImportError:
             message(
                 "error",
@@ -739,50 +746,53 @@ class Pipeline:
 
     def add_task(self, task_file_path: Union[str, Path]) -> str:
         """Register a Python task file for use in this pipeline session.
-        
+
         Parameters
         ----------
         task_file_path : str or Path
             Path to the Python file containing the task class definition.
-            
+
         Returns
         -------
         str
             The name of the registered task class.
-            
+
         Examples
         --------
-        >>> pipeline = Pipeline(autoclean_dir="output/")
+        >>> pipeline = Pipeline(output_dir="output/")
         >>> task_name = pipeline.add_task("my_resting_task.py")
         >>> pipeline.process_file("data.set", task=task_name)
         """
         task_file_path = Path(task_file_path)
         if not task_file_path.exists():
             raise FileNotFoundError(f"Task file not found: {task_file_path}")
-        
+
         message("info", f"Loading Python task file: {task_file_path}")
         task_class = self._load_python_task(task_file_path)
-        
+
         # Register in session registry (case-insensitive key)
         task_name = task_class.__name__.lower()
         self.session_task_registry[task_name] = task_class
-        
-        message("success", f"✓ Registered task '{task_class.__name__}' from {task_file_path}")
+
+        message(
+            "success",
+            f"✓ Registered task '{task_class.__name__}' from {task_file_path}",
+        )
         return task_class.__name__  # Return original case class name
 
     def _load_python_task(self, task_file_path: Path) -> Type[Task]:
         """Dynamically load a Task class from a Python file.
-        
+
         Parameters
         ----------
         task_file_path : Path
             Path to the Python file containing the task class.
-            
+
         Returns
         -------
         Type[Task]
             The loaded Task class.
-            
+
         Raises
         ------
         ImportError
@@ -791,43 +801,47 @@ class Pipeline:
         # Create module spec from file
         module_name = f"user_task_{task_file_path.stem}"
         spec = importlib.util.spec_from_file_location(module_name, task_file_path)
-        
+
         if spec is None or spec.loader is None:
             raise ImportError(f"Could not load module spec from {task_file_path}")
-        
+
         # Import the module
         module = importlib.util.module_from_spec(spec)
-        
+
         # Add to sys.modules to support relative imports
         sys.modules[module_name] = module
-        
+
         try:
             spec.loader.exec_module(module)
         except Exception as e:
             # Clean up sys.modules on failure
             if module_name in sys.modules:
                 del sys.modules[module_name]
-            raise ImportError(f"Failed to execute module {task_file_path}: {str(e)}") from e
-        
+            raise ImportError(
+                f"Failed to execute module {task_file_path}: {str(e)}"
+            ) from e
+
         # Find Task subclasses in the module
         task_classes = []
         for name, obj in inspect.getmembers(module, inspect.isclass):
-            if (issubclass(obj, Task) and 
-                obj != Task and 
-                obj.__module__ == module_name):  # Only classes defined in this module
+            if (
+                issubclass(obj, Task) and obj != Task and obj.__module__ == module_name
+            ):  # Only classes defined in this module
                 task_classes.append(obj)
-        
+
         if not task_classes:
             # Clean up sys.modules
             if module_name in sys.modules:
                 del sys.modules[module_name]
             raise ImportError(f"No Task subclasses found in {task_file_path}")
-        
-        if len(task_classes) > 1:
-            message("warning", f"Multiple Task classes found in {task_file_path}, using first: {task_classes[0].__name__}")
-        
-        return task_classes[0]
 
+        if len(task_classes) > 1:
+            message(
+                "warning",
+                f"Multiple Task classes found in {task_file_path}, using first: {task_classes[0].__name__}",
+            )
+
+        return task_classes[0]
 
     def _validate_task(self, task: str) -> str:
         """Validate that a task type is supported and properly configured.
@@ -869,7 +883,9 @@ class Pipeline:
                 custom_tasks = list(user_config.list_custom_tasks().keys())
                 if custom_tasks:
                     available_tasks.extend([f"{t} (custom)" for t in custom_tasks])
-                raise ValueError(f"Task '{task}' not found. Available tasks: {available_tasks}")
+                raise ValueError(
+                    f"Task '{task}' not found. Available tasks: {available_tasks}"
+                )
 
         message("success", f"✓ Task '{task}' validated")
         return task

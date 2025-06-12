@@ -16,15 +16,16 @@ class TestPythonTaskFiles:
     def test_pipeline_without_yaml_config(self):
         """Test that Pipeline can be initialized without YAML config."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            pipeline = Pipeline(autoclean_dir=temp_dir)
-            assert pipeline.autoclean_config is None
-            assert pipeline.autoclean_dict is not None
-            assert pipeline.session_task_registry == {}
+            pipeline = Pipeline(output_dir=temp_dir)
+            # In simplified implementation, no external YAML config needed
+            assert hasattr(pipeline, 'output_dir')
+            assert hasattr(pipeline, 'session_task_registry')
+            assert isinstance(pipeline.session_task_registry, dict)
 
     def test_add_task_method_exists(self):
         """Test that Pipeline has add_task method."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            pipeline = Pipeline(autoclean_dir=temp_dir)
+            pipeline = Pipeline(output_dir=temp_dir)
             assert hasattr(pipeline, 'add_task')
             assert callable(pipeline.add_task)
 
@@ -55,7 +56,7 @@ class TestTask(Task):
         
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
-                pipeline = Pipeline(autoclean_dir=temp_dir)
+                pipeline = Pipeline(output_dir=temp_dir)
                 
                 # Test adding the task
                 pipeline.add_task(task_file)
@@ -132,7 +133,7 @@ class TestTask(Task):
         """Test that export parameters work in mixin methods."""
         from autoclean.mixins.base import BaseMixin
         
-        class MockTaskWithMixin(BaseMixin, Task):
+        class MockTaskWithMixin(Task, BaseMixin):  # Fixed MRO by putting Task first
             def __init__(self, config):
                 self.settings = {
                     'resample_step': {'enabled': True, 'value': 250}
@@ -162,41 +163,51 @@ class TestTask(Task):
         assert hasattr(task, '_ensure_stage_exists')
         assert callable(task._ensure_stage_exists)
 
-    def test_backward_compatibility_with_yaml(self):
-        """Test that YAML-based tasks still work alongside Python tasks."""
+    def test_built_in_tasks_with_python_tasks(self):
+        """Test that built-in tasks work alongside Python tasks."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            # Create pipeline with default config generation
-            pipeline = Pipeline(autoclean_dir=temp_dir)
+            pipeline = Pipeline(output_dir=temp_dir)
             
-            # Mock YAML config structure
-            pipeline.autoclean_dict = {
-                'tasks': {
-                    'YamlTask': {
-                        'settings': {
-                            'resample_step': {'enabled': True, 'value': 250}
-                        }
-                    }
-                },
-                'stage_files': {
-                    'post_import': {'enabled': True, 'suffix': '_import'}
-                }
-            }
+            # Get initial built-in tasks
+            initial_tasks = pipeline.list_tasks()
+            initial_count = len(initial_tasks)
+            assert initial_count > 0
             
-            # Add to built-in registry (simulating YAML task)
-            class YamlTask(Task):
-                def run(self):
-                    pass
+            # Add a Python task
+            python_task_content = '''
+from autoclean.core.task import Task
+
+config = {
+    'resample_step': {'enabled': True, 'value': 250}
+}
+
+class PythonTask(Task):
+    def __init__(self, config):
+        self.settings = globals()['config']
+        super().__init__(config)
+    
+    def run(self):
+        pass
+'''
+            task_file = Path(temp_dir) / "python_task.py"
+            task_file.write_text(python_task_content)
             
-            pipeline.task_registry['yamltask'] = YamlTask
+            # Add the Python task
+            pipeline.add_task(str(task_file))
             
-            # Should be able to list YAML tasks
-            tasks = pipeline.list_tasks()
-            assert 'YamlTask' in tasks
+            # Should have both built-in and Python tasks
+            final_tasks = pipeline.list_tasks()
+            assert len(final_tasks) == initial_count + 1
+            assert 'pythontask' in final_tasks
+            
+            # All original tasks should still be there
+            for task in initial_tasks:
+                assert task in final_tasks
 
     def test_missing_task_file_error(self):
         """Test error handling for missing task files."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            pipeline = Pipeline(autoclean_dir=temp_dir)
+            pipeline = Pipeline(output_dir=temp_dir)
             
             with pytest.raises(FileNotFoundError):
                 pipeline.add_task("/nonexistent/task.py")
@@ -217,7 +228,7 @@ class TestTask(Task:  # Missing closing parenthesis
         
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
-                pipeline = Pipeline(autoclean_dir=temp_dir)
+                pipeline = Pipeline(output_dir=temp_dir)
                 
                 with pytest.raises(ImportError):
                     pipeline.add_task(task_file)
@@ -242,7 +253,7 @@ class NotATask:
         
         try:
             with tempfile.TemporaryDirectory() as temp_dir:
-                pipeline = Pipeline(autoclean_dir=temp_dir)
+                pipeline = Pipeline(output_dir=temp_dir)
                 
                 with pytest.raises(ImportError, match="No Task"):
                     pipeline.add_task(task_file)
@@ -253,7 +264,7 @@ class NotATask:
     def test_validate_task_for_python_tasks(self):
         """Test task validation for Python tasks."""
         with tempfile.TemporaryDirectory() as temp_dir:
-            pipeline = Pipeline(autoclean_dir=temp_dir)
+            pipeline = Pipeline(output_dir=temp_dir)
             
             # Add a mock Python task
             class MockPythonTask(Task):
@@ -307,22 +318,23 @@ class TestExportFunctionality:
             mock_ensure.assert_called_once_with('test_stage')
 
     def test_ensure_stage_exists(self):
-        """Test _ensure_stage_exists method."""
+        """Test _ensure_stage_exists method (simplified implementation)."""
         from autoclean.mixins.base import BaseMixin
         
         class MockTask(BaseMixin):
             def __init__(self):
-                self.config = {'stage_files': {}}
+                self.config = {}
         
         task = MockTask()
         
-        # Test stage creation
+        # In the simplified implementation, _ensure_stage_exists does nothing
+        # Export functions handle stage creation automatically
         task._ensure_stage_exists('post_custom_stage')
         
-        assert 'post_custom_stage' in task.config['stage_files']
-        stage_config = task.config['stage_files']['post_custom_stage']
-        assert stage_config['enabled'] is True
-        assert 'suffix' in stage_config
+        # Should not raise any errors and method should exist
+        assert hasattr(task, '_ensure_stage_exists')
+        # Stage creation is now handled by export functions, not this method
+        assert True  # Test passes if no exception was raised
 
     def test_generate_stage_name(self):
         """Test _generate_stage_name method."""

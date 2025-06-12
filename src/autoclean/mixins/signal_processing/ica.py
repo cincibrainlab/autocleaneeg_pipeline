@@ -93,11 +93,11 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
 """
 
     def run_ica(
-        self, 
-        eog_channel: str = None, 
-        use_epochs: bool = False, 
+        self,
+        eog_channel: str = None,
+        use_epochs: bool = False,
         stage_name: str = "post_ica",
-        **kwargs
+        **kwargs,
     ) -> ICA:
         """Run ICA on the raw data.
 
@@ -139,7 +139,7 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
             message("warning", "ICA is not enabled in the config")
             return
 
-        data = self._get_data_object(data = None, use_epochs = use_epochs)
+        data = self._get_data_object(data=None, use_epochs=use_epochs)
 
         # Run ICA
         if is_enabled:
@@ -189,7 +189,9 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
 
         return self.final_ica
 
-    def run_ICLabel(self, stage_name: str = "post_component_removal", export: bool = False):  # pylint: disable=invalid-name
+    def run_ICLabel(
+        self, stage_name: str = "post_component_removal", export: bool = False
+    ):  # pylint: disable=invalid-name
         """Run ICLabel on the raw data.
 
         Returns
@@ -410,7 +412,6 @@ Example: ("eye", 0.95, "Strong frontal topography with left-right dipolar patter
                 "warning",
                 "_update_metadata method not found. Cannot save metadata for ICLabel rejection.",
             )
-
 
         message("success", "ICLabel-based component rejection complete.")
 

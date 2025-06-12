@@ -58,10 +58,23 @@ This creates your personal AutoClean folder where everything will be organized:
 
    autoclean setup
 
+**What you'll see:**
+
+.. code-block:: text
+
+   ╭─ 🧠 Welcome to AutoClean! ─╮
+   ╰────────────────────────────╯
+
+   Workspace location: /Users/yourname/Documents/Autoclean-EEG
+   • Custom tasks  • Configuration  • Results  • Easy backup
+
+   Press Enter for default, or type a custom path: 
+
 **What happens:**
-- Creates a folder called "Autoclean-EEG" in your Documents
-- Sets up the folder structure for tasks and results
-- Configures AutoClean for your system
+- Creates a clean workspace folder in your Documents
+- Creates an example script to get you started
+- Sets up folder structure for tasks and results
+- No complex configuration files to manage
 
 **If asked where to put your workspace:**
 - Press Enter to use the default (Documents/Autoclean-EEG)
@@ -76,7 +89,11 @@ Different experiments need different processing approaches. AutoClean includes s
 
 .. code-block:: bash
 
+   # Built-in tasks only
    autoclean list-tasks
+   
+   # Include any custom tasks you've added
+   autoclean list-tasks --include-custom
 
 **Built-in tasks you'll see:**
 
@@ -170,7 +187,7 @@ This shows your workspace location. Your results are in the "output" folder.
 
 .. code-block:: bash
 
-   # Go to your workspace
+   # Go to your workspace output folder
    cd Documents/Autoclean-EEG/output
    
    # See what's there
@@ -282,8 +299,8 @@ Congratulations! You've successfully processed your first EEG file with AutoClea
 
 **Useful follow-up tutorials:**
 - :doc:`understanding_results` - Deep dive into what AutoClean produces
-- :doc:`batch_processing_datasets` - Process multiple files efficiently  
-- :doc:`quality_control_best_practices` - Ensure reliable results
+- :doc:`creating_custom_task` - Create workflows specific to your experiments
+- :doc:`command_line_basics` - Learn more command line skills
 
 💡 Tips for Success
 -------------------

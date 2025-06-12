@@ -17,7 +17,9 @@
       "Bash(grep:*)",
       "Bash(python test_dev_syntax.py:*)",
       "Bash(mv:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(pytest:*)",
+      "Bash(coverage --version)"
     ],
     "deny": []
   },
