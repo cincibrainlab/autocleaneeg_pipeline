@@ -22,7 +22,7 @@ def step_create_bids_path(
     bids_dir = autoclean_dict["bids_dir"]
     eeg_system = autoclean_dict["eeg_system"]
     config_file = "python_task_config"  # No config file for Python tasks
-    
+
     # Handle both YAML and Python task configurations
     if task in autoclean_dict.get("tasks", {}):
         # YAML-based task

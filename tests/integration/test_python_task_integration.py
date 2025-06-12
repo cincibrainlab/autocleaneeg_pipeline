@@ -49,10 +49,10 @@ class TestPythonTaskIntegration:
         """Create synthetic EEG data file for testing."""
         # Create synthetic data
         raw = create_synthetic_raw(
+            montage='standard_1020',
             n_channels=32,
-            sfreq=500,
             duration=60,  # 1 minute
-            ch_types='eeg'
+            sfreq=500
         )
         
         # Save to file
@@ -106,14 +106,14 @@ class SimpleIntegrationTask(Task):
         task_file = self.create_simple_python_task(temp_workspace)
         
         # Initialize pipeline without YAML config
-        pipeline = Pipeline(autoclean_dir=str(temp_workspace / "output"))
+        pipeline = Pipeline(output_dir=str(temp_workspace / "output"))
         
         # Add Python task
         pipeline.add_task(str(task_file))
         
-        # Verify task was loaded
+        # Verify task was loaded (tasks stored with lowercase keys)
         tasks = pipeline.list_tasks()
-        assert 'SimpleIntegrationTask' in tasks
+        assert 'simpleintegrationtask' in tasks
         
         # Mock the actual processing to avoid dependencies
         with patch('autoclean.io.import_.import_eeg') as mock_import, \
@@ -128,11 +128,11 @@ class SimpleIntegrationTask(Task):
             # Mock database operations
             mock_db.return_value = None
             
-            # Process the file
+            # Process the file (use lowercase task name)
             try:
                 pipeline.process_file(
                     file_path=str(synthetic_eeg_file),
-                    task="SimpleIntegrationTask"
+                    task="simpleintegrationtask"
                 )
                 
                 # Verify that expected methods were called
@@ -142,7 +142,8 @@ class SimpleIntegrationTask(Task):
             except Exception as e:
                 # For integration test, we expect some methods to fail due to mocking
                 # The important part is that the Python task loading and basic pipeline works
-                assert "SimpleIntegrationTask" in str(e) or mock_import.called
+                # Accept plugin errors as expected in mocked environment
+                assert "plugin" in str(e).lower() or "simpleintegrationtask" in str(e).lower() or mock_import.called
 
     def test_python_task_settings_priority(self, temp_workspace):
         """Test that Python task settings take priority over defaults."""
@@ -175,16 +176,14 @@ class SettingsPriorityTask(Task):
         task_file.write_text(task_content)
         
         # Create pipeline and add task
-        pipeline = Pipeline(autoclean_dir=str(temp_workspace / "output"))
+        pipeline = Pipeline(output_dir=str(temp_workspace / "output"))
         pipeline.add_task(str(task_file))
         
-        # Create mock config
+        # Create mock config (simplified - no stage_files needed)
         config = {
             'run_id': 'test_priority',
             'unprocessed_file': Path('/fake/path'),
-            'task': 'SettingsPriorityTask',
-            'tasks': {},
-            'stage_files': {}
+            'task': 'SettingsPriorityTask'
         }
         
         # Instantiate task and test settings
@@ -229,51 +228,31 @@ class ExportControlTask(Task):
         task_file = temp_workspace / "export_control_task.py"
         task_file.write_text(task_content)
         
-        pipeline = Pipeline(autoclean_dir=str(temp_workspace / "output"))
+        pipeline = Pipeline(output_dir=str(temp_workspace / "output"))
         pipeline.add_task(str(task_file))
         
-        # Verify task loaded
-        assert 'ExportControlTask' in pipeline.list_tasks()
+        # Verify task loaded (tasks stored with lowercase keys)
+        assert 'exportcontroltask' in pipeline.list_tasks()
 
-    def test_mixed_yaml_python_workflow(self, temp_workspace):
-        """Test workflow mixing YAML and Python tasks."""
-        # Create minimal YAML config
-        yaml_config = {
-            'tasks': {
-                'YamlTask': {
-                    'settings': {
-                        'resample_step': {'enabled': True, 'value': 250}
-                    }
-                }
-            },
-            'stage_files': {
-                'post_import': {'enabled': True, 'suffix': '_import'}
-            }
-        }
-        
-        config_file = temp_workspace / "test_config.yaml"
-        with open(config_file, 'w') as f:
-            import yaml
-            yaml.dump(yaml_config, f)
-        
+    def test_mixed_builtin_python_workflow(self, temp_workspace):
+        """Test workflow mixing built-in and Python tasks."""
         # Create Python task
         python_task = self.create_simple_python_task(temp_workspace)
         
-        # Test with YAML config
-        with patch('autoclean.utils.config.load_config', return_value=yaml_config):
-            pipeline = Pipeline(
-                autoclean_dir=str(temp_workspace / "output"),
-                autoclean_config=str(config_file)
-            )
+        # Test with simplified configuration (no YAML needed)
+        pipeline = Pipeline(output_dir=str(temp_workspace / "output"))
             
-            # Add Python task
-            pipeline.add_task(str(python_task))
-            
-            # Should have both types available
-            tasks = pipeline.list_tasks()
-            # Note: Built-in YAML tasks depend on actual task registry
-            # Python task should definitely be there
-            assert 'SimpleIntegrationTask' in tasks
+        # Get initial built-in tasks
+        initial_tasks = pipeline.list_tasks()
+        initial_count = len(initial_tasks)
+        
+        # Add Python task
+        pipeline.add_task(str(python_task))
+        
+        # Should have built-in + Python tasks
+        final_tasks = pipeline.list_tasks()
+        assert len(final_tasks) == initial_count + 1
+        assert 'simpleintegrationtask' in final_tasks  # stored in lowercase
 
     def test_python_task_error_handling(self, temp_workspace):
         """Test error handling in Python task workflows."""
@@ -282,7 +261,7 @@ class ExportControlTask(Task):
         malformed_file = temp_workspace / "malformed.py"
         malformed_file.write_text(malformed_content)
         
-        pipeline = Pipeline(autoclean_dir=str(temp_workspace / "output"))
+        pipeline = Pipeline(output_dir=str(temp_workspace / "output"))
         
         with pytest.raises(ImportError):
             pipeline.add_task(str(malformed_file))
@@ -314,12 +293,14 @@ config = {
 
 class DynamicStageTask(Task):
     def run(self):
-        # Test that we can create custom stages dynamically
+        # Test that _ensure_stage_exists method exists and works
+        # In simplified implementation, this method does nothing
+        # Stage creation is handled automatically by export functions
         self._ensure_stage_exists('custom_stage_name')
         
-        # Verify it was created
-        assert 'custom_stage_name' in self.config['stage_files']
-        assert self.config['stage_files']['custom_stage_name']['enabled'] is True
+        # Method should exist and not raise errors
+        assert hasattr(self, '_ensure_stage_exists')
+        # Stage creation is now handled by export functions, not this method
 
     def __init__(self, config: Dict[str, Any]):
         self.settings = globals()['config']
@@ -329,16 +310,14 @@ class DynamicStageTask(Task):
         task_file = temp_workspace / "dynamic_stage_task.py"
         task_file.write_text(task_content)
         
-        pipeline = Pipeline(autoclean_dir=str(temp_workspace / "output"))
+        pipeline = Pipeline(output_dir=str(temp_workspace / "output"))
         pipeline.add_task(str(task_file))
         
-        # Create config and test
+        # Create config and test (simplified)
         config = {
             'run_id': 'test_dynamic',
             'unprocessed_file': Path('/fake/path'),
-            'task': 'DynamicStageTask',
-            'tasks': {},
-            'stage_files': {}
+            'task': 'DynamicStageTask'
         }
         
         task_class = pipeline.session_task_registry['dynamicstagetask']

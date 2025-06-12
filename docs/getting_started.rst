@@ -12,32 +12,39 @@ Welcome to AutoClean! This guide will help you get up and running quickly, wheth
 
    pip install autocleaneeg
 
-**Step 2: Set up your workspace**
+**Step 2: First-time setup**
 
 .. code-block:: bash
 
    autoclean setup
 
-This creates a folder in your Documents called "Autoclean-EEG" where all your tasks and results will be stored.
+AutoClean will show a clean setup wizard that creates your workspace:
 
-**Step 3: Get a task file**
+.. code-block:: text
 
-You can either:
-- Use the web-based task builder (coming soon) to create custom tasks
-- Download example tasks from our gallery
-- Use the built-in tasks that come with AutoClean
+   ╭─ 🧠 Welcome to AutoClean! ─╮
+   ╰────────────────────────────╯
 
-**Step 4: Process your data**
+   Workspace location: /Users/yourname/Documents/Autoclean-EEG
+   • Custom tasks  • Configuration  • Results  • Easy backup
+
+   Press Enter for default, or type a custom path: 
+
+   ✓ Using default location
+   ✅ Setup complete! /Users/yourname/Documents/Autoclean-EEG
+   📄 Example script: /Users/yourname/Documents/Autoclean-EEG/example_basic_usage.py
+
+**Step 3: Process your data**
 
 .. code-block:: bash
 
    autoclean process RestingEyesOpen my_eeg_data.raw
 
 That's it! AutoClean will automatically:
-- Find your task configuration
-- Process your EEG data with advanced artifact removal
+- Process your EEG data with advanced artifact removal  
 - Save results to your workspace output folder
 - Generate quality control reports
+- Track all processing in a database
 
 📊 For Non-Technical Users
 --------------------------
@@ -65,19 +72,20 @@ Once installed, you only need to remember a few simple commands:
    autoclean list-tasks
    
    # Process a single file  
-   autoclean process TaskName data_file.raw
+   autoclean process RestingEyesOpen data_file.raw
    
    # Process multiple files in a folder
-   autoclean process TaskName data_folder/
+   autoclean process RestingEyesOpen data_folder/
    
    # Check where your results are saved
    autoclean config show
 
-**Getting Task Files**
+**Getting Custom Tasks**
 
-1. **Web Task Builder** (recommended): Visit our online task builder to create processing workflows through a point-and-click interface
-2. **Task Gallery**: Download pre-made tasks for common experimental paradigms
-3. **Ask a colleague**: If someone in your lab has created tasks, they can share the files with you
+1. **Drop files into workspace**: Simply save .py task files to ``~/Documents/Autoclean-EEG/tasks/``
+2. **Use CLI to add tasks**: ``autoclean task add my_task.py``
+3. **Ask a colleague**: If someone in your lab has task files, they can share them with you
+4. **Built-in tasks**: AutoClean comes with tasks for common paradigms (resting-state, ASSR, chirp, MMN)
 
 🔧 For Technical Users  
 ----------------------
@@ -128,6 +136,10 @@ If you're comfortable with Python or command-line tools, AutoClean offers powerf
    # Manage your workspace
    autoclean config show          # See workspace location
    autoclean setup               # Reconfigure workspace
+   
+   # Manage custom tasks
+   autoclean task list           # List custom tasks
+   autoclean task remove MyTask  # Remove a custom task
 
 **Jupyter Notebook Integration**
 
@@ -152,16 +164,18 @@ After running setup, you'll find this structure in your Documents folder:
 .. code-block::
 
    Documents/Autoclean-EEG/
-   ├── tasks/           # Your custom task files go here
-   ├── output/          # Processing results saved here  
-   └── user_config.json # AutoClean settings
+   ├── tasks/                    # Your custom task files go here
+   ├── output/                   # Processing results saved here  
+   └── example_basic_usage.py    # Example script to get you started
 
 **Key Points:**
 
 - **Drop-and-Go**: Drop .py task files into the tasks/ folder and AutoClean automatically finds them
-- **Organized Results**: All processing outputs go to the output/ folder with clear naming
+- **Organized Results**: All processing outputs go to the output/ folder with timestamped folders
 - **Backup Friendly**: The entire Autoclean-EEG folder can be copied to backup or share your setup
 - **Cross-Platform**: Same folder structure works on Windows, Mac, and Linux
+- **No Complex Config**: No JSON files to manage - everything works from filesystem scanning
+- **Smart Deletion Detection**: AutoClean detects if your workspace was deleted and offers to recreate it
 
 🎯 Built-in Tasks
 -----------------
