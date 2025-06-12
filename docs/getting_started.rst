@@ -1,185 +1,174 @@
 Getting Started
 ===============
 
-AutoClean is a framework for automated EEG data processing built on MNE-Python. This guide covers installation, basic usage, and the most common processing workflows.
+AutoClean is a framework for automated EEG data processing built on MNE-Python. This guide covers installation, workspace setup, and the Python-based workflow for EEG processing.
 
 Installation
 ------------
 
-Install AutoClean from PyPI:
+Install AutoClean using Python's package manager:
 
 .. code-block:: bash
 
    pip install autocleaneeg
 
-First-time Setup
-----------------
+Workspace Setup
+---------------
 
-Initialize your workspace directory:
+AutoClean uses a simple "drop-and-go" workflow centered around a workspace directory. Set this up once:
 
-.. code-block:: bash
+.. code-block:: python
 
-   autoclean setup
+   import subprocess
+   subprocess.run(["autoclean", "setup"])
 
-This creates a workspace directory structure for organizing your processing tasks, configuration, and results. The default location is platform-specific (e.g., `~/Documents/AutoClean-EEG` on most systems).
+Or run this from your file manager by opening a terminal/command prompt and typing ``autoclean setup``.
 
-Basic Usage
------------
+This creates a workspace directory (typically ``~/Documents/AutoClean-EEG``) with a simple structure:
 
-AutoClean provides built-in tasks for common EEG paradigms. Process your data using the command line:
+.. code-block::
 
-.. code-block:: bash
+   AutoClean-EEG/
+   ├── tasks/                    # Drop custom task files here
+   ├── output/                   # All processing results
+   └── example_basic_usage.py    # Example Python script
 
-   autoclean process RestingEyesOpen my_eeg_data.raw
+Python API Workflow
+--------------------
 
-Or use the Python API:
+AutoClean is designed for Python-based workflows. Here's the basic pattern:
 
 .. code-block:: python
 
    from autoclean import Pipeline
    
+   # Initialize the pipeline
    pipeline = Pipeline(output_dir="results")
-   pipeline.process_file("my_eeg_data.raw", task="RestingEyesOpen")
+   
+   # Process your EEG data using built-in tasks
+   pipeline.process_file("your_data.raw", task="RestingEyesOpen")
 
-Processing includes artifact removal, ICA decomposition, epoching, and quality control reporting. Results are saved in BIDS-compatible format with comprehensive metadata.
+Navigation with File Manager
+----------------------------
+
+Use your system's file manager (Finder on Mac, File Explorer on Windows, Files on Linux) to:
+
+- **Navigate to your data files** - Browse to where your EEG files are stored
+- **View results** - Open the ``output`` folder in your workspace to see processed data
+- **Manage tasks** - Drop new task files into the ``tasks`` folder
+- **Backup** - Copy your entire workspace folder to backup your setup
+
+This approach eliminates the need for command-line navigation and integrates with your familiar file management workflow.
 
 Built-in Tasks
 --------------
 
-AutoClean includes tasks for common EEG paradigms:
+AutoClean includes several ready-to-use tasks for common EEG paradigms:
 
-**Resting State Tasks**
 - ``RestingEyesOpen`` - Resting state with eyes open
-- ``RestingEyesClosed`` - Resting state with eyes closed
-
-**Auditory Tasks**
+- ``RestingEyesClosed`` - Resting state with eyes closed  
 - ``ASSR`` - Auditory steady-state response
 - ``ChirpDefault`` - Chirp stimulus paradigm
 - ``HBCD_MMN`` - Mismatch negativity for HBCD protocol
-
-**Analysis Tasks**
 - ``StatisticalLearning`` - Statistical learning paradigm
 
-List all available tasks:
-
-.. code-block:: bash
-
-   autoclean list-tasks
-
-Command Line Interface
-----------------------
-
-The CLI provides efficient processing for single files or batch operations:
-
-.. code-block:: bash
-
-   # Process a single file
-   autoclean process RestingEyesOpen data_file.raw
-   
-   # Process multiple files in a directory
-   autoclean process RestingEyesOpen data_folder/
-   
-   # Custom output location
-   autoclean process RestingEyesOpen data.raw --output results/
-   
-   # View processing options
-   autoclean process --help
-
-Python API
-----------
-
-For programmatic control and integration into research workflows:
+Use these directly in your Python scripts without any setup:
 
 .. code-block:: python
 
    from autoclean import Pipeline
    
-   # Initialize pipeline
    pipeline = Pipeline(output_dir="results")
    
-   # Process single files
-   pipeline.process_file("subject01.raw", "RestingEyesOpen")
+   # For resting state data
+   pipeline.process_file("rest_data.raw", task="RestingEyesOpen")
    
-   # Batch process multiple files
-   pipeline.process_directory("data/", "RestingEyesOpen")
+   # For auditory experiments  
+   pipeline.process_file("assr_data.raw", task="ASSR")
 
-**Advanced Command Line Usage**
+Creating Custom Tasks
+---------------------
 
-.. code-block:: bash
+The real power of AutoClean comes from easily creating custom processing workflows. Use the **AutoClean Config Wizard** at https://cincibrainlab.github.io/Autoclean-ConfigWizard/ to create task files tailored to your experiment.
 
-   # Process with custom output location
-   autoclean process RestingEyesOpen data.raw --output results/
-   
-   # Dry run to preview what will be processed
-   autoclean process RestingEyesOpen data.raw --dry-run
-   
-   # Use a custom task file
-   autoclean process --task-file my_custom_task.py data.raw
+**Step 1: Create Your Task**
 
-**Workspace Management**
+1. Open https://cincibrainlab.github.io/Autoclean-ConfigWizard/ in your browser
+2. Select your EEG system, experimental paradigm, and processing options
+3. Download the generated Python task file
 
-.. code-block:: bash
+**Step 2: Drop Into Workspace**
 
-   # Add custom tasks to your workspace
-   autoclean task add my_task.py
-   
-   # List all available tasks (built-in + custom)
-   autoclean list-tasks --include-custom
-   
-   # Manage your workspace
-   autoclean config show          # See workspace location
-   autoclean setup               # Reconfigure workspace
-   
-   # Manage custom tasks
-   autoclean task list           # List custom tasks
-   autoclean task remove MyTask  # Remove a custom task
-
-**Jupyter Notebook Integration**
-
-.. code-block:: python
-
-   # Perfect for interactive data analysis
-   from autoclean import Pipeline
-   
-   pipeline = Pipeline()  # Uses your workspace automatically
-   
-   # Process data
-   pipeline.process_file("subject01.raw", "RestingEyesOpen")
-   
-   # Results are automatically saved to workspace/output/
-   # Quality control reports are generated automatically
-
-Custom Tasks
-------------
-
-In addition to built-in tasks, you can create custom processing workflows:
-
-**Adding Custom Tasks**
-
-.. code-block:: bash
-
-   # Add a task file to your workspace
-   autoclean task add my_custom_task.py
-   
-   # List all available tasks
-   autoclean list-tasks
-
-**Workspace Structure**
-
-Your workspace directory contains:
+Simply save the downloaded file to your ``tasks`` folder:
 
 .. code-block::
 
-   ~/Documents/AutoClean-EEG/
-   ├── tasks/                    # Custom task files
-   ├── output/                   # Processing results
-   └── example_basic_usage.py    # Example script
+   AutoClean-EEG/
+   ├── tasks/
+   │   └── MyCustomTask.py    # <-- Drop your task file here
+   ├── output/
+   └── example_basic_usage.py
 
-Custom task files are automatically discovered when placed in the tasks directory. Results are organized in timestamped folders within the output directory.
+**Step 3: Use Immediately**
 
-.. code-block:: bash
+.. code-block:: python
 
-   autoclean process RestingEyesOpen my_data.raw
+   from autoclean import Pipeline
+   
+   pipeline = Pipeline(output_dir="results")
+   
+   # AutoClean automatically finds your custom task
+   pipeline.process_file("my_data.raw", task="MyCustomTask")
+
+The workspace automatically discovers new task files - no installation, registration, or configuration required.
+
+Working with Multiple Files
+----------------------------
+
+Process multiple files using Python's file handling. Use your file manager to locate your data directory, then:
+
+.. code-block:: python
+
+   from pathlib import Path
+   from autoclean import Pipeline
+   
+   pipeline = Pipeline(output_dir="results")
+   
+   # Process all .raw files in a directory
+   data_dir = Path("/path/to/your/data")  # Use file manager to find this path
+   for eeg_file in data_dir.glob("*.raw"):
+       pipeline.process_file(str(eeg_file), task="RestingEyesOpen")
+
+**Finding File Paths with File Manager:**
+
+1. Navigate to your data folder using Finder/File Explorer/Files
+2. Right-click on the folder and select "Copy Path" or "Properties" to get the full path
+3. Use this path in your Python script
+
+Example Workflow
+----------------
+
+Here's a complete example of the typical AutoClean workflow:
+
+.. code-block:: python
+
+   from pathlib import Path
+   from autoclean import Pipeline
+   
+   # Set up paths using your file manager
+   data_path = Path("/Users/researcher/EEG_Data/subject01_rest.raw")
+   output_path = Path("/Users/researcher/AutoClean_Results")
+   
+   # Initialize pipeline
+   pipeline = Pipeline(output_dir=str(output_path))
+   
+   # Process the file
+   result = pipeline.process_file(str(data_path), task="RestingEyesOpen")
+   
+   # Results are automatically saved to output_path
+   print(f"Processing complete! Results in: {output_path}")
+
+Results are organized in timestamped folders that you can browse with your file manager. Each processing run creates a complete record including cleaned data, quality reports, and processing logs.
 
 📈 Output and Results
 --------------------
