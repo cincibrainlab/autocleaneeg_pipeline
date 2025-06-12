@@ -323,7 +323,7 @@ Keep records of:
 - Any custom processing steps
 
 **Example Methods Text:**
-"EEG data were preprocessed using AutoClean v1.4.1 with the RestingEyesOpen task. Data were filtered (1-100 Hz), bad channels interpolated (mean: 2.3%), and artifacts removed using ICA. On average, 78% of epochs were retained after artifact rejection."
+"EEG data were preprocessed using AutoClean v2.0.0 with the RestingEyesOpen task. Data were filtered (1-100 Hz), bad channels interpolated (mean: 2.3%), and artifacts removed using ICA. On average, 78% of epochs were retained after artifact rejection."
 
 🎉 Next Steps
 -------------
