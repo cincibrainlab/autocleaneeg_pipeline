@@ -162,8 +162,8 @@ class TestMultiTaskWorkflows:
                     # Events creation might fail - continue without events
                     pass
             
-            # Save input file
-            input_file = temp_workspace / "input" / f"{scenario['name']}_test.fif"
+            # Save input file with proper naming convention
+            input_file = temp_workspace / "input" / f"{scenario['name']}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             # Process with appropriate task
@@ -215,7 +215,7 @@ class TestMultiTaskWorkflows:
                 seed=42 + i
             )
             
-            input_file = temp_workspace / "input" / f"perf_test_{i}.fif"
+            input_file = temp_workspace / "input" / f"perf_test_{i}_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             test_files.append((input_file, task))
         
@@ -283,7 +283,7 @@ class TestMultiTaskWorkflows:
                 seed=42
             )
             
-            input_file = temp_workspace / "input" / f"{config_name}_test.fif"
+            input_file = temp_workspace / "input" / f"{config_name}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             try:
@@ -365,7 +365,7 @@ class TestTaskParameterVariations:
                 seed=42
             )
             
-            input_file = temp_workspace / "input" / f"filter_{i}_test.fif"
+            input_file = temp_workspace / "input" / f"filter_{i}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             try:
@@ -437,7 +437,7 @@ class TestTaskParameterVariations:
                 description=['stimulus'] * 5
             )
             
-            input_file = temp_workspace / "input" / f"epoch_{i}_test.fif"
+            input_file = temp_workspace / "input" / f"epoch_{i}_test_raw.fif"
             raw.save(input_file, overwrite=True, verbose=False)
             
             try:
