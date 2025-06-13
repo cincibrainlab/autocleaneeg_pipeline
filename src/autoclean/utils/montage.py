@@ -7,6 +7,12 @@ import yaml
 
 from autoclean.utils.logging import message
 
+try:
+    from importlib import resources
+except ImportError:
+    # Python < 3.9 compatibility
+    import importlib_resources as resources
+
 
 def load_valid_montages() -> Dict[str, str]:
     """Load valid montages from configuration file.
@@ -16,16 +22,23 @@ def load_valid_montages() -> Dict[str, str]:
     Dict[str, str]
         Dictionary of valid montages
     """
-
-    config_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
-        "configs",
-        "montages.yaml",
-    )
     try:
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-            return config["valid_montages"]
+        # Try to load from package resources first (for installed package)
+        try:
+            import configs
+            config_data = resources.files(configs).joinpath("montages.yaml").read_text(encoding="utf-8")
+        except (ImportError, FileNotFoundError):
+            # Fallback to relative path (for development)
+            config_path = os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))),
+                "configs",
+                "montages.yaml",
+            )
+            with open(config_path, "r", encoding="utf-8") as f:
+                config_data = f.read()
+        
+        config = yaml.safe_load(config_data)
+        return config["valid_montages"]
     except Exception as e:  # pylint: disable=broad-except
         message("error", f"Failed to load montages config: {e}")
         raise
