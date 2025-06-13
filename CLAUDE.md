@@ -171,18 +171,18 @@ python -m build
 ```bash
 # Install AutoClean as a standalone uv tool
 uv tool install .                    # From source (development)
-uv tool install autocleaneeg         # From PyPI (when published)
+uv tool install autoclean-eeg         # From PyPI (when published)
 
 # Use AutoClean CLI (isolated environment, no conflicts!)
-uv tool run autoclean --help
-uv tool run autoclean process --task RestingEyesOpen --file data.raw --output results/
-uv tool run autoclean list-tasks
-uv tool run autoclean review --output results/
+uv tool run autoclean-eeg --help
+uv tool run autoclean-eeg process --task RestingEyesOpen --file data.raw --output results/
+uv tool run autoclean-eeg list-tasks
+uv tool run autoclean-eeg review --output results/
 
 # Manage AutoClean tool
 uv tool list                         # Show installed tools
-uv tool upgrade autocleaneeg         # Upgrade AutoClean
-uv tool uninstall autocleaneeg       # Remove AutoClean
+uv tool upgrade autoclean-eeg         # Upgrade AutoClean
+uv tool uninstall autoclean-eeg       # Remove AutoClean
 
 # Makefile shortcuts
 make install-uv-tool                 # Install AutoClean as uv tool
@@ -223,7 +223,7 @@ docker-compose run autoclean bash
 ## Development Notes (v2.0.0)
 - Python 3.10+ required, <3.13
 - MNE-Python ecosystem + scientific computing stack
-- Entry point: `autoclean` CLI command
+- Entry point: `autoclean-eeg` CLI command
 - **Breaking Changes**: v2.0.0 API migration required (`autoclean_dir` → `output_dir`)
 - **No YAML Required**: Built-in tasks work without configuration files
 - **Production Ready**: 85.8% test pass rate, full dependency locking
