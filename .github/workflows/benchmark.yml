@@ -53,8 +53,14 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           git status
-          git clean -fd tests/fixtures/data/ || true
-          git stash || true
+          # Force clean all untracked files and directories
+          git clean -fdx tests/fixtures/data/ || true
+          # Stash any remaining changes (both staged and unstaged)
+          git add -A || true
+          git stash --include-untracked || true
+          # Reset to clean state
+          git reset --hard HEAD || true
+          git status
 
       - name: Store benchmark results
         uses: benchmark-action/github-action-benchmark@v1
