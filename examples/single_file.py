@@ -14,4 +14,3 @@ pipeline.process_file(
     file_path=file_path,
     task="RestingEyesOpen",  # Choose appropriate task
 )
-
