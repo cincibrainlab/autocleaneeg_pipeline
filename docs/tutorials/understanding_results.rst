@@ -1,245 +1,197 @@
-Understanding Your AutoClean Results
-===================================
+Understanding AutoClean Results
+===============================
 
-After AutoClean processes your EEG data, it creates a comprehensive set of outputs. This guide helps you understand what everything means and how to use your results effectively.
+AutoClean creates a structured output directory for each processing run. This guide explains the organization and contents of your results.
 
-📁 Overview: What AutoClean Creates
------------------------------------
+Output Directory Structure
+---------------------------
 
-When AutoClean finishes processing, you'll find a timestamped folder in your workspace output directory:
+AutoClean creates a folder named after the task used for processing:
 
 .. code-block::
 
    output/
-   └── subject001_rest_2025-06-11_14-30-25/
-       ├── bids/                 # Processed data (what you need!)
-       ├── logs/                 # Processing details  
-       ├── metadata/             # Reports and summaries
-       └── stage/                # Intermediate files
+   └── RestingEyesOpen/          # Named after the task
+       ├── bids/                 # BIDS-compliant processed data
+       ├── flagged/              # Data flagged for quality issues
+       ├── metadata/             # Processing metadata and logs
+       ├── logs/                 # Detailed processing logs
+       └── stage_files/          # Exported intermediate data
 
-**The most important folder is `bids/` - this contains your cleaned, analysis-ready data.**
+Directory Contents
+------------------
 
-🎯 Key Files You Need to Know
-------------------------------
+**bids/** - Primary Output Data
 
-**Start Here: Quality Control Report**
+Contains the main processed EEG data in BIDS format:
+- Cleaned continuous data
+- Epoched data (if applicable)
+- Channel information and metadata
+- BIDS-compliant file naming and structure
 
-.. code-block::
+**flagged/** - Quality Control Flagged Data
 
-   metadata/run_report.pdf
+Contains data that triggered quality control flags:
+- Files with less than 50% epochs remaining after artifact rejection
+- Data flagged for excessive channel rejection
+- Processing runs that failed quality thresholds
 
-This PDF report is your first stop! It contains:
-- Visual before/after comparisons
-- Data quality metrics  
-- Processing summary
-- Any warnings or issues
+**metadata/** - Processing Information
 
-**Your Cleaned Data**
+Contains processing metadata and summary information:
+- Run summaries and statistics
+- Processing parameters used
+- Quality metrics and reports
 
-.. code-block::
+**logs/** - Processing Logs
 
-   bids/derivatives/
-   ├── continuous_clean.fif      # Continuous cleaned EEG
-   ├── epochs_clean.fif          # Epoched data ready for analysis
-   └── ica_solution.fif          # ICA artifact removal details
+Detailed logs of the processing pipeline:
+- Step-by-step processing information
+- Error messages and warnings
+- Timing and performance data
 
-**Processing Details**
+**stage_files/** - Exported Data
 
-.. code-block::
+Contains any data marked for export during processing:
+- Intermediate processing stages (if export=True was used)
+- Custom export data specified in task configuration
+- Stage-specific outputs for analysis
 
-   metadata/
-   ├── run_report.pdf            # Visual quality report
-   ├── processing_summary.json   # Technical details
-   └── data_quality_metrics.json # Quantitative measures
+**derivatives/** - Reports and Visualizations
 
-📊 Reading Your Quality Control Report
---------------------------------------
+Quality control reports and visualizations:
+- Processing reports (PDF/HTML)
+- ICA component analysis
+- Data quality visualizations
+- Before/after comparison plots
 
-**Page 1: Processing Summary**
+Quality Control Assessment
+--------------------------
 
-*Data Overview:*
-- Original file information
-- Total recording duration  
-- Number of channels
-- Sampling rate
+**Processing Summary**
 
-*Processing Statistics:*
-- **Channels kept:** Should be >90% for good data
-- **Data segments kept:** Should be >70% for reliable results
-- **Artifacts removed:** Shows what was cleaned
+Key metrics to evaluate:
+- Original file information and recording parameters
+- Channel retention percentage (target: >90%)
+- Epoch retention percentage (target: >70%)  
+- ICA components removed (typical: 3-8 components)
 
-**Page 2: Before/After Comparison**
+**Data Quality Visualization**
 
-*Raw Data Visualization:*
-- Shows original EEG traces
-- Highlights problematic channels/periods
-- Displays frequency content
+Before/after processing comparisons show:
+- Original EEG traces with artifacts
+- Cleaned EEG traces post-processing
+- Frequency domain improvements
+- Artifact removal effectiveness
 
-*Clean Data Visualization:*  
-- Shows processed EEG traces
-- Demonstrates artifact removal
-- Confirms data quality improvement
+**ICA Component Analysis**
 
-**Page 3: Artifact Analysis**
-
-*ICA Components:*
-- Brain activity components (kept)
+Components are categorized as:
+- Neural activity (retained)
 - Eye movement artifacts (removed)
-- Muscle artifacts (removed)  
-- Heart artifacts (removed)
+- Muscle artifacts (removed)
+- Cardiac artifacts (removed)
 
-*Quality Metrics:*
-- Signal-to-noise improvement
-- Artifact detection statistics
-- Data retention percentages
+Quality Thresholds
+------------------
 
-🚦 Interpreting Quality Indicators
-----------------------------------
+**Acceptable Quality:**
+- Greater than 90% channels retained
+- Greater than 70% epochs retained
+- 3-8 ICA components removed
+- Visible artifact reduction
 
-**Green Light (Excellent Quality):**
-- ✅ >95% channels retained
-- ✅ >80% epochs retained  
-- ✅ 3-8 ICA components removed
-- ✅ Clear artifact removal visible
+**Review Required:**
+- 85-90% channels retained
+- 60-70% epochs retained
+- Less than 3 or more than 12 ICA components removed
+- Excessive data loss
 
-**Yellow Light (Good Quality - Check These):**
-- ⚠️ 85-95% channels retained
-- ⚠️ 70-80% epochs retained
-- ⚠️ 2-3 or 8-12 ICA components removed
-- ⚠️ Some residual artifacts visible
+**Flagged Data:**
+- Less than 85% channels retained
+- Less than 60% epochs retained
+- Poor artifact removal
+- Data moved to flagged/ directory
 
-**Red Light (Needs Attention):**
-- ❌ <85% channels retained
-- ❌ <70% epochs retained
-- ❌ <2 or >12 ICA components removed
-- ❌ Poor artifact removal
+Processed Data Files
+--------------------
 
-🧠 Understanding Your Processed Data
-------------------------------------
+**Continuous Data**
 
-**Continuous Clean Data (continuous_clean.fif)**
+File: continuous_clean.fif
+- Artifact-removed continuous EEG
+- Preserves temporal structure
+- Suitable for connectivity and time-frequency analysis
 
-*What it is:*
-- Your original EEG with artifacts removed
-- Maintains original time structure
-- Ready for time-domain analysis
+**Epoched Data**
 
-*Use it for:*
-- Connectivity analysis
-- Time-frequency analysis
-- Event-related potential analysis
-- Custom epoching
-
-**Epoched Clean Data (epochs_clean.fif)**
-
-*What it is:*
-- Data split into short segments (usually 2-4 seconds)
-- Bad epochs already removed
+File: epochs_clean.fif  
+- Segmented data with bad epochs removed
 - Ready for spectral analysis
+- Optimized for statistical comparisons
+**ICA Solution**
 
-*Use it for:*
-- Power spectral density analysis
-- Frequency domain connectivity
-- Statistical comparisons
-- Machine learning features
+The ICA decomposition file contains:
+- Component weights and topographies
+- Classification of neural vs. artifact components  
+- Basis for artifact removal decisions
 
-**ICA Solution (ica_solution.fif)**
+Data Quality Metrics
+---------------------
 
-*What it is:*
-- Mathematical decomposition of your data
-- Separates brain activity from artifacts
-- Shows what was removed and why
+**Channel Metrics**
 
-*Use it for:*
-- Verifying artifact removal was appropriate
-- Understanding data cleaning decisions
-- Advanced troubleshooting
+- Channels interpolated: Typically 0-5% of total channels
+- Channel noise levels: Post-cleaning noise measurements
+- Bad channel detection: Automated identification of problematic electrodes
 
-📈 Data Quality Metrics Explained
----------------------------------
+**Temporal Metrics**
 
-**Channel Quality Metrics**
+- Epoch rejection rate: Percentage of data segments removed
+- Artifact detection: Types and quantities of artifacts identified
+- Data retention: Amount of usable data remaining after cleaning
 
-*Channels Interpolated:*
-- Bad channels that were reconstructed
-- Normal: 0-5% of channels
-- Concerning: >10% of channels
+**Spectral Metrics**
 
-*Channel Noise Levels:*
-- Average noise after cleaning
-- Lower values = cleaner data
-- Typical range: 10-50 μV
+- Frequency band power across standard EEG bands
+- Line noise reduction at 50/60 Hz
+- Spectral quality improvements post-processing
 
-**Temporal Quality Metrics**
+Analysis Considerations
+-----------------------
 
-*Epochs Rejected:*
-- Percentage of data removed as artifacts
-- Normal: 10-30% rejection
-- Concerning: >50% rejection
+**Quality Indicators**
 
-*Artifact Types Detected:*
-- Eye movements: Usually 1-3 components
-- Muscle artifacts: Usually 1-2 components  
-- Heart artifacts: Usually 0-1 components
+Successful processing typically shows:
+- Clear artifact component identification in ICA
+- Reasonable data retention (>70% epochs, >90% channels)  
+- Visible improvement in data quality
+- Appropriate artifact removal without over-cleaning
 
-**Spectral Quality Metrics**
+**Potential Issues**
 
-*Frequency Band Power:*
-- Delta (0.5-4 Hz): Slow wave activity
-- Theta (4-8 Hz): Attention/memory
-- Alpha (8-13 Hz): Relaxed awareness
-- Beta (13-30 Hz): Active thinking
-- Gamma (30+ Hz): High-level processing
+Review data if you observe:
+- Excessive component removal (>15 ICA components)
+- Poor data retention (<60% epochs or <85% channels)
+- Residual artifacts in cleaned data
+- Over-smoothed or unrealistic signal characteristics
 
-*Line Noise Reduction:*
-- 50/60 Hz artifact removal
-- Should show significant reduction
-- Residual noise <5% of original
+Using Processed Data
+--------------------
 
-🔍 Advanced Analysis: What to Look For
--------------------------------------
-
-**Successful Artifact Removal Signs:**
-
-*ICA Components Removed:*
-- Clear eye movement patterns in frontal components
-- Muscle artifacts with high-frequency, localized patterns
-- Heart artifacts with regular, rhythmic patterns
-
-*Clean Data Characteristics:*
-- Smooth, brain-like oscillations
-- Reasonable amplitude ranges (10-100 μV)
-- No obvious periodic artifacts
-- Consistent noise levels across channels
-
-**Potential Issues to Watch For:**
-
-*Over-cleaning:*
-- Too many ICA components removed (>15)
-- Unrealistically low noise levels
-- Loss of natural brain oscillations
-
-*Under-cleaning:*
-- Obvious eye blinks still visible
-- Muscle artifacts in temporal regions
-- 50/60 Hz line noise still present
-
-🛠️ Using Your Results in Analysis Software
--------------------------------------------
-
-**Loading Data in Python (MNE):**
+**Loading in Python (MNE)**
 
 .. code-block:: python
 
    import mne
    
-   # Load continuous data
-   raw = mne.io.read_raw_fif('bids/derivatives/continuous_clean.fif')
+   # Load continuous cleaned data
+   raw = mne.io.read_raw_fif('bids/continuous_clean.fif')
    
-   # Load epoched data  
-   epochs = mne.read_epochs('bids/derivatives/epochs_clean.fif')
+   # Load epoched data
+   epochs = mne.read_epochs('bids/epochs_clean.fif')
    
-   # Your analysis here
+   # Perform your analysis
    psd = epochs.compute_psd()
 
 **Loading Data in MATLAB (EEGLAB):**
@@ -264,76 +216,60 @@ This PDF report is your first stop! It contains:
    # Continue analysis
    psd <- compute_psd(eeg_data)
 
-📋 Quality Control Checklist
-----------------------------
-
-Before using your data for analysis, check:
-
-**✅ Data Integrity**
-- [ ] Processing completed without errors
-- [ ] Output files were created successfully  
-- [ ] File sizes are reasonable (not empty or huge)
-
-**✅ Quality Metrics**
-- [ ] >70% of epochs retained
-- [ ] >85% of channels retained
-- [ ] Appropriate number of ICA components removed
-
-**✅ Visual Inspection**
-- [ ] Clean data looks like brain activity
-- [ ] No obvious artifacts remain
-- [ ] Reasonable amplitude ranges
-
-**✅ Processing Log Review**
-- [ ] No critical errors in logs
-- [ ] All processing steps completed
-- [ ] Parameter settings were appropriate
-
-🆘 When Results Look Wrong
+Quality Control Checklist
 -------------------------
 
-**High Data Loss (>50% epochs rejected):**
-- Check original data quality
-- Verify appropriate task was used
-- Consider adjusting artifact detection sensitivity
+Before proceeding with analysis, verify:
 
-**Poor Artifact Removal:**
-- Review ICA component classifications
-- Check if additional preprocessing needed
-- Verify electrode positions were correct
+**Data Integrity**
+- Processing completed without errors
+- Output files created successfully
+- File sizes are appropriate
 
-**Unexpected Processing Errors:**
-- Check log files in logs/ folder
-- Verify input data format is supported
-- Ensure sufficient disk space available
+**Quality Metrics**  
+- Greater than 70% of epochs retained
+- Greater than 85% of channels retained
+- Reasonable number of ICA components removed
 
-**File Format Issues:**
-- AutoClean outputs standard formats (.fif, .set)
-- Use conversion tools if needed for your analysis software
-- Contact support for format-specific questions
+**Visual Inspection**
+- Clean data exhibits brain-like characteristics
+- Artifacts successfully removed
+- Amplitude ranges are physiologically reasonable
 
-📊 Documenting Your Processing
+**Log Review**
+- No critical errors in processing logs
+- All steps completed successfully
+- Parameters applied correctly
+
+Troubleshooting Issues
+----------------------
+
+**Excessive Data Loss**
+- Review original data quality
+- Verify appropriate task selection
+- Consider parameter adjustments
+
+**Poor Artifact Removal**
+- Examine ICA component classifications
+- Check electrode positioning accuracy
+- Review preprocessing parameters
+
+**Processing Errors**
+- Examine log files in logs/ directory
+- Verify input data format compatibility
+- Ensure adequate disk space
+
+Documentation for Publication
 -----------------------------
 
-**For Research Papers:**
-Keep records of:
-- AutoClean version used
-- Task name and parameters
-- Data quality metrics
-- Any custom processing steps
+Record the following information:
+- AutoClean version number
+- Task name and configuration
+- Quality metrics and data retention
+- Custom processing modifications
 
-**Example Methods Text:**
+**Example Methods Description:**
 "EEG data were preprocessed using AutoClean v2.0.0 with the RestingEyesOpen task. Data were filtered (1-100 Hz), bad channels interpolated (mean: 2.3%), and artifacts removed using ICA. On average, 78% of epochs were retained after artifact rejection."
-
-🎉 Next Steps
--------------
-
-Now that you understand your results:
-
-1. **Start Analysis:** Use your clean data for research questions
-2. **Quality Control:** Develop systematic QC procedures  
-3. **Optimization:** Fine-tune processing for your specific needs
-4. **Automation:** Scale up to process larger datasets
 
 **Recommended tutorials:**
 - :doc:`batch_processing_datasets` - Process multiple files efficiently
