@@ -4,7 +4,7 @@ This package provides tools for automated EEG data preprocessing,
 supporting multiple experimental paradigms and processing workflows.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 
 def __getattr__(name):

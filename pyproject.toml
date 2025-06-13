@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autoclean-eeg"
-version = "2.0.0"
+version = "2.0.1"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
