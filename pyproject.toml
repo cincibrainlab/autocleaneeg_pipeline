@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autoclean-eeg"
-version = "2.0.1"
+version = "2.0.4"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
@@ -114,10 +114,7 @@ version.path = "src/autoclean/__init__.py"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/autoclean"]
-
-[tool.hatch.build.sources]
-"src" = ""
+packages = ["src/autoclean", "configs"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
