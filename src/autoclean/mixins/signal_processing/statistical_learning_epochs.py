@@ -20,6 +20,7 @@ import numpy as np
 import pandas as pd
 
 from autoclean.utils.logging import message
+from autoclean.functions.epoching import create_sl_epochs as _create_sl_epochs
 
 
 class StatisticalLearningEpochsMixin:

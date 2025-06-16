@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from autoclean.utils.logging import message
+from autoclean.functions.epoching import create_regular_epochs as _create_regular_epochs
 
 
 class RegularEpochsMixin:
@@ -121,35 +122,23 @@ class RegularEpochsMixin:
             raise TypeError("Data must be an MNE Raw object for epoch creation")
 
         try:
-            # Create initial epochs with reject_by_annotation parameter
+            # Use standalone function for core epoch creation
             message("header", f"Creating regular epochs from {tmin}s to {tmax}s...")
-            events = mne.make_fixed_length_events(
-                data, duration=tmax - tmin, overlap=0, start=abs(tmin)
-            )
-
-            # Get all events from annotations
-            try:
-                events_all, event_id_all = mne.events_from_annotations(data)
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                message(
-                    "warning",
-                    f"No annotations found in data, skipping event extraction from annotations:{e}",
-                )
-                events_all = None
-                event_id_all = None
-            # pylint: disable=not-callable
-            epochs = mne.Epochs(
-                data,
-                events,
+            
+            epochs = _create_regular_epochs(
+                data=data,
                 tmin=tmin,
                 tmax=tmax,
                 baseline=baseline,
                 reject=volt_threshold,
-                preload=True,
                 reject_by_annotation=reject_by_annotation,
+                include_metadata=True,  # Always include metadata for pipeline
+                preload=True
             )
 
-            if events_all is not None:
+            # Note: metadata is now handled by the standalone function
+            # The rest of this code maintains compatibility with existing pipeline patterns
+            # For now, we'll keep the metadata processing but note it's redundant
                 # Step 5: Filter other events to keep only those that fall *within the kept epochs*
                 sfreq = data.info["sfreq"]
                 epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers

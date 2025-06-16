@@ -41,21 +41,21 @@ def __getattr__(name):
         return assign_channel_types
     
     # Epoching functions
-    # elif name == "create_regular_epochs":
-    #     from .functions.epoching import create_regular_epochs
-    #     return create_regular_epochs
-    # elif name == "create_eventid_epochs":
-    #     from .functions.epoching import create_eventid_epochs
-    #     return create_eventid_epochs
-    # elif name == "create_sl_epochs":
-    #     from .functions.epoching import create_sl_epochs
-    #     return create_sl_epochs
-    # elif name == "detect_outlier_epochs":
-    #     from .functions.epoching import detect_outlier_epochs
-    #     return detect_outlier_epochs
-    # elif name == "gfp_clean_epochs":
-    #     from .functions.epoching import gfp_clean_epochs
-    #     return gfp_clean_epochs
+    elif name == "create_regular_epochs":
+        from .functions.epoching import create_regular_epochs
+        return create_regular_epochs
+    elif name == "create_eventid_epochs":
+        from .functions.epoching import create_eventid_epochs
+        return create_eventid_epochs
+    elif name == "create_sl_epochs":
+        from .functions.epoching import create_sl_epochs
+        return create_sl_epochs
+    elif name == "detect_outlier_epochs":
+        from .functions.epoching import detect_outlier_epochs
+        return detect_outlier_epochs
+    elif name == "gfp_clean_epochs":
+        from .functions.epoching import gfp_clean_epochs
+        return gfp_clean_epochs
     
     # Artifact functions
     # elif name == "detect_bad_channels":
@@ -103,11 +103,11 @@ __all__ = [
     "trim_edges", 
     "assign_channel_types",
     # Epoching functions
-    # "create_regular_epochs",
-    # "create_eventid_epochs",
-    # "create_sl_epochs", 
-    # "detect_outlier_epochs",
-    # "gfp_clean_epochs",
+    "create_regular_epochs",
+    "create_eventid_epochs",
+    "create_sl_epochs", 
+    "detect_outlier_epochs",
+    "gfp_clean_epochs",
     # Artifact functions
     # "detect_bad_channels",
     # "interpolate_bad_channels",

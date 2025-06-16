@@ -13,16 +13,16 @@ detect_outlier_epochs : Identify outlier epochs
 gfp_clean_epochs : Clean epochs using global field power
 """
 
-# Imports will be added as functions are implemented
-# from .regular import create_regular_epochs
-# from .eventid import create_eventid_epochs
-# from .statistical import create_sl_epochs
-# from .quality import detect_outlier_epochs, gfp_clean_epochs
+# Import implemented functions
+from .regular import create_regular_epochs
+from .eventid import create_eventid_epochs
+from .statistical import create_sl_epochs
+from .quality import detect_outlier_epochs, gfp_clean_epochs
 
 __all__ = [
-    # "create_regular_epochs",
-    # "create_eventid_epochs", 
-    # "create_sl_epochs",
-    # "detect_outlier_epochs",
-    # "gfp_clean_epochs"
+    "create_regular_epochs",
+    "create_eventid_epochs", 
+    "create_sl_epochs",
+    "detect_outlier_epochs",
+    "gfp_clean_epochs"
 ]

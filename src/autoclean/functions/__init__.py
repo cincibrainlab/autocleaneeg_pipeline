@@ -41,13 +41,13 @@ from .preprocessing import (
 )
 
 # Epoching functions  
-# from .epoching import (
-#     create_regular_epochs,
-#     create_eventid_epochs,
-#     create_sl_epochs,
-#     detect_outlier_epochs,
-#     gfp_clean_epochs
-# )
+from .epoching import (
+    create_regular_epochs,
+    create_eventid_epochs,
+    create_sl_epochs,
+    detect_outlier_epochs,
+    gfp_clean_epochs
+)
 
 # Artifact functions
 # from .artifacts import (
@@ -76,5 +76,11 @@ __all__ = [
     "crop_data",
     "trim_edges",
     "assign_channel_types",
+    # Epoching functions
+    "create_regular_epochs",
+    "create_eventid_epochs",
+    "create_sl_epochs",
+    "detect_outlier_epochs", 
+    "gfp_clean_epochs",
     # Will be populated as more functions are implemented
 ]

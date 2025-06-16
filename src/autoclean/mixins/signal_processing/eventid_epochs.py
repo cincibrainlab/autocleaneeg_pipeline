@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 from autoclean.utils.logging import message
+from autoclean.functions.epoching import create_eventid_epochs as _create_eventid_epochs
 
 
 class EventIDEpochsMixin:
@@ -156,17 +157,17 @@ class EventIDEpochsMixin:
 
             # Create epochs with the filtered events
 
-            # pylint: disable=not-callable
-            epochs = mne.Epochs(
-                data,
-                events_trig,
+            # Use standalone function for core epoch creation
+            epochs = _create_eventid_epochs(
+                data=data,
                 event_id=event_patterns,
                 tmin=tmin,
                 tmax=tmax,
                 baseline=baseline,
                 reject=(None if keep_all_epochs else volt_threshold),
-                preload=True,
                 reject_by_annotation=(reject_by_annotation and not keep_all_epochs),
+                preload=True,
+                on_missing='ignore'  # Don't error if no events
             )
 
             # Step 5: Filter other events to keep only those that fall *within the kept epochs*
