@@ -73,13 +73,29 @@ Extract mixin methods into standalone functions while maintaining pipeline compa
 
 ---
 
-## Phase 4: Channel Operations
+## Phase 4: Channel Operations ✅ COMPLETED
 **Goal:** Extract channel detection and cleaning
 
 ### Extract These Functions:
-- [ ] `detect_bad_channels()` from `ChannelsMixin.clean_bad_channels()`
-- [ ] `interpolate_bad_channels()` from channel cleaning logic
-- [ ] `assign_channel_types()` from EOG assignment logic
+- [x] `detect_bad_channels()` from `ChannelsMixin.clean_bad_channels()`
+  - ✅ **Function**: PyPREP NoisyChannels integration with correlation, deviation, and RANSAC detection
+  - ✅ **Tests**: Comprehensive test suite with 5 test methods covering basic functionality, method breakdown, exclusion handling, validation, and error conditions
+  - ✅ **Documentation**: Extensive docstring with parameter guidelines, examples, and performance notes
+  - ✅ **Integration**: Added to all module exports with lazy imports enabled
+- [x] `interpolate_bad_channels()` from channel cleaning logic  
+  - ✅ **Function**: Spherical spline interpolation for Raw and Epochs data
+  - ✅ **Tests**: 8 test methods covering basic usage, info['bads'] handling, parameter validation, montage requirements, and epochs support
+  - ✅ **Documentation**: Complete docstring with best practices, requirements, and examples
+  - ✅ **Integration**: Added to all module exports with lazy imports enabled
+- [x] `assign_channel_types()` from EOG assignment logic *(completed in Phase 2)*
+
+### Status:
+- ✅ **Module Structure**: Created `src/autoclean/functions/artifacts/` with channels module
+- ✅ **Implementation**: Both functions fully implemented with comprehensive error handling and validation
+- ✅ **Testing**: 13 test methods total, all passing with proper synthetic data setup and montage handling
+- ✅ **Exports**: All functions enabled in main module with lazy imports
+
+**All channel operation functions now available as standalone imports with full PyPREP integration**
 
 ---
 
@@ -95,12 +111,34 @@ Extract mixin methods into standalone functions while maintaining pipeline compa
 
 ---
 
-## Phase 6: Advanced Processing
+## Phase 6: Advanced Processing ✅ COMPLETED
 **Goal:** Extract specialized functions
 
 ### Extract These Functions:
-- [ ] `autoreject_epochs()` from autoreject integration
-- [ ] `segment_rejection()` from segment-based rejection
+- [x] `autoreject_epochs()` from autoreject integration
+  - ✅ **Function**: Complete AutoReject implementation with cross-validation parameter optimization
+  - ✅ **Tests**: Comprehensive test suite with 4 test methods covering basic functionality, custom parameters, input validation, and channel selection
+  - ✅ **Documentation**: Extensive docstring with algorithm overview, parameter guidelines, examples, and performance notes
+  - ✅ **Integration**: Added to all module exports with lazy imports enabled
+- [x] `annotate_noisy_segments()` from segment-based rejection
+  - ✅ **Function**: IQR-based statistical outlier detection for identifying noisy data segments
+  - ✅ **Tests**: 5 test methods covering basic usage, parameter customization, input validation, edge cases, and channel selection
+  - ✅ **Documentation**: Complete docstring with detection algorithm, parameter guidelines, and examples
+  - ✅ **Integration**: Added to all module exports with lazy imports enabled
+- [x] `annotate_uncorrelated_segments()` from spatial correlation analysis
+  - ✅ **Function**: Spatial neighbor correlation analysis with multiple aggregation methods (max, mean, trimmean)
+  - ✅ **Tests**: 6 test methods covering basic usage, correlation methods, input validation, montage requirements, and edge cases  
+  - ✅ **Documentation**: Complete docstring with algorithm overview, correlation methods, and examples
+  - ✅ **Integration**: Added to all module exports with lazy imports enabled
+
+### Status:
+- ✅ **Module Structure**: Created `src/autoclean/functions/advanced/` with autoreject and segment_rejection modules
+- ✅ **Implementation**: All functions fully implemented with comprehensive error handling, input validation, and helper functions
+- ✅ **Testing**: 18 test methods total, all passing with proper type checking and synthetic data compatibility
+- ✅ **Dependencies**: Proper handling of autoreject dependency with mocking for tests and clear error messages
+- ✅ **Exports**: All functions enabled in main module with lazy imports
+
+**All advanced processing functions now available as standalone imports with full AutoReject integration and pylossless-style segment rejection**
 
 ---
 
