@@ -20,6 +20,7 @@ import mne
 import numpy as np
 
 from autoclean.utils.logging import message
+from autoclean.functions.epoching import detect_outlier_epochs as _detect_outlier_epochs
 
 
 class OutlierDetectionMixin:
