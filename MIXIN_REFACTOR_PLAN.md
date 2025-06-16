@@ -30,12 +30,12 @@ Extract mixin methods into standalone functions while maintaining pipeline compa
 **Goal:** Extract basic signal processing functions
 
 ### Extract These Functions:
-- [ ] `filter_data()` from `BasicStepsMixin.filter_data()`
-- [ ] `resample_data()` from `BasicStepsMixin.resample_data()`
-- [ ] `rereference_data()` from `BasicStepsMixin.rereference_data()`
-- [ ] `drop_channels()` from `BasicStepsMixin.drop_outer_layer()`
-- [ ] `crop_data()` from `BasicStepsMixin.crop_duration()`
-- [ ] `trim_edges()` from `BasicStepsMixin.trim_edges()`
+- [x] `filter_data()` from `BasicStepsMixin.filter_data()`
+- [x] `resample_data()` from `BasicStepsMixin.resample_data()`
+- [x] `rereference_data()` from `BasicStepsMixin.rereference_data()`
+- [x] `drop_channels()` from `BasicStepsMixin.drop_outer_layer()`
+- [x] `crop_data()` from `BasicStepsMixin.crop_duration()`
+- [x] `trim_edges()` from `BasicStepsMixin.trim_edges()`
 
 ### For Each Function:
 1. Copy logic from mixin method

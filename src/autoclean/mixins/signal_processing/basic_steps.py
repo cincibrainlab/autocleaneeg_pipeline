@@ -1,6 +1,6 @@
 """Basic steps mixin for autoclean tasks."""
 
-from typing import Union
+from typing import List, Optional, Union
 
 import mne
 
@@ -89,191 +89,247 @@ class BasicStepsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         use_epochs: bool = False,
+        l_freq: Optional[float] = None,
+        h_freq: Optional[float] = None,
+        notch_freqs: Optional[List[float]] = None,
+        notch_widths: Optional[Union[float, List[float]]] = None,
+        method: Optional[str] = None,
+        phase: Optional[str] = None,
+        fir_window: Optional[str] = None,
+        verbose: Optional[bool] = None
     ) -> Union[mne.io.Raw, mne.Epochs]:
-        """Filter raw or epoched data based on configuration settings.
-
-        This method can work with self.raw, self.epochs, or a provided data object.
-        It checks the filtering_step toggle in the configuration if no filter_args are provided.
-
+        """Apply filtering to EEG data within the AutoClean pipeline.
+        
+        This method wraps the standalone :func:`autoclean.filter_data` function
+        with pipeline integration including configuration management, metadata 
+        tracking, and automatic export functionality.
+        
+        Parameters override configuration values when provided. If not provided,
+        values are read from the task configuration using the existing 
+        ``_check_step_enabled`` system.
+        
         Parameters
         ----------
-        data : Optional
-            The data object to filter. If None, uses self.raw or self.epochs.
-        use_epochs : bool, Optional
-            If True and data is None, uses self.epochs instead of self.raw.
-
+        data : mne.io.Raw, mne.Epochs, or None, default None
+            Input data. If None, uses ``self.raw`` or ``self.epochs`` based on
+            ``use_epochs`` parameter.
+        use_epochs : bool, default False
+            If True and data is None, uses ``self.epochs`` instead of ``self.raw``.
+        l_freq : float or None, optional
+            Low cutoff frequency for highpass filtering in Hz. Overrides config if provided.
+        h_freq : float or None, optional
+            High cutoff frequency for lowpass filtering in Hz. Overrides config if provided.
+        notch_freqs : list of float or None, optional
+            Frequencies to notch filter in Hz. Overrides config if provided.
+        notch_widths : float, list of float, or None, optional
+            Width of notch filters in Hz. Overrides config if provided.
+        method : str or None, optional
+            Filtering method ('fir' or 'iir'). Overrides config if provided.
+        phase : str or None, optional
+            Filter phase ('zero', 'zero-double', 'minimum'). Overrides config if provided.
+        fir_window : str or None, optional
+            FIR window function. Overrides config if provided.
+        verbose : bool or None, optional
+            Control verbosity. Overrides config if provided.
+            
         Returns
         -------
-        inst : instance of mne.io.Raw or mne.io.Epochs
-            The filtered data object (same type as input)
-
-        Examples
-        --------
-        >>> #Inside a task class that uses the autoclean framework
-        >>> self.filter_data()
-
+        filtered_data : mne.io.Raw or mne.Epochs
+            Filtered data object. Also updates ``self.raw`` or ``self.epochs``
+            and triggers metadata tracking and export if configured.
+            
         See Also
         --------
-        :py:meth:`mne.io.Raw.filter` : For MNE's raw data filtering functionality
-        :py:meth:`mne.Epochs.filter` : For MNE's epochs filtering functionality
+        autoclean.filter_data : The underlying standalone filtering function
         """
         data = self._get_data_object(data, use_epochs)
 
-        if not isinstance(
-            data, (mne.io.base.BaseRaw, mne.Epochs)
-        ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Raw or Epochs object")
-
+        # Use existing config system
         is_enabled, config_value = self._check_step_enabled("filtering")
-
         if not is_enabled:
             message("info", "Filtering step is disabled in configuration")
             return data
-
+            
+        # Get config defaults
         filter_args = config_value.get("value", {})
-        if not filter_args:
-            message("warning", "No filter arguments provided, skipping filtering")
+        
+        # Apply parameter overrides (only if explicitly provided)
+        final_l_freq = l_freq if l_freq is not None else filter_args.get("l_freq")
+        final_h_freq = h_freq if h_freq is not None else filter_args.get("h_freq")
+        final_notch_freqs = notch_freqs if notch_freqs is not None else filter_args.get("notch_freqs")
+        final_notch_widths = notch_widths if notch_widths is not None else filter_args.get("notch_widths", 0.5)
+        final_method = method if method is not None else filter_args.get("method", "fir")
+        final_phase = phase if phase is not None else filter_args.get("phase", "zero")
+        final_fir_window = fir_window if fir_window is not None else filter_args.get("fir_window", "hamming")
+        final_verbose = verbose if verbose is not None else filter_args.get("verbose")
+        
+        # Check if any filtering is requested
+        if final_l_freq is None and final_h_freq is None and final_notch_freqs is None:
+            message("warning", "No filter parameters provided, skipping filtering")
             return data
 
         message("header", "Filtering data...")
-        filtered_data = data.copy()
-
-        if "l_freq" in filter_args:
-            filtered_data.filter(l_freq=filter_args["l_freq"], h_freq=None)
-
-        if "h_freq" in filter_args:
-            filtered_data.filter(l_freq=None, h_freq=filter_args["h_freq"])
-
-        if "notch_freqs" in filter_args:
-            filtered_data.notch_filter(
-                freqs=filter_args["notch_freqs"],
-                notch_widths=filter_args.get("notch_widths", 0.5),
-            )
-
-        self._save_raw_result(filtered_data, "post_filter")
-
-        metadata = {
-            "original_data_type": type(data).__name__,
-            "filtered_data_type": type(filtered_data).__name__,
-            "filter_args": filter_args,
-        }
-
-        self._update_metadata("step_filter_data", metadata)
+        
+        # Call standalone function
+        from autoclean.functions.preprocessing.filtering import filter_data as standalone_filter_data
+        filtered_data = standalone_filter_data(
+            data=data,
+            l_freq=final_l_freq,
+            h_freq=final_h_freq,
+            notch_freqs=final_notch_freqs,
+            notch_widths=final_notch_widths,
+            method=final_method,
+            phase=final_phase,
+            fir_window=final_fir_window,
+            verbose=final_verbose
+        )
+        
+        # Pipeline integration with result-based metadata
         self._update_instance_data(data, filtered_data, use_epochs)
-
+        self._save_raw_result(filtered_data, "post_filter")
+        
+        # Use actual results in metadata
+        metadata = {
+            "original_sfreq": data.info['sfreq'],
+            "filtered_sfreq": filtered_data.info['sfreq'], 
+            "original_n_channels": len(data.ch_names),
+            "filtered_n_channels": len(filtered_data.ch_names),
+            "applied_l_freq": final_l_freq,
+            "applied_h_freq": final_h_freq,
+            "applied_notch_freqs": final_notch_freqs,
+            "applied_notch_widths": final_notch_widths,
+            "method": final_method,
+            "phase": final_phase,
+            "fir_window": final_fir_window,
+            "original_data_type": type(data).__name__,
+            "result_data_type": type(filtered_data).__name__,
+        }
+        self._update_metadata("step_filter_data", metadata)
+        
         return filtered_data
 
     def resample_data(
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
-        target_sfreq: float = None,
+        target_sfreq: Optional[float] = None,
         stage_name: str = "post_resample",
         use_epochs: bool = False,
+        npad: Optional[str] = None,
+        window: Optional[str] = None,
+        n_jobs: Optional[int] = None,
+        pad: Optional[str] = None,
+        verbose: Optional[bool] = None
     ) -> Union[mne.io.Raw, mne.Epochs]:
-        """Resample raw or epoched data based on configuration settings.
-
-        This method can work with self.raw, self.epochs, or a provided data object.
-        It checks the resample_step toggle in the configuration if no target_sfreq is provided.
-
+        """Apply resampling to EEG data within the AutoClean pipeline.
+        
+        This method wraps the standalone :func:`autoclean.resample_data` function
+        with pipeline integration including configuration management, metadata 
+        tracking, and automatic export functionality.
+        
+        Parameters override configuration values when provided. If not provided,
+        values are read from the task configuration using the existing 
+        ``_check_step_enabled`` system.
+        
         Parameters
         ----------
-        data : Optional
-            The raw data to resample. If None, uses self.raw or self.epochs.
-        target_sfreq : float, Optional
-            The target sampling frequency. If None, reads from config.
-        stage_name : str, Optional
-            Name for saving the resampled data (default: "resampled").
-        use_epochs : bool, Optional
-            If True and data is None, uses self.epochs instead of self.raw.
-
-        Returns:
-            inst : instance of mne.io.Raw or mne.io.Epochs
-            The resampled data object (same type as input)
-
-        Examples
-        --------
-        >>> #Inside a task class that uses the autoclean framework
-        >>> self.resample_data()
-
+        data : mne.io.Raw, mne.Epochs, or None, default None
+            Input data. If None, uses ``self.raw`` or ``self.epochs`` based on
+            ``use_epochs`` parameter.
+        target_sfreq : float or None, optional
+            Target sampling frequency in Hz. Overrides config if provided.
+        stage_name : str, default "post_resample"
+            Name for saving the resampled data.
+        use_epochs : bool, default False
+            If True and data is None, uses ``self.epochs`` instead of ``self.raw``.
+        npad : str or None, optional
+            Padding parameter. Overrides config if provided.
+        window : str or None, optional
+            Window function. Overrides config if provided.
+        n_jobs : int or None, optional
+            Number of parallel jobs. Overrides config if provided.
+        pad : str or None, optional
+            Padding mode. Overrides config if provided.
+        verbose : bool or None, optional
+            Control verbosity. Overrides config if provided.
+            
+        Returns
+        -------
+        resampled_data : mne.io.Raw or mne.Epochs
+            Resampled data object. Also updates ``self.raw`` or ``self.epochs``
+            and triggers metadata tracking and export if configured.
+            
         See Also
         --------
-        :py:meth:`mne.io.Raw.resample` : For MNE's raw data resampling functionality
-        :py:meth:`mne.Epochs.resample` : For MNE's epochs resampling functionality
+        autoclean.resample_data : The underlying standalone resampling function
         """
-        # Determine which data to use
         data = self._get_data_object(data, use_epochs)
 
-        # Type checking
-        if not isinstance(
-            data, (mne.io.base.BaseRaw, mne.Epochs)
-        ):  # pylint: disable=isinstance-second-argument-not-valid-type
-            raise TypeError("Data must be an MNE Raw or Epochs object")
-
-        # Access configuration if needed
+        # Use existing config system
         if target_sfreq is None:
             is_enabled, config_value = self._check_step_enabled("resample_step")
-
             if not is_enabled:
                 message("info", "Resampling step is disabled in configuration")
                 return data
-
+                
             target_sfreq = config_value.get("value", None)
-
             if target_sfreq is None:
-                message(
-                    "warning",
-                    "Target sampling frequency not specified, skipping resampling",
-                )
+                message("warning", "Target sampling frequency not specified, skipping resampling")
                 return data
-
-        # Check if we need to resample (avoid unnecessary resampling)
+        
+        # Get config defaults and apply overrides
+        config_args = {}
+        if hasattr(self, 'config') and 'resample_step' in self.config.get('tasks', {}).get(self.config.get('task', ''), {}).get('settings', {}):
+            config_args = self.config['tasks'][self.config['task']]['settings']['resample_step'].get('value', {})
+        
+        final_npad = npad if npad is not None else config_args.get("npad", "auto")
+        final_window = window if window is not None else config_args.get("window", "auto")
+        final_n_jobs = n_jobs if n_jobs is not None else config_args.get("n_jobs", 1)
+        final_pad = pad if pad is not None else config_args.get("pad", "auto")
+        final_verbose = verbose if verbose is not None else config_args.get("verbose")
+        
+        # Check if resampling is needed
         current_sfreq = data.info["sfreq"]
-        if (
-            abs(current_sfreq - target_sfreq) < 0.01
-        ):  # Small threshold to account for floating point errors
-            message(
-                "info",
-                f"Data already at target frequency ({target_sfreq} Hz), skipping resampling",
-            )
+        if abs(current_sfreq - target_sfreq) < 0.01:
+            message("info", f"Data already at target frequency ({target_sfreq} Hz), skipping resampling")
             return data
 
-        message(
-            "header", f"Resampling data from {current_sfreq} Hz to {target_sfreq} Hz..."
+        message("header", f"Resampling data from {current_sfreq} Hz to {target_sfreq} Hz...")
+        
+        # Call standalone function
+        from autoclean.functions.preprocessing.resampling import resample_data as standalone_resample_data
+        resampled_data = standalone_resample_data(
+            data=data,
+            sfreq=target_sfreq,
+            npad=final_npad,
+            window=final_window,
+            n_jobs=final_n_jobs,
+            pad=final_pad,
+            verbose=final_verbose
         )
-
-        try:
-            # Resample based on data type
-            if isinstance(data, mne.io.base.BaseRaw):
-                resampled_data = data.copy().resample(target_sfreq)
-                # Save resampled raw data if it's a Raw object
-                self._save_raw_result(resampled_data, stage_name)
-            else:  # Epochs
-                resampled_data = data.copy().resample(target_sfreq)
-
-            message("info", f"Data successfully resampled to {target_sfreq} Hz")
-
-            # Update metadata
-            metadata = {
-                "original_sfreq": current_sfreq,
-                "target_sfreq": target_sfreq,
-                "data_type": (
-                    "raw"
-                    if isinstance(data, mne.io.Raw)
-                    or isinstance(data, mne.io.base.BaseRaw)
-                    else "epochs"
-                ),
-            }
-
-            self._update_metadata("step_resample_data", metadata)
-
-            # Update self.raw or self.epochs if we're using those
-            self._update_instance_data(data, resampled_data, use_epochs)
-
-            return resampled_data
-
-        except Exception as e:
-            message("error", f"Error during resampling: {str(e)}")
-            raise RuntimeError(f"Failed to resample data: {str(e)}") from e
+        
+        message("info", f"Data successfully resampled to {target_sfreq} Hz")
+        
+        # Pipeline integration with result-based metadata
+        self._update_instance_data(data, resampled_data, use_epochs)
+        self._save_raw_result(resampled_data, stage_name)
+        
+        # Use actual results in metadata
+        metadata = {
+            "original_sfreq": current_sfreq,
+            "target_sfreq": target_sfreq,
+            "actual_sfreq": resampled_data.info['sfreq'],
+            "original_n_samples": data.get_data().shape[1] if hasattr(data, 'get_data') else len(data.times),
+            "resampled_n_samples": resampled_data.get_data().shape[1] if hasattr(resampled_data, 'get_data') else len(resampled_data.times),
+            "npad": final_npad,
+            "window": final_window,
+            "n_jobs": final_n_jobs,
+            "pad": final_pad,
+            "original_data_type": type(data).__name__,
+            "result_data_type": type(resampled_data).__name__,
+        }
+        self._update_metadata("step_resample_data", metadata)
+        
+        return resampled_data
 
     def rereference_data(
         self,

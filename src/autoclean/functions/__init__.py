@@ -30,15 +30,15 @@ All functions can also be imported from their specific modules:
 # Note: These imports will be added as functions are implemented
 
 # Preprocessing functions
-# from .preprocessing import (
-#     filter_data,
-#     resample_data,
-#     rereference_data,
-#     drop_channels,
-#     crop_data,
-#     trim_edges,
-#     assign_channel_types
-# )
+from .preprocessing import (
+    filter_data,
+    resample_data,
+    rereference_data,
+    drop_channels,
+    crop_data,
+    trim_edges,
+    assign_channel_types
+)
 
 # Epoching functions  
 # from .epoching import (
@@ -68,5 +68,13 @@ All functions can also be imported from their specific modules:
 
 # Define what gets imported with "from autoclean.functions import *"
 __all__ = [
-    # Will be populated as functions are implemented
+    # Preprocessing functions
+    "filter_data",
+    "resample_data",
+    "rereference_data", 
+    "drop_channels",
+    "crop_data",
+    "trim_edges",
+    "assign_channel_types",
+    # Will be populated as more functions are implemented
 ]

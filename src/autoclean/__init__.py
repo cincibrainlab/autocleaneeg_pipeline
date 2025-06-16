@@ -18,27 +18,27 @@ def __getattr__(name):
     
     # Lazy imports for standalone functions (will be enabled as functions are implemented)
     # Preprocessing functions
-    # elif name == "filter_data":
-    #     from .functions.preprocessing import filter_data
-    #     return filter_data
-    # elif name == "resample_data":
-    #     from .functions.preprocessing import resample_data
-    #     return resample_data
-    # elif name == "rereference_data":
-    #     from .functions.preprocessing import rereference_data
-    #     return rereference_data
-    # elif name == "drop_channels":
-    #     from .functions.preprocessing import drop_channels
-    #     return drop_channels
-    # elif name == "crop_data":
-    #     from .functions.preprocessing import crop_data
-    #     return crop_data
-    # elif name == "trim_edges":
-    #     from .functions.preprocessing import trim_edges
-    #     return trim_edges
-    # elif name == "assign_channel_types":
-    #     from .functions.preprocessing import assign_channel_types
-    #     return assign_channel_types
+    elif name == "filter_data":
+        from .functions.preprocessing import filter_data
+        return filter_data
+    elif name == "resample_data":
+        from .functions.preprocessing import resample_data
+        return resample_data
+    elif name == "rereference_data":
+        from .functions.preprocessing import rereference_data
+        return rereference_data
+    elif name == "drop_channels":
+        from .functions.preprocessing import drop_channels
+        return drop_channels
+    elif name == "crop_data":
+        from .functions.preprocessing import crop_data
+        return crop_data
+    elif name == "trim_edges":
+        from .functions.preprocessing import trim_edges
+        return trim_edges
+    elif name == "assign_channel_types":
+        from .functions.preprocessing import assign_channel_types
+        return assign_channel_types
     
     # Epoching functions
     # elif name == "create_regular_epochs":
@@ -95,13 +95,13 @@ __all__ = [
     "Pipeline",
     # Standalone functions (will be enabled as implemented)
     # Preprocessing functions
-    # "filter_data",
-    # "resample_data", 
-    # "rereference_data",
-    # "drop_channels",
-    # "crop_data",
-    # "trim_edges", 
-    # "assign_channel_types",
+    "filter_data",
+    "resample_data", 
+    "rereference_data",
+    "drop_channels",
+    "crop_data",
+    "trim_edges", 
+    "assign_channel_types",
     # Epoching functions
     # "create_regular_epochs",
     # "create_eventid_epochs",
