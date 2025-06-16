@@ -50,13 +50,20 @@ from .epoching import (
 )
 
 # Artifact functions
-# from .artifacts import (
-#     detect_bad_channels,
-#     interpolate_bad_channels,
-#     fit_ica,
-#     classify_ica_components,
-#     apply_ica_rejection
-# )
+from .artifacts import (
+    detect_bad_channels,
+    interpolate_bad_channels,
+    # fit_ica,
+    # classify_ica_components,
+    # apply_ica_rejection
+)
+
+# Advanced functions
+from .advanced import (
+    autoreject_epochs,
+    annotate_noisy_segments,
+    annotate_uncorrelated_segments
+)
 
 # Visualization functions
 # from .visualization import (
@@ -82,5 +89,12 @@ __all__ = [
     "create_sl_epochs",
     "detect_outlier_epochs", 
     "gfp_clean_epochs",
+    # Artifact functions
+    "detect_bad_channels",
+    "interpolate_bad_channels",
+    # Advanced functions
+    "autoreject_epochs",
+    "annotate_noisy_segments",
+    "annotate_uncorrelated_segments",
     # Will be populated as more functions are implemented
 ]

@@ -137,79 +137,7 @@ class RegularEpochsMixin:
             )
 
             # Note: metadata is now handled by the standalone function
-            # The rest of this code maintains compatibility with existing pipeline patterns
-            # For now, we'll keep the metadata processing but note it's redundant
-                # Step 5: Filter other events to keep only those that fall *within the kept epochs*
-                sfreq = data.info["sfreq"]
-                epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers
-
-                # Compute valid ranges for each epoch (in raw sample indices)
-                start_offsets = int(tmin * sfreq)
-                end_offsets = int(tmax * sfreq)
-                epoch_sample_ranges = [
-                    (s + start_offsets, s + end_offsets) for s in epoch_samples
-                ]
-
-                # Filter events_all for events that fall inside any of those ranges
-                events_in_epochs = []
-                for sample, prev, code in events_all:
-                    for i, (start, end) in enumerate(epoch_sample_ranges):
-                        if start <= sample <= end:
-                            events_in_epochs.append([sample, prev, code])
-                            break  # prevent double counting
-                        elif sample < start:
-                            break
-
-                events_in_epochs = np.array(events_in_epochs, dtype=int)
-                event_descriptions = {v: k for k, v in event_id_all.items()}
-
-                # Define the label for fixed-length epoch start events
-                fixed_event_label = "fixed_marker"
-
-                # Build metadata rows
-                metadata_rows = []
-                for i, (start, end) in enumerate(epoch_sample_ranges):
-                    # Always start with the epoch start event
-                    epoch_events = [(fixed_event_label, 0.0)]
-
-                    # Add other events from annotations if they exist and fall within the epoch
-                    if events_in_epochs.size > 0:
-                        for sample, _, code in events_in_epochs:
-                            if start <= sample <= end:
-                                relative_time = (sample - epoch_samples[i]) / sfreq
-                                # Use the description from event_id_all if available
-                                label = event_descriptions.get(code, f"code_{code}")
-                                epoch_events.append((label, relative_time))
-
-                    metadata_rows.append({"additional_events": epoch_events})
-
-                # Add the metadata column
-                if epochs.metadata is not None:
-                    # Ensure column exists and handle potential type issues if merging
-                    if "additional_events" not in epochs.metadata.columns:
-                        epochs.metadata["additional_events"] = pd.Series(dtype=object)
-                    # Assign the constructed lists
-                    # This assumes the DataFrame index aligns with metadata_rows implicitly
-                    # A more robust way might be needed if indices don't match len(metadata_rows)
-                    epochs.metadata["additional_events"] = [
-                        row["additional_events"] for row in metadata_rows
-                    ]
-                else:
-                    # Create metadata from scratch
-                    epochs.metadata = pd.DataFrame(
-                        metadata_rows, index=epochs.events[:, 0]
-                    )  # Use event sample as index
-            else:
-                # No annotations found, create metadata with only epoch_start events
-                fixed_event_label = "fixed_marker"
-                metadata_rows = []
-                for i in range(len(epochs)):
-                    metadata_rows.append(
-                        {"additional_events": [(fixed_event_label, 0.0)]}
-                    )
-                epochs.metadata = pd.DataFrame(
-                    metadata_rows, index=epochs.events[:, 0]
-                )  # Use event sample as index
+            # No additional metadata processing needed here since the standalone function handles it
 
             # Create a copy for dropping if using amplitude thresholds
             epochs_clean = epochs.copy()
@@ -270,21 +198,20 @@ class RegularEpochsMixin:
 
                 epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
 
-                if events_all is not None:
-                    # Reorder metadata after dropping bad epochs
+                # Reorder metadata after dropping bad epochs if metadata exists
+                if epochs_clean.metadata is not None:
                     message("debug", "reordering metadata after dropping")
-                    if epochs_clean.metadata is not None:
-                        kept_indices = epochs_clean.selection
-                        max_index = epochs.metadata.shape[0] - 1
-                        if kept_indices.max() > max_index:
-                            print("Metadata shape:", epochs.metadata.shape)
-                            print("Regular indices:", kept_indices)
-                            kept_indices = kept_indices - 1
-                            print("Adjusted indices:", kept_indices)
+                    kept_indices = epochs_clean.selection
+                    max_index = epochs.metadata.shape[0] - 1
+                    if kept_indices.max() > max_index:
+                        print("Metadata shape:", epochs.metadata.shape)
+                        print("Regular indices:", kept_indices)
+                        kept_indices = kept_indices - 1
+                        print("Adjusted indices:", kept_indices)
 
-                        epochs_clean.metadata = epochs.metadata.iloc[
-                            kept_indices
-                        ].reset_index(drop=True)
+                    epochs_clean.metadata = epochs.metadata.iloc[
+                        kept_indices
+                    ].reset_index(drop=True)
 
             # Analyze drop log to tally different annotation types
             drop_log = epochs_clean.drop_log

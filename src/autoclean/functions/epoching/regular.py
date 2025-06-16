@@ -253,7 +253,7 @@ def _add_annotation_metadata(epochs: mne.Epochs, raw: mne.io.BaseRaw) -> mne.Epo
         epoch_end = epoch_start_sample + tmax_samples
         
         # Start with the fixed epoch marker
-        epoch_events = [("epoch_start", 0.0)]
+        epoch_events = [("fixed_marker", 0.0)]
         
         # Find annotations that fall within this epoch
         if events_all is not None and len(events_all) > 0:
@@ -269,7 +269,7 @@ def _add_annotation_metadata(epochs: mne.Epochs, raw: mne.io.BaseRaw) -> mne.Epo
             "epoch_number": i,
             "epoch_start_sample": epoch_start_sample,
             "epoch_duration": epochs.tmax - epochs.tmin,
-            "annotations_in_epoch": epoch_events
+            "additional_events": epoch_events
         })
     
     # Create or update metadata DataFrame

@@ -1,31 +1,20 @@
-"""Artifact Detection and Removal Functions.
+"""Artifact Detection and Channel Operations Functions.
 
-This module contains standalone functions for detecting and removing various
-types of artifacts from EEG data, including bad channels, ICA-based artifact
-removal, and noise detection.
+This module contains standalone functions for detecting and handling artifacts
+in EEG data, including bad channel detection, interpolation, and channel operations.
 
 Functions
 ---------
-detect_bad_channels : Identify bad channels using various criteria
-interpolate_bad_channels : Interpolate bad channels
-fit_ica : Perform ICA decomposition
-classify_ica_components : Classify ICA components as artifacts or brain activity
-apply_ica_rejection : Remove artifact components from data
-detect_muscle_artifacts : Identify muscle artifacts
-annotate_noisy_segments : Mark noisy time segments
+detect_bad_channels : Detect bad channels using multiple methods
+interpolate_bad_channels : Interpolate bad channels using spherical splines
+drop_channels : Remove specified channels from data
 """
 
-# Imports will be added as functions are implemented
-# from .channels import detect_bad_channels, interpolate_bad_channels
-# from .ica import fit_ica, classify_ica_components, apply_ica_rejection
-# from .detection import detect_muscle_artifacts, annotate_noisy_segments
+# Import implemented functions
+from .channels import detect_bad_channels, interpolate_bad_channels
 
 __all__ = [
-    # "detect_bad_channels",
-    # "interpolate_bad_channels",
-    # "fit_ica",
-    # "classify_ica_components", 
-    # "apply_ica_rejection",
-    # "detect_muscle_artifacts",
-    # "annotate_noisy_segments"
+    "detect_bad_channels",
+    "interpolate_bad_channels",
+    # "drop_channels",  # Already in preprocessing
 ]

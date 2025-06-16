@@ -58,12 +58,12 @@ def __getattr__(name):
         return gfp_clean_epochs
     
     # Artifact functions
-    # elif name == "detect_bad_channels":
-    #     from .functions.artifacts import detect_bad_channels
-    #     return detect_bad_channels
-    # elif name == "interpolate_bad_channels":
-    #     from .functions.artifacts import interpolate_bad_channels
-    #     return interpolate_bad_channels
+    elif name == "detect_bad_channels":
+        from .functions.artifacts import detect_bad_channels
+        return detect_bad_channels
+    elif name == "interpolate_bad_channels":
+        from .functions.artifacts import interpolate_bad_channels
+        return interpolate_bad_channels
     # elif name == "fit_ica":
     #     from .functions.artifacts import fit_ica
     #     return fit_ica
@@ -73,6 +73,17 @@ def __getattr__(name):
     # elif name == "apply_ica_rejection":
     #     from .functions.artifacts import apply_ica_rejection
     #     return apply_ica_rejection
+    
+    # Advanced functions
+    elif name == "autoreject_epochs":
+        from .functions.advanced import autoreject_epochs
+        return autoreject_epochs
+    elif name == "annotate_noisy_segments":
+        from .functions.advanced import annotate_noisy_segments
+        return annotate_noisy_segments
+    elif name == "annotate_uncorrelated_segments":
+        from .functions.advanced import annotate_uncorrelated_segments
+        return annotate_uncorrelated_segments
     
     # Visualization functions
     # elif name == "plot_raw_comparison":
@@ -109,11 +120,15 @@ __all__ = [
     "detect_outlier_epochs",
     "gfp_clean_epochs",
     # Artifact functions
-    # "detect_bad_channels",
-    # "interpolate_bad_channels",
+    "detect_bad_channels",
+    "interpolate_bad_channels",
     # "fit_ica",
     # "classify_ica_components",
     # "apply_ica_rejection",
+    # Advanced functions
+    "autoreject_epochs",
+    "annotate_noisy_segments",
+    "annotate_uncorrelated_segments",
     # Visualization functions
     # "plot_raw_comparison",
     # "plot_ica_components", 
