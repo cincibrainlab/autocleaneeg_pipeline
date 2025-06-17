@@ -234,10 +234,13 @@ class UserConfigManager:
             message("warning", f"Could not save global config: {e}")
 
     def _create_workspace_structure(self, workspace_dir: Path) -> None:
-        """Create workspace directories."""
+        """Create workspace directories and copy template files."""
         workspace_dir.mkdir(parents=True, exist_ok=True)
         (workspace_dir / "tasks").mkdir(exist_ok=True)
         (workspace_dir / "output").mkdir(exist_ok=True)
+        
+        # Copy template task file to tasks directory
+        self._create_template_task(workspace_dir / "tasks")
 
     def _offer_migration(self, old_dir: Path, new_dir: Path) -> None:
         """Offer to migrate workspace."""
@@ -313,6 +316,199 @@ def main():
 if __name__ == "__main__":
     main()
 """
+
+        with open(dest_file, "w", encoding="utf-8") as f:
+            f.write(content)
+
+    def _create_template_task(self, tasks_dir: Path) -> None:
+        """Create template task file in tasks directory."""
+        try:
+            dest_file = tasks_dir / "custom_task_template.py"
+
+            # Try to copy from package templates
+            try:
+                import autoclean
+                package_dir = Path(autoclean.__file__).parent
+                source_file = package_dir / "templates" / "custom_task_template.py"
+
+                if source_file.exists():
+                    shutil.copy2(source_file, dest_file)
+                else:
+                    self._create_fallback_template(dest_file)
+            except Exception:
+                self._create_fallback_template(dest_file)
+
+            from rich.console import Console
+            console = Console()
+            console.print(f"[green]📋[/green] Template task: [dim]{dest_file}[/dim]")
+
+        except Exception as e:
+            message("warning", f"Could not create template task: {e}")
+
+    def _create_fallback_template(self, dest_file: Path) -> None:
+        """Create fallback template task file."""
+        content = '''from autoclean.core.task import Task
+
+# =============================================================================
+#                     CUSTOM EEG PREPROCESSING TASK TEMPLATE
+# =============================================================================
+# This is a template for creating custom EEG preprocessing tasks.
+# Customize the configuration below to match your specific EEG paradigm.
+# 
+# Instructions:
+# 1. Rename this file to match your task (e.g., my_experiment.py)
+# 2. Update the class name below (e.g., MyExperiment)
+# 3. Modify the config dictionary to match your data requirements
+# 4. Customize the run() method to define your processing pipeline
+#
+# 🟢 enabled: True  = Apply this processing step
+# 🔴 enabled: False = Skip this processing step
+#
+# 💡 TIP: Use the AutoClean configuration wizard to generate settings
+#         automatically, or copy settings from existing tasks!
+# =============================================================================
+
+config = {
+    'resample_step': {
+        'enabled': True,
+        'value': 250  # Resample to 250 Hz
+    },
+    'filtering': {
+        'enabled': True,
+        'value': {
+            'l_freq': 1,      # High-pass filter (Hz)
+            'h_freq': 100,    # Low-pass filter (Hz)
+            'notch_freqs': [60, 120],  # Notch filter frequencies
+            'notch_widths': 5          # Notch filter width
+        }
+    },
+    'drop_outerlayer': {
+        'enabled': False,
+        'value': []  # Channel indices to drop
+    },
+    'eog_step': {
+        'enabled': False,
+        'value': []  # EOG channel indices
+    },
+    'trim_step': {
+        'enabled': True,
+        'value': 4  # Trim seconds from start/end
+    },
+    'crop_step': {
+        'enabled': False,
+        'value': {
+            'start': 0,   # Start time (seconds)
+            'end': 60     # End time (seconds)
+        }
+    },
+    'reference_step': {
+        'enabled': True,
+        'value': 'average'  # Reference type
+    },
+    'montage': {
+        'enabled': True,
+        'value': 'GSN-HydroCel-129'  # EEG montage
+    },
+    'ICA': {
+        'enabled': True,
+        'value': {
+            'method': 'fastica',
+            'n_components': None,
+            'fit_params': {}
+        }
+    },
+    'ICLabel': {
+        'enabled': True,
+        'value': {
+            'ic_flags_to_reject': ['muscle', 'heart', 'eog', 'ch_noise', 'line_noise'],
+            'ic_rejection_threshold': 0.3
+        }
+    },
+    'epoch_settings': {
+        'enabled': True,
+        'value': {
+            'tmin': -1,  # Epoch start (seconds)
+            'tmax': 1    # Epoch end (seconds)
+        },
+        'event_id': None,
+        'remove_baseline': {
+            'enabled': False,
+            'window': [None, 0]
+        },
+        'threshold_rejection': {
+            'enabled': False,
+            'volt_threshold': {
+                'eeg': 0.000125
+            }
+        }
+    }
+}
+
+
+class CustomTask(Task):
+    """
+    Custom EEG preprocessing task template.
+    
+    Modify this class to create your own EEG preprocessing pipeline.
+    """
+
+    def run(self) -> None:
+        """Define your custom EEG preprocessing pipeline."""
+        # Import raw EEG data
+        self.import_raw()
+
+        # Basic preprocessing steps
+        self.resample_data()
+        self.filter_data()
+        self.drop_outer_layer()
+        self.assign_eog_channels()
+        self.trim_edges()
+        self.crop_duration()
+
+        # Store original data for comparison
+        self.original_raw = self.raw.copy()
+        
+        # Create BIDS-compliant paths and filenames
+        self.create_bids_path()
+        
+        # Channel cleaning
+        self.clean_bad_channels()
+        
+        # Re-referencing
+        self.rereference_data()
+        
+        # Artifact detection
+        self.annotate_noisy_epochs()
+        self.annotate_uncorrelated_epochs()
+        self.detect_dense_oscillatory_artifacts()
+        
+        # ICA processing
+        self.run_ica()
+        self.run_ICLabel()
+        
+        # Epoching
+        self.create_regular_epochs()
+        
+        # Outlier detection
+        self.detect_outlier_epochs()
+        
+        # Clean epochs
+        self.gfp_clean_epochs()
+
+        # Generate reports
+        self.generate_reports()
+
+    def generate_reports(self) -> None:
+        """Generate quality control visualizations and reports."""
+        if self.raw is None or self.original_raw is None:
+            return
+            
+        # Plot raw vs cleaned overlay
+        self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
+        
+        # Plot power spectral density topography
+        self.step_psd_topo_figure(self.original_raw, self.raw)
+'''
 
         with open(dest_file, "w", encoding="utf-8") as f:
             f.write(content)
