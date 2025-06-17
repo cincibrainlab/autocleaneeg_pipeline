@@ -53,16 +53,25 @@ from .epoching import (
 from .artifacts import (
     detect_bad_channels,
     interpolate_bad_channels,
-    # fit_ica,
-    # classify_ica_components,
-    # apply_ica_rejection
 )
 
 # Advanced functions
 from .advanced import (
     autoreject_epochs,
+)
+
+# Segment rejection functions
+from .segment_rejection import (
+    detect_dense_oscillatory_artifacts,
     annotate_noisy_segments,
     annotate_uncorrelated_segments
+)
+
+# ICA functions
+from .ica import (
+    fit_ica,
+    classify_ica_components,
+    apply_ica_rejection
 )
 
 # Visualization functions
@@ -94,7 +103,13 @@ __all__ = [
     "interpolate_bad_channels",
     # Advanced functions
     "autoreject_epochs",
+    # Segment rejection functions
+    "detect_dense_oscillatory_artifacts",
     "annotate_noisy_segments",
     "annotate_uncorrelated_segments",
+    # ICA functions
+    "fit_ica",
+    "classify_ica_components",
+    "apply_ica_rejection",
     # Will be populated as more functions are implemented
 ]
