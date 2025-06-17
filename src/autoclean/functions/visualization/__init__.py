@@ -13,13 +13,13 @@ generate_processing_report : Generate HTML processing report
 create_processing_summary : Create JSON processing summary
 """
 
-from .plotting import plot_raw_comparison, plot_ica_components, plot_psd_topography
-from .reports import generate_processing_report, create_processing_summary
+from .plotting import plot_ica_components, plot_psd_topography, plot_raw_comparison
+from .reports import create_processing_summary, generate_processing_report
 
 __all__ = [
     "plot_raw_comparison",
     "plot_ica_components",
-    "plot_psd_topography", 
+    "plot_psd_topography",
     "generate_processing_report",
-    "create_processing_summary"
+    "create_processing_summary",
 ]

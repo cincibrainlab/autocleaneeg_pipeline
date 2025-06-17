@@ -4,11 +4,10 @@ This module provides standalone functions for Independent Component Analysis (IC
 including component fitting, classification, and artifact rejection.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
 import mne
 import mne_icalabel
-import numpy as np
 import pandas as pd
 from mne.preprocessing import ICA
 
@@ -21,7 +20,7 @@ def fit_ica(
     random_state: Optional[int] = 97,
     picks: Optional[Union[List[str], str]] = None,
     verbose: Optional[bool] = None,
-    **kwargs
+    **kwargs,
 ) -> ICA:
     """Fit Independent Component Analysis (ICA) to EEG data.
 
@@ -58,7 +57,7 @@ def fit_ica(
     --------
     >>> ica = fit_ica(raw)
     >>> ica = fit_ica(raw, n_components=20, method="picard")
-    
+
     See Also
     --------
     classify_ica_components : Classify ICA components using ICLabel
@@ -67,12 +66,12 @@ def fit_ica(
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):
-        raise TypeError(
-            f"Data must be an MNE Raw object, got {type(raw).__name__}"
-        )
+        raise TypeError(f"Data must be an MNE Raw object, got {type(raw).__name__}")
 
     if method not in ["fastica", "infomax", "picard"]:
-        raise ValueError(f"method must be 'fastica', 'infomax', or 'picard', got '{method}'")
+        raise ValueError(
+            f"method must be 'fastica', 'infomax', or 'picard', got '{method}'"
+        )
 
     if n_components is not None and n_components <= 0:
         raise ValueError(f"n_components must be positive, got {n_components}")
@@ -84,7 +83,7 @@ def fit_ica(
             "method": method,
             "max_iter": max_iter,
             "random_state": random_state,
-            **kwargs
+            **kwargs,
         }
 
         ica = ICA(**ica_kwargs)
@@ -99,10 +98,7 @@ def fit_ica(
 
 
 def classify_ica_components(
-    raw: mne.io.Raw,
-    ica: ICA,
-    method: str = "iclabel",
-    verbose: Optional[bool] = None
+    raw: mne.io.Raw, ica: ICA, method: str = "iclabel", verbose: Optional[bool] = None
 ) -> pd.DataFrame:
     """Classify ICA components using automated algorithms.
 
@@ -132,7 +128,7 @@ def classify_ica_components(
     --------
     >>> labels = classify_ica_components(raw, ica)
     >>> artifacts = labels[(labels["ic_type"] == "eye") & (labels["confidence"] > 0.8)]
-    
+
     See Also
     --------
     fit_ica : Fit ICA decomposition to EEG data
@@ -141,17 +137,15 @@ def classify_ica_components(
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):
-        raise TypeError(
-            f"Raw data must be an MNE Raw object, got {type(raw).__name__}"
-        )
+        raise TypeError(f"Raw data must be an MNE Raw object, got {type(raw).__name__}")
 
     if not isinstance(ica, ICA):
-        raise TypeError(
-            f"ICA must be an MNE ICA object, got {type(ica).__name__}"
-        )
+        raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
 
     if method != "iclabel":
-        raise ValueError(f"Currently only 'iclabel' method is supported, got '{method}'")
+        raise ValueError(
+            f"Currently only 'iclabel' method is supported, got '{method}'"
+        )
 
     try:
         # Run ICLabel classification
@@ -171,7 +165,7 @@ def apply_ica_rejection(
     ica: ICA,
     components_to_reject: List[int],
     copy: bool = True,
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = None,
 ) -> mne.io.Raw:
     """Apply ICA to remove specified components from EEG data.
 
@@ -199,7 +193,7 @@ def apply_ica_rejection(
     Examples
     --------
     >>> raw_clean = apply_ica_rejection(raw, ica, [0, 2, 5])
-    
+
     See Also
     --------
     fit_ica : Fit ICA decomposition to EEG data
@@ -208,21 +202,19 @@ def apply_ica_rejection(
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):
-        raise TypeError(
-            f"Raw data must be an MNE Raw object, got {type(raw).__name__}"
-        )
+        raise TypeError(f"Raw data must be an MNE Raw object, got {type(raw).__name__}")
 
     if not isinstance(ica, ICA):
-        raise TypeError(
-            f"ICA must be an MNE ICA object, got {type(ica).__name__}"
-        )
+        raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
 
     if not isinstance(components_to_reject, list):
         components_to_reject = list(components_to_reject)
 
     # Validate component indices
     max_components = ica.n_components_
-    invalid_components = [c for c in components_to_reject if c < 0 or c >= max_components]
+    invalid_components = [
+        c for c in components_to_reject if c < 0 or c >= max_components
+    ]
     if invalid_components:
         raise ValueError(
             f"Invalid component indices {invalid_components}. "
@@ -245,28 +237,35 @@ def apply_ica_rejection(
 
 def _icalabel_to_dataframe(ica: ICA) -> pd.DataFrame:
     """Convert ICLabel results to a pandas DataFrame.
-    
+
     Helper function to extract ICLabel classification results from an ICA object
     and format them into a convenient DataFrame structure.
-    
+
     This matches the format used in the original AutoClean ICA mixin.
     """
     # Initialize ic_type array with empty strings
     ic_type = [""] * ica.n_components_
-    
+
     # Fill in the component types based on labels
     for label, comps in ica.labels_.items():
         for comp in comps:
             ic_type[comp] = label
-    
+
     # Create DataFrame matching the original format with component index as DataFrame index
-    results = pd.DataFrame({
-        "component": getattr(ica, '_ica_names', list(range(ica.n_components_))),
-        "annotator": ["ic_label"] * ica.n_components_,
-        "ic_type": ic_type,
-        "confidence": ica.labels_scores_.max(1) if hasattr(ica, 'labels_scores_') else [1.0] * ica.n_components_,
-    }, index=range(ica.n_components_))  # Ensure index is component indices
-    
+    results = pd.DataFrame(
+        {
+            "component": getattr(ica, "_ica_names", list(range(ica.n_components_))),
+            "annotator": ["ic_label"] * ica.n_components_,
+            "ic_type": ic_type,
+            "confidence": (
+                ica.labels_scores_.max(1)
+                if hasattr(ica, "labels_scores_")
+                else [1.0] * ica.n_components_
+            ),
+        },
+        index=range(ica.n_components_),
+    )  # Ensure index is component indices
+
     return results
 
 
@@ -276,7 +275,7 @@ def apply_iclabel_rejection(
     labels_df: pd.DataFrame,
     ic_flags_to_reject: List[str] = ["eog", "muscle", "ecg"],
     ic_rejection_threshold: float = 0.8,
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = None,
 ) -> tuple[mne.io.Raw, List[int]]:
     """Apply ICA rejection based on ICLabel classifications and criteria.
 
@@ -309,7 +308,7 @@ def apply_iclabel_rejection(
     Examples
     --------
     >>> raw_clean, rejected = apply_iclabel_rejection(raw, ica, labels)
-    
+
     See Also
     --------
     fit_ica : Fit ICA decomposition to EEG data
@@ -332,21 +331,23 @@ def apply_iclabel_rejection(
         return raw, rejected_components
     else:
         if verbose:
-            print(f"Identified {len(rejected_components)} components for rejection based on ICLabel: {rejected_components}")
-        
+            print(
+                f"Identified {len(rejected_components)} components for rejection based on ICLabel: {rejected_components}"
+            )
+
         # Combine with any existing exclusions like original mixin
         ica_copy = ica.copy()
         if ica_copy.exclude is None:
             ica_copy.exclude = []
-        
+
         current_exclusions = set(ica_copy.exclude)
         for idx in rejected_components:
             current_exclusions.add(idx)
         ica_copy.exclude = sorted(list(current_exclusions))
-        
+
         if verbose:
             print(f"Total components now marked for exclusion: {ica_copy.exclude}")
-        
+
         if not ica_copy.exclude:
             if verbose:
                 print("No components are marked for exclusion. Skipping ICA apply.")
@@ -355,6 +356,8 @@ def apply_iclabel_rejection(
             # Apply ICA to remove the excluded components (modifies in place like original mixin)
             ica_copy.apply(raw, verbose=verbose)
             if verbose:
-                print(f"Applied ICA, removing/attenuating {len(ica_copy.exclude)} components.")
+                print(
+                    f"Applied ICA, removing/attenuating {len(ica_copy.exclude)} components."
+                )
 
     return raw, rejected_components

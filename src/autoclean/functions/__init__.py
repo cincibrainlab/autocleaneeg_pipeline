@@ -29,24 +29,9 @@ All functions can also be imported from their specific modules:
 # Import all standalone functions for top-level access
 # Note: These imports will be added as functions are implemented
 
-# Preprocessing functions
-from .preprocessing import (
-    filter_data,
-    resample_data,
-    rereference_data,
-    drop_channels,
-    crop_data,
-    trim_edges,
-    assign_channel_types
-)
-
-# Epoching functions  
-from .epoching import (
-    create_regular_epochs,
-    create_eventid_epochs,
-    create_sl_epochs,
-    detect_outlier_epochs,
-    gfp_clean_epochs
+# Advanced functions
+from .advanced import (
+    autoreject_epochs,
 )
 
 # Artifact functions
@@ -55,33 +40,48 @@ from .artifacts import (
     interpolate_bad_channels,
 )
 
-# Advanced functions
-from .advanced import (
-    autoreject_epochs,
-)
-
-# Segment rejection functions
-from .segment_rejection import (
-    detect_dense_oscillatory_artifacts,
-    annotate_noisy_segments,
-    annotate_uncorrelated_segments
+# Epoching functions
+from .epoching import (
+    create_eventid_epochs,
+    create_regular_epochs,
+    create_sl_epochs,
+    detect_outlier_epochs,
+    gfp_clean_epochs,
 )
 
 # ICA functions
 from .ica import (
-    fit_ica,
-    classify_ica_components,
     apply_ica_rejection,
-    apply_iclabel_rejection
+    apply_iclabel_rejection,
+    classify_ica_components,
+    fit_ica,
+)
+
+# Preprocessing functions
+from .preprocessing import (
+    assign_channel_types,
+    crop_data,
+    drop_channels,
+    filter_data,
+    rereference_data,
+    resample_data,
+    trim_edges,
+)
+
+# Segment rejection functions
+from .segment_rejection import (
+    annotate_noisy_segments,
+    annotate_uncorrelated_segments,
+    detect_dense_oscillatory_artifacts,
 )
 
 # Visualization functions
 from .visualization import (
-    plot_raw_comparison,
+    create_processing_summary,
+    generate_processing_report,
     plot_ica_components,
     plot_psd_topography,
-    generate_processing_report,
-    create_processing_summary
+    plot_raw_comparison,
 )
 
 # Define what gets imported with "from autoclean.functions import *"
@@ -89,7 +89,7 @@ __all__ = [
     # Preprocessing functions
     "filter_data",
     "resample_data",
-    "rereference_data", 
+    "rereference_data",
     "drop_channels",
     "crop_data",
     "trim_edges",
@@ -98,7 +98,7 @@ __all__ = [
     "create_regular_epochs",
     "create_eventid_epochs",
     "create_sl_epochs",
-    "detect_outlier_epochs", 
+    "detect_outlier_epochs",
     "gfp_clean_epochs",
     # Artifact functions
     "detect_bad_channels",

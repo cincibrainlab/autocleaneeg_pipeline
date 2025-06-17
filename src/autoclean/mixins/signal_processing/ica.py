@@ -1,11 +1,10 @@
 """ICA mixin for autoclean tasks."""
 
-import mne_icalabel
-import pandas as pd
 from mne.preprocessing import ICA
 
 from autoclean.io.export import save_ica_to_fif
 from autoclean.utils.logging import message
+
 
 class IcaMixin:
     """Mixin for ICA processing."""
@@ -59,7 +58,7 @@ class IcaMixin:
 
         data = self._get_data_object(data=None, use_epochs=use_epochs)
 
-        # Run ICA
+        # Run ICA using standalone function
         if is_enabled:
             # Get ICA parameters from config
             ica_kwargs = config_value.get("value", {})
@@ -75,13 +74,12 @@ class IcaMixin:
                 message("debug", "Setting random_state to 97")
                 ica_kwargs["random_state"] = 97
 
-            # Create ICA object
-
-            self.final_ica = ICA(**ica_kwargs)  # pylint: disable=not-callable
-
             message("debug", f"Fitting ICA with {ica_kwargs}")
 
-            self.final_ica.fit(data)
+            # Call standalone function for ICA fitting
+            from autoclean.functions.ica.ica_processing import fit_ica
+
+            self.final_ica = fit_ica(raw=data, **ica_kwargs)
 
             if eog_channel is not None:
                 message("info", f"Running EOG detection on {eog_channel}")
@@ -147,9 +145,12 @@ class IcaMixin:
             # Or raise an error, depending on desired behavior
             return None
 
-        mne_icalabel.label_components(self.raw, self.final_ica, method="iclabel")
+        # Call standalone function for ICA component classification
+        from autoclean.functions.ica.ica_processing import classify_ica_components
 
-        self._icalabel_to_data_frame(self.final_ica)
+        self.ica_flags = classify_ica_components(
+            self.raw, self.final_ica, method="iclabel"
+        )
 
         metadata = {
             "ica": {
@@ -255,16 +256,24 @@ class IcaMixin:
             f"Will reject ICs of types: {flags_to_reject} with confidence > {rejection_threshold}",
         )
 
-        rejected_ic_indices_this_step = []
-        for (
-            idx,
-            row,
-        ) in self.ica_flags.iterrows():  # DataFrame index is the component index
-            if (
-                row["ic_type"] in flags_to_reject
-                and row["confidence"] > rejection_threshold
-            ):
-                rejected_ic_indices_this_step.append(idx)
+        # Determine data to clean
+        target_data = data_to_clean if data_to_clean is not None else self.raw
+        data_source_name = (
+            "provided data object" if data_to_clean is not None else "self.raw"
+        )
+        message("debug", f"Applying ICA to {data_source_name}")
+
+        # Call standalone function for ICLabel-based rejection
+        from autoclean.functions.ica.ica_processing import apply_iclabel_rejection
+
+        _, rejected_ic_indices_this_step = apply_iclabel_rejection(
+            raw=target_data,
+            ica=self.final_ica,
+            labels_df=self.ica_flags,
+            ic_flags_to_reject=flags_to_reject,
+            ic_rejection_threshold=rejection_threshold,
+            verbose=True,
+        )
 
         if not rejected_ic_indices_this_step:
             message(
@@ -277,41 +286,10 @@ class IcaMixin:
                 f"based on ICLabel: {rejected_ic_indices_this_step}",
             )
 
-        # Ensure self.final_ica.exclude is initialized as a list if it's None
-        if self.final_ica.exclude is None:
-            self.final_ica.exclude = []
-
-        # Combine with any existing exclusions (e.g., from EOG detection in run_ica)
-        current_exclusions = set(self.final_ica.exclude)
-        for idx in rejected_ic_indices_this_step:
-            current_exclusions.add(idx)
-        self.final_ica.exclude = sorted(list(current_exclusions))
-
         message(
             "info",
             f"Total components now marked for exclusion: {self.final_ica.exclude}",
         )
-
-        # Determine data to clean
-        target_data = data_to_clean if data_to_clean is not None else self.raw
-        data_source_name = (
-            "provided data object" if data_to_clean is not None else "self.raw"
-        )
-        message("debug", f"Applying ICA to {data_source_name}")
-
-        if not self.final_ica.exclude:
-            message(
-                "info", "No components are marked for exclusion. Skipping ICA apply."
-            )
-        else:
-            # Apply ICA to remove the excluded components
-            # This modifies target_data in-place
-            self.final_ica.apply(target_data)
-            message(
-                "info",
-                f"Applied ICA to {data_source_name}, removing/attenuating "
-                f"{len(self.final_ica.exclude)} components.",
-            )
 
         # Update metadata
         metadata = {
@@ -332,21 +310,3 @@ class IcaMixin:
             )
 
         message("success", "ICLabel-based component rejection complete.")
-
-    def _icalabel_to_data_frame(self, ica):
-        """Export IClabels to pandas DataFrame."""
-        ic_type = [""] * ica.n_components_
-        for label, comps in ica.labels_.items():
-            for comp in comps:
-                ic_type[comp] = label
-
-        self.ica_flags = pd.DataFrame(
-            dict(
-                component=ica._ica_names,  # pylint: disable=protected-access
-                annotator=["ic_label"] * ica.n_components_,
-                ic_type=ic_type,
-                confidence=ica.labels_scores_.max(1),
-            )
-        )
-
-        return self.ica_flags
