@@ -9,6 +9,7 @@ This page provides an overview of the AutoClean API.
    
    core
    mixins
+   functions
    io
    reports
    utils
