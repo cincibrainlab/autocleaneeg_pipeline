@@ -27,9 +27,9 @@ except ImportError:
 class TestMontageLoading:
     """Test montage loading functionality."""
     
-    @patch('builtins.open', new_callable=mock_open)
-    @patch('yaml.safe_load')
-    def test_load_valid_montages(self, mock_yaml_load, mock_file):
+    @patch('autoclean.utils.montage.resources.files')
+    @patch('autoclean.utils.montage.yaml.safe_load')
+    def test_load_valid_montages(self, mock_yaml_load, mock_resources):
         """Test loading valid montages from configuration."""
         mock_montages = {
             "valid_montages": {
@@ -40,6 +40,11 @@ class TestMontageLoading:
         }
         mock_yaml_load.return_value = mock_montages
         
+        # Mock the resources chain
+        mock_file_path = Mock()
+        mock_file_path.read_text.return_value = "mock yaml content"
+        mock_resources.return_value.joinpath.return_value = mock_file_path
+        
         result = load_valid_montages()
         
         expected = {
@@ -49,11 +54,12 @@ class TestMontageLoading:
         }
         
         assert result == expected
-        mock_file.assert_called_once()
+        mock_resources.assert_called_once()
         mock_yaml_load.assert_called_once()
     
+    @patch('autoclean.utils.montage.resources.files', side_effect=ImportError)
     @patch('builtins.open', side_effect=FileNotFoundError)
-    def test_load_valid_montages_file_not_found(self, mock_file):
+    def test_load_valid_montages_file_not_found(self, mock_file, mock_resources):
         """Test behavior when montages.yaml file is not found."""
         with pytest.raises(FileNotFoundError):
             load_valid_montages()
