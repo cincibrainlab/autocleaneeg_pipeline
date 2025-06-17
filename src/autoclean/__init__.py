@@ -81,15 +81,19 @@ def __getattr__(name):
         return interpolate_bad_channels
     elif name == "fit_ica":
         from .functions.ica import fit_ica
+
         return fit_ica
     elif name == "classify_ica_components":
         from .functions.ica import classify_ica_components
+
         return classify_ica_components
     elif name == "apply_ica_rejection":
         from .functions.ica import apply_ica_rejection
+
         return apply_ica_rejection
     elif name == "apply_iclabel_rejection":
         from .functions.ica import apply_iclabel_rejection
+
         return apply_iclabel_rejection
 
     # Advanced functions
