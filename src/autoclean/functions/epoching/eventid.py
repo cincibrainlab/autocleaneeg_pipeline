@@ -23,20 +23,20 @@ def create_eventid_epochs(
     detrend: Optional[Union[int, str]] = None,
     picks: Optional[Union[str, List[str]]] = None,
     preload: bool = True,
-    on_missing: str = 'raise',
-    verbose: Optional[bool] = None
+    on_missing: str = "raise",
+    verbose: Optional[bool] = None,
 ) -> mne.Epochs:
     """Create epochs based on specific event IDs from continuous EEG data.
-    
+
     This function creates epochs centered around specific event markers in the
     continuous EEG recording. This approach is fundamental for event-related
     potential (ERP) analysis and other time-locked analyses where brain responses
     to specific stimuli or events need to be examined.
-    
+
     The function extracts events from the raw data annotations or event channel,
     filters for the specified event IDs, and creates epochs around these events
     with the specified time window and preprocessing parameters.
-    
+
     Parameters
     ----------
     data : mne.io.BaseRaw
@@ -83,73 +83,73 @@ def create_eventid_epochs(
         Options: 'raise', 'warn', 'ignore'.
     verbose : bool or None, default None
         Control verbosity of output. If None, uses MNE default.
-        
+
     Returns
     -------
     epochs : mne.Epochs
         The created epochs object containing data segments around specified events.
-        
+
     Raises
     ------
     TypeError
         If data is not an MNE Raw object.
     ValueError
-        If event_id format is invalid, tmin >= tmax, or no events found when 
+        If event_id format is invalid, tmin >= tmax, or no events found when
         on_missing='raise'.
     RuntimeError
         If epoch creation fails due to data issues or processing errors.
-        
+
     Notes
     -----
     Event-based epoching is fundamental to EEG analysis for experimental paradigms
     where brain responses to specific stimuli or events are of interest. The function
     handles the complete workflow from event detection to epoch creation.
-    
+
     **Event Detection:**
-    The function first extracts events from the raw data using MNE's 
+    The function first extracts events from the raw data using MNE's
     `events_from_annotations` function, which converts annotations to discrete
     events. This works with various data formats that store events as annotations.
-    
+
     **Epoch Timing:**
     Each epoch spans from tmin to tmax seconds relative to the event occurrence.
     The choice of time window should consider:
     - Pre-stimulus baseline period (typically 100-500ms before event)
     - Expected response duration (varies by component, e.g., P300 ~300-600ms)
     - Post-stimulus recovery period
-    
+
     **Baseline Correction:**
     Baseline correction removes pre-stimulus activity to isolate event-related
     responses. Common baseline periods:
     - (None, 0): Entire pre-stimulus period
     - (-0.2, 0): 200ms before stimulus
     - (-0.1, -0.05): Specific pre-stimulus window
-    
+
     **Artifact Rejection:**
     Multiple rejection mechanisms help ensure data quality:
     - Amplitude-based: Reject epochs with excessive voltage deflections
     - Flatline detection: Reject epochs with insufficient signal variation
     - Annotation-based: Reject epochs overlapping with marked bad segments
-    
+
     **Memory Considerations:**
     For large datasets, consider using decim parameter to reduce sampling rate
     and memory usage, especially if high temporal resolution is not critical.
-    
+
     Examples
     --------
     Create epochs for target and standard stimuli:
-    
+
     >>> from autoclean import create_eventid_epochs
     >>> event_id = {'target': 1, 'standard': 2}
     >>> epochs = create_eventid_epochs(
-    ...     raw, 
+    ...     raw,
     ...     event_id=event_id,
-    ...     tmin=-0.2, 
+    ...     tmin=-0.2,
     ...     tmax=0.8,
     ...     baseline=(-0.2, 0)
     ... )
-    
+
     Create epochs with artifact rejection:
-    
+
     >>> epochs = create_eventid_epochs(
     ...     raw,
     ...     event_id={'stimulus': 1},
@@ -158,9 +158,9 @@ def create_eventid_epochs(
     ...     reject={'eeg': 100e-6, 'eog': 200e-6},
     ...     flat={'eeg': 1e-6}
     ... )
-    
+
     Create epochs with decimation for memory efficiency:
-    
+
     >>> epochs = create_eventid_epochs(
     ...     raw,
     ...     event_id=[1, 2, 3],
@@ -169,7 +169,7 @@ def create_eventid_epochs(
     ...     decim=2,  # Downsample by factor of 2
     ...     detrend=1  # Remove linear trend
     ... )
-    
+
     See Also
     --------
     mne.events_from_annotations : Extract events from annotations
@@ -178,13 +178,11 @@ def create_eventid_epochs(
     """
     # Input validation
     if not isinstance(data, mne.io.BaseRaw):
-        raise TypeError(
-            f"Data must be an MNE Raw object, got {type(data).__name__}"
-        )
-    
+        raise TypeError(f"Data must be an MNE Raw object, got {type(data).__name__}")
+
     if tmin >= tmax:
         raise ValueError(f"tmin ({tmin}) must be less than tmax ({tmax})")
-    
+
     # Normalize event_id to dictionary format
     if isinstance(event_id, int):
         event_id = {f"event_{event_id}": event_id}
@@ -194,46 +192,43 @@ def create_eventid_epochs(
         raise ValueError(
             f"event_id must be dict, list, or int, got {type(event_id).__name__}"
         )
-    
+
     try:
         # Extract events from raw data
         try:
             events, event_id_all = mne.events_from_annotations(data, verbose=verbose)
         except Exception as e:
-            if on_missing == 'raise':
+            if on_missing == "raise":
                 raise ValueError(f"No events found in data: {str(e)}") from e
-            elif on_missing == 'warn':
+            elif on_missing == "warn":
                 import warnings
+
                 warnings.warn(f"No events found in data: {str(e)}")
                 # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info['sfreq'])
+                n_samples = int((tmax - tmin) * data.info["sfreq"])
                 empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info['nchan'], n_samples)), 
-                    data.info, 
-                    tmin=tmin
+                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
                 )
                 return empty_epochs
             else:  # on_missing == 'ignore'
                 # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info['sfreq'])
+                n_samples = int((tmax - tmin) * data.info["sfreq"])
                 empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info['nchan'], n_samples)), 
-                    data.info, 
-                    tmin=tmin
+                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
                 )
                 return empty_epochs
-        
+
         # Filter events for requested event IDs
         requested_events = []
         final_event_id = {}
-        
+
         for event_name, event_code in event_id.items():
             if event_code in event_id_all.values():
                 # Find matching events
                 matching_events = events[events[:, 2] == event_code]
                 requested_events.append(matching_events)
                 final_event_id[event_name] = event_code
-        
+
         if requested_events:
             # Combine all requested events
             filtered_events = np.vstack(requested_events)
@@ -242,38 +237,35 @@ def create_eventid_epochs(
         else:
             filtered_events = np.empty((0, 3), dtype=int)
             final_event_id = {}
-        
+
         # Check if any events were found
         if len(filtered_events) == 0:
-            if on_missing == 'raise':
+            if on_missing == "raise":
                 raise ValueError(
                     f"No events found for specified event_id: {event_id}. "
                     f"Available events: {list(event_id_all.keys())}"
                 )
-            elif on_missing == 'warn':
+            elif on_missing == "warn":
                 import warnings
+
                 warnings.warn(
                     f"No events found for specified event_id: {event_id}. "
                     f"Available events: {list(event_id_all.keys())}"
                 )
                 # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info['sfreq'])
+                n_samples = int((tmax - tmin) * data.info["sfreq"])
                 empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info['nchan'], n_samples)), 
-                    data.info, 
-                    tmin=tmin
+                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
                 )
                 return empty_epochs
             else:  # on_missing == 'ignore'
                 # Create empty epochs object - return early
-                n_samples = int((tmax - tmin) * data.info['sfreq'])
+                n_samples = int((tmax - tmin) * data.info["sfreq"])
                 empty_epochs = mne.EpochsArray(
-                    np.empty((0, data.info['nchan'], n_samples)), 
-                    data.info, 
-                    tmin=tmin
+                    np.empty((0, data.info["nchan"], n_samples)), data.info, tmin=tmin
                 )
                 return empty_epochs
-        
+
         # Create epochs
         epochs = mne.Epochs(
             data,
@@ -289,11 +281,11 @@ def create_eventid_epochs(
             detrend=detrend,
             picks=picks,
             preload=preload,
-            verbose=verbose
+            verbose=verbose,
         )
-        
+
         return epochs
-        
+
     except Exception as e:
         if "No events found" in str(e):
             # Let the ValueError bubble up for proper test handling

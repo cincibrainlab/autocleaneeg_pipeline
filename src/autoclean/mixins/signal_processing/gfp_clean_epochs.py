@@ -24,7 +24,6 @@ import numpy as np
 import pandas as pd
 
 from autoclean.utils.logging import message
-from autoclean.functions.epoching import gfp_clean_epochs as _gfp_clean_epochs
 
 
 class GFPCleanEpochsMixin:

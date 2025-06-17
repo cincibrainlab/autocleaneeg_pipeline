@@ -14,18 +14,19 @@ trim_edges : Remove data from beginning and end
 assign_channel_types : Set channel types (EEG, EOG, etc.)
 """
 
+from .basic_ops import assign_channel_types, crop_data, drop_channels, trim_edges
+
 # Import implemented functions
 from .filtering import filter_data
-from .resampling import resample_data
 from .referencing import rereference_data
-from .basic_ops import drop_channels, crop_data, trim_edges, assign_channel_types
+from .resampling import resample_data
 
 __all__ = [
     "filter_data",
-    "resample_data", 
+    "resample_data",
     "rereference_data",
     "drop_channels",
-    "crop_data", 
+    "crop_data",
     "trim_edges",
-    "assign_channel_types"
+    "assign_channel_types",
 ]

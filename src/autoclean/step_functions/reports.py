@@ -1207,14 +1207,18 @@ def create_json_summary(run_id: str) -> dict:
         processing_details["notch_widths"] = filter_metadata.get("applied_notch_widths")
         # Also record verification of what was actually achieved
         processing_details["filtered_sfreq"] = filter_metadata.get("filtered_sfreq")
-        processing_details["filtered_n_channels"] = filter_metadata.get("filtered_n_channels")
+        processing_details["filtered_n_channels"] = filter_metadata.get(
+            "filtered_n_channels"
+        )
     if "step_resample_data" in metadata:
         # Use actual achieved sample rate, not target (which is requested value)
         resample_metadata = metadata["step_resample_data"]
         processing_details["target_sfreq"] = resample_metadata.get("target_sfreq")
         processing_details["actual_sfreq"] = resample_metadata.get("actual_sfreq")
         # Record verification metrics
-        processing_details["resampled_n_samples"] = resample_metadata.get("resampled_n_samples")
+        processing_details["resampled_n_samples"] = resample_metadata.get(
+            "resampled_n_samples"
+        )
     if "step_trim_edges" in metadata:
         processing_details["trim_duration"] = metadata["step_trim_edges"][
             "trim_duration"
@@ -1246,7 +1250,7 @@ def create_json_summary(run_id: str) -> dict:
 
     # FIND EXPORT DETAILS - Quality Control Integrity
     # Priority order: 1) Actual measured values from exported files (best QC)
-    #                2) Verified values from processing steps 
+    #                2) Verified values from processing steps
     #                3) Calculated values (flagged as such for transparency)
     export_details = {}
     if "save_epochs_to_set" in metadata:
@@ -1254,22 +1258,31 @@ def create_json_summary(run_id: str) -> dict:
         epoch_length = save_epochs_to_set["tmax"] - save_epochs_to_set["tmin"]
         export_details["epoch_length"] = epoch_length
         export_details["final_n_epochs"] = save_epochs_to_set["n_epochs"]
-        
+
         # Use actual duration from final exported data (true QC verification)
         if "actual_duration" in save_epochs_to_set:
             export_details["final_duration"] = save_epochs_to_set["actual_duration"]
             export_details["final_duration_verified"] = True
         else:
             # Fallback: calculate expected duration (mark as calculated, not measured)
-            export_details["final_duration"] = epoch_length * save_epochs_to_set["n_epochs"]
+            export_details["final_duration"] = (
+                epoch_length * save_epochs_to_set["n_epochs"]
+            )
             export_details["final_duration_calculated"] = True
         # Use actual channel count from the final exported data, not calculations
-        if "save_epochs_to_set" in metadata and "n_channels" in metadata["save_epochs_to_set"]:
+        if (
+            "save_epochs_to_set" in metadata
+            and "n_channels" in metadata["save_epochs_to_set"]
+        ):
             # Use actual channel count from exported file (true QC verification)
-            export_details["net_nbchan_post"] = metadata["save_epochs_to_set"]["n_channels"]
+            export_details["net_nbchan_post"] = metadata["save_epochs_to_set"][
+                "n_channels"
+            ]
         elif original_channel_count and unique_bad_channels:
             # Fallback: calculate based on removed channels (mark as calculated)
-            export_details["net_nbchan_post"] = original_channel_count - len(unique_bad_channels)
+            export_details["net_nbchan_post"] = original_channel_count - len(
+                unique_bad_channels
+            )
             export_details["net_nbchan_post_calculated"] = True
         else:
             # Last resort: use original count (mark as unverified)
@@ -1291,11 +1304,21 @@ def create_json_summary(run_id: str) -> dict:
         export_details["initial_n_epochs"] = epoch_metadata["initial_epoch_count"]
         export_details["initial_duration"] = epoch_metadata["initial_duration"]
         # Use actual sample rate from final exported data (best QC verification)
-        if "save_epochs_to_set" in metadata and "actual_sfreq" in metadata["save_epochs_to_set"]:
-            export_details["srate_post"] = metadata["save_epochs_to_set"]["actual_sfreq"]
-        elif "step_resample_data" in metadata and "actual_sfreq" in metadata["step_resample_data"]:
+        if (
+            "save_epochs_to_set" in metadata
+            and "actual_sfreq" in metadata["save_epochs_to_set"]
+        ):
+            export_details["srate_post"] = metadata["save_epochs_to_set"][
+                "actual_sfreq"
+            ]
+        elif (
+            "step_resample_data" in metadata
+            and "actual_sfreq" in metadata["step_resample_data"]
+        ):
             # Second choice: actual sample rate from resampling step
-            export_details["srate_post"] = metadata["step_resample_data"]["actual_sfreq"]
+            export_details["srate_post"] = metadata["step_resample_data"][
+                "actual_sfreq"
+            ]
         else:
             # Fallback: calculate from epoch metadata (mark as calculated)
             export_details["srate_post"] = (

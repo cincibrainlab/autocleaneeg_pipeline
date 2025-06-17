@@ -26,7 +26,7 @@ def plot_raw_comparison(
     scaling_factor: float = 2.0,
     spacing: float = 10.0,
     figsize: Optional[tuple] = None,
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = None,
 ) -> plt.Figure:
     """Plot raw data comparison showing original vs cleaned data overlay.
 
@@ -65,7 +65,7 @@ def plot_raw_comparison(
     --------
     >>> fig = plot_raw_comparison(raw_original, raw_cleaned)
     >>> fig = plot_raw_comparison(raw_original, raw_cleaned, output_path="comparison.png")
-    
+
     See Also
     --------
     plot_ica_components : Visualize ICA components
@@ -77,7 +77,7 @@ def plot_raw_comparison(
         raise TypeError(
             f"raw_original must be an MNE Raw object, got {type(raw_original).__name__}"
         )
-    
+
     if not isinstance(raw_cleaned, mne.io.BaseRaw):
         raise TypeError(
             f"raw_cleaned must be an MNE Raw object, got {type(raw_cleaned).__name__}"
@@ -86,7 +86,7 @@ def plot_raw_comparison(
     # Ensure compatibility
     if raw_original.ch_names != raw_cleaned.ch_names:
         raise ValueError("Channel names in raw_original and raw_cleaned do not match")
-    
+
     if raw_original.times.shape != raw_cleaned.times.shape:
         raise ValueError("Time vectors in raw_original and raw_cleaned do not match")
 
@@ -109,11 +109,13 @@ def plot_raw_comparison(
         # Normalize each channel individually
         data_original_normalized = np.zeros_like(data_original)
         data_cleaned_normalized = np.zeros_like(data_cleaned)
-        
+
         for idx in range(n_channels):
             # Original data
             channel_data_original = data_original[idx]
-            channel_data_original = channel_data_original - np.mean(channel_data_original)
+            channel_data_original = channel_data_original - np.mean(
+                channel_data_original
+            )
             std = np.std(channel_data_original)
             if std == 0:
                 std = 1  # Avoid division by zero
@@ -176,7 +178,9 @@ def plot_raw_comparison(
         # Add legend
         legend_elements = [
             Line2D([0], [0], color="red", lw=0.5, linestyle="-", label="Original Data"),
-            Line2D([0], [0], color="black", lw=0.5, linestyle="-", label="Cleaned Data"),
+            Line2D(
+                [0], [0], color="black", lw=0.5, linestyle="-", label="Cleaned Data"
+            ),
         ]
         ax.legend(handles=legend_elements, loc="upper right", fontsize=8)
 
@@ -202,7 +206,7 @@ def plot_ica_components(
     picks: Optional[list] = None,
     output_path: Optional[Union[str, Path]] = None,
     title: str = "ICA Components",
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = None,
 ) -> plt.Figure:
     """Plot ICA component topographies and properties.
 
@@ -233,7 +237,7 @@ def plot_ica_components(
     --------
     >>> fig = plot_ica_components(ica, raw)
     >>> fig = plot_ica_components(ica, raw, picks=[0, 1, 2, 3])
-    
+
     See Also
     --------
     plot_raw_comparison : Plot before/after data comparison
@@ -246,14 +250,16 @@ def plot_ica_components(
     try:
         # Use MNE's built-in plotting with custom parameters
         if picks is None:
-            picks = list(range(min(ica.n_components_, 25)))  # Limit to first 25 components
-        
+            picks = list(
+                range(min(ica.n_components_, 25))
+            )  # Limit to first 25 components
+
         # Create the plot using MNE's function
         fig = ica.plot_components(picks=picks, show=False)
-        
+
         # Customize title
         fig.suptitle(title, fontsize=14)
-        
+
         # Save if requested
         if output_path is not None:
             output_path = Path(output_path)
@@ -273,7 +279,7 @@ def plot_psd_topography(
     freq_bands: Optional[dict] = None,
     output_path: Optional[Union[str, Path]] = None,
     title: str = "Power Spectral Density Topography",
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = None,
 ) -> plt.Figure:
     """Plot power spectral density topographical maps for frequency bands.
 
@@ -303,7 +309,7 @@ def plot_psd_topography(
     --------
     >>> fig = plot_psd_topography(raw)
     >>> fig = plot_psd_topography(raw, freq_bands={'alpha': (8, 12)})
-    
+
     See Also
     --------
     plot_raw_comparison : Plot before/after data comparison
@@ -316,26 +322,23 @@ def plot_psd_topography(
     # Default frequency bands
     if freq_bands is None:
         freq_bands = {
-            'delta': (1, 4),
-            'theta': (4, 8), 
-            'alpha': (8, 12),
-            'beta': (12, 30),
-            'gamma': (30, 50)
+            "delta": (1, 4),
+            "theta": (4, 8),
+            "alpha": (8, 12),
+            "beta": (12, 30),
+            "gamma": (30, 50),
         }
 
     try:
         # Calculate PSD
         spectrum = raw.compute_psd(fmax=50, verbose=verbose)
-        
+
         # Create the plot using MNE's function
-        fig = spectrum.plot_topomap(
-            bands=freq_bands,
-            show=False
-        )
-        
+        fig = spectrum.plot_topomap(bands=freq_bands, show=False)
+
         # Customize title
         fig.suptitle(title, fontsize=14)
-        
+
         # Save if requested
         if output_path is not None:
             output_path = Path(output_path)

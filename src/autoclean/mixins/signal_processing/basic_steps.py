@@ -96,18 +96,18 @@ class BasicStepsMixin:
         method: Optional[str] = None,
         phase: Optional[str] = None,
         fir_window: Optional[str] = None,
-        verbose: Optional[bool] = None
+        verbose: Optional[bool] = None,
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Apply filtering to EEG data within the AutoClean pipeline.
-        
+
         This method wraps the standalone :func:`autoclean.filter_data` function
-        with pipeline integration including configuration management, metadata 
+        with pipeline integration including configuration management, metadata
         tracking, and automatic export functionality.
-        
+
         Parameters override configuration values when provided. If not provided,
-        values are read from the task configuration using the existing 
+        values are read from the task configuration using the existing
         ``_check_step_enabled`` system.
-        
+
         Parameters
         ----------
         data : mne.io.Raw, mne.Epochs, or None, default None
@@ -131,13 +131,13 @@ class BasicStepsMixin:
             FIR window function. Overrides config if provided.
         verbose : bool or None, optional
             Control verbosity. Overrides config if provided.
-            
+
         Returns
         -------
         filtered_data : mne.io.Raw or mne.Epochs
             Filtered data object. Also updates ``self.raw`` or ``self.epochs``
             and triggers metadata tracking and export if configured.
-            
+
         See Also
         --------
         autoclean.filter_data : The underlying standalone filtering function
@@ -149,29 +149,44 @@ class BasicStepsMixin:
         if not is_enabled:
             message("info", "Filtering step is disabled in configuration")
             return data
-            
+
         # Get config defaults
         filter_args = config_value.get("value", {})
-        
+
         # Apply parameter overrides (only if explicitly provided)
         final_l_freq = l_freq if l_freq is not None else filter_args.get("l_freq")
         final_h_freq = h_freq if h_freq is not None else filter_args.get("h_freq")
-        final_notch_freqs = notch_freqs if notch_freqs is not None else filter_args.get("notch_freqs")
-        final_notch_widths = notch_widths if notch_widths is not None else filter_args.get("notch_widths", 0.5)
-        final_method = method if method is not None else filter_args.get("method", "fir")
+        final_notch_freqs = (
+            notch_freqs if notch_freqs is not None else filter_args.get("notch_freqs")
+        )
+        final_notch_widths = (
+            notch_widths
+            if notch_widths is not None
+            else filter_args.get("notch_widths", 0.5)
+        )
+        final_method = (
+            method if method is not None else filter_args.get("method", "fir")
+        )
         final_phase = phase if phase is not None else filter_args.get("phase", "zero")
-        final_fir_window = fir_window if fir_window is not None else filter_args.get("fir_window", "hamming")
+        final_fir_window = (
+            fir_window
+            if fir_window is not None
+            else filter_args.get("fir_window", "hamming")
+        )
         final_verbose = verbose if verbose is not None else filter_args.get("verbose")
-        
+
         # Check if any filtering is requested
         if final_l_freq is None and final_h_freq is None and final_notch_freqs is None:
             message("warning", "No filter parameters provided, skipping filtering")
             return data
 
         message("header", "Filtering data...")
-        
+
         # Call standalone function
-        from autoclean.functions.preprocessing.filtering import filter_data as standalone_filter_data
+        from autoclean.functions.preprocessing.filtering import (
+            filter_data as standalone_filter_data,
+        )
+
         filtered_data = standalone_filter_data(
             data=data,
             l_freq=final_l_freq,
@@ -181,17 +196,17 @@ class BasicStepsMixin:
             method=final_method,
             phase=final_phase,
             fir_window=final_fir_window,
-            verbose=final_verbose
+            verbose=final_verbose,
         )
-        
+
         # Pipeline integration with result-based metadata
         self._update_instance_data(data, filtered_data, use_epochs)
         self._save_raw_result(filtered_data, "post_filter")
-        
+
         # Use actual results in metadata
         metadata = {
-            "original_sfreq": data.info['sfreq'],
-            "filtered_sfreq": filtered_data.info['sfreq'], 
+            "original_sfreq": data.info["sfreq"],
+            "filtered_sfreq": filtered_data.info["sfreq"],
             "original_n_channels": len(data.ch_names),
             "filtered_n_channels": len(filtered_data.ch_names),
             "applied_l_freq": final_l_freq,
@@ -205,7 +220,7 @@ class BasicStepsMixin:
             "result_data_type": type(filtered_data).__name__,
         }
         self._update_metadata("step_filter_data", metadata)
-        
+
         return filtered_data
 
     def resample_data(
@@ -218,18 +233,18 @@ class BasicStepsMixin:
         window: Optional[str] = None,
         n_jobs: Optional[int] = None,
         pad: Optional[str] = None,
-        verbose: Optional[bool] = None
+        verbose: Optional[bool] = None,
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Apply resampling to EEG data within the AutoClean pipeline.
-        
+
         This method wraps the standalone :func:`autoclean.resample_data` function
-        with pipeline integration including configuration management, metadata 
+        with pipeline integration including configuration management, metadata
         tracking, and automatic export functionality.
-        
+
         Parameters override configuration values when provided. If not provided,
-        values are read from the task configuration using the existing 
+        values are read from the task configuration using the existing
         ``_check_step_enabled`` system.
-        
+
         Parameters
         ----------
         data : mne.io.Raw, mne.Epochs, or None, default None
@@ -251,13 +266,13 @@ class BasicStepsMixin:
             Padding mode. Overrides config if provided.
         verbose : bool or None, optional
             Control verbosity. Overrides config if provided.
-            
+
         Returns
         -------
         resampled_data : mne.io.Raw or mne.Epochs
             Resampled data object. Also updates ``self.raw`` or ``self.epochs``
             and triggers metadata tracking and export if configured.
-            
+
         See Also
         --------
         autoclean.resample_data : The underlying standalone resampling function
@@ -270,33 +285,50 @@ class BasicStepsMixin:
             if not is_enabled:
                 message("info", "Resampling step is disabled in configuration")
                 return data
-                
+
             target_sfreq = config_value.get("value", None)
             if target_sfreq is None:
-                message("warning", "Target sampling frequency not specified, skipping resampling")
+                message(
+                    "warning",
+                    "Target sampling frequency not specified, skipping resampling",
+                )
                 return data
-        
+
         # Get config defaults and apply overrides
         config_args = {}
-        if hasattr(self, 'config') and 'resample_step' in self.config.get('tasks', {}).get(self.config.get('task', ''), {}).get('settings', {}):
-            config_args = self.config['tasks'][self.config['task']]['settings']['resample_step'].get('value', {})
-        
+        if hasattr(self, "config") and "resample_step" in self.config.get(
+            "tasks", {}
+        ).get(self.config.get("task", ""), {}).get("settings", {}):
+            config_args = self.config["tasks"][self.config["task"]]["settings"][
+                "resample_step"
+            ].get("value", {})
+
         final_npad = npad if npad is not None else config_args.get("npad", "auto")
-        final_window = window if window is not None else config_args.get("window", "auto")
+        final_window = (
+            window if window is not None else config_args.get("window", "auto")
+        )
         final_n_jobs = n_jobs if n_jobs is not None else config_args.get("n_jobs", 1)
         final_pad = pad if pad is not None else config_args.get("pad", "auto")
         final_verbose = verbose if verbose is not None else config_args.get("verbose")
-        
+
         # Check if resampling is needed
         current_sfreq = data.info["sfreq"]
         if abs(current_sfreq - target_sfreq) < 0.01:
-            message("info", f"Data already at target frequency ({target_sfreq} Hz), skipping resampling")
+            message(
+                "info",
+                f"Data already at target frequency ({target_sfreq} Hz), skipping resampling",
+            )
             return data
 
-        message("header", f"Resampling data from {current_sfreq} Hz to {target_sfreq} Hz...")
-        
+        message(
+            "header", f"Resampling data from {current_sfreq} Hz to {target_sfreq} Hz..."
+        )
+
         # Call standalone function
-        from autoclean.functions.preprocessing.resampling import resample_data as standalone_resample_data
+        from autoclean.functions.preprocessing.resampling import (
+            resample_data as standalone_resample_data,
+        )
+
         resampled_data = standalone_resample_data(
             data=data,
             sfreq=target_sfreq,
@@ -304,22 +336,30 @@ class BasicStepsMixin:
             window=final_window,
             n_jobs=final_n_jobs,
             pad=final_pad,
-            verbose=final_verbose
+            verbose=final_verbose,
         )
-        
+
         message("info", f"Data successfully resampled to {target_sfreq} Hz")
-        
+
         # Pipeline integration with result-based metadata
         self._update_instance_data(data, resampled_data, use_epochs)
         self._save_raw_result(resampled_data, stage_name)
-        
+
         # Use actual results in metadata
         metadata = {
             "original_sfreq": current_sfreq,
             "target_sfreq": target_sfreq,
-            "actual_sfreq": resampled_data.info['sfreq'],
-            "original_n_samples": data.get_data().shape[1] if hasattr(data, 'get_data') else len(data.times),
-            "resampled_n_samples": resampled_data.get_data().shape[1] if hasattr(resampled_data, 'get_data') else len(resampled_data.times),
+            "actual_sfreq": resampled_data.info["sfreq"],
+            "original_n_samples": (
+                data.get_data().shape[1]
+                if hasattr(data, "get_data")
+                else len(data.times)
+            ),
+            "resampled_n_samples": (
+                resampled_data.get_data().shape[1]
+                if hasattr(resampled_data, "get_data")
+                else len(resampled_data.times)
+            ),
             "npad": final_npad,
             "window": final_window,
             "n_jobs": final_n_jobs,
@@ -328,7 +368,7 @@ class BasicStepsMixin:
             "result_data_type": type(resampled_data).__name__,
         }
         self._update_metadata("step_resample_data", metadata)
-        
+
         return resampled_data
 
     def rereference_data(
@@ -396,14 +436,17 @@ class BasicStepsMixin:
                 return data
 
         # Call standalone function
-        from autoclean.functions.preprocessing.referencing import rereference_data as standalone_rereference_data
+        from autoclean.functions.preprocessing.referencing import (
+            rereference_data as standalone_rereference_data,
+        )
+
         rereferenced_data = standalone_rereference_data(
             data=data,
             ref_channels=ref_type,
             projection=False if ref_type == "average" else True,
-            verbose=False
+            verbose=False,
         )
-        
+
         # Pipeline integration
         self._update_instance_data(data, rereferenced_data, use_epochs)
         self._save_raw_result(rereferenced_data, stage_name)

@@ -164,6 +164,7 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
         except Exception as e:
             print(f"Error processing sub-package '{full_item_name}': {e}")
             import traceback
+
             print(f"  Full traceback: {traceback.format_exc()}")
     else:
         # This item is a module directly under 'mixins' (e.g., mixins/some_other_mixins.py)
@@ -187,6 +188,7 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
         except Exception as e:
             print(f"Error inspecting module '{full_item_name}': {e}")
             import traceback
+
             print(f"  Full traceback: {traceback.format_exc()}")
 
 # --- Assemble the Final Tuple of Mixins for Task Inheritance ---
