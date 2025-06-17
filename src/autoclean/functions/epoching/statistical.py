@@ -248,7 +248,7 @@ def create_sl_epochs(
         if valid_events.size == 0:
             raise ValueError(f"No valid epochs found with {num_syllables_per_epoch} syllables")
         
-        # Create epochs using valid events
+        # Create epochs using valid events (match original mixin exactly)
         epochs = mne.Epochs(
             data_copy,
             valid_events,
@@ -256,10 +256,8 @@ def create_sl_epochs(
             tmax=tmax,
             baseline=baseline,
             reject=reject,
-            flat=flat,
             preload=preload,
             reject_by_annotation=reject_by_annotation,
-            verbose=verbose
         )
         
         # Add metadata about syllable events within epochs
