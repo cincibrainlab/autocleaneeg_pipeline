@@ -3,7 +3,6 @@
 from typing import Dict, List, Union
 
 import mne
-from pyprep.find_noisy_channels import NoisyChannels
 
 from autoclean.utils.logging import message
 
@@ -108,37 +107,29 @@ class ChannelsMixin:
                 "ransac_channel_wise": ransac_channel_wise,
             }
 
-            # Run noisy channels detection
-            message("header", "Detecting bad channels...")
-            cleaned_raw = NoisyChannels(
-                result_raw, random_state=options["random_state"]
-            )
-            cleaned_raw.find_bad_by_correlation(
-                correlation_secs=5.0,
-                correlation_threshold=options["correlation_thresh"],
-                frac_bad=0.01,
-            )
-            cleaned_raw.find_bad_by_deviation(
-                deviation_threshold=options["deviation_thresh"]
-            )
-            if options["ransac_corr_thresh"] > 0:
-                cleaned_raw.find_bad_by_ransac(
-                    n_samples=100,
-                    sample_prop=options["ransac_sample_prop"],
-                    corr_thresh=options["ransac_corr_thresh"],
-                    frac_bad=options["ransac_frac_bad"],
-                    corr_window_secs=5.0,
-                    channel_wise=options["ransac_channel_wise"],
-                    max_chunk_size=None,
-                )
+            # Call standalone function for bad channel detection
+            from autoclean.functions.artifacts.channels import detect_bad_channels
 
-            # Get bad channels and add them to the raw object
-            uncorrelated_channels = cleaned_raw.get_bads(as_dict=True)[
-                "bad_by_correlation"
-            ]
-            deviation_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_deviation"]
-            ransac_channels = cleaned_raw.get_bads(as_dict=True)["bad_by_ransac"]
-            bad_channels = cleaned_raw.get_bads(as_dict=True)
+            bad_channels = detect_bad_channels(
+                data=result_raw,
+                correlation_thresh=options["correlation_thresh"],
+                deviation_thresh=options["deviation_thresh"],
+                ransac_sample_prop=options["ransac_sample_prop"],
+                ransac_corr_thresh=options["ransac_corr_thresh"],
+                ransac_frac_bad=options["ransac_frac_bad"],
+                ransac_channel_wise=options["ransac_channel_wise"],
+                random_state=options["random_state"],
+                return_by_method=True,
+                verbose=False,
+            )
+
+            # Extract individual method results for compatibility
+            uncorrelated_channels = bad_channels["correlation"]
+            deviation_channels = bad_channels["deviation"]
+            ransac_channels = bad_channels["ransac"]
+
+            # Get the overall bad channels list for backward compatibility
+            all_bad_channels = bad_channels.get("combined", [])
 
             # Check for reference channels to exclude from bad channels
             ref_channels = []
@@ -158,27 +149,10 @@ class ChannelsMixin:
                     )
 
             # Add bad channels to info, but exclude reference channels
-            result_raw.info["bads"].extend(
-                [
-                    str(ch)
-                    for ch in bad_channels["bad_by_ransac"]
-                    if str(ch) not in ref_channels
-                ]
-            )
-            result_raw.info["bads"].extend(
-                [
-                    str(ch)
-                    for ch in bad_channels["bad_by_deviation"]
-                    if str(ch) not in ref_channels
-                ]
-            )
-            result_raw.info["bads"].extend(
-                [
-                    str(ch)
-                    for ch in bad_channels["bad_by_correlation"]
-                    if str(ch) not in ref_channels
-                ]
-            )
+            filtered_bad_channels = [
+                str(ch) for ch in all_bad_channels if str(ch) not in ref_channels
+            ]
+            result_raw.info["bads"].extend(filtered_bad_channels)
 
             # Remove duplicates
             bads = list(set(result_raw.info["bads"]))
