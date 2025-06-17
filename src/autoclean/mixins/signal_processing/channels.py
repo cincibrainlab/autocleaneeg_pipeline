@@ -129,13 +129,7 @@ class ChannelsMixin:
             ransac_channels = bad_channels["ransac"]
 
             # Get the overall bad channels list for backward compatibility
-            all_bad_channels = list(
-                set(
-                    bad_channels.get("bad_by_correlation", [])
-                    + bad_channels.get("bad_by_deviation", [])
-                    + bad_channels.get("bad_by_ransac", [])
-                )
-            )
+            all_bad_channels = bad_channels.get("combined", [])
 
             # Check for reference channels to exclude from bad channels
             ref_channels = []
