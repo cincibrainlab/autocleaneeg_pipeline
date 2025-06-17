@@ -125,7 +125,6 @@ def resample_data(
     --------
     mne.io.Raw.resample : MNE's raw data resampling method
     mne.Epochs.resample : MNE's epochs resampling method
-    scipy.signal.resample : Underlying resampling implementation
     """
     # Input validation
     if not isinstance(data, (mne.io.BaseRaw, mne.Epochs)):
