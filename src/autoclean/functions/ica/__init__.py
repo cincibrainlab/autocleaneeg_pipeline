@@ -4,7 +4,12 @@ This module provides standalone functions for Independent Component Analysis (IC
 including component fitting, classification, and artifact rejection.
 """
 
-from .ica_processing import fit_ica, classify_ica_components, apply_ica_rejection, apply_iclabel_rejection
+from .ica_processing import (
+    apply_ica_rejection,
+    apply_iclabel_rejection,
+    classify_ica_components,
+    fit_ica,
+)
 
 __all__ = [
     "fit_ica",

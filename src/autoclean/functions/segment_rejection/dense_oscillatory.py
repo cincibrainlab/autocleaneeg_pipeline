@@ -1,10 +1,10 @@
 """Dense oscillatory artifact detection for EEG data.
 
-This module provides standalone functions for identifying and annotating dense 
+This module provides standalone functions for identifying and annotating dense
 oscillatory multichannel artifacts in continuous EEG data.
 """
 
-from typing import Optional, Union
+from typing import Optional
 
 import mne
 import numpy as np
@@ -17,11 +17,11 @@ def detect_dense_oscillatory_artifacts(
     min_channels: int = 75,
     padding_ms: float = 500,
     annotation_label: str = "BAD_REF_AF",
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = None,
 ) -> mne.io.Raw:
     """Detect smaller, dense oscillatory multichannel artifacts.
 
-    This function identifies oscillatory artifacts that affect multiple channels 
+    This function identifies oscillatory artifacts that affect multiple channels
     simultaneously, while excluding large single deflections. It uses a sliding
     window approach to detect periods where many channels simultaneously show
     high peak-to-peak amplitudes.
@@ -85,7 +85,7 @@ def detect_dense_oscillatory_artifacts(
 
     >>> from autoclean.functions.segment_rejection import detect_dense_oscillatory_artifacts
     >>> raw_clean = detect_dense_oscillatory_artifacts(raw)
-    >>> artifacts = [ann for ann in raw_clean.annotations 
+    >>> artifacts = [ann for ann in raw_clean.annotations
     ...              if 'REF_AF' in ann['description']]
     >>> print(f"Found {len(artifacts)} oscillatory artifacts")
 
@@ -122,19 +122,19 @@ def detect_dense_oscillatory_artifacts(
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):
-        raise TypeError(
-            f"Data must be an MNE Raw object, got {type(raw).__name__}"
-        )
-    
+        raise TypeError(f"Data must be an MNE Raw object, got {type(raw).__name__}")
+
     if window_size_ms <= 0:
         raise ValueError(f"window_size_ms must be positive, got {window_size_ms}")
-    
+
     if channel_threshold_uv <= 0:
-        raise ValueError(f"channel_threshold_uv must be positive, got {channel_threshold_uv}")
-    
+        raise ValueError(
+            f"channel_threshold_uv must be positive, got {channel_threshold_uv}"
+        )
+
     if min_channels <= 0:
         raise ValueError(f"min_channels must be positive, got {min_channels}")
-    
+
     if padding_ms < 0:
         raise ValueError(f"padding_ms must be non-negative, got {padding_ms}")
 
@@ -164,7 +164,9 @@ def detect_dense_oscillatory_artifacts(
             # Check if artifact spans multiple channels with oscillatory behavior
             if num_channels_exceeding >= min_channels:
                 start_time = times[start_idx] - padding_sec  # Add padding before
-                end_time = times[start_idx + window_size] + padding_sec  # Add padding after
+                end_time = (
+                    times[start_idx + window_size] + padding_sec
+                )  # Add padding after
 
                 # Ensure we don't go beyond recording bounds
                 start_time = max(start_time, times[0])
@@ -186,12 +188,14 @@ def detect_dense_oscillatory_artifacts(
                     description=annotation[2],
                 )
             if verbose:
-                print(f"Added {len(artifact_annotations)} oscillatory artifact annotations")
+                print(
+                    f"Added {len(artifact_annotations)} oscillatory artifact annotations"
+                )
         else:
             if verbose:
                 print("No oscillatory artifacts detected")
 
         return raw_annotated
-        
+
     except Exception as e:
         raise RuntimeError(f"Failed to detect oscillatory artifacts: {str(e)}") from e

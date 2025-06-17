@@ -17,11 +17,9 @@ into manageable chunks for further processing and analysis.
 from typing import Dict, Optional, Union
 
 import mne
-import numpy as np
-import pandas as pd
 
-from autoclean.utils.logging import message
 from autoclean.functions.epoching import create_regular_epochs as _create_regular_epochs
+from autoclean.utils.logging import message
 
 
 class RegularEpochsMixin:
@@ -124,7 +122,7 @@ class RegularEpochsMixin:
         try:
             # Use standalone function for core epoch creation
             message("header", f"Creating regular epochs from {tmin}s to {tmax}s...")
-            
+
             epochs = _create_regular_epochs(
                 data=data,
                 tmin=tmin,
@@ -133,7 +131,7 @@ class RegularEpochsMixin:
                 reject=volt_threshold,
                 reject_by_annotation=reject_by_annotation,
                 include_metadata=True,  # Always include metadata for pipeline
-                preload=True
+                preload=True,
             )
 
             # Note: metadata is now handled by the standalone function

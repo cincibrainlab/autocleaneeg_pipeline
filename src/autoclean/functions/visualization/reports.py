@@ -4,14 +4,13 @@ This module provides standalone functions for generating comprehensive
 processing reports and summaries.
 """
 
+import json
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-from datetime import datetime
-import json
 
 import mne
 import numpy as np
-import pandas as pd
 
 
 def generate_processing_report(
@@ -21,7 +20,7 @@ def generate_processing_report(
     output_path: Union[str, Path],
     include_plots: bool = True,
     title: str = "EEG Processing Report",
-    verbose: Optional[bool] = None
+    verbose: Optional[bool] = None,
 ) -> str:
     """Generate a comprehensive HTML processing report.
 
@@ -56,10 +55,10 @@ def generate_processing_report(
 
     Examples
     --------
-    >>> steps = [{'step_name': 'Filtering', 'parameters': {'low_freq': 0.1}, 
+    >>> steps = [{'step_name': 'Filtering', 'parameters': {'low_freq': 0.1},
     ...           'execution_time': 2.3, 'description': 'Applied filter'}]
     >>> report_path = generate_processing_report(raw_original, raw_cleaned, steps, "report.html")
-    
+
     See Also
     --------
     plot_raw_comparison : Create before/after comparison plots
@@ -71,17 +70,17 @@ def generate_processing_report(
         raise TypeError(
             f"raw_original must be an MNE Raw object, got {type(raw_original).__name__}"
         )
-    
+
     if not isinstance(raw_cleaned, mne.io.BaseRaw):
         raise TypeError(
             f"raw_cleaned must be an MNE Raw object, got {type(raw_cleaned).__name__}"
         )
-    
+
     if not isinstance(processing_steps, list):
         raise TypeError("processing_steps must be a list of dictionaries")
-    
+
     # Validate processing steps format
-    required_keys = ['step_name', 'parameters', 'execution_time', 'description']
+    required_keys = ["step_name", "parameters", "execution_time", "description"]
     for i, step in enumerate(processing_steps):
         if not isinstance(step, dict):
             raise ValueError(f"processing_steps[{i}] must be a dictionary")
@@ -95,7 +94,7 @@ def generate_processing_report(
 
         # Calculate processing statistics
         stats = _calculate_processing_stats(raw_original, raw_cleaned)
-        
+
         # Generate HTML content
         html_content = _generate_html_report(
             raw_original=raw_original,
@@ -104,11 +103,11 @@ def generate_processing_report(
             stats=stats,
             title=title,
             include_plots=include_plots,
-            output_dir=output_path.parent
+            output_dir=output_path.parent,
         )
 
         # Write HTML file
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(html_content)
 
         if verbose:
@@ -121,37 +120,37 @@ def generate_processing_report(
 
 
 def _calculate_processing_stats(
-    raw_original: mne.io.Raw,
-    raw_cleaned: mne.io.Raw
+    raw_original: mne.io.Raw, raw_cleaned: mne.io.Raw
 ) -> Dict:
     """Calculate statistics comparing original and cleaned data."""
     stats = {}
-    
+
     # Basic info
-    stats['original_duration'] = raw_original.times[-1] - raw_original.times[0]
-    stats['cleaned_duration'] = raw_cleaned.times[-1] - raw_cleaned.times[0]
-    stats['original_channels'] = len(raw_original.ch_names)
-    stats['cleaned_channels'] = len(raw_cleaned.ch_names)
-    stats['sampling_rate'] = raw_original.info['sfreq']
-    
+    stats["original_duration"] = raw_original.times[-1] - raw_original.times[0]
+    stats["cleaned_duration"] = raw_cleaned.times[-1] - raw_cleaned.times[0]
+    stats["original_channels"] = len(raw_original.ch_names)
+    stats["cleaned_channels"] = len(raw_cleaned.ch_names)
+    stats["sampling_rate"] = raw_original.info["sfreq"]
+
     # Data quality metrics
     orig_data = raw_original.get_data()
     clean_data = raw_cleaned.get_data()
-    
-    stats['original_std_mean'] = float(np.mean(np.std(orig_data, axis=1)))
-    stats['cleaned_std_mean'] = float(np.mean(np.std(clean_data, axis=1)))
-    stats['noise_reduction'] = float(
-        (stats['original_std_mean'] - stats['cleaned_std_mean']) / stats['original_std_mean'] * 100
+
+    stats["original_std_mean"] = float(np.mean(np.std(orig_data, axis=1)))
+    stats["cleaned_std_mean"] = float(np.mean(np.std(clean_data, axis=1)))
+    stats["noise_reduction"] = float(
+        (stats["original_std_mean"] - stats["cleaned_std_mean"])
+        / stats["original_std_mean"]
+        * 100
     )
-    
+
     # Annotation counts
-    stats['original_annotations'] = len(raw_original.annotations)
-    stats['cleaned_annotations'] = len(raw_cleaned.annotations)
-    stats['bad_annotations'] = len([
-        ann for ann in raw_cleaned.annotations 
-        if ann['description'].startswith('BAD')
-    ])
-    
+    stats["original_annotations"] = len(raw_original.annotations)
+    stats["cleaned_annotations"] = len(raw_cleaned.annotations)
+    stats["bad_annotations"] = len(
+        [ann for ann in raw_cleaned.annotations if ann["description"].startswith("BAD")]
+    )
+
     return stats
 
 
@@ -162,10 +161,10 @@ def _generate_html_report(
     stats: Dict,
     title: str,
     include_plots: bool,
-    output_dir: Path
+    output_dir: Path,
 ) -> str:
     """Generate the HTML content for the processing report."""
-    
+
     # HTML template
     html_template = f"""
     <!DOCTYPE html>
@@ -294,11 +293,11 @@ def _generate_html_report(
                 </thead>
                 <tbody>
     """
-    
+
     # Add processing steps
     total_time = 0
     for step in processing_steps:
-        params_str = ', '.join([f"{k}={v}" for k, v in step['parameters'].items()])
+        params_str = ", ".join([f"{k}={v}" for k, v in step["parameters"].items()])
         html_template += f"""
                     <tr>
                         <td><strong>{step['step_name']}</strong></td>
@@ -307,8 +306,8 @@ def _generate_html_report(
                         <td>{step['execution_time']:.2f}s</td>
                     </tr>
         """
-        total_time += step['execution_time']
-    
+        total_time += step["execution_time"]
+
     # Continue HTML template
     html_template += f"""
                 </tbody>
@@ -347,7 +346,7 @@ def _generate_html_report(
                 </tbody>
             </table>
     """
-    
+
     # Add plots if requested
     if include_plots:
         html_template += """
@@ -358,7 +357,7 @@ def _generate_html_report(
                 <!-- Plot will be added here if generated -->
             </div>
         """
-    
+
     # Close HTML
     html_template += f"""
             <div class="timestamp">
@@ -368,13 +367,12 @@ def _generate_html_report(
     </body>
     </html>
     """
-    
+
     return html_template
 
 
 def create_processing_summary(
-    processing_steps: List[Dict],
-    output_path: Optional[Union[str, Path]] = None
+    processing_steps: List[Dict], output_path: Optional[Union[str, Path]] = None
 ) -> Dict:
     """Create a JSON summary of processing steps.
 
@@ -391,16 +389,16 @@ def create_processing_summary(
         Processing summary with statistics.
     """
     summary = {
-        'total_steps': len(processing_steps),
-        'total_time': sum(step['execution_time'] for step in processing_steps),
-        'steps': processing_steps,
-        'generated_at': datetime.now().isoformat()
+        "total_steps": len(processing_steps),
+        "total_time": sum(step["execution_time"] for step in processing_steps),
+        "steps": processing_steps,
+        "generated_at": datetime.now().isoformat(),
     }
-    
+
     if output_path is not None:
         output_path = Path(output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, 'w') as f:
+        with open(output_path, "w") as f:
             json.dump(summary, f, indent=2)
-    
+
     return summary
