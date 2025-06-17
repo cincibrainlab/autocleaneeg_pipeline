@@ -54,59 +54,17 @@ def generate_processing_report(
     report_path : str
         Path to the generated HTML report.
 
-    Raises
-    ------
-    TypeError
-        If inputs are not correct types.
-    ValueError
-        If processing_steps format is invalid.
-    RuntimeError
-        If report generation fails.
-
-    Notes
-    -----
-    **Report Sections:**
-    1. Executive Summary - Key statistics and overview
-    2. Data Information - Channel counts, duration, sampling rate
-    3. Processing Pipeline - Step-by-step breakdown
-    4. Quality Metrics - Before/after comparisons
-    5. Visualizations - Plots showing processing effects (optional)
-
-    **Processing Steps Format:**
-    Each step should be a dictionary with:
-    - step_name: Human-readable name
-    - parameters: Dict of parameters used
-    - execution_time: Processing duration in seconds
-    - description: What the step accomplished
-
     Examples
     --------
-    Basic report generation:
-
-    >>> from autoclean.functions.visualization import generate_processing_report
-    >>> steps = [
-    ...     {
-    ...         'step_name': 'Filtering',
-    ...         'parameters': {'low_freq': 0.1, 'high_freq': 50.0},
-    ...         'execution_time': 2.3,
-    ...         'description': 'Applied bandpass filter'
-    ...     }
-    ... ]
-    >>> report_path = generate_processing_report(
-    ...     raw_original, raw_cleaned, steps, "report.html"
-    ... )
-
-    Report without plots:
-
-    >>> report_path = generate_processing_report(
-    ...     raw_original, raw_cleaned, steps, "report.html",
-    ...     include_plots=False
-    ... )
-
+    >>> steps = [{'step_name': 'Filtering', 'parameters': {'low_freq': 0.1}, 
+    ...           'execution_time': 2.3, 'description': 'Applied filter'}]
+    >>> report_path = generate_processing_report(raw_original, raw_cleaned, steps, "report.html")
+    
     See Also
     --------
     plot_raw_comparison : Create before/after comparison plots
     plot_ica_components : Visualize ICA components
+    create_processing_summary : Create JSON processing summary
     """
     # Input validation
     if not isinstance(raw_original, mne.io.BaseRaw):
