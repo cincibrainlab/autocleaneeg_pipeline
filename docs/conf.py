@@ -26,7 +26,7 @@ author = 'Gavin Gammoh, Ernest Pedapati'
 
 # The full version, including alpha/beta/rc tags
 # from autoclean import __version__ as version
-version = '2.0.0'  # Hardcoded to avoid import errors
+version = '2.1.0'  # Hardcoded to avoid import errors
 release = version
 
 # -- General configuration ---------------------------------------------------
@@ -74,7 +74,7 @@ autodoc_typehints_format = 'short'
 
 # Configure autosummary
 autosummary_generate = True
-autosummary_imported_members = True  # Include imported members in autosummary
+autosummary_imported_members = False  # Disable imported members to avoid missing function errors
 
 # Configure NumPy docstrings
 numpydoc_show_class_members = False
@@ -173,4 +173,7 @@ autodoc_mock_imports = [
     'pybv', 'torch', 'pyprep', 'eeglabio', 'autoreject', 'ulid',
     'unqlite', 'loguru', 'reportlab', 'pyqt5', 'pyvistaqt',
     'tqdm', 'yaml', 'asyncio', 'json', 'datetime', 'xarray',
+    'mne_icalabel', 'cython', 'pydantic', 'nibabel', 'platformdirs',
+    'defusedxml', 'python_ulid', 'networkx', 'bctpy', 'fooof',
+    'mne_connectivity', 'fastparquet', 'python_picard', 'picard',
 ] 
