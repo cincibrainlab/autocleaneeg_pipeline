@@ -238,7 +238,7 @@ class UserConfigManager:
         workspace_dir.mkdir(parents=True, exist_ok=True)
         (workspace_dir / "tasks").mkdir(exist_ok=True)
         (workspace_dir / "output").mkdir(exist_ok=True)
-        
+
         # Copy template task file to tasks directory
         self._create_template_task(workspace_dir / "tasks")
 
@@ -328,6 +328,7 @@ if __name__ == "__main__":
             # Try to copy from package templates
             try:
                 import autoclean
+
                 package_dir = Path(autoclean.__file__).parent
                 source_file = package_dir / "templates" / "custom_task_template.py"
 
@@ -339,6 +340,7 @@ if __name__ == "__main__":
                 self._create_fallback_template(dest_file)
 
             from rich.console import Console
+
             console = Console()
             console.print(f"[green]📋[/green] Template task: [dim]{dest_file}[/dim]")
 
