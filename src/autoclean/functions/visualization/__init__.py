@@ -10,22 +10,16 @@ plot_raw_comparison : Plot before/after raw data comparison
 plot_ica_components : Visualize ICA components
 plot_psd_topography : Create power spectral density topography plots
 generate_processing_report : Generate HTML processing report
-plot_epoch_statistics : Plot epoch quality statistics
+create_processing_summary : Create JSON processing summary
 """
 
-# Imports will be added as functions are implemented
-# from .plotting import (
-#     plot_raw_comparison,
-#     plot_ica_components, 
-#     plot_psd_topography,
-#     plot_epoch_statistics
-# )
-# from .reports import generate_processing_report
+from .plotting import plot_raw_comparison, plot_ica_components, plot_psd_topography
+from .reports import generate_processing_report, create_processing_summary
 
 __all__ = [
-    # "plot_raw_comparison",
-    # "plot_ica_components",
-    # "plot_psd_topography", 
-    # "generate_processing_report",
-    # "plot_epoch_statistics"
+    "plot_raw_comparison",
+    "plot_ica_components",
+    "plot_psd_topography", 
+    "generate_processing_report",
+    "create_processing_summary"
 ]

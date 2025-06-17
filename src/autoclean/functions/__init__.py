@@ -71,16 +71,18 @@ from .segment_rejection import (
 from .ica import (
     fit_ica,
     classify_ica_components,
-    apply_ica_rejection
+    apply_ica_rejection,
+    apply_iclabel_rejection
 )
 
 # Visualization functions
-# from .visualization import (
-#     plot_raw_comparison,
-#     plot_ica_components,
-#     plot_psd_topography,
-#     generate_processing_report
-# )
+from .visualization import (
+    plot_raw_comparison,
+    plot_ica_components,
+    plot_psd_topography,
+    generate_processing_report,
+    create_processing_summary
+)
 
 # Define what gets imported with "from autoclean.functions import *"
 __all__ = [
@@ -111,5 +113,12 @@ __all__ = [
     "fit_ica",
     "classify_ica_components",
     "apply_ica_rejection",
+    "apply_iclabel_rejection",
+    # Visualization functions
+    "plot_raw_comparison",
+    "plot_ica_components",
+    "plot_psd_topography",
+    "generate_processing_report",
+    "create_processing_summary",
     # Will be populated as more functions are implemented
 ]

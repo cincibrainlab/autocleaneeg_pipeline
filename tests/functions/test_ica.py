@@ -154,6 +154,19 @@ class TestClassifyIcaComponents:
 
     def test_dataframe_structure(self, mock_raw, mock_ica):
         """Test that returned DataFrame has correct structure."""
+        # Mock the ICA labels structure to match real ICLabel output
+        mock_ica.labels_ = {
+            'brain': [0, 5],
+            'eog': [1, 2], 
+            'muscle': [3],
+            'ecg': [],
+            'line_noise': [4],
+            'ch_noise': [],
+            'other': [6, 7, 8, 9]
+        }
+        mock_ica.labels_scores_ = MagicMock()
+        mock_ica.labels_scores_.max.return_value = np.array([0.8, 0.9, 0.7, 0.85, 0.95, 0.75, 0.6, 0.65, 0.7, 0.8])
+        
         with patch('autoclean.functions.ica.ica_processing.mne_icalabel.label_components'):
             result = classify_ica_components(mock_raw, mock_ica)
             
@@ -162,14 +175,12 @@ class TestClassifyIcaComponents:
             assert "component" in result.columns
             assert "ic_type" in result.columns
             assert "confidence" in result.columns
+            assert "annotator" in result.columns
             
-            # Check that all probability columns are present
-            expected_prob_cols = [
-                "prob_brain", "prob_eye", "prob_muscle", "prob_heart",
-                "prob_line_noise", "prob_ch_noise", "prob_other"
-            ]
-            for col in expected_prob_cols:
-                assert col in result.columns
+            # Check that component types are correctly assigned
+            assert result.loc[0, "ic_type"] == "brain"
+            assert result.loc[1, "ic_type"] == "eog"
+            assert result.loc[3, "ic_type"] == "muscle"
 
 
 class TestApplyIcaRejection:
@@ -253,21 +264,16 @@ class TestIntegration:
         mock_ica_instance = MagicMock(spec=ICA)
         mock_ica_instance.n_components_ = 10
         mock_ica_instance.labels_ = {
-            "iclabel": {
-                "y_pred_proba": np.array([
-                    [0.9, 0.05, 0.05, 0, 0, 0, 0],  # brain
-                    [0.1, 0.8, 0.1, 0, 0, 0, 0],   # eye
-                    [0.1, 0.1, 0.8, 0, 0, 0, 0],   # muscle
-                    [0.9, 0.05, 0.05, 0, 0, 0, 0], # brain
-                    [0.9, 0.05, 0.05, 0, 0, 0, 0], # brain
-                    [0.1, 0.1, 0.1, 0.7, 0, 0, 0], # heart
-                    [0.9, 0.05, 0.05, 0, 0, 0, 0], # brain
-                    [0.9, 0.05, 0.05, 0, 0, 0, 0], # brain
-                    [0.1, 0.8, 0.1, 0, 0, 0, 0],   # eye
-                    [0.9, 0.05, 0.05, 0, 0, 0, 0], # brain
-                ])
-            }
+            'brain': [0, 3, 4, 6, 7, 9],
+            'eog': [1, 8], 
+            'muscle': [2],
+            'ecg': [5],
+            'line_noise': [],
+            'ch_noise': [],
+            'other': []
         }
+        mock_ica_instance.labels_scores_ = MagicMock()
+        mock_ica_instance.labels_scores_.max.return_value = np.array([0.9, 0.8, 0.8, 0.9, 0.9, 0.7, 0.9, 0.9, 0.8, 0.9])
         mock_ica_class.return_value = mock_ica_instance
         
         # Step 1: Fit ICA
@@ -281,11 +287,11 @@ class TestIntegration:
         
         # Step 3: Find artifact components
         artifacts = labels[
-            (labels["ic_type"].isin(["eye", "muscle", "heart"])) &
+            (labels["ic_type"].isin(["eog", "muscle", "ecg"])) &
             (labels["confidence"] > 0.7)
         ]["component"].tolist()
         
-        expected_artifacts = [1, 2, 5, 8]  # Based on mock probabilities
+        expected_artifacts = [1, 2, 5, 8]  # Based on mock labels: eog=[1,8], muscle=[2], ecg=[5]
         assert set(artifacts) == set(expected_artifacts)
         
         # Step 4: Apply rejection
@@ -299,28 +305,31 @@ class TestIntegration:
         """Test the _icalabel_to_dataframe helper function."""
         from autoclean.functions.ica.ica_processing import _icalabel_to_dataframe
         
-        # Create mock ICA with ICLabel results
+        # Create mock ICA with real ICLabel results structure
         mock_ica = MagicMock(spec=ICA)
+        mock_ica.n_components_ = 3
         mock_ica.labels_ = {
-            "iclabel": {
-                "y_pred_proba": np.array([
-                    [0.9, 0.05, 0.05, 0, 0, 0, 0],  # brain
-                    [0.1, 0.8, 0.1, 0, 0, 0, 0],   # eye
-                    [0.1, 0.1, 0.8, 0, 0, 0, 0],   # muscle
-                ])
-            }
+            'brain': [0],
+            'eog': [1],
+            'muscle': [2],
+            'ecg': [],
+            'line_noise': [],
+            'ch_noise': [],
+            'other': []
         }
+        mock_ica.labels_scores_ = MagicMock()
+        mock_ica.labels_scores_.max.return_value = np.array([0.9, 0.8, 0.8])
         
         result = _icalabel_to_dataframe(mock_ica)
         
         # Check structure
         assert isinstance(result, pd.DataFrame)
         assert len(result) == 3
-        assert list(result["ic_type"]) == ["brain", "eye", "muscle"]
+        assert list(result["ic_type"]) == ["brain", "eog", "muscle"]
         assert list(result["confidence"]) == [0.9, 0.8, 0.8]
         
-        # Check probability columns
-        assert "prob_brain" in result.columns
-        assert "prob_eye" in result.columns
-        assert result.loc[0, "prob_brain"] == 0.9
-        assert result.loc[1, "prob_eye"] == 0.8
+        # Check required columns
+        assert "component" in result.columns
+        assert "annotator" in result.columns
+        assert "ic_type" in result.columns
+        assert "confidence" in result.columns

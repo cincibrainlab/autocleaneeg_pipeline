@@ -163,8 +163,6 @@ def classify_ica_components(
         The fitted ICA object to classify.
     method : str, default "iclabel"
         Classification method to use. Currently supports "iclabel".
-    verbose : bool or None, default None
-        Control verbosity of output.
 
     Returns
     -------
@@ -244,7 +242,7 @@ def classify_ica_components(
 
     try:
         # Run ICLabel classification
-        mne_icalabel.label_components(raw, ica, method=method, verbose=verbose)
+        mne_icalabel.label_components(raw, ica, method=method)
 
         # Extract results into a DataFrame
         component_labels = _icalabel_to_dataframe(ica)
@@ -358,7 +356,7 @@ def apply_ica_rejection(
         )
 
     try:
-        # Set components to exclude
+        # Set components to exclude - simple approach matching original mixin
         ica_copy = ica.copy()
         ica_copy.exclude = components_to_reject
 
@@ -376,29 +374,127 @@ def _icalabel_to_dataframe(ica: ICA) -> pd.DataFrame:
     
     Helper function to extract ICLabel classification results from an ICA object
     and format them into a convenient DataFrame structure.
+    
+    This matches the format used in the original AutoClean ICA mixin.
     """
-    # ICLabel component types in order
-    iclabel_types = ["brain", "eye", "muscle", "heart", "line_noise", "ch_noise", "other"]
+    # Initialize ic_type array with empty strings
+    ic_type = [""] * ica.n_components_
     
-    # Get the classification probabilities
-    labels_probabilities = ica.labels_["iclabel"]["y_pred_proba"]
+    # Fill in the component types based on labels
+    for label, comps in ica.labels_.items():
+        for comp in comps:
+            ic_type[comp] = label
     
-    # Get the predicted labels (highest probability)
-    predicted_labels = np.argmax(labels_probabilities, axis=1)
-    predicted_types = [iclabel_types[i] for i in predicted_labels]
-    
-    # Get confidence scores (highest probability)
-    confidence_scores = np.max(labels_probabilities, axis=1)
-    
-    # Create DataFrame
+    # Create DataFrame matching the original format with component index as DataFrame index
     results = pd.DataFrame({
-        "component": range(len(predicted_types)),
-        "ic_type": predicted_types,
-        "confidence": confidence_scores,
-    })
-    
-    # Add probability columns for each component type
-    for i, comp_type in enumerate(iclabel_types):
-        results[f"prob_{comp_type}"] = labels_probabilities[:, i]
+        "component": getattr(ica, '_ica_names', list(range(ica.n_components_))),
+        "annotator": ["ic_label"] * ica.n_components_,
+        "ic_type": ic_type,
+        "confidence": ica.labels_scores_.max(1) if hasattr(ica, 'labels_scores_') else [1.0] * ica.n_components_,
+    }, index=range(ica.n_components_))  # Ensure index is component indices
     
     return results
+
+
+def apply_iclabel_rejection(
+    raw: mne.io.Raw,
+    ica: ICA,
+    labels_df: pd.DataFrame,
+    ic_flags_to_reject: List[str] = ["eog", "muscle", "ecg"],
+    ic_rejection_threshold: float = 0.8,
+    verbose: Optional[bool] = None
+) -> tuple[mne.io.Raw, List[int]]:
+    """Apply ICA rejection based on ICLabel classifications and criteria.
+
+    This function combines the classification results with rejection criteria
+    to automatically identify and remove artifact components, similar to the
+    original AutoClean mixin behavior.
+
+    Parameters
+    ----------
+    raw : mne.io.Raw
+        The raw EEG data to clean.
+    ica : mne.preprocessing.ICA
+        The fitted ICA object with ICLabel classifications.
+    labels_df : pd.DataFrame
+        DataFrame with ICLabel results from classify_ica_components().
+    ic_flags_to_reject : list of str, default ["eog", "muscle", "ecg"]
+        Component types to consider for rejection.
+    ic_rejection_threshold : float, default 0.8
+        Confidence threshold for rejecting components.
+    verbose : bool or None, default None
+        Control verbosity of output.
+
+    Returns
+    -------
+    raw_cleaned : mne.io.Raw
+        The cleaned EEG data with artifact components removed.
+    rejected_components : list of int
+        List of component indices that were rejected.
+
+    Examples
+    --------
+    Complete ICA workflow with automatic rejection:
+
+    >>> # Fit ICA and classify components
+    >>> ica = fit_ica(raw)
+    >>> labels = classify_ica_components(raw, ica)
+    >>> 
+    >>> # Apply automatic rejection
+    >>> raw_clean, rejected = apply_iclabel_rejection(
+    ...     raw, ica, labels,
+    ...     ic_flags_to_reject=["eog", "muscle"],
+    ...     ic_rejection_threshold=0.8
+    ... )
+    >>> print(f"Rejected components: {rejected}")
+
+    Conservative rejection:
+
+    >>> raw_clean, rejected = apply_iclabel_rejection(
+    ...     raw, ica, labels,
+    ...     ic_flags_to_reject=["eog"],
+    ...     ic_rejection_threshold=0.9
+    ... )
+    """
+    # Find components that meet rejection criteria - use DataFrame index like original mixin
+    rejected_components = []
+    for idx, row in labels_df.iterrows():
+        if (
+            row["ic_type"] in ic_flags_to_reject
+            and row["confidence"] > ic_rejection_threshold
+        ):
+            rejected_components.append(idx)
+
+    # Match original mixin logic exactly
+    if not rejected_components:
+        if verbose:
+            print("No new components met ICLabel rejection criteria in this step.")
+        return raw, rejected_components
+    else:
+        if verbose:
+            print(f"Identified {len(rejected_components)} components for rejection based on ICLabel: {rejected_components}")
+        
+        # Combine with any existing exclusions like original mixin
+        ica_copy = ica.copy()
+        if ica_copy.exclude is None:
+            ica_copy.exclude = []
+        
+        current_exclusions = set(ica_copy.exclude)
+        for idx in rejected_components:
+            current_exclusions.add(idx)
+        ica_copy.exclude = sorted(list(current_exclusions))
+        
+        if verbose:
+            print(f"Total components now marked for exclusion: {ica_copy.exclude}")
+        
+        if not ica_copy.exclude:
+            if verbose:
+                print("No components are marked for exclusion. Skipping ICA apply.")
+            return raw, rejected_components
+        else:
+            # Apply ICA to remove the excluded components (modifies in place like original mixin)
+            ica_copy.apply(raw, verbose=verbose)
+            if verbose:
+                print(f"Applied ICA, removing/attenuating {len(ica_copy.exclude)} components.")
+
+    return raw, rejected_components
