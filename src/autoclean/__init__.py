@@ -79,15 +79,18 @@ def __getattr__(name):
         from .functions.artifacts import interpolate_bad_channels
 
         return interpolate_bad_channels
-    # elif name == "fit_ica":
-    #     from .functions.artifacts import fit_ica
-    #     return fit_ica
-    # elif name == "classify_ica_components":
-    #     from .functions.artifacts import classify_ica_components
-    #     return classify_ica_components
-    # elif name == "apply_ica_rejection":
-    #     from .functions.artifacts import apply_ica_rejection
-    #     return apply_ica_rejection
+    elif name == "fit_ica":
+        from .functions.ica import fit_ica
+        return fit_ica
+    elif name == "classify_ica_components":
+        from .functions.ica import classify_ica_components
+        return classify_ica_components
+    elif name == "apply_ica_rejection":
+        from .functions.ica import apply_ica_rejection
+        return apply_ica_rejection
+    elif name == "apply_iclabel_rejection":
+        from .functions.ica import apply_iclabel_rejection
+        return apply_iclabel_rejection
 
     # Advanced functions
     elif name == "autoreject_epochs":
@@ -95,11 +98,11 @@ def __getattr__(name):
 
         return autoreject_epochs
     elif name == "annotate_noisy_segments":
-        from .functions.advanced import annotate_noisy_segments
+        from .functions.segment_rejection import annotate_noisy_segments
 
         return annotate_noisy_segments
     elif name == "annotate_uncorrelated_segments":
-        from .functions.advanced import annotate_uncorrelated_segments
+        from .functions.segment_rejection import annotate_uncorrelated_segments
 
         return annotate_uncorrelated_segments
 
@@ -140,9 +143,11 @@ __all__ = [
     # Artifact functions
     "detect_bad_channels",
     "interpolate_bad_channels",
-    # "fit_ica",
-    # "classify_ica_components",
-    # "apply_ica_rejection",
+    # ICA functions
+    "fit_ica",
+    "classify_ica_components",
+    "apply_ica_rejection",
+    "apply_iclabel_rejection",
     # Advanced functions
     "autoreject_epochs",
     "annotate_noisy_segments",
