@@ -395,21 +395,22 @@ class BasicStepsMixin:
                 )
                 return data
 
-        if ref_type == "average":
-            rereferenced_data = data.copy().set_eeg_reference(
-                ref_type, projection=False
-            )
-        else:
-            rereferenced_data = data.copy().set_eeg_reference(ref_type)
-
+        # Call standalone function
+        from autoclean.functions.preprocessing.referencing import rereference_data as standalone_rereference_data
+        rereferenced_data = standalone_rereference_data(
+            data=data,
+            ref_channels=ref_type,
+            projection=False if ref_type == "average" else True,
+            verbose=False
+        )
+        
+        # Pipeline integration
+        self._update_instance_data(data, rereferenced_data, use_epochs)
         self._save_raw_result(rereferenced_data, stage_name)
 
         metadata = {
             "new_ref_type": ref_type,
         }
-
-        self._update_instance_data(data, rereferenced_data, use_epochs)
-
         self._update_metadata("step_rereference_data", metadata)
 
         return rereferenced_data
