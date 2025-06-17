@@ -54,61 +54,16 @@ def fit_ica(
     ica : mne.preprocessing.ICA
         The fitted ICA object containing the decomposition.
 
-    Raises
-    ------
-    TypeError
-        If raw is not an MNE Raw object.
-    ValueError
-        If parameters are invalid.
-    RuntimeError
-        If ICA fitting fails.
-
-    Notes
-    -----
-    **ICA Methods:**
-    - "fastica": Fast Fixed-Point Algorithm, good general purpose choice
-    - "infomax": Information Maximization, robust to outliers
-    - "picard": Preconditioned ICA, fastest convergence
-
-    **Parameter Guidelines:**
-    - n_components: Typically 15-25 for dense arrays, fewer for sparse
-    - For artifact removal, components should capture major noise sources
-    - Higher component counts provide more detailed decomposition
-
-    **Performance Considerations:**
-    - Fitting time scales with number of components and data length
-    - "picard" method is typically fastest
-    - Consider downsampling data to 250-500 Hz before ICA for speed
-
     Examples
     --------
-    Basic ICA fitting:
-
-    >>> from autoclean.functions.ica import fit_ica
     >>> ica = fit_ica(raw)
-    >>> print(f"Fitted {ica.n_components_} components")
-
-    Custom ICA parameters:
-
-    >>> ica = fit_ica(
-    ...     raw,
-    ...     n_components=20,
-    ...     method="picard",
-    ...     max_iter=1000,
-    ...     picks="eeg"
-    ... )
-
+    >>> ica = fit_ica(raw, n_components=20, method="picard")
+    
     See Also
     --------
     classify_ica_components : Classify ICA components using ICLabel
     apply_ica_rejection : Apply ICA to remove artifact components
     mne.preprocessing.ICA : MNE ICA implementation
-
-    References
-    ----------
-    Makeig, S., et al. (1996). Independent component analysis of
-    electroencephalographic data. Advances in neural information processing
-    systems, 8.
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):
@@ -173,58 +128,16 @@ def classify_ica_components(
         - "confidence": Confidence score (0-1) for the prediction
         - Additional columns with probabilities for each component type
 
-    Raises
-    ------
-    TypeError
-        If inputs are not correct MNE objects.
-    ValueError
-        If classification method is not supported.
-    RuntimeError
-        If classification fails.
-
-    Notes
-    -----
-    **ICLabel Component Types:**
-    - "brain": Neural brain activity
-    - "eye": Eye movement artifacts (EOG)
-    - "muscle": Muscle activity artifacts (EMG)
-    - "heart": Cardiac artifacts (ECG)
-    - "line_noise": Power line noise (50/60 Hz)
-    - "ch_noise": Channel-specific noise
-    - "other": Other artifacts
-
-    **Classification Confidence:**
-    - Values range from 0 to 1
-    - Higher values indicate more confident predictions
-    - Typical thresholds: 0.7-0.8 for artifact rejection
-
     Examples
     --------
-    Basic component classification:
-
-    >>> from autoclean.functions.ica import classify_ica_components
     >>> labels = classify_ica_components(raw, ica)
-    >>> print(labels[["component", "ic_type", "confidence"]])
-
-    Find high-confidence artifact components:
-
-    >>> artifacts = labels[
-    ...     (labels["ic_type"].isin(["eye", "muscle", "heart"])) &
-    ...     (labels["confidence"] > 0.8)
-    ... ]
-    >>> print(f"Found {len(artifacts)} artifact components")
-
+    >>> artifacts = labels[(labels["ic_type"] == "eye") & (labels["confidence"] > 0.8)]
+    
     See Also
     --------
     fit_ica : Fit ICA decomposition to EEG data
     apply_ica_rejection : Apply ICA to remove artifact components
     mne_icalabel.label_components : ICLabel implementation
-
-    References
-    ----------
-    Pion-Tonachini, L., et al. (2019). ICLabel: An automated
-    electroencephalographic independent component classifier, dataset, and
-    website. NeuroImage, 198, 181-197.
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):
@@ -283,54 +196,15 @@ def apply_ica_rejection(
     raw_cleaned : mne.io.Raw
         The cleaned EEG data with artifact components removed.
 
-    Raises
-    ------
-    TypeError
-        If inputs are not correct MNE objects.
-    ValueError
-        If component indices are invalid.
-    RuntimeError
-        If ICA application fails.
-
-    Notes
-    -----
-    **Component Rejection:**
-    - ICA removes components by subtracting their contribution from the data
-    - Rejected components are zeroed out in the mixing matrix
-    - Original data rank is preserved
-
-    **Best Practices:**
-    - Always validate components before rejection (visual inspection)
-    - Reject conservatively - removing brain components degrades signal
-    - Document which components were rejected for reproducibility
-
     Examples
     --------
-    Remove specific components:
-
-    >>> from autoclean.functions.ica import apply_ica_rejection
-    >>> # Remove components 0, 2, and 5
     >>> raw_clean = apply_ica_rejection(raw, ica, [0, 2, 5])
-
-    Remove components based on classification:
-
-    >>> # Get artifact components from classification
-    >>> artifacts = labels[
-    ...     (labels["ic_type"] == "eye") & 
-    ...     (labels["confidence"] > 0.8)
-    ... ]["component"].tolist()
-    >>> raw_clean = apply_ica_rejection(raw, ica, artifacts)
-
+    
     See Also
     --------
     fit_ica : Fit ICA decomposition to EEG data
     classify_ica_components : Classify ICA components
     mne.preprocessing.ICA.apply : Apply ICA transformation
-
-    References
-    ----------
-    Jung, T. P., et al. (2000). Removing electroencephalographic artifacts by
-    blind source separation. Psychophysiology, 37(2), 163-178.
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):
@@ -434,27 +308,13 @@ def apply_iclabel_rejection(
 
     Examples
     --------
-    Complete ICA workflow with automatic rejection:
-
-    >>> # Fit ICA and classify components
-    >>> ica = fit_ica(raw)
-    >>> labels = classify_ica_components(raw, ica)
-    >>> 
-    >>> # Apply automatic rejection
-    >>> raw_clean, rejected = apply_iclabel_rejection(
-    ...     raw, ica, labels,
-    ...     ic_flags_to_reject=["eog", "muscle"],
-    ...     ic_rejection_threshold=0.8
-    ... )
-    >>> print(f"Rejected components: {rejected}")
-
-    Conservative rejection:
-
-    >>> raw_clean, rejected = apply_iclabel_rejection(
-    ...     raw, ica, labels,
-    ...     ic_flags_to_reject=["eog"],
-    ...     ic_rejection_threshold=0.9
-    ... )
+    >>> raw_clean, rejected = apply_iclabel_rejection(raw, ica, labels)
+    
+    See Also
+    --------
+    fit_ica : Fit ICA decomposition to EEG data
+    classify_ica_components : Classify ICA components
+    apply_ica_rejection : Apply ICA to remove specific components
     """
     # Find components that meet rejection criteria - use DataFrame index like original mixin
     rejected_components = []
