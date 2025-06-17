@@ -14,8 +14,8 @@ from unittest.mock import Mock, patch
 from tests.fixtures.synthetic_data import create_synthetic_raw
 
 # Import the functions to test
-from autoclean.functions.advanced import (
-    autoreject_epochs,
+from autoclean.functions.advanced import autoreject_epochs
+from autoclean.functions.segment_rejection import (
     annotate_noisy_segments,
     annotate_uncorrelated_segments
 )
@@ -424,7 +424,7 @@ class TestAdvancedHelperFunctions:
     
     def test_epochs_to_xr(self):
         """Test epochs to xarray conversion."""
-        from autoclean.functions.advanced.segment_rejection import _epochs_to_xr
+        from autoclean.functions.segment_rejection.segment_rejection import _epochs_to_xr
         
         raw = create_synthetic_raw(duration=5.0, sfreq=250, n_channels=8)
         events = mne.make_fixed_length_events(raw, duration=1.0)
@@ -440,7 +440,7 @@ class TestAdvancedHelperFunctions:
     
     def test_get_outliers_quantile(self):
         """Test quantile-based outlier detection."""
-        from autoclean.functions.advanced.segment_rejection import _get_outliers_quantile
+        from autoclean.functions.segment_rejection.segment_rejection import _get_outliers_quantile
         import xarray as xr
         
         # Create test data
@@ -457,7 +457,7 @@ class TestAdvancedHelperFunctions:
     
     def test_detect_outliers(self):
         """Test outlier detection function."""
-        from autoclean.functions.advanced.segment_rejection import _detect_outliers
+        from autoclean.functions.segment_rejection.segment_rejection import _detect_outliers
         import xarray as xr
         
         # Create test data with some clear outliers
