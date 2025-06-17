@@ -61,72 +61,16 @@ def plot_raw_comparison(
     fig : matplotlib.figure.Figure
         The created figure object.
 
-    Raises
-    ------
-    TypeError
-        If inputs are not MNE Raw objects.
-    ValueError
-        If channel names or time vectors don't match between datasets.
-    RuntimeError
-        If plotting fails.
-
-    Notes
-    -----
-    **Plot Features:**
-    - Original data shown in red
-    - Cleaned data shown in black
-    - Each channel normalized independently for visibility
-    - Automatic downsampling to reduce file size
-    - Proper channel spacing and labeling
-
-    **Data Processing:**
-    1. Validates input compatibility (channels, times)
-    2. Downsamples data to target frequency
-    3. Normalizes each channel individually (removes DC, scales by std)
-    4. Applies scaling factor for visibility
-    5. Creates overlay plot with proper spacing
-
-    **Performance Considerations:**
-    - Downsampling significantly reduces file size
-    - Default 100 Hz is usually sufficient for visualization
-    - Figure width automatically scaled based on duration
-
     Examples
     --------
-    Basic comparison plot:
-
-    >>> from autoclean.functions.visualization import plot_raw_comparison
     >>> fig = plot_raw_comparison(raw_original, raw_cleaned)
-    >>> plt.show()
-
-    Save to file with custom parameters:
-
-    >>> fig = plot_raw_comparison(
-    ...     raw_original, raw_cleaned,
-    ...     output_path="comparison.png",
-    ...     downsample_to=50.0,
-    ...     scaling_factor=3.0
-    ... )
-
-    Custom figure size:
-
-    >>> fig = plot_raw_comparison(
-    ...     raw_original, raw_cleaned,
-    ...     figsize=(20, 12),
-    ...     title="My Custom Comparison"
-    ... )
-
+    >>> fig = plot_raw_comparison(raw_original, raw_cleaned, output_path="comparison.png")
+    
     See Also
     --------
     plot_ica_components : Visualize ICA components
     plot_psd_topography : Create PSD topography plots
     mne.viz.plot_raw : MNE raw data plotting functions
-
-    References
-    ----------
-    This function is designed for quality control visualization in EEG
-    preprocessing pipelines, allowing researchers to visually assess the
-    effects of cleaning procedures.
     """
     # Input validation
     if not isinstance(raw_original, mne.io.BaseRaw):
@@ -285,30 +229,15 @@ def plot_ica_components(
     fig : matplotlib.figure.Figure
         The created figure object.
 
-    Raises
-    ------
-    TypeError
-        If ica is not an MNE ICA object.
-    RuntimeError
-        If plotting fails.
-
     Examples
     --------
-    Plot all ICA components:
-
-    >>> from autoclean.functions.visualization import plot_ica_components
     >>> fig = plot_ica_components(ica, raw)
-
-    Plot specific components:
-
     >>> fig = plot_ica_components(ica, raw, picks=[0, 1, 2, 3])
-
-    Save to file:
-
-    >>> fig = plot_ica_components(
-    ...     ica, raw,
-    ...     output_path="ica_components.png"
-    ... )
+    
+    See Also
+    --------
+    plot_raw_comparison : Plot before/after data comparison
+    mne.preprocessing.ICA.plot_components : MNE ICA component plotting
     """
     # Input validation
     if not isinstance(ica, mne.preprocessing.ICA):
@@ -370,24 +299,15 @@ def plot_psd_topography(
     fig : matplotlib.figure.Figure
         The created figure object.
 
-    Raises
-    ------
-    TypeError
-        If raw is not an MNE Raw object.
-    RuntimeError
-        If plotting fails.
-
     Examples
     --------
-    Plot with default frequency bands:
-
-    >>> from autoclean.functions.visualization import plot_psd_topography
     >>> fig = plot_psd_topography(raw)
-
-    Custom frequency bands:
-
-    >>> bands = {'delta': (1, 4), 'theta': (4, 8), 'alpha': (8, 12)}
-    >>> fig = plot_psd_topography(raw, freq_bands=bands)
+    >>> fig = plot_psd_topography(raw, freq_bands={'alpha': (8, 12)})
+    
+    See Also
+    --------
+    plot_raw_comparison : Plot before/after data comparison
+    mne.io.Raw.compute_psd : Compute power spectral density
     """
     # Input validation
     if not isinstance(raw, mne.io.BaseRaw):

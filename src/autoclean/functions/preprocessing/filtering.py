@@ -70,56 +70,11 @@ def filter_data(
         The filtered data object, same type as input. Contains identical
         structure and metadata but with filtered time series data.
         
-    Raises
-    ------
-    TypeError
-        If data is not an MNE Raw or Epochs object.
-    ValueError
-        If filter parameters are invalid (e.g., negative frequencies,
-        l_freq >= h_freq).
-        
-    Notes
-    -----
-    Filtering modifies the time series data but preserves all metadata including
-    channel information, sampling frequency, events, and annotations. The filtering
-    is applied in-place on a copy of the data to avoid modifying the original.
-    
-    For continuous data (Raw), edge artifacts may occur at the beginning and end
-    of the recording. For epoched data, edge artifacts occur at epoch boundaries.
-    Consider using longer epochs and cropping after filtering to minimize artifacts.
-    
-    Filter design follows MNE-Python conventions. For detailed information about
-    filter parameters and their effects, see the MNE filtering tutorial.
-    
-    The function handles both separate highpass/lowpass filtering and combined
-    filtering automatically. Notch filtering is applied after any highpass/lowpass
-    filtering to ensure proper filter ordering.
-    
     Examples
     --------
-    Basic highpass and lowpass filtering:
-    
-    >>> from autoclean import filter_data
     >>> filtered_raw = filter_data(raw, l_freq=1.0, h_freq=40.0)
-    
-    Notch filtering for power line noise:
-    
-    >>> filtered_raw = filter_data(raw, notch_freqs=[60, 120])
-    
-    Combined filtering with custom parameters:
-    
-    >>> filtered_epochs = filter_data(
-    ...     epochs, 
-    ...     l_freq=0.5, 
-    ...     h_freq=30.0, 
-    ...     notch_freqs=[60],
-    ...     method='iir',
-    ...     phase='zero-double'
-    ... )
-    
-    Bandpass filtering (highpass + lowpass):
-    
-    >>> bandpass_data = filter_data(raw, l_freq=8.0, h_freq=12.0)  # Alpha band
+    >>> filtered_raw = filter_data(raw, notch_freqs=[60])
+    >>> bandpass_data = filter_data(raw, l_freq=8.0, h_freq=12.0)
     
     See Also
     --------

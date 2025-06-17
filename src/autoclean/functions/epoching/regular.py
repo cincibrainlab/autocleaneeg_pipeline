@@ -82,78 +82,17 @@ def create_regular_epochs(
         The created epochs object with metadata about contained events and
         annotations (if include_metadata=True).
         
-    Raises
-    ------
-    TypeError
-        If data is not an MNE Raw object.
-    ValueError
-        If tmin >= tmax or other parameter validation fails.
-    RuntimeError
-        If epoch creation fails due to insufficient data or other processing errors.
-        
-    Notes
-    -----
-    Regular epoching divides continuous data into fixed-length segments without 
-    regard for experimental events. This approach is valuable for:
-    
-    - Resting-state EEG analysis
-    - Spectral analysis of ongoing activity  
-    - Data preprocessing for machine learning
-    - Quality assessment of continuous recordings
-    
-    The function creates synthetic events at regular intervals based on the specified
-    epoch duration and overlap. The timing of these events determines the epoch 
-    boundaries, with each epoch extending from tmin to tmax relative to its event.
-    
-    When include_metadata=True, the function analyzes all annotations in the raw
-    data and records which annotations fall within each epoch. This metadata is
-    stored in the epochs.metadata DataFrame and can be used for subsequent analysis
-    or quality control.
-    
-    Baseline correction, if applied, removes the mean of the specified time window
-    from each epoch. This is important for removing DC offsets and improving the
-    signal-to-noise ratio of transient responses.
-    
-    Artifact rejection can occur at two levels:
-    1. Amplitude-based rejection using 'reject' and 'flat' parameters
-    2. Annotation-based rejection for epochs overlapping with 'bad' annotations
-    
     Examples
     --------
-    Create 2-second epochs with 1-second overlap:
-    
-    >>> from autoclean import create_regular_epochs
-    >>> epochs = create_regular_epochs(
-    ...     raw, 
-    ...     tmin=-1.0, 
-    ...     tmax=1.0, 
-    ...     overlap=1.0
-    ... )
-    
-    Create epochs with baseline correction and artifact rejection:
-    
-    >>> epochs = create_regular_epochs(
-    ...     raw,
-    ...     tmin=-0.5,
-    ...     tmax=1.5, 
-    ...     baseline=(-0.5, 0),
-    ...     reject={'eeg': 100e-6, 'eog': 200e-6}
-    ... )
-    
-    Create epochs without automatic annotation rejection:
-    
-    >>> epochs = create_regular_epochs(
-    ...     raw,
-    ...     tmin=-1.0,
-    ...     tmax=1.0,
-    ...     reject_by_annotation=False
-    ... )
+    >>> epochs = create_regular_epochs(raw, tmin=-1.0, tmax=1.0)
+    >>> epochs = create_regular_epochs(raw, overlap=1.0, reject={'eeg': 100e-6})
     
     See Also
     --------
+    create_eventid_epochs : Create epochs based on specific events
+    create_sl_epochs : Create statistical learning epochs
     mne.make_fixed_length_events : Generate events for fixed-length epochs
     mne.Epochs : MNE epochs class
-    autoclean.create_eventid_epochs : Create epochs based on specific events
     """
     # Input validation
     if not isinstance(data, mne.io.BaseRaw):

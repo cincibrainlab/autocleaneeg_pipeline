@@ -77,95 +77,15 @@ def detect_bad_channels(
         If return_by_method=True: Dictionary with keys 'correlation', 'deviation',
         'ransac', and 'combined' containing lists of bad channels for each method.
         
-    Raises
-    ------
-    TypeError
-        If data is not an MNE Raw object.
-    ValueError
-        If threshold parameters are outside valid ranges.
-    RuntimeError
-        If bad channel detection fails due to processing errors.
-        
-    Notes
-    -----
-    **Detection Methods:**
-    
-    **Correlation-based Detection:**
-    Computes correlations between each channel and its spatial neighbors over
-    time windows. Channels with consistently low correlations are likely
-    affected by artifacts or poor contact.
-    
-    **Deviation-based Detection:**
-    Identifies channels whose amplitude distributions deviate significantly
-    from the group mean. Uses robust statistics to avoid bias from other
-    bad channels.
-    
-    **RANSAC Detection:**
-    Uses Random Sample Consensus to fit robust models of expected channel
-    activity. Channels that consistently deviate from these models across
-    multiple random samples are marked as bad.
-    
-    **Parameter Guidelines:**
-    - correlation_thresh: 0.4-0.6 for clean data, 0.2-0.4 for noisy data
-    - deviation_thresh: 2.0-3.0 (standard range for outlier detection)
-    - ransac_corr_thresh: 0.6-0.8 (higher = more stringent)
-    - ransac_frac_bad: Match expected proportion (0.1-0.3 typical)
-    
-    **Performance Considerations:**
-    RANSAC detection is the most computationally expensive. For large datasets
-    or real-time processing, consider setting ransac_corr_thresh=0 to disable
-    it and rely on correlation and deviation methods.
-    
     Examples
     --------
-    Basic bad channel detection:
-    
-    >>> from autoclean import detect_bad_channels
     >>> bad_channels = detect_bad_channels(raw)
-    >>> print(f"Detected {len(bad_channels)} bad channels: {bad_channels}")
-    
-    Conservative detection with method breakdown:
-    
-    >>> bad_by_method = detect_bad_channels(
-    ...     raw,
-    ...     correlation_thresh=0.4,
-    ...     deviation_thresh=3.0,
-    ...     return_by_method=True
-    ... )
-    >>> print("Bad channels by method:")
-    >>> for method, channels in bad_by_method.items():
-    ...     print(f"  {method}: {channels}")
-    
-    Exclude reference channels from detection:
-    
-    >>> bad_channels = detect_bad_channels(
-    ...     raw,
-    ...     exclude_channels=['Cz', 'FCz'],
-    ...     ransac_corr_thresh=0.7
-    ... )
-    
-    Fast detection (no RANSAC):
-    
-    >>> bad_channels = detect_bad_channels(
-    ...     raw,
-    ...     ransac_corr_thresh=0,  # Disable RANSAC
-    ...     correlation_thresh=0.3,
-    ...     deviation_thresh=2.0
-    ... )
+    >>> bad_channels = detect_bad_channels(raw, correlation_thresh=0.4, return_by_method=True)
     
     See Also
     --------
     pyprep.find_noisy_channels.NoisyChannels : Underlying detection implementation
-    autoclean.interpolate_bad_channels : Interpolate detected bad channels
     mne.io.Raw.info : Access channel information and bad channel lists
-    
-    References
-    ----------
-    Bigdely-Shamlo, N., Mullen, T., Kothe, C., Su, K. M., & Robbins, K. A. (2015).
-    The PREP pipeline: standardized preprocessing for large-scale EEG analysis.
-    Frontiers in neuroinformatics, 9, 16.
-    
-    Jas, M., Engemann, D. A., Bekhti, Y., Raimondo, F., & Gramfort, A. (2017).
     Autoreject: Automated artifact rejection for MEG and EEG data. NeuroImage, 159, 417-429.
     """
     # Input validation

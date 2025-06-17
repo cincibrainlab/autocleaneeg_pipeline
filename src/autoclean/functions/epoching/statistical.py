@@ -78,69 +78,17 @@ def create_sl_epochs(
     epochs : mne.Epochs
         The created epochs object containing valid statistical learning sequences.
         
-    Raises
-    ------
-    TypeError
-        If data is not an MNE Raw object.
-    ValueError
-        If no valid epochs are found or required events are missing.
-    RuntimeError
-        If epoch creation fails due to processing errors.
-        
-    Notes
-    -----
-    **Statistical Learning Paradigm:**
-    In statistical learning experiments, participants are exposed to continuous
-    streams of syllables with embedded statistical regularities. The brain's
-    ability to extract these patterns is measured through EEG responses to
-    different types of transitions (predictable vs. unpredictable).
-    
-    **Event Validation:**
-    The function performs strict validation to ensure each epoch contains:
-    1. A valid word onset event
-    2. Exactly the expected number of syllable events following the onset
-    3. No interrupting non-syllable events (which would break the sequence)
-    
-    **Special Handling:**
-    - Removes DI64 events which are problematic boundary markers
-    - Supports subject-specific event code mappings
-    - Allows for slight flexibility (17-18 syllables) in validation
-    
-    **Epoch Timing:**
-    Default timing (0-5.4s) is designed for 18 syllables at 300ms each.
-    Adjust tmax if using different syllable durations or counts.
-    
     Examples
     --------
-    Create statistical learning epochs with default parameters:
-    
-    >>> from autoclean import create_sl_epochs
     >>> epochs = create_sl_epochs(raw, tmin=0, tmax=5.4)
-    
-    Create epochs with custom syllable validation:
-    
-    >>> epochs = create_sl_epochs(
-    ...     raw,
-    ...     num_syllables_per_epoch=16,
-    ...     tmax=4.8,  # 16 * 300ms
-    ...     reject={'eeg': 80e-6}
-    ... )
-    
-    Handle special subject with different event codes:
-    
-    >>> epochs = create_sl_epochs(
-    ...     raw,
-    ...     subject_id='2310',
-    ...     tmin=0,
-    ...     tmax=5.4
-    ... )
+    >>> epochs = create_sl_epochs(raw, subject_id='2310', num_syllables_per_epoch=16)
     
     See Also
     --------
+    create_regular_epochs : Create fixed-length epochs
+    create_eventid_epochs : Create event-based epochs
     mne.events_from_annotations : Extract events from annotations
     mne.Epochs : MNE epochs class
-    autoclean.create_regular_epochs : Create fixed-length epochs
-    autoclean.create_eventid_epochs : Create event-based epochs
     """
     # Input validation
     if not isinstance(data, mne.io.BaseRaw):
