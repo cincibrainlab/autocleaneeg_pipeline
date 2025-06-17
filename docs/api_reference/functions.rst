@@ -39,7 +39,7 @@ Preprocessing Functions
    referencing.rereference_data
    resampling.resample_data
    basic_ops.crop_data
-   basic_ops.pick_channels
+   basic_ops.drop_channels
 
 Artifact Detection Functions
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -67,7 +67,8 @@ Epoching Functions
    regular.create_regular_epochs
    statistical.create_sl_epochs
    eventid.create_eventid_epochs
-   quality.autoreject_epochs
+   quality.detect_outlier_epochs
+   quality.gfp_clean_epochs
 
 ICA Functions
 ~~~~~~~~~~~~~
@@ -94,9 +95,8 @@ Segment Rejection Functions
    :template: autosummary/function.rst
    :nosignatures:
 
-   segment_rejection.detect_muscle_artifacts
-   segment_rejection.detect_extreme_amplitudes
-   segment_rejection.detect_flat_segments
+   segment_rejection.annotate_noisy_segments
+   segment_rejection.annotate_uncorrelated_segments
    dense_oscillatory.detect_dense_oscillatory_artifacts
 
 Advanced Processing Functions
