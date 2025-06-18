@@ -177,11 +177,20 @@ def manage_database(
                         success BOOLEAN,
                         json_file TEXT,
                         report_file TEXT,
+                        user_context TEXT,
                         metadata TEXT,
                         error TEXT
                     )
                 """
                 )
+                # Add user_context column to existing tables if it doesn't exist
+                try:
+                    cursor.execute(
+                        "ALTER TABLE pipeline_runs ADD COLUMN user_context TEXT"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
                 conn.commit()
                 message("info", f"✓ Ensured 'pipeline_runs' table exists in {db_path}")
 
@@ -194,12 +203,19 @@ def manage_database(
                     _serialize_for_json(run_record.get("metadata", {}))
                 )
 
+                # Convert user_context to JSON string if present
+                user_context_json = None
+                if run_record.get("user_context"):
+                    user_context_json = json.dumps(
+                        _serialize_for_json(run_record["user_context"])
+                    )
+
                 cursor.execute(
                     """
                     INSERT INTO pipeline_runs (
                         run_id, created_at, task, unprocessed_file, status,
-                        success, json_file, report_file, metadata
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        success, json_file, report_file, user_context, metadata
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         run_record["run_id"],
@@ -222,6 +238,7 @@ def manage_database(
                             if run_record.get("report_file")
                             else None
                         ),
+                        user_context_json,
                         metadata_json,
                     ),
                 )
@@ -342,10 +359,14 @@ def manage_database(
                         f"No record found for run_id: {run_record['run_id']}"
                     )
 
-                # Convert record to dict and parse metadata JSON
+                # Convert record to dict and parse JSON fields
                 record_dict = dict(record)
                 if record_dict.get("metadata"):
                     record_dict["metadata"] = json.loads(record_dict["metadata"])
+                if record_dict.get("user_context"):
+                    record_dict["user_context"] = json.loads(
+                        record_dict["user_context"]
+                    )
                 return record_dict
 
             conn.close()
