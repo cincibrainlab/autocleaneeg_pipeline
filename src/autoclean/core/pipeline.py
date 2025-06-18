@@ -77,6 +77,7 @@ from autoclean.step_functions.reports import (
     update_task_processing_log,
 )
 from autoclean.tasks import task_registry
+from autoclean.utils.audit import get_user_context
 from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
@@ -246,6 +247,7 @@ class Pipeline:
                 # Define output filenames based on input file
                 "json_file": f"{unprocessed_file.stem}_autoclean_metadata.json",
                 "report_file": f"{unprocessed_file.stem}_autoclean_report.pdf",
+                "user_context": get_user_context(),
                 "metadata": {},
             }
 
