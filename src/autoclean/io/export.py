@@ -191,6 +191,9 @@ def save_raw_to_set(
             "suffix": suffix,
             "basename": basename,
             "format": "eeglab",
+            "n_channels": len(raw.ch_names),
+            "actual_sfreq": raw.info["sfreq"],
+            "actual_duration": raw.times[-1] - raw.times[0],
         }
     }
 
@@ -450,6 +453,9 @@ def save_epochs_to_set(
             "basename": basename,
             "format": "eeglab",
             "n_epochs": len(epochs),
+            "n_channels": len(epochs.ch_names),
+            "actual_sfreq": epochs.info["sfreq"],
+            "actual_duration": len(epochs) * (epochs.tmax - epochs.tmin),
             "tmin": epochs.tmin,
             "tmax": epochs.tmax,
         }
