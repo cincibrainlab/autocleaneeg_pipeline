@@ -109,8 +109,7 @@ Advanced Processing Functions
    :template: autosummary/function.rst
    :nosignatures:
 
-   autoreject.repair_epochs
-   autoreject.compute_rejection_thresholds
+   autoreject.autoreject_epochs
 
 Visualization Functions
 ~~~~~~~~~~~~~~~~~~~~~~~
