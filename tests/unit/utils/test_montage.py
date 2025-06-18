@@ -57,10 +57,13 @@ class TestMontageLoading:
         mock_resources.assert_called_once()
         mock_yaml_load.assert_called_once()
     
-    @patch('autoclean.utils.montage.resources.files', side_effect=ImportError)
+    @patch('autoclean.utils.montage.resources.files')
     @patch('builtins.open', side_effect=FileNotFoundError)
     def test_load_valid_montages_file_not_found(self, mock_file, mock_resources):
         """Test behavior when montages.yaml file is not found."""
+        # Mock resources to raise FileNotFoundError to trigger fallback
+        mock_resources.side_effect = FileNotFoundError("configs module not found")
+        
         with pytest.raises(FileNotFoundError):
             load_valid_montages()
     
