@@ -81,7 +81,11 @@ from autoclean.utils.audit import get_user_context
 from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
-from autoclean.utils.database import get_run_record, manage_database, set_database_path
+from autoclean.utils.database import (
+    get_run_record,
+    manage_database_with_audit_protection,
+    set_database_path,
+)
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
 from autoclean.utils.user_config import user_config
@@ -197,9 +201,9 @@ class Pipeline:
         # Set global database path
         set_database_path(self.output_dir)
 
-        # Initialize SQLite collection for run tracking
-        # This creates tables if they don't exist
-        manage_database(operation="create_collection")
+        # Initialize SQLite collection for run tracking with audit protection
+        # This creates tables if they don't exist and establishes security triggers
+        manage_database_with_audit_protection(operation="create_collection")
 
         message(
             "success",
@@ -251,8 +255,8 @@ class Pipeline:
                 "metadata": {},
             }
 
-            # Store initial run record and get database ID
-            run_record["record_id"] = manage_database(
+            # Store initial run record and get database ID with audit protection
+            run_record["record_id"] = manage_database_with_audit_protection(
                 operation="store", run_record=run_record
             )
 
@@ -285,8 +289,8 @@ class Pipeline:
                 flagged_dir,  # Flagged data output
             ) = step_prepare_directories(task, self.output_dir)
 
-            # Update database with directory structure
-            manage_database(
+            # Update database with directory structure using audit protection
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={
                     "run_id": run_id,
@@ -330,8 +334,8 @@ class Pipeline:
             }
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
-            # Record full run configuration
-            manage_database(
+            # Record full run configuration using audit protection
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={"run_id": run_id, "metadata": {"entrypoint": run_dict}},
             )
@@ -369,29 +373,19 @@ class Pipeline:
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to save completion data: {str(e)}")
 
-            # Mark run as successful in database
-            manage_database(
+            message("success", f"✓ Task {task} completed successfully")
+
+            # Set success status FIRST so JSON summary can detect success correctly
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={
                     "run_id": run_record["run_id"],
-                    "status": "completed",
                     "success": True,
                 },
             )
 
-            message("success", f"✓ Task {task} completed successfully")
-
-            # Create a run summary in JSON format
+            # Create a run summary in JSON format (this updates metadata)
             json_summary = create_json_summary(run_id)
-
-            # Get final run record for report generation
-            run_record = get_run_record(run_id)
-
-            # Export run metadata to JSON file
-            json_file = metadata_dir / run_record["json_file"]
-            with open(json_file, "w", encoding="utf8") as f:
-                json.dump(run_record, f, indent=4)
-            message("success", f"✓ Run record exported to {json_file}")
 
             # Only proceed with processing log update if we have a valid summary
             if json_summary:
@@ -416,9 +410,27 @@ class Pipeline:
             except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
 
+            # Mark run as completed LAST - this locks the record from further modifications
+            manage_database_with_audit_protection(
+                operation="update",
+                update_record={
+                    "run_id": run_record["run_id"],
+                    "status": "completed",
+                },
+            )
+
+            # Get final run record for JSON export
+            run_record = get_run_record(run_id)
+
+            # Export run metadata to JSON file
+            json_file = metadata_dir / run_record["json_file"]
+            with open(json_file, "w", encoding="utf8") as f:
+                json.dump(run_record, f, indent=4)
+            message("success", f"✓ Run record exported to {json_file}")
+
         except Exception as e:
-            # Update database with failure status
-            manage_database(
+            # Update database with failure status using audit protection
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={
                     "run_id": run_record["run_id"],
