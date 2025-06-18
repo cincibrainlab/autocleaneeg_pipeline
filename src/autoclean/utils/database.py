@@ -89,6 +89,85 @@ def get_run_record(run_id: str) -> dict:
     return run_record
 
 
+def manage_database_with_audit_protection(
+    operation: str,
+    run_record: Optional[Dict[str, Any]] = None,
+    update_record: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """Enhanced database management with audit protection and logging.
+
+    This wrapper adds audit protection features to the standard database operations:
+    - Access logging for compliance tracking
+    - Database integrity verification
+    - Automatic backup creation
+    - User context tracking
+
+    Parameters
+    ----------
+    operation : str
+        Database operation type (same as manage_database)
+    run_record : dict, optional
+        Record data for operations
+    update_record : dict, optional
+        Update data for operations
+
+    Returns
+    -------
+    Any
+        Operation result from underlying manage_database call
+    """
+    # Import audit functions (avoid circular imports)
+    from autoclean.utils.audit import (
+        create_database_backup,
+        get_user_context,
+        log_database_access,
+    )
+
+    user_ctx = get_user_context()
+
+    # Log database access attempt
+    access_details = {
+        "operation": operation,
+        "run_id": (
+            run_record.get("run_id")
+            if run_record
+            else update_record.get("run_id") if update_record else None
+        ),
+    }
+    log_database_access(f"{operation}_attempt", user_ctx, access_details)
+
+    # Database integrity is protected by SQLite triggers, not file-level hashing
+    # The triggers prevent unauthorized modifications much more effectively than file hashes
+
+    # Perform the actual database operation
+    try:
+        result = manage_database(operation, run_record, update_record)
+
+        # Log successful operation
+        log_database_access(
+            f"{operation}_completed", user_ctx, {"result": str(result)[:200]}
+        )
+
+        # Create backup and update integrity baseline after significant operations
+        if operation in ["create_collection", "store"] and DB_PATH:
+            try:
+                create_database_backup(DB_PATH / "pipeline.db")
+            except Exception as backup_error:
+                message("warning", f"Backup creation failed: {backup_error}")
+                log_database_access(
+                    "backup_failed", user_ctx, {"error": str(backup_error)}
+                )
+
+            # Database integrity is maintained by triggers, not file hashes
+
+        return result
+
+    except Exception as e:
+        # Log failed operation
+        log_database_access(f"{operation}_failed", user_ctx, {"error": str(e)})
+        raise
+
+
 def _validate_metadata(metadata: dict) -> bool:
     """Validates metadata structure and types.
 
@@ -183,6 +262,23 @@ def manage_database(
                     )
                 """
                 )
+
+                # Create update audit log table for tracking changes
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS update_audit_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        run_id TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
+                        old_status TEXT,
+                        new_status TEXT,
+                        operation_type TEXT,
+                        user_context TEXT,
+                        FOREIGN KEY (run_id) REFERENCES pipeline_runs (run_id)
+                    )
+                """
+                )
+
                 # Add user_context column to existing tables if it doesn't exist
                 try:
                     cursor.execute(
@@ -191,8 +287,71 @@ def manage_database(
                 except sqlite3.OperationalError:
                     # Column already exists
                     pass
+
+                # Add status-based protection triggers
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_completed_record_updates
+                    BEFORE UPDATE ON pipeline_runs
+                    FOR EACH ROW
+                    WHEN (
+                        OLD.status IN ('completed', 'failed') 
+                    )
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Cannot modify audit record - run already completed'
+                        );
+                    END
+                """
+                )
+
+                # Never allow deletions of any records
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_all_deletions
+                    BEFORE DELETE ON pipeline_runs
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Audit records cannot be deleted'
+                        );
+                    END
+                """
+                )
+
+                # Log all updates for audit trail
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS log_record_updates
+                    AFTER UPDATE ON pipeline_runs
+                    FOR EACH ROW
+                    BEGIN
+                        INSERT INTO update_audit_log (
+                            run_id, 
+                            timestamp, 
+                            old_status, 
+                            new_status,
+                            operation_type,
+                            user_context
+                        ) VALUES (
+                            NEW.run_id,
+                            datetime('now'),
+                            OLD.status,
+                            NEW.status,
+                            CASE 
+                                WHEN OLD.status != NEW.status THEN 'status_change'
+                                WHEN OLD.metadata != NEW.metadata THEN 'metadata_update'
+                                ELSE 'general_update'
+                            END,
+                            COALESCE(NEW.user_context, OLD.user_context)
+                        );
+                    END
+                """
+                )
+
                 conn.commit()
-                message("info", f"✓ Ensured 'pipeline_runs' table exists in {db_path}")
+                message(
+                    "info", f"✓ Database and audit protection established in {db_path}"
+                )
 
             elif operation == "store":
                 if not run_record:
