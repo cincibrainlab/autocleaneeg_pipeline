@@ -5,6 +5,43 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 6/18/2025
+
+### 🔧 ARCHITECTURE IMPROVEMENTS
+- **Standalone Functions**: Complete refactoring of mixins to use standalone functions as underlying implementation
+- **Code Separation**: Mixins now act as thin wrappers around standalone functions for better maintainability
+- **Function Library**: Comprehensive standalone functions for all EEG processing operations available independently
+- **Error Handling**: Enhanced error handling and validation throughout processing functions
+
+### Added
+- **Modular Processing**: Standalone functions in `autoclean.functions` module for independent use
+- **Function Categories**: Organized functions by category (preprocessing, artifacts, epoching, ICA, etc.)
+- **Enhanced Testing**: Improved test coverage for refactored components with proper mocking
+- **Documentation**: Complete API documentation for standalone functions with examples
+
+### Changed
+- **BREAKING**: Mixin architecture now uses standalone functions internally
+- **Imports**: Better module organization and import structure 
+- **Type Hints**: Improved type annotations throughout codebase
+- **Code Quality**: Applied comprehensive formatting fixes (black, isort, ruff)
+
+### Fixed
+- **Bad Channel Detection**: Resolved consistency issues between original and refactored implementations
+- **Dictionary Mapping**: Corrected key mapping issues in channel processing functions
+- **Pipeline Reproducibility**: Enhanced result consistency across pipeline runs
+- **Test Infrastructure**: Fixed montage loading tests to properly mock importlib.resources
+- **MRO Conflicts**: Resolved mixin inheritance conflicts with sophisticated detection
+
+### Removed
+- **Performance Monitoring**: Removed redundant performance benchmarking workflows
+- **Code Duplication**: Eliminated redundant code patterns through standalone function approach
+
+### Technical Improvements
+- **Module Structure**: Better separation between pipeline logic and processing algorithms
+- **Function Isolation**: Processing logic moved to standalone, testable functions
+- **Import Optimization**: Streamlined module imports and dependencies
+- **Build Pipeline**: Enhanced CI/CD with proper dependency management
+
 ## [2.0.0] - 6/12/2025
 
 ### 🚨 LARGE CHANGES
