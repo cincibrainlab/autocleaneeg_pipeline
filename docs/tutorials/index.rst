@@ -27,6 +27,7 @@ Practical guides for common research scenarios:
    :caption: Research Workflows:
 
    processing_resting_state
+   compliance_and_audit
    processing_auditory_experiments
    batch_processing_datasets
    quality_control_best_practices
