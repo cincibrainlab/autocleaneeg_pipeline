@@ -258,6 +258,7 @@ def manage_database(
                         report_file TEXT,
                         user_context TEXT,
                         metadata TEXT,
+                        task_file_info TEXT,
                         error TEXT
                     )
                 """
@@ -373,8 +374,8 @@ def manage_database(
                     """
                     INSERT INTO pipeline_runs (
                         run_id, created_at, task, unprocessed_file, status,
-                        success, json_file, report_file, user_context, metadata
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        success, json_file, report_file, user_context, metadata, task_file_info
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         run_record["run_id"],
@@ -399,6 +400,11 @@ def manage_database(
                         ),
                         user_context_json,
                         metadata_json,
+                        (
+                            json.dumps(_serialize_for_json(run_record["task_file_info"]))
+                            if run_record.get("task_file_info")
+                            else None
+                        ),
                     ),
                 )
                 conn.commit()
@@ -464,9 +470,15 @@ def manage_database(
                         update_components.append("metadata = ?")
                         current_update_values.append(final_metadata_json)
 
+                    # Handle task_file_info serialization
+                    if "task_file_info" in update_record:
+                        task_file_info_json = json.dumps(_serialize_for_json(update_record["task_file_info"]))
+                        update_components.append("task_file_info = ?")
+                        current_update_values.append(task_file_info_json)
+
                     # Handle other fields present in update_record
                     for key, value in update_record.items():
-                        if key == "run_id" or key == "metadata":
+                        if key == "run_id" or key == "metadata" or key == "task_file_info":
                             continue
 
                         update_components.append(f"{key} = ?")
@@ -525,6 +537,10 @@ def manage_database(
                 if record_dict.get("user_context"):
                     record_dict["user_context"] = json.loads(
                         record_dict["user_context"]
+                    )
+                if record_dict.get("task_file_info"):
+                    record_dict["task_file_info"] = json.loads(
+                        record_dict["task_file_info"]
                     )
                 return record_dict
 
