@@ -44,6 +44,21 @@ Database
    database.set_database_path
    database.get_run_record
    database.manage_database
+   database.manage_database_with_audit_protection
+
+Audit
+-------------------
+
+.. autosummary::
+   :toctree: generated/
+   :template: autosummary/function.rst
+   :nosignatures:
+
+   audit.get_user_context
+   audit.log_database_access
+   audit.verify_access_log_integrity
+   audit.get_task_file_info
+   audit.create_database_backup
    
 
 FileSystem
