@@ -10,12 +10,13 @@ from pathlib import Path
 
 import yaml
 from schema import Optional, Or, Schema
+from platformdirs import user_config_dir
 
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
 
 
-def load_config(config_file: Path) -> dict:
+def load_config(config_file: Path = None) -> dict:
     """Load and validate the autoclean configuration file.
 
     Parameters
@@ -271,6 +272,86 @@ def hash_and_encode_yaml(content: str | dict, is_file: bool = True) -> tuple[str
     compressed_encoded = base64.b64encode(compressed).decode("utf-8")
 
     return file_hash, compressed_encoded
+
+
+def load_user_config() -> dict:
+    """Load user-level configuration including compliance settings.
+    
+    Returns
+    -------
+    user_config : dict
+        User configuration dictionary with compliance settings
+    """
+    user_config_dir_path = Path(user_config_dir("autoclean"))
+    user_config_file = user_config_dir_path / "user_config.yaml"
+    
+    # Default user configuration
+    default_config = {
+        "compliance": {
+            "enabled": False,
+            "auth_provider": None,
+            "require_electronic_signatures": False
+        },
+        "workspace": {
+            "default_output_dir": None,
+            "auto_backup": True
+        }
+    }
+    
+    if not user_config_file.exists():
+        return default_config
+    
+    try:
+        with open(user_config_file, 'r', encoding='utf-8') as f:
+            user_config = yaml.safe_load(f) or {}
+        
+        # Merge with defaults to ensure all keys exist
+        merged_config = default_config.copy()
+        if 'compliance' in user_config:
+            merged_config['compliance'].update(user_config['compliance'])
+        if 'workspace' in user_config:
+            merged_config['workspace'].update(user_config['workspace'])
+            
+        return merged_config
+        
+    except Exception as e:
+        message("warning", f"Failed to load user config: {e}, using defaults")
+        return default_config
+
+
+def save_user_config(user_config: dict) -> None:
+    """Save user-level configuration.
+    
+    Parameters
+    ----------
+    user_config : dict
+        User configuration dictionary to save
+    """
+    user_config_dir_path = Path(user_config_dir("autoclean"))
+    user_config_dir_path.mkdir(parents=True, exist_ok=True)
+    user_config_file = user_config_dir_path / "user_config.yaml"
+    
+    try:
+        with open(user_config_file, 'w', encoding='utf-8') as f:
+            yaml.safe_dump(user_config, f, default_flow_style=False, indent=2)
+        message("debug", f"User config saved to {user_config_file}")
+    except Exception as e:
+        message("error", f"Failed to save user config: {e}")
+
+
+def is_compliance_mode_enabled() -> bool:
+    """Check if compliance mode is enabled in user configuration.
+    
+    Returns
+    -------
+    bool
+        True if compliance mode is enabled, False otherwise
+    """
+    try:
+        user_config = load_user_config()
+        return user_config.get('compliance', {}).get('enabled', False)
+    except Exception:
+        return False
 
 
 def decode_compressed_yaml(encoded_str: str) -> dict:
