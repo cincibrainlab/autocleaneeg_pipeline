@@ -292,3 +292,90 @@ def log_database_access(
             f.write(json.dumps(log_entry) + "\n")
     except Exception as e:
         message("warning", f"Failed to log database access: {e}")
+
+
+def get_task_file_info(task_name: str, task_object: Any) -> Dict[str, Any]:
+    """Get hash and content of the task file used for compliance tracking.
+    
+    Parameters
+    ----------
+    task_name : str
+        Name of the task being executed
+    task_object : Any
+        The task object instance
+        
+    Returns
+    -------
+    Dict[str, Any]
+        Dictionary containing task file hash, content, and metadata
+    """
+    import hashlib
+    import inspect
+    from pathlib import Path
+    
+    task_file_info = {
+        "task_name": task_name,
+        "capture_timestamp": datetime.now().isoformat(),
+        "file_path": None,
+        "file_content_hash": None,
+        "file_content": None,
+        "error": None
+    }
+    
+    try:
+        # Try to get the source file from the task object
+        task_file_path = None
+        
+        # Method 1: Check if task object has __file__ attribute
+        if hasattr(task_object.__class__, '__module__'):
+            module = inspect.getmodule(task_object.__class__)
+            if module and hasattr(module, '__file__') and module.__file__:
+                task_file_path = Path(module.__file__)
+        
+        # Method 2: Look in workspace tasks directory
+        if not task_file_path or not task_file_path.exists():
+            workspace_tasks = Path.home() / ".autoclean" / "tasks"
+            if workspace_tasks.exists():
+                # Look for Python files containing the task class
+                for task_file in workspace_tasks.glob("*.py"):
+                    try:
+                        content = task_file.read_text(encoding='utf-8')
+                        # Check if file contains the task class definition
+                        if f"class {task_name}" in content:
+                            task_file_path = task_file
+                            break
+                    except Exception:
+                        continue
+        
+        # Method 3: Check if it's a built-in task
+        if not task_file_path or not task_file_path.exists():
+            # Try to find in built-in tasks directory
+            try:
+                module_path = inspect.getfile(task_object.__class__)
+                task_file_path = Path(module_path)
+            except (TypeError, OSError):
+                pass
+        
+        if task_file_path and task_file_path.exists():
+            # Read file content
+            task_content = task_file_path.read_text(encoding='utf-8')
+            
+            # Calculate SHA256 hash
+            task_hash = hashlib.sha256(task_content.encode('utf-8')).hexdigest()
+            
+            # Store information
+            task_file_info.update({
+                "file_path": str(task_file_path),
+                "file_content_hash": task_hash,
+                "file_content": task_content,
+                "file_size_bytes": len(task_content.encode('utf-8')),
+                "line_count": len(task_content.splitlines())
+            })
+            
+        else:
+            task_file_info["error"] = "Task source file not found or not accessible"
+            
+    except Exception as e:
+        task_file_info["error"] = f"Failed to capture task file info: {str(e)}"
+    
+    return task_file_info
