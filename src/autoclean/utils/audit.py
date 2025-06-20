@@ -46,11 +46,19 @@ def get_user_context() -> Dict[str, Any]:
     except Exception:
         hostname = "unknown"
 
+    # Optimize for storage space
+    try:
+        # Abbreviate hostname (keep first part only, max 12 chars)
+        hostname = hostname.split('.')[0][:12]
+    except Exception:
+        pass
+    
     return {
-        "username": username,
-        "hostname": hostname,
+        "user": username[:20],  # Shorter key, limit length
+        "host": hostname,       # Shorter key, abbreviated hostname  
         "pid": os.getpid(),
-        "session_start": datetime.now().isoformat(),
+        # Use Unix timestamp instead of ISO string to save ~15 chars
+        "ts": int(datetime.now().timestamp()),
     }
 
 
@@ -294,12 +302,12 @@ def log_database_access(
         # Import manage_database here to avoid circular imports
         from autoclean.utils.database import manage_database
         
-        # Create log entry for database storage
+        # Create log entry for database storage (optimized for size)
         log_entry = {
-            "timestamp": datetime.now().isoformat(),
+            # Use Unix timestamp to save ~15 characters vs ISO string
+            "timestamp": int(datetime.now().timestamp()),
             "operation": operation,
             "user_context": user_context,
-            "database_file": str(db_path),
             "details": details or {},
         }
         
@@ -522,7 +530,7 @@ def verify_access_log_integrity() -> Dict[str, Any]:
         # Get all access log entries in order
         cursor.execute(
             """
-            SELECT log_id, timestamp, operation, user_context, database_file, 
+            SELECT log_id, timestamp, operation, user_context, 
                    details, log_hash, previous_hash
             FROM database_access_log 
             ORDER BY log_id ASC
@@ -539,7 +547,7 @@ def verify_access_log_integrity() -> Dict[str, Any]:
         expected_previous_hash = "genesis_hash_empty_log"
         
         for entry in entries:
-            log_id, timestamp, operation, user_context_str, database_file, details_str, stored_hash, previous_hash = entry
+            log_id, timestamp, operation, user_context_str, details_str, stored_hash, previous_hash = entry
             
             # Parse JSON fields
             try:
@@ -553,9 +561,9 @@ def verify_access_log_integrity() -> Dict[str, Any]:
             if previous_hash != expected_previous_hash:
                 issues.append(f"Entry {log_id}: Hash chain broken - expected previous_hash {expected_previous_hash}, got {previous_hash}")
             
-            # Recalculate hash for this entry
+            # Recalculate hash for this entry (without database_file)
             calculated_hash = calculate_access_log_hash(
-                timestamp, operation, user_context, database_file, details, previous_hash
+                timestamp, operation, user_context, "", details, previous_hash
             )
             
             # Verify stored hash matches calculated hash

@@ -184,6 +184,48 @@ Examples:
     # Setup command (same as config setup for simplicity)
     subparsers.add_parser("setup", help="Setup or reconfigure workspace")
 
+    # Export access log command
+    export_log_parser = subparsers.add_parser(
+        "export-access-log", 
+        help="Export database access log with integrity verification"
+    )
+    export_log_parser.add_argument(
+        "--output", 
+        type=Path, 
+        help="Output file path (default: access-log-{timestamp}.json)"
+    )
+    export_log_parser.add_argument(
+        "--format", 
+        choices=["json", "csv", "human"], 
+        default="json",
+        help="Output format (default: json)"
+    )
+    export_log_parser.add_argument(
+        "--start-date", 
+        type=str, 
+        help="Start date filter (YYYY-MM-DD format)"
+    )
+    export_log_parser.add_argument(
+        "--end-date", 
+        type=str, 
+        help="End date filter (YYYY-MM-DD format)"
+    )
+    export_log_parser.add_argument(
+        "--operation", 
+        type=str, 
+        help="Filter by operation type"
+    )
+    export_log_parser.add_argument(
+        "--verify-only", 
+        action="store_true",
+        help="Only verify integrity, don't export data"
+    )
+    export_log_parser.add_argument(
+        "--database", 
+        type=Path, 
+        help="Path to database file (default: auto-detect from workspace)"
+    )
+
     # Version command
     subparsers.add_parser("version", help="Show version information")
 
@@ -576,6 +618,256 @@ def cmd_config_import(args) -> int:
         return 1
 
 
+def cmd_export_access_log(args) -> int:
+    """Export database access log with integrity verification."""
+    try:
+        from datetime import datetime
+        from autoclean.utils.audit import verify_access_log_integrity
+        from autoclean.utils.database import DB_PATH
+        from autoclean.utils.user_config import user_config
+        import sqlite3
+        import json
+        import csv
+        
+        # Get workspace directory for database discovery and default output location
+        workspace_dir = user_config._get_workspace_path()
+        
+        # Determine database path
+        if args.database:
+            db_path = Path(args.database)
+        elif DB_PATH:
+            db_path = DB_PATH / "pipeline.db"
+        else:
+            # Try to find database in workspace
+            if workspace_dir:
+                # Check for database directly in workspace directory 
+                workspace_db = workspace_dir / "pipeline.db"
+                if workspace_db.exists():
+                    db_path = workspace_db
+                else:
+                    # Fall back to checking workspace/output/ directory (most common location)
+                    output_db = workspace_dir / "output" / "pipeline.db"
+                    if output_db.exists():
+                        db_path = output_db
+                    else:
+                        # Finally, look in output subdirectories (for multiple runs)
+                        potential_outputs = workspace_dir / "output"
+                        if potential_outputs.exists():
+                            # Look for most recent output directory with database
+                            for output_dir in sorted(potential_outputs.iterdir(), reverse=True):
+                                if output_dir.is_dir():
+                                    potential_db = output_dir / "pipeline.db"
+                                    if potential_db.exists():
+                                        db_path = potential_db
+                                        break
+                            else:
+                                message("error", "No database found in workspace directory, output directory, or output subdirectories")
+                                return 1
+                        else:
+                            message("error", "No database found in workspace directory and no output directory exists")
+                            return 1
+            else:
+                message("error", "No workspace configured and no database path provided")
+                return 1
+        
+        if not db_path.exists():
+            message("error", f"Database file not found: {db_path}")
+            return 1
+        
+        message("info", f"Using database: {db_path}")
+        
+        # Verify integrity first (need to temporarily set DB_PATH for verification)
+        from autoclean.utils import database
+        original_db_path = database.DB_PATH
+        database.DB_PATH = db_path.parent
+        
+        try:
+            integrity_result = verify_access_log_integrity()
+        finally:
+            database.DB_PATH = original_db_path
+        
+        if args.verify_only:
+            if integrity_result["status"] == "valid":
+                message("success", f"✓ {integrity_result['message']}")
+                return 0
+            elif integrity_result["status"] == "compromised":
+                message("error", f"✗ {integrity_result['message']}")
+                if "issues" in integrity_result:
+                    for issue in integrity_result["issues"]:
+                        message("error", f"  - {issue}")
+                return 1
+            else:
+                message("error", f"✗ {integrity_result['message']}")
+                return 1
+        
+        # Report integrity status
+        if integrity_result["status"] == "valid":
+            message("success", f"✓ {integrity_result['message']}")
+        elif integrity_result["status"] == "compromised":
+            message("warning", f"⚠ {integrity_result['message']}")
+            if "issues" in integrity_result:
+                for issue in integrity_result["issues"]:
+                    message("warning", f"  - {issue}")
+        else:
+            message("warning", f"⚠ {integrity_result['message']}")
+        
+        # Query access log with filters
+        conn = sqlite3.connect(db_path)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        
+        query = "SELECT * FROM database_access_log WHERE 1=1"
+        params = []
+        
+        # Apply date filters
+        if args.start_date:
+            query += " AND date(timestamp) >= ?"
+            params.append(args.start_date)
+        
+        if args.end_date:
+            query += " AND date(timestamp) <= ?"
+            params.append(args.end_date)
+        
+        # Apply operation filter
+        if args.operation:
+            query += " AND operation LIKE ?"
+            params.append(f"%{args.operation}%")
+        
+        query += " ORDER BY log_id ASC"
+        
+        cursor.execute(query, params)
+        entries = cursor.fetchall()
+        conn.close()
+        
+        if not entries:
+            message("warning", "No access log entries found matching filters")
+            return 0
+        
+        # Determine output file
+        if args.output:
+            output_file = args.output
+        else:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            # Use .jsonl extension for JSON Lines format
+            if args.format == "json":
+                extension = "jsonl"
+            else:
+                extension = args.format
+            filename = f"access-log-{timestamp}.{extension}"
+            # Default to workspace directory, not current working directory
+            output_file = workspace_dir / filename if workspace_dir else Path(filename)
+        
+        # Export data
+        export_data = []
+        for entry in entries:
+            entry_dict = dict(entry)
+            # Parse JSON fields for export
+            if entry_dict.get("user_context"):
+                try:
+                    entry_dict["user_context"] = json.loads(entry_dict["user_context"])
+                except json.JSONDecodeError:
+                    pass
+            if entry_dict.get("details"):
+                try:
+                    entry_dict["details"] = json.loads(entry_dict["details"])
+                except json.JSONDecodeError:
+                    pass
+            export_data.append(entry_dict)
+        
+        # Write export file
+        if args.format == "json":
+            # Write as JSONL (JSON Lines) format - more compact and easier to process
+            with open(output_file, "w") as f:
+                # First line: metadata
+                metadata = {
+                    "type": "metadata",
+                    "export_timestamp": datetime.now().isoformat(),
+                    "database_path": str(db_path),
+                    "total_entries": len(export_data),
+                    "integrity_status": integrity_result["status"],
+                    "integrity_message": integrity_result["message"],
+                    "filters_applied": {
+                        "start_date": args.start_date,
+                        "end_date": args.end_date,
+                        "operation": args.operation
+                    }
+                }
+                f.write(json.dumps(metadata) + "\n")
+                
+                # Subsequent lines: one JSON object per access log entry
+                for entry in export_data:
+                    entry["type"] = "access_log"
+                    f.write(json.dumps(entry) + "\n")
+                
+        elif args.format == "csv":
+            with open(output_file, "w", newline="") as f:
+                if export_data:
+                    fieldnames = export_data[0].keys()
+                    writer = csv.DictWriter(f, fieldnames=fieldnames)
+                    writer.writeheader()
+                    for entry in export_data:
+                        # Flatten JSON fields for CSV
+                        csv_entry = {}
+                        for key, value in entry.items():
+                            if isinstance(value, (dict, list)):
+                                csv_entry[key] = json.dumps(value)
+                            else:
+                                csv_entry[key] = value
+                        writer.writerow(csv_entry)
+                        
+        elif args.format == "human":
+            with open(output_file, "w") as f:
+                f.write("AutoClean Database Access Log Report\n")
+                f.write("=" * 50 + "\n\n")
+                f.write(f"Export Date: {datetime.now().isoformat()}\n")
+                f.write(f"Database: {db_path}\n")
+                f.write(f"Total Entries: {len(export_data)}\n")
+                f.write(f"Integrity Status: {integrity_result['status']}\n")
+                f.write(f"Integrity Message: {integrity_result['message']}\n\n")
+                
+                if args.start_date or args.end_date or args.operation:
+                    f.write("Filters Applied:\n")
+                    if args.start_date:
+                        f.write(f"  Start Date: {args.start_date}\n")
+                    if args.end_date:
+                        f.write(f"  End Date: {args.end_date}\n")
+                    if args.operation:
+                        f.write(f"  Operation: {args.operation}\n")
+                    f.write("\n")
+                
+                f.write("Access Log Entries:\n")
+                f.write("-" * 30 + "\n\n")
+                
+                for i, entry in enumerate(export_data, 1):
+                    f.write(f"Entry {i} (ID: {entry['log_id']})\n")
+                    f.write(f"  Timestamp: {entry['timestamp']}\n")
+                    f.write(f"  Operation: {entry['operation']}\n")
+                    
+                    if entry.get("user_context"):
+                        user_ctx = entry["user_context"]
+                        if isinstance(user_ctx, dict):
+                            # Handle both old and new format
+                            user = user_ctx.get('user', user_ctx.get('username', 'unknown'))
+                            host = user_ctx.get('host', user_ctx.get('hostname', 'unknown'))
+                            f.write(f"  User: {user}\n")
+                            f.write(f"  Host: {host}\n")
+                    
+                    if entry.get("details") and entry["details"]:
+                        f.write(f"  Details: {json.dumps(entry['details'], indent=4)}\n")
+                    
+                    f.write(f"  Hash: {entry['log_hash'][:16]}...\n")
+                    f.write("\n")
+        
+        message("success", f"✓ Access log exported to: {output_file}")
+        message("info", f"Format: {args.format}, Entries: {len(export_data)}")
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to export access log: {e}")
+        return 1
+
+
 def main(argv: Optional[list] = None) -> int:
     """Main entry point for the AutoClean CLI."""
     parser = create_parser()
@@ -602,6 +894,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_config(args)
     elif args.command == "setup":
         return cmd_setup(args)
+    elif args.command == "export-access-log":
+        return cmd_export_access_log(args)
     elif args.command == "version":
         return cmd_version(args)
     else:
