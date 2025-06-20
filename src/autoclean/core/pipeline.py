@@ -350,6 +350,20 @@ class Pipeline:
                     f"Task '{task}' not found in task registry. Class name in task file must match task name exactly.",  # pylint: disable=line-too-long
                 )
                 raise
+
+            # Capture task file information for compliance tracking
+            from autoclean.utils.audit import get_task_file_info
+            task_file_info = get_task_file_info(task, task_object)
+            
+            # Store task file information in database
+            manage_database_with_audit_protection(
+                operation="update",
+                update_record={
+                    "run_id": run_id, 
+                    "task_file_info": task_file_info
+                },
+            )
+            
             task_object.run()
 
             try:
