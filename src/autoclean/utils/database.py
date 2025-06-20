@@ -288,7 +288,6 @@ def manage_database(
                         timestamp TEXT NOT NULL,
                         operation TEXT NOT NULL,
                         user_context TEXT NOT NULL,
-                        database_file TEXT NOT NULL,
                         details TEXT,
                         log_hash TEXT NOT NULL,
                         previous_hash TEXT
@@ -411,22 +410,21 @@ def manage_database(
                     # Calculate hash for genesis entry
                     genesis_hash = calculate_access_log_hash(
                         genesis_timestamp, genesis_operation, genesis_user_context, 
-                        str(db_path), genesis_details, genesis_previous_hash
+                        "", genesis_details, genesis_previous_hash
                     )
                     
                     # Insert genesis entry
                     cursor.execute(
                         """
                         INSERT INTO database_access_log (
-                            timestamp, operation, user_context, database_file, 
+                            timestamp, operation, user_context, 
                             details, log_hash, previous_hash
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?)
                         """,
                         (
                             genesis_timestamp,
                             genesis_operation,
                             json.dumps(genesis_user_context),
-                            str(db_path),
                             json.dumps(genesis_details),
                             genesis_hash,
                             genesis_previous_hash
@@ -632,10 +630,16 @@ def manage_database(
                 if not run_record:
                     raise ValueError("Missing log entry data for add_access_log operation")
                 
-                timestamp = run_record.get("timestamp", datetime.now().isoformat())
+                # Handle both timestamp formats for backward compatibility
+                timestamp = run_record.get("timestamp")
+                if isinstance(timestamp, int):
+                    # Unix timestamp - convert to ISO for storage
+                    timestamp = datetime.fromtimestamp(timestamp).isoformat()
+                elif not timestamp:
+                    # No timestamp provided - generate current one
+                    timestamp = datetime.now().isoformat()
                 operation_type = run_record.get("operation", "unknown")
                 user_context = run_record.get("user_context", {})
-                database_file = run_record.get("database_file", str(db_path))
                 details = run_record.get("details", {})
                 
                 # Get previous hash for chain integrity (using same connection)
@@ -645,25 +649,24 @@ def manage_database(
                 result = cursor.fetchone()
                 previous_hash = result[0] if result else "genesis_hash_empty_log"
                 
-                # Calculate hash for this entry
+                # Calculate hash for this entry (without database_file)
                 from autoclean.utils.audit import calculate_access_log_hash
                 log_hash = calculate_access_log_hash(
-                    timestamp, operation_type, user_context, database_file, details, previous_hash
+                    timestamp, operation_type, user_context, "", details, previous_hash
                 )
                 
                 # Insert the access log entry
                 cursor.execute(
                     """
                     INSERT INTO database_access_log (
-                        timestamp, operation, user_context, database_file, 
+                        timestamp, operation, user_context, 
                         details, log_hash, previous_hash
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ) VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
                         timestamp,
                         operation_type,
                         json.dumps(user_context),
-                        database_file,
                         json.dumps(details),
                         log_hash,
                         previous_hash
