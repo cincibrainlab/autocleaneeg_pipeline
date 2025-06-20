@@ -280,6 +280,22 @@ def manage_database(
                 """
                 )
 
+                # Create database access log table (tamper-proof)
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS database_access_log (
+                        log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        operation TEXT NOT NULL,
+                        user_context TEXT NOT NULL,
+                        database_file TEXT NOT NULL,
+                        details TEXT,
+                        log_hash TEXT NOT NULL,
+                        previous_hash TEXT
+                    )
+                """
+                )
+
                 # Add user_context column to existing tables if it doesn't exist
                 try:
                     cursor.execute(
@@ -349,7 +365,75 @@ def manage_database(
                 """
                 )
 
+                # Create tamper protection triggers for database_access_log table
+                # Prevent any UPDATE operations on access log (write-only)
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_access_log_updates
+                    BEFORE UPDATE ON database_access_log
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Access log records are immutable - no updates allowed'
+                        );
+                    END
+                """
+                )
+
+                # Prevent any DELETE operations on access log (write-only)
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_access_log_deletions
+                    BEFORE DELETE ON database_access_log
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Access log records cannot be deleted'
+                        );
+                    END
+                """
+                )
+
                 conn.commit()
+                
+                # Initialize access log with genesis entry if empty
+                cursor.execute("SELECT COUNT(*) FROM database_access_log")
+                log_count = cursor.fetchone()[0]
+                
+                if log_count == 0:
+                    # Create genesis entry to start the hash chain
+                    from autoclean.utils.audit import get_user_context, calculate_access_log_hash
+                    
+                    genesis_timestamp = datetime.now().isoformat()
+                    genesis_user_context = get_user_context()
+                    genesis_operation = "database_initialization"
+                    genesis_details = {"action": "genesis_entry", "database_created": str(db_path)}
+                    genesis_previous_hash = "genesis_hash_empty_log"
+                    
+                    # Calculate hash for genesis entry
+                    genesis_hash = calculate_access_log_hash(
+                        genesis_timestamp, genesis_operation, genesis_user_context, 
+                        str(db_path), genesis_details, genesis_previous_hash
+                    )
+                    
+                    # Insert genesis entry
+                    cursor.execute(
+                        """
+                        INSERT INTO database_access_log (
+                            timestamp, operation, user_context, database_file, 
+                            details, log_hash, previous_hash
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            genesis_timestamp,
+                            genesis_operation,
+                            json.dumps(genesis_user_context),
+                            str(db_path),
+                            json.dumps(genesis_details),
+                            genesis_hash,
+                            genesis_previous_hash
+                        )
+                    )
+                    conn.commit()
+                
                 message(
                     "info", f"✓ Database and audit protection established in {db_path}"
                 )
@@ -543,6 +627,52 @@ def manage_database(
                         record_dict["task_file_info"]
                     )
                 return record_dict
+
+            elif operation == "add_access_log":
+                if not run_record:
+                    raise ValueError("Missing log entry data for add_access_log operation")
+                
+                timestamp = run_record.get("timestamp", datetime.now().isoformat())
+                operation_type = run_record.get("operation", "unknown")
+                user_context = run_record.get("user_context", {})
+                database_file = run_record.get("database_file", str(db_path))
+                details = run_record.get("details", {})
+                
+                # Get previous hash for chain integrity (using same connection)
+                cursor.execute(
+                    "SELECT log_hash FROM database_access_log ORDER BY log_id DESC LIMIT 1"
+                )
+                result = cursor.fetchone()
+                previous_hash = result[0] if result else "genesis_hash_empty_log"
+                
+                # Calculate hash for this entry
+                from autoclean.utils.audit import calculate_access_log_hash
+                log_hash = calculate_access_log_hash(
+                    timestamp, operation_type, user_context, database_file, details, previous_hash
+                )
+                
+                # Insert the access log entry
+                cursor.execute(
+                    """
+                    INSERT INTO database_access_log (
+                        timestamp, operation, user_context, database_file, 
+                        details, log_hash, previous_hash
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        timestamp,
+                        operation_type,
+                        json.dumps(user_context),
+                        database_file,
+                        json.dumps(details),
+                        log_hash,
+                        previous_hash
+                    )
+                )
+                
+                conn.commit()
+                log_id = cursor.lastrowid
+                return log_id
 
             conn.close()
 

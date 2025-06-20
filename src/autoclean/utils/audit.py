@@ -251,7 +251,7 @@ def _manage_backup_retention(
 def log_database_access(
     operation: str, user_context: Dict[str, Any], details: Dict[str, Any] = None
 ):
-    """Log database access to separate audit file.
+    """Log database access to tamper-proof database table.
 
     Parameters
     ----------
@@ -268,30 +268,48 @@ def log_database_access(
     """
     # Import here to avoid circular imports
     from autoclean.utils.database import DB_PATH
-
+    
     if DB_PATH is None:
         return  # Database not initialized yet
 
-    access_log_dir = DB_PATH.parent / "access_logs"
-    access_log_dir.mkdir(exist_ok=True)
-
-    # Daily log file
-    log_file = access_log_dir / f"db_access_{datetime.now().strftime('%Y%m%d')}.jsonl"
-
-    log_entry = {
-        "timestamp": datetime.now().isoformat(),
-        "operation": operation,
-        "user_context": user_context,
-        "database_file": str(DB_PATH),
-        "details": details or {},
-    }
-
     try:
-        # Append to daily log file (JSONL format)
-        with open(log_file, "a") as f:
-            f.write(json.dumps(log_entry) + "\n")
+        # Check if database and table exist before trying to log
+        db_path = DB_PATH / "pipeline.db"
+        if not db_path.exists():
+            return  # Database not created yet
+        
+        # Check if access log table exists
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='database_access_log'"
+        )
+        table_exists = cursor.fetchone() is not None
+        conn.close()
+        
+        if not table_exists:
+            return  # Table not created yet, skip logging
+        
+        # Import manage_database here to avoid circular imports
+        from autoclean.utils.database import manage_database
+        
+        # Create log entry for database storage
+        log_entry = {
+            "timestamp": datetime.now().isoformat(),
+            "operation": operation,
+            "user_context": user_context,
+            "database_file": str(db_path),
+            "details": details or {},
+        }
+        
+        # Store in tamper-proof database table with hash chain
+        manage_database(operation="add_access_log", run_record=log_entry)
+        
     except Exception as e:
-        message("warning", f"Failed to log database access: {e}")
+        # Fallback: log to stderr if database logging fails
+        message("warning", f"Failed to log database access to secure table: {e}")
+        # Don't create file logs anymore - database is the authoritative source
 
 
 def get_task_file_info(task_name: str, task_object: Any) -> Dict[str, Any]:
@@ -379,3 +397,185 @@ def get_task_file_info(task_name: str, task_object: Any) -> Dict[str, Any]:
         task_file_info["error"] = f"Failed to capture task file info: {str(e)}"
     
     return task_file_info
+
+
+def get_last_access_log_hash() -> str:
+    """Get the hash of the most recent access log entry for chain integrity.
+    
+    Returns
+    -------
+    str
+        Hash of the last access log entry, or genesis hash if no entries exist
+    """
+    try:
+        # Import here to avoid circular imports
+        from autoclean.utils.database import DB_PATH
+        
+        if DB_PATH is None:
+            return "genesis_hash_no_database"
+        
+        # Get the most recent access log entry
+        db_path = DB_PATH / "pipeline.db"
+        if not db_path.exists():
+            return "genesis_hash_no_database"
+        
+        import sqlite3
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            """
+            SELECT log_hash FROM database_access_log 
+            ORDER BY log_id DESC 
+            LIMIT 1
+            """
+        )
+        result = cursor.fetchone()
+        conn.close()
+        
+        if result:
+            return result[0]
+        else:
+            # No entries yet, return genesis hash
+            return "genesis_hash_empty_log"
+            
+    except Exception as e:
+        message("warning", f"Failed to get last access log hash: {e}")
+        return "genesis_hash_error"
+
+
+def calculate_access_log_hash(
+    timestamp: str, 
+    operation: str, 
+    user_context: Dict[str, Any], 
+    database_file: str,
+    details: Dict[str, Any], 
+    previous_hash: str
+) -> str:
+    """Calculate hash for access log entry to maintain integrity chain.
+    
+    Parameters
+    ----------
+    timestamp : str
+        ISO timestamp of the log entry
+    operation : str
+        Database operation type
+    user_context : Dict[str, Any]
+        User context information
+    database_file : str
+        Path to database file
+    details : Dict[str, Any]
+        Additional operation details
+    previous_hash : str
+        Hash of the previous log entry
+        
+    Returns
+    -------
+    str
+        SHA256 hash of the log entry data
+    """
+    import hashlib
+    import json
+    
+    # Create canonical representation for hashing
+    log_data = {
+        "timestamp": timestamp,
+        "operation": operation,
+        "user_context": user_context,
+        "database_file": database_file,
+        "details": details or {},
+        "previous_hash": previous_hash
+    }
+    
+    # Convert to canonical JSON (sorted keys)
+    canonical_json = json.dumps(log_data, sort_keys=True, separators=(',', ':'))
+    
+    # Calculate SHA256 hash
+    return hashlib.sha256(canonical_json.encode('utf-8')).hexdigest()
+
+
+def verify_access_log_integrity() -> Dict[str, Any]:
+    """Verify the integrity of the access log hash chain.
+    
+    Returns
+    -------
+    Dict[str, Any]
+        Verification results including status and any issues found
+    """
+    try:
+        # Import here to avoid circular imports
+        from autoclean.utils.database import DB_PATH
+        
+        if DB_PATH is None:
+            return {"status": "error", "message": "Database not initialized"}
+        
+        db_path = DB_PATH / "pipeline.db"
+        if not db_path.exists():
+            return {"status": "error", "message": "Database file not found"}
+        
+        import sqlite3
+        import json
+        
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Get all access log entries in order
+        cursor.execute(
+            """
+            SELECT log_id, timestamp, operation, user_context, database_file, 
+                   details, log_hash, previous_hash
+            FROM database_access_log 
+            ORDER BY log_id ASC
+            """
+        )
+        entries = cursor.fetchall()
+        conn.close()
+        
+        if not entries:
+            return {"status": "valid", "message": "No access log entries to verify"}
+        
+        # Verify each entry's hash
+        issues = []
+        expected_previous_hash = "genesis_hash_empty_log"
+        
+        for entry in entries:
+            log_id, timestamp, operation, user_context_str, database_file, details_str, stored_hash, previous_hash = entry
+            
+            # Parse JSON fields
+            try:
+                user_context = json.loads(user_context_str) if user_context_str else {}
+                details = json.loads(details_str) if details_str else {}
+            except json.JSONDecodeError as e:
+                issues.append(f"Entry {log_id}: JSON decode error - {e}")
+                continue
+            
+            # Verify previous hash matches expected
+            if previous_hash != expected_previous_hash:
+                issues.append(f"Entry {log_id}: Hash chain broken - expected previous_hash {expected_previous_hash}, got {previous_hash}")
+            
+            # Recalculate hash for this entry
+            calculated_hash = calculate_access_log_hash(
+                timestamp, operation, user_context, database_file, details, previous_hash
+            )
+            
+            # Verify stored hash matches calculated hash
+            if stored_hash != calculated_hash:
+                issues.append(f"Entry {log_id}: Hash mismatch - stored {stored_hash[:16]}..., calculated {calculated_hash[:16]}...")
+            
+            # Set up for next iteration
+            expected_previous_hash = stored_hash
+        
+        if issues:
+            return {
+                "status": "compromised", 
+                "message": f"Found {len(issues)} integrity issues",
+                "issues": issues
+            }
+        else:
+            return {
+                "status": "valid", 
+                "message": f"All {len(entries)} access log entries verified successfully"
+            }
+            
+    except Exception as e:
+        return {"status": "error", "message": f"Verification failed: {str(e)}"}
