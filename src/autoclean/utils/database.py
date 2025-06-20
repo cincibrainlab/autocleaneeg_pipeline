@@ -295,10 +295,59 @@ def manage_database(
                 """
                 )
 
+                # Create authenticated users table for compliance mode
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS authenticated_users (
+                        auth0_user_id TEXT PRIMARY KEY,
+                        email TEXT NOT NULL,
+                        name TEXT,
+                        first_login TEXT,
+                        last_login TEXT,
+                        token_expires TEXT,
+                        user_metadata TEXT
+                    )
+                """
+                )
+
+                # Create electronic signatures table for compliance mode
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS electronic_signatures (
+                        signature_id TEXT PRIMARY KEY,
+                        run_id TEXT NOT NULL,
+                        auth0_user_id TEXT NOT NULL,
+                        signature_data TEXT NOT NULL,
+                        signature_type TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
+                        FOREIGN KEY (run_id) REFERENCES pipeline_runs(run_id),
+                        FOREIGN KEY (auth0_user_id) REFERENCES authenticated_users(auth0_user_id)
+                    )
+                """
+                )
+
                 # Add user_context column to existing tables if it doesn't exist
                 try:
                     cursor.execute(
                         "ALTER TABLE pipeline_runs ADD COLUMN user_context TEXT"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                # Add auth0_user_id column for compliance mode
+                try:
+                    cursor.execute(
+                        "ALTER TABLE pipeline_runs ADD COLUMN auth0_user_id TEXT"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                # Add auth0_user_id column to database_access_log for compliance mode
+                try:
+                    cursor.execute(
+                        "ALTER TABLE database_access_log ADD COLUMN auth0_user_id TEXT"
                     )
                 except sqlite3.OperationalError:
                     # Column already exists
@@ -676,6 +725,131 @@ def manage_database(
                 conn.commit()
                 log_id = cursor.lastrowid
                 return log_id
+
+            elif operation == "store_authenticated_user":
+                if not run_record:
+                    raise ValueError("Missing user data for store_authenticated_user operation")
+                
+                # Extract user information
+                auth0_user_id = run_record.get("auth0_user_id")
+                email = run_record.get("email")
+                name = run_record.get("name")
+                user_metadata = run_record.get("user_metadata", {})
+                
+                if not auth0_user_id or not email:
+                    raise ValueError("auth0_user_id and email are required for authenticated users")
+                
+                current_time = datetime.now().isoformat()
+                
+                # Check if user already exists
+                cursor.execute(
+                    "SELECT auth0_user_id, first_login FROM authenticated_users WHERE auth0_user_id = ?",
+                    (auth0_user_id,)
+                )
+                existing_user = cursor.fetchone()
+                
+                if existing_user:
+                    # Update existing user
+                    cursor.execute(
+                        """
+                        UPDATE authenticated_users 
+                        SET email = ?, name = ?, last_login = ?, user_metadata = ?
+                        WHERE auth0_user_id = ?
+                        """,
+                        (email, name, current_time, json.dumps(user_metadata), auth0_user_id)
+                    )
+                    message("debug", f"Updated authenticated user: {email}")
+                else:
+                    # Insert new user
+                    cursor.execute(
+                        """
+                        INSERT INTO authenticated_users (
+                            auth0_user_id, email, name, first_login, 
+                            last_login, user_metadata
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (auth0_user_id, email, name, current_time, current_time, json.dumps(user_metadata))
+                    )
+                    message("debug", f"Stored new authenticated user: {email}")
+                
+                conn.commit()
+                return auth0_user_id
+
+            elif operation == "get_authenticated_user":
+                if not run_record or "auth0_user_id" not in run_record:
+                    raise ValueError("Missing auth0_user_id for get_authenticated_user operation")
+                
+                cursor.execute(
+                    "SELECT * FROM authenticated_users WHERE auth0_user_id = ?",
+                    (run_record["auth0_user_id"],)
+                )
+                user_record = cursor.fetchone()
+                
+                if not user_record:
+                    return None
+                
+                # Convert to dict and parse JSON fields
+                user_dict = dict(user_record)
+                if user_dict.get("user_metadata"):
+                    user_dict["user_metadata"] = json.loads(user_dict["user_metadata"])
+                
+                return user_dict
+
+            elif operation == "store_electronic_signature":
+                if not run_record:
+                    raise ValueError("Missing signature data for store_electronic_signature operation")
+                
+                required_fields = ["signature_id", "run_id", "auth0_user_id", "signature_data", "signature_type"]
+                for field in required_fields:
+                    if field not in run_record:
+                        raise ValueError(f"Missing required field '{field}' for electronic signature")
+                
+                current_time = datetime.now().isoformat()
+                
+                cursor.execute(
+                    """
+                    INSERT INTO electronic_signatures (
+                        signature_id, run_id, auth0_user_id, signature_data,
+                        signature_type, timestamp
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        run_record["signature_id"],
+                        run_record["run_id"],
+                        run_record["auth0_user_id"],
+                        json.dumps(run_record["signature_data"]),
+                        run_record["signature_type"],
+                        current_time
+                    )
+                )
+                
+                conn.commit()
+                message("debug", f"Stored electronic signature for run: {run_record['run_id']}")
+                return run_record["signature_id"]
+
+            elif operation == "get_electronic_signatures":
+                if not run_record or "run_id" not in run_record:
+                    raise ValueError("Missing run_id for get_electronic_signatures operation")
+                
+                cursor.execute(
+                    """
+                    SELECT es.*, au.email, au.name 
+                    FROM electronic_signatures es
+                    LEFT JOIN authenticated_users au ON es.auth0_user_id = au.auth0_user_id
+                    WHERE es.run_id = ?
+                    ORDER BY es.timestamp
+                    """,
+                    (run_record["run_id"],)
+                )
+                
+                signatures = []
+                for row in cursor.fetchall():
+                    sig_dict = dict(row)
+                    if sig_dict.get("signature_data"):
+                        sig_dict["signature_data"] = json.loads(sig_dict["signature_data"])
+                    signatures.append(sig_dict)
+                
+                return signatures
 
             conn.close()
 
