@@ -137,11 +137,14 @@ def step_convert_to_bids(
     sex = "n/a"
     group = "n/a"
 
+    # Sanitize task name for BIDS compliance (no underscores, hyphens, or slashes)
+    bids_task = task.replace("_", "").replace("-", "").replace("/", "")
+    
     # Create BIDSPath object.
     bids_path = BIDSPath(
         subject=subject_id,
         session=session,
-        task=task,
+        task=bids_task,
         run=run,
         datatype="eeg",
         root=bids_root,
