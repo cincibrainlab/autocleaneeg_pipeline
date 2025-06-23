@@ -182,7 +182,12 @@ Examples:
     )
 
     # Setup command (same as config setup for simplicity)
-    subparsers.add_parser("setup", help="Setup or reconfigure workspace")
+    setup_parser = subparsers.add_parser("setup", help="Setup or reconfigure workspace")
+    setup_parser.add_argument(
+        "--compliance-mode",
+        action="store_true", 
+        help="Enable FDA 21 CFR Part 11 compliance mode with Auth0 authentication"
+    )
 
     # Export access log command
     export_log_parser = subparsers.add_parser(
@@ -225,6 +230,13 @@ Examples:
         type=Path, 
         help="Path to database file (default: auto-detect from workspace)"
     )
+
+    # Authentication commands (for compliance mode)
+    login_parser = subparsers.add_parser("login", help="Login to Auth0 for compliance mode")
+    
+    logout_parser = subparsers.add_parser("logout", help="Logout and clear authentication tokens")
+    
+    whoami_parser = subparsers.add_parser("whoami", help="Show current authenticated user")
 
     # Version command
     subparsers.add_parser("version", help="Show version information")
@@ -392,12 +404,243 @@ def cmd_review(args) -> int:
 
 
 def cmd_setup(args) -> int:
-    """Run the setup wizard."""
+    """Run the interactive setup wizard."""
     try:
-        user_config.setup_workspace()
-        return 0
+        # Check if compliance mode flag was passed
+        if hasattr(args, 'compliance_mode') and args.compliance_mode:
+            return _setup_compliance_mode()
+        else:
+            return _run_interactive_setup()
     except Exception as e:
         message("error", f"Setup failed: {str(e)}")
+        return 1
+
+
+def _run_interactive_setup() -> int:
+    """Run interactive setup wizard with arrow key navigation."""
+    try:
+        import inquirer
+        
+        message("info", "🧠 AutoClean EEG Setup Wizard")
+        message("info", "Use arrow keys to navigate, Enter to select\n")
+        
+        # First question: Basic vs Compliance setup
+        questions = [
+            inquirer.List(
+                'setup_type',
+                message="What type of setup do you need?",
+                choices=[
+                    ('Basic setup (standard research use)', 'basic'),
+                    ('FDA 21 CFR Part 11 compliance mode (regulated environments)', 'compliance'),
+                    ('Just configure workspace location', 'workspace_only')
+                ],
+                default='basic'
+            )
+        ]
+        
+        answers = inquirer.prompt(questions)
+        if not answers:  # User canceled
+            message("info", "Setup canceled.")
+            return 0
+        
+        setup_type = answers['setup_type']
+        
+        if setup_type == 'workspace_only':
+            # Just do basic workspace setup
+            user_config.setup_workspace()
+            message("success", "✓ Workspace setup complete!")
+            return 0
+        elif setup_type == 'basic':
+            # Standard setup
+            return _setup_basic_mode()
+        elif setup_type == 'compliance':
+            # Compliance setup
+            return _setup_compliance_mode()
+        
+    except ImportError:
+        # Fall back to basic setup if inquirer not available
+        message("warning", "Interactive prompts not available. Running basic setup...")
+        user_config.setup_workspace()
+        return 0
+    except KeyboardInterrupt:
+        message("info", "\nSetup canceled by user.")
+        return 0
+    except Exception as e:
+        message("error", f"Interactive setup failed: {e}")
+        return 1
+
+
+def _setup_basic_mode() -> int:
+    """Setup basic (non-compliance) mode."""
+    try:
+        import inquirer
+        from autoclean.utils.config import load_user_config, save_user_config
+        
+        message("info", "\n📋 Basic Setup Configuration")
+        
+        # Setup workspace first
+        user_config.setup_workspace()
+        
+        # Ask about workspace preferences
+        questions = [
+            inquirer.Confirm(
+                'auto_backup',
+                message="Enable automatic database backups?",
+                default=True
+            ),
+        ]
+        
+        answers = inquirer.prompt(questions)
+        if not answers:
+            return 0
+        
+        # Update user configuration
+        user_config_data = load_user_config()
+        
+        # Ensure compliance and workspace are dictionaries
+        if not isinstance(user_config_data.get('compliance'), dict):
+            user_config_data['compliance'] = {}
+        if not isinstance(user_config_data.get('workspace'), dict):
+            user_config_data['workspace'] = {}
+        
+        user_config_data['compliance']['enabled'] = False
+        user_config_data['workspace']['auto_backup'] = answers['auto_backup']
+        
+        save_user_config(user_config_data)
+        
+        message("success", "✓ Basic setup complete!")
+        message("info", "You can now use AutoClean for standard EEG processing.")
+        message("info", "Run 'autoclean process TaskName file.raw' to get started.")
+        
+        return 0
+        
+    except ImportError:
+        # Fall back without inquirer
+        user_config.setup_workspace()
+        return 0
+
+
+def _setup_compliance_mode() -> int:
+    """Setup FDA 21 CFR Part 11 compliance mode with Auth0."""
+    try:
+        import inquirer
+        from autoclean.utils.config import load_user_config, save_user_config
+        from autoclean.utils.auth import get_auth0_manager, validate_auth0_config
+        
+        message("info", "\n🔐 FDA 21 CFR Part 11 Compliance Setup")
+        message("warning", "This mode requires Auth0 account and application setup.")
+        
+        # Setup workspace first
+        user_config.setup_workspace()
+        
+        # Explain Auth0 requirements
+        message("info", "\nAuth0 Application Setup Instructions:")
+        message("info", "1. Create an Auth0 account at https://auth0.com")
+        message("info", "2. Go to Applications > Create Application")
+        message("info", "3. Choose 'Native' as the application type (for CLI apps)")  
+        message("info", "4. In your application settings, configure:")
+        message("info", "   - Allowed Callback URLs: http://localhost:8080/callback")
+        message("info", "   - Allowed Logout URLs: http://localhost:8080/logout")
+        message("info", "   - Grant Types: Authorization Code, Refresh Token (default for Native)")
+        message("info", "5. Copy your Domain, Client ID, and Client Secret")
+        message("info", "6. Your domain will be something like: your-tenant.us.auth0.com\n")
+        
+        # Confirm user is ready
+        ready_question = [
+            inquirer.Confirm(
+                'auth0_ready',
+                message="Do you have your Auth0 application configured and credentials ready?",
+                default=False
+            )
+        ]
+        
+        ready_answer = inquirer.prompt(ready_question)
+        if not ready_answer or not ready_answer['auth0_ready']:
+            message("info", "Please set up your Auth0 application first, then run:")
+            message("info", "autoclean setup --compliance-mode")
+            return 0
+        
+        # Get Auth0 configuration
+        auth_questions = [
+            inquirer.Text(
+                'domain',
+                message="Auth0 Domain (e.g., your-tenant.auth0.com)",
+                validate=lambda _, x: len(x) > 0 and '.auth0.com' in x
+            ),
+            inquirer.Text(
+                'client_id', 
+                message="Auth0 Client ID",
+                validate=lambda _, x: len(x) > 0
+            ),
+            inquirer.Password(
+                'client_secret',
+                message="Auth0 Client Secret",
+                validate=lambda _, x: len(x) > 0
+            ),
+            inquirer.Confirm(
+                'require_signatures',
+                message="Require electronic signatures for processing runs?",
+                default=True
+            )
+        ]
+        
+        auth_answers = inquirer.prompt(auth_questions)
+        if not auth_answers:
+            return 0
+        
+        # Validate Auth0 configuration
+        message("info", "Validating Auth0 configuration...")
+        
+        is_valid, error_msg = validate_auth0_config(
+            auth_answers['domain'],
+            auth_answers['client_id'], 
+            auth_answers['client_secret']
+        )
+        
+        if not is_valid:
+            message("error", f"Auth0 configuration invalid: {error_msg}")
+            return 1
+        
+        message("success", "✓ Auth0 configuration validated!")
+        
+        # Configure Auth0 manager
+        auth_manager = get_auth0_manager()
+        auth_manager.configure_auth0(
+            auth_answers['domain'],
+            auth_answers['client_id'],
+            auth_answers['client_secret']
+        )
+        
+        # Update user configuration
+        user_config_data = load_user_config()
+        
+        # Ensure compliance and workspace are dictionaries
+        if not isinstance(user_config_data.get('compliance'), dict):
+            user_config_data['compliance'] = {}
+        if not isinstance(user_config_data.get('workspace'), dict):
+            user_config_data['workspace'] = {}
+        
+        user_config_data['compliance']['enabled'] = True
+        user_config_data['compliance']['auth_provider'] = 'auth0'
+        user_config_data['compliance']['require_electronic_signatures'] = auth_answers['require_signatures']
+        user_config_data['workspace']['auto_backup'] = True  # Always enabled for compliance
+        
+        save_user_config(user_config_data)
+        
+        message("success", "✓ Compliance mode setup complete!")
+        message("info", "\nNext steps:")
+        message("info", "1. Run 'autoclean login' to authenticate")
+        message("info", "2. Use 'autoclean whoami' to check authentication status")
+        message("info", "3. All processing will now include audit trails and user authentication")
+        
+        return 0
+        
+    except ImportError:
+        message("error", "Interactive setup requires 'inquirer' package.")
+        message("info", "Install with: pip install inquirer")
+        return 1
+    except Exception as e:
+        message("error", f"Compliance setup failed: {e}")
         return 1
 
 
@@ -868,6 +1111,132 @@ def cmd_export_access_log(args) -> int:
         return 1
 
 
+def cmd_login(args) -> int:
+    """Execute the login command."""
+    try:
+        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+        
+        if not is_compliance_mode_enabled():
+            message("error", "Compliance mode is not enabled.")
+            message("info", "Run 'autoclean setup --compliance-mode' to enable compliance mode and configure Auth0.")
+            return 1
+        
+        auth_manager = get_auth0_manager()
+        
+        if not auth_manager.is_configured():
+            message("error", "Auth0 not configured.")
+            message("info", "Run 'autoclean setup --compliance-mode' to configure Auth0 authentication.")
+            return 1
+        
+        if auth_manager.is_authenticated():
+            user_info = auth_manager.get_current_user()
+            user_email = user_info.get('email', 'Unknown') if user_info else 'Unknown'
+            message("info", f"Already logged in as: {user_email}")
+            return 0
+        
+        message("info", "Starting Auth0 login process...")
+        
+        if auth_manager.login():
+            user_info = auth_manager.get_current_user()
+            user_email = user_info.get('email', 'Unknown') if user_info else 'Unknown'
+            message("success", f"✓ Login successful! Welcome, {user_email}")
+            
+            # Store user in database
+            if user_info:
+                from autoclean.utils.database import manage_database_with_audit_protection
+                user_record = {
+                    "auth0_user_id": user_info.get("sub"),
+                    "email": user_info.get("email"),
+                    "name": user_info.get("name"),
+                    "user_metadata": user_info
+                }
+                manage_database_with_audit_protection("store_authenticated_user", user_record)
+            
+            return 0
+        else:
+            message("error", "Login failed. Please try again.")
+            return 1
+            
+    except Exception as e:
+        message("error", f"Login error: {e}")
+        return 1
+
+
+def cmd_logout(args) -> int:
+    """Execute the logout command."""
+    try:
+        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+        
+        if not is_compliance_mode_enabled():
+            message("info", "Compliance mode is not enabled. No authentication to clear.")
+            return 0
+        
+        auth_manager = get_auth0_manager()
+        
+        if not auth_manager.is_authenticated():
+            message("info", "Not currently logged in.")
+            return 0
+        
+        user_info = auth_manager.get_current_user()
+        user_email = user_info.get('email', 'Unknown') if user_info else 'Unknown'
+        
+        auth_manager.logout()
+        message("success", f"✓ Logged out successfully. Goodbye, {user_email}!")
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Logout error: {e}")
+        return 1
+
+
+def cmd_whoami(args) -> int:
+    """Execute the whoami command."""
+    try:
+        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+        
+        if not is_compliance_mode_enabled():
+            message("info", "Compliance mode: Disabled")
+            message("info", "Authentication: Not required")
+            return 0
+        
+        auth_manager = get_auth0_manager()
+        
+        if not auth_manager.is_configured():
+            message("info", "Compliance mode: Enabled")
+            message("info", "Authentication: Not configured")
+            message("info", "Run 'autoclean setup --compliance-mode' to configure Auth0.")
+            return 0
+        
+        if not auth_manager.is_authenticated():
+            message("info", "Compliance mode: Enabled")
+            message("info", "Authentication: Not logged in")
+            message("info", "Run 'autoclean login' to authenticate.")
+            return 0
+        
+        user_info = auth_manager.get_current_user()
+        if user_info:
+            message("info", "Compliance mode: Enabled")
+            message("info", "Authentication: Logged in")
+            message("info", f"Email: {user_info.get('email', 'Unknown')}")
+            message("info", f"Name: {user_info.get('name', 'Unknown')}")
+            message("info", f"User ID: {user_info.get('sub', 'Unknown')}")
+            
+            # Check token expiration
+            if hasattr(auth_manager, 'token_expires_at') and auth_manager.token_expires_at:
+                from datetime import datetime
+                expires_str = auth_manager.token_expires_at.strftime("%Y-%m-%d %H:%M:%S")
+                message("info", f"Token expires: {expires_str}")
+        else:
+            message("warning", "User information unavailable")
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Error checking authentication status: {e}")
+        return 1
+
+
 def main(argv: Optional[list] = None) -> int:
     """Main entry point for the AutoClean CLI."""
     parser = create_parser()
@@ -896,6 +1265,12 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_setup(args)
     elif args.command == "export-access-log":
         return cmd_export_access_log(args)
+    elif args.command == "login":
+        return cmd_login(args)
+    elif args.command == "logout":
+        return cmd_logout(args)
+    elif args.command == "whoami":
+        return cmd_whoami(args)
     elif args.command == "version":
         return cmd_version(args)
     else:

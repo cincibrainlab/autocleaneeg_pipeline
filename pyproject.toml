@@ -73,6 +73,7 @@ dependencies = [
     "auth0-python>=4.7.1",
     "requests>=2.25.0",
     "cryptography>=3.4.8",
+    "inquirer>=3.1.0",
 ]
 
 [project.urls]
