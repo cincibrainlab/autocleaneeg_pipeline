@@ -52,7 +52,7 @@ from .epoching import (
 # ICA functions
 from .ica import (
     apply_ica_rejection,
-    apply_iclabel_rejection,
+    apply_ica_component_rejection,
     classify_ica_components,
     fit_ica,
 )

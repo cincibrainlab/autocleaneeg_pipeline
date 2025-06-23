@@ -45,7 +45,7 @@ class IcaMixin:
 
         See Also
         --------
-        run_ICLabel : Run ICLabel on the raw data.
+        classify_ica_components : Classify ICA components with ICLabel or ICVision.
 
         """
         message("header", "Running ICA step")
@@ -105,75 +105,84 @@ class IcaMixin:
 
         return self.final_ica
 
-    def run_ICLabel(
-        self, stage_name: str = "post_component_removal", export: bool = False
-    ):  # pylint: disable=invalid-name
-        """Run ICLabel on the raw data.
+    def classify_ica_components(
+        self, method: str = "iclabel", reject: bool = True, stage_name: str = "post_ica", export: bool = False
+    ):
+        """Classify ICA components and optionally reject artifact components.
+
+        This method classifies ICA components using either ICLabel or ICVision methods
+        and can automatically reject components identified as artifacts.
+
+        Parameters
+        ----------
+        method : str, default "iclabel"
+            Classification method to use. Options: "iclabel", "icvision".
+        reject : bool, default True
+            If True, automatically reject components identified as artifacts.
+        stage_name : str, optional
+            Name of the processing stage for export. Default is "post_component_removal".
+        export : bool, optional
+            If True, exports the processed data to the stage directory. Default is False.
 
         Returns
         -------
         ica_flags : pandas.DataFrame or None
-            A pandas DataFrame containing the ICLabel flags, or None if the
-            step is disabled or fails.
+            A pandas DataFrame containing the classification results, or None if the
+            step fails.
 
         Examples
         --------
-        >>> self.run_ICLabel()
+        >>> # Classify with ICLabel and auto-reject
+        >>> self.classify_ica_components(method="iclabel", reject=True)
+        >>> # Classify with ICVision without rejection
+        >>> self.classify_ica_components(method="icvision", reject=False)
 
         Notes
         -----
         This method will modify the self.final_ica attribute in place by adding labels.
-        It checks if the 'ICLabel' step is enabled in the configuration.
+        If reject=True, it will also apply component rejection.
         """
-        message("header", "Running ICLabel step")
-
-        is_enabled, _ = self._check_step_enabled(
-            "ICLabel"
-        )  # config_value not used here
-
-        if not is_enabled:
-            message(
-                "warning", "ICLabel is not enabled in the config. Skipping ICLabel."
-            )
-            return None  # Return None if not enabled
+        message("header", f"Running ICA component classification with {method}")
 
         if not hasattr(self, "final_ica") or self.final_ica is None:
             message(
                 "error",
-                "ICA (self.final_ica) not found. Please run `run_ica` before `run_ICLabel`.",
+                "ICA (self.final_ica) not found. Please run `run_ica` before `classify_ica_components`.",
             )
-            # Or raise an error, depending on desired behavior
             return None
 
         # Call standalone function for ICA component classification
         from autoclean.functions.ica.ica_processing import classify_ica_components
 
         self.ica_flags = classify_ica_components(
-            self.raw, self.final_ica, method="iclabel"
+            self.raw, self.final_ica, method=method
         )
 
         metadata = {
             "ica": {
+                "classification_method": method,
                 "ica_components": self.final_ica.n_components_,
             }
         }
 
-        self._update_metadata("step_run_ICLabel", metadata)
+        self._update_metadata("classify_ica_components", metadata)
 
-        message("success", "ICLabel complete")
+        message("success", f"ICA component classification with {method} complete")
 
-        self.apply_iclabel_rejection()
+        # Apply rejection if requested
+        if reject:
+            self.apply_ica_component_rejection()
 
         # Export if requested
         self._auto_export_if_enabled(self.raw, stage_name, export)
 
         return self.ica_flags
 
-    def apply_iclabel_rejection(self, data_to_clean=None):
+    def apply_ica_component_rejection(self, data_to_clean=None):
         """
-        Apply ICA component rejection based on ICLabel classifications and configuration.
+        Apply ICA component rejection based on component classifications and configuration.
 
-        This method uses the labels assigned by `run_ICLabel` and the rejection
+        This method uses the labels assigned by `classify_ica_components` and the rejection
         criteria specified in the 'ICLabel' section of the pipeline configuration
         (e.g., ic_flags_to_reject, ic_rejection_threshold) to mark components
         for rejection. It then applies the ICA to remove these components from
@@ -186,7 +195,7 @@ class IcaMixin:
         ----------
         data_to_clean : mne.io.Raw | mne.Epochs, optional
             The data to apply the ICA to. If None, defaults to `self.raw`.
-            This should ideally be the same data object that `run_ICLabel` was
+            This should ideally be the same data object that classification was
             performed on, or is compatible with `self.final_ica`.
 
         Returns
@@ -198,9 +207,9 @@ class IcaMixin:
         ------
         RuntimeError
             If `self.final_ica` or `self.ica_flags` are not available (i.e.,
-            `run_ica` and `run_ICLabel` have not been run successfully).
+            `run_ica` and `classify_ica_components` have not been run successfully).
         """
-        message("header", "Applying ICLabel-based component rejection")
+        message("header", "Applying ICA component rejection")
 
         if not hasattr(self, "final_ica") or self.final_ica is None:
             message(
@@ -213,10 +222,10 @@ class IcaMixin:
         if not hasattr(self, "ica_flags") or self.ica_flags is None:
             message(
                 "error",
-                "ICA results (self.ica_flags) not found. Skipping ICLabel rejection.",
+                "ICA results (self.ica_flags) not found. Skipping component rejection.",
             )
             raise RuntimeError(
-                "ICA results (self.ica_flags) not found. Please run `run_ICLabel` first."
+                "ICA results (self.ica_flags) not found. Please run `classify_ica_components` first."
             )
 
         is_enabled, step_config_main_dict = self._check_step_enabled("ICLabel")
@@ -246,7 +255,7 @@ class IcaMixin:
         if flags_to_reject is None or rejection_threshold is None:
             message(
                 "warning",
-                "ICLabel rejection parameters (ic_flags_to_reject or ic_rejection_threshold) "
+                "ICA rejection parameters (ic_flags_to_reject or ic_rejection_threshold) "
                 "not found in the 'ICLabel' step configuration. Skipping component rejection.",
             )
             return
@@ -263,10 +272,10 @@ class IcaMixin:
         )
         message("debug", f"Applying ICA to {data_source_name}")
 
-        # Call standalone function for ICLabel-based rejection
-        from autoclean.functions.ica.ica_processing import apply_iclabel_rejection
+        # Call standalone function for component rejection
+        from autoclean.functions.ica.ica_processing import apply_ica_component_rejection
 
-        _, rejected_ic_indices_this_step = apply_iclabel_rejection(
+        _, rejected_ic_indices_this_step = apply_ica_component_rejection(
             raw=target_data,
             ica=self.final_ica,
             labels_df=self.ica_flags,
@@ -277,13 +286,13 @@ class IcaMixin:
 
         if not rejected_ic_indices_this_step:
             message(
-                "info", "No new components met ICLabel rejection criteria in this step."
+                "info", "No new components met rejection criteria in this step."
             )
         else:
             message(
                 "info",
-                f"Identified {len(rejected_ic_indices_this_step)} components for rejection "
-                f"based on ICLabel: {rejected_ic_indices_this_step}",
+                f"Identified {len(rejected_ic_indices_this_step)} components for rejection: "
+                f"{rejected_ic_indices_this_step}",
             )
 
         message(
@@ -293,20 +302,20 @@ class IcaMixin:
 
         # Update metadata
         metadata = {
-            "step_apply_iclabel_rejection": {
+            "step_apply_ica_component_rejection": {
                 "configured_flags_to_reject": flags_to_reject,
                 "configured_rejection_threshold": rejection_threshold,
-                "iclabel_rejected_indices_this_step": rejected_ic_indices_this_step,
-                "final_excluded_indices_after_iclabel": self.final_ica.exclude,
+                "rejected_indices_this_step": rejected_ic_indices_this_step,
+                "final_excluded_indices": self.final_ica.exclude,
             }
         }
         # Assuming _update_metadata is available in the class using this mixin
         if hasattr(self, "_update_metadata") and callable(self._update_metadata):
-            self._update_metadata("step_apply_iclabel_rejection", metadata)
+            self._update_metadata("step_apply_ica_component_rejection", metadata)
         else:
             message(
                 "warning",
-                "_update_metadata method not found. Cannot save metadata for ICLabel rejection.",
+                "_update_metadata method not found. Cannot save metadata for component rejection.",
             )
 
-        message("success", "ICLabel-based component rejection complete.")
+        message("success", "ICA component rejection complete.")

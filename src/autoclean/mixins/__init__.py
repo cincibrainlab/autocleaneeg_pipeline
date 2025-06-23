@@ -149,23 +149,48 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
                             if class_obj not in _discovered_other_mixins:
                                 _discovered_other_mixins.append(class_obj)
                 except ImportError as e:
-                    print(
-                        f"Warning: Could not import module '{full_sub_module_name}' for mixin discovery: {e}"
-                    )
+                    print("=" * 80)
+                    print("🚨 CRITICAL MIXIN IMPORT ERROR 🚨")
+                    print(f"Could not import module '{full_sub_module_name}' for mixin discovery")
+                    print(f"Error: {e}")
+                    print("STOPPING EXECUTION - Fix import error before continuing!")
+                    print("Check for syntax errors or missing dependencies in the mixin file.")
+                    print("=" * 80)
+                    raise SystemExit(f"Critical mixin import error: {full_sub_module_name} - {e}")
                 except Exception as e:
+                    print("=" * 80)
+                    print("🚨 CRITICAL MIXIN ERROR 🚨")
                     print(f"Error inspecting module '{full_sub_module_name}': {e}")
+                    print("STOPPING EXECUTION - Fix mixin error before continuing!")
+                    print("=" * 80)
+                    raise SystemExit(f"Critical mixin error: {full_sub_module_name} - {e}")
         except ImportError as e:
-            print(
-                f"Warning: Could not import sub-package '{full_item_name}' for mixin discovery: {e}"
-            )
+            print("=" * 80)
+            print("🚨 CRITICAL SUB-PACKAGE IMPORT ERROR 🚨")
+            print(f"Could not import sub-package '{full_item_name}' for mixin discovery")
+            print(f"Error: {e}")
+            print("STOPPING EXECUTION - Fix import error before continuing!")
+            print("=" * 80)
+            raise SystemExit(f"Critical sub-package import error: {full_item_name} - {e}")
         except SyntaxError as e:
-            print(f"Error processing sub-package '{full_item_name}': {e}")
-            print(f"  Syntax error in file: {e.filename}, line {e.lineno}: {e.text}")
+            print("=" * 80)
+            print("🚨 CRITICAL SYNTAX ERROR IN MIXIN SUB-PACKAGE 🚨")
+            print(f"Sub-package: {full_item_name}")
+            print(f"File: {e.filename}")
+            print(f"Line {e.lineno}: {e.text}")
+            print(f"Error: {e}")
+            print("STOPPING EXECUTION - Fix syntax error before continuing!")
+            print("=" * 80)
+            raise SystemExit(f"Critical syntax error in sub-package: {e.filename}, line {e.lineno}")
         except Exception as e:
+            print("=" * 80)
+            print("🚨 CRITICAL SUB-PACKAGE ERROR 🚨")
             print(f"Error processing sub-package '{full_item_name}': {e}")
+            print("STOPPING EXECUTION - Fix error before continuing!")
             import traceback
-
-            print(f"  Full traceback: {traceback.format_exc()}")
+            print(f"Full traceback: {traceback.format_exc()}")
+            print("=" * 80)
+            raise SystemExit(f"Critical sub-package error: {full_item_name} - {e}")
     else:
         # This item is a module directly under 'mixins' (e.g., mixins/some_other_mixins.py)
         try:
@@ -179,17 +204,32 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
                     if class_obj not in _discovered_other_mixins:
                         _discovered_other_mixins.append(class_obj)
         except ImportError as e:
-            print(
-                f"Warning: Could not import module '{full_item_name}' for mixin discovery: {e}"
-            )
+            print("=" * 80)
+            print("🚨 CRITICAL MODULE IMPORT ERROR 🚨")
+            print(f"Could not import module '{full_item_name}' for mixin discovery")
+            print(f"Error: {e}")
+            print("STOPPING EXECUTION - Fix import error before continuing!")
+            print("=" * 80)
+            raise SystemExit(f"Critical module import error: {full_item_name} - {e}")
         except SyntaxError as e:
-            print(f"Error inspecting module '{full_item_name}': {e}")
-            print(f"  Syntax error in file: {e.filename}, line {e.lineno}: {e.text}")
+            print("=" * 80)
+            print("🚨 CRITICAL SYNTAX ERROR IN MIXIN MODULE 🚨")
+            print(f"Module: {full_item_name}")
+            print(f"File: {e.filename}")
+            print(f"Line {e.lineno}: {e.text}")
+            print(f"Error: {e}")
+            print("STOPPING EXECUTION - Fix syntax error before continuing!")
+            print("=" * 80)
+            raise SystemExit(f"Critical syntax error in module: {e.filename}, line {e.lineno}")
         except Exception as e:
+            print("=" * 80)
+            print("🚨 CRITICAL MODULE ERROR 🚨")
             print(f"Error inspecting module '{full_item_name}': {e}")
+            print("STOPPING EXECUTION - Fix error before continuing!")
             import traceback
-
-            print(f"  Full traceback: {traceback.format_exc()}")
+            print(f"Full traceback: {traceback.format_exc()}")
+            print("=" * 80)
+            raise SystemExit(f"Critical module error: {full_item_name} - {e}")
 
 # --- Assemble the Final Tuple of Mixins for Task Inheritance ---
 

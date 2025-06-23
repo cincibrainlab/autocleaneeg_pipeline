@@ -75,3 +75,4 @@ examples/batch_run.py
 .cursor/
 scripts/
 /scripts
+/autoclean_icvision_results

@@ -103,8 +103,8 @@ def classify_ica_components(
     """Classify ICA components using automated algorithms.
 
     This function uses automated classification methods to identify the likely
-    source of each ICA component (brain, eye, muscle, heart, etc.). The most
-    common method is ICLabel, which uses deep learning to classify components.
+    source of each ICA component (brain, eye, muscle, heart, etc.). Supports
+    both ICLabel and ICVision methods for component classification.
 
     Parameters
     ----------
@@ -113,7 +113,9 @@ def classify_ica_components(
     ica : mne.preprocessing.ICA
         The fitted ICA object to classify.
     method : str, default "iclabel"
-        Classification method to use. Currently supports "iclabel".
+        Classification method to use. Options: "iclabel", "icvision".
+    verbose : bool or None, default None
+        Control verbosity of output.
 
     Returns
     -------
@@ -126,7 +128,8 @@ def classify_ica_components(
 
     Examples
     --------
-    >>> labels = classify_ica_components(raw, ica)
+    >>> labels = classify_ica_components(raw, ica, method="iclabel")
+    >>> labels = classify_ica_components(raw, ica, method="icvision")
     >>> artifacts = labels[(labels["ic_type"] == "eye") & (labels["confidence"] > 0.8)]
 
     See Also
@@ -142,22 +145,37 @@ def classify_ica_components(
     if not isinstance(ica, ICA):
         raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
 
-    if method != "iclabel":
+    if method not in ["iclabel", "icvision"]:
         raise ValueError(
-            f"Currently only 'iclabel' method is supported, got '{method}'"
+            f"method must be 'iclabel' or 'icvision', got '{method}'"
         )
 
     try:
-        # Run ICLabel classification
-        mne_icalabel.label_components(raw, ica, method=method)
-
-        # Extract results into a DataFrame
-        component_labels = _icalabel_to_dataframe(ica)
-
+        if method == "iclabel":
+            # Run ICLabel classification
+            mne_icalabel.label_components(raw, ica, method=method)
+            # Extract results into a DataFrame
+            component_labels = _icalabel_to_dataframe(ica)
+            
+        elif method == "icvision":
+            # Run ICVision classification
+            try:
+                from icvision.compat import label_components
+            except ImportError as e:
+                raise ImportError(
+                    "autoclean-icvision package is required for icvision method. "
+                    "Install it with: pip install autoclean-icvision"
+                ) from e
+            
+            # Use ICVision as drop-in replacement
+            label_components(raw, ica)
+            # Extract results into a DataFrame using the same format
+            component_labels = _icalabel_to_dataframe(ica)
+        
         return component_labels
 
     except Exception as e:
-        raise RuntimeError(f"Failed to classify ICA components: {str(e)}") from e
+        raise RuntimeError(f"Failed to classify ICA components with {method}: {str(e)}") from e
 
 
 def apply_ica_rejection(
@@ -269,7 +287,7 @@ def _icalabel_to_dataframe(ica: ICA) -> pd.DataFrame:
     return results
 
 
-def apply_iclabel_rejection(
+def apply_ica_component_rejection(
     raw: mne.io.Raw,
     ica: ICA,
     labels_df: pd.DataFrame,
@@ -277,20 +295,20 @@ def apply_iclabel_rejection(
     ic_rejection_threshold: float = 0.8,
     verbose: Optional[bool] = None,
 ) -> tuple[mne.io.Raw, List[int]]:
-    """Apply ICA rejection based on ICLabel classifications and criteria.
+    """Apply ICA rejection based on component classifications and criteria.
 
     This function combines the classification results with rejection criteria
-    to automatically identify and remove artifact components, similar to the
-    original AutoClean mixin behavior.
+    to automatically identify and remove artifact components. Works with both
+    ICLabel and ICVision classification results.
 
     Parameters
     ----------
     raw : mne.io.Raw
         The raw EEG data to clean.
     ica : mne.preprocessing.ICA
-        The fitted ICA object with ICLabel classifications.
+        The fitted ICA object with component classifications.
     labels_df : pd.DataFrame
-        DataFrame with ICLabel results from classify_ica_components().
+        DataFrame with classification results from classify_ica_components().
     ic_flags_to_reject : list of str, default ["eog", "muscle", "ecg"]
         Component types to consider for rejection.
     ic_rejection_threshold : float, default 0.8
@@ -307,7 +325,7 @@ def apply_iclabel_rejection(
 
     Examples
     --------
-    >>> raw_clean, rejected = apply_iclabel_rejection(raw, ica, labels)
+    >>> raw_clean, rejected = apply_ica_component_rejection(raw, ica, labels)
 
     See Also
     --------
@@ -327,12 +345,12 @@ def apply_iclabel_rejection(
     # Match original mixin logic exactly
     if not rejected_components:
         if verbose:
-            print("No new components met ICLabel rejection criteria in this step.")
+            print("No new components met rejection criteria in this step.")
         return raw, rejected_components
     else:
         if verbose:
             print(
-                f"Identified {len(rejected_components)} components for rejection based on ICLabel: {rejected_components}"
+                f"Identified {len(rejected_components)} components for rejection: {rejected_components}"
             )
 
         # Combine with any existing exclusions like original mixin
