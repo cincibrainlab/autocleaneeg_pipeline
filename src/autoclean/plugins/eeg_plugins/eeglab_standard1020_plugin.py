@@ -96,11 +96,7 @@ class EEGLABSetStandard1020Plugin(BaseEEGPlugin):
 
             # Step 4: Apply task-specific processing if needed
             if task:
-                if task == "p300_grael4k":
-                    message("info", "Processing P300 task-specific annotations")
-                    mapping = {"13": "Standard", "14": "Target"}
-                    raw.annotations.rename(mapping)
-                elif task == "hbcd_mmn":
+                if task == "hbcd_mmn":
                     message("info", "Processing HBCD MMN task-specific annotations")
                     events_df = self._get_matlab_annotations_table(file_path)
                     if events_df is not None and all(

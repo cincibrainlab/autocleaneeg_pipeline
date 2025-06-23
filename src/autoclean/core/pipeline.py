@@ -269,9 +269,6 @@ class Pipeline:
             # Perform core validation steps
             self._validate_file(unprocessed_file)
 
-            # EEG system will be auto-detected from the data
-            eeg_system = "auto"
-
             # Prepare directory structure for processing outputs
             (
                 autoclean_dir,  # Root output directory
@@ -312,7 +309,6 @@ class Pipeline:
             run_dict = {
                 "run_id": run_id,
                 "task": task,
-                "eeg_system": eeg_system,
                 "unprocessed_file": unprocessed_file,
                 "output_dir": self.output_dir,
                 "bids_dir": bids_dir,

@@ -650,7 +650,6 @@ def _apply_task_specific_processing(raw, events, events_df, autoclean_dict):
         return raw
 
     task = autoclean_dict["task"]
-    message("info", f"✓ Processing events for task: {task}")
 
     # Try to get a task-specific processor
     processor = get_event_processor_for_task(task)

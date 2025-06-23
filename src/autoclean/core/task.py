@@ -71,6 +71,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
             else:
                 self.settings = None
 
+        # Extract EEG system from task settings before validation
+        config['eeg_system'] = self._extract_eeg_system()
+        
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 
@@ -84,6 +87,20 @@ class Task(ABC, *DISCOVERED_MIXINS):
         self.fast_ica: Optional[mne.ICA] = None
         self.final_ica: Optional[mne.ICA] = None
         self.ica_flags = None
+
+    def _extract_eeg_system(self) -> str:
+        """Extract EEG system/montage from task settings.
+        
+        Returns
+        -------
+        str
+            The montage name from task config, or "auto" as fallback
+        """
+        if (self.settings and 
+            'montage' in self.settings and 
+            self.settings['montage'].get('enabled', False)):
+            return self.settings['montage']['value']
+        return "auto"
 
     def import_raw(self) -> None:
         """Import the raw EEG data from file.
