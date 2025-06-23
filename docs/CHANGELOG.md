@@ -5,6 +5,24 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1] - 6/23/2025
+
+### 🐛 BUG FIXES
+- **Plugin Registration**: Fixed multiple plugin registration causing verbose log output with duplicate "Overriding" warnings
+- **Task Montage Configuration**: Fixed pipeline ignoring user-configured montage settings in task files
+- **BIDS Validation**: Fixed BIDS task name validation errors by sanitizing task names (removes underscores, hyphens, slashes)
+- **Event Processor Duplicates**: Eliminated duplicate event processor registrations from built-in and plugin discovery conflicts
+
+### Changed
+- **Log Verbosity**: Moved plugin/format registration messages from INFO to DEBUG level for cleaner output
+- **Discovery System**: Implemented plugin discovery state tracking to prevent multiple registration cycles
+- **Format Deduplication**: Fixed duplicate format IDs in plugin registration causing same plugin to register twice
+
+### Technical Improvements
+- **Plugin Architecture**: Streamlined plugin discovery with proper state management
+- **Registration Logic**: Enhanced plugin registration to use deduplicated format sets
+- **Task Configuration**: Improved task configuration extraction and montage handling in pipeline initialization
+
 ## [2.1.0] - 6/18/2025
 
 ### 🔧 ARCHITECTURE IMPROVEMENTS
