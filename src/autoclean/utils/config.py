@@ -307,9 +307,13 @@ def load_user_config() -> dict:
         
         # Merge with defaults to ensure all keys exist
         merged_config = default_config.copy()
-        if 'compliance' in user_config:
+        
+        # Safely merge compliance settings
+        if 'compliance' in user_config and isinstance(user_config['compliance'], dict):
             merged_config['compliance'].update(user_config['compliance'])
-        if 'workspace' in user_config:
+        
+        # Safely merge workspace settings  
+        if 'workspace' in user_config and isinstance(user_config['workspace'], dict):
             merged_config['workspace'].update(user_config['workspace'])
             
         return merged_config
