@@ -24,9 +24,7 @@ from auth0.management import Auth0
 from cryptography.fernet import Fernet
 from platformdirs import user_config_dir
 
-from autoclean.utils.logging import configure_logger
-
-logger = configure_logger(__name__)
+from autoclean.utils.logging import message
 
 
 class AuthCallbackHandler(BaseHTTPRequestHandler):
@@ -160,7 +158,7 @@ class Auth0Manager:
         with open(self.config_file, 'w') as f:
             json.dump(config_data, f, indent=2)
         
-        logger.info(f"Auth0 configuration saved for domain: {self.domain}")
+        message("debug", f"Auth0 configuration saved for domain: {self.domain}")
     
     def is_configured(self) -> bool:
         """Check if Auth0 is properly configured."""
@@ -202,7 +200,7 @@ class Auth0Manager:
                 f"state={state}"
             )
             
-            logger.info("Opening browser for Auth0 authentication...")
+            message("info", "Opening browser for Auth0 authentication...")
             
             # Start local callback server
             server = HTTPServer(('localhost', 8080), AuthCallbackHandler)
@@ -228,18 +226,18 @@ class Auth0Manager:
             server_thread.join(timeout=1)
             
             if server.auth_error:
-                logger.error(f"Authentication failed: {server.auth_error}")
+                message("error", f"Authentication failed: {server.auth_error}")
                 return False
             
             if not server.auth_code:
-                logger.error("Authentication timed out. Please try again.")
+                message("error", "Authentication timed out. Please try again.")
                 return False
             
             # Exchange authorization code for tokens
             return self._exchange_code_for_tokens(server.auth_code, redirect_uri)
             
         except Exception as e:
-            logger.error(f"Login failed: {e}")
+            message("error", f"Login failed: {e}")
             return False
     
     def logout(self) -> None:
@@ -255,7 +253,7 @@ class Auth0Manager:
         if self.key_file.exists():
             self.key_file.unlink()
         
-        logger.info("Logged out successfully")
+        message("debug", "Logged out successfully")
     
     def get_current_user(self) -> Optional[Dict[str, Any]]:
         """
@@ -282,7 +280,7 @@ class Auth0Manager:
             return self.current_user
             
         except Exception as e:
-            logger.error(f"Failed to fetch user info: {e}")
+            message("error", f"Failed to fetch user info: {e}")
             return None
     
     def refresh_access_token(self) -> bool:
@@ -293,7 +291,7 @@ class Auth0Manager:
             True if refresh successful, False otherwise
         """
         if not self.refresh_token:
-            logger.warning("No refresh token available")
+            message("warning", "No refresh token available")
             return False
         
         try:
@@ -310,11 +308,11 @@ class Auth0Manager:
                 self.refresh_token = token_response['refresh_token']
             
             self._save_tokens()
-            logger.debug("Access token refreshed successfully")
+            message("debug", "Access token refreshed successfully")
             return True
             
         except Exception as e:
-            logger.error(f"Token refresh failed: {e}")
+            message("error", f"Token refresh failed: {e}")
             return False
     
     def _exchange_code_for_tokens(self, auth_code: str, redirect_uri: str) -> bool:
@@ -338,18 +336,18 @@ class Auth0Manager:
             user_info = self.get_current_user()
             
             if user_info:
-                logger.info(f"Login successful for user: {user_info.get('email', 'Unknown')}")
+                message("debug", f"Login successful for user: {user_info.get('email', 'Unknown')}")
                 self._save_tokens()
                 return True
             else:
-                logger.error("Failed to retrieve user information")
+                message("error", "Failed to retrieve user information")
                 return False
                 
         except Auth0Error as e:
-            logger.error(f"Auth0 token exchange failed: {e}")
+            message("error", f"Auth0 token exchange failed: {e}")
             return False
         except Exception as e:
-            logger.error(f"Token exchange failed: {e}")
+            message("error", f"Token exchange failed: {e}")
             return False
     
     def _load_config(self) -> None:
@@ -367,7 +365,7 @@ class Auth0Manager:
             self.audience = config_data.get('audience')
             
         except Exception as e:
-            logger.error(f"Failed to load Auth0 config: {e}")
+            message("error", f"Failed to load Auth0 config: {e}")
     
     def _save_tokens(self) -> None:
         """Save authentication tokens to encrypted file."""
@@ -430,7 +428,7 @@ class Auth0Manager:
                 self.token_expires_at = datetime.fromisoformat(expires_at_str)
             
         except Exception as e:
-            logger.warning(f"Failed to load saved tokens: {e}")
+            message("warning", f"Failed to load saved tokens: {e}")
             # Clean up corrupted token files
             for file_path in [self.token_file, self.key_file]:
                 if file_path.exists():
@@ -516,12 +514,12 @@ def create_electronic_signature(run_id: str, signature_type: str = "processing_c
     auth_manager = get_auth0_manager()
     
     if not auth_manager.is_authenticated():
-        logger.error("Cannot create electronic signature: user not authenticated")
+        message("error", "Cannot create electronic signature: user not authenticated")
         return None
     
     user_info = auth_manager.get_current_user()
     if not user_info:
-        logger.error("Cannot create electronic signature: user info unavailable")
+        message("error", "Cannot create electronic signature: user info unavailable")
         return None
     
     try:
@@ -558,11 +556,11 @@ def create_electronic_signature(run_id: str, signature_type: str = "processing_c
             signature_record
         )
         
-        logger.info(f"Electronic signature created: {signature_id} for run {run_id}")
+        message("debug", f"Electronic signature created: {signature_id} for run {run_id}")
         return signature_id
         
     except Exception as e:
-        logger.error(f"Failed to create electronic signature: {e}")
+        message("error", f"Failed to create electronic signature: {e}")
         return None
 
 
