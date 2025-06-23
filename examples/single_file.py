@@ -6,6 +6,6 @@ pipeline = Pipeline(output_dir="C:/Users/Gam9LG/Documents/DATA/rest_eyesopen/dev
 
 # Process the file
 pipeline.process_file(
-    file_path="C:/Users/Gam9LG/Documents/DATA/rest_eyesopen/2502_rest.raw",
-    task="RestingEyesOpen",  # Choose appropriate task
+    file_path="C:/Users/Gam9LG/Documents/DATA/p300/170104_C7D1BL_P300.set",
+    task="p300_grael4k",  # Choose appropriate task
 )

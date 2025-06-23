@@ -50,7 +50,7 @@ class P300EventProcessor(BaseEventProcessor):
             message("info", "✗ P300 event processing disabled in configuration")
             return raw
 
-        message("info", "✓ Processing P300 task-specific annotations...")
+        message("info", "Processing P300 task-specific annotations...")
 
         # Get mapping from config or use default
         default_mapping = {"13": "Standard", "14": "Target"}
