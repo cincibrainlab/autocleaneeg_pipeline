@@ -11,39 +11,5 @@ The plugin architecture includes:
 Plugins are automatically discovered and registered at runtime.
 """
 
-# Import all plugins to ensure they are registered
-from autoclean.io.import_ import register_event_processor, register_plugin
-
-# Import built-in plugins
-
-# EEG plugins
-try:
-    from .eeg_plugins.eeglab_gsn124_plugin import EEGLABSetGSN124Plugin
-    from .eeg_plugins.eeglab_gsn129_plugin import EEGLABSetGSN129Plugin
-    from .eeg_plugins.eeglab_mea30_plugin import EEGLABSetMEA30Plugin
-    from .eeg_plugins.eeglab_standard1020_plugin import EEGLABSetStandard1020Plugin
-    from .eeg_plugins.egi_raw_gsn129_plugin import EGIRawGSN129Plugin
-
-    # Register built-in plugins
-    register_plugin(EEGLABSetGSN129Plugin)
-    register_plugin(EEGLABSetGSN124Plugin)
-    register_plugin(EEGLABSetStandard1020Plugin)
-    register_plugin(EEGLABSetMEA30Plugin)
-    register_plugin(EGIRawGSN129Plugin)
-
-except ImportError:
-    # This will happen during initial package setup before plugins are created
-    pass
-
-# Event processor plugins
-try:
-    from .event_processors.p300 import P300EventProcessor
-    from .event_processors.resting_state import RestingStateEventProcessor
-
-    # Register built-in event processors
-    register_event_processor(P300EventProcessor)
-    register_event_processor(RestingStateEventProcessor)
-
-except ImportError:
-    # This will happen during initial package setup before event processors are created
-    pass
+# All plugins will be automatically discovered and registered during runtime discovery
+# No module-level imports or registrations needed here - the discovery system handles it

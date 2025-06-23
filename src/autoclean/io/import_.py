@@ -33,6 +33,7 @@ __all__ = [
 # Registry to store format mappings and plugins
 _FORMAT_REGISTRY = {}  # Maps extensions to format IDs
 _PLUGIN_REGISTRY = {}  # Maps (format_id, montage_name) tuples to plugin classes
+_PLUGINS_DISCOVERED = False  # Track if plugin discovery has been run
 
 # Core built-in formats
 _CORE_FORMATS = {
@@ -58,7 +59,7 @@ def register_format(extension: str, format_id: str) -> None:
         message("warning", f"Overriding existing format for extension: {extension}")
 
     _FORMAT_REGISTRY[extension] = format_id
-    message("info", f"Registered file format: {format_id} for extension .{extension}")
+    message("debug", f"Registered file format: {format_id} for extension .{extension}")
 
 
 def get_format_from_extension(extension: str) -> Optional[str]:
@@ -151,12 +152,13 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
     """
     if not issubclass(plugin_class, BaseEEGPlugin):
         raise TypeError(f"Plugin must inherit from BaseEEGPlugin, got {plugin_class}")
-
+    
     # Create an instance to test supported combinations
     plugin_instance = plugin_class()  # noqa: F841
 
-    # Check each format and montage combination
-    for format_id in list(_CORE_FORMATS.values()) + list(_FORMAT_REGISTRY.values()):
+    # Check each format and montage combination (deduplicate format IDs)
+    all_formats = set(_CORE_FORMATS.values()) | set(_FORMAT_REGISTRY.values())
+    for format_id in all_formats:
         # Test some common montages plus check any custom ones that might be registered
         # In a real implementation, we might want a more systematic way to enumerate supported montages
         test_montages = [
@@ -179,13 +181,22 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
                     )
                 _PLUGIN_REGISTRY[key] = plugin_class
                 message(
-                    "info",
+                    "debug",
                     f"Registered {plugin_class.__name__} for {format_id}, {montage_name}",
                 )
 
 
 def discover_plugins() -> None:
     """Discover and register all available plugins."""
+    global _PLUGINS_DISCOVERED
+    
+    # Skip if already discovered
+    if _PLUGINS_DISCOVERED:
+        return
+        
+    # Mark as discovered at the start to prevent re-entry
+    _PLUGINS_DISCOVERED = True
+    
     # Discover format registrations
     try:
         import autoclean.plugins.formats as formats_pkg
@@ -231,9 +242,8 @@ def get_plugin_for_combination(format_id: str, montage_name: str) -> BaseEEGPlug
     Raises:
         ValueError: If no suitable plugin is found
     """
-    # Ensure plugins are discovered
-    if not _PLUGIN_REGISTRY:
-        discover_plugins()
+    # Ensure plugins are discovered (will only run once)
+    discover_plugins()
 
     # Try to get an exact match
     key = (format_id, montage_name)
@@ -400,6 +410,7 @@ def import_eeg(
 
 # Event processor plugin system
 _EVENT_PROCESSOR_REGISTRY = {}  # Maps task names to event processor classes
+_EVENT_PROCESSORS_DISCOVERED = False  # Track if event processor discovery has been run
 
 
 class BaseEventProcessor(abc.ABC):
@@ -502,12 +513,21 @@ def register_event_processor(processor_class: Type[BaseEventProcessor]) -> None:
                 )
             _EVENT_PROCESSOR_REGISTRY[task_name] = processor_class
             message(
-                "info", f"Registered {processor_class.__name__} for task: {task_name}"
+                "debug", f"Registered {processor_class.__name__} for task: {task_name}"
             )
 
 
 def discover_event_processors() -> None:
     """Discover and register all available event processor plugins."""
+    global _EVENT_PROCESSORS_DISCOVERED
+    
+    # Skip if already discovered
+    if _EVENT_PROCESSORS_DISCOVERED:
+        return
+        
+    # Mark as discovered at the start to prevent re-entry
+    _EVENT_PROCESSORS_DISCOVERED = True
+    
     try:
         import autoclean.plugins.event_processors as processors_pkg
 
@@ -528,6 +548,9 @@ def discover_event_processors() -> None:
         message(
             "info", "No event processor plugins found, using built-in processors only"
         )
+    
+    # Built-in processors are now handled through plugin discovery
+    # P300EventProcessor and HBCDEventProcessor are defined as plugins and auto-discovered
 
 
 def get_event_processor_for_task(task_name: str) -> Optional[BaseEventProcessor]:
@@ -539,9 +562,8 @@ def get_event_processor_for_task(task_name: str) -> Optional[BaseEventProcessor]
     Returns:
         BaseEventProcessor or None: An instance of the appropriate processor class, or None if not found
     """
-    # Ensure processors are discovered
-    if not _EVENT_PROCESSOR_REGISTRY:
-        discover_event_processors()
+    # Ensure processors are discovered (will only run once)
+    discover_event_processors()
 
     # Try to get an exact match
     if task_name in _EVENT_PROCESSOR_REGISTRY:
@@ -626,9 +648,7 @@ class HBCDEventProcessor(BaseEventProcessor):
         return raw
 
 
-# Register built-in processors
-register_event_processor(P300EventProcessor)
-register_event_processor(HBCDEventProcessor)
+# Built-in processors will be registered during discovery
 
 
 def _apply_task_specific_processing(raw, events, events_df, autoclean_dict):
