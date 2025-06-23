@@ -12,7 +12,31 @@ from autoclean.io.export import save_epochs_to_set, save_raw_to_set
 from autoclean.io.import_ import import_eeg
 
 # Local imports
-from autoclean.mixins import DISCOVERED_MIXINS
+try:
+    from autoclean.mixins import DISCOVERED_MIXINS
+    if not DISCOVERED_MIXINS:
+        print("🚨 CRITICAL ERROR: DISCOVERED_MIXINS is empty!")
+        print("Task class will be missing all mixin functionality!")
+        print("Check autoclean.mixins package for import errors.")
+        # Create a minimal fallback
+        class _EmptyMixinFallback:
+            def __getattr__(self, name):
+                raise AttributeError(
+                    f"Method '{name}' not available - mixin discovery failed. "
+                    f"Check autoclean.mixins package for import errors."
+                )
+        DISCOVERED_MIXINS = (_EmptyMixinFallback,)
+except ImportError as e:
+    print("🚨 CRITICAL ERROR: Could not import DISCOVERED_MIXINS!")
+    print(f"Import error: {e}")
+    print("Task class will be missing all mixin functionality!")
+    # Create a minimal fallback
+    class _ImportErrorMixinFallback:
+        def __getattr__(self, name):
+            raise AttributeError(
+                f"Method '{name}' not available - mixin import failed: {e}"
+            )
+    DISCOVERED_MIXINS = (_ImportErrorMixinFallback,)
 
 
 class Task(ABC, *DISCOVERED_MIXINS):
