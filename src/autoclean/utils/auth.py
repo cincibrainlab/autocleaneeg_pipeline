@@ -206,24 +206,28 @@ class Auth0Manager:
             server = HTTPServer(('localhost', 8080), AuthCallbackHandler)
             server.auth_code = None
             server.auth_error = None
+            server.timeout = 1  # 1 second timeout for server operations
             
-            # Start server in background thread
-            server_thread = threading.Thread(target=server.serve_request)
-            server_thread.daemon = True
-            server_thread.start()
-            
-            # Open browser
+            # Open browser first
             webbrowser.open(auth_url)
             
             # Wait for callback (max 2 minutes)
             start_time = time.time()
             while time.time() - start_time < 120:
-                if server.auth_code or server.auth_error:
-                    break
-                time.sleep(0.5)
+                try:
+                    server.handle_request()
+                    # Check if we got what we need
+                    if server.auth_code or server.auth_error:
+                        break
+                except OSError:
+                    # Timeout or other socket error, continue trying
+                    pass
+                time.sleep(0.1)
             
-            server.shutdown()
-            server_thread.join(timeout=1)
+            try:
+                server.server_close()
+            except:
+                pass
             
             if server.auth_error:
                 message("error", f"Authentication failed: {server.auth_error}")
