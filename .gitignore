@@ -77,3 +77,4 @@ scripts/
 /scripts
 2502_rest_autoclean_metadata.json
 examples/single_file.py
+/autoclean_icvision_results
