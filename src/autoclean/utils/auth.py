@@ -528,7 +528,7 @@ def create_electronic_signature(run_id: str, signature_type: str = "processing_c
     
     try:
         from autoclean.utils.database import manage_database_with_audit_protection
-        from python_ulid import ULID
+        from ulid import ULID
         
         signature_id = str(ULID())
         current_time = datetime.now()
@@ -630,20 +630,20 @@ def require_authentication(func):
             auth_manager = get_auth0_manager()
             
             if not auth_manager.is_configured():
-                logger.error("Compliance mode enabled but Auth0 not configured.")
-                logger.error("Run 'autoclean setup --compliance-mode' to configure authentication.")
+                message("error", "Compliance mode enabled but Auth0 not configured.")
+                message("error", "Run 'autoclean setup --compliance-mode' to configure authentication.")
                 return False
             
             if not auth_manager.is_authenticated():
-                logger.error("Authentication required for compliance mode.")
-                logger.error("Run 'autoclean login' to authenticate.")
+                message("error", "Authentication required for compliance mode.")
+                message("error", "Run 'autoclean login' to authenticate.")
                 return False
             
             # Try to refresh token if needed
             if not auth_manager.is_authenticated() and auth_manager.refresh_token:
                 if not auth_manager.refresh_access_token():
-                    logger.error("Token refresh failed. Please login again.")
-                    logger.error("Run 'autoclean login' to re-authenticate.")
+                    message("error", "Token refresh failed. Please login again.")
+                    message("error", "Run 'autoclean login' to re-authenticate.")
                     return False
         
         return func(*args, **kwargs)
