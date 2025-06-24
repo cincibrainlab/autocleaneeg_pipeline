@@ -78,6 +78,7 @@ from autoclean.step_functions.reports import (
 )
 from autoclean.tasks import task_registry
 from autoclean.utils.audit import get_user_context
+from autoclean.utils.auth import require_authentication, get_current_user_for_audit, create_electronic_signature
 from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
@@ -251,7 +252,7 @@ class Pipeline:
                 # Define output filenames based on input file
                 "json_file": f"{unprocessed_file.stem}_autoclean_metadata.json",
                 "report_file": f"{unprocessed_file.stem}_autoclean_report.pdf",
-                "user_context": get_user_context(),
+                "user_context": get_current_user_for_audit(),
                 "metadata": {},
             }
 
@@ -424,6 +425,11 @@ class Pipeline:
             except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
 
+            # Create electronic signature for compliance mode
+            signature_id = create_electronic_signature(run_record["run_id"], "processing_completion")
+            if signature_id:
+                message("debug", f"Electronic signature created: {signature_id}")
+
             # Mark run as completed LAST - this locks the record from further modifications
             manage_database_with_audit_protection(
                 operation="update",
@@ -518,6 +524,7 @@ class Pipeline:
             message("error", f"Failed to process {unprocessed_file}: {str(e)}")
             raise
 
+    @require_authentication
     def process_file(
         self, file_path: str | Path, task: str, run_id: Optional[str] = None
     ) -> None:
@@ -547,6 +554,7 @@ class Pipeline:
         """
         self._entrypoint(Path(file_path), task, run_id)
 
+    @require_authentication
     def process_directory(
         self,
         directory: str | Path,
@@ -611,6 +619,7 @@ class Pipeline:
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
 
+    @require_authentication
     async def process_directory_async(
         self,
         directory_path: str | Path,

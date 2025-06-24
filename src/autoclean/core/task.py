@@ -13,6 +13,7 @@ from autoclean.io.import_ import import_eeg
 
 # Local imports
 from autoclean.mixins import DISCOVERED_MIXINS
+from autoclean.utils.auth import require_authentication
 
 
 class Task(ABC, *DISCOVERED_MIXINS):
@@ -129,6 +130,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
         )
 
     @abstractmethod
+    @require_authentication
     def run(self) -> None:
         """Run the standard EEG preprocessing pipeline.
 
