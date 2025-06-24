@@ -1143,7 +1143,17 @@ def cmd_login(args) -> int:
             
             # Store user in database
             if user_info:
-                from autoclean.utils.database import manage_database_with_audit_protection
+                from autoclean.utils.database import manage_database_with_audit_protection, set_database_path
+                from autoclean.utils.user_config import user_config
+                
+                # Set database path for the operation
+                output_dir = user_config.get_default_output_dir()
+                output_dir.mkdir(parents=True, exist_ok=True)
+                set_database_path(output_dir)
+                
+                # Initialize database with all tables (including new auth tables)
+                manage_database_with_audit_protection("create_collection")
+                
                 user_record = {
                     "auth0_user_id": user_info.get("sub"),
                     "email": user_info.get("email"),
