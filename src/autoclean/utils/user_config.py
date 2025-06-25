@@ -6,7 +6,9 @@ Task discovery is done directly from filesystem scanning.
 """
 
 import json
+import platform
 import shutil
+import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -95,6 +97,29 @@ class UserConfigManager:
             return Path(custom_tasks[task_name]["file_path"])
         return None
 
+    def _display_system_info(self, console) -> None:
+        """Display system information and status."""
+        from rich.table import Table
+        
+        # Get AutoClean version
+        try:
+            from autoclean import __version__
+            version = __version__
+        except ImportError:
+            version = "unknown"
+        
+        # Create system info table
+        info_table = Table(show_header=False, box=None, padding=(0, 2))
+        info_table.add_column(style="dim")
+        info_table.add_column()
+        
+        info_table.add_row("Version:", f"AutoClean EEG v{version}")
+        info_table.add_row("Python:", f"{sys.version.split()[0]} ({platform.python_implementation()})")
+        info_table.add_row("Platform:", f"{platform.system()} {platform.release()}")
+        info_table.add_row("Architecture:", platform.machine())
+        
+        console.print(info_table)
+
     def setup_workspace(self) -> Path:
         """Smart workspace setup."""
         from rich.console import Console
@@ -114,6 +139,11 @@ class UserConfigManager:
             console.print(
                 Panel("🔧 [bold blue]Workspace Configuration[/bold blue]", style="blue")
             )
+            
+            # Show system status and info
+            console.print("\n[bold]System Status:[/bold] [green]✓ Workspace configured[/green]")
+            self._display_system_info(console)
+            
             console.print(
                 f"\n[bold]Current workspace:[/bold] [dim]{self.config_dir}[/dim]"
             )
@@ -168,17 +198,28 @@ class UserConfigManager:
 
         console = Console()
 
-        # Header
+        # Professional header with system info
         if is_first_time:
+            # Main header panel
+            header_content = "🧠 [bold green]AutoClean EEG Processing Pipeline[/bold green]\n[dim green]   Professional EEG Data Processing & Analysis[/dim green]"
+            console.print(Panel(header_content, style="green", padding=(1, 2)))
+            
+            # Status message
+            console.print("\n[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]")
+            
+            # System information
+            self._display_system_info(console)
+            
+            # Welcome message
             console.print(
-                Panel(
-                    "🧠 [bold green]Welcome to AutoClean![/bold green]", style="green"
-                )
+                "\n[bold]Welcome to AutoClean![/bold] Let's set up your workspace for EEG processing.\n"
+                "This workspace will contain your custom tasks, configuration, and results."
             )
         else:
             console.print(
-                Panel("🔧 [bold blue]Workspace Setup[/bold blue]", style="blue")
+                Panel("🔧 [bold blue]Workspace Configuration[/bold blue]", style="blue")
             )
+            console.print("\n[bold]System Status:[/bold] [blue]⚙️ Reconfiguring workspace[/blue]")
 
         # Get location
         default_dir = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
