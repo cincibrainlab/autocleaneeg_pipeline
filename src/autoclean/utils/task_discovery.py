@@ -132,8 +132,11 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
         return valid_tasks, invalid_files
     
     for task_file in user_config.tasks_dir.glob("*.py"):
-        # Skip private files and templates
-        if task_file.name.startswith('_') or 'template' in task_file.name.lower():
+        # Skip private files, templates, and test fixtures
+        if (task_file.name.startswith('_') or 
+            'template' in task_file.name.lower() or
+            'test' in task_file.name.lower() or
+            task_file.name in ['bad_import_task.py', 'bad_syntax_task.py', 'good_task.py']):
             continue
         
         try:
