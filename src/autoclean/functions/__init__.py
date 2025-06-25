@@ -51,8 +51,8 @@ from .epoching import (
 
 # ICA functions
 from .ica import (
-    apply_ica_rejection,
     apply_ica_component_rejection,
+    apply_ica_rejection,
     classify_ica_components,
     fit_ica,
 )
@@ -112,6 +112,7 @@ __all__ = [
     # ICA functions
     "fit_ica",
     "classify_ica_components",
+    "apply_ica_component_rejection",
     "apply_ica_rejection",
     "apply_iclabel_rejection",
     # Visualization functions

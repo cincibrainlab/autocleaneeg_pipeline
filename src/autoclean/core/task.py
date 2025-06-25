@@ -14,10 +14,12 @@ from autoclean.io.import_ import import_eeg
 # Local imports
 try:
     from autoclean.mixins import DISCOVERED_MIXINS
+
     if not DISCOVERED_MIXINS:
         print("🚨 CRITICAL ERROR: DISCOVERED_MIXINS is empty!")
         print("Task class will be missing all mixin functionality!")
         print("Check autoclean.mixins package for import errors.")
+
         # Create a minimal fallback
         class _EmptyMixinFallback:
             def __getattr__(self, name):
@@ -25,17 +27,18 @@ try:
                     f"Method '{name}' not available - mixin discovery failed. "
                     f"Check autoclean.mixins package for import errors."
                 )
+
         DISCOVERED_MIXINS = (_EmptyMixinFallback,)
 except ImportError as e:
     print("🚨 CRITICAL ERROR: Could not import DISCOVERED_MIXINS!")
     print(f"Import error: {e}")
     print("Task class will be missing all mixin functionality!")
+
     # Create a minimal fallback
     class _ImportErrorMixinFallback:
         def __getattr__(self, name):
-            raise AttributeError(
-                f"Method '{name}' not available - mixin import failed: {e}"
-            )
+            raise AttributeError(f"Method '{name}' not available - mixin import failed")
+
     DISCOVERED_MIXINS = (_ImportErrorMixinFallback,)
 
 
@@ -96,8 +99,8 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 self.settings = None
 
         # Extract EEG system from task settings before validation
-        config['eeg_system'] = self._extract_eeg_system()
-        
+        config["eeg_system"] = self._extract_eeg_system()
+
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 
@@ -114,16 +117,18 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
     def _extract_eeg_system(self) -> str:
         """Extract EEG system/montage from task settings.
-        
+
         Returns
         -------
         str
             The montage name from task config, or "auto" as fallback
         """
-        if (self.settings and 
-            'montage' in self.settings and 
-            self.settings['montage'].get('enabled', False)):
-            return self.settings['montage']['value']
+        if (
+            self.settings
+            and "montage" in self.settings
+            and self.settings["montage"].get("enabled", False)
+        ):
+            return self.settings["montage"]["value"]
         return "auto"
 
     def import_raw(self) -> None:

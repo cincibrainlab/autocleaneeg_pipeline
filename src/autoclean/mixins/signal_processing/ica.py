@@ -106,7 +106,11 @@ class IcaMixin:
         return self.final_ica
 
     def classify_ica_components(
-        self, method: str = "iclabel", reject: bool = True, stage_name: str = "post_ica", export: bool = False
+        self,
+        method: str = "iclabel",
+        reject: bool = True,
+        stage_name: str = "post_ica",
+        export: bool = False,
     ):
         """Classify ICA components and optionally reject artifact components.
 
@@ -285,9 +289,7 @@ class IcaMixin:
         )
 
         if not rejected_ic_indices_this_step:
-            message(
-                "info", "No new components met rejection criteria in this step."
-            )
+            message("info", "No new components met rejection criteria in this step.")
         else:
             message(
                 "info",
