@@ -31,6 +31,92 @@ class AutoCleanBranding:
 ╰─────────────────────────────────────────╯"""
     
     @classmethod
+    def get_80s_ascii_logo(cls) -> str:
+        """Get radical 80s-style ASCII logo."""
+        return """
+╔═══════════════════════════════════════════════════════════╗
+║                                                           ║
+║   ╔═╗╦ ╦╔╦╗╔═╗╔═╗╦  ╔═╗╔═╗╔╗╔  ╔═╗╔═╗╔═╗                ║
+║   ╠═╣║ ║ ║ ║ ║║  ║  ║╣ ╠═╣║║║  ║╣ ║╣ ║ ╦                ║
+║   ╩ ╩╚═╝ ╩ ╚═╝╚═╝╩═╝╚═╝╩ ╩╝╚╝  ╚═╝╚═╝╚═╝                ║
+║                                                           ║
+║         ⚡ Professional EEG Processing & Analysis ⚡      ║
+║               ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿                ║
+║                                                           ║
+╚═══════════════════════════════════════════════════════════╝"""
+    
+    @classmethod 
+    def get_retro_welcome(cls) -> str:
+        """Get a retro-style welcome for main interface."""
+        return """
+┌─────────────────────────────────────────────────────────────┐
+│                                                             │
+│   ╔═╗╦ ╦╔╦╗╔═╗╔═╗╦  ╔═╗╔═╗╔╗╔  ╔═╗╔═╗╔═╗                 │
+│   ╠═╣║ ║ ║ ║ ║║  ║  ║╣ ╠═╣║║║  ║╣ ║╣ ║ ╦                 │
+│   ╩ ╩╚═╝ ╩ ╚═╝╚═╝╩═╝╚═╝╩ ╩╝╚╝  ╚═╝╚═╝╚═╝                 │
+│                                                             │
+│         🧠 Professional EEG Processing & Analysis 🧠        │
+│                   ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿                  │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘"""
+    
+    @classmethod 
+    def get_simple_welcome(cls) -> str:
+        """Get a simple crystal-clear welcome."""
+        return """
+
+            ▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀
+                  A U T O C L E A N   E E G
+              ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿
+            ▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄
+
+         🧠 Professional EEG Processing & Analysis 🧠
+"""
+    
+    @classmethod
+    def print_main_interface(cls, console: Console = None) -> None:
+        """Print the main CLI interface with 80s style."""
+        if console is None:
+            console = Console()
+        
+        # Print the crystal clear logo
+        console.print(cls.get_simple_welcome(), style="bright_cyan")
+        
+        # Version and platform info (concise)
+        try:
+            from autoclean import __version__
+            import platform
+            version = __version__
+            platform_name = platform.system()
+            arch = platform.machine()
+            console.print(f"[dim]v{version} • {platform_name} {arch}[/dim]")
+        except ImportError:
+            console.print("[dim]AutoClean EEG[/dim]")
+        
+        # Quick start info
+        console.print("\n[bold bright_green]🚀 Quick Start:[/bold bright_green]")
+        console.print("  [bright_yellow]autoclean-eeg setup[/bright_yellow]    - Set up your workspace")
+        console.print("  [bright_yellow]autoclean-eeg help[/bright_yellow]     - Show all commands")
+        console.print("  [bright_yellow]autoclean-eeg version[/bright_yellow]  - System information")
+        
+        console.print("\n[dim]New to AutoClean? Start with [bright_yellow]autoclean-eeg setup[/bright_yellow] to get configured![/dim]")
+        
+        # Available commands (concise)
+        console.print("\n[bold]Available Commands:[/bold]")
+        console.print("  [cyan]process[/cyan]     Process EEG data")
+        console.print("  [cyan]setup[/cyan]       Configure workspace") 
+        console.print("  [cyan]list-tasks[/cyan]  Show available tasks")
+        console.print("  [cyan]review[/cyan]      Launch results GUI")
+        console.print("  [cyan]version[/cyan]     System information")
+        
+        console.print("\n[dim]Run [bright_white]autoclean-eeg <command> --help[/bright_white] for detailed usage.[/dim]")
+        
+        # GitHub and support info
+        console.print("\n[bold]Support & Contributing:[/bold]")
+        console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
+        console.print("  [dim]Report issues, contribute, or get help[/dim]")
+    
+    @classmethod
     def get_compact_logo(cls) -> str:
         """Get compact single-line logo."""
         return f"{cls.LOGO_ICON} {cls.PRODUCT_NAME} ∿∿∿∿∿∿∿∿∿∿∿"

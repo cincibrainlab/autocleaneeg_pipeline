@@ -20,7 +20,7 @@ def create_parser() -> argparse.ArgumentParser:
     from autoclean.utils.branding import AutoCleanBranding
     
     parser = argparse.ArgumentParser(
-        description=f"{AutoCleanBranding.PRODUCT_NAME}\n{AutoCleanBranding.TAGLINE}",
+        description=f"{AutoCleanBranding.PRODUCT_NAME}\n{AutoCleanBranding.TAGLINE}\n\nGitHub: https://github.com/cincibrainlab/autoclean_pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -188,6 +188,9 @@ Examples:
 
     # Version command
     subparsers.add_parser("version", help="Show version information")
+    
+    # Help command (for consistency)
+    subparsers.add_parser("help", help="Show detailed help information")
 
     return parser
 
@@ -384,6 +387,11 @@ def cmd_version(args) -> int:
         temp_config._display_system_info(console)
         
         console.print(f"\n[dim]{AutoCleanBranding.TAGLINE}[/dim]")
+        
+        # GitHub and support info
+        console.print(f"\n[bold]GitHub Repository:[/bold]")
+        console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
+        console.print("  [dim]Report issues, contribute, or get help[/dim]")
         
         return 0
     except ImportError:
@@ -596,14 +604,26 @@ def cmd_config_import(args) -> int:
         return 1
 
 
+def cmd_help(args) -> int:
+    """Show detailed help information."""
+    parser = create_parser()
+    parser.print_help()
+    return 0
+
+
 def main(argv: Optional[list] = None) -> int:
     """Main entry point for the AutoClean CLI."""
     parser = create_parser()
     args = parser.parse_args(argv)
 
     if not args.command:
-        parser.print_help()
-        return 1
+        # Show our custom 80s-style main interface instead of default help
+        from autoclean.utils.branding import AutoCleanBranding
+        from rich.console import Console
+        
+        console = Console()
+        AutoCleanBranding.print_main_interface(console)
+        return 0
 
     # Validate arguments
     if not validate_args(args):
@@ -624,6 +644,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_setup(args)
     elif args.command == "version":
         return cmd_version(args)
+    elif args.command == "help":
+        return cmd_help(args)
     else:
         parser.print_help()
         return 1
