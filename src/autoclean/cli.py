@@ -107,11 +107,6 @@ Examples:
 
     # List tasks command
     list_parser = subparsers.add_parser("list-tasks", help="List available tasks")
-    list_parser.add_argument(
-        "--include-custom",
-        action="store_true",
-        help="Include custom tasks from user configuration",
-    )
 
     # Review command
     review_parser = subparsers.add_parser("review", help="Start review GUI")
@@ -292,45 +287,52 @@ def cmd_process(args) -> int:
 def cmd_list_tasks(args) -> int:
     """Execute the list-tasks command."""
     try:
-        # Lazy import Pipeline only when needed
         from autoclean.core.pipeline import Pipeline
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+        
+        console = Console()
 
-        pipeline_kwargs = {
-            "output_dir": Path("./temp_autoclean")  # Temporary dir for listing tasks
-        }
+        # Initialize pipeline in a temp directory to access task registry
+        pipeline = Pipeline(output_dir=Path("./temp_autoclean"))
 
-        pipeline = Pipeline(**pipeline_kwargs)
-
-        # List built-in tasks
-        message("info", "Built-in tasks:")
-        tasks = pipeline.list_tasks()
-
-        if not tasks:
-            print("  No built-in tasks found")
+        # --- Built-in Tasks ---
+        built_in_tasks = pipeline.list_tasks()
+        built_in_text = Text()
+        if built_in_tasks:
+            for task in sorted(built_in_tasks):
+                built_in_text.append(f"  • {task}\n", style="cyan")
         else:
-            for task in tasks:
-                print(f"  • {task}")
+            built_in_text.append("  No built-in tasks found.", style="dim")
 
-        # List custom tasks if requested
-        if args.include_custom:
-            custom_tasks = user_config.list_custom_tasks()
-            if custom_tasks:
-                print()
-                message("info", "Custom tasks:")
-                for task_name, task_info in custom_tasks.items():
-                    desc = task_info.get("description", "No description")
-                    print(f"  • {task_name} - {desc}")
-            else:
-                print()
-                message("info", "No custom tasks found")
-                print("  Add custom tasks with: autoclean task add <file>")
+        built_in_panel = Panel(
+            built_in_text,
+            title="[bold]Built-in Tasks[/bold]",
+            border_style="blue",
+            padding=(1, 1)
+        )
+
+        # --- Custom Tasks ---
+        custom_tasks = user_config.list_custom_tasks()
+        custom_text = Text()
+        if custom_tasks:
+            for task_name in sorted(custom_tasks.keys()):
+                custom_text.append(f"  • {task_name}\n", style="magenta")
         else:
-            custom_tasks = user_config.list_custom_tasks()
-            if custom_tasks:
-                print()
-                print(
-                    f"  ({len(custom_tasks)} custom tasks available - use --include-custom to show)"
-                )
+            custom_text.append("  No custom tasks found.\n", style="dim")
+            custom_text.append("  Use [yellow]autoclean-eeg task add <file.py>[/yellow] to add one.", style="dim")
+
+        custom_panel = Panel(
+            custom_text,
+            title="[bold]Custom Tasks[/bold]",
+            border_style="magenta",
+            padding=(1, 1)
+        )
+        
+        console.print("\n[bold]Available Processing Tasks[/bold]\n")
+        console.print(built_in_panel)
+        console.print(custom_panel)
 
         return 0
 
