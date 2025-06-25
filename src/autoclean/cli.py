@@ -17,8 +17,10 @@ from autoclean.utils.user_config import user_config
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for AutoClean CLI."""
+    from autoclean.utils.branding import AutoCleanBranding
+    
     parser = argparse.ArgumentParser(
-        description="AutoClean EEG Processing Pipeline",
+        description=f"{AutoCleanBranding.PRODUCT_NAME}\n{AutoCleanBranding.TAGLINE}",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -363,11 +365,19 @@ def cmd_version(args) -> int:
     """Show version information."""
     try:
         from autoclean import __version__
+        from autoclean.utils.branding import AutoCleanBranding
+        from rich.console import Console
 
-        print(f"AutoClean EEG Pipeline v{__version__}")
+        console = Console()
+        
+        # Show consistent branding
+        console.print(f"\n{AutoCleanBranding.get_compact_logo()}", style="bold green")
+        console.print(f"Version: [bold]{__version__}[/bold]")
+        console.print(f"\n[dim]{AutoCleanBranding.TAGLINE}[/dim]")
+        
         return 0
     except ImportError:
-        print("AutoClean EEG Pipeline (version unknown)")
+        print("AutoClean EEG (version unknown)")
         return 0
 
 

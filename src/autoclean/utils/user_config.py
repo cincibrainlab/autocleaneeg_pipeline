@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 
 import platformdirs
 
+from autoclean.utils.branding import AutoCleanBranding
 from autoclean.utils.logging import message
 
 
@@ -137,7 +138,7 @@ class UserConfigManager:
 
         elif workspace_status == "valid":
             console.print(
-                Panel("🔧 [bold blue]Workspace Configuration[/bold blue]", style="blue")
+                AutoCleanBranding.get_status_panel("Workspace Configuration", style="blue")
             )
             
             # Show system status and info
@@ -200,9 +201,8 @@ class UserConfigManager:
 
         # Professional header with system info
         if is_first_time:
-            # Main header panel
-            header_content = "🧠 [bold green]AutoClean EEG Processing Pipeline[/bold green]\n[dim green]   Professional EEG Data Processing & Analysis[/dim green]"
-            console.print(Panel(header_content, style="green", padding=(1, 2)))
+            # Main header panel with consistent branding
+            console.print(AutoCleanBranding.get_welcome_panel(console))
             
             # Status message
             console.print("\n[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]")
@@ -217,7 +217,7 @@ class UserConfigManager:
             )
         else:
             console.print(
-                Panel("🔧 [bold blue]Workspace Configuration[/bold blue]", style="blue")
+                AutoCleanBranding.get_status_panel("Workspace Setup", style="blue")
             )
             console.print("\n[bold]System Status:[/bold] [blue]⚙️ Reconfiguring workspace[/blue]")
 
