@@ -106,7 +106,7 @@ Examples:
     )
 
     # List tasks command
-    list_parser = subparsers.add_parser("list-tasks", help="List available tasks")
+    subparsers.add_parser("list-tasks", help="List available tasks")
 
     # Review command
     review_parser = subparsers.add_parser("review", help="Start review GUI")
@@ -252,14 +252,22 @@ def cmd_process(args) -> int:
         else:
             task_name = args.final_task
 
-            # Check if this is a custom task from user config
-            custom_task_path = user_config.get_custom_task_path(task_name)
-            if custom_task_path:
-                task_name = pipeline.add_task(custom_task_path)
-                message(
-                    "info",
-                    f"Loaded custom task '{args.final_task}' from user configuration",
-                )
+            # Check if this is a custom task using the new discovery system
+            from autoclean.utils.task_discovery import get_task_by_name
+            
+            task_class = get_task_by_name(task_name)
+            if task_class:
+                # Task found via discovery system
+                message("info", f"Loaded task: {task_name}")
+            else:
+                # Fall back to old method for compatibility
+                custom_task_path = user_config.get_custom_task_path(task_name)
+                if custom_task_path:
+                    task_name = pipeline.add_task(custom_task_path)
+                    message(
+                        "info",
+                        f"Loaded custom task '{args.final_task}' from user configuration",
+                    )
 
         if args.dry_run:
             message("info", "DRY RUN - No processing will be performed")
@@ -284,55 +292,114 @@ def cmd_process(args) -> int:
         return 1
 
 
-def cmd_list_tasks(args) -> int:
+def cmd_list_tasks(_args) -> int:
     """Execute the list-tasks command."""
     try:
-        from autoclean.core.pipeline import Pipeline
+        from autoclean.utils.task_discovery import safe_discover_tasks
         from rich.console import Console
         from rich.panel import Panel
-        from rich.text import Text
+        from rich.table import Table
+        from pathlib import Path
         
         console = Console()
 
-        # Initialize pipeline in a temp directory to access task registry
-        pipeline = Pipeline(output_dir=Path("./temp_autoclean"))
+        valid_tasks, invalid_files = safe_discover_tasks()
+
+        console.print("\n[bold]Available Processing Tasks[/bold]\n")
 
         # --- Built-in Tasks ---
-        built_in_tasks = pipeline.list_tasks()
-        built_in_text = Text()
+        built_in_tasks = [task for task in valid_tasks if "autoclean/tasks" in task.source]
         if built_in_tasks:
-            for task in sorted(built_in_tasks):
-                built_in_text.append(f"  • {task}\n", style="cyan")
+            built_in_table = Table(show_header=True, header_style="bold blue", box=None, padding=(0, 1))
+            built_in_table.add_column("Task Name", style="cyan", no_wrap=True)
+            built_in_table.add_column("Module", style="dim")
+            built_in_table.add_column("Description", style="dim", max_width=50)
+            
+            for task in sorted(built_in_tasks, key=lambda x: x.name):
+                # Extract just the module name from the full path
+                module_name = Path(task.source).stem
+                built_in_table.add_row(
+                    task.name, 
+                    module_name + ".py",
+                    task.description or "No description"
+                )
+            
+            built_in_panel = Panel(
+                built_in_table,
+                title="[bold]Built-in Tasks[/bold]",
+                border_style="blue",
+                padding=(1, 1)
+            )
+            console.print(built_in_panel)
         else:
-            built_in_text.append("  No built-in tasks found.", style="dim")
-
-        built_in_panel = Panel(
-            built_in_text,
-            title="[bold]Built-in Tasks[/bold]",
-            border_style="blue",
-            padding=(1, 1)
-        )
+            console.print(Panel(
+                "[dim]No built-in tasks found[/dim]",
+                title="[bold]Built-in Tasks[/bold]",
+                border_style="blue",
+                padding=(1, 1)
+            ))
 
         # --- Custom Tasks ---
-        custom_tasks = user_config.list_custom_tasks()
-        custom_text = Text()
+        custom_tasks = [task for task in valid_tasks if "autoclean/tasks" not in task.source]
         if custom_tasks:
-            for task_name in sorted(custom_tasks.keys()):
-                custom_text.append(f"  • {task_name}\n", style="magenta")
+            custom_table = Table(show_header=True, header_style="bold magenta", box=None, padding=(0, 1))
+            custom_table.add_column("Task Name", style="magenta", no_wrap=True)
+            custom_table.add_column("File", style="dim")
+            custom_table.add_column("Description", style="dim", max_width=50)
+            
+            for task in sorted(custom_tasks, key=lambda x: x.name):
+                # Show just the filename for custom tasks
+                file_name = Path(task.source).name
+                custom_table.add_row(
+                    task.name,
+                    file_name,
+                    task.description or "No description"
+                )
+            
+            custom_panel = Panel(
+                custom_table,
+                title="[bold]Custom Tasks[/bold]",
+                border_style="magenta",
+                padding=(1, 1)
+            )
+            console.print(custom_panel)
         else:
-            custom_text.append("  No custom tasks found.\n", style="dim")
-            custom_text.append("  Use [yellow]autoclean-eeg task add <file.py>[/yellow] to add one.", style="dim")
+            console.print(Panel(
+                "[dim]No custom tasks found.\n"
+                "Use [yellow]autoclean-eeg task add <file.py>[/yellow] to add one.[/dim]",
+                title="[bold]Custom Tasks[/bold]",
+                border_style="magenta",
+                padding=(1, 1)
+            ))
 
-        custom_panel = Panel(
-            custom_text,
-            title="[bold]Custom Tasks[/bold]",
-            border_style="magenta",
-            padding=(1, 1)
-        )
-        
-        console.print("\n[bold]Available Processing Tasks[/bold]\n")
-        console.print(built_in_panel)
-        console.print(custom_panel)
+        # --- Invalid Task Files ---
+        if invalid_files:
+            invalid_table = Table(show_header=True, header_style="bold red", box=None, padding=(0, 1))
+            invalid_table.add_column("File", style="red", no_wrap=True)
+            invalid_table.add_column("Error", style="yellow", max_width=70)
+            
+            for file in invalid_files:
+                # Show relative path if in workspace, otherwise just filename
+                file_path = Path(file.source)
+                if file_path.is_absolute():
+                    display_name = file_path.name
+                else:
+                    display_name = file.source
+                    
+                invalid_table.add_row(display_name, file.error)
+            
+            invalid_panel = Panel(
+                invalid_table,
+                title="[bold]Invalid Task Files[/bold]",
+                border_style="red",
+                padding=(1, 1)
+            )
+            console.print(invalid_panel)
+
+        # Summary statistics
+        console.print(f"\n[dim]Found {len(valid_tasks)} valid tasks "
+                     f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom) "
+                     f"and {len(invalid_files)} invalid files[/dim]")
 
         return 0
 
@@ -359,7 +426,7 @@ def cmd_review(args) -> int:
         return 1
 
 
-def cmd_setup(args) -> int:
+def cmd_setup(_args) -> int:
     """Run the setup wizard."""
     try:
         user_config.setup_workspace()
@@ -369,7 +436,7 @@ def cmd_setup(args) -> int:
         return 1
 
 
-def cmd_version(args) -> int:
+def cmd_version(_args) -> int:
     """Show version information."""
     try:
         from autoclean import __version__
@@ -383,18 +450,18 @@ def cmd_version(args) -> int:
         AutoCleanBranding.get_professional_header(console)
         console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
         
-        console.print(f"\n[bold]Version Information:[/bold]")
+        console.print("\n[bold]Version Information:[/bold]")
         console.print(f"  🏷️  [bold]{__version__}[/bold]")
         
         # Include system information for troubleshooting
-        console.print(f"\n[bold]System Information:[/bold]")
+        console.print("\n[bold]System Information:[/bold]")
         temp_config = UserConfigManager()
         temp_config._display_system_info(console)
         
         console.print(f"\n[dim]{AutoCleanBranding.TAGLINE}[/dim]")
         
         # GitHub and support info
-        console.print(f"\n[bold]GitHub Repository:[/bold]")
+        console.print("\n[bold]GitHub Repository:[/bold]")
         console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
         console.print("  [dim]Report issues, contribute, or get help[/dim]")
         
@@ -546,9 +613,9 @@ def cmd_config(args) -> int:
         return 1
 
 
-def cmd_config_show(args) -> int:
+def cmd_config_show(_args) -> int:
     """Show user configuration directory."""
-    config_dir = user_config.get_config_dir()
+    config_dir = user_config.config_dir
     message("info", f"User configuration directory: {config_dir}")
 
     custom_tasks = user_config.list_custom_tasks()
@@ -559,7 +626,7 @@ def cmd_config_show(args) -> int:
     return 0
 
 
-def cmd_config_setup(args) -> int:
+def cmd_config_setup(_args) -> int:
     """Reconfigure workspace location."""
     try:
         user_config.setup_workspace()
@@ -609,7 +676,7 @@ def cmd_config_import(args) -> int:
         return 1
 
 
-def cmd_help(args) -> int:
+def cmd_help(_args) -> int:
     """Show elegant, user-friendly help information."""
     from autoclean.utils.branding import AutoCleanBranding
     from rich.console import Console
@@ -725,7 +792,7 @@ def cmd_help(args) -> int:
     return 0
 
 
-def cmd_tutorial(args) -> int:
+def cmd_tutorial(_args) -> int:
     """Show a helpful tutorial for first-time users."""
     from autoclean.utils.branding import AutoCleanBranding
     from rich.console import Console
