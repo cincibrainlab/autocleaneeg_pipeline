@@ -21,38 +21,37 @@ def create_parser() -> argparse.ArgumentParser:
         description="AutoClean EEG Processing Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
+Processing:
+  autoclean setup                           # Interactive setup wizard
+  autoclean process TaskName data.raw       # Process single file
+  autoclean process TaskName data_dir/      # Process directory
+  autoclean list-tasks                      # Show available tasks
+  autoclean review --output results/       # Start review GUI
+
+Authentication (Compliance Mode):
+  autoclean setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
+  autoclean login                          # Authenticate with Auth0
+  autoclean logout                         # Clear authentication
+  autoclean whoami                         # Show current user status
+
+Custom Tasks:
+  autoclean task add my_task.py            # Add custom task
+  autoclean task list                      # List custom tasks
+  autoclean task remove TaskName           # Remove custom task
+
+Configuration:
+  autoclean config show                    # Show config location
+  autoclean config setup                   # Reconfigure workspace
+  autoclean config reset                   # Reset to defaults
+
+Audit & Export:
+  autoclean export-access-log              # Export compliance audit log
+  autoclean version                        # Show version info
+
 Examples:
-  # Simple usage (recommended)
-  autoclean process RestingEyesOpen data.raw
-  autoclean process RestingEyesOpen data_directory/
-  
-  # Advanced usage with options
-  autoclean process --task RestingEyesOpen --file data.raw --output results/
-  autoclean process --task RestingEyesOpen --dir data/ --output results/
-  
-  # Use Python task file
-  autoclean process --task-file my_task.py --file data.raw
-  
-  # List available tasks
-  autoclean list-tasks --include-custom
-  
-  # Start review GUI
-  autoclean review --output results/
-  
-  # Add a custom task (saves to user config)
-  autoclean task add my_task.py --name MyCustomTask
-  
-  # List custom tasks
-  autoclean task list
-  
-  # Remove a custom task
-  autoclean task remove MyCustomTask
-  
-  # Run setup wizard
-  autoclean setup
-  
-  # Show user config location
-  autoclean config show
+  autoclean process RestingEyesOpen data.raw --output results/
+  autoclean process --task-file custom.py --file data.raw
+  autoclean export-access-log --format csv --start-date 2025-01-01
         """,
     )
 
