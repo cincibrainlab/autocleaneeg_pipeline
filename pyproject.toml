@@ -7,7 +7,7 @@ name = "autoclean-eeg"
 version = "2.1.0"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10,<3.14"
 license = {file = "LICENSE"}
 keywords = ["eeg", "neuroscience", "signal-processing", "preprocessing", "mne-python", "bids", "electrophysiology"]
 authors = [
