@@ -146,9 +146,7 @@ def classify_ica_components(
         raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
 
     if method not in ["iclabel", "icvision"]:
-        raise ValueError(
-            f"method must be 'iclabel' or 'icvision', got '{method}'"
-        )
+        raise ValueError(f"method must be 'iclabel' or 'icvision', got '{method}'")
 
     try:
         if method == "iclabel":
@@ -156,7 +154,7 @@ def classify_ica_components(
             mne_icalabel.label_components(raw, ica, method=method)
             # Extract results into a DataFrame
             component_labels = _icalabel_to_dataframe(ica)
-            
+
         elif method == "icvision":
             # Run ICVision classification
             try:
@@ -166,16 +164,18 @@ def classify_ica_components(
                     "autoclean-icvision package is required for icvision method. "
                     "Install it with: pip install autoclean-icvision"
                 ) from e
-            
+
             # Use ICVision as drop-in replacement
             label_components(raw, ica)
             # Extract results into a DataFrame using the same format
             component_labels = _icalabel_to_dataframe(ica)
-        
+
         return component_labels
 
     except Exception as e:
-        raise RuntimeError(f"Failed to classify ICA components with {method}: {str(e)}") from e
+        raise RuntimeError(
+            f"Failed to classify ICA components with {method}: {str(e)}"
+        ) from e
 
 
 def apply_ica_rejection(

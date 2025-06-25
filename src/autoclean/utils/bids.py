@@ -139,7 +139,7 @@ def step_convert_to_bids(
 
     # Sanitize task name for BIDS compliance (no underscores, hyphens, or slashes)
     bids_task = task.replace("_", "").replace("-", "").replace("/", "")
-    
+
     # Create BIDSPath object.
     bids_path = BIDSPath(
         subject=subject_id,

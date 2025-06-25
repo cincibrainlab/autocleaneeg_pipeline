@@ -151,27 +151,39 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
                 except ImportError as e:
                     print("=" * 80)
                     print("🚨 CRITICAL MIXIN IMPORT ERROR 🚨")
-                    print(f"Could not import module '{full_sub_module_name}' for mixin discovery")
+                    print(
+                        f"Could not import module '{full_sub_module_name}' for mixin discovery"
+                    )
                     print(f"Error: {e}")
                     print("STOPPING EXECUTION - Fix import error before continuing!")
-                    print("Check for syntax errors or missing dependencies in the mixin file.")
+                    print(
+                        "Check for syntax errors or missing dependencies in the mixin file."
+                    )
                     print("=" * 80)
-                    raise SystemExit(f"Critical mixin import error: {full_sub_module_name} - {e}")
+                    raise SystemExit(
+                        f"Critical mixin import error: {full_sub_module_name} - {e}"
+                    )
                 except Exception as e:
                     print("=" * 80)
                     print("🚨 CRITICAL MIXIN ERROR 🚨")
                     print(f"Error inspecting module '{full_sub_module_name}': {e}")
                     print("STOPPING EXECUTION - Fix mixin error before continuing!")
                     print("=" * 80)
-                    raise SystemExit(f"Critical mixin error: {full_sub_module_name} - {e}")
+                    raise SystemExit(
+                        f"Critical mixin error: {full_sub_module_name} - {e}"
+                    )
         except ImportError as e:
             print("=" * 80)
             print("🚨 CRITICAL SUB-PACKAGE IMPORT ERROR 🚨")
-            print(f"Could not import sub-package '{full_item_name}' for mixin discovery")
+            print(
+                f"Could not import sub-package '{full_item_name}' for mixin discovery"
+            )
             print(f"Error: {e}")
             print("STOPPING EXECUTION - Fix import error before continuing!")
             print("=" * 80)
-            raise SystemExit(f"Critical sub-package import error: {full_item_name} - {e}")
+            raise SystemExit(
+                f"Critical sub-package import error: {full_item_name} - {e}"
+            )
         except SyntaxError as e:
             print("=" * 80)
             print("🚨 CRITICAL SYNTAX ERROR IN MIXIN SUB-PACKAGE 🚨")
@@ -181,13 +193,16 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
             print(f"Error: {e}")
             print("STOPPING EXECUTION - Fix syntax error before continuing!")
             print("=" * 80)
-            raise SystemExit(f"Critical syntax error in sub-package: {e.filename}, line {e.lineno}")
+            raise SystemExit(
+                f"Critical syntax error in sub-package: {e.filename}, line {e.lineno}"
+            )
         except Exception as e:
             print("=" * 80)
             print("🚨 CRITICAL SUB-PACKAGE ERROR 🚨")
             print(f"Error processing sub-package '{full_item_name}': {e}")
             print("STOPPING EXECUTION - Fix error before continuing!")
             import traceback
+
             print(f"Full traceback: {traceback.format_exc()}")
             print("=" * 80)
             raise SystemExit(f"Critical sub-package error: {full_item_name} - {e}")
@@ -220,13 +235,16 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
             print(f"Error: {e}")
             print("STOPPING EXECUTION - Fix syntax error before continuing!")
             print("=" * 80)
-            raise SystemExit(f"Critical syntax error in module: {e.filename}, line {e.lineno}")
+            raise SystemExit(
+                f"Critical syntax error in module: {e.filename}, line {e.lineno}"
+            )
         except Exception as e:
             print("=" * 80)
             print("🚨 CRITICAL MODULE ERROR 🚨")
             print(f"Error inspecting module '{full_item_name}': {e}")
             print("STOPPING EXECUTION - Fix error before continuing!")
             import traceback
+
             print(f"Full traceback: {traceback.format_exc()}")
             print("=" * 80)
             raise SystemExit(f"Critical module error: {full_item_name} - {e}")

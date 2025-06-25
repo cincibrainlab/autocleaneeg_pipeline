@@ -5,8 +5,8 @@ including component fitting, classification, and artifact rejection.
 """
 
 from .ica_processing import (
-    apply_ica_rejection,
     apply_ica_component_rejection,
+    apply_ica_rejection,
     classify_ica_components,
     fit_ica,
 )
