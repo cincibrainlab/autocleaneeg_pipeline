@@ -152,7 +152,7 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
     """
     if not issubclass(plugin_class, BaseEEGPlugin):
         raise TypeError(f"Plugin must inherit from BaseEEGPlugin, got {plugin_class}")
-    
+
     # Create an instance to test supported combinations
     plugin_instance = plugin_class()  # noqa: F841
 
@@ -189,14 +189,14 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
 def discover_plugins() -> None:
     """Discover and register all available plugins."""
     global _PLUGINS_DISCOVERED
-    
+
     # Skip if already discovered
     if _PLUGINS_DISCOVERED:
         return
-        
+
     # Mark as discovered at the start to prevent re-entry
     _PLUGINS_DISCOVERED = True
-    
+
     # Discover format registrations
     try:
         import autoclean.plugins.formats as formats_pkg
@@ -520,14 +520,14 @@ def register_event_processor(processor_class: Type[BaseEventProcessor]) -> None:
 def discover_event_processors() -> None:
     """Discover and register all available event processor plugins."""
     global _EVENT_PROCESSORS_DISCOVERED
-    
+
     # Skip if already discovered
     if _EVENT_PROCESSORS_DISCOVERED:
         return
-        
+
     # Mark as discovered at the start to prevent re-entry
     _EVENT_PROCESSORS_DISCOVERED = True
-    
+
     try:
         import autoclean.plugins.event_processors as processors_pkg
 
@@ -548,7 +548,7 @@ def discover_event_processors() -> None:
         message(
             "info", "No event processor plugins found, using built-in processors only"
         )
-    
+
     # Built-in processors are now handled through plugin discovery
     # P300EventProcessor and HBCDEventProcessor are defined as plugins and auto-discovered
 
