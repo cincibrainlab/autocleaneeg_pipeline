@@ -194,6 +194,26 @@ class AutoCleanBranding:
             console = Console()
         console.print(f"[dim]{cls.TAGLINE}[/dim]")
 
+    @classmethod
+    def print_tutorial_header(cls, console: Console = None) -> None:
+        """Print a header for the tutorial."""
+        if console is None:
+            console = Console()
+        
+        # Print the crystal clear logo
+        console.print(cls.get_simple_welcome(), style="bright_cyan")
+        
+        # Version and platform info (concise)
+        try:
+            from autoclean import __version__
+            import platform
+            version = __version__
+            platform_name = platform.system()
+            arch = platform.machine()
+            console.print(f"[dim]v{version} • {platform_name} {arch}[/dim]")
+        except ImportError:
+            console.print("[dim]AutoClean EEG[/dim]")
+
 
 # Convenience functions for easy import
 def get_logo(style: str = "compact") -> str:

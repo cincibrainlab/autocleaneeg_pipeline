@@ -192,6 +192,9 @@ Examples:
     # Help command (for consistency)
     subparsers.add_parser("help", help="Show detailed help information")
 
+    # Tutorial command
+    subparsers.add_parser("tutorial", help="Show a helpful tutorial for first-time users")
+
     return parser
 
 
@@ -720,6 +723,36 @@ def cmd_help(args) -> int:
     return 0
 
 
+def cmd_tutorial(args) -> int:
+    """Show a helpful tutorial for first-time users."""
+    from autoclean.utils.branding import AutoCleanBranding
+    from rich.console import Console
+    
+    console = Console()
+    
+    # Use the tutorial header for consistent branding
+    AutoCleanBranding.print_tutorial_header(console)
+    
+    console.print("\n[bold bright_green]🚀 Welcome to the AutoClean EEG Tutorial![/bold bright_green]")
+    console.print("This tutorial will walk you through the basics of using AutoClean EEG.")
+    console.print("\n[bold bright_yellow]Step 1: Setup your workspace[/bold bright_yellow]")
+    console.print("The first step is to set up your workspace. This is where AutoClean EEG will store its configuration and any custom tasks you create.")
+    console.print("To do this, run the following command:")
+    console.print("\n[green]autoclean-eeg setup[/green]\n")
+    
+    console.print("\n[bold bright_yellow]Step 2: List available tasks[/bold bright_yellow]")
+    console.print("Once your workspace is set up, you can see the built-in processing tasks that are available.")
+    console.print("To do this, run the following command:")
+    console.print("\n[green]autoclean-eeg list-tasks[/green]\n")
+
+    console.print("\n[bold bright_yellow]Step 3: Process a file[/bold bright_yellow]")
+    console.print("Now you are ready to process a file. You will need to specify the task you want to use and the path to the file you want to process.")
+    console.print("For example, to process a file called 'data.raw' with the 'RestingEyesOpen' task, you would run the following command:")
+    console.print("\n[green]autoclean-eeg process RestingEyesOpen data.raw[/green]\n")
+
+    return 0
+
+
 def main(argv: Optional[list] = None) -> int:
     """Main entry point for the AutoClean CLI."""
     parser = create_parser()
@@ -755,6 +788,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_version(args)
     elif args.command == "help":
         return cmd_help(args)
+    elif args.command == "tutorial":
+        return cmd_tutorial(args)
     else:
         parser.print_help()
         return 1
