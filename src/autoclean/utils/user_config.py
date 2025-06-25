@@ -14,6 +14,12 @@ from typing import Any, Dict, Optional
 
 import platformdirs
 
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
+
 from autoclean.utils.branding import AutoCleanBranding
 from autoclean.utils.logging import message
 
@@ -119,7 +125,80 @@ class UserConfigManager:
         info_table.add_row("Platform:", f"{platform.system()} {platform.release()}")
         info_table.add_row("Architecture:", platform.machine())
         
+        # System resources (if psutil is available)
+        if PSUTIL_AVAILABLE:
+            try:
+                memory = psutil.virtual_memory()
+                cpu_count = psutil.cpu_count(logical=True)
+                cpu_physical = psutil.cpu_count(logical=False)
+                
+                memory_gb = memory.total / (1024**3)
+                memory_available_gb = memory.available / (1024**3)
+                info_table.add_row("Memory:", f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available")
+                
+                if cpu_physical and cpu_physical != cpu_count:
+                    info_table.add_row("CPU:", f"{cpu_physical} cores ({cpu_count} threads)")
+                else:
+                    info_table.add_row("CPU:", f"{cpu_count} cores")
+            except Exception:
+                info_table.add_row("Memory:", "Unable to detect")
+                info_table.add_row("CPU:", "Unable to detect")
+        else:
+            info_table.add_row("Memory:", "psutil not available")
+            info_table.add_row("CPU:", "psutil not available")
+        
+        # GPU information
+        gpu_info = self._get_gpu_info()
+        info_table.add_row("GPU:", gpu_info)
+        
         console.print(info_table)
+    
+    def _get_gpu_info(self) -> str:
+        """Get GPU information for system display."""
+        try:
+            # Try to detect NVIDIA GPU first
+            import subprocess
+            result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader,nounits'], 
+                                  capture_output=True, text=True, timeout=5)
+            if result.returncode == 0 and result.stdout.strip():
+                gpu_names = result.stdout.strip().split('\n')
+                if len(gpu_names) == 1:
+                    return f"✓ NVIDIA {gpu_names[0].strip()}"
+                else:
+                    return f"✓ {len(gpu_names)}× NVIDIA GPUs"
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        
+        try:
+            # Try to detect other GPUs via system info
+            if platform.system() == "Darwin":  # macOS
+                result = subprocess.run(['system_profiler', 'SPDisplaysDataType'], 
+                                      capture_output=True, text=True, timeout=5)
+                if "Apple" in result.stdout and ("M1" in result.stdout or "M2" in result.stdout or "M3" in result.stdout):
+                    return "✓ Apple Silicon GPU"
+                elif "AMD" in result.stdout or "Radeon" in result.stdout:
+                    return "✓ AMD GPU detected"
+                elif "Intel" in result.stdout:
+                    return "✓ Intel GPU detected"
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+            pass
+        
+        try:
+            # Try PyTorch GPU detection as fallback
+            import torch
+            if torch.cuda.is_available():
+                gpu_count = torch.cuda.device_count()
+                if gpu_count == 1:
+                    gpu_name = torch.cuda.get_device_name(0)
+                    return f"✓ CUDA {gpu_name}"
+                else:
+                    return f"✓ {gpu_count}× CUDA GPUs"
+            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+                return "✓ Apple Metal GPU"
+        except ImportError:
+            pass
+        
+        return "None detected"
 
     def setup_workspace(self) -> Path:
         """Smart workspace setup."""
@@ -133,21 +212,31 @@ class UserConfigManager:
             return self._run_setup_wizard(is_first_time=True)
 
         elif workspace_status == "missing":
-            console.print("[yellow]⚠[/yellow] Previous workspace no longer exists")
+            # Professional header for missing workspace
+            AutoCleanBranding.get_professional_header(console)
+            console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+            console.print("\n[yellow]⚠[/yellow] [bold]Workspace Missing[/bold]")
+            console.print("[dim]Previous workspace location no longer exists[/dim]")
             return self._run_setup_wizard(is_first_time=False)
 
         elif workspace_status == "valid":
-            console.print(
-                AutoCleanBranding.get_status_panel("Workspace Configuration", style="blue")
-            )
+            # Professional header with clear hierarchy
+            AutoCleanBranding.get_professional_header(console)
             
-            # Show system status and info
-            console.print("\n[bold]System Status:[/bold] [green]✓ Workspace configured[/green]")
+            # Clean section separator
+            console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+            
+            # Configuration section without redundant brain icon
+            console.print("\n[bold blue]Workspace Configuration[/bold blue]")
+            console.print("[green]✓[/green] [dim]Workspace is properly configured[/dim]")
+            
+            # System information in organized layout
+            console.print(f"\n[bold]Current Workspace:[/bold]")
+            console.print(f"  📁 [dim]{self.config_dir}[/dim]")
+            
+            # Compact system info
+            console.print(f"\n[bold]System Information:[/bold]")
             self._display_system_info(console)
-            
-            console.print(
-                f"\n[bold]Current workspace:[/bold] [dim]{self.config_dir}[/dim]"
-            )
 
             try:
                 response = input("\nChange workspace location? (y/N): ").strip().lower()
@@ -216,10 +305,11 @@ class UserConfigManager:
                 "This workspace will contain your custom tasks, configuration, and results."
             )
         else:
-            console.print(
-                AutoCleanBranding.get_status_panel("Workspace Setup", style="blue")
-            )
-            console.print("\n[bold]System Status:[/bold] [blue]⚙️ Reconfiguring workspace[/blue]")
+            # Professional header for reconfigure case
+            AutoCleanBranding.get_professional_header(console)
+            console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+            console.print("\n[blue]⚙️[/blue] [bold blue]Workspace Reconfiguration[/bold blue]")
+            console.print("[dim]Setting up new workspace location[/dim]")
 
         # Get location
         default_dir = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"

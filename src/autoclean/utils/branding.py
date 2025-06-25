@@ -60,14 +60,33 @@ class AutoCleanBranding:
         )
     
     @classmethod
-    def get_status_panel(cls, title: str, style: str = "blue") -> Panel:
+    def get_status_panel(cls, title: str, style: str = "blue", show_icon: bool = False) -> Panel:
         """Get status panel with consistent branding."""
-        header_text = f"{cls.LOGO_ICON} [bold]{title}[/bold]"
+        if show_icon:
+            header_text = f"{cls.LOGO_ICON} [bold]{title}[/bold]"
+        else:
+            header_text = f"[bold]{title}[/bold]"
         return Panel(
             header_text,
             style=style,
             padding=(0, 2)
         )
+    
+    @classmethod
+    def get_professional_header(cls, console: Console = None) -> None:
+        """Get professional header for existing workspace scenarios."""
+        if console is None:
+            console = Console()
+        
+        # Main product header - more prominent
+        console.print(f"\n[bold green]{cls.LOGO_ICON} {cls.PRODUCT_NAME}[/bold green]")
+        console.print(f"[dim green]{cls.WAVE_PATTERN}[/dim green]")
+        console.print("[dim]Professional EEG Processing & Analysis Platform[/dim]")
+    
+    @classmethod 
+    def get_simple_divider(cls) -> str:
+        """Get a simple divider for clean separation."""
+        return f"[dim]{cls.WAVE_PATTERN * 2}[/dim]"
     
     @classmethod
     def print_logo(cls, console: Console = None, style: str = "ascii") -> None:

@@ -366,13 +366,23 @@ def cmd_version(args) -> int:
     try:
         from autoclean import __version__
         from autoclean.utils.branding import AutoCleanBranding
+        from autoclean.utils.user_config import UserConfigManager
         from rich.console import Console
 
         console = Console()
         
-        # Show consistent branding
-        console.print(f"\n{AutoCleanBranding.get_compact_logo()}", style="bold green")
-        console.print(f"Version: [bold]{__version__}[/bold]")
+        # Professional header consistent with setup
+        AutoCleanBranding.get_professional_header(console)
+        console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+        
+        console.print(f"\n[bold]Version Information:[/bold]")
+        console.print(f"  🏷️  [bold]{__version__}[/bold]")
+        
+        # Include system information for troubleshooting
+        console.print(f"\n[bold]System Information:[/bold]")
+        temp_config = UserConfigManager()
+        temp_config._display_system_info(console)
+        
         console.print(f"\n[dim]{AutoCleanBranding.TAGLINE}[/dim]")
         
         return 0
