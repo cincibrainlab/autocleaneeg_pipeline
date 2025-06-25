@@ -605,9 +605,118 @@ def cmd_config_import(args) -> int:
 
 
 def cmd_help(args) -> int:
-    """Show detailed help information."""
-    parser = create_parser()
-    parser.print_help()
+    """Show elegant, user-friendly help information."""
+    from autoclean.utils.branding import AutoCleanBranding
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.columns import Columns
+    from rich.table import Table
+    
+    console = Console()
+    
+    # Professional header with branding
+    AutoCleanBranding.get_professional_header(console)
+    console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+    
+    # Main help sections organized for new users
+    console.print("\n[bold bright_green]🚀 Getting Started[/bold bright_green]")
+    console.print("  [bright_yellow]autoclean-eeg setup[/bright_yellow]     [dim]→[/dim] Configure your workspace (run this first!)")
+    console.print("  [bright_yellow]autoclean-eeg version[/bright_yellow]   [dim]→[/dim] Check system information")
+    
+    # Core workflow - Processing
+    console.print("\n[bold bright_blue]⚡ Process EEG Data[/bold bright_blue]")
+    
+    # Simple usage examples
+    simple_panel = Panel(
+        "[green]autoclean-eeg process RestingEyesOpen data.raw[/green]\n"
+        "[green]autoclean-eeg process MMN data_folder/[/green]\n"
+        "[green]autoclean-eeg process ASSR experiment.edf[/green]\n\n"
+        "[dim]Built-in tasks: RestingEyesOpen, RestingEyesClosed, MMN, ASSR, Chirp[/dim]",
+        title="[bold]Simple Processing[/bold]",
+        border_style="green",
+        padding=(0, 1)
+    )
+    
+    # Advanced usage examples
+    advanced_panel = Panel(
+        "[yellow]autoclean-eeg process --task RestingEyesOpen \\[/yellow]\n"
+        "[yellow]  --file data.raw --output results/[/yellow]\n\n"
+        "[yellow]autoclean-eeg process --task-file my_task.py \\[/yellow]\n"
+        "[yellow]  --file data.raw[/yellow]\n\n"
+        "[dim]Specify custom output locations and task files[/dim]",
+        title="[bold]Advanced Options[/bold]",
+        border_style="yellow",
+        padding=(0, 1)
+    )
+    
+    console.print(Columns([simple_panel, advanced_panel], equal=True, expand=True))
+    
+    # Task management workflow
+    console.print("\n[bold bright_magenta]📋 Task Management[/bold bright_magenta]")
+    
+    task_info_panel = Panel(
+        "[cyan]list-tasks[/cyan]          [dim]View all available tasks[/dim]\n"
+        "[cyan]list-tasks --include-custom[/cyan]  [dim]Include your custom tasks[/dim]\n"
+        "[cyan]task list[/cyan]           [dim]Show your custom tasks only[/dim]",
+        title="[bold]Discover Tasks[/bold]",
+        border_style="cyan",
+        padding=(0, 1)
+    )
+    
+    task_manage_panel = Panel(
+        "[cyan]task add my_task.py[/cyan]  [dim]Add custom task[/dim]\n"
+        "[cyan]task add my_task.py --name Custom[/cyan]  [dim]Add with custom name[/dim]\n"
+        "[cyan]task remove MyTask[/cyan]   [dim]Remove custom task[/dim]",
+        title="[bold]Manage Tasks[/bold]",
+        border_style="cyan", 
+        padding=(0, 1)
+    )
+    
+    console.print(Columns([task_info_panel, task_manage_panel], equal=True, expand=True))
+    
+    # Results and configuration
+    console.print("\n[bold bright_cyan]🔍 Review & Configure[/bold bright_cyan]")
+    
+    review_panel = Panel(
+        "[cyan]review --output results/[/cyan]  [dim]Launch GUI to review results[/dim]\n"
+        "[cyan]config show[/cyan]             [dim]Show configuration location[/dim]\n"
+        "[cyan]config setup[/cyan]            [dim]Reconfigure workspace[/dim]",
+        title="[bold]Results & Settings[/bold]",
+        border_style="cyan",
+        padding=(0, 1)
+    )
+    
+    console.print(review_panel)
+    
+    # Quick reference table
+    console.print("\n[bold]📖 Quick Reference[/bold]")
+    
+    ref_table = Table(show_header=True, header_style="bold blue", box=None, padding=(0, 1))
+    ref_table.add_column("Command", style="cyan", no_wrap=True)
+    ref_table.add_column("Purpose", style="dim")
+    ref_table.add_column("Example", style="green")
+    
+    ref_table.add_row("process", "Process EEG data", "process RestingEyesOpen data.raw")
+    ref_table.add_row("setup", "Configure workspace", "setup")
+    ref_table.add_row("list-tasks", "Show available tasks", "list-tasks --include-custom")
+    ref_table.add_row("review", "Review results", "review --output results/")
+    ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
+    ref_table.add_row("config", "Manage settings", "config show")
+    ref_table.add_row("version", "System information", "version")
+    
+    console.print(ref_table)
+    
+    # Help tips
+    console.print("\n[bold]💡 Pro Tips[/bold]")
+    console.print("  • Get command-specific help: [bright_white]autoclean-eeg <command> --help[/bright_white]")
+    console.print("  • Process entire directories: [bright_white]autoclean-eeg process TaskName folder/[/bright_white]") 
+    console.print("  • Use tab completion if available in your shell")
+    
+    # Support section
+    console.print("\n[bold]🤝 Support & Community[/bold]")
+    console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
+    console.print("  [dim]Report issues • Documentation • Contribute • Get help[/dim]")
+    
     return 0
 
 
