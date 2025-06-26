@@ -231,13 +231,30 @@ def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
     all_valid_tasks.extend(custom_tasks)
     all_invalid_files.extend(custom_errors)
     
-    # Remove duplicates based on task name (keep first occurrence)
-    seen_names = set()
+    # Handle duplicates and track conflicts
+    seen_names: Dict[str, DiscoveredTask] = {}
     unique_tasks = []
+    duplicate_warnings = []
+    
     for task in all_valid_tasks:
         if task.name not in seen_names:
-            seen_names.add(task.name)
+            seen_names[task.name] = task
             unique_tasks.append(task)
+        else:
+            # Found duplicate - create warning
+            first_task = seen_names[task.name]
+            first_source = Path(first_task.source).name
+            duplicate_source = Path(task.source).name
+            
+            duplicate_warnings.append(
+                InvalidTaskFile(
+                    source=duplicate_source,
+                    error=f"Duplicate task name '{task.name}' (already defined in {first_source})"
+                )
+            )
+    
+    # Add duplicate warnings to invalid files list
+    all_invalid_files.extend(duplicate_warnings)
     
     return unique_tasks, all_invalid_files
 
