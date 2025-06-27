@@ -98,7 +98,11 @@ def fit_ica(
 
 
 def classify_ica_components(
-    raw: mne.io.Raw, ica: ICA, method: str = "iclabel", verbose: Optional[bool] = None
+    raw: mne.io.Raw, 
+    ica: ICA, 
+    method: str = "iclabel", 
+    verbose: Optional[bool] = None,
+    **kwargs
 ) -> pd.DataFrame:
     """Classify ICA components using automated algorithms.
 
@@ -116,6 +120,9 @@ def classify_ica_components(
         Classification method to use. Options: "iclabel", "icvision".
     verbose : bool or None, default None
         Control verbosity of output.
+    **kwargs
+        Additional keyword arguments passed to the classification method.
+        For icvision method, supports 'psd_fmax' to limit PSD plot frequency range.
 
     Returns
     -------
@@ -165,8 +172,8 @@ def classify_ica_components(
                     "Install it with: pip install autoclean-icvision"
                 ) from e
 
-            # Use ICVision as drop-in replacement
-            label_components(raw, ica)
+            # Use ICVision as drop-in replacement, passing through any extra kwargs
+            label_components(raw, ica, **kwargs)
             # Extract results into a DataFrame using the same format
             component_labels = _icalabel_to_dataframe(ica)
 
