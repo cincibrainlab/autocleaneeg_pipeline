@@ -109,6 +109,7 @@ class IcaMixin:
         self,
         method: str = "iclabel",
         reject: bool = True,
+        psd_fmax: float | None = None,
         stage_name: str = "post_ica",
         export: bool = False,
     ):
@@ -123,6 +124,9 @@ class IcaMixin:
             Classification method to use. Options: "iclabel", "icvision".
         reject : bool, default True
             If True, automatically reject components identified as artifacts.
+        psd_fmax : float or None, optional
+            Upper frequency limit (Hz) for PSD plots when using icvision method.
+            If None, uses default (80 Hz or Nyquist frequency).
         stage_name : str, optional
             Name of the processing stage for export. Default is "post_component_removal".
         export : bool, optional
@@ -140,6 +144,11 @@ class IcaMixin:
         >>> self.classify_ica_components(method="iclabel", reject=True)
         >>> # Classify with ICVision without rejection
         >>> self.classify_ica_components(method="icvision", reject=False)
+        >>> # Classify with ICVision and limit PSD plots to 40 Hz
+        >>> self.classify_ica_components(method="icvision", reject=True, psd_fmax=40.0)
+        >>> # Read psd_fmax from config
+        >>> psd_fmax = self.config.get("ICLabel", {}).get("psd_fmax")
+        >>> self.classify_ica_components(method="icvision", reject=True, psd_fmax=psd_fmax)
 
         Notes
         -----
@@ -158,8 +167,28 @@ class IcaMixin:
         # Call standalone function for ICA component classification
         from autoclean.functions.ica.ica_processing import classify_ica_components
 
+        # If psd_fmax not explicitly provided, try to get it from config
+        if psd_fmax is None:
+            is_enabled, step_config_main_dict = self._check_step_enabled("ICLabel")
+            if is_enabled and step_config_main_dict:
+                # Check nested value dict first (common pattern)
+                iclabel_params_nested = step_config_main_dict.get("value", {})
+                psd_fmax = iclabel_params_nested.get("psd_fmax")
+                
+                # If not found in nested, check main dict
+                if psd_fmax is None and "psd_fmax" in step_config_main_dict:
+                    psd_fmax = step_config_main_dict.get("psd_fmax")
+                
+                if psd_fmax is not None:
+                    message("info", f"Using psd_fmax={psd_fmax} Hz from config")
+
+        # Build kwargs dict, only including psd_fmax if provided
+        extra_kwargs = {}
+        if psd_fmax is not None:
+            extra_kwargs["psd_fmax"] = psd_fmax
+
         self.ica_flags = classify_ica_components(
-            self.raw, self.final_ica, method=method
+            self.raw, self.final_ica, method=method, **extra_kwargs
         )
 
         metadata = {
