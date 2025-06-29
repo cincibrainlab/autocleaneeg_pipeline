@@ -4,7 +4,7 @@ This module provides standalone functions for Independent Component Analysis (IC
 including component fitting, classification, and artifact rejection.
 """
 
-from typing import List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 import mne
 import mne_icalabel
@@ -300,6 +300,7 @@ def apply_ica_component_rejection(
     labels_df: pd.DataFrame,
     ic_flags_to_reject: List[str] = ["eog", "muscle", "ecg"],
     ic_rejection_threshold: float = 0.8,
+    ic_rejection_overrides: Optional[Dict[str, float]] = None,
     verbose: Optional[bool] = None,
 ) -> tuple[mne.io.Raw, List[int]]:
     """Apply ICA rejection based on component classifications and criteria.
@@ -319,7 +320,10 @@ def apply_ica_component_rejection(
     ic_flags_to_reject : list of str, default ["eog", "muscle", "ecg"]
         Component types to consider for rejection.
     ic_rejection_threshold : float, default 0.8
-        Confidence threshold for rejecting components.
+        Global confidence threshold for rejecting components.
+    ic_rejection_overrides : dict of str to float, optional
+        Per-component-type confidence thresholds that override the global threshold.
+        Keys are IC types (e.g., 'muscle', 'heart'), values are confidence thresholds.
     verbose : bool or None, default None
         Control verbosity of output.
 
@@ -341,13 +345,20 @@ def apply_ica_component_rejection(
     apply_ica_rejection : Apply ICA to remove specific components
     """
     # Find components that meet rejection criteria - use DataFrame index like original mixin
+    if ic_rejection_overrides is None:
+        ic_rejection_overrides = {}
+    
     rejected_components = []
     for idx, row in labels_df.iterrows():
-        if (
-            row["ic_type"] in ic_flags_to_reject
-            and row["confidence"] > ic_rejection_threshold
-        ):
-            rejected_components.append(idx)
+        ic_type = row["ic_type"]
+        confidence = row["confidence"]
+        
+        if ic_type in ic_flags_to_reject:
+            # Use override threshold if available, otherwise global threshold
+            threshold = ic_rejection_overrides.get(ic_type, ic_rejection_threshold)
+            
+            if confidence > threshold:
+                rejected_components.append(idx)
 
     # Match original mixin logic exactly
     if not rejected_components:

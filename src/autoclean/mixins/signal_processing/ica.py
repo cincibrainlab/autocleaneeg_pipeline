@@ -275,6 +275,7 @@ class IcaMixin:
 
         flags_to_reject = iclabel_params_nested.get("ic_flags_to_reject")
         rejection_threshold = iclabel_params_nested.get("ic_rejection_threshold")
+        threshold_overrides = iclabel_params_nested.get("ic_rejection_overrides", {})
 
         # If not found in "value", try to get them from the main step config dict directly
         if flags_to_reject is None and "ic_flags_to_reject" in step_config_main_dict:
@@ -284,6 +285,8 @@ class IcaMixin:
             and "ic_rejection_threshold" in step_config_main_dict
         ):
             rejection_threshold = step_config_main_dict.get("ic_rejection_threshold")
+        if not threshold_overrides and "ic_rejection_overrides" in step_config_main_dict:
+            threshold_overrides = step_config_main_dict.get("ic_rejection_overrides", {})
 
         if flags_to_reject is None or rejection_threshold is None:
             message(
@@ -293,10 +296,24 @@ class IcaMixin:
             )
             return
 
-        message(
-            "info",
-            f"Will reject ICs of types: {flags_to_reject} with confidence > {rejection_threshold}",
-        )
+        # Warn about unused overrides
+        if threshold_overrides:
+            unused_overrides = set(threshold_overrides.keys()) - set(flags_to_reject)
+            if unused_overrides:
+                message(
+                    "warning", 
+                    f"Threshold overrides specified for types not in rejection list: {unused_overrides}"
+                )
+            
+            # Show per-type thresholds when overrides are present
+            threshold_info = {ic_type: rejection_threshold for ic_type in flags_to_reject}
+            threshold_info.update(threshold_overrides)
+            message("info", f"Will reject ICs with per-type thresholds: {threshold_info}")
+        else:
+            message(
+                "info",
+                f"Will reject ICs of types: {flags_to_reject} with confidence > {rejection_threshold}",
+            )
 
         # Determine data to clean
         target_data = data_to_clean if data_to_clean is not None else self.raw
@@ -314,6 +331,7 @@ class IcaMixin:
             labels_df=self.ica_flags,
             ic_flags_to_reject=flags_to_reject,
             ic_rejection_threshold=rejection_threshold,
+            ic_rejection_overrides=threshold_overrides,
             verbose=True,
         )
 
@@ -336,6 +354,7 @@ class IcaMixin:
             "step_apply_ica_component_rejection": {
                 "configured_flags_to_reject": flags_to_reject,
                 "configured_rejection_threshold": rejection_threshold,
+                "configured_threshold_overrides": threshold_overrides,
                 "rejected_indices_this_step": rejected_ic_indices_this_step,
                 "final_excluded_indices": self.final_ica.exclude,
             }
