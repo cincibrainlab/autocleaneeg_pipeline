@@ -36,7 +36,7 @@ Examples:
   autoclean process --task-file my_task.py --file data.raw
   
   # List available tasks
-  autoclean list-tasks --include-custom
+  autoclean task list
   
   # Start review GUI
   autoclean review --output results/
@@ -44,7 +44,7 @@ Examples:
   # Add a custom task (saves to user config)
   autoclean task add my_task.py --name MyCustomTask
   
-  # List custom tasks
+  # List all tasks (built-in and custom)
   autoclean task list
   
   # Remove a custom task
@@ -105,8 +105,11 @@ Examples:
         help="Show what would be processed without running",
     )
 
-    # List tasks command
-    subparsers.add_parser("list-tasks", help="List available tasks")
+    # List tasks command (alias for 'task list')
+    list_tasks_parser = subparsers.add_parser("list-tasks", help="List all available tasks")
+    list_tasks_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed information"
+    )
 
     # Review command
     review_parser = subparsers.add_parser("review", help="Start review GUI")
@@ -141,9 +144,9 @@ Examples:
         "task_name", type=str, help="Name of the task to remove"
     )
 
-    # List custom tasks
-    list_custom_parser = task_subparsers.add_parser("list", help="List custom tasks")
-    list_custom_parser.add_argument(
+    # List all tasks (replaces old list-tasks command)
+    list_all_parser = task_subparsers.add_parser("list", help="List all available tasks")
+    list_all_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed information"
     )
 
@@ -478,7 +481,7 @@ def cmd_task(args) -> int:
     elif args.task_action == "remove":
         return cmd_task_remove(args)
     elif args.task_action == "list":
-        return cmd_task_list(args)
+        return cmd_list_tasks(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -564,36 +567,6 @@ def cmd_task_remove(args) -> int:
         return 1
 
 
-def cmd_task_list(args) -> int:
-    """List custom tasks."""
-    try:
-        custom_tasks = user_config.list_custom_tasks()
-
-        if not custom_tasks:
-            message("info", "No custom tasks found")
-            print("  Add custom tasks with: autoclean task add <file>")
-            return 0
-
-        message("info", f"Custom tasks ({len(custom_tasks)} found):")
-
-        for task_name, task_info in custom_tasks.items():
-            print(f"\n  📝 {task_name}")
-            print(f"     Description: {task_info.get('description', 'No description')}")
-
-            if args.verbose:
-                print(f"     File: {task_info['file_path']}")
-                print(f"     Added: {task_info.get('added_date', 'Unknown')}")
-                if task_info.get("original_path"):
-                    print(f"     Original: {task_info['original_path']}")
-
-        print(
-            f"\nUse any task with: autoclean process {list(custom_tasks.keys())[0]} <data_file>"
-        )
-        return 0
-
-    except Exception as e:
-        message("error", f"Failed to list custom tasks: {str(e)}")
-        return 1
 
 
 def cmd_config(args) -> int:
@@ -727,9 +700,8 @@ def cmd_help(_args) -> int:
     console.print("\n[bold bright_magenta]📋 Task Management[/bold bright_magenta]")
     
     task_info_panel = Panel(
-        "[cyan]list-tasks[/cyan]          [dim]View all available tasks[/dim]\n"
-        "[cyan]list-tasks --include-custom[/cyan]  [dim]Include your custom tasks[/dim]\n"
-        "[cyan]task list[/cyan]           [dim]Show your custom tasks only[/dim]",
+        "[cyan]task list[/cyan]          [dim]View all available tasks[/dim]\n"
+        "[cyan]task list --verbose[/cyan]   [dim]Show detailed task information[/dim]",
         title="[bold]Discover Tasks[/bold]",
         border_style="cyan",
         padding=(0, 1)
@@ -770,7 +742,7 @@ def cmd_help(_args) -> int:
     
     ref_table.add_row("process", "Process EEG data", "process RestingEyesOpen data.raw")
     ref_table.add_row("setup", "Configure workspace", "setup")
-    ref_table.add_row("list-tasks", "Show available tasks", "list-tasks --include-custom")
+    ref_table.add_row("task list", "Show available tasks", "task list")
     ref_table.add_row("review", "Review results", "review --output results/")
     ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
     ref_table.add_row("config", "Manage settings", "config show")
@@ -812,7 +784,7 @@ def cmd_tutorial(_args) -> int:
     console.print("\n[bold bright_yellow]Step 2: List available tasks[/bold bright_yellow]")
     console.print("Once your workspace is set up, you can see the built-in processing tasks that are available.")
     console.print("To do this, run the following command:")
-    console.print("\n[green]autoclean-eeg list-tasks[/green]\n")
+    console.print("\n[green]autoclean-eeg task list[/green]\n")
 
     console.print("\n[bold bright_yellow]Step 3: Process a file[/bold bright_yellow]")
     console.print("Now you are ready to process a file. You will need to specify the task you want to use and the path to the file you want to process.")
