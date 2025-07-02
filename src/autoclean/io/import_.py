@@ -9,6 +9,7 @@ making it easier to extend functionality without modifying core code.
 import abc
 import importlib
 import pkgutil
+import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Type, Union
@@ -34,6 +35,7 @@ __all__ = [
 _FORMAT_REGISTRY = {}  # Maps extensions to format IDs
 _PLUGIN_REGISTRY = {}  # Maps (format_id, montage_name) tuples to plugin classes
 _PLUGINS_DISCOVERED = False  # Track if plugin discovery has been run
+_DISCOVERY_LOCK = threading.Lock()  # Thread-safe plugin discovery
 
 # Core built-in formats
 _CORE_FORMATS = {
@@ -187,15 +189,22 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
 
 
 def discover_plugins() -> None:
-    """Discover and register all available plugins."""
+    """Discover and register all available plugins in a thread-safe manner."""
     global _PLUGINS_DISCOVERED
 
-    # Skip if already discovered
+    # Use double-checked locking pattern for thread safety
     if _PLUGINS_DISCOVERED:
         return
 
-    # Mark as discovered at the start to prevent re-entry
-    _PLUGINS_DISCOVERED = True
+    with _DISCOVERY_LOCK:
+        # Check again inside the lock in case another thread completed discovery
+        if _PLUGINS_DISCOVERED:
+            return
+
+        message("debug", "Starting thread-safe plugin discovery...")
+
+        # Mark as discovered to prevent re-entry
+        _PLUGINS_DISCOVERED = True
 
     # Discover format registrations
     try:
@@ -227,6 +236,11 @@ def discover_plugins() -> None:
                         register_plugin(item)
     except ImportError:
         message("warning", "No EEG plugins package found, using built-in plugins only")
+
+    message(
+        "debug",
+        f"Plugin discovery completed. Registered {len(_PLUGIN_REGISTRY)} plugin combinations.",
+    )
 
 
 def get_plugin_for_combination(format_id: str, montage_name: str) -> BaseEEGPlugin:
@@ -411,6 +425,7 @@ def import_eeg(
 # Event processor plugin system
 _EVENT_PROCESSOR_REGISTRY = {}  # Maps task names to event processor classes
 _EVENT_PROCESSORS_DISCOVERED = False  # Track if event processor discovery has been run
+_EVENT_DISCOVERY_LOCK = threading.Lock()  # Thread-safe event processor discovery
 
 
 class BaseEventProcessor(abc.ABC):
@@ -518,15 +533,22 @@ def register_event_processor(processor_class: Type[BaseEventProcessor]) -> None:
 
 
 def discover_event_processors() -> None:
-    """Discover and register all available event processor plugins."""
+    """Discover and register all available event processor plugins in a thread-safe manner."""
     global _EVENT_PROCESSORS_DISCOVERED
 
-    # Skip if already discovered
+    # Use double-checked locking pattern for thread safety
     if _EVENT_PROCESSORS_DISCOVERED:
         return
 
-    # Mark as discovered at the start to prevent re-entry
-    _EVENT_PROCESSORS_DISCOVERED = True
+    with _EVENT_DISCOVERY_LOCK:
+        # Check again inside the lock in case another thread completed discovery
+        if _EVENT_PROCESSORS_DISCOVERED:
+            return
+
+        message("debug", "Starting thread-safe event processor discovery...")
+
+        # Mark as discovered to prevent re-entry
+        _EVENT_PROCESSORS_DISCOVERED = True
 
     try:
         import autoclean.plugins.event_processors as processors_pkg
@@ -548,6 +570,11 @@ def discover_event_processors() -> None:
         message(
             "info", "No event processor plugins found, using built-in processors only"
         )
+
+    message(
+        "debug",
+        f"Event processor discovery completed. Registered {len(_EVENT_PROCESSOR_REGISTRY)} processors.",
+    )
 
     # Built-in processors are now handled through plugin discovery
     # P300EventProcessor and HBCDEventProcessor are defined as plugins and auto-discovered

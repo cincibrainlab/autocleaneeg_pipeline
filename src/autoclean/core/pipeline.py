@@ -200,6 +200,13 @@ class Pipeline:
         # This creates tables if they don't exist
         manage_database(operation="create_collection")
 
+        # Pre-initialize plugins to avoid race conditions in async processing
+        from autoclean.io.import_ import discover_event_processors, discover_plugins
+
+        message("debug", "Pre-initializing plugins for thread safety...")
+        discover_plugins()
+        discover_event_processors()
+
         message(
             "success",
             f"✓ Pipeline initialized with output directory: {self.output_dir}",
