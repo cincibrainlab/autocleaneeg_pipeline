@@ -360,7 +360,7 @@ class IcaMixin:
 
         # Update metadata
         metadata = {
-            "step_apply_ica_component_rejection": {
+            "ica": {
                 "configured_flags_to_reject": flags_to_reject,
                 "configured_rejection_threshold": rejection_threshold,
                 "configured_threshold_overrides": threshold_overrides,
