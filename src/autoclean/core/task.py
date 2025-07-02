@@ -148,6 +148,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
             self.flagged_reasons = [
                 f"WARNING: Initial duration ({float(self.raw.duration):.1f}s) less than 1 minute"
             ]
+
+        self.create_bids_path()
+
         save_raw_to_set(
             raw=self.raw,
             autoclean_dict=self.config,
@@ -166,6 +169,8 @@ class Task(ABC, *DISCOVERED_MIXINS):
         """
 
         self.epochs = import_eeg(self.config)
+
+        self.create_bids_path()
 
         save_epochs_to_set(
             epochs=self.epochs,
