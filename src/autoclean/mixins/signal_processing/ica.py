@@ -174,11 +174,11 @@ class IcaMixin:
                 # Check nested value dict first (common pattern)
                 iclabel_params_nested = step_config_main_dict.get("value", {})
                 psd_fmax = iclabel_params_nested.get("psd_fmax")
-                
+
                 # If not found in nested, check main dict
                 if psd_fmax is None and "psd_fmax" in step_config_main_dict:
                     psd_fmax = step_config_main_dict.get("psd_fmax")
-                
+
                 if psd_fmax is not None:
                     message("info", f"Using psd_fmax={psd_fmax} Hz from config")
 
@@ -285,8 +285,13 @@ class IcaMixin:
             and "ic_rejection_threshold" in step_config_main_dict
         ):
             rejection_threshold = step_config_main_dict.get("ic_rejection_threshold")
-        if not threshold_overrides and "ic_rejection_overrides" in step_config_main_dict:
-            threshold_overrides = step_config_main_dict.get("ic_rejection_overrides", {})
+        if (
+            not threshold_overrides
+            and "ic_rejection_overrides" in step_config_main_dict
+        ):
+            threshold_overrides = step_config_main_dict.get(
+                "ic_rejection_overrides", {}
+            )
 
         if flags_to_reject is None or rejection_threshold is None:
             message(
@@ -301,14 +306,18 @@ class IcaMixin:
             unused_overrides = set(threshold_overrides.keys()) - set(flags_to_reject)
             if unused_overrides:
                 message(
-                    "warning", 
-                    f"Threshold overrides specified for types not in rejection list: {unused_overrides}"
+                    "warning",
+                    f"Threshold overrides specified for types not in rejection list: {unused_overrides}",
                 )
-            
+
             # Show per-type thresholds when overrides are present
-            threshold_info = {ic_type: rejection_threshold for ic_type in flags_to_reject}
+            threshold_info = {
+                ic_type: rejection_threshold for ic_type in flags_to_reject
+            }
             threshold_info.update(threshold_overrides)
-            message("info", f"Will reject ICs with per-type thresholds: {threshold_info}")
+            message(
+                "info", f"Will reject ICs with per-type thresholds: {threshold_info}"
+            )
         else:
             message(
                 "info",

@@ -1108,7 +1108,7 @@ def create_json_summary(run_id: str) -> dict:
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
 
     # Determine processing state and exclusion category
-    proc_state = "postcomps"
+    proc_state = "completed_files"
     exclude_category = ""
     if not run_record.get("success", False):
         error_msg = run_record.get("error", "").lower()
