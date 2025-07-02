@@ -178,10 +178,42 @@ def step_convert_to_bids(
         "allow_preload": True,
     }
 
-    # Create derivatives directory structure (outside the lock).
-    derivatives_dir = bids_root / "derivatives" / f"sub-{subject_id}" / "eeg"
+    # Create BIDS-compliant derivatives directory structure (outside the lock).
+    derivatives_dir = (
+        bids_root / "derivatives" / "autoclean-v2" / f"sub-{subject_id}" / "eeg"
+    )
     derivatives_dir.mkdir(parents=True, exist_ok=True)
-    message("info", f"Created derivatives directory structure at {derivatives_dir}")
+    message(
+        "info", f"Created BIDS derivatives directory structure at {derivatives_dir}"
+    )
+
+    # Also create the pipeline-level metadata directory
+    pipeline_derivatives_root = bids_root / "derivatives" / "autoclean-v2"
+    pipeline_metadata_dir = pipeline_derivatives_root / "metadata"
+    pipeline_metadata_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create dataset_description.json for the autoclean derivatives
+    dataset_desc_file = pipeline_derivatives_root / "dataset_description.json"
+    if not dataset_desc_file.exists():
+        import json
+
+        from autoclean import __version__
+
+        pipeline_description = {
+            "Name": "AutoClean EEG Pipeline",
+            "BIDSVersion": "1.6.0",
+            "DatasetType": "derivative",
+            "GeneratedBy": [
+                {
+                    "Name": "autoclean-eeg",
+                    "Version": __version__,
+                    "Description": "Automated EEG preprocessing pipeline",
+                }
+            ],
+        }
+        with open(dataset_desc_file, "w", encoding="utf-8") as f:
+            json.dump(pipeline_description, f, indent=4)
+        message("info", "Created autoclean derivatives dataset_description.json")
 
     # --- Critical Section: Accessing shared BIDS files ---
     # Use the lock (real or dummy) to protect file access.
