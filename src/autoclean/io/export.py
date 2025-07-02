@@ -15,6 +15,7 @@ __all__ = [
     "save_stc_to_file",
     "save_raw_to_set",
     "save_epochs_to_set",
+    "copy_final_files",
     "_get_stage_number",
 ]
 
@@ -52,19 +53,15 @@ def save_stc_to_file(
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
-    # Determine output path
+    # Determine output path - BIDS-compliant structure
     if output_path is None:
         output_path = autoclean_dict["stage_dir"]
     subfolder = output_path / f"{stage_num}{suffix}"
-    subfolder.mkdir(exist_ok=True)
+    subfolder.mkdir(parents=True, exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}-stc.h5"
 
-    # Handle dual saving for "post_comp" stage (if applicable)
+    # Only save to stage directory - final files will be copied separately
     paths = [stage_path]
-    if stage == "post_comp":
-        clean_path = autoclean_dict["clean_dir"] / f"{basename}{suffix}-stc.h5"
-        autoclean_dict["clean_dir"].mkdir(exist_ok=True)
-        paths.append(clean_path)
 
     # Save the STC to all specified paths
     for path in paths:
@@ -130,7 +127,7 @@ def save_raw_to_set(
         output_path : Optional[Path]
             Optional custom output path. If None, uses config
         flagged : bool
-            Whether to save to flagged directory
+            If True, appends FLAGGED_ to the stage file name
 
     Returns
     -------
@@ -144,24 +141,20 @@ def save_raw_to_set(
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
-    # Save to stage directory
+    # Save to BIDS-compliant intermediate directory structure
     if flagged:
-        output_path = autoclean_dict["flagged_dir"]
-        subfolder = output_path / f"{basename}"
+        output_path = autoclean_dict["stage_dir"]
+        subfolder = output_path / f"FLAGGED_{stage_num}{suffix}"
     elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
         subfolder = output_path / f"{stage_num}{suffix}"
     else:
         subfolder = output_path
-    subfolder.mkdir(exist_ok=True)
+    subfolder.mkdir(parents=True, exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_raw.set"
 
-    # Save to both locations for post_comp
+    # Only save to stage directory - final files will be copied separately
     paths = [stage_path]
-    if stage == "post_comp" and not flagged:
-        clean_path = autoclean_dict["clean_dir"] / f"{basename}{suffix}.set"
-        autoclean_dict["clean_dir"].mkdir(exist_ok=True)
-        paths.append(clean_path)
 
     # Save to all paths
     raw.info["description"] = autoclean_dict["run_id"]
@@ -229,7 +222,7 @@ def save_epochs_to_set(
         output_path : Optional[Path], default=None
             Custom output directory; if None, uses stage_dir from config
         flagged : bool, default=False
-            If True, saves to the flagged_dir instead of stage_dir
+            If True, appends FLAGGED_ to the stage file name
 
     Returns
     -------
@@ -243,24 +236,20 @@ def save_epochs_to_set(
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
-    # Determine output directory based on flagged status
+    # Determine output directory based on flagged status - BIDS-compliant structure
     if flagged:
-        output_path = autoclean_dict["flagged_dir"]
-        subfolder = output_path / f"{basename}"
+        output_path = autoclean_dict["stage_dir"]
+        subfolder = output_path / f"FLAGGED_{stage_num}{suffix}"
     elif output_path is None:
         output_path = autoclean_dict["stage_dir"]
         subfolder = output_path / f"{stage_num}{suffix}"
     else:
         subfolder = output_path
-    subfolder.mkdir(exist_ok=True)
+    subfolder.mkdir(parents=True, exist_ok=True)
     stage_path = subfolder / f"{basename}{suffix}_epo.set"
 
-    # For post_comp stage, save to both stage directory and clean directory
+    # Only save to stage directory - final files will be copied separately
     paths = [stage_path]
-    if stage == "post_comp" and not flagged:
-        clean_path = autoclean_dict["clean_dir"] / f"{basename}{suffix}.set"
-        autoclean_dict["clean_dir"].mkdir(exist_ok=True)
-        paths.append(clean_path)
 
     # Handle epoch metadata for event preservation
     if epochs.metadata is None:
@@ -541,3 +530,108 @@ def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
     autoclean_dict["_export_counter"] += 1
 
     return f"{autoclean_dict['_export_counter']:02d}"
+
+
+def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
+    """Copy final files from post_comp stage and processing logs to the final_files directory.
+
+    This function finds all files in the highest numbered post_comp stage directory
+    and copies them to the dedicated final_files directory for easy access. It also
+    copies the most recent processing log file.
+
+    Parameters
+    ----------
+    autoclean_dict : Dict[str, Any]
+        Configuration dictionary containing directory paths and run information.
+    """
+    import shutil
+    from pathlib import Path
+
+    stage_dir = Path(autoclean_dict["stage_dir"])
+    final_files_dir = Path(autoclean_dict["final_files_dir"])
+    logs_dir = Path(autoclean_dict["logs_dir"])
+    basename = Path(autoclean_dict["unprocessed_file"]).stem
+
+    # Find the post_comp stage directory (highest numbered directory with 'comp' in name)
+    post_comp_dirs = [
+        d
+        for d in stage_dir.iterdir()
+        if d.is_dir() and "comp" in d.name.lower() and not d.name.startswith("FLAGGED")
+    ]
+
+    if not post_comp_dirs:
+        message(
+            "warning", "No post_comp stage directory found - no final files to copy"
+        )
+        return
+
+    # Sort by stage number to get the latest one
+    post_comp_dirs.sort(key=lambda x: x.name)
+    latest_post_comp = post_comp_dirs[-1]
+
+    message(
+        "info",
+        f"Copying final files from {latest_post_comp.name} to final_files directory",
+    )
+
+    # Copy all files from the post_comp directory to final_files
+    final_files_dir.mkdir(parents=True, exist_ok=True)
+    files_copied = 0
+
+    for file_path in latest_post_comp.iterdir():
+        if file_path.is_file():
+            dest_path = final_files_dir / file_path.name
+            try:
+                shutil.copy2(file_path, dest_path)
+                files_copied += 1
+                message("debug", f"Copied {file_path.name} to final_files")
+            except Exception as e:
+                message("error", f"Failed to copy {file_path.name}: {str(e)}")
+
+    # Copy the most recent processing log
+    if logs_dir.exists():
+        log_files = [
+            f
+            for f in logs_dir.iterdir()
+            if f.is_file() and f.name.startswith("autoclean_") and f.suffix == ".log"
+        ]
+
+        if log_files:
+            # Sort by modification time and get the most recent
+            latest_log = max(log_files, key=lambda x: x.stat().st_mtime)
+            log_dest = final_files_dir / f"{basename}_processing.log"
+
+            try:
+                shutil.copy2(latest_log, log_dest)
+                files_copied += 1
+                message("debug", "Copied processing log to final_files")
+            except Exception as e:
+                message("error", f"Failed to copy processing log: {str(e)}")
+        else:
+            message("warning", "No processing log files found to copy")
+    else:
+        message("warning", f"Logs directory not found: {logs_dir}")
+
+    if files_copied > 0:
+        message(
+            "success",
+            f"Copied {files_copied} final files (including processing log) to {final_files_dir}",
+        )
+
+        # Update metadata
+        metadata = {
+            "copy_final_files": {
+                "creationDateTime": datetime.now().isoformat(),
+                "source_stage": latest_post_comp.name,
+                "files_copied": files_copied,
+                "final_files_dir": str(final_files_dir),
+                "includes_processing_log": True,
+            }
+        }
+
+        run_id = autoclean_dict["run_id"]
+        manage_database(
+            operation="update", update_record={"run_id": run_id, "metadata": metadata}
+        )
+    else:
+        message("warning", "No files found in post_comp stage directory")
