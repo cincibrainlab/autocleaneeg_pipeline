@@ -274,10 +274,10 @@ class Pipeline:
                 autoclean_dir,  # Root output directory
                 bids_dir,  # BIDS-compliant data directory
                 metadata_dir,  # Processing metadata storage
-                clean_dir,  # Cleaned data output
+                clean_dir,  # Cleaned data output (legacy)
                 stage_dir,  # Intermediate processing stages
                 logs_dir,  # Debug information and logs
-                flagged_dir,  # Flagged data output
+                final_files_dir,  # Final processed files directory
             ) = step_prepare_directories(task, self.output_dir)
 
             # Update database with directory structure
@@ -292,7 +292,7 @@ class Pipeline:
                             "clean": str(clean_dir),
                             "logs": str(logs_dir),
                             "stage": str(stage_dir),
-                            "flagged": str(flagged_dir),
+                            "final_files": str(final_files_dir),
                         }
                     },
                 },
@@ -313,10 +313,10 @@ class Pipeline:
                 "output_dir": self.output_dir,
                 "bids_dir": bids_dir,
                 "metadata_dir": metadata_dir,
-                "clean_dir": clean_dir,
+                "clean_dir": clean_dir,  # Legacy compatibility
                 "logs_dir": logs_dir,
                 "stage_dir": stage_dir,
-                "flagged_dir": flagged_dir,
+                "final_files_dir": final_files_dir,  # New final files directory
                 "config_hash": config_hash,
                 "config_b64": b64_config,
                 "task_hash": task_hash,
@@ -329,6 +329,12 @@ class Pipeline:
                 operation="update",
                 update_record={"run_id": run_id, "metadata": {"entrypoint": run_dict}},
             )
+
+            # Reconfigure logger with task-specific directory
+            mne_verbose = configure_logger(
+                self.verbose, output_dir=self.output_dir, task=task
+            )
+            mne.set_log_level(mne_verbose)
 
             message("header", f"Starting processing for task: {task}")
             # Instantiate and run task processor
@@ -360,6 +366,13 @@ class Pipeline:
                         stage="post_comp",
                         flagged=flagged,
                     )
+
+                # Copy final files to the dedicated final_files directory
+                if not flagged:  # Only copy if processing was successful
+                    from autoclean.io.export import copy_final_files
+
+                    copy_final_files(run_dict)
+
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to save completion data: {str(e)}")
 
@@ -564,9 +577,25 @@ class Pipeline:
         else:
             search_pattern = pattern
 
+        # Debug: Show what we're searching for
+        message("debug", f"Searching in directory: {directory}")
+        message("debug", f"Using search pattern: {search_pattern}")
+
+        # List all files in directory for debugging
+        all_files = list(directory.iterdir())
+        message(
+            "debug",
+            f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
+        )
+
         files = list(directory.glob(search_pattern))
+        message("debug", f"Files matching pattern: {[f.name for f in files]}")
+
         if not files:
             message("warning", f"No files matching '{pattern}' found in {directory}")
+            message(
+                "info", f"Available files: {[f.name for f in all_files if f.is_file()]}"
+            )
             return
 
         message("info", f"Found {len(files)} files to process")
@@ -623,10 +652,26 @@ class Pipeline:
         else:
             search_pattern = pattern  # Search only in current directory
 
+        # Debug: Show what we're searching for
+        message("debug", f"Async searching in directory: {directory_path}")
+        message("debug", f"Using search pattern: {search_pattern}")
+
+        # List all files in directory for debugging
+        all_files = list(directory_path.iterdir())
+        message(
+            "debug",
+            f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
+        )
+
         files = list(directory_path.glob(search_pattern))
+        message("debug", f"Files matching pattern: {[f.name for f in files]}")
+
         if not files:
             message(
                 "warning", f"No files matching '{pattern}' found in {directory_path}"
+            )
+            message(
+                "info", f"Available files: {[f.name for f in all_files if f.is_file()]}"
             )
             return
 

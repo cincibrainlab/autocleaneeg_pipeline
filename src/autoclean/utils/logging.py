@@ -224,10 +224,12 @@ def configure_logger(
         LogLevel.CRITICAL: "CRITICAL",
     }
 
-    # Set up log directory
+    # Set up log directory using BIDS-compliant structure
     if output_dir is not None and task is not None:
-        # Create logs directory in the task's debug directory
-        log_dir = Path(output_dir) / task / "logs"
+        # Create logs directory in the BIDS derivatives structure
+        log_dir = (
+            Path(output_dir) / task / "bids" / "derivatives" / "autoclean-v2" / "logs"
+        )
     else:
         # Fallback to current working directory if no task-specific path
         log_dir = Path(os.getcwd()) / "logs"

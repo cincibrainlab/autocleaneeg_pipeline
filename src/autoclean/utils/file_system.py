@@ -11,7 +11,7 @@ from autoclean.utils.logging import message
 def step_prepare_directories(
     task: str, autoclean_dir_str: Path
 ) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
-    """Set up and validate directory structure for processing pipeline.
+    """Set up and validate BIDS-compliant directory structure for processing pipeline.
 
     Parameters
     ----------
@@ -23,10 +23,10 @@ def step_prepare_directories(
     Returns
     -------
     Tuple of Path objects for key directories:
-    (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, logs_dir, flagged_dir)
+    (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, logs_dir, final_files_dir)
 
     """
-    message("header", f"Setting up directories for task: {task}")
+    message("header", f"Setting up BIDS-compliant directories for task: {task}")
 
     autoclean_dir = Path(autoclean_dir_str)
     if not autoclean_dir.exists() and not autoclean_dir.parent.exists():
@@ -34,14 +34,17 @@ def step_prepare_directories(
             f"Parent directory for AUTOCLEAN_DIR does not exist: {autoclean_dir.parent}"
         )
 
-    # Define directory structure
+    # BIDS-compliant directory structure - everything under derivatives
+    bids_root = autoclean_dir / task / "bids"
+    derivatives_root = bids_root / "derivatives" / "autoclean-v2"
+
     dirs = {
-        "bids": autoclean_dir / task / "bids",
-        "metadata": autoclean_dir / task / "metadata",
-        "clean": autoclean_dir / task / "postcomps",
-        "logs": autoclean_dir / task / "logs",
-        "stage": autoclean_dir / task / "stage",
-        "flagged": autoclean_dir / task / "flagged",
+        "bids": bids_root,
+        "metadata": derivatives_root / "metadata",
+        "clean": derivatives_root,  # Legacy compatibility
+        "logs": derivatives_root / "logs",
+        "stage": derivatives_root / "intermediate",
+        "final_files": bids_root / "final_files",  # New dedicated final files directory
     }
 
     # Create directories with error handling
@@ -70,5 +73,5 @@ def step_prepare_directories(
         dirs["clean"],
         dirs["stage"],
         dirs["logs"],
-        dirs["flagged"],
+        dirs["final_files"],
     )
