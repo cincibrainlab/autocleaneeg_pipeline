@@ -18,7 +18,7 @@ from autoclean.utils.user_config import user_config
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for AutoClean CLI."""
     from autoclean.utils.branding import AutoCleanBranding
-    
+
     parser = argparse.ArgumentParser(
         description=f"{AutoCleanBranding.PRODUCT_NAME}\n{AutoCleanBranding.TAGLINE}\n\nGitHub: https://github.com/cincibrainlab/autoclean_pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -30,7 +30,7 @@ Examples:
   
   # Advanced usage with options
   autoclean process --task RestingEyesOpen --file data.raw --output results/
-  autoclean process --task RestingEyesOpen --dir data/ --output results/
+  autoclean process --task RestingEyesOpen --dir data/ --output results/ --format "*.raw"
   
   # Use Python task file
   autoclean process --task-file my_task.py --file data.raw
@@ -100,13 +100,32 @@ Examples:
         help="Output directory (default: workspace/output)",
     )
     process_parser.add_argument(
+        "--format",
+        type=str,
+        default="*.set",
+        help="File format for directory processing (default: *.set)",
+    )
+    process_parser.add_argument(
+        "--recursive",
+        action="store_true",
+        help="Search subdirectories recursively",
+    )
+    process_parser.add_argument(
         "--dry-run",
         action="store_true",
         help="Show what would be processed without running",
     )
+    process_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose/debug output",
+    )
 
     # List tasks command (alias for 'task list')
-    list_tasks_parser = subparsers.add_parser("list-tasks", help="List all available tasks")
+    list_tasks_parser = subparsers.add_parser(
+        "list-tasks", help="List all available tasks"
+    )
     list_tasks_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed information"
     )
@@ -145,7 +164,9 @@ Examples:
     )
 
     # List all tasks (replaces old list-tasks command)
-    list_all_parser = task_subparsers.add_parser("list", help="List all available tasks")
+    list_all_parser = task_subparsers.add_parser(
+        "list", help="List all available tasks"
+    )
     list_all_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed information"
     )
@@ -186,12 +207,14 @@ Examples:
 
     # Version command
     subparsers.add_parser("version", help="Show version information")
-    
+
     # Help command (for consistency)
     subparsers.add_parser("help", help="Show detailed help information")
 
     # Tutorial command
-    subparsers.add_parser("tutorial", help="Show a helpful tutorial for first-time users")
+    subparsers.add_parser(
+        "tutorial", help="Show a helpful tutorial for first-time users"
+    )
 
     return parser
 
@@ -243,8 +266,10 @@ def cmd_process(args) -> int:
         # Lazy import Pipeline only when needed
         from autoclean.core.pipeline import Pipeline
 
-        # Initialize pipeline
+        # Initialize pipeline with verbose logging if requested
         pipeline_kwargs = {"output_dir": args.output}
+        if args.verbose:
+            pipeline_kwargs["verbose"] = "debug"
 
         pipeline = Pipeline(**pipeline_kwargs)
 
@@ -257,7 +282,7 @@ def cmd_process(args) -> int:
 
             # Check if this is a custom task using the new discovery system
             from autoclean.utils.task_discovery import get_task_by_name
-            
+
             task_class = get_task_by_name(task_name)
             if task_class:
                 # Task found via discovery system
@@ -277,6 +302,10 @@ def cmd_process(args) -> int:
             message("info", f"Would process: {args.final_input}")
             message("info", f"Task: {task_name}")
             message("info", f"Output: {args.output}")
+            if args.final_input.is_dir():
+                message("info", f"File format: {args.format}")
+                if args.recursive:
+                    message("info", "Recursive search: enabled")
             return 0
 
         # Process files
@@ -285,7 +314,15 @@ def cmd_process(args) -> int:
             pipeline.process_file(file_path=args.final_input, task=task_name)
         else:
             message("info", f"Processing directory: {args.final_input}")
-            pipeline.process_directory(directory=args.final_input, task=task_name)
+            message("info", f"Using file format: {args.format}")
+            if args.recursive:
+                message("info", "Recursive search: enabled")
+            pipeline.process_directory(
+                directory=args.final_input,
+                task=task_name,
+                pattern=args.format,
+                recursive=args.recursive,
+            )
 
         message("info", "Processing completed successfully!")
         return 0
@@ -298,12 +335,14 @@ def cmd_process(args) -> int:
 def cmd_list_tasks(_args) -> int:
     """Execute the list-tasks command."""
     try:
-        from autoclean.utils.task_discovery import safe_discover_tasks
+        from pathlib import Path
+
         from rich.console import Console
         from rich.panel import Panel
         from rich.table import Table
-        from pathlib import Path
-        
+
+        from autoclean.utils.task_discovery import safe_discover_tasks
+
         console = Console()
 
         valid_tasks, invalid_files = safe_discover_tasks()
@@ -311,76 +350,86 @@ def cmd_list_tasks(_args) -> int:
         console.print("\n[bold]Available Processing Tasks[/bold]\n")
 
         # --- Built-in Tasks ---
-        built_in_tasks = [task for task in valid_tasks if "autoclean/tasks" in task.source]
+        built_in_tasks = [
+            task for task in valid_tasks if "autoclean/tasks" in task.source
+        ]
         if built_in_tasks:
-            built_in_table = Table(show_header=True, header_style="bold blue", box=None, padding=(0, 1))
+            built_in_table = Table(
+                show_header=True, header_style="bold blue", box=None, padding=(0, 1)
+            )
             built_in_table.add_column("Task Name", style="cyan", no_wrap=True)
             built_in_table.add_column("Module", style="dim")
             built_in_table.add_column("Description", style="dim", max_width=50)
-            
+
             for task in sorted(built_in_tasks, key=lambda x: x.name):
                 # Extract just the module name from the full path
                 module_name = Path(task.source).stem
                 built_in_table.add_row(
-                    task.name, 
-                    module_name + ".py",
-                    task.description or "No description"
+                    task.name, module_name + ".py", task.description or "No description"
                 )
-            
+
             built_in_panel = Panel(
                 built_in_table,
                 title="[bold]Built-in Tasks[/bold]",
                 border_style="blue",
-                padding=(1, 1)
+                padding=(1, 1),
             )
             console.print(built_in_panel)
         else:
-            console.print(Panel(
-                "[dim]No built-in tasks found[/dim]",
-                title="[bold]Built-in Tasks[/bold]",
-                border_style="blue",
-                padding=(1, 1)
-            ))
+            console.print(
+                Panel(
+                    "[dim]No built-in tasks found[/dim]",
+                    title="[bold]Built-in Tasks[/bold]",
+                    border_style="blue",
+                    padding=(1, 1),
+                )
+            )
 
         # --- Custom Tasks ---
-        custom_tasks = [task for task in valid_tasks if "autoclean/tasks" not in task.source]
+        custom_tasks = [
+            task for task in valid_tasks if "autoclean/tasks" not in task.source
+        ]
         if custom_tasks:
-            custom_table = Table(show_header=True, header_style="bold magenta", box=None, padding=(0, 1))
+            custom_table = Table(
+                show_header=True, header_style="bold magenta", box=None, padding=(0, 1)
+            )
             custom_table.add_column("Task Name", style="magenta", no_wrap=True)
             custom_table.add_column("File", style="dim")
             custom_table.add_column("Description", style="dim", max_width=50)
-            
+
             for task in sorted(custom_tasks, key=lambda x: x.name):
                 # Show just the filename for custom tasks
                 file_name = Path(task.source).name
                 custom_table.add_row(
-                    task.name,
-                    file_name,
-                    task.description or "No description"
+                    task.name, file_name, task.description or "No description"
                 )
-            
+
             custom_panel = Panel(
                 custom_table,
                 title="[bold]Custom Tasks[/bold]",
                 border_style="magenta",
-                padding=(1, 1)
+                padding=(1, 1),
             )
             console.print(custom_panel)
         else:
-            console.print(Panel(
-                "[dim]No custom tasks found.\n"
-                "Use [yellow]autoclean-eeg task add <file.py>[/yellow] to add one.[/dim]",
-                title="[bold]Custom Tasks[/bold]",
-                border_style="magenta",
-                padding=(1, 1)
-            ))
+            console.print(
+                Panel(
+                    "[dim]No custom tasks found.\n"
+                    "Use [yellow]autoclean-eeg task add <file.py>[/yellow] to add one.[/dim]",
+                    title="[bold]Custom Tasks[/bold]",
+                    border_style="magenta",
+                    padding=(1, 1),
+                )
+            )
 
         # --- Invalid Task Files ---
         if invalid_files:
-            invalid_table = Table(show_header=True, header_style="bold red", box=None, padding=(0, 1))
+            invalid_table = Table(
+                show_header=True, header_style="bold red", box=None, padding=(0, 1)
+            )
             invalid_table.add_column("File", style="red", no_wrap=True)
             invalid_table.add_column("Error", style="yellow", max_width=70)
-            
+
             for file in invalid_files:
                 # Show relative path if in workspace, otherwise just filename
                 file_path = Path(file.source)
@@ -388,21 +437,23 @@ def cmd_list_tasks(_args) -> int:
                     display_name = file_path.name
                 else:
                     display_name = file.source
-                    
+
                 invalid_table.add_row(display_name, file.error)
-            
+
             invalid_panel = Panel(
                 invalid_table,
                 title="[bold]Invalid Task Files[/bold]",
                 border_style="red",
-                padding=(1, 1)
+                padding=(1, 1),
             )
             console.print(invalid_panel)
 
         # Summary statistics
-        console.print(f"\n[dim]Found {len(valid_tasks)} valid tasks "
-                     f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom) "
-                     f"and {len(invalid_files)} invalid files[/dim]")
+        console.print(
+            f"\n[dim]Found {len(valid_tasks)} valid tasks "
+            f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom) "
+            f"and {len(invalid_files)} invalid files[/dim]"
+        )
 
         return 0
 
@@ -442,32 +493,35 @@ def cmd_setup(_args) -> int:
 def cmd_version(_args) -> int:
     """Show version information."""
     try:
+        from rich.console import Console
+
         from autoclean import __version__
         from autoclean.utils.branding import AutoCleanBranding
         from autoclean.utils.user_config import UserConfigManager
-        from rich.console import Console
 
         console = Console()
-        
+
         # Professional header consistent with setup
         AutoCleanBranding.get_professional_header(console)
         console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
-        
+
         console.print("\n[bold]Version Information:[/bold]")
         console.print(f"  🏷️  [bold]{__version__}[/bold]")
-        
+
         # Include system information for troubleshooting
         console.print("\n[bold]System Information:[/bold]")
         temp_config = UserConfigManager()
         temp_config._display_system_info(console)
-        
+
         console.print(f"\n[dim]{AutoCleanBranding.TAGLINE}[/dim]")
-        
+
         # GitHub and support info
         console.print("\n[bold]GitHub Repository:[/bold]")
-        console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
+        console.print(
+            "  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]"
+        )
         console.print("  [dim]Report issues, contribute, or get help[/dim]")
-        
+
         return 0
     except ImportError:
         print("AutoClean EEG (version unknown)")
@@ -567,8 +621,6 @@ def cmd_task_remove(args) -> int:
         return 1
 
 
-
-
 def cmd_config(args) -> int:
     """Execute configuration management commands."""
     if args.config_action == "show":
@@ -651,26 +703,31 @@ def cmd_config_import(args) -> int:
 
 def cmd_help(_args) -> int:
     """Show elegant, user-friendly help information."""
-    from autoclean.utils.branding import AutoCleanBranding
+    from rich.columns import Columns
     from rich.console import Console
     from rich.panel import Panel
-    from rich.columns import Columns
     from rich.table import Table
-    
+
+    from autoclean.utils.branding import AutoCleanBranding
+
     console = Console()
-    
+
     # Professional header with branding
     AutoCleanBranding.get_professional_header(console)
     console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
-    
+
     # Main help sections organized for new users
     console.print("\n[bold bright_green]🚀 Getting Started[/bold bright_green]")
-    console.print("  [bright_yellow]autoclean-eeg setup[/bright_yellow]     [dim]→[/dim] Configure your workspace (run this first!)")
-    console.print("  [bright_yellow]autoclean-eeg version[/bright_yellow]   [dim]→[/dim] Check system information")
-    
+    console.print(
+        "  [bright_yellow]autoclean-eeg setup[/bright_yellow]     [dim]→[/dim] Configure your workspace (run this first!)"
+    )
+    console.print(
+        "  [bright_yellow]autoclean-eeg version[/bright_yellow]   [dim]→[/dim] Check system information"
+    )
+
     # Core workflow - Processing
     console.print("\n[bold bright_blue]⚡ Process EEG Data[/bold bright_blue]")
-    
+
     # Simple usage examples
     simple_panel = Panel(
         "[green]autoclean-eeg process RestingEyesOpen data.raw[/green]\n"
@@ -679,67 +736,71 @@ def cmd_help(_args) -> int:
         "[dim]Built-in tasks: RestingEyesOpen, RestingEyesClosed, MMN, ASSR, Chirp[/dim]",
         title="[bold]Simple Processing[/bold]",
         border_style="green",
-        padding=(0, 1)
+        padding=(0, 1),
     )
-    
+
     # Advanced usage examples
     advanced_panel = Panel(
         "[yellow]autoclean-eeg process --task RestingEyesOpen \\[/yellow]\n"
         "[yellow]  --file data.raw --output results/[/yellow]\n\n"
         "[yellow]autoclean-eeg process --task-file my_task.py \\[/yellow]\n"
-        "[yellow]  --file data.raw[/yellow]\n\n"
-        "[dim]Specify custom output locations and task files[/dim]",
+        '[yellow]  --dir data/ --format "*.raw"[/yellow]\n\n'
+        "[dim]Specify custom output, file formats, and task files[/dim]",
         title="[bold]Advanced Options[/bold]",
         border_style="yellow",
-        padding=(0, 1)
+        padding=(0, 1),
     )
-    
+
     console.print(Columns([simple_panel, advanced_panel], equal=True, expand=True))
-    
+
     # Task management workflow
     console.print("\n[bold bright_magenta]📋 Task Management[/bold bright_magenta]")
-    
+
     task_info_panel = Panel(
         "[cyan]task list[/cyan]          [dim]View all available tasks[/dim]\n"
         "[cyan]task list --verbose[/cyan]   [dim]Show detailed task information[/dim]",
         title="[bold]Discover Tasks[/bold]",
         border_style="cyan",
-        padding=(0, 1)
+        padding=(0, 1),
     )
-    
+
     task_manage_panel = Panel(
         "[cyan]task add my_task.py[/cyan]  [dim]Add custom task[/dim]\n"
         "[cyan]task add my_task.py --name Custom[/cyan]  [dim]Add with custom name[/dim]\n"
         "[cyan]task remove MyTask[/cyan]   [dim]Remove custom task[/dim]",
         title="[bold]Manage Tasks[/bold]",
-        border_style="cyan", 
-        padding=(0, 1)
+        border_style="cyan",
+        padding=(0, 1),
     )
-    
-    console.print(Columns([task_info_panel, task_manage_panel], equal=True, expand=True))
-    
+
+    console.print(
+        Columns([task_info_panel, task_manage_panel], equal=True, expand=True)
+    )
+
     # Results and configuration
     console.print("\n[bold bright_cyan]🔍 Review & Configure[/bold bright_cyan]")
-    
+
     review_panel = Panel(
         "[cyan]review --output results/[/cyan]  [dim]Launch GUI to review results[/dim]\n"
         "[cyan]config show[/cyan]             [dim]Show configuration location[/dim]\n"
         "[cyan]config setup[/cyan]            [dim]Reconfigure workspace[/dim]",
         title="[bold]Results & Settings[/bold]",
         border_style="cyan",
-        padding=(0, 1)
+        padding=(0, 1),
     )
-    
+
     console.print(review_panel)
-    
+
     # Quick reference table
     console.print("\n[bold]📖 Quick Reference[/bold]")
-    
-    ref_table = Table(show_header=True, header_style="bold blue", box=None, padding=(0, 1))
+
+    ref_table = Table(
+        show_header=True, header_style="bold blue", box=None, padding=(0, 1)
+    )
     ref_table.add_column("Command", style="cyan", no_wrap=True)
     ref_table.add_column("Purpose", style="dim")
     ref_table.add_column("Example", style="green")
-    
+
     ref_table.add_row("process", "Process EEG data", "process RestingEyesOpen data.raw")
     ref_table.add_row("setup", "Configure workspace", "setup")
     ref_table.add_row("task list", "Show available tasks", "task list")
@@ -747,48 +808,69 @@ def cmd_help(_args) -> int:
     ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
     ref_table.add_row("config", "Manage settings", "config show")
     ref_table.add_row("version", "System information", "version")
-    
+
     console.print(ref_table)
-    
+
     # Help tips
     console.print("\n[bold]💡 Pro Tips[/bold]")
-    console.print("  • Get command-specific help: [bright_white]autoclean-eeg <command> --help[/bright_white]")
-    console.print("  • Process entire directories: [bright_white]autoclean-eeg process TaskName folder/[/bright_white]") 
+    console.print(
+        "  • Get command-specific help: [bright_white]autoclean-eeg <command> --help[/bright_white]"
+    )
+    console.print(
+        "  • Process entire directories: [bright_white]autoclean-eeg process TaskName folder/[/bright_white]"
+    )
     console.print("  • Use tab completion if available in your shell")
-    
+
     # Support section
     console.print("\n[bold]🤝 Support & Community[/bold]")
     console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
     console.print("  [dim]Report issues • Documentation • Contribute • Get help[/dim]")
-    
+
     return 0
 
 
 def cmd_tutorial(_args) -> int:
     """Show a helpful tutorial for first-time users."""
-    from autoclean.utils.branding import AutoCleanBranding
     from rich.console import Console
-    
+
+    from autoclean.utils.branding import AutoCleanBranding
+
     console = Console()
-    
+
     # Use the tutorial header for consistent branding
     AutoCleanBranding.print_tutorial_header(console)
-    
-    console.print("\n[bold bright_green]🚀 Welcome to the AutoClean EEG Tutorial![/bold bright_green]")
-    console.print("This tutorial will walk you through the basics of using AutoClean EEG.")
-    console.print("\n[bold bright_yellow]Step 1: Setup your workspace[/bold bright_yellow]")
-    console.print("The first step is to set up your workspace. This is where AutoClean EEG will store its configuration and any custom tasks you create.")
+
+    console.print(
+        "\n[bold bright_green]🚀 Welcome to the AutoClean EEG Tutorial![/bold bright_green]"
+    )
+    console.print(
+        "This tutorial will walk you through the basics of using AutoClean EEG."
+    )
+    console.print(
+        "\n[bold bright_yellow]Step 1: Setup your workspace[/bold bright_yellow]"
+    )
+    console.print(
+        "The first step is to set up your workspace. This is where AutoClean EEG will store its configuration and any custom tasks you create."
+    )
     console.print("To do this, run the following command:")
     console.print("\n[green]autoclean-eeg setup[/green]\n")
-    
-    console.print("\n[bold bright_yellow]Step 2: List available tasks[/bold bright_yellow]")
-    console.print("Once your workspace is set up, you can see the built-in processing tasks that are available.")
+
+    console.print(
+        "\n[bold bright_yellow]Step 2: List available tasks[/bold bright_yellow]"
+    )
+    console.print(
+        "Once your workspace is set up, you can see the built-in processing tasks that are available."
+    )
     console.print("To do this, run the following command:")
     console.print("\n[green]autoclean-eeg task list[/green]\n")
 
     console.print("\n[bold bright_yellow]Step 3: Process a file[/bold bright_yellow]")
-    console.print("Now you are ready to process a file. You will need to specify the task you want to use and the path to the file you want to process.")
-    console.print("For example, to process a file called 'data.raw' with the 'RestingEyesOpen' task, you would run the following command:")
+    console.print(
+        "Now you are ready to process a file. You will need to specify the task you want to use and the path to the file you want to process."
+    )
+    console.print(
+        "For example, to process a file called 'data.raw' with the 'RestingEyesOpen' task, you would run the following command:"
+    )
     console.print("\n[green]autoclean-eeg process RestingEyesOpen data.raw[/green]\n")
 
     return 0
@@ -801,9 +883,10 @@ def main(argv: Optional[list] = None) -> int:
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
-        from autoclean.utils.branding import AutoCleanBranding
         from rich.console import Console
-        
+
+        from autoclean.utils.branding import AutoCleanBranding
+
         console = Console()
         AutoCleanBranding.print_main_interface(console)
         return 0
