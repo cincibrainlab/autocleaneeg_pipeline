@@ -1380,7 +1380,65 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
             epoch_metadata["tmax"],
         ]
 
+    # FIND ICA DETAILS - collect from multiple step names
     ica_details = {}
+    
+    # Get total component count from ICA fitting step
+    if "step_run_ica" in metadata:
+        ica_run_metadata = metadata["step_run_ica"]
+        message("debug", f"step_run_ica metadata structure: {list(ica_run_metadata.keys())}")
+        # Access nested 'ica' metadata structure
+        if "ica" in ica_run_metadata:
+            ica_nested = ica_run_metadata["ica"]
+            ica_details["proc_nComps"] = ica_nested.get("ica_components", "")
+            ica_details["ica_method"] = ica_nested.get("ica_method", "")
+            message("debug", f"Found ICA components from nested structure: {ica_details['proc_nComps']}")
+        else:
+            # Fallback to direct access for legacy metadata
+            ica_details["proc_nComps"] = ica_run_metadata.get("ica_components", "")
+            ica_details["ica_method"] = ica_run_metadata.get("ica_method", "")
+            message("debug", f"Found ICA components from legacy structure: {ica_details['proc_nComps']}")
+    
+    # Get classification method from classification step
+    if "classify_ica_components" in metadata:
+        ica_classify_metadata = metadata["classify_ica_components"]
+        message("debug", f"classify_ica_components metadata structure: {list(ica_classify_metadata.keys())}")
+        # Access nested 'ica' metadata structure
+        if "ica" in ica_classify_metadata:
+            ica_nested = ica_classify_metadata["ica"]
+            ica_details["classification_method"] = ica_nested.get("classification_method", "")
+            # Also get component count from here if not found above
+            if "proc_nComps" not in ica_details:
+                ica_details["proc_nComps"] = ica_nested.get("ica_components", "")
+            message("debug", f"Found ICA classification method from nested structure: {ica_details.get('classification_method', 'N/A')}")
+        else:
+            # Fallback to direct access for legacy metadata
+            ica_details["classification_method"] = ica_classify_metadata.get("classification_method", "")
+            if "proc_nComps" not in ica_details:
+                ica_details["proc_nComps"] = ica_classify_metadata.get("ica_components", "")
+            message("debug", f"Found ICA classification method from legacy structure: {ica_details.get('classification_method', 'N/A')}")
+    
+    # Get rejected components from rejection step
+    if "step_apply_ica_component_rejection" in metadata:
+        ica_rejection_metadata = metadata["step_apply_ica_component_rejection"]
+        message("debug", f"step_apply_ica_component_rejection metadata structure: {list(ica_rejection_metadata.keys())}")
+        # Access nested 'ica' metadata structure (same as other ICA steps)
+        if "ica" in ica_rejection_metadata:
+            ica_nested = ica_rejection_metadata["ica"]
+            rejected_components = ica_nested.get("final_excluded_indices", [])
+            message("debug", f"Found rejected components from nested structure: {rejected_components}")
+        else:
+            # Fallback to direct access for legacy metadata
+            rejected_components = ica_rejection_metadata.get("final_excluded_indices", [])
+            message("debug", f"Found rejected components from legacy structure: {rejected_components}")
+        
+        ica_details["proc_removeComps"] = rejected_components
+        # Also record number of rejected components
+        if isinstance(rejected_components, list):
+            ica_details["num_rejected_components"] = len(rejected_components)
+
+    # Debug: Show final ICA details collected
+    message("debug", f"Final ICA details collected: {ica_details}")
 
     if "step_detect_dense_oscillatory_artifacts" in metadata:
         ref_artifacts = metadata["step_detect_dense_oscillatory_artifacts"][
