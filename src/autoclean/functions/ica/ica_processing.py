@@ -98,11 +98,11 @@ def fit_ica(
 
 
 def classify_ica_components(
-    raw: mne.io.Raw, 
-    ica: ICA, 
-    method: str = "iclabel", 
+    raw: mne.io.Raw,
+    ica: ICA,
+    method: str = "iclabel",
     verbose: Optional[bool] = None,
-    **kwargs
+    **kwargs,
 ) -> pd.DataFrame:
     """Classify ICA components using automated algorithms.
 
@@ -347,16 +347,16 @@ def apply_ica_component_rejection(
     # Find components that meet rejection criteria - use DataFrame index like original mixin
     if ic_rejection_overrides is None:
         ic_rejection_overrides = {}
-    
+
     rejected_components = []
     for idx, row in labels_df.iterrows():
         ic_type = row["ic_type"]
         confidence = row["confidence"]
-        
+
         if ic_type in ic_flags_to_reject:
             # Use override threshold if available, otherwise global threshold
             threshold = ic_rejection_overrides.get(ic_type, ic_rejection_threshold)
-            
+
             if confidence > threshold:
                 rejected_components.append(idx)
 
