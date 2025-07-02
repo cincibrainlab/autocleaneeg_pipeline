@@ -103,7 +103,7 @@ Examples:
         "--format",
         type=str,
         default="*.set",
-        help="File format for directory processing (default: *.set)",
+        help="File format glob pattern for directory processing (default: *.set). Examples: '*.raw', '*.edf', '*.set'. Note: '.raw' will be auto-corrected to '*.raw'",
     )
     process_parser.add_argument(
         "--recursive",
