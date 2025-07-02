@@ -730,6 +730,56 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     story.append(results_table)
     story.append(Spacer(1, 0.2 * inch))
 
+    # Flagged Reasons Section (if any flags exist)
+    flagged_reasons_data = []
+    try:
+        # Check if flagged reasons exist in the JSON summary or processing log
+        if json_summary and "flagged_reasons" in json_summary:
+            flagged_reasons = json_summary["flagged_reasons"]
+            if isinstance(flagged_reasons, list) and flagged_reasons:
+                for reason in flagged_reasons:
+                    flagged_reasons_data.append([reason])
+        
+        # Also check metadata for flags from the task processing log update
+        elif "processing_log" in run_record.get("metadata", {}):
+            # Try to get flags from processing log metadata if available
+            pass  # This would require reading the CSV file, keeping it simple for now
+            
+    except Exception as e:  # pylint: disable=broad-except
+        message("warning", f"Error processing flagged reasons: {str(e)}")
+        flagged_reasons_data = [["Error processing flagged reasons"]]
+
+    # Only add flagged reasons section if there are any flags
+    if flagged_reasons_data:
+        story.append(Paragraph("Quality Control Flags", heading_style))
+        
+        # Create flagged reasons table with background styling
+        flagged_reasons_table = ReportLabTable(
+            [[Paragraph("Flagged Reason", heading_style)]] + flagged_reasons_data,
+            colWidths=[6 * inch],
+        )
+        flagged_reasons_table.setStyle(
+            TableStyle(
+                [
+                    ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                    ("FONTSIZE", (0, 0), (-1, -1), 7),
+                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FDF2F2")),  # Light red background for flags
+                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                    ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#E74C3C")),  # Red text for flags
+                    ("TOPPADDING", (0, 0), (-1, -1), 2),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ]
+            )
+        )
+
+        story.append(flagged_reasons_table)
+        story.append(Spacer(1, 0.2 * inch))
+
     # Output Files Section
     story.append(Paragraph("Output Files", heading_style))
 
@@ -1072,7 +1122,7 @@ def update_task_processing_log(
         )
 
 
-def create_json_summary(run_id: str) -> dict:
+def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     """
     Creates a JSON summary of the run metadata.
     The main purpose of this is to create a summary of the run for the autoclean report.
@@ -1346,6 +1396,7 @@ def create_json_summary(run_id: str) -> dict:
         "basename": import_details["basename"],
         "proc_state": proc_state,
         "exclude_category": exclude_category,
+        "flagged_reasons": flagged_reasons,  # Add flagged reasons to the summary
         "import_details": import_details,
         "processing_details": processing_details,
         "export_details": export_details,

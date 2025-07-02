@@ -396,7 +396,7 @@ class Pipeline:
             message("success", f"✓ Task {task} completed successfully")
 
             # Create a run summary in JSON format
-            json_summary = create_json_summary(run_id)
+            json_summary = create_json_summary(run_id, flagged_reasons)
 
             # Get final run record for report generation
             run_record = get_run_record(run_id)
@@ -442,13 +442,18 @@ class Pipeline:
                 },
             )
 
-            json_summary = create_json_summary(run_id)
+            # Get flagged status before creating summary for error case
+            try:
+                flagged, error_flagged_reasons = task_object.get_flagged_status()
+            except Exception:  # pylint: disable=broad-except
+                error_flagged_reasons = []
+            
+            json_summary = create_json_summary(run_id, error_flagged_reasons)
 
             # Try to update processing log even in error case
             if json_summary:
                 try:
-                    flagged, flagged_reasons = task_object.get_flagged_status()
-                    update_task_processing_log(json_summary, flagged_reasons)
+                    update_task_processing_log(json_summary, error_flagged_reasons)
                 except Exception as log_error:  # pylint: disable=broad-except
                     message(
                         "warning", f"Failed to update processing log: {str(log_error)}"
