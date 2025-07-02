@@ -533,11 +533,12 @@ def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
 
 
 def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
-    """Copy final files from post_comp stage to the final_files directory.
+    """Copy final files from post_comp stage and processing log to the final_files directory.
 
     This function finds all files in the highest numbered post_comp stage directory
-    and copies them to the dedicated final_files directory for easy access.
-    Processing logs remain in their proper location in the derivatives/logs directory.
+    and copies them to the dedicated final_files directory for easy access. It also
+    copies the most recent processing log for user convenience while keeping the
+    original log in the derivatives/logs directory.
 
     Parameters
     ----------
@@ -549,6 +550,8 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
 
     stage_dir = Path(autoclean_dict["stage_dir"])
     final_files_dir = Path(autoclean_dict["final_files_dir"])
+    logs_dir = Path(autoclean_dict["logs_dir"])
+    basename = Path(autoclean_dict["unprocessed_file"]).stem
 
     # Find the post_comp stage directory (highest numbered directory with 'comp' in name)
     post_comp_dirs = [
@@ -586,12 +589,34 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
             except Exception as e:
                 message("error", f"Failed to copy {file_path.name}: {str(e)}")
 
-    # Processing logs remain in the derivatives/logs directory - no need to copy them
+    # Copy the most recent processing log to final_files for user convenience
+    if logs_dir.exists():
+        log_files = [
+            f
+            for f in logs_dir.iterdir()
+            if f.is_file() and f.name.startswith("autoclean_") and f.suffix == ".log"
+        ]
+
+        if log_files:
+            # Sort by modification time and get the most recent
+            latest_log = max(log_files, key=lambda x: x.stat().st_mtime)
+            log_dest = final_files_dir / f"{basename}_processing.log"
+
+            try:
+                shutil.copy2(latest_log, log_dest)
+                files_copied += 1
+                message("debug", "Copied processing log to final_files")
+            except Exception as e:
+                message("error", f"Failed to copy processing log: {str(e)}")
+        else:
+            message("warning", "No processing log files found to copy")
+    else:
+        message("warning", f"Logs directory not found: {logs_dir}")
 
     if files_copied > 0:
         message(
             "success",
-            f"Copied {files_copied} final files to {final_files_dir}",
+            f"Copied {files_copied} final files (including processing log) to {final_files_dir}",
         )
 
         # Update metadata
@@ -601,7 +626,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 "source_stage": latest_post_comp.name,
                 "files_copied": files_copied,
                 "final_files_dir": str(final_files_dir),
-                "includes_processing_log": False,
+                "includes_processing_log": True,
             }
         }
 
