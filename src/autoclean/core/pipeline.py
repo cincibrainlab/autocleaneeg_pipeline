@@ -578,6 +578,10 @@ class Pipeline:
         if not directory.is_dir():
             raise NotADirectoryError(f"Directory not found: {directory}")
 
+        # Auto-fix common pattern mistakes
+        if pattern.startswith(".") and not pattern.startswith("*."):
+            pattern = f"*{pattern}"
+
         # Find all matching files
         if recursive:
             search_pattern = f"**/{pattern}"
@@ -600,9 +604,11 @@ class Pipeline:
 
         if not files:
             message("warning", f"No files matching '{pattern}' found in {directory}")
-            message(
-                "info", f"Available files: {[f.name for f in all_files if f.is_file()]}"
-            )
+            all_file_names = [f.name for f in all_files if f.is_file()]
+            message("info", f"Available files: {all_file_names}")
+
+            # No need for manual suggestion since auto-correction happens above
+
             return
 
         message("info", f"Found {len(files)} files to process")
@@ -653,6 +659,10 @@ class Pipeline:
         if not directory_path.is_dir():
             raise NotADirectoryError(f"Directory not found: {directory_path}")
 
+        # Auto-fix common pattern mistakes
+        if pattern.startswith(".") and not pattern.startswith("*."):
+            pattern = f"*{pattern}"
+
         # Find all matching files using glob pattern
         if sub_directories:
             search_pattern = f"**/{pattern}"  # Search in subdirectories
@@ -677,9 +687,11 @@ class Pipeline:
             message(
                 "warning", f"No files matching '{pattern}' found in {directory_path}"
             )
-            message(
-                "info", f"Available files: {[f.name for f in all_files if f.is_file()]}"
-            )
+            all_file_names = [f.name for f in all_files if f.is_file()]
+            message("info", f"Available files: {all_file_names}")
+
+            # No need for manual suggestion since auto-correction happens above
+
             return
 
         message(
