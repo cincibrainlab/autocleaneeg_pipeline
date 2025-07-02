@@ -16,6 +16,7 @@ import platformdirs
 
 try:
     import psutil
+
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
@@ -107,37 +108,45 @@ class UserConfigManager:
     def _display_system_info(self, console) -> None:
         """Display system information and status."""
         from rich.table import Table
-        
+
         # Get AutoClean version
         try:
             from autoclean import __version__
+
             version = __version__
         except ImportError:
             version = "unknown"
-        
+
         # Create system info table
         info_table = Table(show_header=False, box=None, padding=(0, 2))
         info_table.add_column(style="dim")
         info_table.add_column()
-        
+
         info_table.add_row("Version:", f"AutoClean EEG v{version}")
-        info_table.add_row("Python:", f"{sys.version.split()[0]} ({platform.python_implementation()})")
+        info_table.add_row(
+            "Python:", f"{sys.version.split()[0]} ({platform.python_implementation()})"
+        )
         info_table.add_row("Platform:", f"{platform.system()} {platform.release()}")
         info_table.add_row("Architecture:", platform.machine())
-        
+
         # System resources (if psutil is available)
         if PSUTIL_AVAILABLE:
             try:
                 memory = psutil.virtual_memory()
                 cpu_count = psutil.cpu_count(logical=True)
                 cpu_physical = psutil.cpu_count(logical=False)
-                
+
                 memory_gb = memory.total / (1024**3)
                 memory_available_gb = memory.available / (1024**3)
-                info_table.add_row("Memory:", f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available")
-                
+                info_table.add_row(
+                    "Memory:",
+                    f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available",
+                )
+
                 if cpu_physical and cpu_physical != cpu_count:
-                    info_table.add_row("CPU:", f"{cpu_physical} cores ({cpu_count} threads)")
+                    info_table.add_row(
+                        "CPU:", f"{cpu_physical} cores ({cpu_count} threads)"
+                    )
                 else:
                     info_table.add_row("CPU:", f"{cpu_count} cores")
             except Exception:
@@ -146,46 +155,68 @@ class UserConfigManager:
         else:
             info_table.add_row("Memory:", "psutil not available")
             info_table.add_row("CPU:", "psutil not available")
-        
+
         # GPU information
         gpu_info = self._get_gpu_info()
         info_table.add_row("GPU:", gpu_info)
-        
+
         console.print(info_table)
-    
+
     def _get_gpu_info(self) -> str:
         """Get GPU information for system display."""
         try:
             # Try to detect NVIDIA GPU first
             import subprocess
-            result = subprocess.run(['nvidia-smi', '--query-gpu=name', '--format=csv,noheader,nounits'], 
-                                  capture_output=True, text=True, timeout=5)
+
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader,nounits"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
             if result.returncode == 0 and result.stdout.strip():
-                gpu_names = result.stdout.strip().split('\n')
+                gpu_names = result.stdout.strip().split("\n")
                 if len(gpu_names) == 1:
                     return f"✓ NVIDIA {gpu_names[0].strip()}"
                 else:
                     return f"✓ {len(gpu_names)}× NVIDIA GPUs"
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+        ):
             pass
-        
+
         try:
             # Try to detect other GPUs via system info
             if platform.system() == "Darwin":  # macOS
-                result = subprocess.run(['system_profiler', 'SPDisplaysDataType'], 
-                                      capture_output=True, text=True, timeout=5)
-                if "Apple" in result.stdout and ("M1" in result.stdout or "M2" in result.stdout or "M3" in result.stdout):
+                result = subprocess.run(
+                    ["system_profiler", "SPDisplaysDataType"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                if "Apple" in result.stdout and (
+                    "M1" in result.stdout
+                    or "M2" in result.stdout
+                    or "M3" in result.stdout
+                ):
                     return "✓ Apple Silicon GPU"
                 elif "AMD" in result.stdout or "Radeon" in result.stdout:
                     return "✓ AMD GPU detected"
                 elif "Intel" in result.stdout:
                     return "✓ Intel GPU detected"
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+        except (
+            subprocess.TimeoutExpired,
+            subprocess.CalledProcessError,
+            FileNotFoundError,
+        ):
             pass
-        
+
         try:
             # Try PyTorch GPU detection as fallback
             import torch
+
             if torch.cuda.is_available():
                 gpu_count = torch.cuda.device_count()
                 if gpu_count == 1:
@@ -193,17 +224,16 @@ class UserConfigManager:
                     return f"✓ CUDA {gpu_name}"
                 else:
                     return f"✓ {gpu_count}× CUDA GPUs"
-            elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 return "✓ Apple Metal GPU"
         except ImportError:
             pass
-        
+
         return "None detected"
 
     def setup_workspace(self) -> Path:
         """Smart workspace setup."""
         from rich.console import Console
-        from rich.panel import Panel
 
         console = Console()
         workspace_status = self._check_workspace_status()
@@ -222,20 +252,22 @@ class UserConfigManager:
         elif workspace_status == "valid":
             # Professional header with clear hierarchy
             AutoCleanBranding.get_professional_header(console)
-            
+
             # Clean section separator
             console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
-            
+
             # Configuration section without redundant brain icon
             console.print("\n[bold blue]Workspace Configuration[/bold blue]")
-            console.print("[green]✓[/green] [dim]Workspace is properly configured[/dim]")
-            
+            console.print(
+                "[green]✓[/green] [dim]Workspace is properly configured[/dim]"
+            )
+
             # System information in organized layout
-            console.print(f"\n[bold]Current Workspace:[/bold]")
+            console.print("\n[bold]Current Workspace:[/bold]")
             console.print(f"  📁 [dim]{self.config_dir}[/dim]")
-            
+
             # Compact system info
-            console.print(f"\n[bold]System Information:[/bold]")
+            console.print("\n[bold]System Information:[/bold]")
             self._display_system_info(console)
 
             try:
@@ -284,7 +316,6 @@ class UserConfigManager:
     def _run_setup_wizard(self, is_first_time: bool = True) -> Path:
         """Run setup wizard."""
         from rich.console import Console
-        from rich.panel import Panel
 
         console = Console()
 
@@ -292,13 +323,15 @@ class UserConfigManager:
         if is_first_time:
             # Main header panel with consistent branding
             console.print(AutoCleanBranding.get_welcome_panel(console))
-            
+
             # Status message
-            console.print("\n[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]")
-            
+            console.print(
+                "\n[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]"
+            )
+
             # System information
             self._display_system_info(console)
-            
+
             # Welcome message
             console.print(
                 "\n[bold]Welcome to AutoClean![/bold] Let's set up your workspace for EEG processing.\n"
@@ -308,7 +341,9 @@ class UserConfigManager:
             # Professional header for reconfigure case
             AutoCleanBranding.get_professional_header(console)
             console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
-            console.print("\n[blue]⚙️[/blue] [bold blue]Workspace Reconfiguration[/bold blue]")
+            console.print(
+                "\n[blue]⚙️[/blue] [bold blue]Workspace Reconfiguration[/bold blue]"
+            )
             console.print("[dim]Setting up new workspace location[/dim]")
 
         # Get location
