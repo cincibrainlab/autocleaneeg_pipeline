@@ -72,9 +72,10 @@ config = {
             "fit_params": {},  # Additional ICA parameters
         },
     },
-    "ICLabel": {
+    "component_rejection": {
         "enabled": True,
         "value": {
+            "method": "iclabel",  # Classification method: 'iclabel' or 'icvision'
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
             "ic_rejection_threshold": 0.3,  # Threshold for automatic rejection
         },
@@ -146,7 +147,8 @@ class CustomTask(Task):
 
         # ICA processing with optional export
         self.run_ica()
-        self.run_ICLabel()
+        self.classify_ica_components()  # Uses method from component_rejection config
+        # Alternative: self.run_ICLabel()  # Legacy method (still supported)
 
         # Epoching with export
         self.create_regular_epochs()  # Using auto-detected or configured event IDs

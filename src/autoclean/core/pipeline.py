@@ -343,7 +343,7 @@ class Pipeline:
 
             # Reconfigure logger with task-specific directory
             mne_verbose = configure_logger(
-                self.verbose, output_dir=self.output_dir, task=task
+                self.verbose, logs_dir=logs_dir
             )
             mne.set_log_level(mne_verbose)
 
