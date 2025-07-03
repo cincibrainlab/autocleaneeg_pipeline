@@ -184,6 +184,7 @@ def configure_logger(
     verbose: Optional[Union[bool, str, int, LogLevel]] = None,
     output_dir: Optional[Union[str, Path]] = None,
     task: Optional[str] = None,
+    logs_dir: Optional[Union[str, Path]] = None,
 ) -> str:
     """
     Configure the logger based on verbosity level and output directory.
@@ -199,9 +200,12 @@ def configure_logger(
         - **LogLevel enum**: Direct log level specification
         - **None**: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO
     output_dir : str or Path, optional
-        Directory where task outputs will be stored
+        Directory where task outputs will be stored (legacy parameter, prefer logs_dir)
     task : str, optional
-        Name of the current task. If provided, logs will be stored in task's debug directory
+        Name of the current task (legacy parameter, used for fallback directory structure)
+    logs_dir : str or Path, optional
+        Exact path to the logs directory. If provided, this takes precedence over
+        output_dir and task parameters.
 
     Returns
     -------
@@ -224,11 +228,15 @@ def configure_logger(
         LogLevel.CRITICAL: "CRITICAL",
     }
 
-    # Set up log directory using BIDS-compliant structure
-    if output_dir is not None and task is not None:
-        # Create logs directory in the BIDS derivatives structure
+    # Set up log directory using correct structure
+    if logs_dir is not None:
+        # Use the exact logs directory provided (preferred method)
+        log_dir = Path(logs_dir)
+    elif output_dir is not None and task is not None:
+        # Legacy fallback: try to reconstruct path (may not work with dataset names)
+        from autoclean import __version__
         log_dir = (
-            Path(output_dir) / task / "bids" / "derivatives" / "autoclean-v2" / "logs"
+            Path(output_dir) / task / "bids" / "derivatives" / f"autoclean-v{__version__}" / "logs"
         )
     else:
         # Fallback to current working directory if no task-specific path
