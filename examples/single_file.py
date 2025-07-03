@@ -2,7 +2,7 @@ from autoclean import Pipeline
 
 """Example of processing a single EEG file."""
 # Create pipeline instance
-pipeline = Pipeline(verbose='DEBUG')
+pipeline = Pipeline(verbose='INFO')
 
 # Process the file
 pipeline.process_file(
