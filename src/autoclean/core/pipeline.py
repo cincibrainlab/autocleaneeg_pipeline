@@ -277,8 +277,8 @@ class Pipeline:
             self._validate_file(unprocessed_file)
 
             # Extract dataset_name from task configuration if available
-            from autoclean.utils.task_discovery import extract_dataset_name_from_task
-            dataset_name = extract_dataset_name_from_task(task)
+            from autoclean.utils.task_discovery import extract_config_from_task
+            dataset_name = extract_config_from_task(task, 'dataset_name')
 
             # Prepare directory structure for processing outputs
             (
@@ -516,14 +516,15 @@ class Pipeline:
             raise
 
     def process_file(
-        self, file_path: str | Path, task: str, run_id: Optional[str] = None
+        self, file_path: Optional[str | Path] = None, task: str = "", run_id: Optional[str] = None
     ) -> None:
         """Process a single EEG data file.
 
         Parameters
         ----------
-        file_path : str or Path
-            Path to the raw EEG data file.
+        file_path : str or Path, optional
+            Path to the raw EEG data file. If not provided, will attempt to use
+            input_path from the task configuration.
         task : str
             Name of the processing task to run (e.g., 'rest_eyesopen').
         run_id : str, optional
@@ -541,13 +542,25 @@ class Pipeline:
         ...     file_path='data/sub-01_task-rest_eeg.raw',
         ...     task='rest_eyesopen'
         ... )
+        >>> # Or use input_path from task config
+        >>> pipeline.process_file(task='rest_eyesopen')
         """
+        # Use input_path from task config if file_path not provided
+        if file_path is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
+            task_input_path = extract_config_from_task(task, 'input_path')
+            if task_input_path:
+                file_path = Path(task_input_path)
+                message("info", f"Using input path from task config: {file_path}")
+            else:
+                raise ValueError("file_path must be provided or task must have input_path in config")
+        
         self._entrypoint(Path(file_path), task, run_id)
 
     def process_directory(
         self,
-        directory: str | Path,
-        task: str,
+        directory: Optional[str | Path] = None,
+        task: str = "",
         pattern: str = "*.set",
         recursive: bool = False,
     ) -> None:
@@ -555,8 +568,9 @@ class Pipeline:
 
         Parameters
         ----------
-        directory : str or Path
-            Path to the directory containing the EEG files.
+        directory : str or Path, optional
+            Path to the directory containing the EEG files. If not provided, will 
+            attempt to use input_path from the task configuration.
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
@@ -582,7 +596,19 @@ class Pipeline:
         ...     pattern='*.raw',
         ...     recursive=True
         ... )
+        >>> # Or use input_path from task config
+        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.raw')
         """
+        # Use input_path from task config if directory not provided
+        if directory is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
+            task_input_path = extract_config_from_task(task, 'input_path')
+            if task_input_path:
+                directory = Path(task_input_path)
+                message("info", f"Using input path from task config: {directory}")
+            else:
+                raise ValueError("directory must be provided or task must have input_path in config")
+        
         directory = Path(directory)
         if not directory.is_dir():
             raise NotADirectoryError(f"Directory not found: {directory}")
@@ -632,8 +658,8 @@ class Pipeline:
 
     async def process_directory_async(
         self,
-        directory_path: str | Path,
-        task: str,
+        directory_path: Optional[str | Path] = None,
+        task: str = "",
         pattern: str = "*.raw",
         sub_directories: bool = False,
         max_concurrent: int = 3,
@@ -642,8 +668,9 @@ class Pipeline:
 
         Parameters
         ----------
-        directory_path : str or Path
-            Path to the directory containing the EEG files.
+        directory_path : str or Path, optional
+            Path to the directory containing the EEG files. If not provided, will 
+            attempt to use input_path from the task configuration.
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
@@ -664,6 +691,16 @@ class Pipeline:
         for resource management. Processes files in optimized batches
         while maintaining progress tracking and error isolation.
         """
+        # Use input_path from task config if directory_path not provided
+        if directory_path is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
+            task_input_path = extract_config_from_task(task, 'input_path')
+            if task_input_path:
+                directory_path = Path(task_input_path)
+                message("info", f"Using input path from task config: {directory_path}")
+            else:
+                raise ValueError("directory_path must be provided or task must have input_path in config")
+        
         directory_path = Path(directory_path)
         if not directory_path.is_dir():
             raise NotADirectoryError(f"Directory not found: {directory_path}")

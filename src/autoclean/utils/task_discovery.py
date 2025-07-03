@@ -258,14 +258,15 @@ def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
     return unique_tasks, all_invalid_files
 
 
-def extract_dataset_name_from_task(task_name: str) -> Optional[str]:
-    """Extract dataset_name from a task if it exists.
+def extract_config_from_task(task_name: str, config_key: str) -> Optional[str]:
+    """Extract a configuration value from a task if it exists.
     
     Args:
         task_name: Name of the task to check
+        config_key: The configuration key to extract (e.g., 'dataset_name', 'input_path')
         
     Returns:
-        dataset_name if found in task config, None otherwise
+        Configuration value if found in task config, None otherwise
     """
     try:
         # Get all valid tasks
@@ -299,7 +300,7 @@ def extract_dataset_name_from_task(task_name: str) -> Optional[str]:
             
             # Look for config dictionary in the module
             if hasattr(module, 'config') and isinstance(module.config, dict):
-                return module.config.get('dataset_name')
+                return module.config.get(config_key)
                 
         finally:
             # Clean up
@@ -310,6 +311,8 @@ def extract_dataset_name_from_task(task_name: str) -> Optional[str]:
         pass
         
     return None
+
+
 
 
 def get_task_by_name(task_name: str) -> Optional[Type[Task]]:

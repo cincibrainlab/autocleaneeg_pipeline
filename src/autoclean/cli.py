@@ -235,13 +235,26 @@ def validate_args(args) -> bool:
             message("error", "Cannot specify both task name and --task-file")
             return False
 
-        # Check input exists
+        # Check input exists - with fallback to task config
         if input_path and not input_path.exists():
             message("error", f"Input path does not exist: {input_path}")
             return False
         elif not input_path:
-            message("error", "Input file or directory must be specified")
-            return False
+            # Try to get input_path from task config as fallback
+            task_input_path = None
+            if task_name:
+                from autoclean.utils.task_discovery import extract_config_from_task
+                task_input_path = extract_config_from_task(task_name, 'input_path')
+                
+            if task_input_path:
+                input_path = Path(task_input_path)
+                if not input_path.exists():
+                    message("error", f"Input path from task config does not exist: {input_path}")
+                    return False
+                message("info", f"Using input path from task config: {input_path}")
+            else:
+                message("error", "Input file or directory must be specified (via CLI or task config)")
+                return False
 
         # Store normalized values back to args
         args.final_task = task_name
