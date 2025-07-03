@@ -47,7 +47,10 @@ def step_prepare_directories(
 
     # BIDS-compliant directory structure - everything under derivatives
     bids_root = autoclean_dir / dir_name / "bids"
-    derivatives_root = bids_root / "derivatives" / "autoclean-v2"
+    
+    # Import version for derivatives directory naming
+    from autoclean import __version__
+    derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
 
     dirs = {
         "bids": bids_root,
