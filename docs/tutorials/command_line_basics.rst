@@ -133,6 +133,24 @@ Replace "RestingEyesOpen" with your task name and "my_data_file.raw" with your a
 
 This shows where your results are saved.
 
+**7. Export audit trail (for compliance/research records):**
+
+.. code-block:: bash
+
+   # Export all database access logs
+   autoclean export-access-log --output audit-trail.jsonl
+   
+   # Export with date filtering
+   autoclean export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
+   
+   # Export to CSV for spreadsheet analysis
+   autoclean export-access-log --format csv --output audit-data.csv
+   
+   # Just verify database integrity (no export)
+   autoclean export-access-log --verify-only
+
+This creates detailed logs of all processing activities for compliance and research documentation.
+
 🎯 Step-by-Step: Your First Analysis
 ------------------------------------
 
