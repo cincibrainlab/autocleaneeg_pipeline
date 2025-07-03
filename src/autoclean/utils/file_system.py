@@ -32,7 +32,7 @@ def step_prepare_directories(
     # Generate directory name - use dataset_name + timestamp if provided, otherwise task name
     if dataset_name:
         from datetime import datetime
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now().strftime("%m-%d-%Y")
         dir_name = f"{dataset_name}_{timestamp}"
         message("header", f"Setting up BIDS-compliant directories for dataset: {dataset_name} (task: {task})")
     else:
