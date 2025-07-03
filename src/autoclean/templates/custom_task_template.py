@@ -21,9 +21,10 @@ from autoclean.core.task import Task
 
 config = {
     # Optional: Specify a dataset name for organized output directories
-    # If provided, output folders will be named: {dataset_name}_{timestamp}
-    # If not provided, folders will be named: {task_name}
-    "dataset_name": "MyDataset",  # Remove this line or set to None to use task name
+    # Examples:
+    #   With dataset_name: "Experiment1_07-03-2025" 
+    #   Without dataset_name: "CustomTask"
+    # "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
     
     "resample_step": {"enabled": True, "value": 250},  # Resample to 250 Hz
     "filtering": {
