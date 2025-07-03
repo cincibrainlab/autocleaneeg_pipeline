@@ -1043,7 +1043,7 @@ def cmd_help(_args) -> int:
 
     # Professional header with branding
     AutoCleanBranding.get_professional_header(console)
-    console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+    # console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
 
     # Main help sections organized for new users
     console.print("\n[bold bright_green]🚀 Getting Started[/bold bright_green]")
@@ -1074,7 +1074,7 @@ def cmd_help(_args) -> int:
         "[yellow]  --file data.raw --output results/[/yellow]\n\n"
         "[yellow]autoclean-eeg process --task-file my_task.py \\[/yellow]\n"
         '[yellow]  --dir data/ --format "*.raw"[/yellow]\n\n'
-        "[dim]Specify custom output, file formats, and task files[/dim]",
+        "[dim]Specify custom output directories and file formats[/dim]",
         title="[bold]Advanced Options[/bold]",
         border_style="yellow",
         padding=(0, 1),
@@ -1082,43 +1082,35 @@ def cmd_help(_args) -> int:
 
     console.print(Columns([simple_panel, advanced_panel], equal=True, expand=True))
 
+    # Part11 compliance section
+    console.print("\n[bold bright_red]🔒 FDA 21 CFR Part 11 Compliance[/bold bright_red]")
+    
+    compliance_panel = Panel(
+        "[red]setup --compliance-mode[/red]  [dim]Enable regulatory compliance mode[/dim]\n"
+        "[red]login[/red]                    [dim]Authenticate with Auth0[/dim]\n"
+        "[red]logout[/red]                   [dim]Clear authentication[/dim]\n"
+        "[red]whoami[/red]                   [dim]Show current user status[/dim]\n"
+        "[red]export-access-log[/red]        [dim]Export audit trail[/dim]",
+        title="[bold]Regulated Environments Only[/bold]",
+        border_style="red",
+        padding=(0, 1),
+    )
+    
+    console.print(compliance_panel)
+
     # Task management workflow
     console.print("\n[bold bright_magenta]📋 Task Management[/bold bright_magenta]")
 
-    task_info_panel = Panel(
-        "[cyan]task list[/cyan]          [dim]View all available tasks[/dim]\n"
-        "[cyan]task list --verbose[/cyan]   [dim]Show detailed task information[/dim]",
-        title="[bold]Discover Tasks[/bold]",
-        border_style="cyan",
-        padding=(0, 1),
-    )
-
     task_manage_panel = Panel(
-        "[cyan]task add my_task.py[/cyan]  [dim]Add custom task[/dim]\n"
-        "[cyan]task add my_task.py --name Custom[/cyan]  [dim]Add with custom name[/dim]\n"
-        "[cyan]task remove MyTask[/cyan]   [dim]Remove custom task[/dim]",
-        title="[bold]Manage Tasks[/bold]",
+        "[cyan]task add my_task.py[/cyan]  [dim]Add custom task file[/dim]\n"
+        "[cyan]task remove MyTask[/cyan]   [dim]Remove custom task[/dim]\n"
+        "[cyan]task list[/cyan]          [dim]Show available tasks[/dim]",
+        title="[bold]Tasks Commands[/bold]",
         border_style="cyan",
         padding=(0, 1),
     )
 
-    console.print(
-        Columns([task_info_panel, task_manage_panel], equal=True, expand=True)
-    )
-
-    # Results and configuration
-    console.print("\n[bold bright_cyan]🔍 Review & Configure[/bold bright_cyan]")
-
-    review_panel = Panel(
-        "[cyan]review --output results/[/cyan]  [dim]Launch GUI to review results[/dim]\n"
-        "[cyan]config show[/cyan]             [dim]Show configuration location[/dim]\n"
-        "[cyan]config setup[/cyan]            [dim]Reconfigure workspace[/dim]",
-        title="[bold]Results & Settings[/bold]",
-        border_style="cyan",
-        padding=(0, 1),
-    )
-
-    console.print(review_panel)
+    console.print(task_manage_panel)
 
     # Quick reference table
     console.print("\n[bold]📖 Quick Reference[/bold]")
@@ -1131,11 +1123,11 @@ def cmd_help(_args) -> int:
     ref_table.add_column("Example", style="green")
 
     ref_table.add_row("process", "Process EEG data", "process RestingEyesOpen data.raw")
-    ref_table.add_row("setup", "Configure workspace", "setup")
-    ref_table.add_row("task list", "Show available tasks", "task list")
-    ref_table.add_row("review", "Review results", "review --output results/")
     ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
+    ref_table.add_row("list-tasks", "Show available tasks", "list-tasks")
     ref_table.add_row("config", "Manage settings", "config show")
+    ref_table.add_row("review", "Review results", "review --output results/")
+    ref_table.add_row("setup", "Configure workspace", "setup")
     ref_table.add_row("version", "System information", "version")
 
     console.print(ref_table)
@@ -1148,7 +1140,10 @@ def cmd_help(_args) -> int:
     console.print(
         "  • Process entire directories: [bright_white]autoclean-eeg process TaskName folder/[/bright_white]"
     )
-    console.print("  • Use tab completion if available in your shell")
+    console.print(
+        "  • Create custom tasks: Save Python task files and add with [bright_white]task add[/bright_white]"
+    )
+    console.print("  • Run [bright_white]setup[/bright_white] first to configure your workspace")
 
     # Support section
     console.print("\n[bold]🤝 Support & Community[/bold]")
