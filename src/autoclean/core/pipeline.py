@@ -77,10 +77,16 @@ from autoclean.step_functions.reports import (
     update_task_processing_log,
 )
 from autoclean.tasks import task_registry
+from autoclean.utils.audit import get_user_context
+from autoclean.utils.auth import require_authentication, get_current_user_for_audit, create_electronic_signature
 from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
-from autoclean.utils.database import get_run_record, manage_database, set_database_path
+from autoclean.utils.database import (
+    get_run_record,
+    manage_database_with_audit_protection,
+    set_database_path,
+)
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
 from autoclean.utils.user_config import user_config
@@ -196,9 +202,9 @@ class Pipeline:
         # Set global database path
         set_database_path(self.output_dir)
 
-        # Initialize SQLite collection for run tracking
-        # This creates tables if they don't exist
-        manage_database(operation="create_collection")
+        # Initialize SQLite collection for run tracking with audit protection
+        # This creates tables if they don't exist and establishes security triggers
+        manage_database_with_audit_protection(operation="create_collection")
 
         # Pre-initialize plugins to avoid race conditions in async processing
         from autoclean.io.import_ import discover_event_processors, discover_plugins
@@ -253,11 +259,12 @@ class Pipeline:
                 # Define output filenames based on input file
                 "json_file": f"{unprocessed_file.stem}_autoclean_metadata.json",
                 "report_file": f"{unprocessed_file.stem}_autoclean_report.pdf",
+                "user_context": get_current_user_for_audit(),
                 "metadata": {},
             }
 
-            # Store initial run record and get database ID
-            run_record["record_id"] = manage_database(
+            # Store initial run record and get database ID with audit protection
+            run_record["record_id"] = manage_database_with_audit_protection(
                 operation="store", run_record=run_record
             )
 
@@ -291,8 +298,8 @@ class Pipeline:
                 final_files_dir,  # Final processed files directory
             ) = step_prepare_directories(task, self.output_dir, dataset_name)
 
-            # Update database with directory structure
-            manage_database(
+            # Update database with directory structure using audit protection
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={
                     "run_id": run_id,
@@ -335,8 +342,8 @@ class Pipeline:
             }
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
-            # Record full run configuration
-            manage_database(
+            # Record full run configuration using audit protection
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={"run_id": run_id, "metadata": {"entrypoint": run_dict}},
             )
@@ -357,6 +364,20 @@ class Pipeline:
                     f"Task '{task}' not found in task registry. Class name in task file must match task name exactly.",  # pylint: disable=line-too-long
                 )
                 raise
+
+            # Capture task file information for compliance tracking
+            from autoclean.utils.audit import get_task_file_info
+            task_file_info = get_task_file_info(task, task_object)
+            
+            # Store task file information in database
+            manage_database_with_audit_protection(
+                operation="update",
+                update_record={
+                    "run_id": run_id, 
+                    "task_file_info": task_file_info
+                },
+            )
+            
             task_object.run()
 
             try:
@@ -387,12 +408,13 @@ class Pipeline:
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to save completion data: {str(e)}")
 
-            # Mark run as successful in database
-            manage_database(
+            message("success", f"✓ Task {task} completed successfully")
+
+            # Set success status FIRST so JSON summary can detect success correctly
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={
                     "run_id": run_record["run_id"],
-                    "status": "completed",
                     "success": True,
                 },
             )
@@ -401,15 +423,6 @@ class Pipeline:
 
             # Create a run summary in JSON format
             json_summary = create_json_summary(run_id, flagged_reasons)
-
-            # Get final run record for report generation
-            run_record = get_run_record(run_id)
-
-            # Export run metadata to JSON file
-            json_file = metadata_dir / run_record["json_file"]
-            with open(json_file, "w", encoding="utf8") as f:
-                json.dump(run_record, f, indent=4)
-            message("success", f"✓ Run record exported to {json_file}")
 
             # Only proceed with processing log update if we have a valid summary
             if json_summary:
@@ -434,9 +447,32 @@ class Pipeline:
             except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
 
+            # Create electronic signature for compliance mode
+            signature_id = create_electronic_signature(run_record["run_id"], "processing_completion")
+            if signature_id:
+                message("debug", f"Electronic signature created: {signature_id}")
+
+            # Mark run as completed LAST - this locks the record from further modifications
+            manage_database_with_audit_protection(
+                operation="update",
+                update_record={
+                    "run_id": run_record["run_id"],
+                    "status": "completed",
+                },
+            )
+
+            # Get final run record for JSON export
+            run_record = get_run_record(run_id)
+
+            # Export run metadata to JSON file
+            json_file = metadata_dir / run_record["json_file"]
+            with open(json_file, "w", encoding="utf8") as f:
+                json.dump(run_record, f, indent=4)
+            message("success", f"✓ Run record exported to {json_file}")
+
         except Exception as e:
-            # Update database with failure status
-            manage_database(
+            # Update database with failure status using audit protection
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={
                     "run_id": run_record["run_id"],
@@ -515,6 +551,7 @@ class Pipeline:
             message("error", f"Failed to process {unprocessed_file}: {str(e)}")
             raise
 
+    @require_authentication
     def process_file(
         self, file_path: Optional[str | Path] = None, task: str = "", run_id: Optional[str] = None
     ) -> None:
@@ -557,6 +594,7 @@ class Pipeline:
         
         self._entrypoint(Path(file_path), task, run_id)
 
+    @require_authentication
     def process_directory(
         self,
         directory: Optional[str | Path] = None,
@@ -656,6 +694,7 @@ class Pipeline:
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
 
+    @require_authentication
     async def process_directory_async(
         self,
         directory_path: Optional[str | Path] = None,

@@ -89,6 +89,85 @@ def get_run_record(run_id: str) -> dict:
     return run_record
 
 
+def manage_database_with_audit_protection(
+    operation: str,
+    run_record: Optional[Dict[str, Any]] = None,
+    update_record: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """Enhanced database management with audit protection and logging.
+
+    This wrapper adds audit protection features to the standard database operations:
+    - Access logging for compliance tracking
+    - Database integrity verification
+    - Automatic backup creation
+    - User context tracking
+
+    Parameters
+    ----------
+    operation : str
+        Database operation type (same as manage_database)
+    run_record : dict, optional
+        Record data for operations
+    update_record : dict, optional
+        Update data for operations
+
+    Returns
+    -------
+    Any
+        Operation result from underlying manage_database call
+    """
+    # Import audit functions (avoid circular imports)
+    from autoclean.utils.audit import (
+        create_database_backup,
+        get_user_context,
+        log_database_access,
+    )
+
+    user_ctx = get_user_context()
+
+    # Log database access attempt
+    access_details = {
+        "operation": operation,
+        "run_id": (
+            run_record.get("run_id")
+            if run_record
+            else update_record.get("run_id") if update_record else None
+        ),
+    }
+    log_database_access(f"{operation}_attempt", user_ctx, access_details)
+
+    # Database integrity is protected by SQLite triggers, not file-level hashing
+    # The triggers prevent unauthorized modifications much more effectively than file hashes
+
+    # Perform the actual database operation
+    try:
+        result = manage_database(operation, run_record, update_record)
+
+        # Log successful operation
+        log_database_access(
+            f"{operation}_completed", user_ctx, {"result": str(result)[:200]}
+        )
+
+        # Create backup and update integrity baseline after significant operations
+        if operation in ["create_collection", "store"] and DB_PATH:
+            try:
+                create_database_backup(DB_PATH / "pipeline.db")
+            except Exception as backup_error:
+                message("warning", f"Backup creation failed: {backup_error}")
+                log_database_access(
+                    "backup_failed", user_ctx, {"error": str(backup_error)}
+                )
+
+            # Database integrity is maintained by triggers, not file hashes
+
+        return result
+
+    except Exception as e:
+        # Log failed operation
+        log_database_access(f"{operation}_failed", user_ctx, {"error": str(e)})
+        raise
+
+
 def _validate_metadata(metadata: dict) -> bool:
     """Validates metadata structure and types.
 
@@ -177,13 +256,234 @@ def manage_database(
                         success BOOLEAN,
                         json_file TEXT,
                         report_file TEXT,
+                        user_context TEXT,
                         metadata TEXT,
+                        task_file_info TEXT,
                         error TEXT
                     )
                 """
                 )
+
+                # Create update audit log table for tracking changes
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS update_audit_log (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        run_id TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
+                        old_status TEXT,
+                        new_status TEXT,
+                        operation_type TEXT,
+                        user_context TEXT,
+                        FOREIGN KEY (run_id) REFERENCES pipeline_runs (run_id)
+                    )
+                """
+                )
+
+                # Create database access log table (tamper-proof)
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS database_access_log (
+                        log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        timestamp TEXT NOT NULL,
+                        operation TEXT NOT NULL,
+                        user_context TEXT NOT NULL,
+                        details TEXT,
+                        log_hash TEXT NOT NULL,
+                        previous_hash TEXT
+                    )
+                """
+                )
+
+                # Create authenticated users table for compliance mode
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS authenticated_users (
+                        auth0_user_id TEXT PRIMARY KEY,
+                        email TEXT NOT NULL,
+                        name TEXT,
+                        first_login TEXT,
+                        last_login TEXT,
+                        token_expires TEXT,
+                        user_metadata TEXT
+                    )
+                """
+                )
+
+                # Create electronic signatures table for compliance mode
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS electronic_signatures (
+                        signature_id TEXT PRIMARY KEY,
+                        run_id TEXT NOT NULL,
+                        auth0_user_id TEXT NOT NULL,
+                        signature_data TEXT NOT NULL,
+                        signature_type TEXT NOT NULL,
+                        timestamp TEXT NOT NULL,
+                        FOREIGN KEY (run_id) REFERENCES pipeline_runs(run_id),
+                        FOREIGN KEY (auth0_user_id) REFERENCES authenticated_users(auth0_user_id)
+                    )
+                """
+                )
+
+                # Add user_context column to existing tables if it doesn't exist
+                try:
+                    cursor.execute(
+                        "ALTER TABLE pipeline_runs ADD COLUMN user_context TEXT"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                # Add auth0_user_id column for compliance mode
+                try:
+                    cursor.execute(
+                        "ALTER TABLE pipeline_runs ADD COLUMN auth0_user_id TEXT"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                # Add auth0_user_id column to database_access_log for compliance mode
+                try:
+                    cursor.execute(
+                        "ALTER TABLE database_access_log ADD COLUMN auth0_user_id TEXT"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                # Add status-based protection triggers
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_completed_record_updates
+                    BEFORE UPDATE ON pipeline_runs
+                    FOR EACH ROW
+                    WHEN (
+                        OLD.status IN ('completed', 'failed') 
+                    )
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Cannot modify audit record - run already completed'
+                        );
+                    END
+                """
+                )
+
+                # Never allow deletions of any records
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_all_deletions
+                    BEFORE DELETE ON pipeline_runs
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Audit records cannot be deleted'
+                        );
+                    END
+                """
+                )
+
+                # Log all updates for audit trail
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS log_record_updates
+                    AFTER UPDATE ON pipeline_runs
+                    FOR EACH ROW
+                    BEGIN
+                        INSERT INTO update_audit_log (
+                            run_id, 
+                            timestamp, 
+                            old_status, 
+                            new_status,
+                            operation_type,
+                            user_context
+                        ) VALUES (
+                            NEW.run_id,
+                            datetime('now'),
+                            OLD.status,
+                            NEW.status,
+                            CASE 
+                                WHEN OLD.status != NEW.status THEN 'status_change'
+                                WHEN OLD.metadata != NEW.metadata THEN 'metadata_update'
+                                ELSE 'general_update'
+                            END,
+                            COALESCE(NEW.user_context, OLD.user_context)
+                        );
+                    END
+                """
+                )
+
+                # Create tamper protection triggers for database_access_log table
+                # Prevent any UPDATE operations on access log (write-only)
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_access_log_updates
+                    BEFORE UPDATE ON database_access_log
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Access log records are immutable - no updates allowed'
+                        );
+                    END
+                """
+                )
+
+                # Prevent any DELETE operations on access log (write-only)
+                cursor.execute(
+                    """
+                    CREATE TRIGGER IF NOT EXISTS prevent_access_log_deletions
+                    BEFORE DELETE ON database_access_log
+                    BEGIN
+                        SELECT RAISE(ABORT, 
+                            'Access log records cannot be deleted'
+                        );
+                    END
+                """
+                )
+
                 conn.commit()
-                message("info", f"✓ Ensured 'pipeline_runs' table exists in {db_path}")
+                
+                # Initialize access log with genesis entry if empty
+                cursor.execute("SELECT COUNT(*) FROM database_access_log")
+                log_count = cursor.fetchone()[0]
+                
+                if log_count == 0:
+                    # Create genesis entry to start the hash chain
+                    from autoclean.utils.audit import get_user_context, calculate_access_log_hash
+                    
+                    genesis_timestamp = datetime.now().isoformat()
+                    genesis_user_context = get_user_context()
+                    genesis_operation = "database_initialization"
+                    genesis_details = {"action": "genesis_entry", "database_created": str(db_path)}
+                    genesis_previous_hash = "genesis_hash_empty_log"
+                    
+                    # Calculate hash for genesis entry
+                    genesis_hash = calculate_access_log_hash(
+                        genesis_timestamp, genesis_operation, genesis_user_context, 
+                        "", genesis_details, genesis_previous_hash
+                    )
+                    
+                    # Insert genesis entry
+                    cursor.execute(
+                        """
+                        INSERT INTO database_access_log (
+                            timestamp, operation, user_context, 
+                            details, log_hash, previous_hash
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            genesis_timestamp,
+                            genesis_operation,
+                            json.dumps(genesis_user_context),
+                            json.dumps(genesis_details),
+                            genesis_hash,
+                            genesis_previous_hash
+                        )
+                    )
+                    conn.commit()
+                
+                message(
+                    "info", f"✓ Database and audit protection established in {db_path}"
+                )
 
             elif operation == "store":
                 if not run_record:
@@ -194,12 +494,19 @@ def manage_database(
                     _serialize_for_json(run_record.get("metadata", {}))
                 )
 
+                # Convert user_context to JSON string if present
+                user_context_json = None
+                if run_record.get("user_context"):
+                    user_context_json = json.dumps(
+                        _serialize_for_json(run_record["user_context"])
+                    )
+
                 cursor.execute(
                     """
                     INSERT INTO pipeline_runs (
                         run_id, created_at, task, unprocessed_file, status,
-                        success, json_file, report_file, metadata
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        success, json_file, report_file, user_context, metadata, task_file_info
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                     (
                         run_record["run_id"],
@@ -222,7 +529,13 @@ def manage_database(
                             if run_record.get("report_file")
                             else None
                         ),
+                        user_context_json,
                         metadata_json,
+                        (
+                            json.dumps(_serialize_for_json(run_record["task_file_info"]))
+                            if run_record.get("task_file_info")
+                            else None
+                        ),
                     ),
                 )
                 conn.commit()
@@ -288,9 +601,15 @@ def manage_database(
                         update_components.append("metadata = ?")
                         current_update_values.append(final_metadata_json)
 
+                    # Handle task_file_info serialization
+                    if "task_file_info" in update_record:
+                        task_file_info_json = json.dumps(_serialize_for_json(update_record["task_file_info"]))
+                        update_components.append("task_file_info = ?")
+                        current_update_values.append(task_file_info_json)
+
                     # Handle other fields present in update_record
                     for key, value in update_record.items():
-                        if key == "run_id" or key == "metadata":
+                        if key == "run_id" or key == "metadata" or key == "task_file_info":
                             continue
 
                         update_components.append(f"{key} = ?")
@@ -342,11 +661,195 @@ def manage_database(
                         f"No record found for run_id: {run_record['run_id']}"
                     )
 
-                # Convert record to dict and parse metadata JSON
+                # Convert record to dict and parse JSON fields
                 record_dict = dict(record)
                 if record_dict.get("metadata"):
                     record_dict["metadata"] = json.loads(record_dict["metadata"])
+                if record_dict.get("user_context"):
+                    record_dict["user_context"] = json.loads(
+                        record_dict["user_context"]
+                    )
+                if record_dict.get("task_file_info"):
+                    record_dict["task_file_info"] = json.loads(
+                        record_dict["task_file_info"]
+                    )
                 return record_dict
+
+            elif operation == "add_access_log":
+                if not run_record:
+                    raise ValueError("Missing log entry data for add_access_log operation")
+                
+                # Handle both timestamp formats for backward compatibility
+                timestamp = run_record.get("timestamp")
+                if isinstance(timestamp, int):
+                    # Unix timestamp - convert to ISO for storage
+                    timestamp = datetime.fromtimestamp(timestamp).isoformat()
+                elif not timestamp:
+                    # No timestamp provided - generate current one
+                    timestamp = datetime.now().isoformat()
+                operation_type = run_record.get("operation", "unknown")
+                user_context = run_record.get("user_context", {})
+                details = run_record.get("details", {})
+                
+                # Get previous hash for chain integrity (using same connection)
+                cursor.execute(
+                    "SELECT log_hash FROM database_access_log ORDER BY log_id DESC LIMIT 1"
+                )
+                result = cursor.fetchone()
+                previous_hash = result[0] if result else "genesis_hash_empty_log"
+                
+                # Calculate hash for this entry (without database_file)
+                from autoclean.utils.audit import calculate_access_log_hash
+                log_hash = calculate_access_log_hash(
+                    timestamp, operation_type, user_context, "", details, previous_hash
+                )
+                
+                # Insert the access log entry
+                cursor.execute(
+                    """
+                    INSERT INTO database_access_log (
+                        timestamp, operation, user_context, 
+                        details, log_hash, previous_hash
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        timestamp,
+                        operation_type,
+                        json.dumps(user_context),
+                        json.dumps(details),
+                        log_hash,
+                        previous_hash
+                    )
+                )
+                
+                conn.commit()
+                log_id = cursor.lastrowid
+                return log_id
+
+            elif operation == "store_authenticated_user":
+                if not run_record:
+                    raise ValueError("Missing user data for store_authenticated_user operation")
+                
+                # Extract user information
+                auth0_user_id = run_record.get("auth0_user_id")
+                email = run_record.get("email")
+                name = run_record.get("name")
+                user_metadata = run_record.get("user_metadata", {})
+                
+                if not auth0_user_id or not email:
+                    raise ValueError("auth0_user_id and email are required for authenticated users")
+                
+                current_time = datetime.now().isoformat()
+                
+                # Check if user already exists
+                cursor.execute(
+                    "SELECT auth0_user_id, first_login FROM authenticated_users WHERE auth0_user_id = ?",
+                    (auth0_user_id,)
+                )
+                existing_user = cursor.fetchone()
+                
+                if existing_user:
+                    # Update existing user
+                    cursor.execute(
+                        """
+                        UPDATE authenticated_users 
+                        SET email = ?, name = ?, last_login = ?, user_metadata = ?
+                        WHERE auth0_user_id = ?
+                        """,
+                        (email, name, current_time, json.dumps(user_metadata), auth0_user_id)
+                    )
+                    message("debug", f"Updated authenticated user: {email}")
+                else:
+                    # Insert new user
+                    cursor.execute(
+                        """
+                        INSERT INTO authenticated_users (
+                            auth0_user_id, email, name, first_login, 
+                            last_login, user_metadata
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (auth0_user_id, email, name, current_time, current_time, json.dumps(user_metadata))
+                    )
+                    message("debug", f"Stored new authenticated user: {email}")
+                
+                conn.commit()
+                return auth0_user_id
+
+            elif operation == "get_authenticated_user":
+                if not run_record or "auth0_user_id" not in run_record:
+                    raise ValueError("Missing auth0_user_id for get_authenticated_user operation")
+                
+                cursor.execute(
+                    "SELECT * FROM authenticated_users WHERE auth0_user_id = ?",
+                    (run_record["auth0_user_id"],)
+                )
+                user_record = cursor.fetchone()
+                
+                if not user_record:
+                    return None
+                
+                # Convert to dict and parse JSON fields
+                user_dict = dict(user_record)
+                if user_dict.get("user_metadata"):
+                    user_dict["user_metadata"] = json.loads(user_dict["user_metadata"])
+                
+                return user_dict
+
+            elif operation == "store_electronic_signature":
+                if not run_record:
+                    raise ValueError("Missing signature data for store_electronic_signature operation")
+                
+                required_fields = ["signature_id", "run_id", "auth0_user_id", "signature_data", "signature_type"]
+                for field in required_fields:
+                    if field not in run_record:
+                        raise ValueError(f"Missing required field '{field}' for electronic signature")
+                
+                current_time = datetime.now().isoformat()
+                
+                cursor.execute(
+                    """
+                    INSERT INTO electronic_signatures (
+                        signature_id, run_id, auth0_user_id, signature_data,
+                        signature_type, timestamp
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        run_record["signature_id"],
+                        run_record["run_id"],
+                        run_record["auth0_user_id"],
+                        json.dumps(run_record["signature_data"]),
+                        run_record["signature_type"],
+                        current_time
+                    )
+                )
+                
+                conn.commit()
+                message("debug", f"Stored electronic signature for run: {run_record['run_id']}")
+                return run_record["signature_id"]
+
+            elif operation == "get_electronic_signatures":
+                if not run_record or "run_id" not in run_record:
+                    raise ValueError("Missing run_id for get_electronic_signatures operation")
+                
+                cursor.execute(
+                    """
+                    SELECT es.*, au.email, au.name 
+                    FROM electronic_signatures es
+                    LEFT JOIN authenticated_users au ON es.auth0_user_id = au.auth0_user_id
+                    WHERE es.run_id = ?
+                    ORDER BY es.timestamp
+                    """,
+                    (run_record["run_id"],)
+                )
+                
+                signatures = []
+                for row in cursor.fetchall():
+                    sig_dict = dict(row)
+                    if sig_dict.get("signature_data"):
+                        sig_dict["signature_data"] = json.loads(sig_dict["signature_data"])
+                    signatures.append(sig_dict)
+                
+                return signatures
 
             conn.close()
 

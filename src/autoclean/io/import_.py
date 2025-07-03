@@ -18,7 +18,7 @@ import mne
 import numpy as np
 import pandas as pd
 
-from autoclean.utils.database import manage_database
+from autoclean.utils.database import manage_database_with_audit_protection
 from autoclean.utils.logging import message
 
 __all__ = [
@@ -406,7 +406,7 @@ def import_eeg(
             )
 
         # Update database
-        manage_database(
+        manage_database_with_audit_protection(
             operation="update",
             update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
         )

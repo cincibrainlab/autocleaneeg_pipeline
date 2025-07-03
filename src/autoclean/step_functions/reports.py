@@ -36,7 +36,10 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 from reportlab.platypus import Table as ReportLabTable
 from reportlab.platypus import TableStyle
 
-from autoclean.utils.database import get_run_record, manage_database
+from autoclean.utils.database import (
+    get_run_record,
+    manage_database_with_audit_protection,
+)
 from autoclean.utils.logging import message
 
 __all__ = [
@@ -1104,7 +1107,7 @@ def update_task_processing_log(
                     "csv_path": str(csv_path),
                 }
             }
-            manage_database(
+            manage_database_with_audit_protection(
                 operation="update",
                 update_record={
                     "run_id": summary_dict.get("run_id", ""),
@@ -1161,7 +1164,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     proc_state = "completed_files"
     exclude_category = ""
     if not run_record.get("success", False):
-        error_msg = run_record.get("error", "").lower()
+        error_msg = run_record.get("error") or ""
         if "line noise" in error_msg:
             proc_state = "LINE NOISE"
             exclude_category = "Excessive Line Noise"
@@ -1468,7 +1471,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     message("success", f"Created JSON summary for run {run_id}")
 
     # Add metadata to database
-    manage_database(
+    manage_database_with_audit_protection(
         operation="update",
         update_record={"run_id": run_id, "metadata": {"json_summary": summary_dict}},
     )

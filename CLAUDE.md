@@ -178,6 +178,7 @@ uv tool run autoclean-eeg --help
 uv tool run autoclean-eeg process --task RestingEyesOpen --file data.raw --output results/
 uv tool run autoclean-eeg list-tasks
 uv tool run autoclean-eeg review --output results/
+uv tool run autoclean-eeg export-access-log --output audit-log.jsonl
 
 # Manage AutoClean tool
 uv tool list                         # Show installed tools
@@ -245,6 +246,65 @@ pipeline = Pipeline(
     output_dir="/path/to/output"
 )
 ```
+
+## Audit Trail & Compliance Features
+
+### Database Access Logging
+AutoClean maintains a tamper-proof audit trail of all database operations for compliance and security monitoring. All database access is automatically logged to a write-only table with cryptographic integrity verification.
+
+#### Features:
+- **Tamper-Proof**: Database triggers prevent modification or deletion of audit records
+- **Hash Chain Integrity**: Each log entry includes cryptographic hash of previous entry
+- **User Context Tracking**: Captures username, hostname, PID, and timestamp for each operation
+- **Comprehensive Coverage**: All database operations (create, read, update) are logged
+- **Space Optimized**: Efficient storage format minimizes database overhead
+
+#### Access Log Export
+Export audit logs for compliance reporting and external analysis:
+
+```bash
+# Export all access logs to JSONL format
+autoclean-eeg export-access-log --output audit-trail.jsonl
+
+# Export with date filtering
+autoclean-eeg export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
+
+# Export specific operations only
+autoclean-eeg export-access-log --operation "store" --output store-operations.jsonl
+
+# Export to CSV for analysis
+autoclean-eeg export-access-log --format csv --output audit-data.csv
+
+# Human-readable report
+autoclean-eeg export-access-log --format human --output audit-report.txt
+
+# Verify integrity only (no export)
+autoclean-eeg export-access-log --verify-only
+```
+
+#### Export Formats:
+- **JSONL**: JSON Lines format with metadata header (default)
+- **CSV**: Tabular format for spreadsheet analysis
+- **Human**: Formatted text report for manual review
+
+#### Security Features:
+- **Integrity Verification**: Each export includes hash chain verification
+- **Tamper Detection**: Identifies any attempts to modify audit records
+- **Chain Validation**: Cryptographic verification of log sequence
+- **Export Metadata**: Includes database path, entry count, and integrity status
+
+#### Task File Tracking
+For enhanced reproducibility and compliance, the system captures:
+- **Source Code Hash**: SHA256 hash of task file used for each run
+- **Full File Content**: Complete source code stored in database
+- **File Metadata**: Path, size, line count, and capture timestamp
+- **Version Tracking**: Links each run to specific task implementation
+
+### Database Protection
+- **Status-Based Locking**: Completed runs cannot be modified (prevents result tampering)
+- **Automatic Backups**: Database backups created for significant operations
+- **Trigger Protection**: SQL triggers prevent unauthorized data modification
+- **Audit Trail**: All changes logged with user context and timestamps
 
 ## Current Status
 - **Version**: 2.0.0 (Major release with breaking changes)
