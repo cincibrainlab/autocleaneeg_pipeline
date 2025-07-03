@@ -258,6 +258,60 @@ def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
     return unique_tasks, all_invalid_files
 
 
+def extract_dataset_name_from_task(task_name: str) -> Optional[str]:
+    """Extract dataset_name from a task if it exists.
+    
+    Args:
+        task_name: Name of the task to check
+        
+    Returns:
+        dataset_name if found in task config, None otherwise
+    """
+    try:
+        # Get all valid tasks
+        valid_tasks, _ = safe_discover_tasks()
+        
+        # Find the task by name (case-insensitive)
+        task_obj = None
+        for task in valid_tasks:
+            if task.name.lower() == task_name.lower():
+                task_obj = task
+                break
+        
+        if not task_obj:
+            return None
+            
+        # Import the task module to access its config
+        import importlib.util
+        import sys
+        
+        module_name = f"temp_task_{task_obj.source.replace('/', '_').replace('.', '_')}"
+        spec = importlib.util.spec_from_file_location(module_name, task_obj.source)
+        
+        if spec is None or spec.loader is None:
+            return None
+            
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[module_name] = module
+        
+        try:
+            spec.loader.exec_module(module)
+            
+            # Look for config dictionary in the module
+            if hasattr(module, 'config') and isinstance(module.config, dict):
+                return module.config.get('dataset_name')
+                
+        finally:
+            # Clean up
+            sys.modules.pop(module_name, None)
+            
+    except Exception:
+        # If anything fails, just return None
+        pass
+        
+    return None
+
+
 def get_task_by_name(task_name: str) -> Optional[Type[Task]]:
     """Get a task class by its name.
 

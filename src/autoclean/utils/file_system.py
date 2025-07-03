@@ -9,7 +9,7 @@ from autoclean.utils.logging import message
 
 
 def step_prepare_directories(
-    task: str, autoclean_dir_str: Path
+    task: str, autoclean_dir_str: Path, dataset_name: str = None
 ) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
     """Set up and validate BIDS-compliant directory structure for processing pipeline.
 
@@ -19,6 +19,9 @@ def step_prepare_directories(
         The name of the processing task.
     autoclean_dir_str : Path
         The path to the autoclean directory.
+    dataset_name : str, optional
+        Optional dataset name to use instead of task name for directory structure.
+        If provided, creates directories using dataset_name + timestamp format.
 
     Returns
     -------
@@ -26,7 +29,15 @@ def step_prepare_directories(
     (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, logs_dir, final_files_dir)
 
     """
-    message("header", f"Setting up BIDS-compliant directories for task: {task}")
+    # Generate directory name - use dataset_name + timestamp if provided, otherwise task name
+    if dataset_name:
+        from datetime import datetime
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        dir_name = f"{dataset_name}_{timestamp}"
+        message("header", f"Setting up BIDS-compliant directories for dataset: {dataset_name} (task: {task})")
+    else:
+        dir_name = task
+        message("header", f"Setting up BIDS-compliant directories for task: {task}")
 
     autoclean_dir = Path(autoclean_dir_str)
     if not autoclean_dir.exists() and not autoclean_dir.parent.exists():
@@ -35,7 +46,7 @@ def step_prepare_directories(
         )
 
     # BIDS-compliant directory structure - everything under derivatives
-    bids_root = autoclean_dir / task / "bids"
+    bids_root = autoclean_dir / dir_name / "bids"
     derivatives_root = bids_root / "derivatives" / "autoclean-v2"
 
     dirs = {

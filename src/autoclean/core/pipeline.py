@@ -276,6 +276,10 @@ class Pipeline:
             # Perform core validation steps
             self._validate_file(unprocessed_file)
 
+            # Extract dataset_name from task configuration if available
+            from autoclean.utils.task_discovery import extract_dataset_name_from_task
+            dataset_name = extract_dataset_name_from_task(task)
+
             # Prepare directory structure for processing outputs
             (
                 autoclean_dir,  # Root output directory
@@ -285,7 +289,7 @@ class Pipeline:
                 stage_dir,  # Intermediate processing stages
                 logs_dir,  # Debug information and logs
                 final_files_dir,  # Final processed files directory
-            ) = step_prepare_directories(task, self.output_dir)
+            ) = step_prepare_directories(task, self.output_dir, dataset_name)
 
             # Update database with directory structure
             manage_database(

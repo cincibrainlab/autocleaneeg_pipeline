@@ -45,7 +45,7 @@ class BaseMixin:
     EPOCH_RETENTION_THRESHOLD = 0.5  # Flag if less than 50% of epochs are kept
     # Flag if more than 5 reference artifacts are detected
     REFERENCE_ARTIFACT_THRESHOLD = 5
-    BAD_CHANNEL_THRESHOLD = 0.05  # Flag if more than 15% of channels are bad
+    BAD_CHANNEL_THRESHOLD = 0.15  # Flag if more than 15% of channels are bad
 
     def _check_step_enabled(self, step_name: str) -> Tuple[bool, Optional[Any]]:
         """Check if a processing step is enabled in the configuration.
