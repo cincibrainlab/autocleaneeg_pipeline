@@ -24,7 +24,14 @@ config = {
     # Examples:
     #   With dataset_name: "Experiment1_07-03-2025" 
     #   Without dataset_name: "CustomTask"
-    # "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
+    "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
+    
+    # Optional: Specify default input file or directory for this task
+    # This will be used when no input is provided via CLI or API
+    # Examples:
+    #   "input_path": "/path/to/my/data.raw",           # Single file
+    #   "input_path": "/path/to/data/directory/",       # Directory  
+    "input_path": "/path/to/my/data/",  # Uncomment and modify for your data
     
     "resample_step": {"enabled": True, "value": 250},  # Resample to 250 Hz
     "filtering": {
