@@ -41,6 +41,8 @@ except ImportError as e:
 
     DISCOVERED_MIXINS = (_ImportErrorMixinFallback,)
 
+from autoclean.utils.auth import require_authentication
+
 
 class Task(ABC, *DISCOVERED_MIXINS):
     """Base class for all EEG processing tasks.
@@ -180,6 +182,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
         )
 
     @abstractmethod
+    @require_authentication
     def run(self) -> None:
         """Run the standard EEG preprocessing pipeline.
 

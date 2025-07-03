@@ -31,6 +31,7 @@ Key Features
 * **Cross-Platform**: Works on Windows, Mac, and Linux
 * **Reproducible**: Consistent results across different users and systems
 * **Extensible**: Easy to add new processing methods and experimental paradigms
+* **Compliance Ready**: Tamper-proof audit trails and integrity verification for regulated environments
 
 Why Choose AutoClean?
 ---------------------
@@ -73,6 +74,9 @@ Quick Start Examples
    
    # Process your data (that's it!)
    autoclean process RestingEyesOpen my_eeg_data.raw
+   
+   # Export audit trail for compliance
+   autoclean export-access-log --output audit.jsonl
 
 **🔧 For Technical Users (Python)**
 
