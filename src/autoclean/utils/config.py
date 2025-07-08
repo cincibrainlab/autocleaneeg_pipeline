@@ -9,8 +9,8 @@ import zlib
 from pathlib import Path
 
 import yaml
-from schema import Optional, Or, Schema
 from platformdirs import user_config_dir
+from schema import Optional, Or, Schema
 
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
@@ -276,7 +276,7 @@ def hash_and_encode_yaml(content: str | dict, is_file: bool = True) -> tuple[str
 
 def load_user_config() -> dict:
     """Load user-level configuration including compliance settings.
-    
+
     Returns
     -------
     user_config : dict
@@ -284,40 +284,37 @@ def load_user_config() -> dict:
     """
     user_config_dir_path = Path(user_config_dir("autoclean"))
     user_config_file = user_config_dir_path / "user_config.yaml"
-    
+
     # Default user configuration
     default_config = {
         "compliance": {
             "enabled": False,
             "auth_provider": None,
-            "require_electronic_signatures": False
+            "require_electronic_signatures": False,
         },
-        "workspace": {
-            "default_output_dir": None,
-            "auto_backup": True
-        }
+        "workspace": {"default_output_dir": None, "auto_backup": True},
     }
-    
+
     if not user_config_file.exists():
         return default_config
-    
+
     try:
-        with open(user_config_file, 'r', encoding='utf-8') as f:
+        with open(user_config_file, "r", encoding="utf-8") as f:
             user_config = yaml.safe_load(f) or {}
-        
+
         # Merge with defaults to ensure all keys exist
         merged_config = default_config.copy()
-        
+
         # Safely merge compliance settings
-        if 'compliance' in user_config and isinstance(user_config['compliance'], dict):
-            merged_config['compliance'].update(user_config['compliance'])
-        
-        # Safely merge workspace settings  
-        if 'workspace' in user_config and isinstance(user_config['workspace'], dict):
-            merged_config['workspace'].update(user_config['workspace'])
-            
+        if "compliance" in user_config and isinstance(user_config["compliance"], dict):
+            merged_config["compliance"].update(user_config["compliance"])
+
+        # Safely merge workspace settings
+        if "workspace" in user_config and isinstance(user_config["workspace"], dict):
+            merged_config["workspace"].update(user_config["workspace"])
+
         return merged_config
-        
+
     except Exception as e:
         message("warning", f"Failed to load user config: {e}, using defaults")
         return default_config
@@ -325,7 +322,7 @@ def load_user_config() -> dict:
 
 def save_user_config(user_config: dict) -> None:
     """Save user-level configuration.
-    
+
     Parameters
     ----------
     user_config : dict
@@ -334,9 +331,9 @@ def save_user_config(user_config: dict) -> None:
     user_config_dir_path = Path(user_config_dir("autoclean"))
     user_config_dir_path.mkdir(parents=True, exist_ok=True)
     user_config_file = user_config_dir_path / "user_config.yaml"
-    
+
     try:
-        with open(user_config_file, 'w', encoding='utf-8') as f:
+        with open(user_config_file, "w", encoding="utf-8") as f:
             yaml.safe_dump(user_config, f, default_flow_style=False, indent=2)
         message("debug", f"User config saved to {user_config_file}")
     except Exception as e:
@@ -345,7 +342,7 @@ def save_user_config(user_config: dict) -> None:
 
 def is_compliance_mode_enabled() -> bool:
     """Check if compliance mode is enabled in user configuration.
-    
+
     Returns
     -------
     bool
@@ -353,9 +350,129 @@ def is_compliance_mode_enabled() -> bool:
     """
     try:
         user_config = load_user_config()
-        return user_config.get('compliance', {}).get('enabled', False)
+        return user_config.get("compliance", {}).get("enabled", False)
     except Exception:
         return False
+
+
+def is_compliance_mode_permanent() -> bool:
+    """Check if compliance mode is permanently enabled (cannot be disabled).
+
+    Returns
+    -------
+    bool
+        True if compliance mode is permanent, False otherwise
+    """
+    try:
+        user_config = load_user_config()
+        compliance = user_config.get("compliance", {})
+        return compliance.get("enabled", False) and compliance.get("permanent", False)
+    except Exception:
+        return False
+
+
+def validate_compliance_mode_change(new_enabled_state: bool) -> tuple[bool, str]:
+    """Validate if compliance mode can be changed.
+
+    Parameters
+    ----------
+    new_enabled_state : bool
+        The desired new state for compliance mode
+
+    Returns
+    -------
+    tuple[bool, str]
+        (is_valid, error_message) - is_valid=False if change is not allowed
+    """
+    try:
+        if is_compliance_mode_permanent() and not new_enabled_state:
+            return False, "Compliance mode cannot be disabled once permanently enabled"
+        return True, ""
+    except Exception as e:
+        return False, f"Failed to validate compliance mode change: {e}"
+
+
+def enable_compliance_mode(permanent: bool = False) -> bool:
+    """Enable compliance mode.
+
+    Parameters
+    ----------
+    permanent : bool
+        Whether to enable compliance mode permanently (cannot be disabled)
+
+    Returns
+    -------
+    bool
+        True if successfully enabled, False otherwise
+    """
+    try:
+        user_config = load_user_config()
+        user_config["compliance"]["enabled"] = True
+        if permanent:
+            user_config["compliance"]["permanent"] = True
+        save_user_config(user_config)
+        message(
+            "info", f"✓ Compliance mode enabled{' (permanent)' if permanent else ''}"
+        )
+        return True
+    except Exception as e:
+        message("error", f"Failed to enable compliance mode: {e}")
+        return False
+
+
+def disable_compliance_mode() -> bool:
+    """Disable compliance mode.
+
+    Returns
+    -------
+    bool
+        True if successfully disabled, False otherwise
+    """
+    try:
+        is_valid, error_msg = validate_compliance_mode_change(False)
+        if not is_valid:
+            message("error", error_msg)
+            return False
+
+        user_config = load_user_config()
+        user_config["compliance"]["enabled"] = False
+        # Don't remove permanent flag - keep it for audit trail
+        save_user_config(user_config)
+        message("info", "✓ Compliance mode disabled")
+        return True
+    except Exception as e:
+        message("error", f"Failed to disable compliance mode: {e}")
+        return False
+
+
+def get_compliance_status() -> dict:
+    """Get current compliance mode status.
+
+    Returns
+    -------
+    dict
+        Dictionary with compliance mode status information
+    """
+    try:
+        user_config = load_user_config()
+        compliance = user_config.get("compliance", {})
+
+        return {
+            "enabled": compliance.get("enabled", False),
+            "permanent": compliance.get("permanent", False),
+            "auth_provider": compliance.get("auth_provider"),
+            "require_electronic_signatures": compliance.get(
+                "require_electronic_signatures", False
+            ),
+        }
+    except Exception as e:
+        message("error", f"Failed to get compliance status: {e}")
+        return {
+            "enabled": False,
+            "permanent": False,
+            "auth_provider": None,
+            "require_electronic_signatures": False,
+        }
 
 
 def decode_compressed_yaml(encoded_str: str) -> dict:

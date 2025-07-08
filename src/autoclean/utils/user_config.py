@@ -45,16 +45,20 @@ class UserConfigManager:
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
 
+        base_path = None
         if global_config.exists():
             try:
                 with open(global_config, "r", encoding="utf-8") as f:
                     config = json.load(f)
-                    return Path(config["config_directory"])
+                    base_path = Path(config["config_directory"])
             except (json.JSONDecodeError, KeyError, FileNotFoundError):
                 pass
 
-        # Default location
-        return Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
+        # Default location if no config
+        if base_path is None:
+            base_path = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
+
+        return base_path
 
     def _is_workspace_valid(self) -> bool:
         """Check if workspace exists and has expected structure."""
@@ -399,6 +403,60 @@ class UserConfigManager:
         except Exception as e:
             message("warning", f"Could not save global config: {e}")
 
+    def setup_part11_workspace(self) -> Path:
+        """
+        Setup Part-11 compliance workspace with -part11 suffix.
+        This ensures Part-11 users get an isolated workspace.
+        """
+        # Determine Part-11 workspace path
+        current_workspace = (
+            self._get_base_workspace_path()
+        )  # Get without Part-11 suffix
+        part11_workspace = current_workspace.parent / f"{current_workspace.name}-part11"
+
+        # Check if Part-11 workspace already exists
+        if part11_workspace.exists() and (part11_workspace / "tasks").exists():
+            message("info", f"Part-11 workspace already exists: {part11_workspace}")
+            self._save_global_config(part11_workspace)
+            self.config_dir = part11_workspace
+            self.tasks_dir = part11_workspace / "tasks"
+            return part11_workspace
+
+        # Create Part-11 workspace
+        message("info", f"Creating Part-11 compliance workspace: {part11_workspace}")
+        self._create_workspace_structure(part11_workspace)
+        self._save_global_config(part11_workspace)
+
+        # Update instance
+        self.config_dir = part11_workspace
+        self.tasks_dir = part11_workspace / "tasks"
+
+        message("info", f"✓ Part-11 workspace created: {part11_workspace}")
+        return part11_workspace
+
+    def _get_base_workspace_path(self) -> Path:
+        """Get workspace path without Part-11 suffix."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    base_path = Path(config["config_directory"])
+                    # Remove -part11 suffix if present
+                    if base_path.name.endswith("-part11"):
+                        base_path = (
+                            base_path.parent / base_path.name[:-7]
+                        )  # Remove "-part11"
+                    return base_path
+            except (json.JSONDecodeError, KeyError, FileNotFoundError):
+                pass
+
+        # Default location
+        return Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
+
     def _create_workspace_structure(self, workspace_dir: Path) -> None:
         """Create workspace directories and copy template files."""
         workspace_dir.mkdir(parents=True, exist_ok=True)
@@ -585,8 +643,9 @@ config = {
             'fit_params': {}
         }
     },
-    'ICLabel': {
+    'component_rejection': {
         'enabled': True,
+        'method': 'iclabel',
         'value': {
             'ic_flags_to_reject': ['muscle', 'heart', 'eog', 'ch_noise', 'line_noise'],
             'ic_rejection_threshold': 0.3
@@ -652,7 +711,7 @@ class CustomTask(Task):
         
         # ICA processing
         self.run_ica()
-        self.run_ICLabel()
+        self.classify_ica_components()
         
         # Epoching
         self.create_regular_epochs()
