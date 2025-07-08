@@ -235,8 +235,14 @@ def configure_logger(
     elif output_dir is not None and task is not None:
         # Legacy fallback: try to reconstruct path (may not work with dataset names)
         from autoclean import __version__
+
         log_dir = (
-            Path(output_dir) / task / "bids" / "derivatives" / f"autoclean-v{__version__}" / "logs"
+            Path(output_dir)
+            / task
+            / "bids"
+            / "derivatives"
+            / f"autoclean-v{__version__}"
+            / "logs"
         )
     else:
         # Fallback to current working directory if no task-specific path

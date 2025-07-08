@@ -77,8 +77,11 @@ from autoclean.step_functions.reports import (
     update_task_processing_log,
 )
 from autoclean.tasks import task_registry
-from autoclean.utils.audit import get_user_context
-from autoclean.utils.auth import require_authentication, get_current_user_for_audit, create_electronic_signature
+from autoclean.utils.auth import (
+    create_electronic_signature,
+    get_current_user_for_audit,
+    require_authentication,
+)
 from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
@@ -285,7 +288,8 @@ class Pipeline:
 
             # Extract dataset_name from task configuration if available
             from autoclean.utils.task_discovery import extract_config_from_task
-            dataset_name = extract_config_from_task(task, 'dataset_name')
+
+            dataset_name = extract_config_from_task(task, "dataset_name")
 
             # Prepare directory structure for processing outputs
             (
@@ -349,9 +353,7 @@ class Pipeline:
             )
 
             # Reconfigure logger with task-specific directory
-            mne_verbose = configure_logger(
-                self.verbose, logs_dir=logs_dir
-            )
+            mne_verbose = configure_logger(self.verbose, logs_dir=logs_dir)
             mne.set_log_level(mne_verbose)
 
             message("header", f"Starting processing for task: {task}")
@@ -367,17 +369,15 @@ class Pipeline:
 
             # Capture task file information for compliance tracking
             from autoclean.utils.audit import get_task_file_info
+
             task_file_info = get_task_file_info(task, task_object)
-            
+
             # Store task file information in database
             manage_database_with_audit_protection(
                 operation="update",
-                update_record={
-                    "run_id": run_id, 
-                    "task_file_info": task_file_info
-                },
+                update_record={"run_id": run_id, "task_file_info": task_file_info},
             )
-            
+
             task_object.run()
 
             try:
@@ -448,7 +448,9 @@ class Pipeline:
                 message("error", f"Failed to generate report: {str(report_error)}")
 
             # Create electronic signature for compliance mode
-            signature_id = create_electronic_signature(run_record["run_id"], "processing_completion")
+            signature_id = create_electronic_signature(
+                run_record["run_id"], "processing_completion"
+            )
             if signature_id:
                 message("debug", f"Electronic signature created: {signature_id}")
 
@@ -487,7 +489,7 @@ class Pipeline:
                 flagged, error_flagged_reasons = task_object.get_flagged_status()
             except Exception:  # pylint: disable=broad-except
                 error_flagged_reasons = []
-            
+
             json_summary = create_json_summary(run_id, error_flagged_reasons)
 
             # Try to update processing log even in error case
@@ -553,7 +555,10 @@ class Pipeline:
 
     @require_authentication
     def process_file(
-        self, file_path: Optional[str | Path] = None, task: str = "", run_id: Optional[str] = None
+        self,
+        file_path: Optional[str | Path] = None,
+        task: str = "",
+        run_id: Optional[str] = None,
     ) -> None:
         """Process a single EEG data file.
 
@@ -585,13 +590,16 @@ class Pipeline:
         # Use input_path from task config if file_path not provided
         if file_path is None:
             from autoclean.utils.task_discovery import extract_config_from_task
-            task_input_path = extract_config_from_task(task, 'input_path')
+
+            task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 file_path = Path(task_input_path)
                 message("info", f"Using input path from task config: {file_path}")
             else:
-                raise ValueError("file_path must be provided or task must have input_path in config")
-        
+                raise ValueError(
+                    "file_path must be provided or task must have input_path in config"
+                )
+
         self._entrypoint(Path(file_path), task, run_id)
 
     @require_authentication
@@ -607,7 +615,7 @@ class Pipeline:
         Parameters
         ----------
         directory : str or Path, optional
-            Path to the directory containing the EEG files. If not provided, will 
+            Path to the directory containing the EEG files. If not provided, will
             attempt to use input_path from the task configuration.
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
@@ -640,13 +648,16 @@ class Pipeline:
         # Use input_path from task config if directory not provided
         if directory is None:
             from autoclean.utils.task_discovery import extract_config_from_task
-            task_input_path = extract_config_from_task(task, 'input_path')
+
+            task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 directory = Path(task_input_path)
                 message("info", f"Using input path from task config: {directory}")
             else:
-                raise ValueError("directory must be provided or task must have input_path in config")
-        
+                raise ValueError(
+                    "directory must be provided or task must have input_path in config"
+                )
+
         directory = Path(directory)
         if not directory.is_dir():
             raise NotADirectoryError(f"Directory not found: {directory}")
@@ -708,7 +719,7 @@ class Pipeline:
         Parameters
         ----------
         directory_path : str or Path, optional
-            Path to the directory containing the EEG files. If not provided, will 
+            Path to the directory containing the EEG files. If not provided, will
             attempt to use input_path from the task configuration.
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
@@ -733,13 +744,16 @@ class Pipeline:
         # Use input_path from task config if directory_path not provided
         if directory_path is None:
             from autoclean.utils.task_discovery import extract_config_from_task
-            task_input_path = extract_config_from_task(task, 'input_path')
+
+            task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 directory_path = Path(task_input_path)
                 message("info", f"Using input path from task config: {directory_path}")
             else:
-                raise ValueError("directory_path must be provided or task must have input_path in config")
-        
+                raise ValueError(
+                    "directory_path must be provided or task must have input_path in config"
+                )
+
         directory_path = Path(directory_path)
         if not directory_path.is_dir():
             raise NotADirectoryError(f"Directory not found: {directory_path}")

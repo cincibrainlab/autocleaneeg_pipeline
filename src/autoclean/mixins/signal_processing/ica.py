@@ -159,21 +159,20 @@ class IcaMixin:
         """
         # Auto-detect method from config if not specified
         if method is None:
-            # Try new component_rejection config first
             is_enabled, step_config = self._check_step_enabled("component_rejection")
             if is_enabled:
                 config_value = step_config.get("value", {})
                 method = config_value.get("method", "iclabel")
-                message("info", f"Auto-detected method from component_rejection config: {method}")
+                message(
+                    "info",
+                    f"Auto-detected method from component_rejection config: {method}",
+                )
             else:
-                # Fall back to legacy ICLabel config (always uses iclabel)
-                is_enabled_legacy, _ = self._check_step_enabled("ICLabel")
-                if is_enabled_legacy:
-                    method = "iclabel"
-                    message("warning", "Using legacy ICLabel config - consider updating to component_rejection")
-                else:
-                    method = "iclabel"
-                    message("info", f"No component rejection config found, defaulting to: {method}")
+                method = "iclabel"
+                message(
+                    "info",
+                    f"No component rejection config found, defaulting to: {method}",
+                )
 
         message("header", f"Running ICA component classification with {method}")
 
@@ -189,13 +188,10 @@ class IcaMixin:
 
         # If psd_fmax not explicitly provided, try to get it from config
         if psd_fmax is None:
-            # Try new component_rejection config first
-            is_enabled, step_config_main_dict = self._check_step_enabled("component_rejection")
-            
-            # Fall back to legacy ICLabel config
-            if not is_enabled:
-                is_enabled, step_config_main_dict = self._check_step_enabled("ICLabel")
-                
+            is_enabled, step_config_main_dict = self._check_step_enabled(
+                "component_rejection"
+            )
+
             if is_enabled and step_config_main_dict:
                 # Check nested value dict first (common pattern)
                 config_params_nested = step_config_main_dict.get("value", {})
@@ -246,7 +242,7 @@ class IcaMixin:
         Apply ICA component rejection based on component classifications and configuration.
 
         This method uses the labels assigned by `classify_ica_components` and the rejection
-        criteria specified in the 'ICLabel' section of the pipeline configuration
+        criteria specified in the 'component_rejection' section of the pipeline configuration
         (e.g., ic_flags_to_reject, ic_rejection_threshold) to mark components
         for rejection. It then applies the ICA to remove these components from
         the data.
@@ -291,21 +287,16 @@ class IcaMixin:
                 "ICA results (self.ica_flags) not found. Please run `classify_ica_components` first."
             )
 
-        # Try new component_rejection config first
-        is_enabled, step_config_main_dict = self._check_step_enabled("component_rejection")
+        # Get component_rejection config
+        is_enabled, step_config_main_dict = self._check_step_enabled(
+            "component_rejection"
+        )
         config_source = "component_rejection"
-        
-        # Fall back to legacy ICLabel config if new format not found
-        if not is_enabled:
-            is_enabled, step_config_main_dict = self._check_step_enabled("ICLabel")
-            config_source = "ICLabel"
-            if is_enabled:
-                message("warning", "Using legacy ICLabel config - consider updating to component_rejection")
-        
+
         if not is_enabled:
             message(
                 "warning",
-                "Neither component_rejection nor ICLabel config enabled. "
+                "component_rejection config not enabled. "
                 "Rejection parameters might be missing. Skipping.",
             )
             return
@@ -418,36 +409,3 @@ class IcaMixin:
             )
 
         message("success", "ICA component rejection complete.")
-
-    def run_ICLabel(self, reject: bool = True, export: bool = False):
-        """Run ICLabel classification on ICA components (backward compatibility method).
-        
-        This method provides backward compatibility for existing task files that call
-        run_ICLabel(). It wraps the more flexible classify_ica_components() method
-        specifically for ICLabel classification.
-        
-        Parameters
-        ----------
-        reject : bool, default True
-            If True, automatically reject components identified as artifacts.
-        export : bool, optional
-            If True, exports the processed data to the stage directory. Default is False.
-            
-        Returns
-        -------
-        ica_flags : pandas.DataFrame or None
-            A pandas DataFrame containing the ICLabel classification results.
-            
-        Examples
-        --------
-        >>> self.run_ICLabel()  # Classify and auto-reject
-        >>> self.run_ICLabel(reject=False)  # Classify only, no rejection
-        """
-        message("info", "run_ICLabel() called - using ICLabel classification method")
-        return self.classify_ica_components(
-            method="iclabel", 
-            reject=reject, 
-            stage_name="post_ica_rejection",
-            export=export
-        )
-        
