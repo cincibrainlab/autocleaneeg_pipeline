@@ -24,68 +24,68 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Processing:
-  autoclean setup                           # Interactive setup wizard
-  autoclean process TaskName data.raw       # Process single file
-  autoclean process TaskName data_dir/      # Process directory
-  autoclean list-tasks                      # Show available tasks
-  autoclean review --output results/       # Start review GUI
+  autoclean-eeg setup                           # Interactive setup wizard
+  autoclean-eeg process TaskName data.raw       # Process single file
+  autoclean-eeg process TaskName data_dir/      # Process directory
+  autoclean-eeg list-tasks                      # Show available tasks
+  autoclean-eeg review --output results/       # Start review GUI
 
 Authentication (Compliance Mode):
-  autoclean setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
-  autoclean login                          # Authenticate with Auth0
-  autoclean logout                         # Clear authentication
-  autoclean whoami                         # Show current user status
+  autoclean-eeg setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
+  autoclean-eeg login                          # Authenticate with Auth0
+  autoclean-eeg logout                         # Clear authentication
+  autoclean-eeg whoami                         # Show current user status
 
 Custom Tasks:
-  autoclean task add my_task.py            # Add custom task
-  autoclean task list                      # List custom tasks
-  autoclean task remove TaskName           # Remove custom task
+  autoclean-eeg task add my_task.py            # Add custom task
+  autoclean-eeg task list                      # List custom tasks
+  autoclean-eeg task remove TaskName           # Remove custom task
 
 Configuration:
-  autoclean config show                    # Show config location
-  autoclean config setup                   # Reconfigure workspace
-  autoclean config reset                   # Reset to defaults
+  autoclean-eeg config show                    # Show config location
+  autoclean-eeg config setup                   # Reconfigure workspace
+  autoclean-eeg config reset                   # Reset to defaults
 
 Audit & Export:
-  autoclean export-access-log              # Export compliance audit log
-  autoclean version                        # Show version info
+  autoclean-eeg export-access-log              # Export compliance audit log
+  autoclean-eeg version                        # Show version info
 
 Examples:
   # Simple usage (recommended)
-  autoclean process RestingEyesOpen data.raw
-  autoclean process RestingEyesOpen data_directory/
+  autoclean-eeg process RestingEyesOpen data.raw
+  autoclean-eeg process RestingEyesOpen data_directory/
   
   # Advanced usage with options
-  autoclean process --task RestingEyesOpen --file data.raw --output results/
-  autoclean process --task RestingEyesOpen --dir data/ --output results/ --format "*.raw"
+  autoclean-eeg process --task RestingEyesOpen --file data.raw --output results/
+  autoclean-eeg process --task RestingEyesOpen --dir data/ --output results/ --format "*.raw"
   
   # Use Python task file
-  autoclean process --task-file my_task.py --file data.raw
-  autoclean process --task-file custom.py --file data.raw
+  autoclean-eeg process --task-file my_task.py --file data.raw
+  autoclean-eeg process --task-file custom.py --file data.raw
   
   # List available tasks
-  autoclean task list
+  autoclean-eeg task list
   
   # Start review GUI
-  autoclean review --output results/
+  autoclean-eeg review --output results/
   
   # Add a custom task (saves to user config)
-  autoclean task add my_task.py --name MyCustomTask
+  autoclean-eeg task add my_task.py --name MyCustomTask
   
   # List all tasks (built-in and custom)
-  autoclean task list
+  autoclean-eeg task list
   
   # Remove a custom task
-  autoclean task remove MyCustomTask
+  autoclean-eeg task remove MyCustomTask
   
   # Run setup wizard
-  autoclean setup
+  autoclean-eeg setup
   
   # Show user config location
-  autoclean config show
+  autoclean-eeg config show
   
   # Compliance and audit features
-  autoclean export-access-log --format csv --start-date 2025-01-01
+  autoclean-eeg export-access-log --format csv --start-date 2025-01-01
         """,
     )
 
@@ -94,7 +94,7 @@ Examples:
     # Process command
     process_parser = subparsers.add_parser("process", help="Process EEG data")
 
-    # Positional arguments for simple usage: autoclean process TaskName FilePath
+    # Positional arguments for simple usage: autoclean-eeg process TaskName FilePath
     process_parser.add_argument(
         "task_name", nargs="?", type=str, help="Task name (e.g., RestingEyesOpen)"
     )
@@ -237,58 +237,62 @@ Examples:
     setup_parser = subparsers.add_parser("setup", help="Setup or reconfigure workspace")
     setup_parser.add_argument(
         "--compliance-mode",
-        action="store_true", 
-        help="Enable FDA 21 CFR Part 11 compliance mode with Auth0 authentication"
+        action="store_true",
+        help="Enable FDA 21 CFR Part 11 compliance mode with Auth0 authentication",
     )
 
     # Export access log command
     export_log_parser = subparsers.add_parser(
-        "export-access-log", 
-        help="Export database access log with integrity verification"
+        "export-access-log",
+        help="Export database access log with integrity verification",
     )
     export_log_parser.add_argument(
-        "--output", 
-        type=Path, 
-        help="Output file path (default: access-log-{timestamp}.json)"
+        "--output",
+        type=Path,
+        help="Output file path (default: access-log-{timestamp}.json)",
     )
     export_log_parser.add_argument(
-        "--format", 
-        choices=["json", "csv", "human"], 
+        "--format",
+        choices=["json", "csv", "human"],
         default="json",
-        help="Output format (default: json)"
+        help="Output format (default: json)",
     )
     export_log_parser.add_argument(
-        "--start-date", 
-        type=str, 
-        help="Start date filter (YYYY-MM-DD format)"
+        "--start-date", type=str, help="Start date filter (YYYY-MM-DD format)"
     )
     export_log_parser.add_argument(
-        "--end-date", 
-        type=str, 
-        help="End date filter (YYYY-MM-DD format)"
+        "--end-date", type=str, help="End date filter (YYYY-MM-DD format)"
     )
     export_log_parser.add_argument(
-        "--operation", 
-        type=str, 
-        help="Filter by operation type"
+        "--operation", type=str, help="Filter by operation type"
     )
     export_log_parser.add_argument(
-        "--verify-only", 
+        "--verify-only",
         action="store_true",
-        help="Only verify integrity, don't export data"
+        help="Only verify integrity, don't export data",
     )
     export_log_parser.add_argument(
-        "--database", 
-        type=Path, 
-        help="Path to database file (default: auto-detect from workspace)"
+        "--database",
+        type=Path,
+        help="Path to database file (default: auto-detect from workspace)",
     )
 
     # Authentication commands (for compliance mode)
-    login_parser = subparsers.add_parser("login", help="Login to Auth0 for compliance mode")
-    
-    logout_parser = subparsers.add_parser("logout", help="Logout and clear authentication tokens")
-    
-    whoami_parser = subparsers.add_parser("whoami", help="Show current authenticated user")
+    subparsers.add_parser("login", help="Login to Auth0 for compliance mode")
+
+    subparsers.add_parser("logout", help="Logout and clear authentication tokens")
+
+    subparsers.add_parser("whoami", help="Show current authenticated user")
+
+    auth_diag_parser = subparsers.add_parser(
+        "auth0-diagnostics", help="Diagnose Auth0 configuration and connectivity issues"
+    )
+    auth_diag_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Show detailed diagnostic information",
+    )
 
     # Version command
     subparsers.add_parser("version", help="Show version information")
@@ -329,16 +333,23 @@ def validate_args(args) -> bool:
             task_input_path = None
             if task_name:
                 from autoclean.utils.task_discovery import extract_config_from_task
-                task_input_path = extract_config_from_task(task_name, 'input_path')
-                
+
+                task_input_path = extract_config_from_task(task_name, "input_path")
+
             if task_input_path:
                 input_path = Path(task_input_path)
                 if not input_path.exists():
-                    message("error", f"Input path from task config does not exist: {input_path}")
+                    message(
+                        "error",
+                        f"Input path from task config does not exist: {input_path}",
+                    )
                     return False
                 message("info", f"Using input path from task config: {input_path}")
             else:
-                message("error", "Input file or directory must be specified (via CLI or task config)")
+                message(
+                    "error",
+                    "Input file or directory must be specified (via CLI or task config)",
+                )
                 return False
 
         # Store normalized values back to args
@@ -582,7 +593,7 @@ def cmd_setup(args) -> int:
     """Run the interactive setup wizard."""
     try:
         # Check if compliance mode flag was passed
-        if hasattr(args, 'compliance_mode') and args.compliance_mode:
+        if hasattr(args, "compliance_mode") and args.compliance_mode:
             return _setup_compliance_mode()
         else:
             return _run_interactive_setup()
@@ -595,43 +606,101 @@ def _run_interactive_setup() -> int:
     """Run interactive setup wizard with arrow key navigation."""
     try:
         import inquirer
-        
+
+        from autoclean.utils.config import (
+            get_compliance_status,
+        )
+
         message("info", "🧠 AutoClean EEG Setup Wizard")
         message("info", "Use arrow keys to navigate, Enter to select\n")
-        
-        # First question: Basic vs Compliance setup
-        questions = [
-            inquirer.List(
-                'setup_type',
-                message="What type of setup do you need?",
-                choices=[
-                    ('Basic setup (standard research use)', 'basic'),
-                    ('FDA 21 CFR Part 11 compliance mode (regulated environments)', 'compliance'),
-                    ('Just configure workspace location', 'workspace_only')
-                ],
-                default='basic'
+
+        # Get current compliance status
+        compliance_status = get_compliance_status()
+        is_enabled = compliance_status["enabled"]
+        is_permanent = compliance_status["permanent"]
+
+        # Check if compliance mode is permanently enabled
+        if is_permanent:
+            message(
+                "warning", "FDA 21 CFR Part 11 compliance mode is permanently enabled."
             )
-        ]
-        
+            message(
+                "info", "You can only configure workspace location in compliance mode."
+            )
+
+            # Only allow workspace configuration
+            questions = [
+                inquirer.List(
+                    "setup_type",
+                    message="What would you like to configure?",
+                    choices=[
+                        ("Configure workspace location", "workspace_only"),
+                        ("Exit setup", "exit"),
+                    ],
+                    default="workspace_only",
+                )
+            ]
+        else:
+            # Show current compliance mode status
+            status_msg = "enabled" if is_enabled else "disabled"
+            message("info", f"Current compliance mode: {status_msg}")
+
+            # Build setup options based on current state
+            choices = [
+                ("Basic setup (standard research use)", "basic"),
+                ("Just configure workspace location", "workspace_only"),
+            ]
+
+            if is_enabled:
+                choices.insert(
+                    1,
+                    (
+                        "Disable FDA 21 CFR Part 11 compliance mode",
+                        "disable_compliance",
+                    ),
+                )
+            else:
+                choices.insert(
+                    1,
+                    ("Enable FDA 21 CFR Part 11 compliance mode", "enable_compliance"),
+                )
+
+            questions = [
+                inquirer.List(
+                    "setup_type",
+                    message="What would you like to configure?",
+                    choices=choices,
+                    default="workspace_only",
+                )
+            ]
+
         answers = inquirer.prompt(questions)
         if not answers:  # User canceled
             message("info", "Setup canceled.")
             return 0
-        
-        setup_type = answers['setup_type']
-        
-        if setup_type == 'workspace_only':
-            # Just do basic workspace setup
+
+        setup_type = answers["setup_type"]
+
+        if setup_type == "exit":
+            message("info", "Setup canceled.")
+            return 0
+        elif setup_type == "workspace_only":
             user_config.setup_workspace()
             message("success", "✓ Workspace setup complete!")
             return 0
-        elif setup_type == 'basic':
+        elif setup_type == "basic":
             # Standard setup
             return _setup_basic_mode()
-        elif setup_type == 'compliance':
-            # Compliance setup
+        elif setup_type == "enable_compliance":
+            # Enable compliance mode
+            return _enable_compliance_mode()
+        elif setup_type == "disable_compliance":
+            # Disable compliance mode
+            return _disable_compliance_mode()
+        elif setup_type == "compliance":
+            # Legacy compliance setup (permanent)
             return _setup_compliance_mode()
-        
+
     except ImportError:
         # Fall back to basic setup if inquirer not available
         message("warning", "Interactive prompts not available. Running basic setup...")
@@ -649,46 +718,47 @@ def _setup_basic_mode() -> int:
     """Setup basic (non-compliance) mode."""
     try:
         import inquirer
+
         from autoclean.utils.config import load_user_config, save_user_config
-        
+
         message("info", "\n📋 Basic Setup Configuration")
-        
+
         # Setup workspace first
         user_config.setup_workspace()
-        
+
         # Ask about workspace preferences
         questions = [
             inquirer.Confirm(
-                'auto_backup',
+                "auto_backup",
                 message="Enable automatic database backups?",
-                default=True
+                default=True,
             ),
         ]
-        
+
         answers = inquirer.prompt(questions)
         if not answers:
             return 0
-        
+
         # Update user configuration
         user_config_data = load_user_config()
-        
+
         # Ensure compliance and workspace are dictionaries
-        if not isinstance(user_config_data.get('compliance'), dict):
-            user_config_data['compliance'] = {}
-        if not isinstance(user_config_data.get('workspace'), dict):
-            user_config_data['workspace'] = {}
-        
-        user_config_data['compliance']['enabled'] = False
-        user_config_data['workspace']['auto_backup'] = answers['auto_backup']
-        
+        if not isinstance(user_config_data.get("compliance"), dict):
+            user_config_data["compliance"] = {}
+        if not isinstance(user_config_data.get("workspace"), dict):
+            user_config_data["workspace"] = {}
+
+        user_config_data["compliance"]["enabled"] = False
+        user_config_data["workspace"]["auto_backup"] = answers["auto_backup"]
+
         save_user_config(user_config_data)
-        
+
         message("success", "✓ Basic setup complete!")
         message("info", "You can now use AutoClean for standard EEG processing.")
-        message("info", "Run 'autoclean process TaskName file.raw' to get started.")
-        
+        message("info", "Run 'autoclean-eeg process TaskName file.raw' to get started.")
+
         return 0
-        
+
     except ImportError:
         # Fall back without inquirer
         user_config.setup_workspace()
@@ -696,120 +766,87 @@ def _setup_basic_mode() -> int:
 
 
 def _setup_compliance_mode() -> int:
-    """Setup FDA 21 CFR Part 11 compliance mode with Auth0."""
+    """Setup FDA 21 CFR Part 11 compliance mode with developer-managed Auth0."""
     try:
         import inquirer
+
+        from autoclean.utils.auth import get_auth0_manager
         from autoclean.utils.config import load_user_config, save_user_config
-        from autoclean.utils.auth import get_auth0_manager, validate_auth0_config
-        
+
         message("info", "\n🔐 FDA 21 CFR Part 11 Compliance Setup")
-        message("warning", "This mode requires Auth0 account and application setup.")
-        
-        # Setup workspace first
-        user_config.setup_workspace()
-        
-        # Explain Auth0 requirements
-        message("info", "\nAuth0 Application Setup Instructions:")
-        message("info", "1. Create an Auth0 account at https://auth0.com")
-        message("info", "2. Go to Applications > Create Application")
-        message("info", "3. Choose 'Native' as the application type (for CLI apps)")  
-        message("info", "4. In your application settings, configure:")
-        message("info", "   - Allowed Callback URLs: http://localhost:8080/callback")
-        message("info", "   - Allowed Logout URLs: http://localhost:8080/logout")
-        message("info", "   - Grant Types: Authorization Code, Refresh Token (default for Native)")
-        message("info", "5. Copy your Domain, Client ID, and Client Secret")
-        message("info", "6. Your domain will be something like: your-tenant.us.auth0.com\n")
-        
-        # Confirm user is ready
-        ready_question = [
+        message("warning", "⚠️  Once enabled, compliance mode cannot be disabled.")
+        message("info", "This mode provides:")
+        message("info", "• Mandatory user authentication")
+        message("info", "• Tamper-proof audit trails")
+        message("info", "• Encrypted data storage")
+        message("info", "• Electronic signature support")
+
+        # Confirm user understands permanent nature
+        confirm_question = [
             inquirer.Confirm(
-                'auth0_ready',
-                message="Do you have your Auth0 application configured and credentials ready?",
-                default=False
+                "confirm_permanent",
+                message="Do you understand that compliance mode cannot be disabled once enabled?",
+                default=False,
             )
         ]
-        
-        ready_answer = inquirer.prompt(ready_question)
-        if not ready_answer or not ready_answer['auth0_ready']:
-            message("info", "Please set up your Auth0 application first, then run:")
-            message("info", "autoclean setup --compliance-mode")
+
+        confirm_answer = inquirer.prompt(confirm_question)
+        if not confirm_answer or not confirm_answer["confirm_permanent"]:
+            message("info", "Compliance mode setup canceled.")
             return 0
-        
-        # Get Auth0 configuration
-        auth_questions = [
-            inquirer.Text(
-                'domain',
-                message="Auth0 Domain (e.g., your-tenant.auth0.com)",
-                validate=lambda _, x: len(x) > 0 and '.auth0.com' in x
-            ),
-            inquirer.Text(
-                'client_id', 
-                message="Auth0 Client ID",
-                validate=lambda _, x: len(x) > 0
-            ),
-            inquirer.Password(
-                'client_secret',
-                message="Auth0 Client Secret",
-                validate=lambda _, x: len(x) > 0
-            ),
+
+        # Setup Part-11 workspace with suffix
+        user_config.setup_part11_workspace()
+
+        # Ask about electronic signatures
+        signature_question = [
             inquirer.Confirm(
-                'require_signatures',
+                "require_signatures",
                 message="Require electronic signatures for processing runs?",
-                default=True
+                default=True,
             )
         ]
-        
-        auth_answers = inquirer.prompt(auth_questions)
-        if not auth_answers:
+
+        signature_answer = inquirer.prompt(signature_question)
+        if not signature_answer:
             return 0
-        
-        # Validate Auth0 configuration
-        message("info", "Validating Auth0 configuration...")
-        
-        is_valid, error_msg = validate_auth0_config(
-            auth_answers['domain'],
-            auth_answers['client_id'], 
-            auth_answers['client_secret']
-        )
-        
-        if not is_valid:
-            message("error", f"Auth0 configuration invalid: {error_msg}")
-            return 1
-        
-        message("success", "✓ Auth0 configuration validated!")
-        
-        # Configure Auth0 manager
+
+        # Configure Auth0 manager with developer credentials
         auth_manager = get_auth0_manager()
-        auth_manager.configure_auth0(
-            auth_answers['domain'],
-            auth_answers['client_id'],
-            auth_answers['client_secret']
-        )
-        
+        auth_manager.configure_developer_auth0()
+
         # Update user configuration
         user_config_data = load_user_config()
-        
+
         # Ensure compliance and workspace are dictionaries
-        if not isinstance(user_config_data.get('compliance'), dict):
-            user_config_data['compliance'] = {}
-        if not isinstance(user_config_data.get('workspace'), dict):
-            user_config_data['workspace'] = {}
-        
-        user_config_data['compliance']['enabled'] = True
-        user_config_data['compliance']['auth_provider'] = 'auth0'
-        user_config_data['compliance']['require_electronic_signatures'] = auth_answers['require_signatures']
-        user_config_data['workspace']['auto_backup'] = True  # Always enabled for compliance
-        
+        if not isinstance(user_config_data.get("compliance"), dict):
+            user_config_data["compliance"] = {}
+        if not isinstance(user_config_data.get("workspace"), dict):
+            user_config_data["workspace"] = {}
+
+        user_config_data["compliance"]["enabled"] = True
+        user_config_data["compliance"]["permanent"] = True  # Cannot be disabled
+        user_config_data["compliance"]["auth_provider"] = "auth0"
+        user_config_data["compliance"]["require_electronic_signatures"] = (
+            signature_answer["require_signatures"]
+        )
+        user_config_data["workspace"][
+            "auto_backup"
+        ] = True  # Always enabled for compliance
+
         save_user_config(user_config_data)
-        
+
         message("success", "✓ Compliance mode setup complete!")
         message("info", "\nNext steps:")
-        message("info", "1. Run 'autoclean login' to authenticate")
-        message("info", "2. Use 'autoclean whoami' to check authentication status")
-        message("info", "3. All processing will now include audit trails and user authentication")
-        
+        message("info", "1. Run 'autoclean-eeg login' to authenticate")
+        message("info", "2. Use 'autoclean-eeg whoami' to check authentication status")
+        message(
+            "info",
+            "3. All processing will now include audit trails and user authentication",
+        )
+
         return 0
-        
+
     except ImportError:
         message("error", "Interactive setup requires 'inquirer' package.")
         message("info", "Install with: pip install inquirer")
@@ -817,6 +854,242 @@ def _setup_compliance_mode() -> int:
     except Exception as e:
         message("error", f"Compliance setup failed: {e}")
         return 1
+
+
+def _enable_compliance_mode() -> int:
+    """Enable FDA 21 CFR Part 11 compliance mode (non-permanent)."""
+    try:
+        import inquirer
+
+        from autoclean.utils.auth import get_auth0_manager
+        from autoclean.utils.config import enable_compliance_mode
+
+        message("info", "\n🔐 Enable FDA 21 CFR Part 11 Compliance Mode")
+        message("info", "This mode provides:")
+        message("info", "• User authentication (when processing)")
+        message("info", "• Audit trails")
+        message("info", "• Electronic signature support")
+        message("info", "• Can be disabled later")
+
+        # Confirm enabling
+        confirm_question = [
+            inquirer.Confirm(
+                "confirm_enable", message="Enable compliance mode?", default=True
+            )
+        ]
+
+        confirm_answer = inquirer.prompt(confirm_question)
+        if not confirm_answer or not confirm_answer["confirm_enable"]:
+            message("info", "Compliance mode not enabled.")
+            return 0
+
+        # Configure Auth0 manager with developer credentials
+        try:
+            auth_manager = get_auth0_manager()
+            auth_manager.configure_developer_auth0()
+            message("info", "✓ Auth0 configured")
+        except Exception as e:
+            message("warning", f"Auth0 configuration failed: {e}")
+            message("info", "You can configure Auth0 later for authentication")
+
+        # Enable compliance mode (non-permanent)
+        if enable_compliance_mode(permanent=False):
+            message("success", "✓ Compliance mode enabled!")
+            message("info", "\nNext steps:")
+            message(
+                "info", "1. Run 'autoclean-eeg login' to authenticate (when needed)"
+            )
+            message("info", "2. Run 'autoclean-eeg setup' again to disable if needed")
+            return 0
+        else:
+            message("error", "Failed to enable compliance mode")
+            return 1
+
+    except ImportError:
+        message("error", "Interactive setup requires 'inquirer' package.")
+        return 1
+    except Exception as e:
+        message("error", f"Failed to enable compliance mode: {e}")
+        return 1
+
+
+def _disable_compliance_mode() -> int:
+    """Disable FDA 21 CFR Part 11 compliance mode."""
+    try:
+        import inquirer
+
+        from autoclean.utils.config import (
+            disable_compliance_mode,
+            get_compliance_status,
+        )
+
+        message("info", "\n🔓 Disable FDA 21 CFR Part 11 Compliance Mode")
+
+        # Check if permanent
+        compliance_status = get_compliance_status()
+        if compliance_status["permanent"]:
+            message("error", "Cannot disable permanently enabled compliance mode")
+            return 1
+
+        message("warning", "This will disable:")
+        message("warning", "• Required authentication")
+        message("warning", "• Audit trail logging")
+        message("warning", "• Electronic signatures")
+
+        # Confirm disabling
+        confirm_question = [
+            inquirer.Confirm(
+                "confirm_disable",
+                message="Are you sure you want to disable compliance mode?",
+                default=False,
+            )
+        ]
+
+        confirm_answer = inquirer.prompt(confirm_question)
+        if not confirm_answer or not confirm_answer["confirm_disable"]:
+            message("info", "Compliance mode remains enabled.")
+            return 0
+
+        # Disable compliance mode
+        if disable_compliance_mode():
+            message("success", "✓ Compliance mode disabled!")
+            message("info", "AutoClean will now operate in standard mode")
+            return 0
+        else:
+            message("error", "Failed to disable compliance mode")
+            return 1
+
+    except ImportError:
+        message("error", "Interactive setup requires 'inquirer' package.")
+        return 1
+    except Exception as e:
+        message("error", f"Failed to disable compliance mode: {e}")
+        return 1
+
+
+# FUTURE FEATURE: User-managed Auth0 setup (commented out for now)
+# def _setup_compliance_mode_user_managed() -> int:
+#     """Setup FDA 21 CFR Part 11 compliance mode with user-managed Auth0."""
+#     try:
+#         import inquirer
+#         from autoclean.utils.config import load_user_config, save_user_config
+#         from autoclean.utils.auth import get_auth0_manager, validate_auth0_config
+#
+#         message("info", "\n🔐 FDA 21 CFR Part 11 Compliance Setup")
+#         message("warning", "This mode requires Auth0 account and application setup.")
+#
+#         # Setup workspace first
+#         user_config.setup_workspace()
+#
+#         # Explain Auth0 requirements
+#         message("info", "\nAuth0 Application Setup Instructions:")
+#         message("info", "1. Create an Auth0 account at https://auth0.com")
+#         message("info", "2. Go to Applications > Create Application")
+#         message("info", "3. Choose 'Native' as the application type (for CLI apps)")
+#         message("info", "4. In your application settings, configure:")
+#         message("info", "   - Allowed Callback URLs: http://localhost:8080/callback")
+#         message("info", "   - Allowed Logout URLs: http://localhost:8080/logout")
+#         message("info", "   - Grant Types: Authorization Code, Refresh Token (default for Native)")
+#         message("info", "5. Copy your Domain, Client ID, and Client Secret")
+#         message("info", "6. Your domain will be something like: your-tenant.us.auth0.com\n")
+#
+#         # Confirm user is ready
+#         ready_question = [
+#             inquirer.Confirm(
+#                 'auth0_ready',
+#                 message="Do you have your Auth0 application configured and credentials ready?",
+#                 default=False
+#             )
+#         ]
+#
+#         ready_answer = inquirer.prompt(ready_question)
+#         if not ready_answer or not ready_answer['auth0_ready']:
+#             message("info", "Please set up your Auth0 application first, then run:")
+#             message("info", "autoclean setup --compliance-mode")
+#             return 0
+#
+#         # Get Auth0 configuration
+#         auth_questions = [
+#             inquirer.Text(
+#                 'domain',
+#                 message="Auth0 Domain (e.g., your-tenant.auth0.com)",
+#                 validate=lambda _, x: len(x) > 0 and '.auth0.com' in x
+#             ),
+#             inquirer.Text(
+#                 'client_id',
+#                 message="Auth0 Client ID",
+#                 validate=lambda _, x: len(x) > 0
+#             ),
+#             inquirer.Password(
+#                 'client_secret',
+#                 message="Auth0 Client Secret",
+#                 validate=lambda _, x: len(x) > 0
+#             ),
+#             inquirer.Confirm(
+#                 'require_signatures',
+#                 message="Require electronic signatures for processing runs?",
+#                 default=True
+#             )
+#         ]
+#
+#         auth_answers = inquirer.prompt(auth_questions)
+#         if not auth_answers:
+#             return 0
+#
+#         # Validate Auth0 configuration
+#         message("info", "Validating Auth0 configuration...")
+#
+#         is_valid, error_msg = validate_auth0_config(
+#             auth_answers['domain'],
+#             auth_answers['client_id'],
+#             auth_answers['client_secret']
+#         )
+#
+#         if not is_valid:
+#             message("error", f"Auth0 configuration invalid: {error_msg}")
+#             return 1
+#
+#         message("success", "✓ Auth0 configuration validated!")
+#
+#         # Configure Auth0 manager
+#         auth_manager = get_auth0_manager()
+#         auth_manager.configure_auth0(
+#             auth_answers['domain'],
+#             auth_answers['client_id'],
+#             auth_answers['client_secret']
+#         )
+#
+#         # Update user configuration
+#         user_config_data = load_user_config()
+#
+#         # Ensure compliance and workspace are dictionaries
+#         if not isinstance(user_config_data.get('compliance'), dict):
+#             user_config_data['compliance'] = {}
+#         if not isinstance(user_config_data.get('workspace'), dict):
+#             user_config_data['workspace'] = {}
+#
+#         user_config_data['compliance']['enabled'] = True
+#         user_config_data['compliance']['auth_provider'] = 'auth0'
+#         user_config_data['compliance']['require_electronic_signatures'] = auth_answers['require_signatures']
+#         user_config_data['workspace']['auto_backup'] = True  # Always enabled for compliance
+#
+#         save_user_config(user_config_data)
+#
+#         message("success", "✓ Compliance mode setup complete!")
+#         message("info", "\nNext steps:")
+#         message("info", "1. Run 'autoclean login' to authenticate")
+#         message("info", "2. Use 'autoclean whoami' to check authentication status")
+#         message("info", "3. All processing will now include audit trails and user authentication")
+#
+#         return 0
+#
+#     except ImportError:
+#         message("error", "Interactive setup requires 'inquirer' package.")
+#         message("info", "Install with: pip install inquirer")
+#         return 1
+#     except Exception as e:
+#         message("error", f"Compliance setup failed: {e}")
+#         return 1
 
 
 def cmd_version(args) -> int:
@@ -911,7 +1184,7 @@ def cmd_task_add(args) -> int:
         message("info", f"Task '{task_name}' added to workspace!")
         print(f"📁 Copied to: {dest_file}")
         print("\nUse your custom task with:")
-        print(f"  autoclean process {task_name} <data_file>")
+        print(f"  autoclean-eeg process {task_name} <data_file>")
 
         return 0
 
@@ -1083,8 +1356,10 @@ def cmd_help(_args) -> int:
     console.print(Columns([simple_panel, advanced_panel], equal=True, expand=True))
 
     # Part11 compliance section
-    console.print("\n[bold bright_red]🔒 FDA 21 CFR Part 11 Compliance[/bold bright_red]")
-    
+    console.print(
+        "\n[bold bright_red]🔒 FDA 21 CFR Part 11 Compliance[/bold bright_red]"
+    )
+
     compliance_panel = Panel(
         "[red]setup --compliance-mode[/red]  [dim]Enable regulatory compliance mode[/dim]\n"
         "[red]login[/red]                    [dim]Authenticate with Auth0[/dim]\n"
@@ -1095,7 +1370,7 @@ def cmd_help(_args) -> int:
         border_style="red",
         padding=(0, 1),
     )
-    
+
     console.print(compliance_panel)
 
     # Task management workflow
@@ -1143,7 +1418,9 @@ def cmd_help(_args) -> int:
     console.print(
         "  • Create custom tasks: Save Python task files and add with [bright_white]task add[/bright_white]"
     )
-    console.print("  • Run [bright_white]setup[/bright_white] first to configure your workspace")
+    console.print(
+        "  • Run [bright_white]setup[/bright_white] first to configure your workspace"
+    )
 
     # Support section
     console.print("\n[bold]🤝 Support & Community[/bold]")
@@ -1203,17 +1480,18 @@ def cmd_tutorial(_args) -> int:
 def cmd_export_access_log(args) -> int:
     """Export database access log with integrity verification."""
     try:
+        import csv
+        import json
+        import sqlite3
         from datetime import datetime
+
         from autoclean.utils.audit import verify_access_log_integrity
         from autoclean.utils.database import DB_PATH
         from autoclean.utils.user_config import user_config
-        import sqlite3
-        import json
-        import csv
-        
+
         # Get workspace directory for database discovery and default output location
         workspace_dir = user_config._get_workspace_path()
-        
+
         # Determine database path
         if args.database:
             db_path = Path(args.database)
@@ -1222,7 +1500,7 @@ def cmd_export_access_log(args) -> int:
         else:
             # Try to find database in workspace
             if workspace_dir:
-                # Check for database directly in workspace directory 
+                # Check for database directly in workspace directory
                 workspace_db = workspace_dir / "pipeline.db"
                 if workspace_db.exists():
                     db_path = workspace_db
@@ -1236,38 +1514,49 @@ def cmd_export_access_log(args) -> int:
                         potential_outputs = workspace_dir / "output"
                         if potential_outputs.exists():
                             # Look for most recent output directory with database
-                            for output_dir in sorted(potential_outputs.iterdir(), reverse=True):
+                            for output_dir in sorted(
+                                potential_outputs.iterdir(), reverse=True
+                            ):
                                 if output_dir.is_dir():
                                     potential_db = output_dir / "pipeline.db"
                                     if potential_db.exists():
                                         db_path = potential_db
                                         break
                             else:
-                                message("error", "No database found in workspace directory, output directory, or output subdirectories")
+                                message(
+                                    "error",
+                                    "No database found in workspace directory, output directory, or output subdirectories",
+                                )
                                 return 1
                         else:
-                            message("error", "No database found in workspace directory and no output directory exists")
+                            message(
+                                "error",
+                                "No database found in workspace directory and no output directory exists",
+                            )
                             return 1
             else:
-                message("error", "No workspace configured and no database path provided")
+                message(
+                    "error", "No workspace configured and no database path provided"
+                )
                 return 1
-        
+
         if not db_path.exists():
             message("error", f"Database file not found: {db_path}")
             return 1
-        
+
         message("info", f"Using database: {db_path}")
-        
+
         # Verify integrity first (need to temporarily set DB_PATH for verification)
         from autoclean.utils import database
+
         original_db_path = database.DB_PATH
         database.DB_PATH = db_path.parent
-        
+
         try:
             integrity_result = verify_access_log_integrity()
         finally:
             database.DB_PATH = original_db_path
-        
+
         if args.verify_only:
             if integrity_result["status"] == "valid":
                 message("success", f"✓ {integrity_result['message']}")
@@ -1281,7 +1570,7 @@ def cmd_export_access_log(args) -> int:
             else:
                 message("error", f"✗ {integrity_result['message']}")
                 return 1
-        
+
         # Report integrity status
         if integrity_result["status"] == "valid":
             message("success", f"✓ {integrity_result['message']}")
@@ -1292,39 +1581,39 @@ def cmd_export_access_log(args) -> int:
                     message("warning", f"  - {issue}")
         else:
             message("warning", f"⚠ {integrity_result['message']}")
-        
+
         # Query access log with filters
         conn = sqlite3.connect(db_path)
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
-        
+
         query = "SELECT * FROM database_access_log WHERE 1=1"
         params = []
-        
+
         # Apply date filters
         if args.start_date:
             query += " AND date(timestamp) >= ?"
             params.append(args.start_date)
-        
+
         if args.end_date:
             query += " AND date(timestamp) <= ?"
             params.append(args.end_date)
-        
+
         # Apply operation filter
         if args.operation:
             query += " AND operation LIKE ?"
             params.append(f"%{args.operation}%")
-        
+
         query += " ORDER BY log_id ASC"
-        
+
         cursor.execute(query, params)
         entries = cursor.fetchall()
         conn.close()
-        
+
         if not entries:
             message("warning", "No access log entries found matching filters")
             return 0
-        
+
         # Determine output file
         if args.output:
             output_file = args.output
@@ -1338,7 +1627,7 @@ def cmd_export_access_log(args) -> int:
             filename = f"access-log-{timestamp}.{extension}"
             # Default to workspace directory, not current working directory
             output_file = workspace_dir / filename if workspace_dir else Path(filename)
-        
+
         # Export data
         export_data = []
         for entry in entries:
@@ -1355,7 +1644,7 @@ def cmd_export_access_log(args) -> int:
                 except json.JSONDecodeError:
                     pass
             export_data.append(entry_dict)
-        
+
         # Write export file
         if args.format == "json":
             # Write as JSONL (JSON Lines) format - more compact and easier to process
@@ -1371,16 +1660,16 @@ def cmd_export_access_log(args) -> int:
                     "filters_applied": {
                         "start_date": args.start_date,
                         "end_date": args.end_date,
-                        "operation": args.operation
-                    }
+                        "operation": args.operation,
+                    },
                 }
                 f.write(json.dumps(metadata) + "\n")
-                
+
                 # Subsequent lines: one JSON object per access log entry
                 for entry in export_data:
                     entry["type"] = "access_log"
                     f.write(json.dumps(entry) + "\n")
-                
+
         elif args.format == "csv":
             with open(output_file, "w", newline="") as f:
                 if export_data:
@@ -1396,7 +1685,7 @@ def cmd_export_access_log(args) -> int:
                             else:
                                 csv_entry[key] = value
                         writer.writerow(csv_entry)
-                        
+
         elif args.format == "human":
             with open(output_file, "w") as f:
                 f.write("AutoClean Database Access Log Report\n")
@@ -1406,7 +1695,7 @@ def cmd_export_access_log(args) -> int:
                 f.write(f"Total Entries: {len(export_data)}\n")
                 f.write(f"Integrity Status: {integrity_result['status']}\n")
                 f.write(f"Integrity Message: {integrity_result['message']}\n\n")
-                
+
                 if args.start_date or args.end_date or args.operation:
                     f.write("Filters Applied:\n")
                     if args.start_date:
@@ -1416,35 +1705,41 @@ def cmd_export_access_log(args) -> int:
                     if args.operation:
                         f.write(f"  Operation: {args.operation}\n")
                     f.write("\n")
-                
+
                 f.write("Access Log Entries:\n")
                 f.write("-" * 30 + "\n\n")
-                
+
                 for i, entry in enumerate(export_data, 1):
                     f.write(f"Entry {i} (ID: {entry['log_id']})\n")
                     f.write(f"  Timestamp: {entry['timestamp']}\n")
                     f.write(f"  Operation: {entry['operation']}\n")
-                    
+
                     if entry.get("user_context"):
                         user_ctx = entry["user_context"]
                         if isinstance(user_ctx, dict):
                             # Handle both old and new format
-                            user = user_ctx.get('user', user_ctx.get('username', 'unknown'))
-                            host = user_ctx.get('host', user_ctx.get('hostname', 'unknown'))
+                            user = user_ctx.get(
+                                "user", user_ctx.get("username", "unknown")
+                            )
+                            host = user_ctx.get(
+                                "host", user_ctx.get("hostname", "unknown")
+                            )
                             f.write(f"  User: {user}\n")
                             f.write(f"  Host: {host}\n")
-                    
+
                     if entry.get("details") and entry["details"]:
-                        f.write(f"  Details: {json.dumps(entry['details'], indent=4)}\n")
-                    
+                        f.write(
+                            f"  Details: {json.dumps(entry['details'], indent=4)}\n"
+                        )
+
                     f.write(f"  Hash: {entry['log_hash'][:16]}...\n")
                     f.write("\n")
-        
+
         message("success", f"✓ Access log exported to: {output_file}")
         message("info", f"Format: {args.format}, Entries: {len(export_data)}")
-        
+
         return 0
-        
+
     except Exception as e:
         message("error", f"Failed to export access log: {e}")
         return 1
@@ -1454,58 +1749,82 @@ def cmd_login(args) -> int:
     """Execute the login command."""
     try:
         from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-        
+
         if not is_compliance_mode_enabled():
             message("error", "Compliance mode is not enabled.")
-            message("info", "Run 'autoclean setup --compliance-mode' to enable compliance mode and configure Auth0.")
+            message(
+                "info",
+                "Run 'autoclean-eeg setup --compliance-mode' to enable compliance mode and configure Auth0.",
+            )
             return 1
-        
+
         auth_manager = get_auth0_manager()
-        
+
+        # Always refresh configuration with latest credentials from environment/.env
+        try:
+            message("debug", "Loading Auth0 credentials from environment/.env files...")
+            auth_manager.configure_developer_auth0()
+        except Exception as e:
+            message("error", f"Failed to configure Auth0: {e}")
+            message(
+                "info",
+                "Check your .env file or environment variables for Auth0 credentials.",
+            )
+            return 1
+
+        # Double-check configuration after loading
         if not auth_manager.is_configured():
             message("error", "Auth0 not configured.")
-            message("info", "Run 'autoclean setup --compliance-mode' to configure Auth0 authentication.")
+            message(
+                "info",
+                "Check your .env file or environment variables for Auth0 credentials.",
+            )
             return 1
-        
+
         if auth_manager.is_authenticated():
             user_info = auth_manager.get_current_user()
-            user_email = user_info.get('email', 'Unknown') if user_info else 'Unknown'
+            user_email = user_info.get("email", "Unknown") if user_info else "Unknown"
             message("info", f"Already logged in as: {user_email}")
             return 0
-        
+
         message("info", "Starting Auth0 login process...")
-        
+
         if auth_manager.login():
             user_info = auth_manager.get_current_user()
-            user_email = user_info.get('email', 'Unknown') if user_info else 'Unknown'
+            user_email = user_info.get("email", "Unknown") if user_info else "Unknown"
             message("success", f"✓ Login successful! Welcome, {user_email}")
-            
+
             # Store user in database
             if user_info:
-                from autoclean.utils.database import manage_database_with_audit_protection, set_database_path
+                from autoclean.utils.database import (
+                    manage_database_with_audit_protection,
+                    set_database_path,
+                )
                 from autoclean.utils.user_config import user_config
-                
+
                 # Set database path for the operation
                 output_dir = user_config.get_default_output_dir()
                 output_dir.mkdir(parents=True, exist_ok=True)
                 set_database_path(output_dir)
-                
+
                 # Initialize database with all tables (including new auth tables)
                 manage_database_with_audit_protection("create_collection")
-                
+
                 user_record = {
                     "auth0_user_id": user_info.get("sub"),
                     "email": user_info.get("email"),
                     "name": user_info.get("name"),
-                    "user_metadata": user_info
+                    "user_metadata": user_info,
                 }
-                manage_database_with_audit_protection("store_authenticated_user", user_record)
-            
+                manage_database_with_audit_protection(
+                    "store_authenticated_user", user_record
+                )
+
             return 0
         else:
             message("error", "Login failed. Please try again.")
             return 1
-            
+
     except Exception as e:
         message("error", f"Login error: {e}")
         return 1
@@ -1515,25 +1834,27 @@ def cmd_logout(args) -> int:
     """Execute the logout command."""
     try:
         from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-        
+
         if not is_compliance_mode_enabled():
-            message("info", "Compliance mode is not enabled. No authentication to clear.")
+            message(
+                "info", "Compliance mode is not enabled. No authentication to clear."
+            )
             return 0
-        
+
         auth_manager = get_auth0_manager()
-        
+
         if not auth_manager.is_authenticated():
             message("info", "Not currently logged in.")
             return 0
-        
+
         user_info = auth_manager.get_current_user()
-        user_email = user_info.get('email', 'Unknown') if user_info else 'Unknown'
-        
+        user_email = user_info.get("email", "Unknown") if user_info else "Unknown"
+
         auth_manager.logout()
         message("success", f"✓ Logged out successfully. Goodbye, {user_email}!")
-        
+
         return 0
-        
+
     except Exception as e:
         message("error", f"Logout error: {e}")
         return 1
@@ -1543,26 +1864,29 @@ def cmd_whoami(args) -> int:
     """Execute the whoami command."""
     try:
         from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-        
+
         if not is_compliance_mode_enabled():
             message("info", "Compliance mode: Disabled")
             message("info", "Authentication: Not required")
             return 0
-        
+
         auth_manager = get_auth0_manager()
-        
+
         if not auth_manager.is_configured():
             message("info", "Compliance mode: Enabled")
             message("info", "Authentication: Not configured")
-            message("info", "Run 'autoclean setup --compliance-mode' to configure Auth0.")
+            message(
+                "info",
+                "Run 'autoclean-eeg setup --compliance-mode' to configure Auth0.",
+            )
             return 0
-        
+
         if not auth_manager.is_authenticated():
             message("info", "Compliance mode: Enabled")
             message("info", "Authentication: Not logged in")
-            message("info", "Run 'autoclean login' to authenticate.")
+            message("info", "Run 'autoclean-eeg login' to authenticate.")
             return 0
-        
+
         user_info = auth_manager.get_current_user()
         if user_info:
             message("info", "Compliance mode: Enabled")
@@ -1570,19 +1894,361 @@ def cmd_whoami(args) -> int:
             message("info", f"Email: {user_info.get('email', 'Unknown')}")
             message("info", f"Name: {user_info.get('name', 'Unknown')}")
             message("info", f"User ID: {user_info.get('sub', 'Unknown')}")
-            
+
             # Check token expiration
-            if hasattr(auth_manager, 'token_expires_at') and auth_manager.token_expires_at:
-                from datetime import datetime
-                expires_str = auth_manager.token_expires_at.strftime("%Y-%m-%d %H:%M:%S")
+            if (
+                hasattr(auth_manager, "token_expires_at")
+                and auth_manager.token_expires_at
+            ):
+
+                expires_str = auth_manager.token_expires_at.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
                 message("info", f"Token expires: {expires_str}")
         else:
             message("warning", "User information unavailable")
-        
+
         return 0
-        
+
     except Exception as e:
         message("error", f"Error checking authentication status: {e}")
+        return 1
+
+
+def cmd_auth0_diagnostics(args) -> int:
+    """Execute the auth0-diagnostics command."""
+    try:
+        import os
+        from pathlib import Path
+
+        import requests
+        from rich.console import Console
+        from rich.table import Table
+
+        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+
+        console = Console()
+
+        # Header
+        console.print("\n🔍 [bold]Auth0 Configuration Diagnostics[/bold]", style="blue")
+        console.print("[dim]Checking Auth0 setup and connectivity...[/dim]\n")
+
+        # 1. Check compliance mode
+        compliance_enabled = is_compliance_mode_enabled()
+        console.print(
+            f"✓ Compliance mode: {'[green]Enabled[/green]' if compliance_enabled else '[yellow]Disabled[/yellow]'}"
+        )
+
+        if not compliance_enabled:
+            console.print(
+                "[yellow]ℹ[/yellow] Auth0 is only used in compliance mode. Run 'autoclean-eeg setup --compliance-mode' to enable."
+            )
+            return 0
+
+        # 2. Check environment variables
+        console.print("\n📋 [bold]Environment Variables[/bold]")
+        env_table = Table(show_header=True, header_style="bold blue")
+        env_table.add_column("Variable", style="cyan", no_wrap=True)
+        env_table.add_column("Status", style="green")
+        env_table.add_column("Value Preview", style="dim")
+
+        env_vars = [
+            ("AUTOCLEAN_AUTH0_DOMAIN", os.getenv("AUTOCLEAN_AUTH0_DOMAIN")),
+            ("AUTOCLEAN_AUTH0_CLIENT_ID", os.getenv("AUTOCLEAN_AUTH0_CLIENT_ID")),
+            (
+                "AUTOCLEAN_AUTH0_CLIENT_SECRET",
+                os.getenv("AUTOCLEAN_AUTH0_CLIENT_SECRET"),
+            ),
+            ("AUTOCLEAN_AUTH0_AUDIENCE", os.getenv("AUTOCLEAN_AUTH0_AUDIENCE")),
+            ("AUTOCLEAN_DEVELOPMENT_MODE", os.getenv("AUTOCLEAN_DEVELOPMENT_MODE")),
+        ]
+
+        for var_name, var_value in env_vars:
+            if var_value:
+                if "SECRET" in var_name:
+                    preview = f"{var_value[:8]}..." if len(var_value) > 8 else "***"
+                elif len(var_value) > 30:
+                    preview = f"{var_value[:30]}..."
+                else:
+                    preview = var_value
+                env_table.add_row(var_name, "✓ Set", preview)
+            else:
+                env_table.add_row(var_name, "[red]✗ Not Set[/red]", "")
+
+        console.print(env_table)
+
+        # 3. Check .env file
+        console.print("\n📄 [bold].env File Detection[/bold]")
+        env_paths = [
+            Path(".env"),
+            Path(".env.local"),
+            Path("../.env"),
+            Path("../../.env"),
+        ]
+        env_found = False
+        for env_path in env_paths:
+            if env_path.exists():
+                console.print(f"✓ Found .env file: [cyan]{env_path.absolute()}[/cyan]")
+                env_found = True
+                if args.verbose:
+                    try:
+                        with open(env_path, "r") as f:
+                            content = f.read()
+                            auth_lines = [
+                                line
+                                for line in content.split("\n")
+                                if "AUTOCLEAN_AUTH0" in line
+                                and not line.strip().startswith("#")
+                            ]
+                            if auth_lines:
+                                console.print("[dim]  Auth0 variables in file:[/dim]")
+                                for line in auth_lines:
+                                    # Mask secrets
+                                    if "SECRET" in line and "=" in line:
+                                        key, value = line.split("=", 1)
+                                        masked_value = (
+                                            f"{value[:8]}..."
+                                            if len(value) > 8
+                                            else "***"
+                                        )
+                                        console.print(
+                                            f"[dim]    {key}={masked_value}[/dim]"
+                                        )
+                                    else:
+                                        console.print(f"[dim]    {line}[/dim]")
+                    except Exception as e:
+                        console.print(f"[red]  Error reading file: {e}[/red]")
+                break
+
+        if not env_found:
+            console.print(
+                "[yellow]⚠[/yellow] No .env file found in current or parent directories"
+            )
+
+        # 4. Test credential loading
+        console.print("\n🔧 [bold]Credential Loading Test[/bold]")
+        try:
+            auth_manager = get_auth0_manager()
+            credentials = auth_manager._load_developer_credentials()
+
+            if credentials:
+                console.print("✓ Credentials loaded successfully")
+                console.print(
+                    f"  Source: [cyan]{credentials.get('source', 'unknown')}[/cyan]"
+                )
+                console.print(
+                    f"  Domain: [cyan]{credentials.get('domain', 'NOT FOUND')}[/cyan]"
+                )
+                client_id = credentials.get("client_id", "NOT FOUND")
+                if client_id != "NOT FOUND":
+                    console.print(f"  Client ID: [cyan]{client_id[:8]}...[/cyan]")
+                else:
+                    console.print(f"  Client ID: [red]{client_id}[/red]")
+            else:
+                console.print("[red]✗ Failed to load credentials[/red]")
+                console.print(
+                    "[yellow]  Try setting environment variables or checking .env file[/yellow]"
+                )
+        except Exception as e:
+            console.print(f"[red]✗ Error loading credentials: {e}[/red]")
+
+        # 5. Test Auth0 domain connectivity
+        console.print("\n🌐 [bold]Domain Connectivity Test[/bold]")
+        openid_accessible = False
+        connectivity_error = None
+
+        try:
+            # Get fresh credentials to ensure we test the correct domain
+            auth_manager = get_auth0_manager()
+            credentials = auth_manager._load_developer_credentials()
+
+            if credentials and credentials.get("domain"):
+                domain = credentials["domain"]
+                console.print(f"Testing connection to: [cyan]{domain}[/cyan]")
+
+                # Test basic connectivity
+                try:
+                    response = requests.get(f"https://{domain}", timeout=10)
+                    if response.status_code in [
+                        200,
+                        404,
+                        403,
+                    ]:  # Any of these indicates domain exists
+                        console.print("✓ Domain is reachable")
+                        if args.verbose:
+                            console.print(f"  HTTP Status: {response.status_code}")
+                            console.print(
+                                f"  Response time: {response.elapsed.total_seconds():.2f}s"
+                            )
+                    else:
+                        connectivity_error = (
+                            f"Unexpected status code: {response.status_code}"
+                        )
+                        console.print(f"[yellow]⚠[/yellow] {connectivity_error}")
+                except requests.Timeout:
+                    connectivity_error = "Connection timeout"
+                    console.print(f"[red]✗ {connectivity_error}[/red]")
+                except requests.ConnectionError:
+                    connectivity_error = "Connection failed - check domain name"
+                    console.print(f"[red]✗ {connectivity_error}[/red]")
+                except Exception as e:
+                    connectivity_error = f"Connection error: {e}"
+                    console.print(f"[red]✗ {connectivity_error}[/red]")
+
+                # Test Auth0 authorization endpoint (what login actually uses)
+                try:
+                    auth_url = f"https://{domain}/authorize"
+                    response = requests.get(auth_url, timeout=10, allow_redirects=False)
+                    # Auth0 authorize endpoint should return 400 (missing parameters) or redirect, not 404
+                    if response.status_code in [400, 302, 301]:
+                        openid_accessible = True
+                        console.print("✓ Auth0 authorization endpoint accessible")
+                        if args.verbose:
+                            console.print(f"  Authorization URL: {auth_url}")
+                            console.print(f"  Response status: {response.status_code}")
+                    else:
+                        console.print(
+                            f"[yellow]⚠[/yellow] Auth0 authorization endpoint unexpected status: {response.status_code}"
+                        )
+
+                    # Also test the well-known endpoint (optional)
+                    well_known_url = (
+                        f"https://{domain}/.well-known/openid_configuration"
+                    )
+                    response = requests.get(well_known_url, timeout=5)
+                    if response.status_code == 200:
+                        console.print("✓ OpenID configuration also accessible")
+                        if args.verbose:
+                            config = response.json()
+                            console.print(
+                                f"  Issuer: {config.get('issuer', 'unknown')}"
+                            )
+                    else:
+                        console.print(
+                            f"[dim]ℹ OpenID config not available (status: {response.status_code}) - this is optional[/dim]"
+                        )
+
+                except Exception as e:
+                    console.print(
+                        f"[yellow]⚠[/yellow] Could not test Auth0 endpoints: {e}"
+                    )
+            else:
+                connectivity_error = "No domain configured"
+                console.print("[red]✗ No domain configured[/red]")
+        except Exception as e:
+            connectivity_error = f"Error testing connectivity: {e}"
+            console.print(f"[red]✗ {connectivity_error}[/red]")
+
+        # 6. Configuration summary
+        console.print("\n📊 [bold]Configuration Summary[/bold]")
+        try:
+            auth_manager = get_auth0_manager()
+            # Ensure configuration is loaded from environment/credentials
+            credentials = auth_manager._load_developer_credentials()
+            if credentials and not auth_manager.is_configured():
+                auth_manager.configure_developer_auth0()
+
+            summary_table = Table(show_header=True, header_style="bold blue")
+            summary_table.add_column("Component", style="cyan")
+            summary_table.add_column("Status", style="green")
+            summary_table.add_column("Details", style="dim")
+
+            # Check if configured
+            is_configured = auth_manager.is_configured()
+            summary_table.add_row(
+                "Auth0 Configuration",
+                "✓ Valid" if is_configured else "[red]✗ Invalid[/red]",
+                "Ready for login" if is_configured else "Missing required credentials",
+            )
+
+            # Check authentication status
+            is_authenticated = auth_manager.is_authenticated()
+            summary_table.add_row(
+                "Authentication",
+                "✓ Logged in" if is_authenticated else "[yellow]Not logged in[/yellow]",
+                "Valid session" if is_authenticated else "Run 'autoclean-eeg login'",
+            )
+
+            # Check config file
+            config_file = auth_manager.config_file
+            config_exists = config_file.exists()
+            summary_table.add_row(
+                "Config File",
+                "✓ Exists" if config_exists else "[yellow]Not found[/yellow]",
+                str(config_file) if config_exists else "Will be created on first setup",
+            )
+
+            console.print(summary_table)
+
+        except Exception as e:
+            console.print(f"[red]Error generating summary: {e}[/red]")
+
+        # 7. Recommendations
+        console.print("\n💡 [bold]Recommendations[/bold]")
+        try:
+            auth_manager = get_auth0_manager()
+            credentials = auth_manager._load_developer_credentials()
+
+            if not credentials:
+                console.print("1. Set Auth0 environment variables:")
+                console.print(
+                    '   [cyan]export AUTOCLEAN_AUTH0_DOMAIN="your-tenant.us.auth0.com"[/cyan]'
+                )
+                console.print(
+                    '   [cyan]export AUTOCLEAN_AUTH0_CLIENT_ID="your_client_id"[/cyan]'
+                )
+                console.print(
+                    '   [cyan]export AUTOCLEAN_AUTH0_CLIENT_SECRET="your_client_secret"[/cyan]'
+                )
+                console.print("2. Or create a .env file with these variables")
+                console.print(
+                    "3. Install python-dotenv if using .env: [cyan]pip install python-dotenv[/cyan]"
+                )
+            elif connectivity_error:
+                # Don't recommend login if there are connectivity issues
+                console.print(
+                    f"[red]⚠ Auth0 connectivity issue detected:[/red] {connectivity_error}"
+                )
+                console.print("")
+                console.print("Please check:")
+                console.print("1. Verify your Auth0 domain is correct in .env file")
+                console.print("2. Ensure your Auth0 application is properly configured")
+                console.print(
+                    "3. Check that your Auth0 application type is 'Native' (for CLI apps)"
+                )
+                console.print("4. Verify your Auth0 tenant is active and accessible")
+                console.print("")
+                console.print(
+                    "Once connectivity is fixed, run [cyan]autoclean-eeg login[/cyan] to authenticate"
+                )
+            elif not openid_accessible:
+                console.print(
+                    "[yellow]⚠ Auth0 OpenID configuration not accessible[/yellow]"
+                )
+                console.print("")
+                console.print("This may indicate:")
+                console.print("1. Auth0 domain is incorrect")
+                console.print("2. Auth0 application is not properly configured")
+                console.print("3. Network or firewall issues")
+                console.print("")
+                console.print(
+                    "You can try [cyan]autoclean-eeg login[/cyan] but it may fail"
+                )
+            elif not auth_manager.is_authenticated():
+                console.print("✓ Configuration looks good!")
+                console.print("1. Run [cyan]autoclean-eeg login[/cyan] to authenticate")
+            else:
+                console.print(
+                    "✓ Configuration looks good! You're ready to use Auth0 authentication."
+                )
+
+        except Exception as e:
+            console.print(f"[red]Error generating recommendations: {e}[/red]")
+
+        return 0
+
+    except Exception as e:
+        message("error", f"Diagnostics error: {e}")
         return 1
 
 
@@ -1626,6 +2292,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_logout(args)
     elif args.command == "whoami":
         return cmd_whoami(args)
+    elif args.command == "auth0-diagnostics":
+        return cmd_auth0_diagnostics(args)
     elif args.command == "version":
         return cmd_version(args)
     elif args.command == "help":

@@ -631,7 +631,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
         }
 
         run_id = autoclean_dict["run_id"]
-        manage_database(
+        manage_database_with_audit_protection(
             operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
     else:
