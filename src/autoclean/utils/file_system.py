@@ -32,9 +32,13 @@ def step_prepare_directories(
     # Generate directory name - use dataset_name + timestamp if provided, otherwise task name
     if dataset_name:
         from datetime import datetime
+
         timestamp = datetime.now().strftime("%m-%d-%Y")
         dir_name = f"{dataset_name}_{timestamp}"
-        message("header", f"Setting up BIDS-compliant directories for dataset: {dataset_name} (task: {task})")
+        message(
+            "header",
+            f"Setting up BIDS-compliant directories for dataset: {dataset_name} (task: {task})",
+        )
     else:
         dir_name = task
         message("header", f"Setting up BIDS-compliant directories for task: {task}")
@@ -47,9 +51,10 @@ def step_prepare_directories(
 
     # BIDS-compliant directory structure - everything under derivatives
     bids_root = autoclean_dir / dir_name / "bids"
-    
+
     # Import version for derivatives directory naming
     from autoclean import __version__
+
     derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
 
     dirs = {

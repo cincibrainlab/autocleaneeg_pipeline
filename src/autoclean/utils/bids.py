@@ -181,8 +181,13 @@ def step_convert_to_bids(
     # Create BIDS-compliant derivatives directory structure (outside the lock).
     # Import version only once at the top of function to avoid repeated imports
     from autoclean import __version__
+
     derivatives_dir = (
-        bids_root / "derivatives" / f"autoclean-v{__version__}" / f"sub-{subject_id}" / "eeg"
+        bids_root
+        / "derivatives"
+        / f"autoclean-v{__version__}"
+        / f"sub-{subject_id}"
+        / "eeg"
     )
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message(
