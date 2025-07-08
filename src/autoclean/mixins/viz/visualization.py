@@ -197,8 +197,8 @@ class VisualizationMixin:
 
         # Create Artifact Report
         derivatives_dir = self.config["derivatives_dir"]
-        basename = self.config["bids_path"].basename
-        basename = basename.replace("_eeg", "_raw_vs_cleaned_overlay")
+        basename = self.config["unprocessed_file"].stem
+        basename = f"{basename}_raw_vs_cleaned_overlay"
         target_figure = derivatives_dir / f"{basename}.png"
 
         # Save as PNG with high DPI for quality
@@ -750,8 +750,8 @@ class VisualizationMixin:
 
         # Create Artifact Report
         derivatives_dir = self.config["derivatives_dir"]
-        basename = self.config["bids_path"].basename
-        basename = basename.replace("_eeg", "_psd_topo_figure")
+        basename = self.config["unprocessed_file"].stem
+        basename = f"{basename}_psd_topo_figure"
         target_figure = derivatives_dir / f"{basename}.png"
 
         # Count number of EEG channels
