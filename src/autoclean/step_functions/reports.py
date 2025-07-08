@@ -742,12 +742,12 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
             if isinstance(flagged_reasons, list) and flagged_reasons:
                 for reason in flagged_reasons:
                     flagged_reasons_data.append([reason])
-        
+
         # Also check metadata for flags from the task processing log update
         elif "processing_log" in run_record.get("metadata", {}):
             # Try to get flags from processing log metadata if available
             pass  # This would require reading the CSV file, keeping it simple for now
-            
+
     except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing flagged reasons: {str(e)}")
         flagged_reasons_data = [["Error processing flagged reasons"]]
@@ -755,7 +755,7 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     # Only add flagged reasons section if there are any flags
     if flagged_reasons_data:
         story.append(Paragraph("Quality Control Flags", heading_style))
-        
+
         # Create flagged reasons table with background styling
         flagged_reasons_table = ReportLabTable(
             [[Paragraph("Flagged Reason", heading_style)]] + flagged_reasons_data,
@@ -769,9 +769,19 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
                     ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                     ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
-                    ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#FDF2F2")),  # Light red background for flags
+                    (
+                        "BACKGROUND",
+                        (0, 1),
+                        (-1, -1),
+                        colors.HexColor("#FDF2F2"),
+                    ),  # Light red background for flags
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
-                    ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#E74C3C")),  # Red text for flags
+                    (
+                        "TEXTCOLOR",
+                        (0, 1),
+                        (-1, -1),
+                        colors.HexColor("#E74C3C"),
+                    ),  # Red text for flags
                     ("TOPPADDING", (0, 0), (-1, -1), 2),
                     ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
                     ("LEFTPADDING", (0, 0), (-1, -1), 6),
@@ -1385,56 +1395,90 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
 
     # FIND ICA DETAILS - collect from multiple step names
     ica_details = {}
-    
+
     # Get total component count from ICA fitting step
     if "step_run_ica" in metadata:
         ica_run_metadata = metadata["step_run_ica"]
-        message("debug", f"step_run_ica metadata structure: {list(ica_run_metadata.keys())}")
+        message(
+            "debug", f"step_run_ica metadata structure: {list(ica_run_metadata.keys())}"
+        )
         # Access nested 'ica' metadata structure
         if "ica" in ica_run_metadata:
             ica_nested = ica_run_metadata["ica"]
             ica_details["proc_nComps"] = ica_nested.get("ica_components", "")
             ica_details["ica_method"] = ica_nested.get("ica_method", "")
-            message("debug", f"Found ICA components from nested structure: {ica_details['proc_nComps']}")
+            message(
+                "debug",
+                f"Found ICA components from nested structure: {ica_details['proc_nComps']}",
+            )
         else:
             # Fallback to direct access for legacy metadata
             ica_details["proc_nComps"] = ica_run_metadata.get("ica_components", "")
             ica_details["ica_method"] = ica_run_metadata.get("ica_method", "")
-            message("debug", f"Found ICA components from legacy structure: {ica_details['proc_nComps']}")
-    
+            message(
+                "debug",
+                f"Found ICA components from legacy structure: {ica_details['proc_nComps']}",
+            )
+
     # Get classification method from classification step
     if "classify_ica_components" in metadata:
         ica_classify_metadata = metadata["classify_ica_components"]
-        message("debug", f"classify_ica_components metadata structure: {list(ica_classify_metadata.keys())}")
+        message(
+            "debug",
+            f"classify_ica_components metadata structure: {list(ica_classify_metadata.keys())}",
+        )
         # Access nested 'ica' metadata structure
         if "ica" in ica_classify_metadata:
             ica_nested = ica_classify_metadata["ica"]
-            ica_details["classification_method"] = ica_nested.get("classification_method", "")
+            ica_details["classification_method"] = ica_nested.get(
+                "classification_method", ""
+            )
             # Also get component count from here if not found above
             if "proc_nComps" not in ica_details:
                 ica_details["proc_nComps"] = ica_nested.get("ica_components", "")
-            message("debug", f"Found ICA classification method from nested structure: {ica_details.get('classification_method', 'N/A')}")
+            message(
+                "debug",
+                f"Found ICA classification method from nested structure: {ica_details.get('classification_method', 'N/A')}",
+            )
         else:
             # Fallback to direct access for legacy metadata
-            ica_details["classification_method"] = ica_classify_metadata.get("classification_method", "")
+            ica_details["classification_method"] = ica_classify_metadata.get(
+                "classification_method", ""
+            )
             if "proc_nComps" not in ica_details:
-                ica_details["proc_nComps"] = ica_classify_metadata.get("ica_components", "")
-            message("debug", f"Found ICA classification method from legacy structure: {ica_details.get('classification_method', 'N/A')}")
-    
+                ica_details["proc_nComps"] = ica_classify_metadata.get(
+                    "ica_components", ""
+                )
+            message(
+                "debug",
+                f"Found ICA classification method from legacy structure: {ica_details.get('classification_method', 'N/A')}",
+            )
+
     # Get rejected components from rejection step
     if "step_apply_ica_component_rejection" in metadata:
         ica_rejection_metadata = metadata["step_apply_ica_component_rejection"]
-        message("debug", f"step_apply_ica_component_rejection metadata structure: {list(ica_rejection_metadata.keys())}")
+        message(
+            "debug",
+            f"step_apply_ica_component_rejection metadata structure: {list(ica_rejection_metadata.keys())}",
+        )
         # Access nested 'ica' metadata structure (same as other ICA steps)
         if "ica" in ica_rejection_metadata:
             ica_nested = ica_rejection_metadata["ica"]
             rejected_components = ica_nested.get("final_excluded_indices", [])
-            message("debug", f"Found rejected components from nested structure: {rejected_components}")
+            message(
+                "debug",
+                f"Found rejected components from nested structure: {rejected_components}",
+            )
         else:
             # Fallback to direct access for legacy metadata
-            rejected_components = ica_rejection_metadata.get("final_excluded_indices", [])
-            message("debug", f"Found rejected components from legacy structure: {rejected_components}")
-        
+            rejected_components = ica_rejection_metadata.get(
+                "final_excluded_indices", []
+            )
+            message(
+                "debug",
+                f"Found rejected components from legacy structure: {rejected_components}",
+            )
+
         ica_details["proc_removeComps"] = rejected_components
         # Also record number of rejected components
         if isinstance(rejected_components, list):

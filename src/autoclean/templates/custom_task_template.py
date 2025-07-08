@@ -22,17 +22,15 @@ from autoclean.core.task import Task
 config = {
     # Optional: Specify a dataset name for organized output directories
     # Examples:
-    #   With dataset_name: "Experiment1_07-03-2025" 
+    #   With dataset_name: "Experiment1_07-03-2025"
     #   Without dataset_name: "CustomTask"
     "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
-    
     # Optional: Specify default input file or directory for this task
     # This will be used when no input is provided via CLI or API
     # Examples:
     #   "input_path": "/path/to/my/data.raw",           # Single file
-    #   "input_path": "/path/to/data/directory/",       # Directory  
+    #   "input_path": "/path/to/data/directory/",       # Directory
     "input_path": "/path/to/my/data/",  # Uncomment and modify for your data
-    
     "resample_step": {"enabled": True, "value": 250},  # Resample to 250 Hz
     "filtering": {
         "enabled": True,
@@ -74,8 +72,8 @@ config = {
     },
     "component_rejection": {
         "enabled": True,
+        "method": "iclabel",  # Classification method: 'iclabel' or 'icvision'
         "value": {
-            "method": "iclabel",  # Classification method: 'iclabel' or 'icvision'
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
             "ic_rejection_threshold": 0.3,  # Threshold for automatic rejection
         },
@@ -148,7 +146,6 @@ class CustomTask(Task):
         # ICA processing with optional export
         self.run_ica()
         self.classify_ica_components()  # Uses method from component_rejection config
-        # Alternative: self.run_ICLabel()  # Legacy method (still supported)
 
         # Epoching with export
         self.create_regular_epochs()  # Using auto-detected or configured event IDs

@@ -380,7 +380,7 @@ def apply_ica_component_rejection(
         for idx in rejected_components:
             current_exclusions.add(idx)
         ica_copy.exclude = sorted(list(current_exclusions))
-        
+
         # Also update the original ICA object so the mixin can access the excluded components
         ica.exclude = ica_copy.exclude.copy()
 
