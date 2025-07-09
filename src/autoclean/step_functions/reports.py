@@ -1109,19 +1109,9 @@ def update_task_processing_log(
             message("error", f"Error saving CSV: {str(save_err)}")
             return
 
-        # Update run record with CSV path
-        try:
-            # Note: Database update removed to avoid audit record conflicts
-            # Processing log metadata would be included in completion update if needed
-            # metadata = {
-            #     "processing_log": {
-            #         "creationDateTime": datetime.now().isoformat(),
-            #         "csv_path": str(csv_path),
-            #     }
-            # }
-            
-        except Exception as db_err:  # pylint: disable=broad-except
-            message("error", f"Error updating database: {str(db_err)}")
+        # Note: Database update removed to avoid audit record conflicts
+        # Processing log metadata would be included in completion update if needed
+        # The CSV file has been successfully created above
 
     except Exception as e:  # pylint: disable=broad-except
         message(
