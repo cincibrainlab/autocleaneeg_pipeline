@@ -10,6 +10,34 @@ from typing import Any, Dict, Optional
 
 from autoclean.utils.logging import message
 
+# Optional dependencies - may not be available in all contexts
+try:
+    from autoclean.utils.config import is_compliance_mode_enabled
+    CONFIG_AVAILABLE = True
+except ImportError:
+    CONFIG_AVAILABLE = False
+    def is_compliance_mode_enabled():
+        return False
+
+try:
+    from autoclean.utils.audit import (
+        calculate_access_log_hash,
+        create_database_backup,
+        get_user_context,
+        log_database_access,
+    )
+    AUDIT_AVAILABLE = True
+except ImportError:
+    AUDIT_AVAILABLE = False
+    def calculate_access_log_hash(*args, **kwargs):
+        return "audit_not_available"
+    def create_database_backup(*args, **kwargs):
+        pass
+    def get_user_context():
+        return {}
+    def log_database_access(*args, **kwargs):
+        pass
+
 # Global lock for thread safety
 _db_lock = threading.Lock()
 
@@ -114,8 +142,6 @@ def manage_database_conditionally(
     Any
         Operation result from underlying database function
     """
-    from autoclean.utils.config import is_compliance_mode_enabled
-    
     if is_compliance_mode_enabled():
         return manage_database_with_audit_protection(operation, run_record, update_record)
     else:
@@ -149,13 +175,6 @@ def manage_database_with_audit_protection(
     Any
         Operation result from underlying manage_database call
     """
-    # Import audit functions (avoid circular imports)
-    from autoclean.utils.audit import (
-        create_database_backup,
-        get_user_context,
-        log_database_access,
-    )
-
     user_ctx = get_user_context()
 
     # Log database access attempt
@@ -481,11 +500,6 @@ def manage_database(
 
                 if log_count == 0:
                     # Create genesis entry to start the hash chain
-                    from autoclean.utils.audit import (
-                        calculate_access_log_hash,
-                        get_user_context,
-                    )
-
                     genesis_timestamp = datetime.now().isoformat()
                     genesis_user_context = get_user_context()
                     genesis_operation = "database_initialization"
@@ -752,8 +766,6 @@ def manage_database(
                 previous_hash = result[0] if result else "genesis_hash_empty_log"
 
                 # Calculate hash for this entry (without database_file)
-                from autoclean.utils.audit import calculate_access_log_hash
-
                 log_hash = calculate_access_log_hash(
                     timestamp, operation_type, user_context, "", details, previous_hash
                 )

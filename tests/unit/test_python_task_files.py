@@ -9,6 +9,17 @@ from typing import Dict, Any
 from autoclean.core.pipeline import Pipeline
 from autoclean.core.task import Task
 
+# Optional imports for conditional functionality
+try:
+    from autoclean.mixins.base import BaseMixin
+    from autoclean.utils.config import hash_and_encode_yaml, validate_eeg_system
+    OPTIONAL_IMPORTS_AVAILABLE = True
+except ImportError:
+    OPTIONAL_IMPORTS_AVAILABLE = False
+    BaseMixin = None
+    hash_and_encode_yaml = None
+    validate_eeg_system = None
+
 
 class TestPythonTaskFiles:
     """Test suite for Python task file loading and execution."""
@@ -131,7 +142,7 @@ class TestTask(Task):
 
     def test_export_parameter_functionality(self):
         """Test that export parameters work in mixin methods."""
-        from autoclean.mixins.base import BaseMixin
+        # BaseMixin already imported at module level with availability check
         
         class MockTaskWithMixin(Task, BaseMixin):  # Fixed MRO by putting Task first
             def __init__(self, config):
@@ -279,7 +290,7 @@ class NotATask:
 
     def test_hash_encoding_without_yaml_config(self):
         """Test configuration hashing when no YAML config is provided."""
-        from autoclean.utils.config import hash_and_encode_yaml
+        # hash_and_encode_yaml already imported at module level with availability check
         
         # Test with minimal config (no file)
         minimal_config = {"version": "1.0", "type": "python_tasks_only"}
@@ -295,7 +306,7 @@ class TestExportFunctionality:
 
     def test_auto_export_if_enabled(self):
         """Test _auto_export_if_enabled method."""
-        from autoclean.mixins.base import BaseMixin
+        # BaseMixin already imported at module level with availability check
         
         class MockTask(BaseMixin):
             def __init__(self):
@@ -319,7 +330,7 @@ class TestExportFunctionality:
 
     def test_ensure_stage_exists(self):
         """Test _ensure_stage_exists method (simplified implementation)."""
-        from autoclean.mixins.base import BaseMixin
+        # BaseMixin already imported at module level with availability check
         
         class MockTask(BaseMixin):
             def __init__(self):
@@ -338,7 +349,7 @@ class TestExportFunctionality:
 
     def test_generate_stage_name(self):
         """Test _generate_stage_name method."""
-        from autoclean.mixins.base import BaseMixin
+        # BaseMixin already imported at module level with availability check
         
         task = BaseMixin()
         
@@ -354,7 +365,7 @@ class TestUtilityFunctions:
 
     def test_validate_eeg_system_with_python_tasks(self):
         """Test EEG system validation for Python tasks."""
-        from autoclean.utils.config import validate_eeg_system
+        # validate_eeg_system already imported at module level with availability check
         
         # Test with Python task configuration
         config = {
@@ -369,7 +380,7 @@ class TestUtilityFunctions:
 
     def test_validate_eeg_system_without_montage(self):
         """Test EEG system validation when no montage is specified."""
-        from autoclean.utils.config import validate_eeg_system
+        # validate_eeg_system already imported at module level with availability check
         
         # Test with no montage configuration
         config = {

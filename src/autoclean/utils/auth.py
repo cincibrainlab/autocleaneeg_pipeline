@@ -22,8 +22,24 @@ from auth0.exceptions import Auth0Error
 from cryptography.fernet import Fernet
 from platformdirs import user_config_dir
 
-from autoclean.utils.logging import message
+# Try to import optional dependencies
+try:
+    from dotenv import load_dotenv
+    DOTENV_AVAILABLE = True
+except ImportError:
+    DOTENV_AVAILABLE = False
+
+try:
+    from ulid import ULID
+    ULID_AVAILABLE = True
+except ImportError:
+    ULID_AVAILABLE = False
+
+# Import local modules
+from autoclean.utils.audit import get_user_context
 from autoclean.utils.config import is_compliance_mode_enabled
+from autoclean.utils.database import manage_database_conditionally
+from autoclean.utils.logging import message
 
 
 class AuthCallbackHandler(BaseHTTPRequestHandler):
@@ -315,9 +331,10 @@ class Auth0Manager:
         This is the primary method for loading credentials in development and
         production environments. Searches multiple common .env file locations.
         """
-        try:
-            from dotenv import load_dotenv
+        if not DOTENV_AVAILABLE:
+            return None
 
+        try:
             # Look for .env file in current directory and parent directories
             env_paths = [
                 Path(".env"),
@@ -768,9 +785,8 @@ def create_electronic_signature(
         return None
 
     try:
-        from ulid import ULID
-
-        from autoclean.utils.database import manage_database_conditionally
+        if not ULID_AVAILABLE:
+            return None
 
         signature_id = str(ULID())
         current_time = datetime.now()
@@ -820,16 +836,12 @@ def get_current_user_for_audit() -> Dict[str, Any]:
     """
     if not is_compliance_mode_enabled():
         # Return basic system info for non-compliance mode
-        from autoclean.utils.audit import get_user_context
-
         return get_user_context()
 
     auth_manager = get_auth0_manager()
 
     if not auth_manager.is_authenticated():
         # Return basic info but mark as unauthenticated
-        from autoclean.utils.audit import get_user_context
-
         basic_context = get_user_context()
         basic_context["compliance_mode"] = True
         basic_context["authenticated"] = False
@@ -837,16 +849,12 @@ def get_current_user_for_audit() -> Dict[str, Any]:
 
     user_info = auth_manager.get_current_user()
     if not user_info:
-        from autoclean.utils.audit import get_user_context
-
         basic_context = get_user_context()
         basic_context["compliance_mode"] = True
         basic_context["authenticated"] = False
         return basic_context
 
     # Return enhanced user context for compliance mode
-    from autoclean.utils.audit import get_user_context
-
     basic_context = get_user_context()
 
     enhanced_context = {

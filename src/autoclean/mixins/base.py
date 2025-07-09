@@ -11,6 +11,7 @@ of concerns. This modular approach allows for flexible composition of processing
 functionality across different task types.
 """
 
+import inspect
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
@@ -345,8 +346,6 @@ class BaseMixin:
         Returns:
             Name of the method that called this function
         """
-        import inspect
-
         frame = inspect.currentframe()
         try:
             # Go up the call stack to find the calling method

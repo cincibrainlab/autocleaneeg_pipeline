@@ -5,6 +5,7 @@ channel dropping, time cropping, edge trimming, and channel type assignment.
 """
 
 from typing import Dict, List, Optional, Union
+import warnings
 
 import mne
 
@@ -74,8 +75,6 @@ def drop_channels(
         if on_missing == "raise":
             raise ValueError(f"Channels not found in data: {missing_channels}")
         elif on_missing == "warn":
-            import warnings
-
             warnings.warn(f"Channels not found in data: {missing_channels}")
 
     if not existing_channels:

@@ -13,6 +13,7 @@ try:
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
+    Pipeline = None
 
 
 @pytest.mark.skipif(not PIPELINE_AVAILABLE, reason="Pipeline module not available for import")  
@@ -216,7 +217,7 @@ class TestPipelineInterface:
         if not PIPELINE_AVAILABLE:
             pytest.skip("Pipeline not importable, testing interface conceptually")
         
-        from autoclean.core.pipeline import Pipeline
+        # Pipeline already imported at module level
         
         # Test that expected methods exist
         expected_methods = [
@@ -237,7 +238,7 @@ class TestPipelineInterface:
         if not PIPELINE_AVAILABLE:
             pytest.skip("Pipeline not importable, testing attributes conceptually")
         
-        from autoclean.core.pipeline import Pipeline
+        # Pipeline already imported at module level
         
         # Test that expected attributes exist
         expected_attrs = ['TASK_REGISTRY']

@@ -4,15 +4,27 @@
 import getpass
 import gzip
 import hashlib
+import inspect
 import json
 import os
 import shutil
 import socket
+import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Tuple
 
 from autoclean.utils.logging import message
+
+# Optional dependencies - may not be available in all contexts
+try:
+    from autoclean.utils.database import DB_PATH, manage_database
+    DATABASE_AVAILABLE = True
+except ImportError:
+    DATABASE_AVAILABLE = False
+    DB_PATH = None
+    def manage_database(*args, **kwargs):
+        return None
 
 
 def get_user_context() -> Dict[str, Any]:
@@ -274,9 +286,6 @@ def log_database_access(
     --------
     >>> log_database_access("store", get_user_context(), {"run_id": "ABC123"})
     """
-    # Import here to avoid circular imports
-    from autoclean.utils.database import DB_PATH
-
     if DB_PATH is None:
         return  # Database not initialized yet
 
@@ -287,8 +296,6 @@ def log_database_access(
             return  # Database not created yet
 
         # Check if access log table exists
-        import sqlite3
-
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         cursor.execute(
@@ -299,9 +306,6 @@ def log_database_access(
 
         if not table_exists:
             return  # Table not created yet, skip logging
-
-        # Import manage_database here to avoid circular imports
-        from autoclean.utils.database import manage_database
 
         # Create log entry for database storage (optimized for size)
         log_entry = {
@@ -336,10 +340,6 @@ def get_task_file_info(task_name: str, task_object: Any) -> Dict[str, Any]:
     Dict[str, Any]
         Dictionary containing task file hash, content, and metadata
     """
-    import hashlib
-    import inspect
-    from pathlib import Path
-
     task_file_info = {
         "task_name": task_name,
         "capture_timestamp": datetime.now().isoformat(),
@@ -419,9 +419,6 @@ def get_last_access_log_hash() -> str:
         Hash of the last access log entry, or genesis hash if no entries exist
     """
     try:
-        # Import here to avoid circular imports
-        from autoclean.utils.database import DB_PATH
-
         if DB_PATH is None:
             return "genesis_hash_no_database"
 
@@ -429,8 +426,6 @@ def get_last_access_log_hash() -> str:
         db_path = DB_PATH / "pipeline.db"
         if not db_path.exists():
             return "genesis_hash_no_database"
-
-        import sqlite3
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -486,9 +481,6 @@ def calculate_access_log_hash(
     str
         SHA256 hash of the log entry data
     """
-    import hashlib
-    import json
-
     # Create canonical representation for hashing
     log_data = {
         "timestamp": timestamp,
@@ -515,18 +507,12 @@ def verify_access_log_integrity() -> Dict[str, Any]:
         Verification results including status and any issues found
     """
     try:
-        # Import here to avoid circular imports
-        from autoclean.utils.database import DB_PATH
-
         if DB_PATH is None:
             return {"status": "error", "message": "Database not initialized"}
 
         db_path = DB_PATH / "pipeline.db"
         if not db_path.exists():
             return {"status": "error", "message": "Database file not found"}
-
-        import json
-        import sqlite3
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()

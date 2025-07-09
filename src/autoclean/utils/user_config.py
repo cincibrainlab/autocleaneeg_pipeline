@@ -5,10 +5,13 @@ Handles workspace setup and basic configuration without complex JSON tracking.
 Task discovery is done directly from filesystem scanning.
 """
 
+import ast
 import json
 import platform
 import shutil
+import subprocess
 import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -16,10 +19,29 @@ import platformdirs
 
 try:
     import psutil
-
     PSUTIL_AVAILABLE = True
 except ImportError:
     PSUTIL_AVAILABLE = False
+
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
+
+try:
+    from rich.console import Console
+    from rich.table import Table
+    RICH_AVAILABLE = True
+except ImportError:
+    RICH_AVAILABLE = False
+
+try:
+    import autoclean
+    from autoclean import __version__
+    AUTOCLEAN_AVAILABLE = True
+except ImportError:
+    AUTOCLEAN_AVAILABLE = False
 
 from autoclean.utils.branding import AutoCleanBranding
 from autoclean.utils.logging import message
@@ -111,14 +133,13 @@ class UserConfigManager:
 
     def _display_system_info(self, console) -> None:
         """Display system information and status."""
-        from rich.table import Table
+        if not RICH_AVAILABLE:
+            return
 
         # Get AutoClean version
-        try:
-            from autoclean import __version__
-
+        if AUTOCLEAN_AVAILABLE:
             version = __version__
-        except ImportError:
+        else:
             version = "unknown"
 
         # Create system info table
@@ -170,8 +191,6 @@ class UserConfigManager:
         """Get GPU information for system display."""
         try:
             # Try to detect NVIDIA GPU first
-            import subprocess
-
             result = subprocess.run(
                 ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader,nounits"],
                 capture_output=True,
@@ -219,9 +238,7 @@ class UserConfigManager:
 
         try:
             # Try PyTorch GPU detection as fallback
-            import torch
-
-            if torch.cuda.is_available():
+            if TORCH_AVAILABLE and torch.cuda.is_available():
                 gpu_count = torch.cuda.device_count()
                 if gpu_count == 1:
                     gpu_name = torch.cuda.get_device_name(0)
@@ -237,9 +254,10 @@ class UserConfigManager:
 
     def setup_workspace(self) -> Path:
         """Smart workspace setup."""
-        from rich.console import Console
-
-        console = Console()
+        if RICH_AVAILABLE:
+            console = Console()
+        else:
+            console = None
         workspace_status = self._check_workspace_status()
 
         if workspace_status == "first_time":
@@ -319,9 +337,10 @@ class UserConfigManager:
 
     def _run_setup_wizard(self, is_first_time: bool = True) -> Path:
         """Run setup wizard."""
-        from rich.console import Console
-
-        console = Console()
+        if RICH_AVAILABLE:
+            console = Console()
+        else:
+            console = None
 
         # Professional header with system info
         if is_first_time:
@@ -468,9 +487,10 @@ class UserConfigManager:
 
     def _offer_migration(self, old_dir: Path, new_dir: Path) -> None:
         """Offer to migrate workspace."""
-        from rich.console import Console
-
-        console = Console()
+        if RICH_AVAILABLE:
+            console = Console()
+        else:
+            console = None
 
         try:
             response = input("\nMigrate existing tasks? (y/N): ").strip().lower()
@@ -494,23 +514,23 @@ class UserConfigManager:
             dest_file = workspace_dir / "example_basic_usage.py"
 
             # Try to copy from package
-            try:
-                import autoclean
+            if AUTOCLEAN_AVAILABLE:
+                try:
+                    package_dir = Path(autoclean.__file__).parent.parent.parent
+                    source_file = package_dir / "examples" / "basic_usage.py"
 
-                package_dir = Path(autoclean.__file__).parent.parent.parent
-                source_file = package_dir / "examples" / "basic_usage.py"
-
-                if source_file.exists():
-                    shutil.copy2(source_file, dest_file)
-                else:
+                    if source_file.exists():
+                        shutil.copy2(source_file, dest_file)
+                    else:
+                        self._create_fallback_example(dest_file)
+                except Exception:
                     self._create_fallback_example(dest_file)
-            except Exception:
+            else:
                 self._create_fallback_example(dest_file)
 
-            from rich.console import Console
-
-            console = Console()
-            console.print(f"[green]📄[/green] Example script: [dim]{dest_file}[/dim]")
+            if RICH_AVAILABLE:
+                console = Console()
+                console.print(f"[green]📄[/green] Example script: [dim]{dest_file}[/dim]")
 
         except Exception as e:
             message("warning", f"Could not create example script: {e}")
@@ -550,23 +570,23 @@ if __name__ == "__main__":
             dest_file = tasks_dir / "custom_task_template.py"
 
             # Try to copy from package templates
-            try:
-                import autoclean
+            if AUTOCLEAN_AVAILABLE:
+                try:
+                    package_dir = Path(autoclean.__file__).parent
+                    source_file = package_dir / "templates" / "custom_task_template.py"
 
-                package_dir = Path(autoclean.__file__).parent
-                source_file = package_dir / "templates" / "custom_task_template.py"
-
-                if source_file.exists():
-                    shutil.copy2(source_file, dest_file)
-                else:
+                    if source_file.exists():
+                        shutil.copy2(source_file, dest_file)
+                    else:
+                        self._create_fallback_template(dest_file)
+                except Exception:
                     self._create_fallback_template(dest_file)
-            except Exception:
+            else:
                 self._create_fallback_template(dest_file)
 
-            from rich.console import Console
-
-            console = Console()
-            console.print(f"[green]📋[/green] Template task: [dim]{dest_file}[/dim]")
+            if RICH_AVAILABLE:
+                console = Console()
+                console.print(f"[green]📋[/green] Template task: [dim]{dest_file}[/dim]")
 
         except Exception as e:
             message("warning", f"Could not create template task: {e}")
@@ -746,8 +766,6 @@ class CustomTask(Task):
             with open(task_file, "r", encoding="utf-8") as f:
                 content = f.read()
 
-            import ast
-
             tree = ast.parse(content)
 
             for node in ast.walk(tree):
@@ -771,8 +789,6 @@ class CustomTask(Task):
 
     def _current_timestamp(self) -> str:
         """Get current timestamp."""
-        from datetime import datetime
-
         return datetime.now().isoformat()
 
 

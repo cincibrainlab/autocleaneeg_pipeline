@@ -11,6 +11,13 @@ import mne_icalabel
 import pandas as pd
 from mne.preprocessing import ICA
 
+# Optional import for ICVision
+try:
+    from icvision.compat import label_components
+    ICVISION_AVAILABLE = True
+except ImportError:
+    ICVISION_AVAILABLE = False
+
 
 def fit_ica(
     raw: mne.io.Raw,
@@ -164,13 +171,11 @@ def classify_ica_components(
 
         elif method == "icvision":
             # Run ICVision classification
-            try:
-                from icvision.compat import label_components
-            except ImportError as e:
+            if not ICVISION_AVAILABLE:
                 raise ImportError(
                     "autoclean-icvision package is required for icvision method. "
                     "Install it with: pip install autoclean-icvision"
-                ) from e
+                )
 
             # Use ICVision as drop-in replacement, passing through any extra kwargs
             label_components(raw, ica, **kwargs)

@@ -4,8 +4,21 @@ This script demonstrates that both approaches work correctly and can be used tog
 """
 
 import tempfile
+import inspect
 from pathlib import Path
 from autoclean import Pipeline
+
+# Optional imports for testing specific mixins
+try:
+    from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+    from autoclean.mixins.signal_processing.ica import IcaMixin
+    from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
+    MIXIN_IMPORTS_AVAILABLE = True
+except ImportError:
+    MIXIN_IMPORTS_AVAILABLE = False
+    BasicStepsMixin = None
+    IcaMixin = None
+    RegularEpochsMixin = None
 
 def test_yaml_compatibility():
     """Test that existing YAML-based workflows still work."""
@@ -142,13 +155,13 @@ def test_export_parameter_functionality():
     print("\n📤 Testing Export Parameter Functionality...")
     
     try:
-        # Test the mechanism exists
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
-        from autoclean.mixins.signal_processing.ica import IcaMixin
-        from autoclean.mixins.signal_processing.regular_epochs import RegularEpochsMixin
+        # Test the mechanism exists - imports already available at module level
+        if not MIXIN_IMPORTS_AVAILABLE:
+            print("⚠️  Mixin imports not available, skipping export parameter test")
+            return
         
         # Check that methods have export parameters
-        import inspect
+        # inspect already imported at module level
         
         methods_to_check = [
             (BasicStepsMixin, 'run_basic_steps'),

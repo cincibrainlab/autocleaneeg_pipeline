@@ -4,6 +4,9 @@ from typing import List, Optional, Union
 
 import mne
 
+from autoclean.functions.preprocessing.filtering import filter_data as standalone_filter_data
+from autoclean.functions.preprocessing.referencing import rereference_data as standalone_rereference_data
+from autoclean.functions.preprocessing.resampling import resample_data as standalone_resample_data
 from autoclean.utils.logging import message
 
 
@@ -183,10 +186,6 @@ class BasicStepsMixin:
         message("header", "Filtering data...")
 
         # Call standalone function
-        from autoclean.functions.preprocessing.filtering import (
-            filter_data as standalone_filter_data,
-        )
-
         filtered_data = standalone_filter_data(
             data=data,
             l_freq=final_l_freq,
@@ -325,10 +324,6 @@ class BasicStepsMixin:
         )
 
         # Call standalone function
-        from autoclean.functions.preprocessing.resampling import (
-            resample_data as standalone_resample_data,
-        )
-
         resampled_data = standalone_resample_data(
             data=data,
             sfreq=target_sfreq,
@@ -436,10 +431,6 @@ class BasicStepsMixin:
                 return data
 
         # Call standalone function
-        from autoclean.functions.preprocessing.referencing import (
-            rereference_data as standalone_rereference_data,
-        )
-
         rereferenced_data = standalone_rereference_data(
             data=data,
             ref_channels=ref_type,

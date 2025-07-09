@@ -21,6 +21,15 @@ import pandas as pd
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
+# Optional import for HBCD processor
+try:
+    from autoclean.plugins.event_processors.hbcd_processor import (
+        HBCDEventProcessor as DedicatedProcessor,
+    )
+    HBCD_PROCESSOR_AVAILABLE = True
+except ImportError:
+    HBCD_PROCESSOR_AVAILABLE = False
+
 __all__ = [
     "import_eeg",
     "register_plugin",
@@ -638,14 +647,10 @@ class HBCDEventProcessor(BaseEventProcessor):
         message("info", f"Using generic HBCD event processor for {task}")
 
         # Import the dedicated processor to avoid circular imports
-        try:
-            from autoclean.plugins.event_processors.hbcd_processor import (
-                HBCDEventProcessor as DedicatedProcessor,
-            )
-
+        if HBCD_PROCESSOR_AVAILABLE:
             processor = DedicatedProcessor()
             return processor.process_events(raw, events, events_df, autoclean_dict)
-        except ImportError:
+        else:
             message(
                 "warning",
                 "Could not import dedicated HBCD processor, using legacy implementation",

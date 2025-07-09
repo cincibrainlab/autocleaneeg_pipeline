@@ -23,6 +23,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.gridspec import GridSpec
+from mne.preprocessing import ICA
 
 from autoclean.utils.logging import message
 
@@ -475,9 +476,6 @@ class ICAReportingMixin:
         It is used on mouse files to verify channel placement.
 
         """
-        # pylint: disable=import-outside-toplevel
-        from mne.preprocessing import ICA
-
         derivatives_dir = Path(self.config["derivatives_dir"])
 
         ica = ICA(  # pylint: disable=not-callable

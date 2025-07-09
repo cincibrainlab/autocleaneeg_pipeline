@@ -1,4 +1,6 @@
+import argparse
 import os
+import sys
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -1589,11 +1591,6 @@ def plot_all_figures(
 
 
 if __name__ == "__main__":
-    import argparse
-    import sys
-
-    import pandas as pd
-
     # Add parent directory to path for imports when running this file directly
     sys.path.append("..")
     from assr_analysis import analyze_assr

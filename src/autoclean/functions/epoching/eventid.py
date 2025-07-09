@@ -5,6 +5,7 @@ event markers in continuous EEG data.
 """
 
 from typing import Dict, List, Optional, Tuple, Union
+import warnings
 
 import mne
 import numpy as np
@@ -201,8 +202,6 @@ def create_eventid_epochs(
             if on_missing == "raise":
                 raise ValueError(f"No events found in data: {str(e)}") from e
             elif on_missing == "warn":
-                import warnings
-
                 warnings.warn(f"No events found in data: {str(e)}")
                 # Create empty epochs object - return early
                 n_samples = int((tmax - tmin) * data.info["sfreq"])
@@ -246,8 +245,6 @@ def create_eventid_epochs(
                     f"Available events: {list(event_id_all.keys())}"
                 )
             elif on_missing == "warn":
-                import warnings
-
                 warnings.warn(
                     f"No events found for specified event_id: {event_id}. "
                     f"Available events: {list(event_id_all.keys())}"

@@ -8,6 +8,7 @@ Any class ending with 'Mixin' in a .py file within a subdirectory of this packag
 import importlib
 import inspect
 import pkgutil
+import traceback
 import types
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, Type
@@ -201,7 +202,6 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
             print("🚨 CRITICAL SUB-PACKAGE ERROR 🚨")
             print(f"Error processing sub-package '{full_item_name}': {e}")
             print("STOPPING EXECUTION - Fix error before continuing!")
-            import traceback
 
             print(f"Full traceback: {traceback.format_exc()}")
             print("=" * 80)
@@ -243,7 +243,6 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
             print("🚨 CRITICAL MODULE ERROR 🚨")
             print(f"Error inspecting module '{full_item_name}': {e}")
             print("STOPPING EXECUTION - Fix error before continuing!")
-            import traceback
 
             print(f"Full traceback: {traceback.format_exc()}")
             print("=" * 80)

@@ -9,6 +9,19 @@ from typing import Dict, List, NamedTuple, Optional, Tuple, Type
 
 from autoclean.core.task import Task
 
+# Optional dependencies - may not be available in all contexts
+try:
+    from autoclean.utils.user_config import user_config
+    USER_CONFIG_AVAILABLE = True
+except ImportError:
+    USER_CONFIG_AVAILABLE = False
+    # Mock user_config for when it's not available
+    class MockUserConfig:
+        @property
+        def tasks_dir(self):
+            return Path.home() / ".autoclean" / "tasks"
+    user_config = MockUserConfig()
+
 
 class DiscoveredTask(NamedTuple):
     """Represents a successfully discovered task."""
@@ -117,12 +130,10 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
     valid_tasks: List[DiscoveredTask] = []
     invalid_files: List[InvalidTaskFile] = []
 
-    try:
-        from autoclean.utils.user_config import user_config
-    except ImportError as e:
+    if not USER_CONFIG_AVAILABLE:
         invalid_files.append(
             InvalidTaskFile(
-                source="user_config", error=f"Failed to import user config: {e}"
+                source="user_config", error="Failed to import user config: user_config module not available"
             )
         )
         return valid_tasks, invalid_files
@@ -283,9 +294,6 @@ def extract_config_from_task(task_name: str, config_key: str) -> Optional[str]:
             return None
 
         # Import the task module to access its config
-        import importlib.util
-        import sys
-
         module_name = f"temp_task_{task_obj.source.replace('/', '_').replace('.', '_')}"
         spec = importlib.util.spec_from_file_location(module_name, task_obj.source)
 
