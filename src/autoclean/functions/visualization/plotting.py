@@ -83,9 +83,21 @@ def plot_raw_comparison(
             f"raw_cleaned must be an MNE Raw object, got {type(raw_cleaned).__name__}"
         )
 
-    # Ensure compatibility
+    # Handle channel mismatches gracefully
     if raw_original.ch_names != raw_cleaned.ch_names:
-        raise ValueError("Channel names in raw_original and raw_cleaned do not match")
+        print(f"Channel count mismatch: original has {len(raw_original.ch_names)}, "
+              f"cleaned has {len(raw_cleaned.ch_names)}")
+
+        # Get common channels
+        common_channels = list(
+            set(raw_original.ch_names).intersection(set(raw_cleaned.ch_names))
+        )
+        print(f"Using {len(common_channels)} common channels between "
+              "original and cleaned data")
+
+        # Pick common channels
+        raw_original = raw_original.copy().pick(common_channels)
+        raw_cleaned = raw_cleaned.copy().pick(common_channels)
 
     if raw_original.times.shape != raw_cleaned.times.shape:
         raise ValueError("Time vectors in raw_original and raw_cleaned do not match")
