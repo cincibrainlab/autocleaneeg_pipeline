@@ -210,7 +210,7 @@ class IcaMixin:
             extra_kwargs["psd_fmax"] = psd_fmax
 
         if method == "icvision":
-            extra_kwargs["generate_report"] = False
+            extra_kwargs["generate_report"] = True
             extra_kwargs["output_dir"] = self.config.get("derivatives_dir", {})
 
         self.ica_flags = classify_ica_components(
