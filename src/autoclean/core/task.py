@@ -1,6 +1,7 @@
 """Base class for all EEG processing tasks."""
 
 # Standard library imports
+import inspect
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -92,8 +93,6 @@ class Task(ABC, *DISCOVERED_MIXINS):
         # Auto-detect module-level config for Python tasks
         if not hasattr(self, "settings"):
             # Get the module where this class was defined
-            import inspect
-
             module = inspect.getmodule(self.__class__)
             if module and hasattr(module, "config"):
                 self.settings = module.config

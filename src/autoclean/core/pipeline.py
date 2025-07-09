@@ -69,7 +69,8 @@ from ulid import ULID
 
 # IMPORT TASKS HERE
 from autoclean.core.task import Task
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.export import save_epochs_to_set, save_raw_to_set, copy_final_files
+from autoclean.io.import_ import discover_event_processors, discover_plugins
 from autoclean.step_functions.reports import (
     create_json_summary,
     create_run_report,
@@ -77,6 +78,7 @@ from autoclean.step_functions.reports import (
     update_task_processing_log,
 )
 from autoclean.tasks import task_registry
+from autoclean.utils.audit import get_task_file_info
 from autoclean.utils.auth import (
     create_electronic_signature,
     get_current_user_for_audit,
@@ -92,7 +94,15 @@ from autoclean.utils.database import (
 )
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
+from autoclean.utils.task_discovery import extract_config_from_task
 from autoclean.utils.user_config import user_config
+
+# Try to import optional GUI dependencies
+try:
+    from autoclean.tools.autoclean_review import run_autoclean_review
+    GUI_AVAILABLE = True
+except ImportError:
+    GUI_AVAILABLE = False
 
 # Force matplotlib to use non-interactive backend for async operations
 # This prevents GUI thread conflicts during parallel processing
@@ -210,8 +220,6 @@ class Pipeline:
         manage_database_conditionally(operation="create_collection")
 
         # Pre-initialize plugins to avoid race conditions in async processing
-        from autoclean.io.import_ import discover_event_processors, discover_plugins
-
         message("debug", "Pre-initializing plugins for thread safety...")
         discover_plugins()
         discover_event_processors()
@@ -287,8 +295,6 @@ class Pipeline:
             self._validate_file(unprocessed_file)
 
             # Extract dataset_name from task configuration if available
-            from autoclean.utils.task_discovery import extract_config_from_task
-
             dataset_name = extract_config_from_task(task, "dataset_name")
 
             # Prepare directory structure for processing outputs
@@ -368,8 +374,6 @@ class Pipeline:
                 raise
 
             # Capture task file information for compliance tracking
-            from autoclean.utils.audit import get_task_file_info
-
             task_file_info = get_task_file_info(task, task_object)
 
             # Store task file information in database
@@ -401,8 +405,6 @@ class Pipeline:
 
                 # Copy final files to the dedicated final_files directory
                 if not flagged:  # Only copy if processing was successful
-                    from autoclean.io.export import copy_final_files
-
                     copy_final_files(run_dict)
 
             except Exception as e:  # pylint: disable=broad-except
@@ -599,8 +601,6 @@ class Pipeline:
         """
         # Use input_path from task config if file_path not provided
         if file_path is None:
-            from autoclean.utils.task_discovery import extract_config_from_task
-
             task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 file_path = Path(task_input_path)
@@ -657,8 +657,6 @@ class Pipeline:
         """
         # Use input_path from task config if directory not provided
         if directory is None:
-            from autoclean.utils.task_discovery import extract_config_from_task
-
             task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 directory = Path(task_input_path)
@@ -753,8 +751,6 @@ class Pipeline:
         """
         # Use input_path from task config if directory_path not provided
         if directory_path is None:
-            from autoclean.utils.task_discovery import extract_config_from_task
-
             task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 directory_path = Path(task_input_path)
@@ -899,19 +895,15 @@ class Pipeline:
 
         Note: The ideal use of the Review tool is as a docker container.
         """
-        try:
-            from autoclean.tools.autoclean_review import (  # pylint: disable=import-outside-toplevel
-                run_autoclean_review,
-            )
-
-            run_autoclean_review(self.output_dir)
-        except ImportError:
+        if not GUI_AVAILABLE:
             message(
                 "error",
                 "GUI dependencies not installed. To use the review tool, install:",
             )
             message("error", "pip install autocleaneeg[gui]")
-            raise
+            raise ImportError("GUI dependencies not available")
+
+        run_autoclean_review(self.output_dir)
 
     def add_task(self, task_file_path: Union[str, Path]) -> str:
         """Register a Python task file for use in this pipeline session.

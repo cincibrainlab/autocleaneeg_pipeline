@@ -16,6 +16,14 @@ from mne_bids import BIDSPath, update_sidecar_json, write_raw_bids
 
 from autoclean.utils.logging import message
 
+# Optional dependencies - may not be available in all contexts
+try:
+    from autoclean import __version__
+    VERSION_AVAILABLE = True
+except ImportError:
+    VERSION_AVAILABLE = False
+    __version__ = "unknown"
+
 
 def step_convert_to_bids(
     raw,
@@ -179,9 +187,6 @@ def step_convert_to_bids(
     }
 
     # Create BIDS-compliant derivatives directory structure (outside the lock).
-    # Import version only once at the top of function to avoid repeated imports
-    from autoclean import __version__
-
     derivatives_dir = (
         bids_root
         / "derivatives"
@@ -202,10 +207,6 @@ def step_convert_to_bids(
     # Create dataset_description.json for the autoclean derivatives
     dataset_desc_file = pipeline_derivatives_root / "dataset_description.json"
     if not dataset_desc_file.exists():
-        import json
-
-        from autoclean import __version__
-
         pipeline_description = {
             "Name": "AutoClean EEG Pipeline",
             "BIDSVersion": "1.6.0",

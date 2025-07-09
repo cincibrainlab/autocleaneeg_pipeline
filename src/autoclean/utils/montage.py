@@ -7,11 +7,26 @@ import yaml
 
 from autoclean.utils.logging import message
 
+# Handle importlib.resources compatibility
 try:
     from importlib import resources
+    IMPORTLIB_RESOURCES_AVAILABLE = True
 except ImportError:
     # Python < 3.9 compatibility
-    import importlib_resources as resources
+    try:
+        import importlib_resources as resources
+        IMPORTLIB_RESOURCES_AVAILABLE = True
+    except ImportError:
+        IMPORTLIB_RESOURCES_AVAILABLE = False
+        resources = None
+
+# Handle configs import - this may be optional
+try:
+    import configs
+    CONFIGS_AVAILABLE = True
+except ImportError:
+    CONFIGS_AVAILABLE = False
+    configs = None
 
 
 def load_valid_montages() -> Dict[str, str]:
@@ -23,17 +38,20 @@ def load_valid_montages() -> Dict[str, str]:
         Dictionary of valid montages
     """
     try:
+        config_data = None
         # Try to load from package resources first (for installed package)
-        try:
-            import configs
-
-            config_data = (
-                resources.files(configs)
-                .joinpath("montages.yaml")
-                .read_text(encoding="utf-8")
-            )
-        except (ImportError, FileNotFoundError):
-            # Fallback to relative path (for development)
+        if IMPORTLIB_RESOURCES_AVAILABLE and CONFIGS_AVAILABLE:
+            try:
+                config_data = (
+                    resources.files(configs)
+                    .joinpath("montages.yaml")
+                    .read_text(encoding="utf-8")
+                )
+            except FileNotFoundError:
+                pass  # Will fall back to file path
+        
+        # Fallback to relative path (for development)
+        if config_data is None:
             config_path = os.path.join(
                 os.path.dirname(
                     os.path.dirname(os.path.dirname(os.path.dirname(__file__)))

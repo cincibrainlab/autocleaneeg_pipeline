@@ -19,7 +19,9 @@ from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHoo
 from PyQt5.QtGui import QImage, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
+    QComboBox,
     QFileDialog,
+    QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
@@ -428,10 +430,6 @@ class FileSelector(QWidget):
             self.view_record_btn.setEnabled(False)
 
     def viewRunRecord(self):
-        from PyQt5.QtCore import Qt
-        from PyQt5.QtGui import QPixmap
-        from PyQt5.QtWidgets import QComboBox, QHBoxLayout, QLabel, QPushButton
-
         original_filename = self.current_run_record["metadata"]["import_eeg"][
             "unprocessedFile"
         ]

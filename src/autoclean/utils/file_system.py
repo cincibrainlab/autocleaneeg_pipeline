@@ -3,8 +3,10 @@
 This module contains functions for setting up and validating directory structures.
 """
 import os
+from datetime import datetime
 from pathlib import Path
 
+from autoclean import __version__
 from autoclean.utils.logging import message
 
 
@@ -31,8 +33,6 @@ def step_prepare_directories(
     """
     # Generate directory name - use dataset_name + timestamp if provided, otherwise task name
     if dataset_name:
-        from datetime import datetime
-
         timestamp = datetime.now().strftime("%m-%d-%Y")
         dir_name = f"{dataset_name}_{timestamp}"
         message(
@@ -52,9 +52,7 @@ def step_prepare_directories(
     # BIDS-compliant directory structure - everything under derivatives
     bids_root = autoclean_dir / dir_name / "bids"
 
-    # Import version for derivatives directory naming
-    from autoclean import __version__
-
+    # Use version for derivatives directory naming
     derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
 
     dirs = {
