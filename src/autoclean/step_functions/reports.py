@@ -1111,20 +1111,15 @@ def update_task_processing_log(
 
         # Update run record with CSV path
         try:
-            metadata = {
-                "processing_log": {
-                    "creationDateTime": datetime.now().isoformat(),
-                    "csv_path": str(csv_path),
-                }
-            }
-            manage_database_conditionally(
-                operation="update",
-                update_record={
-                    "run_id": summary_dict.get("run_id", ""),
-                    "metadata": metadata,
-                },
-            )
-
+            # Note: Database update removed to avoid audit record conflicts
+            # Processing log metadata would be included in completion update if needed
+            # metadata = {
+            #     "processing_log": {
+            #         "creationDateTime": datetime.now().isoformat(),
+            #         "csv_path": str(csv_path),
+            #     }
+            # }
+            
         except Exception as db_err:  # pylint: disable=broad-except
             message("error", f"Error updating database: {str(db_err)}")
 
