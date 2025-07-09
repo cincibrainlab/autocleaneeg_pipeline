@@ -14,7 +14,7 @@ from autoclean.core.task import Task
 from autoclean.io.export import save_raw_to_set
 from autoclean.io.import_ import import_eeg
 from autoclean.step_functions.continuous import step_create_bids_path
-from autoclean.utils.database import manage_database_with_audit_protection
+from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
 
@@ -223,7 +223,7 @@ class MouseXdatChirp(Task):
             }
         }
 
-        manage_database_with_audit_protection(
+        manage_database_conditionally(
             operation="update",
             update_record={"run_id": autoclean_dict["run_id"], "metadata": metadata},
         )
