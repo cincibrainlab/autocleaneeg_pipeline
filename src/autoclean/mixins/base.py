@@ -19,7 +19,7 @@ import mne
 from matplotlib import pyplot as plt
 
 from autoclean.io import save_epochs_to_set, save_raw_to_set
-from autoclean.utils.database import manage_database_with_audit_protection
+from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
 
@@ -231,7 +231,7 @@ class BaseMixin:
         metadata = {operation: metadata_dict}
 
         run_id = self.config.get("run_id")
-        manage_database_with_audit_protection(
+        manage_database_conditionally(
             operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
 
