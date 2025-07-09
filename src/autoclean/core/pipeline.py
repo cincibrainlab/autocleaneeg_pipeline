@@ -94,7 +94,6 @@ from autoclean.utils.database import (
 )
 from autoclean.utils.file_system import step_prepare_directories
 from autoclean.utils.logging import configure_logger, message
-from autoclean.utils.task_discovery import extract_config_from_task
 from autoclean.utils.user_config import user_config
 
 # Try to import optional GUI dependencies
@@ -295,6 +294,7 @@ class Pipeline:
             self._validate_file(unprocessed_file)
 
             # Extract dataset_name from task configuration if available
+            from autoclean.utils.task_discovery import extract_config_from_task
             dataset_name = extract_config_from_task(task, "dataset_name")
 
             # Prepare directory structure for processing outputs
@@ -445,7 +445,7 @@ class Pipeline:
 
             # Generate PDF report if processing succeeded
             try:
-                create_run_report(run_id, run_dict)
+                create_run_report(run_id, run_dict, json_summary)
             except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
 
@@ -601,6 +601,7 @@ class Pipeline:
         """
         # Use input_path from task config if file_path not provided
         if file_path is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
             task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 file_path = Path(task_input_path)
@@ -657,6 +658,7 @@ class Pipeline:
         """
         # Use input_path from task config if directory not provided
         if directory is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
             task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 directory = Path(task_input_path)
@@ -751,6 +753,7 @@ class Pipeline:
         """
         # Use input_path from task config if directory_path not provided
         if directory_path is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
             task_input_path = extract_config_from_task(task, "input_path")
             if task_input_path:
                 directory_path = Path(task_input_path)

@@ -53,7 +53,7 @@ __all__ = [
 matplotlib.use("Agg")
 
 
-def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
+def create_run_report(run_id: str, autoclean_dict: dict = None, json_summary: dict = None) -> None:
     """
     Creates a pdf report summarizing the run.
 
@@ -63,6 +63,8 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         The run ID to generate a report for
     autoclean_dict : dict
         The autoclean dictionary
+    json_summary : dict, optional
+        Pre-computed JSON summary to use instead of looking up from database
     """
     if not run_id:
         message("error", "No run ID provided")
@@ -87,11 +89,14 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         )
         return
 
-    # Check if JSON summary exists and use it if available
-    json_summary = None
-    if "json_summary" in run_record["metadata"]:
-        json_summary = run_record["metadata"]["json_summary"]
-        message("info", "Using JSON summary for report generation")
+    # Use provided JSON summary or check if it exists in metadata
+    if json_summary is None:
+        json_summary = None
+        if "json_summary" in run_record["metadata"]:
+            json_summary = run_record["metadata"]["json_summary"]
+            message("info", "Using JSON summary from database for report generation")
+    else:
+        message("info", "Using provided JSON summary for report generation")
 
     # If no JSON summary, create it
     if not json_summary:
