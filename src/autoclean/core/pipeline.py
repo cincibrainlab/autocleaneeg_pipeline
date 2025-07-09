@@ -455,12 +455,17 @@ class Pipeline:
                 message("debug", f"Electronic signature created: {signature_id}")
 
             # Mark run as completed LAST - this locks the record from further modifications
+            # Include JSON summary in the completion update to avoid audit record conflicts
+            update_record = {
+                "run_id": run_record["run_id"],
+                "status": "completed",
+            }
+            if json_summary:
+                update_record["metadata"] = {"json_summary": json_summary}
+            
             manage_database_conditionally(
                 operation="update",
-                update_record={
-                    "run_id": run_record["run_id"],
-                    "status": "completed",
-                },
+                update_record=update_record,
             )
 
             # Get final run record for JSON export
@@ -473,17 +478,6 @@ class Pipeline:
             message("success", f"✓ Run record exported to {json_file}")
 
         except Exception as e:
-            # Update database with failure status using audit protection
-            manage_database_conditionally(
-                operation="update",
-                update_record={
-                    "run_id": run_record["run_id"],
-                    "status": "failed",
-                    "error": str(e),
-                    "success": False,
-                },
-            )
-
             # Get flagged status before creating summary for error case
             try:
                 flagged, error_flagged_reasons = task_object.get_flagged_status()
@@ -491,6 +485,22 @@ class Pipeline:
                 error_flagged_reasons = []
 
             json_summary = create_json_summary(run_id, error_flagged_reasons)
+
+            # Update database with failure status using audit protection
+            # Include JSON summary in the failure update to avoid audit record conflicts
+            update_record = {
+                "run_id": run_record["run_id"],
+                "status": "failed",
+                "error": str(e),
+                "success": False,
+            }
+            if json_summary:
+                update_record["metadata"] = {"json_summary": json_summary}
+            
+            manage_database_conditionally(
+                operation="update",
+                update_record=update_record,
+            )
 
             # Try to update processing log even in error case
             if json_summary:
