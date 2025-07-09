@@ -130,12 +130,12 @@ class EventIDEpochsMixin:
             # Get all events from annotations
             events_all, event_id_all = mne.events_from_annotations(data)
 
-            # Find all event types that match our event_id keys
+            # Find all event types that match our event_id values
             event_patterns = {}  # Name and code of events to epoch by
             for event_key in event_id.keys():
-                # Could lead to undesired results if event_key is a substring of another event
+                # Match the event_id values with the actual event codes in the file
                 matching_events = [
-                    k for k in event_id_all.keys() if event_key == str(k)
+                    k for k in event_id_all.keys() if str(event_id[event_key]) == str(k)
                 ]
                 for match in matching_events:
                     event_patterns[match] = event_id_all[match]
@@ -144,7 +144,6 @@ class EventIDEpochsMixin:
                 "info",
                 f"Looking for events matching patterns: {list(event_patterns.keys())}",
             )
-
             # Filter events to include only those with matching trigger codes
             trigger_codes = list(event_patterns.values())
             events_trig = events_all[np.isin(events_all[:, 2], trigger_codes)]
