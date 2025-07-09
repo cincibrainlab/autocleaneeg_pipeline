@@ -8,7 +8,7 @@ import mne
 import numpy as np
 import scipy.io as sio
 
-from autoclean.utils.database import manage_database_with_audit_protection
+from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
 __all__ = [
@@ -94,10 +94,10 @@ def save_stc_to_file(
 
     # Update database
     run_id = autoclean_dict["run_id"]
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update", update_record={"run_id": run_id, "metadata": metadata}
     )
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update_status",
         update_record={"run_id": run_id, "status": f"{stage} completed"},
     )
@@ -191,10 +191,10 @@ def save_raw_to_set(
     }
 
     run_id = autoclean_dict["run_id"]
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update", update_record={"run_id": run_id, "metadata": metadata}
     )
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update_status",
         update_record={"run_id": run_id, "status": f"{stage} completed"},
     )
@@ -452,10 +452,10 @@ def save_epochs_to_set(
 
     # Update database with save metadata and status
     run_id = autoclean_dict["run_id"]
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update", update_record={"run_id": run_id, "metadata": metadata}
     )
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update_status",
         update_record={"run_id": run_id, "status": f"{stage} completed"},
     )
@@ -504,7 +504,7 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
 
     run_id = autoclean_dict["run_id"]
 
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update", update_record={"run_id": run_id, "metadata": metadata}
     )
 
@@ -631,7 +631,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
         }
 
         run_id = autoclean_dict["run_id"]
-        manage_database_with_audit_protection(
+        manage_database_conditionally(
             operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
     else:

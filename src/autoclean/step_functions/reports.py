@@ -38,7 +38,7 @@ from reportlab.platypus import TableStyle
 
 from autoclean.utils.database import (
     get_run_record,
-    manage_database_with_audit_protection,
+    manage_database_conditionally,
 )
 from autoclean.utils.logging import message
 
@@ -1109,24 +1109,9 @@ def update_task_processing_log(
             message("error", f"Error saving CSV: {str(save_err)}")
             return
 
-        # Update run record with CSV path
-        try:
-            metadata = {
-                "processing_log": {
-                    "creationDateTime": datetime.now().isoformat(),
-                    "csv_path": str(csv_path),
-                }
-            }
-            manage_database_with_audit_protection(
-                operation="update",
-                update_record={
-                    "run_id": summary_dict.get("run_id", ""),
-                    "metadata": metadata,
-                },
-            )
-
-        except Exception as db_err:  # pylint: disable=broad-except
-            message("error", f"Error updating database: {str(db_err)}")
+        # Note: Database update removed to avoid audit record conflicts
+        # Processing log metadata would be included in completion update if needed
+        # The CSV file has been successfully created above
 
     except Exception as e:  # pylint: disable=broad-except
         message(
@@ -1514,12 +1499,9 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
 
     message("success", f"Created JSON summary for run {run_id}")
 
-    # Add metadata to database
-    manage_database_with_audit_protection(
-        operation="update",
-        update_record={"run_id": run_id, "metadata": {"json_summary": summary_dict}},
-    )
-
+    # Note: Database update moved to pipeline completion to avoid audit record conflicts
+    # The JSON summary will be saved when the run is marked as completed
+    
     return summary_dict
 
 

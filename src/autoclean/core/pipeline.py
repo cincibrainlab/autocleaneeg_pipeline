@@ -87,7 +87,7 @@ from autoclean.utils.config import (
 )
 from autoclean.utils.database import (
     get_run_record,
-    manage_database_with_audit_protection,
+    manage_database_conditionally,
     set_database_path,
 )
 from autoclean.utils.file_system import step_prepare_directories
@@ -207,7 +207,7 @@ class Pipeline:
 
         # Initialize SQLite collection for run tracking with audit protection
         # This creates tables if they don't exist and establishes security triggers
-        manage_database_with_audit_protection(operation="create_collection")
+        manage_database_conditionally(operation="create_collection")
 
         # Pre-initialize plugins to avoid race conditions in async processing
         from autoclean.io.import_ import discover_event_processors, discover_plugins
@@ -267,7 +267,7 @@ class Pipeline:
             }
 
             # Store initial run record and get database ID with audit protection
-            run_record["record_id"] = manage_database_with_audit_protection(
+            run_record["record_id"] = manage_database_conditionally(
                 operation="store", run_record=run_record
             )
 
@@ -303,7 +303,7 @@ class Pipeline:
             ) = step_prepare_directories(task, self.output_dir, dataset_name)
 
             # Update database with directory structure using audit protection
-            manage_database_with_audit_protection(
+            manage_database_conditionally(
                 operation="update",
                 update_record={
                     "run_id": run_id,
@@ -347,7 +347,7 @@ class Pipeline:
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
             # Record full run configuration using audit protection
-            manage_database_with_audit_protection(
+            manage_database_conditionally(
                 operation="update",
                 update_record={"run_id": run_id, "metadata": {"entrypoint": run_dict}},
             )
@@ -373,7 +373,7 @@ class Pipeline:
             task_file_info = get_task_file_info(task, task_object)
 
             # Store task file information in database
-            manage_database_with_audit_protection(
+            manage_database_conditionally(
                 operation="update",
                 update_record={"run_id": run_id, "task_file_info": task_file_info},
             )
@@ -411,7 +411,7 @@ class Pipeline:
             message("success", f"✓ Task {task} completed successfully")
 
             # Set success status FIRST so JSON summary can detect success correctly
-            manage_database_with_audit_protection(
+            manage_database_conditionally(
                 operation="update",
                 update_record={
                     "run_id": run_record["run_id"],
@@ -455,12 +455,17 @@ class Pipeline:
                 message("debug", f"Electronic signature created: {signature_id}")
 
             # Mark run as completed LAST - this locks the record from further modifications
-            manage_database_with_audit_protection(
+            # Include JSON summary in the completion update to avoid audit record conflicts
+            update_record = {
+                "run_id": run_record["run_id"],
+                "status": "completed",
+            }
+            if json_summary:
+                update_record["metadata"] = {"json_summary": json_summary}
+            
+            manage_database_conditionally(
                 operation="update",
-                update_record={
-                    "run_id": run_record["run_id"],
-                    "status": "completed",
-                },
+                update_record=update_record,
             )
 
             # Get final run record for JSON export
@@ -473,17 +478,6 @@ class Pipeline:
             message("success", f"✓ Run record exported to {json_file}")
 
         except Exception as e:
-            # Update database with failure status using audit protection
-            manage_database_with_audit_protection(
-                operation="update",
-                update_record={
-                    "run_id": run_record["run_id"],
-                    "status": "failed",
-                    "error": str(e),
-                    "success": False,
-                },
-            )
-
             # Get flagged status before creating summary for error case
             try:
                 flagged, error_flagged_reasons = task_object.get_flagged_status()
@@ -491,6 +485,22 @@ class Pipeline:
                 error_flagged_reasons = []
 
             json_summary = create_json_summary(run_id, error_flagged_reasons)
+
+            # Update database with failure status using audit protection
+            # Include JSON summary in the failure update to avoid audit record conflicts
+            update_record = {
+                "run_id": run_record["run_id"],
+                "status": "failed",
+                "error": str(e),
+                "success": False,
+            }
+            if json_summary:
+                update_record["metadata"] = {"json_summary": json_summary}
+            
+            manage_database_conditionally(
+                operation="update",
+                update_record=update_record,
+            )
 
             # Try to update processing log even in error case
             if json_summary:

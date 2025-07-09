@@ -89,6 +89,39 @@ def get_run_record(run_id: str) -> dict:
     return run_record
 
 
+def manage_database_conditionally(
+    operation: str,
+    run_record: Optional[Dict[str, Any]] = None,
+    update_record: Optional[Dict[str, Any]] = None,
+) -> Any:
+    """Use audit protection only when compliance mode is enabled.
+    
+    This function routes database operations to the appropriate handler based
+    on compliance mode settings, ensuring audit logging only occurs when
+    FDA 21 CFR Part 11 compliance is required.
+    
+    Parameters
+    ----------
+    operation : str
+        Database operation type (same as manage_database)
+    run_record : dict, optional
+        Record data for operations
+    update_record : dict, optional
+        Update data for operations
+    
+    Returns
+    -------
+    Any
+        Operation result from underlying database function
+    """
+    from autoclean.utils.config import is_compliance_mode_enabled
+    
+    if is_compliance_mode_enabled():
+        return manage_database_with_audit_protection(operation, run_record, update_record)
+    else:
+        return manage_database(operation, run_record, update_record)
+
+
 def manage_database_with_audit_protection(
     operation: str,
     run_record: Optional[Dict[str, Any]] = None,
