@@ -23,6 +23,7 @@ from cryptography.fernet import Fernet
 from platformdirs import user_config_dir
 
 from autoclean.utils.logging import message
+from autoclean.utils.config import is_compliance_mode_enabled
 
 
 class AuthCallbackHandler(BaseHTTPRequestHandler):
@@ -673,16 +674,6 @@ def get_auth0_manager() -> Auth0Manager:
     return get_auth0_manager._instance
 
 
-def is_compliance_mode_enabled() -> bool:
-    """Check if compliance mode is enabled in user configuration."""
-    try:
-        from autoclean.utils.config import (
-            is_compliance_mode_enabled as config_compliance_check,
-        )
-
-        return config_compliance_check()
-    except Exception:
-        return False
 
 
 def validate_auth0_config(
@@ -779,7 +770,7 @@ def create_electronic_signature(
     try:
         from ulid import ULID
 
-        from autoclean.utils.database import manage_database_with_audit_protection
+        from autoclean.utils.database import manage_database_conditionally
 
         signature_id = str(ULID())
         current_time = datetime.now()
@@ -806,7 +797,7 @@ def create_electronic_signature(
             "signature_type": signature_type,
         }
 
-        manage_database_with_audit_protection(
+        manage_database_conditionally(
             "store_electronic_signature", signature_record
         )
 

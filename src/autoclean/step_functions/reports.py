@@ -38,7 +38,7 @@ from reportlab.platypus import TableStyle
 
 from autoclean.utils.database import (
     get_run_record,
-    manage_database_with_audit_protection,
+    manage_database_conditionally,
 )
 from autoclean.utils.logging import message
 
@@ -1117,7 +1117,7 @@ def update_task_processing_log(
                     "csv_path": str(csv_path),
                 }
             }
-            manage_database_with_audit_protection(
+            manage_database_conditionally(
                 operation="update",
                 update_record={
                     "run_id": summary_dict.get("run_id", ""),
@@ -1515,7 +1515,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     message("success", f"Created JSON summary for run {run_id}")
 
     # Add metadata to database
-    manage_database_with_audit_protection(
+    manage_database_conditionally(
         operation="update",
         update_record={"run_id": run_id, "metadata": {"json_summary": summary_dict}},
     )
