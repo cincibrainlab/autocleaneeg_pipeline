@@ -1514,12 +1514,9 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
 
     message("success", f"Created JSON summary for run {run_id}")
 
-    # Add metadata to database
-    manage_database_conditionally(
-        operation="update",
-        update_record={"run_id": run_id, "metadata": {"json_summary": summary_dict}},
-    )
-
+    # Note: Database update moved to pipeline completion to avoid audit record conflicts
+    # The JSON summary will be saved when the run is marked as completed
+    
     return summary_dict
 
 
