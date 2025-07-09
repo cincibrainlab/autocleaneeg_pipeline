@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoClean EEG Audit System Debug Report</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        .error-section {
+            background: #dc3545;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .analysis-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .file-list {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .critical-path {
+            background: #ffeaa7;
+            padding: 10px;
+            border-left: 4px solid #fdcb6e;
+            margin: 10px 0;
+        }
+        .code-block {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .success {
+            background: #00b894;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        .warning {
+            background: #fdcb6e;
+            color: #2d3436;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        .error {
+            background: #e17055;
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .table th, .table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        .table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+        }
+        .table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .timeline {
+            position: relative;
+            padding: 20px 0;
+        }
+        .timeline-item {
+            position: relative;
+            padding-left: 30px;
+            margin-bottom: 20px;
+        }
+        .timeline-item:before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            width: 2px;
+            height: 100%;
+            background: #667eea;
+        }
+        .timeline-item:after {
+            content: '';
+            position: absolute;
+            left: 6px;
+            top: 5px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #667eea;
+        }
+        .collapsible {
+            background-color: #f1f1f1;
+            color: #444;
+            cursor: pointer;
+            padding: 18px;
+            width: 100%;
+            border: none;
+            text-align: left;
+            outline: none;
+            font-size: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .collapsible.active, .collapsible:hover {
+            background-color: #ccc;
+        }
+        .content {
+            padding: 0 18px;
+            display: none;
+            overflow: hidden;
+            background-color: white;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .content.active {
+            display: block;
+            padding: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔍 AutoClean EEG Audit System Debug Report</h1>
+        <p>Comprehensive analysis of audit system behavior and compliance mode integration</p>
+        <p><strong>Generated:</strong> July 9, 2025 | <strong>Status:</strong> Analysis Complete</p>
+    </div>
+
+    <div class="error-section">
+        <h2>🚨 Original Error Analysis</h2>
+        <div class="code-block">
+03:36:28 | ERROR    | Database operation failed: {'operation': 'update', 'timestamp': '2025-07-09T03:36:28.570865', 'error': 'Cannot modify audit record - run already completed'}
+03:36:33 | ERROR    | Database operation failed: {'operation': 'add_access_log', 'timestamp': '2025-07-09T03:36:33.779462', 'error': 'database is locked'}
+03:36:33 | WARNING  | Failed to log database access to secure table: Operation 'add_access_log' failed: database is locked
+03:36:33 | ERROR    | Processing failed: Operation 'update' failed: Cannot modify audit record - run already completed
+        </div>
+        <div class="timeline">
+            <div class="timeline-item">
+                <strong>EEG Processing Success</strong><br>
+                ICA processing, epochs creation, and JSON summary completed successfully
+            </div>
+            <div class="timeline-item">
+                <strong>Database Update Attempted</strong><br>
+                System tried to update audit record for run ID: 01JZQ1QF8EB3975T5XJWBPM5A9
+            </div>
+            <div class="timeline-item">
+                <strong>Audit Protection Triggered</strong><br>
+                Database protection mechanism blocked update (run marked as completed)
+            </div>
+            <div class="timeline-item">
+                <strong>Database Lock Detected</strong><br>
+                Secondary operation encountered database lock from previous failed operation
+            </div>
+            <div class="timeline-item">
+                <strong>Processing Marked Failed</strong><br>
+                Despite successful EEG processing, overall process failed due to database errors
+            </div>
+        </div>
+    </div>
+
+    <div class="analysis-section">
+        <h2>📊 Compliance Mode Status</h2>
+        <div class="success">
+            <strong>✅ Compliance Mode: DISABLED</strong><br>
+            Current Status: {'enabled': False, 'permanent': False, 'auth_provider': None, 'require_electronic_signatures': False}
+        </div>
+        <div class="warning">
+            <strong>⚠️ Key Issue Identified:</strong><br>
+            Audit system runs regardless of compliance mode setting. The <code>manage_database_with_audit_protection()</code> function always calls audit logging, even when compliance mode is disabled.
+        </div>
+    </div>
+
+    <button class="collapsible">📁 Files Using Audit Functions (11 Files)</button>
+    <div class="content">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>File Path</th>
+                    <th>Function</th>
+                    <th>Critical Path</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>/src/autoclean/utils/database.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Core audit protection wrapper - called throughout pipeline</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/core/pipeline.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Pipeline execution tracking - 8 usage locations</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/cli.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Authentication and electronic signatures - 5 locations</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/io/import_.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Data import audit trail - 2 locations</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/io/export.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Data export audit trail - 6 locations</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/mixins/base.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Signal processing audit trail - 2 locations</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/step_functions/reports.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Report generation audit trail - 2 locations</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/step_functions/continuous.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Continuous processing audit trail - 3 locations</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/tasks/mouse_xdat_chirp.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="warning">OPTIONAL</td>
+                    <td>Task-specific audit - import only</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/tasks/mouse_xdat_assr.py</td>
+                    <td>manage_database_with_audit_protection</td>
+                    <td class="warning">OPTIONAL</td>
+                    <td>Task-specific audit - import only</td>
+                </tr>
+                <tr>
+                    <td>/src/autoclean/utils/audit.py</td>
+                    <td>log_database_access</td>
+                    <td class="critical-path">CRITICAL</td>
+                    <td>Core audit logging function - called by all audit operations</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <button class="collapsible">🔧 Audit Function Call Patterns</button>
+    <div class="content">
+        <h3>Primary Call Chain</h3>
+        <div class="code-block">
+core/pipeline.py 
+  ↓
+manage_database_with_audit_protection() 
+  ↓
+utils/database.py 
+  ↓
+audit functions (get_user_context, log_database_access, create_database_backup)
+  ↓
+utils/audit.py 
+  ↓
+log_database_access() 
+  ↓
+utils/database.py 
+  ↓
+manage_database()
+        </div>
+        
+        <h3>Function Dependencies</h3>
+        <ul>
+            <li><strong>manage_database_with_audit_protection()</strong> calls:
+                <ul>
+                    <li>get_user_context() (line 126)</li>
+                    <li>log_database_access() (lines 137, 147, 159, 167)</li>
+                    <li>create_database_backup() (line 154)</li>
+                </ul>
+            </li>
+            <li><strong>get_current_user_for_audit()</strong> calls:
+                <ul>
+                    <li>is_compliance_mode_enabled() (line 830)</li>
+                    <li>get_user_context() (lines 832, 841, 849, 857)</li>
+                </ul>
+            </li>
+        </ul>
+    </div>
+
+    <button class="collapsible">🔒 Import Patterns & Circular Dependencies</button>
+    <div class="content">
+        <div class="success">
+            <strong>✅ No Circular Dependencies Found</strong><br>
+            The system uses lazy imports inside functions to avoid circular dependencies.
+        </div>
+        
+        <h3>Safe Import Patterns</h3>
+        <div class="code-block">
+# Most common pattern - imports in functions
+from autoclean.utils.audit import (
+    create_database_backup,
+    get_user_context,
+    log_database_access,
+)
+
+# Compliance checking pattern
+from autoclean.utils.config import is_compliance_mode_enabled
+        </div>
+        
+        <h3>Circular Import Prevention</h3>
+        <ul>
+            <li>✅ <strong>utils/database.py ↔ utils/audit.py</strong> - Safe (lazy imports)</li>
+            <li>✅ <strong>utils/database.py ↔ utils/config.py</strong> - Safe</li>
+            <li>✅ <strong>utils/audit.py ↔ utils/config.py</strong> - Safe</li>
+            <li>✅ <strong>core/pipeline.py ↔ audit modules</strong> - Safe</li>
+        </ul>
+    </div>
+
+    <button class="collapsible">⚠️ Error Handling Analysis</button>
+    <div class="content">
+        <h3>Robust Error Handling Patterns</h3>
+        
+        <h4>Database Operations</h4>
+        <div class="code-block">
+# Line 913-920 in utils/database.py
+except Exception as e:
+    error_context = {
+        "operation": operation,
+        "timestamp": datetime.now().isoformat(),
+        "error": str(e),
+    }
+    message("error", f"Database operation failed: {error_context}")
+    raise DatabaseError(f"Operation '{operation}' failed: {e}") from e
+        </div>
+        
+        <h4>Audit Logging</h4>
+        <div class="code-block">
+# Line 318-321 in utils/audit.py
+except Exception as e:
+    # Fallback: log to stderr if database logging fails
+    message("warning", f"Failed to log database access to secure table: {e}")
+    # Don't create file logs - database is authoritative source
+        </div>
+        
+        <h3>Error Handling Strategies</h3>
+        <ul>
+            <li><strong>Graceful degradation</strong> - Audit failures don't stop processing</li>
+            <li><strong>Fallback messaging</strong> - Errors logged to stderr if database fails</li>
+            <li><strong>Early returns</strong> - Functions return early if database not initialized</li>
+            <li><strong>Try-except blocks</strong> around all audit operations</li>
+        </ul>
+    </div>
+
+    <button class="collapsible">🗄️ Database Initialization & DB_PATH</button>
+    <div class="content">
+        <h3>Database Path Management</h3>
+        <div class="code-block">
+# Line 17 in utils/database.py
+DB_PATH = None
+
+# Line 20-29 in utils/database.py  
+def set_database_path(path: Path) -> None:
+    global DB_PATH
+    DB_PATH = path
+
+# Critical initialization in core/pipeline.py
+set_database_path(self.output_dir)
+manage_database_with_audit_protection(operation="create_collection")
+        </div>
+        
+        <h3>DB_PATH Dependencies</h3>
+        <ul>
+            <li><strong>log_database_access()</strong> - Returns early if DB_PATH is None</li>
+            <li><strong>create_database_backup()</strong> - Depends on DB_PATH for backup location</li>
+            <li><strong>verify_access_log_integrity()</strong> - Requires DB_PATH for integrity checks</li>
+        </ul>
+    </div>
+
+    <div class="analysis-section">
+        <h2>🎯 Root Cause Analysis</h2>
+        <div class="error">
+            <strong>Primary Issue:</strong> The audit system is not properly integrated with compliance mode settings
+        </div>
+        
+        <h3>Key Findings</h3>
+        <ul>
+            <li><strong>Compliance Mode Disabled</strong> - User has compliance mode turned off</li>
+            <li><strong>Audit System Always Active</strong> - <code>manage_database_with_audit_protection()</code> always calls audit functions</li>
+            <li><strong>No Compliance Checks</strong> - Audit functions don't check compliance mode before executing</li>
+            <li><strong>Database Protection Working</strong> - Error shows tamper-proof system is functioning correctly</li>
+            <li><strong>Race Condition</strong> - Database becomes locked during audit operations</li>
+        </ul>
+        
+        <h3>System Architecture Insight</h3>
+        <p>The system has two database operation modes:</p>
+        <ul>
+            <li><strong>manage_database()</strong> - Standard database operations (NO audit logging)</li>
+            <li><strong>manage_database_with_audit_protection()</strong> - Enhanced operations (ALWAYS audit logging)</li>
+        </ul>
+        <p>The problem is that the system uses the audit-protected version even when compliance mode is disabled.</p>
+    </div>
+
+    <div class="analysis-section">
+        <h2>🔄 Existing Compliance Mode Patterns</h2>
+        <div class="success">
+            <strong>Good Examples to Follow:</strong>
+        </div>
+        
+        <h3>Successful Compliance Mode Integration</h3>
+        <div class="code-block">
+# Pattern from utils/auth.py lines 765, 830, 886
+if not is_compliance_mode_enabled():
+    return None  # or basic system info
+
+# Early return pattern for non-compliance mode
+def create_electronic_signature():
+    if not is_compliance_mode_enabled():
+        return None
+    # ... compliance mode logic
+        </div>
+        
+        <h3>Functions Already Using Compliance Checks</h3>
+        <ul>
+            <li><strong>create_electronic_signature()</strong> - Returns None if not in compliance mode</li>
+            <li><strong>get_current_user_for_audit()</strong> - Returns basic info if not in compliance mode</li>
+            <li><strong>CLI authentication commands</strong> - Check compliance mode before Auth0 operations</li>
+        </ul>
+    </div>
+
+    <div class="analysis-section">
+        <h2>📈 Impact Assessment</h2>
+        
+        <h3>Risk Levels</h3>
+        <div class="success">
+            <strong>LOW RISK:</strong>
+            <ul>
+                <li>Database initialization - Well protected with existence checks</li>
+                <li>Error handling - Comprehensive try-except blocks</li>
+                <li>Import patterns - No circular dependencies</li>
+            </ul>
+        </div>
+        
+        <div class="warning">
+            <strong>MEDIUM RISK:</strong>
+            <ul>
+                <li>Function return values - Some functions return different types based on compliance mode</li>
+                <li>Database table availability - Functions check for table existence before logging</li>
+            </ul>
+        </div>
+        
+        <div class="error">
+            <strong>HIGH IMPACT AREAS:</strong>
+            <ul>
+                <li>Pipeline execution - Core processing uses audit-protected database operations</li>
+                <li>Data import/export - All I/O operations use audit logging</li>
+                <li>User authentication - CLI commands depend on compliance mode checks</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="analysis-section">
+        <h2>🔍 Performance & Technical Considerations</h2>
+        
+        <h3>Current Audit System Overhead</h3>
+        <ul>
+            <li><strong>Every database operation</strong> triggers 3-5 audit log entries</li>
+            <li><strong>User context gathering</strong> on every operation (hostname, username, PID)</li>
+            <li><strong>Database backups</strong> after significant operations</li>
+            <li><strong>Hash chain computation</strong> for tamper-proof logging</li>
+        </ul>
+        
+        <h3>Performance Impact When Compliance Mode Disabled</h3>
+        <ul>
+            <li><strong>Unnecessary audit overhead</strong> - System logging when not required</li>
+            <li><strong>Database table creation</strong> - Audit tables created even when not needed</li>
+            <li><strong>Storage overhead</strong> - Audit logs consuming disk space unnecessarily</li>
+        </ul>
+    </div>
+
+    <div class="analysis-section">
+        <h2>🔧 Technical Solution Architecture</h2>
+        
+        <h3>Recommended Implementation Strategy</h3>
+        <div class="code-block">
+def manage_database_conditionally(operation, run_record=None, update_record=None):
+    """Use audit protection only when compliance mode is enabled."""
+    from autoclean.utils.config import is_compliance_mode_enabled
+    
+    if is_compliance_mode_enabled():
+        return manage_database_with_audit_protection(operation, run_record, update_record)
+    else:
+        return manage_database(operation, run_record, update_record)
+        </div>
+        
+        <h3>Alternative Approaches</h3>
+        <ol>
+            <li><strong>Conditional Wrapper</strong> - Single function that checks compliance mode</li>
+            <li><strong>Early Returns in Audit Functions</strong> - Add compliance checks to each audit function</li>
+            <li><strong>Database Path Control</strong> - Conditionally set DB_PATH based on compliance mode</li>
+            <li><strong>Function Pointer Approach</strong> - Dynamically assign database function based on compliance mode</li>
+        </ol>
+    </div>
+
+    <div class="analysis-section">
+        <h2>📋 Summary & Next Steps</h2>
+        
+        <div class="success">
+            <strong>✅ System is Well-Architected</strong><br>
+            The audit system has robust error handling, no circular dependencies, and good separation of concerns.
+        </div>
+        
+        <div class="warning">
+            <strong>⚠️ Integration Gap Identified</strong><br>
+            The audit system doesn't respect compliance mode settings, causing unnecessary overhead and potential errors.
+        </div>
+        
+        <div class="critical-path">
+            <strong>🎯 Action Required</strong><br>
+            Implement compliance mode checks in audit functions to ensure the system only performs audit logging when required for regulatory compliance.
+        </div>
+        
+        <h3>Files Requiring Modification</h3>
+        <ul>
+            <li>11 files using <code>manage_database_with_audit_protection()</code></li>
+            <li>5 audit functions in <code>utils/audit.py</code></li>
+            <li>Database wrapper in <code>utils/database.py</code></li>
+            <li>Configuration integration in <code>utils/config.py</code></li>
+        </ul>
+    </div>
+
+    <script>
+        // Make collapsible sections work
+        var coll = document.getElementsByClassName("collapsible");
+        for (var i = 0; i < coll.length; i++) {
+            coll[i].addEventListener("click", function() {
+                this.classList.toggle("active");
+                var content = this.nextElementSibling;
+                content.classList.toggle("active");
+            });
+        }
+    </script>
+</body>
+</html>
