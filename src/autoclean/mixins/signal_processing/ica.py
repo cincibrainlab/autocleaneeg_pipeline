@@ -2,6 +2,11 @@
 
 from mne.preprocessing import ICA
 
+from autoclean.functions.ica.ica_processing import (
+    apply_ica_component_rejection,
+    classify_ica_components,
+    fit_ica,
+)
 from autoclean.io.export import save_ica_to_fif
 from autoclean.utils.logging import message
 
@@ -77,8 +82,6 @@ class IcaMixin:
             message("debug", f"Fitting ICA with {ica_kwargs}")
 
             # Call standalone function for ICA fitting
-            from autoclean.functions.ica.ica_processing import fit_ica
-
             self.final_ica = fit_ica(raw=data, **ica_kwargs)
 
             if eog_channel is not None:
@@ -184,8 +187,6 @@ class IcaMixin:
             return None
 
         # Call standalone function for ICA component classification
-        from autoclean.functions.ica.ica_processing import classify_ica_components
-
         # If psd_fmax not explicitly provided, try to get it from config
         if psd_fmax is None:
             is_enabled, step_config_main_dict = self._check_step_enabled(
@@ -363,8 +364,6 @@ class IcaMixin:
         message("debug", f"Applying ICA to {data_source_name}")
 
         # Call standalone function for component rejection
-        from autoclean.functions.ica.ica_processing import apply_ica_component_rejection
-
         _, rejected_ic_indices_this_step = apply_ica_component_rejection(
             raw=target_data,
             ica=self.final_ica,

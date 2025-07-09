@@ -1,3 +1,4 @@
+import argparse
 from pathlib import Path
 
 import mne
@@ -381,8 +382,6 @@ def analyze_assr(
 
 
 if __name__ == "__main__":
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Analyze ASSR data from EEGLAB .set files"
     )

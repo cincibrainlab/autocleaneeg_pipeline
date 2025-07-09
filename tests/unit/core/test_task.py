@@ -15,6 +15,8 @@ try:
     TASK_AVAILABLE = True
 except ImportError:
     TASK_AVAILABLE = False
+    Task = None
+    DISCOVERED_MIXINS = None
 
 
 @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
@@ -23,7 +25,6 @@ class TestTaskInitialization:
     
     def test_task_is_abstract_base_class(self):
         """Test that Task is properly defined as an abstract base class."""
-        from autoclean.core.task import Task
         
         # Task should be abstract and not directly instantiable
         assert issubclass(Task, ABC)
@@ -34,8 +35,6 @@ class TestTaskInitialization:
     
     def test_task_mixin_inheritance(self):
         """Test that Task properly inherits from discovered mixins."""
-        from autoclean.core.task import Task
-        from autoclean.mixins import DISCOVERED_MIXINS
         
         # Task should inherit from all discovered mixins
         for mixin in DISCOVERED_MIXINS:
@@ -43,7 +42,6 @@ class TestTaskInitialization:
     
     def test_task_expected_abstract_methods(self):
         """Test that Task defines expected abstract methods."""
-        from autoclean.core.task import Task
         
         # Get abstract methods
         abstract_methods = getattr(Task, '__abstractmethods__', set())
@@ -55,7 +53,6 @@ class TestTaskInitialization:
     
     def test_task_config_parameter_requirements(self):
         """Test Task configuration parameter requirements."""
-        from autoclean.core.task import Task
         
         # Create concrete Task for testing
         class ConcreteTask(Task):
@@ -99,7 +96,6 @@ class TestTaskInitialization:
 
     def test_python_task_with_settings(self):
         """Test Python task with embedded settings."""
-        from autoclean.core.task import Task
         
         class PythonTask(Task):
             def __init__(self, config):
@@ -130,7 +126,6 @@ class TestTaskInitialization:
 
     def test_task_without_required_stages(self):
         """Test that tasks work without defining required_stages."""
-        from autoclean.core.task import Task
         
         class FlexibleTask(Task):
             def __init__(self, config):
@@ -154,7 +149,6 @@ class TestTaskInitialization:
     
     def test_task_config_validation(self):
         """Test Task configuration validation."""
-        from autoclean.core.task import Task
         
         # Create concrete Task for testing
         class ConcreteTask(Task):
@@ -196,7 +190,6 @@ class TestTaskInterface:
     
     def test_task_has_expected_methods(self):
         """Test that Task has expected methods from mixins."""
-        from autoclean.core.task import Task
         
         # Should have methods from mixins (these will be tested in mixin tests)
         # Here we just verify the interface exists
@@ -211,7 +204,6 @@ class TestTaskInterface:
     
     def test_task_mro_consistency(self):
         """Test that Task's method resolution order is consistent."""
-        from autoclean.core.task import Task
         
         # MRO should be well-defined without conflicts
         mro = Task.__mro__
@@ -226,7 +218,6 @@ class TestTaskConcrete:
     @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
     def test_concrete_task_implementation(self):
         """Test that concrete Task implementation works."""
-        from autoclean.core.task import Task
         
         class TestTask(Task):
             """Concrete test task implementation."""
@@ -267,7 +258,6 @@ class TestTaskConcrete:
     @patch('autoclean.io.import_.import_eeg')
     def test_task_with_mocked_dependencies(self, mock_import):
         """Test Task with mocked heavy dependencies."""
-        from autoclean.core.task import Task
         
         class TestTask(Task):
             def __init__(self, config):
@@ -314,8 +304,7 @@ class TestTaskMocked:
         """Test Task behavior when no mixins are discovered."""
         # This tests the fallback behavior
         with patch('autoclean.core.task.DISCOVERED_MIXINS', []):
-            # Import with no mixins
-            from autoclean.core.task import Task
+            # Import with no mixins already available at module level
             
             # Task should still be an ABC
             assert issubclass(Task, ABC)
@@ -325,13 +314,9 @@ class TestTaskMocked:
         with patch('autoclean.core.task.DISCOVERED_MIXINS', side_effect=ImportError("Mixin discovery failed")):
             # Should handle mixin discovery failure gracefully
             # or raise appropriate error
-            try:
-                from autoclean.core.task import Task
-                # If import succeeds, it handled the error
-                assert True
-            except ImportError:
-                # If import fails, that's also acceptable behavior
-                assert True
+            # Task is already imported at module level
+            # If import succeeded at module level, it handled any errors
+            assert True
 
 
 class TestTaskConceptual:
@@ -342,7 +327,7 @@ class TestTaskConceptual:
         if not TASK_AVAILABLE:
             pytest.skip("Task not importable, testing design conceptually")
         
-        from autoclean.core.task import Task
+        # Task already imported at module level
         
         # Abstract Base Class pattern
         assert issubclass(Task, ABC)
@@ -359,7 +344,7 @@ class TestTaskConceptual:
         if not TASK_AVAILABLE:
             pytest.skip("Task not importable, testing interface conceptually")
         
-        from autoclean.core.task import Task
+        # Task already imported at module level
         
         # Should accept config in __init__
         init_signature = Task.__init__.__annotations__
@@ -373,8 +358,7 @@ class TestTaskConceptual:
         if not TASK_AVAILABLE:
             pytest.skip("Task not importable, testing integration conceptually")
         
-        from autoclean.core.task import Task
-        from autoclean.mixins import DISCOVERED_MIXINS
+        # Task and DISCOVERED_MIXINS already imported at module level
         
         # Task should integrate with discovered mixins
         if DISCOVERED_MIXINS:
@@ -390,7 +374,7 @@ class TestTaskConceptual:
         if not TASK_AVAILABLE:
             pytest.skip("Task not importable, testing extensibility conceptually")
         
-        from autoclean.core.task import Task
+        # Task already imported at module level
         
         # Should be extensible through inheritance
         class CustomTask(Task):
@@ -430,7 +414,6 @@ class TestTaskErrorHandling:
     @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
     def test_task_with_none_config(self):
         """Test Task behavior with None config."""
-        from autoclean.core.task import Task
         
         class TestTask(Task):
             def __init__(self, config):
@@ -447,7 +430,6 @@ class TestTaskErrorHandling:
     @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
     def test_task_with_invalid_config_types(self):
         """Test Task behavior with invalid config types."""
-        from autoclean.core.task import Task
         
         class TestTask(Task):
             def __init__(self, config):

@@ -1,5 +1,6 @@
 """Export functions for autoclean pipeline."""
 
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -7,6 +8,7 @@ from typing import Any, Dict, Optional
 import mne
 import numpy as np
 import scipy.io as sio
+from eeglabio.epochs import export_set
 
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
@@ -401,9 +403,6 @@ def save_epochs_to_set(
 
             # Use specialized export for preserving complex event structures
             if events_in_epochs is not None and len(events_in_epochs) > 0:
-                from eeglabio.epochs import (  # pylint: disable=import-outside-toplevel
-                    export_set,
-                )
 
                 export_set(
                     fname=str(path),
@@ -545,8 +544,6 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
     autoclean_dict : Dict[str, Any]
         Configuration dictionary containing directory paths and run information.
     """
-    import shutil
-    from pathlib import Path
 
     stage_dir = Path(autoclean_dict["stage_dir"])
     final_files_dir = Path(autoclean_dict["final_files_dir"])
