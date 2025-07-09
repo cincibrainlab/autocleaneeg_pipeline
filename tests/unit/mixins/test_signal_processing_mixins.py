@@ -15,6 +15,8 @@ try:
     SIGNAL_PROCESSING_AVAILABLE = True
 except ImportError:
     SIGNAL_PROCESSING_AVAILABLE = False
+    BasicStepsMixin = None
+    ICAMixin = None
 
 
 @pytest.mark.skipif(not SIGNAL_PROCESSING_AVAILABLE, reason="Signal processing mixins not available")
@@ -44,7 +46,6 @@ class TestBasicStepsMixin:
     
     def test_basic_steps_mixin_interface(self):
         """Test that BasicStepsMixin has expected interface."""
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
         
         # Should have run_basic_steps method
         assert hasattr(BasicStepsMixin, 'run_basic_steps')
@@ -52,7 +53,6 @@ class TestBasicStepsMixin:
     
     def test_basic_steps_mixin_inheritance(self):
         """Test BasicStepsMixin can be inherited."""
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
         
         class TestClass(BasicStepsMixin):
             def __init__(self):
@@ -99,7 +99,6 @@ class TestBasicStepsMixin:
     @patch('autoclean.utils.logging.message')
     def test_basic_steps_sequential_execution(self, mock_message):
         """Test that basic steps execute in correct sequence."""
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
         
         class TestClass(BasicStepsMixin):
             def __init__(self):
@@ -142,7 +141,6 @@ class TestBasicStepsMixin:
     
     def test_basic_steps_data_parameter_handling(self):
         """Test that BasicStepsMixin handles data parameter correctly."""
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
         
         class TestClass(BasicStepsMixin):
             def __init__(self):
@@ -187,7 +185,6 @@ class TestICAMixin:
     
     def test_ica_mixin_interface(self):
         """Test that ICAMixin has expected interface."""
-        from autoclean.mixins.signal_processing.ica import ICAMixin
         
         # Should have ICA-related methods
         expected_methods = ['run_ica', 'apply_ica']
@@ -197,7 +194,6 @@ class TestICAMixin:
     
     def test_ica_mixin_inheritance(self):
         """Test ICAMixin can be inherited."""
-        from autoclean.mixins.signal_processing.ica import ICAMixin
         
         class TestClass(ICAMixin):
             def __init__(self):
@@ -210,7 +206,6 @@ class TestICAMixin:
     @patch('mne.preprocessing.ICA')
     def test_ica_mixin_mock_functionality(self, mock_ica_class):
         """Test ICAMixin functionality with mocked ICA."""
-        from autoclean.mixins.signal_processing.ica import ICAMixin
         
         # Mock ICA object
         mock_ica = MockOperations.mock_ica_fit(create_synthetic_raw(), n_components=15)
@@ -309,7 +304,7 @@ class TestSignalProcessingMixinsConceptual:
         if not SIGNAL_PROCESSING_AVAILABLE:
             pytest.skip("Signal processing mixins not available")
         
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+        # BasicStepsMixin already imported at module level
         
         # Mixin pattern - should not be instantiated directly
         # but should provide functionality when mixed in
@@ -327,7 +322,7 @@ class TestSignalProcessingMixinsConceptual:
             pytest.skip("Signal processing mixins not available")
         
         # Different mixins should handle different concerns
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+        # BasicStepsMixin already imported at module level
         
         # BasicStepsMixin should handle basic preprocessing
         assert 'basic_steps' in BasicStepsMixin.__module__
@@ -340,7 +335,7 @@ class TestSignalProcessingMixinsConceptual:
         if not SIGNAL_PROCESSING_AVAILABLE:
             pytest.skip("Signal processing mixins not available")
         
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+        # BasicStepsMixin already imported at module level
         
         # Should be extensible through inheritance
         class CustomBasicSteps(BasicStepsMixin):
@@ -360,7 +355,6 @@ class TestSignalProcessingMixinsErrorHandling:
     @pytest.mark.skipif(not SIGNAL_PROCESSING_AVAILABLE, reason="Signal processing mixins not available")
     def test_basic_steps_error_handling(self):
         """Test BasicStepsMixin error handling."""
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
         
         class FailingClass(BasicStepsMixin):
             def _get_data_object(self, data=None, use_epochs=False):
@@ -378,7 +372,6 @@ class TestSignalProcessingMixinsErrorHandling:
     @pytest.mark.skipif(not SIGNAL_PROCESSING_AVAILABLE, reason="Signal processing mixins not available")
     def test_missing_method_error_handling(self):
         """Test error handling when required methods are missing."""
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
         
         class IncompleteClass(BasicStepsMixin):
             # Missing required methods
@@ -395,7 +388,7 @@ class TestSignalProcessingMixinsErrorHandling:
         if not SIGNAL_PROCESSING_AVAILABLE:
             pytest.skip("Signal processing mixins not available")
         
-        from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+        # BasicStepsMixin already imported at module level
         
         class TestClass(BasicStepsMixin):
             def _get_data_object(self, data=None, use_epochs=False):
@@ -430,7 +423,7 @@ class TestSignalProcessingMixinsPerformance:
             return data if data is not None else mock_raw
         
         if SIGNAL_PROCESSING_AVAILABLE:
-            from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+            # BasicStepsMixin already imported at module level
             
             class FastTestClass(BasicStepsMixin):
                 def __init__(self):
@@ -457,7 +450,7 @@ class TestSignalProcessingMixinsPerformance:
         """Test that mixins don't create memory leaks."""
         # Test that mixin instances can be garbage collected
         if SIGNAL_PROCESSING_AVAILABLE:
-            from autoclean.mixins.signal_processing.basic_steps import BasicStepsMixin
+            # BasicStepsMixin already imported at module level
             
             class TestClass(BasicStepsMixin):
                 def __init__(self):

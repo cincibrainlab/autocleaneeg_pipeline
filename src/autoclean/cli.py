@@ -10,15 +10,60 @@ import argparse
 import sys
 from pathlib import Path
 from typing import Optional
+import csv
+import json
+import sqlite3
+from datetime import datetime
+import os
+import shutil
 
+import requests
+from rich.console import Console
+from rich.table import Table
+from rich.columns import Columns
+from rich.panel import Panel
+
+from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
 from autoclean.utils.logging import message
 from autoclean.utils.user_config import user_config
+from autoclean.utils.audit import verify_access_log_integrity
+from autoclean.utils.database import DB_PATH
+from autoclean.utils.branding import AutoCleanBranding
+from autoclean.utils.task_discovery import extract_config_from_task, safe_discover_tasks, get_task_by_name
+from autoclean.utils.config import (
+    get_compliance_status,
+    load_user_config,
+    save_user_config,
+    enable_compliance_mode,
+    disable_compliance_mode,
+)
+from autoclean import __version__
+from autoclean.utils.user_config import UserConfigManager
+
+# Try to import database functions (used conditionally in login)
+try:
+    from autoclean.utils.database import manage_database_conditionally, set_database_path
+    DATABASE_AVAILABLE = True
+except ImportError:
+    DATABASE_AVAILABLE = False
+
+# Try to import inquirer (used for interactive setup)
+try:
+    import inquirer
+    INQUIRER_AVAILABLE = True
+except ImportError:
+    INQUIRER_AVAILABLE = False
+
+# Try to import autoclean core components (may fail in some environments)
+try:
+    from autoclean.core.pipeline import Pipeline
+    PIPELINE_AVAILABLE = True
+except ImportError:
+    PIPELINE_AVAILABLE = False
 
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for AutoClean CLI."""
-    from autoclean.utils.branding import AutoCleanBranding
-
     parser = argparse.ArgumentParser(
         description=f"{AutoCleanBranding.PRODUCT_NAME}\n{AutoCleanBranding.TAGLINE}\n\nGitHub: https://github.com/cincibrainlab/autoclean_pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -332,8 +377,6 @@ def validate_args(args) -> bool:
             # Try to get input_path from task config as fallback
             task_input_path = None
             if task_name:
-                from autoclean.utils.task_discovery import extract_config_from_task
-
                 task_input_path = extract_config_from_task(task_name, "input_path")
 
             if task_input_path:
@@ -372,8 +415,10 @@ def validate_args(args) -> bool:
 def cmd_process(args) -> int:
     """Execute the process command."""
     try:
-        # Lazy import Pipeline only when needed
-        from autoclean.core.pipeline import Pipeline
+        # Check if Pipeline is available
+        if not PIPELINE_AVAILABLE:
+            message("error", "Pipeline not available. Please ensure autoclean is properly installed.")
+            return 1
 
         # Initialize pipeline with verbose logging if requested
         pipeline_kwargs = {"output_dir": args.output}
@@ -390,8 +435,6 @@ def cmd_process(args) -> int:
             task_name = args.final_task
 
             # Check if this is a custom task using the new discovery system
-            from autoclean.utils.task_discovery import get_task_by_name
-
             task_class = get_task_by_name(task_name)
             if task_class:
                 # Task found via discovery system
@@ -444,14 +487,6 @@ def cmd_process(args) -> int:
 def cmd_list_tasks(_args) -> int:
     """Execute the list-tasks command."""
     try:
-        from pathlib import Path
-
-        from rich.console import Console
-        from rich.panel import Panel
-        from rich.table import Table
-
-        from autoclean.utils.task_discovery import safe_discover_tasks
-
         console = Console()
 
         valid_tasks, invalid_files = safe_discover_tasks()
@@ -574,8 +609,10 @@ def cmd_list_tasks(_args) -> int:
 def cmd_review(args) -> int:
     """Execute the review command."""
     try:
-        # Lazy import Pipeline only when needed
-        from autoclean.core.pipeline import Pipeline
+        # Check if Pipeline is available
+        if not PIPELINE_AVAILABLE:
+            message("error", "Pipeline not available. Please ensure autoclean is properly installed.")
+            return 1
 
         pipeline = Pipeline(output_dir=args.output)
 
@@ -605,11 +642,10 @@ def cmd_setup(args) -> int:
 def _run_interactive_setup() -> int:
     """Run interactive setup wizard with arrow key navigation."""
     try:
-        import inquirer
-
-        from autoclean.utils.config import (
-            get_compliance_status,
-        )
+        if not INQUIRER_AVAILABLE:
+            message("warning", "Interactive prompts not available. Running basic setup...")
+            user_config.setup_workspace()
+            return 0
 
         message("info", "🧠 AutoClean EEG Setup Wizard")
         message("info", "Use arrow keys to navigate, Enter to select\n")
@@ -701,11 +737,6 @@ def _run_interactive_setup() -> int:
             # Legacy compliance setup (permanent)
             return _setup_compliance_mode()
 
-    except ImportError:
-        # Fall back to basic setup if inquirer not available
-        message("warning", "Interactive prompts not available. Running basic setup...")
-        user_config.setup_workspace()
-        return 0
     except KeyboardInterrupt:
         message("info", "\nSetup canceled by user.")
         return 0
@@ -717,9 +748,9 @@ def _run_interactive_setup() -> int:
 def _setup_basic_mode() -> int:
     """Setup basic (non-compliance) mode."""
     try:
-        import inquirer
-
-        from autoclean.utils.config import load_user_config, save_user_config
+        if not INQUIRER_AVAILABLE:
+            user_config.setup_workspace()
+            return 0
 
         message("info", "\n📋 Basic Setup Configuration")
 
@@ -759,19 +790,18 @@ def _setup_basic_mode() -> int:
 
         return 0
 
-    except ImportError:
-        # Fall back without inquirer
-        user_config.setup_workspace()
-        return 0
+    except Exception as e:
+        message("error", f"Basic setup failed: {e}")
+        return 1
 
 
 def _setup_compliance_mode() -> int:
     """Setup FDA 21 CFR Part 11 compliance mode with developer-managed Auth0."""
     try:
-        import inquirer
-
-        from autoclean.utils.auth import get_auth0_manager
-        from autoclean.utils.config import load_user_config, save_user_config
+        if not INQUIRER_AVAILABLE:
+            message("error", "Interactive setup requires 'inquirer' package.")
+            message("info", "Install with: pip install inquirer")
+            return 1
 
         message("info", "\n🔐 FDA 21 CFR Part 11 Compliance Setup")
         message("warning", "⚠️  Once enabled, compliance mode cannot be disabled.")
@@ -847,10 +877,6 @@ def _setup_compliance_mode() -> int:
 
         return 0
 
-    except ImportError:
-        message("error", "Interactive setup requires 'inquirer' package.")
-        message("info", "Install with: pip install inquirer")
-        return 1
     except Exception as e:
         message("error", f"Compliance setup failed: {e}")
         return 1
@@ -859,10 +885,9 @@ def _setup_compliance_mode() -> int:
 def _enable_compliance_mode() -> int:
     """Enable FDA 21 CFR Part 11 compliance mode (non-permanent)."""
     try:
-        import inquirer
-
-        from autoclean.utils.auth import get_auth0_manager
-        from autoclean.utils.config import enable_compliance_mode
+        if not INQUIRER_AVAILABLE:
+            message("error", "Interactive setup requires 'inquirer' package.")
+            return 1
 
         message("info", "\n🔐 Enable FDA 21 CFR Part 11 Compliance Mode")
         message("info", "This mode provides:")
@@ -905,9 +930,6 @@ def _enable_compliance_mode() -> int:
             message("error", "Failed to enable compliance mode")
             return 1
 
-    except ImportError:
-        message("error", "Interactive setup requires 'inquirer' package.")
-        return 1
     except Exception as e:
         message("error", f"Failed to enable compliance mode: {e}")
         return 1
@@ -916,12 +938,9 @@ def _enable_compliance_mode() -> int:
 def _disable_compliance_mode() -> int:
     """Disable FDA 21 CFR Part 11 compliance mode."""
     try:
-        import inquirer
-
-        from autoclean.utils.config import (
-            disable_compliance_mode,
-            get_compliance_status,
-        )
+        if not INQUIRER_AVAILABLE:
+            message("error", "Interactive setup requires 'inquirer' package.")
+            return 1
 
         message("info", "\n🔓 Disable FDA 21 CFR Part 11 Compliance Mode")
 
@@ -959,9 +978,6 @@ def _disable_compliance_mode() -> int:
             message("error", "Failed to disable compliance mode")
             return 1
 
-    except ImportError:
-        message("error", "Interactive setup requires 'inquirer' package.")
-        return 1
     except Exception as e:
         message("error", f"Failed to disable compliance mode: {e}")
         return 1
@@ -1095,12 +1111,6 @@ def _disable_compliance_mode() -> int:
 def cmd_version(args) -> int:
     """Show version information."""
     try:
-        from rich.console import Console
-
-        from autoclean import __version__
-        from autoclean.utils.branding import AutoCleanBranding
-        from autoclean.utils.user_config import UserConfigManager
-
         console = Console()
 
         # Professional header consistent with setup
@@ -1170,8 +1180,6 @@ def cmd_task_add(args) -> int:
             return 1
 
         # Copy the task file
-        import shutil
-
         shutil.copy2(args.task_file, dest_file)
 
         # Extract class name for usage message
@@ -1305,13 +1313,6 @@ def cmd_config_import(args) -> int:
 
 def cmd_help(_args) -> int:
     """Show elegant, user-friendly help information."""
-    from rich.columns import Columns
-    from rich.console import Console
-    from rich.panel import Panel
-    from rich.table import Table
-
-    from autoclean.utils.branding import AutoCleanBranding
-
     console = Console()
 
     # Professional header with branding
@@ -1432,10 +1433,6 @@ def cmd_help(_args) -> int:
 
 def cmd_tutorial(_args) -> int:
     """Show a helpful tutorial for first-time users."""
-    from rich.console import Console
-
-    from autoclean.utils.branding import AutoCleanBranding
-
     console = Console()
 
     # Use the tutorial header for consistent branding
@@ -1480,15 +1477,6 @@ def cmd_tutorial(_args) -> int:
 def cmd_export_access_log(args) -> int:
     """Export database access log with integrity verification."""
     try:
-        import csv
-        import json
-        import sqlite3
-        from datetime import datetime
-
-        from autoclean.utils.audit import verify_access_log_integrity
-        from autoclean.utils.database import DB_PATH
-        from autoclean.utils.user_config import user_config
-
         # Get workspace directory for database discovery and default output location
         workspace_dir = user_config._get_workspace_path()
 
@@ -1748,8 +1736,6 @@ def cmd_export_access_log(args) -> int:
 def cmd_login(args) -> int:
     """Execute the login command."""
     try:
-        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-
         if not is_compliance_mode_enabled():
             message("error", "Compliance mode is not enabled.")
             message(
@@ -1795,13 +1781,7 @@ def cmd_login(args) -> int:
             message("success", f"✓ Login successful! Welcome, {user_email}")
 
             # Store user in database
-            if user_info:
-                from autoclean.utils.database import (
-                    manage_database_conditionally,
-                    set_database_path,
-                )
-                from autoclean.utils.user_config import user_config
-
+            if user_info and DATABASE_AVAILABLE:
                 # Set database path for the operation
                 output_dir = user_config.get_default_output_dir()
                 output_dir.mkdir(parents=True, exist_ok=True)
@@ -1833,8 +1813,6 @@ def cmd_login(args) -> int:
 def cmd_logout(args) -> int:
     """Execute the logout command."""
     try:
-        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-
         if not is_compliance_mode_enabled():
             message(
                 "info", "Compliance mode is not enabled. No authentication to clear."
@@ -1863,8 +1841,6 @@ def cmd_logout(args) -> int:
 def cmd_whoami(args) -> int:
     """Execute the whoami command."""
     try:
-        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-
         if not is_compliance_mode_enabled():
             message("info", "Compliance mode: Disabled")
             message("info", "Authentication: Not required")
@@ -1918,15 +1894,6 @@ def cmd_whoami(args) -> int:
 def cmd_auth0_diagnostics(args) -> int:
     """Execute the auth0-diagnostics command."""
     try:
-        import os
-        from pathlib import Path
-
-        import requests
-        from rich.console import Console
-        from rich.table import Table
-
-        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-
         console = Console()
 
         # Header
@@ -2259,10 +2226,6 @@ def main(argv: Optional[list] = None) -> int:
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
-        from rich.console import Console
-
-        from autoclean.utils.branding import AutoCleanBranding
-
         console = Console()
         AutoCleanBranding.print_main_interface(console)
         return 0

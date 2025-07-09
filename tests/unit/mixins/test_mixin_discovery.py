@@ -14,12 +14,19 @@ try:
         DISCOVERED_MIXINS,
         _BASE_MIXIN_CLASS,
         _discovered_other_mixins,
-        _warn_on_method_collisions
+        _warn_on_method_collisions,
+        _base_mixin_found
     )
     from autoclean.mixins.base import BaseMixin
     MIXINS_AVAILABLE = True
 except ImportError:
     MIXINS_AVAILABLE = False
+    DISCOVERED_MIXINS = None
+    _BASE_MIXIN_CLASS = None
+    _discovered_other_mixins = None
+    _warn_on_method_collisions = None
+    _base_mixin_found = None
+    BaseMixin = None
 
 
 @pytest.mark.skipif(not MIXINS_AVAILABLE, reason="Mixins module not available")
@@ -28,14 +35,13 @@ class TestMixinDiscovery:
     
     def test_discovered_mixins_is_tuple(self):
         """Test that DISCOVERED_MIXINS is a tuple."""
-        from autoclean.mixins import DISCOVERED_MIXINS
         
         assert isinstance(DISCOVERED_MIXINS, tuple)
         assert len(DISCOVERED_MIXINS) > 0  # Should have at least BaseMixin
     
     def test_base_mixin_included(self):
         """Test that BaseMixin functionality is included in discovered mixins."""
-        from autoclean.mixins import DISCOVERED_MIXINS, BaseMixin
+        # DISCOVERED_MIXINS already imported at module level, BaseMixin
         
         # DISCOVERED_MIXINS contains the combined mixin class, not individual mixins
         assert len(DISCOVERED_MIXINS) == 1
@@ -46,14 +52,14 @@ class TestMixinDiscovery:
     
     def test_base_mixin_class_availability(self):
         """Test that _BASE_MIXIN_CLASS is properly set."""
-        from autoclean.mixins import _BASE_MIXIN_CLASS, BaseMixin
+        # _BASE_MIXIN_CLASS and BaseMixin already imported at module level
         
         assert _BASE_MIXIN_CLASS == BaseMixin
         assert issubclass(_BASE_MIXIN_CLASS, object)
     
     def test_discovered_mixins_are_classes(self):
         """Test that all discovered mixins are actual classes."""
-        from autoclean.mixins import DISCOVERED_MIXINS
+        # DISCOVERED_MIXINS already imported at module level
         
         for mixin in DISCOVERED_MIXINS:
             assert isinstance(mixin, type), f"{mixin} is not a class"
@@ -62,7 +68,7 @@ class TestMixinDiscovery:
     
     def test_mixin_naming_convention(self):
         """Test that discovered mixins follow naming convention."""
-        from autoclean.mixins import DISCOVERED_MIXINS
+        # DISCOVERED_MIXINS already imported at module level
         
         for mixin in DISCOVERED_MIXINS:
             # Should end with 'Mixin' or 'Mixins' (for CombinedAutocleanMixins)
@@ -71,7 +77,7 @@ class TestMixinDiscovery:
     
     def test_mixin_modules_structure(self):
         """Test that mixins come from expected module structure."""
-        from autoclean.mixins import DISCOVERED_MIXINS
+        # DISCOVERED_MIXINS already imported at module level
         
         for mixin in DISCOVERED_MIXINS:
             module_name = mixin.__module__
@@ -86,7 +92,7 @@ class TestMixinCollisionDetection:
     
     def test_warn_on_method_collisions_no_collisions(self):
         """Test collision detection with no collisions."""
-        from autoclean.mixins import _warn_on_method_collisions
+        # _warn_on_method_collisions already imported at module level
         
         # Create test mixins with no collisions
         class MixinA:
@@ -107,7 +113,7 @@ class TestMixinCollisionDetection:
     
     def test_warn_on_method_collisions_with_collisions(self):
         """Test collision detection with actual collisions."""
-        from autoclean.mixins import _warn_on_method_collisions
+        # _warn_on_method_collisions already imported at module level
         
         # Create test mixins with collisions
         class MixinA:
@@ -138,7 +144,7 @@ class TestMixinCollisionDetection:
     
     def test_warn_on_method_collisions_ignores_dunder_methods(self):
         """Test that collision detection ignores dunder methods."""
-        from autoclean.mixins import _warn_on_method_collisions
+        # _warn_on_method_collisions already imported at module level
         
         class MixinA:
             def __init__(self):
@@ -165,7 +171,7 @@ class TestMixinCollisionDetection:
     
     def test_method_collision_precedence_detection(self):
         """Test that collision detection shows precedence information."""
-        from autoclean.mixins import _warn_on_method_collisions
+        # _warn_on_method_collisions already imported at module level
         
         class FirstMixin:
             def collision_method(self):
@@ -194,14 +200,14 @@ class TestBaseMixin:
     
     def test_base_mixin_importable(self):
         """Test that BaseMixin can be imported."""
-        from autoclean.mixins.base import BaseMixin
+        # BaseMixin already imported at module level
         
         assert BaseMixin is not None
         assert isinstance(BaseMixin, type)
     
     def test_base_mixin_has_expected_interface(self):
         """Test that BaseMixin has expected interface."""
-        from autoclean.mixins.base import BaseMixin
+        # BaseMixin already imported at module level
         
         # Should be a class that can be inherited from
         class TestClass(BaseMixin):
@@ -212,8 +218,8 @@ class TestBaseMixin:
     
     def test_base_mixin_in_discovered_mixins(self):
         """Test that BaseMixin functionality is properly included in discovery."""
-        from autoclean.mixins import DISCOVERED_MIXINS
-        from autoclean.mixins.base import BaseMixin
+        # DISCOVERED_MIXINS already imported at module level
+        # BaseMixin already imported at module level
         
         # The combined mixin should inherit from BaseMixin
         combined_mixin = DISCOVERED_MIXINS[0]
@@ -268,7 +274,7 @@ class TestMixinSystemConceptual:
         if not MIXINS_AVAILABLE:
             pytest.skip("Mixins not available for design testing")
         
-        from autoclean.mixins import DISCOVERED_MIXINS
+        # DISCOVERED_MIXINS already imported at module level
         
         # Composition principle: single effective mixin that combines multiple mixins
         assert len(DISCOVERED_MIXINS) == 1  # Single combined mixin
@@ -287,7 +293,7 @@ class TestMixinSystemConceptual:
         if not MIXINS_AVAILABLE:
             pytest.skip("Mixins not available for extensibility testing")
         
-        from autoclean.mixins import DISCOVERED_MIXINS
+        # DISCOVERED_MIXINS already imported at module level
         
         # Should be extensible by adding new mixins
         # New mixins should be discoverable
@@ -299,7 +305,7 @@ class TestMixinSystemConceptual:
         if not MIXINS_AVAILABLE:
             pytest.skip("Mixins not available for conflict testing")
         
-        from autoclean.mixins import _warn_on_method_collisions
+        # _warn_on_method_collisions already imported at module level
         
         # System should detect and warn about conflicts
         # MRO should resolve conflicts predictably
@@ -315,7 +321,7 @@ class TestMixinDiscoveryEdgeCases:
         """Test behavior when no mixins are discovered."""
         # Note: This test is harder to mock due to the way the module loads
         # In reality, the mixin system always has at least BaseMixin
-        from autoclean.mixins import DISCOVERED_MIXINS
+        # DISCOVERED_MIXINS already imported at module level
         
         # Should always have at least one effective mixin
         assert len(DISCOVERED_MIXINS) >= 1
@@ -329,7 +335,7 @@ class TestMixinDiscoveryEdgeCases:
         # This would be tested by temporarily moving base.py
         # Or mocking the import failure
         # For now, test that the fallback mechanism exists
-        from autoclean.mixins import _base_mixin_found
+        # _base_mixin_found already imported at module level
         
         # Should indicate whether BaseMixin was found
         assert isinstance(_base_mixin_found, bool)
@@ -351,7 +357,7 @@ class TestMixinDiscoveryEdgeCases:
         # Should handle empty mixins without errors
         with patch('builtins.print') as mock_print:
             if MIXINS_AVAILABLE:
-                from autoclean.mixins import _warn_on_method_collisions
+                # _warn_on_method_collisions already imported at module level
                 _warn_on_method_collisions((EmptyMixin,))
             
             # Should not crash on empty mixins
@@ -368,7 +374,7 @@ class TestMixinDiscoveryEdgeCases:
         
         # Should handle non-callable attributes without issues
         if MIXINS_AVAILABLE:
-            from autoclean.mixins import _warn_on_method_collisions
+            # _warn_on_method_collisions already imported at module level
             _warn_on_method_collisions((MixinWithAttributes,))
         
         # Should not crash on non-callable attributes

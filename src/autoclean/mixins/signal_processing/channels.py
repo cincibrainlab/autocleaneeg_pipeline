@@ -4,6 +4,7 @@ from typing import Dict, List, Union
 
 import mne
 
+from autoclean.functions.artifacts.channels import detect_bad_channels
 from autoclean.utils.logging import message
 
 
@@ -108,8 +109,6 @@ class ChannelsMixin:
             }
 
             # Call standalone function for bad channel detection
-            from autoclean.functions.artifacts.channels import detect_bad_channels
-
             bad_channels = detect_bad_channels(
                 data=result_raw,
                 correlation_thresh=options["correlation_thresh"],

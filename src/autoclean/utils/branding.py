@@ -5,9 +5,19 @@ Provides consistent visual identity across all CLI elements including
 logos, taglines, and styling.
 """
 
+import platform
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
+
+# Optional dependencies - may not be available in all contexts
+try:
+    from autoclean import __version__
+    VERSION_AVAILABLE = True
+except ImportError:
+    VERSION_AVAILABLE = False
+    __version__ = "unknown"
 
 
 class AutoCleanBranding:
@@ -83,16 +93,12 @@ class AutoCleanBranding:
         console.print(cls.get_simple_welcome(), style="bright_cyan")
 
         # Version and platform info (concise)
-        try:
-            import platform
-
-            from autoclean import __version__
-
+        if VERSION_AVAILABLE:
             version = __version__
             platform_name = platform.system()
             arch = platform.machine()
             console.print(f"[dim]v{version} • {platform_name} {arch}[/dim]")
-        except ImportError:
+        else:
             console.print("[dim]AutoClean EEG[/dim]")
 
         # Quick start info
@@ -216,16 +222,12 @@ class AutoCleanBranding:
         console.print(cls.get_simple_welcome(), style="bright_cyan")
 
         # Version and platform info (concise)
-        try:
-            import platform
-
-            from autoclean import __version__
-
+        if VERSION_AVAILABLE:
             version = __version__
             platform_name = platform.system()
             arch = platform.machine()
             console.print(f"[dim]v{version} • {platform_name} {arch}[/dim]")
-        except ImportError:
+        else:
             console.print("[dim]AutoClean EEG[/dim]")
 
 

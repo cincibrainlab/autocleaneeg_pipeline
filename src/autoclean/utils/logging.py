@@ -11,6 +11,8 @@ from typing import Optional, Union
 
 from loguru import logger
 
+from autoclean import __version__
+
 # Remove default handler
 logger.remove()
 
@@ -234,8 +236,6 @@ def configure_logger(
         log_dir = Path(logs_dir)
     elif output_dir is not None and task is not None:
         # Legacy fallback: try to reconstruct path (may not work with dataset names)
-        from autoclean import __version__
-
         log_dir = (
             Path(output_dir)
             / task
