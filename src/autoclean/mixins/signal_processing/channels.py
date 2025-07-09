@@ -375,3 +375,75 @@ class ChannelsMixin:
         except Exception as e:
             message("error", f"Error during setting channel types: {str(e)}")
             raise RuntimeError(f"Failed to set channel types: {str(e)}") from e
+
+    def drop_eog_channels(
+        self,
+        data: Union[mne.io.Raw, mne.Epochs, None] = None,
+        stage_name: str = "drop_eog_channels",
+        use_epochs: bool = False,
+    ) -> Union[mne.io.Raw, mne.Epochs]:
+        """Drop EOG channels from EEG data after ICA processing.
+
+        This method removes all channels marked as EOG type from the data.
+        Useful for cleaning up the data after ICA artifact removal.
+
+        Parameters
+        ----------
+        data : mne.io.Raw or mne.Epochs, Optional
+            The data object to drop EOG channels from. If None, uses self.raw or self.epochs.
+        stage_name : str, Optional
+            Name for saving and metadata.
+        use_epochs : bool, Optional
+            If True, operates on epochs data instead of raw data.
+
+        Returns
+        -------
+        mne.io.Raw or mne.Epochs
+            The data with EOG channels removed.
+        """
+        try:
+            # Get the appropriate data object
+            if data is None:
+                data = self.epochs if use_epochs else self.raw
+                if data is None:
+                    raise ValueError("No data available to process")
+
+            # Detect EOG channels
+            eog_picks = mne.pick_types(data.info, eog=True)
+            eog_ch_names = [data.ch_names[idx] for idx in eog_picks]
+
+            if not eog_ch_names:
+                message("info", "No EOG channels found to drop")
+                return data.copy()
+
+            message("info", f"Dropping {len(eog_ch_names)} EOG channels: {eog_ch_names}")
+
+            # Drop the EOG channels
+            result_data = data.copy()
+            result_data.drop_channels(eog_ch_names, on_missing='ignore')
+
+            # Export the result
+            stage_number = self.config.get("_export_counter", 0) + 1
+            self.config["_export_counter"] = stage_number
+            
+            exported_filename = f"{stage_number:02d}_{stage_name}_raw.fif"
+            if use_epochs:
+                exported_filename = f"{stage_number:02d}_{stage_name}_epo.fif"
+            
+            save_path = self.config["stage_dir"] / exported_filename
+            
+            if use_epochs:
+                result_data.save(save_path, overwrite=True)
+            else:
+                result_data.save(save_path, overwrite=True)
+
+            message("info", f"Exported {stage_name} data to {save_path}")
+
+            # Update self.raw or self.epochs
+            self._update_instance_data(data, result_data, use_epochs)
+
+            return result_data
+
+        except Exception as e:
+            message("error", f"Error during EOG channel dropping: {str(e)}")
+            raise RuntimeError(f"Failed to drop EOG channels: {str(e)}") from e
