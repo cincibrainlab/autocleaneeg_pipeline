@@ -1042,10 +1042,11 @@ def _disable_compliance_mode() -> int:
         # Disable compliance mode panel
         disable_text = Text()
         disable_text.append("🔓 Disable FDA 21 CFR Part 11 Compliance Mode\n\n", style="bold yellow")
-        disable_text.append("This will disable:\n", style="yellow")
-        disable_text.append("• Required authentication\n", style="dim")
-        disable_text.append("• Audit trail logging\n", style="dim")
-        disable_text.append("• Electronic signatures", style="dim")
+        disable_text.append("This will:\n", style="yellow")
+        disable_text.append("• Switch to regular workspace (without Part 11 suffix)\n", style="dim")
+        disable_text.append("• Disable required authentication\n", style="dim")
+        disable_text.append("• Disable audit trail logging\n", style="dim")
+        disable_text.append("• Disable electronic signatures", style="dim")
         
         console.print(Panel(disable_text, border_style="yellow", padding=(1, 2)))
 
@@ -1069,18 +1070,51 @@ def _disable_compliance_mode() -> int:
             console.print("[green]ℹ[/green] Compliance mode remains enabled.")
             return 0
 
-        # Disable compliance mode
+        console.print("\n[bold]Disabling compliance mode...[/bold]")
+
+        # Disable compliance mode first
         if disable_compliance_mode():
-            # Success panel
-            success_text = Text()
-            success_text.append("✓ Compliance mode disabled!\n\n", style="bold green")
-            success_text.append("AutoClean will now operate in standard mode", style="green")
-            
-            console.print(Panel(success_text, border_style="green", padding=(1, 2)))
-            return 0
+            console.print("[green]✓[/green] Compliance mode disabled")
         else:
             console.print("[red]✗[/red] Failed to disable compliance mode")
             return 1
+
+        # Switch back to regular workspace (without Part 11 suffix)
+        try:
+            # Get the regular workspace path (without Part 11 suffix)
+            regular_workspace = user_config._get_base_workspace_path()
+            
+            # Check if regular workspace exists, if not create it
+            if not regular_workspace.exists() or not (regular_workspace / "tasks").exists():
+                console.print("[yellow]ℹ[/yellow] Setting up regular workspace...")
+                user_config._create_workspace_structure(regular_workspace)
+                console.print(f"[green]✓[/green] Regular workspace created: [dim]{regular_workspace}[/dim]")
+            else:
+                console.print(f"[green]✓[/green] Switched to regular workspace: [dim]{regular_workspace}[/dim]")
+            
+            # Update global config to point to regular workspace
+            user_config._save_global_config(regular_workspace)
+            
+            # Update user_config instance
+            user_config.config_dir = regular_workspace
+            user_config.tasks_dir = regular_workspace / "tasks"
+            
+        except Exception as e:
+            console.print(f"[yellow]⚠[/yellow] Could not switch workspace: {e}")
+            console.print("[dim]You may need to run 'autoclean-eeg setup' to reconfigure workspace[/dim]")
+
+        # Success panel
+        success_text = Text()
+        success_text.append("✓ Compliance mode disabled!\n\n", style="bold green")
+        success_text.append("Changes made:\n", style="green")
+        success_text.append("• Switched to regular workspace (without Part 11 suffix)\n", style="dim")
+        success_text.append("• Disabled authentication requirements\n", style="dim")
+        success_text.append("• Disabled audit trail logging\n", style="dim")
+        success_text.append("• Disabled electronic signatures\n\n", style="dim")
+        success_text.append("AutoClean will now operate in standard mode", style="green")
+        
+        console.print(Panel(success_text, border_style="green", padding=(1, 2)))
+        return 0
 
     except ImportError:
         message("error", "Interactive setup requires 'inquirer' package.")
