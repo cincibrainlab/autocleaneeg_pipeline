@@ -133,6 +133,14 @@ class Auth0Manager:
         # OAuth callback server configuration
         self.callback_port_range = (8080, 8089)  # Port range for dynamic allocation
         
+        # Default Auth0 configuration for AutoClean (embedded in package)
+        self._default_auth0_config = {
+            "domain": "dev-p1dcdxt7fxliu2th.us.auth0.com",
+            "client_id": "NMAnvJ4c7eIuRnbluGj3AQyoVCFldiNv",
+            "client_secret": "42WFN4gfjNRSdPukqsSiXjKHFIiSKEJPjRvfbwX7-jOLnO1QnXLM1bQUYCAl5oad",
+            "audience": "https://dev-p1dcdxt7fxliu2th.us.auth0.com/api/v2/"
+        }
+        
         # Load existing configuration
         self._load_config()
         self._load_tokens()
@@ -262,65 +270,53 @@ The system will automatically find an available port in this range during authen
 
     def _load_developer_credentials(self) -> Optional[Dict[str, str]]:
         """
-        Load developer Auth0 credentials from available sources.
+        Load Auth0 credentials from available sources.
 
         Priority order:
-        1. Secure endpoint (future implementation)
-        2. Environment variables
-        3. Fallback defaults (development only)
+        1. Environment variables (for development/custom setups)
+        2. Embedded package defaults (for production use)
 
         Returns:
             Dictionary with Auth0 credentials or None if unavailable
         """
-        # Future: Try secure endpoint first
-        credentials = self._fetch_credentials_from_endpoint()
-        if credentials:
-            return {**credentials, "source": "secure_endpoint"}
-
-        # Try environment variables
+        # 1. Try environment variables first (development/custom override)
         credentials = self._load_credentials_from_env()
         if credentials:
+            message("debug", "Using Auth0 credentials from environment variables")
             return {**credentials, "source": "environment"}
 
-        # Development fallback (should not be used in production)
-        credentials = self._get_fallback_credentials()
-        if credentials:
-            message(
-                "warning", "Using fallback Auth0 credentials - not for production use"
-            )
-            return {**credentials, "source": "fallback"}
+        # 2. Use embedded package defaults (production)
+        message("debug", "Using embedded Auth0 credentials (default AutoClean configuration)")
+        return {**self._default_auth0_config, "source": "embedded_default"}
 
-        return None
-
-    def _fetch_credentials_from_endpoint(self) -> Optional[Dict[str, str]]:
+    def use_default_auth0_config(self) -> None:
         """
-        Fetch Auth0 credentials from secure endpoint.
-
-        Future implementation will retrieve credentials from a secure
-        endpoint with proper authentication and encryption.
-
-        Returns:
-            Dictionary with Auth0 credentials or None if unavailable
+        Configure Auth0 to use the embedded package defaults.
+        
+        This is useful for resetting to default configuration or 
+        when custom configuration fails.
         """
-        # TODO: Implement secure endpoint fetching
-        # Example implementation:
-        # try:
-        #     endpoint_url = os.getenv("AUTOCLEAN_CREDENTIALS_ENDPOINT")
-        #     if not endpoint_url:
-        #         return None
-        #
-        #     response = requests.get(
-        #         endpoint_url,
-        #         headers={"Authorization": f"Bearer {self._get_service_token()}"},
-        #         timeout=10
-        #     )
-        #     response.raise_for_status()
-        #     return response.json()
-        # except Exception as e:
-        #     message("debug", f"Failed to fetch credentials from endpoint: {e}")
-        #     return None
+        config = self._default_auth0_config.copy()
+        
+        self.domain = config["domain"]
+        self.client_id = config["client_id"]
+        self.client_secret = config["client_secret"]
+        self.audience = config["audience"]
+        
+        # Clear any existing config file to force use of defaults
+        if self.config_file.exists():
+            self.config_file.unlink()
+            
+        message("info", f"✓ Reset to default Auth0 configuration (domain: {self.domain})")
 
-        return None
+    def is_using_default_config(self) -> bool:
+        """Check if currently using the embedded default Auth0 configuration."""
+        return (
+            self.domain == self._default_auth0_config["domain"] and
+            self.client_id == self._default_auth0_config["client_id"] and
+            self.client_secret == self._default_auth0_config["client_secret"]
+        )
+
 
     def _load_credentials_from_env(self) -> Optional[Dict[str, str]]:
         """
@@ -416,26 +412,6 @@ The system will automatically find an available port in this range during authen
         except Exception as e:
             message("debug", f"Error during .env file loading: {e}")
 
-    def _get_fallback_credentials(self) -> Optional[Dict[str, str]]:
-        """
-        Get fallback Auth0 credentials for development.
-
-        These should only be used during development and testing.
-        Production deployments should use environment variables or
-        secure endpoint fetching.
-
-        Returns:
-            Dictionary with fallback credentials or None
-        """
-        # Only provide fallback in development environments
-        if os.getenv("AUTOCLEAN_DEVELOPMENT_MODE") == "true":
-            return {
-                "domain": "autoclean-eeg-dev.us.auth0.com",
-                "client_id": "dev_client_id_placeholder",
-                "client_secret": "dev_client_secret_placeholder",
-            }
-
-        return None
 
     def is_configured(self) -> bool:
         """Check if Auth0 is properly configured."""

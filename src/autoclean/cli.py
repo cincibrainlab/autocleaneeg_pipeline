@@ -35,6 +35,10 @@ Authentication (Compliance Mode):
   autoclean-eeg login                          # Authenticate with Auth0
   autoclean-eeg logout                         # Clear authentication
   autoclean-eeg whoami                         # Show current user status
+  autoclean-eeg auth0 show                     # Show current Auth0 configuration
+  autoclean-eeg auth0 set --domain ...        # Set custom Auth0 application
+  autoclean-eeg auth0 reset                    # Reset to default Auth0 config
+  autoclean-eeg auth0 test                     # Test Auth0 connectivity
 
 Custom Tasks:
   autoclean-eeg task add my_task.py            # Add custom task
@@ -283,6 +287,49 @@ Examples:
     subparsers.add_parser("logout", help="Logout and clear authentication tokens")
 
     subparsers.add_parser("whoami", help="Show current authenticated user")
+
+    # Auth0 configuration command
+    auth0_parser = subparsers.add_parser(
+        "auth0", help="Configure custom Auth0 application settings"
+    )
+    auth0_subparsers = auth0_parser.add_subparsers(
+        dest="auth0_action", help="Auth0 configuration actions"
+    )
+    
+    # Set custom Auth0 credentials
+    set_auth0_parser = auth0_subparsers.add_parser(
+        "set", help="Set custom Auth0 application credentials"
+    )
+    set_auth0_parser.add_argument(
+        "--domain", required=True, help="Auth0 domain (e.g., your-tenant.us.auth0.com)"
+    )
+    set_auth0_parser.add_argument(
+        "--client-id", required=True, help="Auth0 application client ID"
+    )
+    set_auth0_parser.add_argument(
+        "--client-secret", required=True, help="Auth0 application client secret"
+    )
+    set_auth0_parser.add_argument(
+        "--audience", help="Auth0 API audience (optional)"
+    )
+    
+    # Show current Auth0 configuration
+    auth0_subparsers.add_parser(
+        "show", help="Show current Auth0 configuration"
+    )
+    
+    # Reset to default Auth0 configuration
+    auth0_subparsers.add_parser(
+        "reset", help="Reset to default AutoClean Auth0 configuration"
+    )
+    
+    # Test Auth0 configuration
+    test_auth0_parser = auth0_subparsers.add_parser(
+        "test", help="Test Auth0 configuration and connectivity"
+    )
+    test_auth0_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed test information"
+    )
 
     auth_diag_parser = subparsers.add_parser(
         "auth0-diagnostics", help="Diagnose Auth0 configuration and connectivity issues"
@@ -1918,6 +1965,174 @@ def cmd_whoami(args) -> int:
         return 1
 
 
+def cmd_auth0(args) -> int:
+    """Execute the auth0 command."""
+    try:
+        from autoclean.utils.auth import get_auth0_manager, validate_auth0_config
+        
+        auth_manager = get_auth0_manager()
+        
+        if not hasattr(args, "auth0_action") or args.auth0_action is None:
+            message("error", "No action specified. Use: set, show, reset, or test")
+            return 1
+            
+        if args.auth0_action == "set":
+            return _cmd_auth0_set(args, auth_manager)
+        elif args.auth0_action == "show":
+            return _cmd_auth0_show(args, auth_manager)
+        elif args.auth0_action == "reset":
+            return _cmd_auth0_reset(args, auth_manager)
+        elif args.auth0_action == "test":
+            return _cmd_auth0_test(args, auth_manager)
+        else:
+            message("error", f"Unknown action: {args.auth0_action}")
+            return 1
+            
+    except Exception as e:
+        message("error", f"Auth0 command failed: {e}")
+        return 1
+
+
+def _cmd_auth0_set(args, auth_manager) -> int:
+    """Set custom Auth0 configuration."""
+    try:
+        from autoclean.utils.auth import validate_auth0_config
+        
+        # Validate the provided credentials
+        is_valid, error_msg = validate_auth0_config(
+            args.domain, args.client_id, args.client_secret
+        )
+        
+        if not is_valid:
+            message("error", f"Invalid Auth0 configuration: {error_msg}")
+            return 1
+        
+        # Set the audience if not provided
+        audience = args.audience or f"https://{args.domain}/api/v2/"
+        
+        # Configure Auth0 with custom credentials
+        auth_manager.configure_auth0(
+            domain=args.domain,
+            client_id=args.client_id,
+            client_secret=args.client_secret,
+            audience=audience
+        )
+        
+        message("success", f"✓ Custom Auth0 configuration saved")
+        message("info", f"Domain: {args.domain}")
+        message("info", f"Client ID: {args.client_id}")
+        message("info", f"Audience: {audience}")
+        message("info", "")
+        message("info", "Required callback URLs for your Auth0 application:")
+        print(auth_manager.get_callback_urls_help())
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to set Auth0 configuration: {e}")
+        return 1
+
+
+def _cmd_auth0_show(args, auth_manager) -> int:
+    """Show current Auth0 configuration."""
+    try:
+        if not auth_manager.is_configured():
+            message("warning", "Auth0 not configured")
+            return 1
+            
+        is_default = auth_manager.is_using_default_config()
+        config_source = "Default (embedded)" if is_default else "Custom"
+        
+        message("info", f"Auth0 Configuration ({config_source}):")
+        message("info", f"Domain: {auth_manager.domain}")
+        message("info", f"Client ID: {auth_manager.client_id}")
+        message("info", f"Client Secret: {auth_manager.client_secret[:8]}..." if auth_manager.client_secret else "Not set")
+        message("info", f"Audience: {auth_manager.audience}")
+        
+        if not is_default:
+            message("info", "")
+            message("info", "Required callback URLs for your Auth0 application:")
+            print(auth_manager.get_callback_urls_help())
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to show Auth0 configuration: {e}")
+        return 1
+
+
+def _cmd_auth0_reset(args, auth_manager) -> int:
+    """Reset to default Auth0 configuration."""
+    try:
+        auth_manager.use_default_auth0_config()
+        message("success", "✓ Reset to default AutoClean Auth0 configuration")
+        message("info", "You can now use compliance mode with the default settings")
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to reset Auth0 configuration: {e}")
+        return 1
+
+
+def _cmd_auth0_test(args, auth_manager) -> int:
+    """Test Auth0 configuration and connectivity."""
+    try:
+        import requests
+        
+        if not auth_manager.is_configured():
+            message("error", "Auth0 not configured")
+            return 1
+            
+        message("info", f"Testing Auth0 configuration for domain: {auth_manager.domain}")
+        
+        # Test 1: Domain connectivity
+        try:
+            domain_url = f"https://{auth_manager.domain}/.well-known/openid_configuration"
+            response = requests.get(domain_url, timeout=10)
+            response.raise_for_status()
+            
+            config_data = response.json()
+            message("success", "✓ Auth0 domain is accessible")
+            
+            if args.verbose:
+                message("info", f"Authorization endpoint: {config_data.get('authorization_endpoint', 'Unknown')}")
+                message("info", f"Token endpoint: {config_data.get('token_endpoint', 'Unknown')}")
+                
+        except requests.RequestException as e:
+            message("error", f"✗ Auth0 domain connectivity failed: {e}")
+            return 1
+        
+        # Test 2: Client ID format validation
+        if len(auth_manager.client_id) >= 16 and auth_manager.client_id.replace("_", "").replace("-", "").isalnum():
+            message("success", "✓ Client ID format appears valid")
+        else:
+            message("warning", "⚠ Client ID format may be invalid")
+            
+        # Test 3: Client secret format validation  
+        if len(auth_manager.client_secret) >= 32:
+            message("success", "✓ Client secret length appears valid")
+        else:
+            message("warning", "⚠ Client secret appears too short")
+            
+        # Test 4: Port availability for callback
+        available_port = auth_manager._find_available_port()
+        if available_port:
+            message("success", f"✓ Callback port {available_port} is available")
+        else:
+            start, end = auth_manager.callback_port_range
+            message("warning", f"⚠ No available ports in range {start}-{end}")
+            
+        message("info", "")
+        message("info", "Auth0 configuration test completed")
+        message("info", f"Use 'autoclean-eeg login' to test full authentication flow")
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Auth0 configuration test failed: {e}")
+        return 1
+
+
 def cmd_auth0_diagnostics(args) -> int:
     """Execute the auth0-diagnostics command."""
     try:
@@ -2295,6 +2510,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_logout(args)
     elif args.command == "whoami":
         return cmd_whoami(args)
+    elif args.command == "auth0":
+        return cmd_auth0(args)
     elif args.command == "auth0-diagnostics":
         return cmd_auth0_diagnostics(args)
     elif args.command == "version":
