@@ -411,9 +411,6 @@ def enable_compliance_mode(permanent: bool = False) -> bool:
         if permanent:
             user_config["compliance"]["permanent"] = True
         save_user_config(user_config)
-        message(
-            "info", f"✓ Compliance mode enabled{' (permanent)' if permanent else ''}"
-        )
         return True
     except Exception as e:
         message("error", f"Failed to enable compliance mode: {e}")
@@ -438,7 +435,6 @@ def disable_compliance_mode() -> bool:
         user_config["compliance"]["enabled"] = False
         # Don't remove permanent flag - keep it for audit trail
         save_user_config(user_config)
-        message("info", "✓ Compliance mode disabled")
         return True
     except Exception as e:
         message("error", f"Failed to disable compliance mode: {e}")

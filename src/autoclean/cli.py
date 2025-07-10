@@ -85,6 +85,9 @@ Examples:
   # Run setup wizard
   autoclean-eeg setup
   
+  # Reset all configuration and start fresh
+  autoclean-eeg setup --reset
+  
   # Show user config location
   autoclean-eeg config show
   
@@ -243,6 +246,11 @@ Examples:
         "--compliance-mode",
         action="store_true",
         help="Enable FDA 21 CFR Part 11 compliance mode with Auth0 authentication",
+    )
+    setup_parser.add_argument(
+        "--reset",
+        action="store_true",
+        help="Clear all previous configuration and start completely fresh",
     )
 
     # Export access log command
@@ -627,8 +635,11 @@ def cmd_review(args) -> int:
 def cmd_setup(args) -> int:
     """Run the interactive setup wizard."""
     try:
+        # Check if reset flag was passed
+        if hasattr(args, "reset") and args.reset:
+            return _reset_configuration()
         # Check if compliance mode flag was passed
-        if hasattr(args, "compliance_mode") and args.compliance_mode:
+        elif hasattr(args, "compliance_mode") and args.compliance_mode:
             return _setup_compliance_mode()
         else:
             return _run_interactive_setup()
@@ -641,27 +652,41 @@ def _run_interactive_setup() -> int:
     """Run interactive setup wizard with arrow key navigation."""
     try:
         import inquirer
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
 
         from autoclean.utils.config import (
             get_compliance_status,
         )
+        from autoclean.utils.branding import AutoCleanBranding
 
-        message("info", "🧠 AutoClean EEG Setup Wizard")
-        message("info", "Use arrow keys to navigate, Enter to select\n")
+        console = Console()
+        
+        # Professional header
+        AutoCleanBranding.get_professional_header(console)
+        console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+        
+        # Setup wizard panel
+        wizard_text = Text()
+        wizard_text.append("🧠 AutoClean EEG Setup Wizard\n\n", style="bold blue")
+        wizard_text.append("Use arrow keys to navigate, Enter to select", style="dim")
+        
+        console.print(Panel(wizard_text, border_style="blue", padding=(1, 2)))
 
         # Get current compliance status
         compliance_status = get_compliance_status()
         is_enabled = compliance_status["enabled"]
         is_permanent = compliance_status["permanent"]
 
+        # Show current status
+        status_msg = "enabled" if is_enabled else "disabled"
+        console.print(f"\n[bold]Current compliance mode:[/bold] [{'green' if is_enabled else 'yellow'}]{status_msg}[/{'green' if is_enabled else 'yellow'}]")
+
         # Check if compliance mode is permanently enabled
         if is_permanent:
-            message(
-                "warning", "FDA 21 CFR Part 11 compliance mode is permanently enabled."
-            )
-            message(
-                "info", "You can only configure workspace location in compliance mode."
-            )
+            console.print("[yellow]⚠[/yellow] FDA 21 CFR Part 11 compliance mode is permanently enabled.")
+            console.print("[dim]You can only configure workspace location in compliance mode.[/dim]")
 
             # Only allow workspace configuration
             questions = [
@@ -676,10 +701,6 @@ def _run_interactive_setup() -> int:
                 )
             ]
         else:
-            # Show current compliance mode status
-            status_msg = "enabled" if is_enabled else "disabled"
-            message("info", f"Current compliance mode: {status_msg}")
-
             # Build setup options based on current state
             choices = [
                 ("Basic setup (standard research use)", "basic"),
@@ -753,13 +774,30 @@ def _setup_basic_mode() -> int:
     """Setup basic (non-compliance) mode."""
     try:
         import inquirer
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
 
         from autoclean.utils.config import load_user_config, save_user_config
 
-        message("info", "\n📋 Basic Setup Configuration")
+        console = Console()
+        
+        # Basic setup panel
+        basic_text = Text()
+        basic_text.append("📋 Basic Setup Configuration\n\n", style="bold blue")
+        basic_text.append("Standard research use without compliance requirements", style="blue")
+        
+        console.print(Panel(basic_text, border_style="blue", padding=(1, 2)))
+
+        console.print("\n[bold]Configuring workspace...[/bold]")
 
         # Setup workspace first
-        user_config.setup_workspace()
+        try:
+            user_config.setup_workspace()
+            console.print("[green]✓[/green] Workspace configured")
+        except Exception as e:
+            console.print(f"[red]✗[/red] Workspace setup failed: {e}")
+            return 1
 
         # Ask about workspace preferences
         questions = [
@@ -788,9 +826,20 @@ def _setup_basic_mode() -> int:
 
         save_user_config(user_config_data)
 
-        message("success", "✓ Basic setup complete!")
-        message("info", "You can now use AutoClean for standard EEG processing.")
-        message("info", "Run 'autoclean-eeg process TaskName file.raw' to get started.")
+        console.print("[green]✓[/green] Basic configuration saved")
+
+        # Success panel with next steps
+        success_text = Text()
+        success_text.append("✓ Basic setup complete!\n\n", style="bold green")
+        success_text.append("Configured:\n", style="green")
+        success_text.append("• Workspace directory\n", style="dim")
+        success_text.append("• Standard processing mode\n", style="dim")
+        backup_status = "enabled" if answers["auto_backup"] else "disabled"
+        success_text.append(f"• Database backups ({backup_status})\n\n", style="dim")
+        success_text.append("Next steps:\n", style="green")
+        success_text.append("Run 'autoclean-eeg process TaskName file.raw' to get started.", style="dim")
+        
+        console.print(Panel(success_text, border_style="green", padding=(1, 2)))
 
         return 0
 
@@ -895,16 +944,25 @@ def _enable_compliance_mode() -> int:
     """Enable FDA 21 CFR Part 11 compliance mode (non-permanent)."""
     try:
         import inquirer
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
 
         from autoclean.utils.auth import get_auth0_manager
         from autoclean.utils.config import enable_compliance_mode
 
-        message("info", "\n🔐 Enable FDA 21 CFR Part 11 Compliance Mode")
-        message("info", "This mode provides:")
-        message("info", "• User authentication (when processing)")
-        message("info", "• Audit trails")
-        message("info", "• Electronic signature support")
-        message("info", "• Can be disabled later")
+        console = Console()
+        
+        # Compliance mode info panel
+        compliance_text = Text()
+        compliance_text.append("🔐 Enable FDA 21 CFR Part 11 Compliance Mode\n\n", style="bold blue")
+        compliance_text.append("This mode provides:\n", style="blue")
+        compliance_text.append("• User authentication (when processing)\n", style="dim")
+        compliance_text.append("• Audit trails\n", style="dim")
+        compliance_text.append("• Electronic signature support\n", style="dim")
+        compliance_text.append("• Can be disabled later", style="dim")
+        
+        console.print(Panel(compliance_text, border_style="blue", padding=(1, 2)))
 
         # Confirm enabling
         confirm_question = [
@@ -915,30 +973,48 @@ def _enable_compliance_mode() -> int:
 
         confirm_answer = inquirer.prompt(confirm_question)
         if not confirm_answer or not confirm_answer["confirm_enable"]:
-            message("info", "Compliance mode not enabled.")
+            console.print("[yellow]ℹ[/yellow] Compliance mode not enabled.")
             return 0
+
+        console.print("\n[bold]Configuring compliance mode...[/bold]")
+
+        # Enable compliance mode first (so workspace gets Part 11 suffix)
+        if enable_compliance_mode(permanent=False):
+            console.print("[green]✓[/green] Compliance mode enabled")
+        else:
+            console.print("[red]✗[/red] Failed to enable compliance mode")
+            return 1
+
+        # Setup Part 11 workspace (non-interactive, direct setup)
+        try:
+            part11_workspace = user_config.setup_part11_workspace()
+            console.print(f"[green]✓[/green] Part 11 workspace configured: [dim]{part11_workspace}[/dim]")
+        except Exception as e:
+            console.print(f"[red]✗[/red] Part 11 workspace setup failed: {e}")
+            return 1
 
         # Configure Auth0 manager with developer credentials
         try:
             auth_manager = get_auth0_manager()
             auth_manager.configure_developer_auth0()
-            message("info", "✓ Auth0 configured")
+            console.print("[green]✓[/green] Auth0 configured")
         except Exception as e:
-            message("warning", f"Auth0 configuration failed: {e}")
-            message("info", "You can configure Auth0 later for authentication")
+            console.print(f"[yellow]⚠[/yellow] Auth0 configuration failed: {e}")
+            console.print("[dim]You can configure Auth0 later for authentication[/dim]")
 
-        # Enable compliance mode (non-permanent)
-        if enable_compliance_mode(permanent=False):
-            message("success", "✓ Compliance mode enabled!")
-            message("info", "\nNext steps:")
-            message(
-                "info", "1. Run 'autoclean-eeg login' to authenticate (when needed)"
-            )
-            message("info", "2. Run 'autoclean-eeg setup' again to disable if needed")
-            return 0
-        else:
-            message("error", "Failed to enable compliance mode")
-            return 1
+        # All configuration complete - show success panel
+        success_text = Text()
+        success_text.append("✓ Compliance mode setup complete!\n\n", style="bold green")
+        success_text.append("Configured:\n", style="green")
+        success_text.append("• Part 11 workspace directory\n", style="dim")
+        success_text.append("• FDA 21 CFR Part 11 compliance mode\n", style="dim")
+        success_text.append("• Auth0 authentication\n\n", style="dim")
+        success_text.append("Next steps:\n", style="green")
+        success_text.append("1. Run 'autoclean-eeg login' to authenticate (when needed)\n", style="dim")
+        success_text.append("2. Run 'autoclean-eeg setup' again to disable if needed", style="dim")
+        
+        console.print(Panel(success_text, border_style="green", padding=(1, 2)))
+        return 0
 
     except ImportError:
         message("error", "Interactive setup requires 'inquirer' package.")
@@ -952,24 +1028,32 @@ def _disable_compliance_mode() -> int:
     """Disable FDA 21 CFR Part 11 compliance mode."""
     try:
         import inquirer
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
 
         from autoclean.utils.config import (
             disable_compliance_mode,
             get_compliance_status,
         )
 
-        message("info", "\n🔓 Disable FDA 21 CFR Part 11 Compliance Mode")
+        console = Console()
+
+        # Disable compliance mode panel
+        disable_text = Text()
+        disable_text.append("🔓 Disable FDA 21 CFR Part 11 Compliance Mode\n\n", style="bold yellow")
+        disable_text.append("This will disable:\n", style="yellow")
+        disable_text.append("• Required authentication\n", style="dim")
+        disable_text.append("• Audit trail logging\n", style="dim")
+        disable_text.append("• Electronic signatures", style="dim")
+        
+        console.print(Panel(disable_text, border_style="yellow", padding=(1, 2)))
 
         # Check if permanent
         compliance_status = get_compliance_status()
         if compliance_status["permanent"]:
-            message("error", "Cannot disable permanently enabled compliance mode")
+            console.print("[red]✗[/red] Cannot disable permanently enabled compliance mode")
             return 1
-
-        message("warning", "This will disable:")
-        message("warning", "• Required authentication")
-        message("warning", "• Audit trail logging")
-        message("warning", "• Electronic signatures")
 
         # Confirm disabling
         confirm_question = [
@@ -982,16 +1066,20 @@ def _disable_compliance_mode() -> int:
 
         confirm_answer = inquirer.prompt(confirm_question)
         if not confirm_answer or not confirm_answer["confirm_disable"]:
-            message("info", "Compliance mode remains enabled.")
+            console.print("[green]ℹ[/green] Compliance mode remains enabled.")
             return 0
 
         # Disable compliance mode
         if disable_compliance_mode():
-            message("success", "✓ Compliance mode disabled!")
-            message("info", "AutoClean will now operate in standard mode")
+            # Success panel
+            success_text = Text()
+            success_text.append("✓ Compliance mode disabled!\n\n", style="bold green")
+            success_text.append("AutoClean will now operate in standard mode", style="green")
+            
+            console.print(Panel(success_text, border_style="green", padding=(1, 2)))
             return 0
         else:
-            message("error", "Failed to disable compliance mode")
+            console.print("[red]✗[/red] Failed to disable compliance mode")
             return 1
 
     except ImportError:
@@ -1125,6 +1213,128 @@ def _disable_compliance_mode() -> int:
 #     except Exception as e:
 #         message("error", f"Compliance setup failed: {e}")
 #         return 1
+
+
+def _reset_configuration() -> int:
+    """Reset all AutoClean configuration and start completely fresh."""
+    try:
+        from pathlib import Path
+        import shutil
+        from platformdirs import user_config_dir
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.text import Text
+        
+        from autoclean.utils.config import load_user_config
+        from autoclean.utils.branding import AutoCleanBranding
+        
+        console = Console()
+        
+        # Professional header
+        AutoCleanBranding.get_professional_header(console)
+        console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+        
+        # Reset warning panel
+        warning_text = Text()
+        warning_text.append("🔄 Configuration Reset\n\n", style="bold yellow")
+        warning_text.append("This will completely clear all AutoClean configuration and workspace settings.\n", style="yellow")
+        warning_text.append("You will start fresh as if AutoClean was just installed.", style="yellow")
+        
+        console.print(Panel(warning_text, border_style="yellow", padding=(1, 2)))
+        
+        # Get current configuration paths
+        global_config_dir = Path(user_config_dir("autoclean", "autoclean"))
+        workspace_config = load_user_config()
+        current_workspace = None
+        
+        # Try to get current workspace path
+        global_config_file = global_config_dir / "setup.json"
+        if global_config_file.exists():
+            try:
+                import json
+                with open(global_config_file, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    current_workspace = Path(config.get("config_directory", ""))
+            except Exception:
+                pass
+        
+        # Show what will be reset (excluding workspace)
+        console.print("\n[bold]The following will be cleared:[/bold]")
+        console.print(f"  📁 Global config: [dim]{global_config_dir}[/dim]")
+        console.print(f"  🔑 Authentication tokens and settings")
+        console.print(f"  ⚙️  All user preferences and configuration")
+        
+        # Confirm reset
+        try:
+            console.print()
+            response = input("Type 'yes' to confirm complete reset: ").strip().lower()
+            if response != "yes":
+                console.print("[green]✓[/green] Reset canceled.")
+                return 0
+        except (EOFError, KeyboardInterrupt):
+            console.print("\n[green]✓[/green] Reset canceled.")
+            return 0
+        
+        reset_successful = True
+        
+        console.print("\n[bold]Clearing configuration...[/bold]")
+        
+        # 1. Clear global AutoClean config directory
+        if global_config_dir.exists():
+            try:
+                shutil.rmtree(global_config_dir)
+                console.print(f"[green]✓[/green] Cleared global configuration directory")
+            except Exception as e:
+                console.print(f"[red]✗[/red] Failed to clear global config: {e}")
+                reset_successful = False
+        
+        # 2. Clear any Auth0 tokens (in case they're stored separately)
+        try:
+            from autoclean.utils.auth import get_auth0_manager
+            auth_manager = get_auth0_manager()
+            auth_manager.logout()  # This clears tokens
+            console.print(f"[green]✓[/green] Cleared authentication tokens")
+        except Exception as e:
+            console.print(f"[yellow]⚠[/yellow] Note: Could not clear auth tokens: {e}")
+        
+        # 3. Handle workspace directory (if it exists and user confirms)
+        if current_workspace and current_workspace.exists():
+            try:
+                console.print(f"\n[yellow]Workspace directory found:[/yellow] [dim]{current_workspace}[/dim]")
+                console.print("[dim]This contains your custom tasks, output, and configuration.[/dim]")
+                workspace_response = input("Also delete workspace directory? (y/N): ").strip().lower()
+                if workspace_response in ["y", "yes"]:
+                    shutil.rmtree(current_workspace)
+                    console.print(f"[green]✓[/green] Deleted workspace directory")
+                else:
+                    console.print(f"[green]✓[/green] Kept workspace directory")
+            except (EOFError, KeyboardInterrupt):
+                console.print(f"[green]✓[/green] Kept workspace directory")
+            except Exception as e:
+                console.print(f"[red]✗[/red] Failed to delete workspace: {e}")
+                reset_successful = False
+        
+        # Final status
+        console.print()
+        if reset_successful:
+            success_text = Text()
+            success_text.append("🎉 Configuration reset complete!\n\n", style="bold green")
+            success_text.append("AutoClean is now in a fresh state.\n", style="green")
+            success_text.append("Run 'autoclean-eeg setup' to begin initial configuration.", style="dim")
+            
+            console.print(Panel(success_text, border_style="green", padding=(1, 2)))
+            return 0
+        else:
+            error_text = Text()
+            error_text.append("❌ Reset completed with some errors.\n\n", style="bold red")
+            error_text.append("You may need to manually clean up remaining files.", style="red")
+            
+            console.print(Panel(error_text, border_style="red", padding=(1, 2)))
+            return 1
+            
+    except Exception as e:
+        message("error", f"Reset failed: {e}")
+        return 1
 
 
 def cmd_version(args) -> int:

@@ -40,7 +40,7 @@ class UserConfigManager:
             self.tasks_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_workspace_path(self) -> Path:
-        """Get configured workspace path or default."""
+        """Get configured workspace path or default, with Part 11 separation."""
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
@@ -57,6 +57,13 @@ class UserConfigManager:
         # Default location if no config
         if base_path is None:
             base_path = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
+
+        # Separate workspace for Part 11 compliance mode
+        from autoclean.utils.config import is_compliance_mode_enabled
+        
+        if is_compliance_mode_enabled() and not base_path.name.endswith("_part-11"):
+            # Use separate directory for Part 11 compliance (only if not already suffixed)
+            base_path = base_path.parent / f"{base_path.name}_part-11"
 
         return base_path
 
@@ -405,25 +412,23 @@ class UserConfigManager:
 
     def setup_part11_workspace(self) -> Path:
         """
-        Setup Part-11 compliance workspace with -part11 suffix.
+        Setup Part-11 compliance workspace with _part-11 suffix.
         This ensures Part-11 users get an isolated workspace.
         """
         # Determine Part-11 workspace path
         current_workspace = (
             self._get_base_workspace_path()
         )  # Get without Part-11 suffix
-        part11_workspace = current_workspace.parent / f"{current_workspace.name}-part11"
+        part11_workspace = current_workspace.parent / f"{current_workspace.name}_part-11"
 
         # Check if Part-11 workspace already exists
         if part11_workspace.exists() and (part11_workspace / "tasks").exists():
-            message("info", f"Part-11 workspace already exists: {part11_workspace}")
             self._save_global_config(part11_workspace)
             self.config_dir = part11_workspace
             self.tasks_dir = part11_workspace / "tasks"
             return part11_workspace
 
         # Create Part-11 workspace
-        message("info", f"Creating Part-11 compliance workspace: {part11_workspace}")
         self._create_workspace_structure(part11_workspace)
         self._save_global_config(part11_workspace)
 
@@ -431,7 +436,6 @@ class UserConfigManager:
         self.config_dir = part11_workspace
         self.tasks_dir = part11_workspace / "tasks"
 
-        message("info", f"✓ Part-11 workspace created: {part11_workspace}")
         return part11_workspace
 
     def _get_base_workspace_path(self) -> Path:
@@ -445,11 +449,11 @@ class UserConfigManager:
                 with open(global_config, "r", encoding="utf-8") as f:
                     config = json.load(f)
                     base_path = Path(config["config_directory"])
-                    # Remove -part11 suffix if present
-                    if base_path.name.endswith("-part11"):
+                    # Remove _part-11 suffix if present
+                    if base_path.name.endswith("_part-11"):
                         base_path = (
-                            base_path.parent / base_path.name[:-7]
-                        )  # Remove "-part11"
+                            base_path.parent / base_path.name[:-8]
+                        )  # Remove "_part-11"
                     return base_path
             except (json.JSONDecodeError, KeyError, FileNotFoundError):
                 pass

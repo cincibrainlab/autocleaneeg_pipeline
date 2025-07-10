@@ -72,6 +72,94 @@ def _serialize_for_json(obj: Any) -> Any:
         return str(obj)
 
 
+def get_database_info(db_path: Optional[Path] = None) -> dict:
+    """
+    Get information about the database including compliance mode and access requirements.
+    
+    Parameters
+    ----------
+    db_path : Optional[Path]
+        Path to database file. If None, uses default DB_PATH.
+        
+    Returns
+    -------
+    dict
+        Database information including compliance mode, access requirements, etc.
+    """
+    if db_path is None:
+        if DB_PATH is None:
+            return {"error": "Database path not set"}
+        db_path = DB_PATH / "pipeline.db"
+    
+    if not db_path.exists():
+        return {"error": f"Database file not found: {db_path}"}
+    
+    try:
+        conn = _get_db_connection(db_path)
+        cursor = conn.cursor()
+        
+        # Check if database_metadata table exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='database_metadata'"
+        )
+        
+        if not cursor.fetchone():
+            conn.close()
+            return {
+                "database_path": str(db_path),
+                "compliance_mode": False,
+                "access_requirements": "none", 
+                "legacy_database": True,
+                "created_timestamp": "unknown"
+            }
+        
+        # Get database metadata
+        cursor.execute(
+            """
+            SELECT database_path, compliance_mode, created_timestamp, 
+                   created_by_auth0_user_id, access_requirements, schema_version
+            FROM database_metadata WHERE id = 1
+            """
+        )
+        
+        metadata_row = cursor.fetchone()
+        
+        # Get additional statistics
+        cursor.execute("SELECT COUNT(*) FROM pipeline_runs")
+        run_count = cursor.fetchone()[0]
+        
+        cursor.execute("SELECT COUNT(*) FROM database_access_log")
+        access_log_count = cursor.fetchone()[0]
+        
+        conn.close()
+        
+        if metadata_row:
+            return {
+                "database_path": metadata_row[0],
+                "compliance_mode": bool(metadata_row[1]),
+                "created_timestamp": metadata_row[2],
+                "created_by_auth0_user_id": metadata_row[3],
+                "access_requirements": metadata_row[4],
+                "schema_version": metadata_row[5],
+                "run_count": run_count,
+                "access_log_count": access_log_count,
+                "legacy_database": False
+            }
+        else:
+            return {
+                "database_path": str(db_path),
+                "compliance_mode": False,
+                "access_requirements": "none",
+                "legacy_database": True,
+                "run_count": run_count,
+                "access_log_count": access_log_count,
+                "created_timestamp": "unknown"
+            }
+            
+    except Exception as e:
+        return {"error": f"Failed to read database info: {str(e)}"}
+
+
 def get_run_record(run_id: str) -> dict:
     """Get a run record from the database by run ID.
 
@@ -201,6 +289,105 @@ def manage_database_with_audit_protection(
         raise
 
 
+def _validate_database_access(db_path: Path, operation: str) -> tuple[bool, str]:
+    """
+    Validate that the current user has permission to access this database.
+    
+    Part 11 databases require authenticated users in compliance mode.
+    
+    Parameters
+    ----------
+    db_path : Path
+        Path to the database file
+    operation : str
+        The database operation being attempted
+        
+    Returns
+    -------
+    tuple[bool, str]
+        (is_allowed, error_message) 
+    """
+    try:
+        from autoclean.utils.config import is_compliance_mode_enabled
+        
+        # Check if database exists
+        if not db_path.exists():
+            # For create operations, check current mode requirements
+            if operation == "create_collection":
+                if is_compliance_mode_enabled():
+                    from autoclean.utils.auth import get_auth0_manager
+                    auth_manager = get_auth0_manager()
+                    
+                    if not auth_manager.is_configured():
+                        return False, "Compliance mode enabled but Auth0 not configured. Run 'autoclean-eeg auth0 set' first."
+                    
+                    if not auth_manager.is_authenticated():
+                        return False, "Part 11 compliance mode requires authentication. Run 'autoclean-eeg login' first."
+                
+                return True, ""  # New database creation is allowed
+            else:
+                return False, f"Database does not exist: {db_path}"
+        
+        # Database exists - check its metadata for access requirements
+        conn = _get_db_connection(db_path)
+        cursor = conn.cursor()
+        
+        # Check if database_metadata table exists (older databases might not have it)
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='database_metadata'"
+        )
+        
+        if not cursor.fetchone():
+            # Legacy database without metadata - allow access but warn
+            conn.close()
+            return True, ""
+        
+        # Get database metadata
+        cursor.execute(
+            "SELECT compliance_mode, access_requirements FROM database_metadata WHERE id = 1"
+        )
+        
+        metadata_row = cursor.fetchone()
+        conn.close()
+        
+        if not metadata_row:
+            # No metadata record - allow access but warn
+            return True, ""
+        
+        db_compliance_mode = bool(metadata_row[0])
+        access_requirements = metadata_row[1]
+        
+        # If database was created in Part 11 mode, enforce authentication
+        if db_compliance_mode and access_requirements == "authenticated_user":
+            current_compliance_mode = is_compliance_mode_enabled()
+            
+            if not current_compliance_mode:
+                return False, (
+                    "This database was created in Part 11 compliance mode and requires "
+                    "compliance mode to be enabled. Run 'autoclean-eeg setup --compliance-mode' first."
+                )
+            
+            from autoclean.utils.auth import get_auth0_manager
+            auth_manager = get_auth0_manager()
+            
+            if not auth_manager.is_configured():
+                return False, (
+                    "This Part 11 database requires authentication. "
+                    "Run 'autoclean-eeg auth0 set' to configure Auth0 first."
+                )
+            
+            if not auth_manager.is_authenticated():
+                return False, (
+                    "This Part 11 database requires authentication. "
+                    "Run 'autoclean-eeg login' first."
+                )
+        
+        return True, ""
+        
+    except Exception as e:
+        return False, f"Database access validation failed: {str(e)}"
+
+
 def _validate_metadata(metadata: dict) -> bool:
     """Validates metadata structure and types.
 
@@ -269,6 +456,11 @@ def manage_database(
     """
     db_path = DB_PATH / "pipeline.db"
     db_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Validate database access permissions before any operations
+    access_allowed, access_error = _validate_database_access(db_path, operation)
+    if not access_allowed:
+        raise DatabaseError(f"Database access denied: {access_error}")
 
     with _db_lock:  # Ensure only one thread can access the database at a time
         try:
@@ -355,6 +547,22 @@ def manage_database(
                         timestamp TEXT NOT NULL,
                         FOREIGN KEY (run_id) REFERENCES pipeline_runs(run_id),
                         FOREIGN KEY (auth0_user_id) REFERENCES authenticated_users(auth0_user_id)
+                    )
+                """
+                )
+
+                # Create database metadata table for tracking compliance requirements
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS database_metadata (
+                        id INTEGER PRIMARY KEY,
+                        database_path TEXT NOT NULL,
+                        compliance_mode BOOLEAN NOT NULL DEFAULT FALSE,
+                        created_timestamp TEXT NOT NULL,
+                        created_by_auth0_user_id TEXT,
+                        created_by_user_context TEXT,
+                        access_requirements TEXT NOT NULL DEFAULT 'none',
+                        schema_version TEXT NOT NULL DEFAULT '1.0'
                     )
                 """
                 )
@@ -524,8 +732,43 @@ def manage_database(
                     )
                     conn.commit()
 
+                # Record database creation metadata  
+                from autoclean.utils.config import is_compliance_mode_enabled
+                
+                compliance_enabled = is_compliance_mode_enabled()
+                current_user_id = None
+                current_user_context = None
+                
+                if compliance_enabled:
+                    # Get authenticated user information for Part 11 databases
+                    from autoclean.utils.auth import get_current_user_for_audit
+                    user_context = get_current_user_for_audit()
+                    current_user_id = user_context.get("auth0_user_id")
+                    current_user_context = json.dumps(user_context)
+                
+                # Insert database metadata record
+                cursor.execute(
+                    """
+                    INSERT OR REPLACE INTO database_metadata (
+                        id, database_path, compliance_mode, created_timestamp,
+                        created_by_auth0_user_id, created_by_user_context, 
+                        access_requirements
+                    ) VALUES (1, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        str(db_path),
+                        compliance_enabled,
+                        datetime.now().isoformat(),
+                        current_user_id,
+                        current_user_context,
+                        "authenticated_user" if compliance_enabled else "none"
+                    )
+                )
+                conn.commit()
+
+                mode_text = "Part 11 compliance" if compliance_enabled else "standard"
                 message(
-                    "info", f"✓ Database and audit protection established in {db_path}"
+                    "info", f"✓ Database and audit protection established in {mode_text} mode: {db_path}"
                 )
 
             elif operation == "store":
