@@ -1875,6 +1875,9 @@ def cmd_whoami(args) -> int:
         if not auth_manager.is_configured():
             message("info", "Compliance mode: Enabled")
             message("info", "Authentication: Not configured")
+            message("info", "")
+            message("info", "Auth0 Configuration Required:")
+            print(auth_manager.get_callback_urls_help())
             message(
                 "info",
                 "Run 'autoclean-eeg setup --compliance-mode' to configure Auth0.",

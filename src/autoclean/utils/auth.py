@@ -8,6 +8,7 @@ with tamper-proof audit trails and electronic signatures.
 import json
 import os
 import secrets
+import socket
 import time
 import webbrowser
 from datetime import datetime, timedelta
@@ -43,13 +44,15 @@ class AuthCallbackHandler(BaseHTTPRequestHandler):
                     self.send_header("Content-type", "text/html")
                     self.end_headers()
 
-                    success_html = """
+                    port = self.server.server_address[1]
+                    success_html = f"""
                     <html>
                     <head><title>AutoClean Authentication</title></head>
                     <body>
                         <h2>✅ Authentication Successful!</h2>
+                        <p>AutoClean has received your authentication token on port {port}.</p>
                         <p>You can now close this browser window and return to the terminal.</p>
-                        <script>setTimeout(function(){window.close();}, 3000);</script>
+                        <script>setTimeout(function(){{window.close();}}, 3000);</script>
                     </body>
                     </html>
                     """
@@ -127,6 +130,9 @@ class Auth0Manager:
         self.token_expires_at: Optional[datetime] = None
         self.current_user: Optional[Dict[str, Any]] = None
 
+        # OAuth callback server configuration
+        self.callback_port_range = (8080, 8089)  # Port range for dynamic allocation
+        
         # Load existing configuration
         self._load_config()
         self._load_tokens()
@@ -199,6 +205,60 @@ class Auth0Manager:
             json.dump(config_data, f, indent=2)
 
         message("debug", f"Developer Auth0 configuration set for domain: {self.domain}")
+
+    def configure_callback_ports(self, start_port: int = 8080, end_port: int = 8089) -> None:
+        """
+        Configure the port range for OAuth callback server.
+        
+        Args:
+            start_port: First port to try (default: 8080)
+            end_port: Last port to try (default: 8089)
+        """
+        if start_port <= 0 or end_port <= 0 or start_port > end_port:
+            raise ValueError("Invalid port range: start_port and end_port must be positive, and start_port <= end_port")
+        
+        if end_port - start_port > 50:
+            message("warning", f"Large port range ({end_port - start_port + 1} ports) may slow down authentication")
+        
+        self.callback_port_range = (start_port, end_port)
+        message("debug", f"Callback port range set to {start_port}-{end_port}")
+
+    def get_callback_urls_help(self) -> str:
+        """
+        Get help text for configuring Auth0 callback URLs.
+        
+        Returns:
+            Formatted string with callback URLs for Auth0 configuration
+        """
+        start_port, end_port = self.callback_port_range
+        urls = []
+        
+        for port in range(start_port, end_port + 1):
+            urls.append(f"http://localhost:{port}/callback")
+        
+        callback_urls = ",".join(urls)
+        logout_urls = ",".join([url.replace("/callback", "/logout") for url in urls])
+        origins = ",".join([url.replace("/callback", "") for url in urls])
+        
+        help_text = f"""
+Auth0 Application Configuration Required:
+
+Allowed Callback URLs:
+{callback_urls}
+
+Allowed Logout URLs:
+{logout_urls}
+
+Allowed Origins (CORS):
+{origins}
+
+Port Range: {start_port}-{end_port} ({end_port - start_port + 1} ports)
+
+Note: Copy and paste these comma-separated URLs into your Auth0 application settings.
+The system will automatically find an available port in this range during authentication.
+        """
+        
+        return help_text.strip()
 
     def _load_developer_credentials(self) -> Optional[Dict[str, str]]:
         """
@@ -390,6 +450,31 @@ class Auth0Manager:
         buffer_time = datetime.now() + timedelta(minutes=5)
         return self.token_expires_at > buffer_time
 
+    def _find_available_port(self) -> Optional[int]:
+        """
+        Find an available port in the configured range for OAuth callback.
+        
+        Returns:
+            Available port number or None if no ports available
+        """
+        start_port, end_port = self.callback_port_range
+        
+        for port in range(start_port, end_port + 1):
+            try:
+                # Test if port is available by attempting to bind to it
+                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as test_socket:
+                    test_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                    test_socket.bind(("localhost", port))
+                    message("debug", f"Found available port: {port}")
+                    return port
+            except OSError:
+                # Port is in use, try next one
+                message("debug", f"Port {port} is in use, trying next...")
+                continue
+        
+        message("error", f"No available ports in range {start_port}-{end_port}")
+        return None
+
     def login(self) -> bool:
         """
         Perform Auth0 login using OAuth 2.0 authorization code flow.
@@ -405,9 +490,16 @@ class Auth0Manager:
             return False
 
         try:
+            # Find an available port for the callback server
+            callback_port = self._find_available_port()
+            if callback_port is None:
+                message("error", f"No available ports in range {self.callback_port_range[0]}-{self.callback_port_range[1]}")
+                message("error", "Please ensure Auth0 callback URLs are configured for ports 8080-8089")
+                return False
+
             # Generate OAuth parameters
             state = secrets.token_urlsafe(32)
-            redirect_uri = "http://localhost:8080/callback"
+            redirect_uri = f"http://localhost:{callback_port}/callback"
 
             # Build authorization URL
             auth_url = (
@@ -420,34 +512,42 @@ class Auth0Manager:
                 f"state={state}"
             )
 
+            message("info", f"Starting OAuth callback server on port {callback_port}")
             message("info", "Opening browser for Auth0 authentication...")
 
-            # Start local callback server
-            server = HTTPServer(("localhost", 8080), AuthCallbackHandler)
-            server.auth_code = None
-            server.auth_error = None
-            server.timeout = 1  # 1 second timeout for server operations
+            # Start local callback server on the available port
+            try:
+                server = HTTPServer(("localhost", callback_port), AuthCallbackHandler)
+                server.auth_code = None
+                server.auth_error = None
+                server.timeout = 1  # 1 second timeout for server operations
+            except OSError as e:
+                message("error", f"Failed to start callback server on port {callback_port}: {e}")
+                return False
 
             # Open browser first
             webbrowser.open(auth_url)
 
             # Wait for callback (max 2 minutes)
             start_time = time.time()
-            while time.time() - start_time < 120:
-                try:
-                    server.handle_request()
-                    # Check if we got what we need
-                    if server.auth_code or server.auth_error:
-                        break
-                except OSError:
-                    # Timeout or other socket error, continue trying
-                    pass
-                time.sleep(0.1)
-
             try:
-                server.server_close()
-            except Exception:
-                pass
+                while time.time() - start_time < 120:
+                    try:
+                        server.handle_request()
+                        # Check if we got what we need
+                        if server.auth_code or server.auth_error:
+                            break
+                    except OSError:
+                        # Timeout or other socket error, continue trying
+                        pass
+                    time.sleep(0.1)
+            finally:
+                # Always ensure server is properly closed
+                try:
+                    server.server_close()
+                    message("debug", f"Callback server on port {callback_port} shut down")
+                except Exception as cleanup_error:
+                    message("warning", f"Error shutting down callback server: {cleanup_error}")
 
             if server.auth_error:
                 message("error", f"Authentication failed: {server.auth_error}")
