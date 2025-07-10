@@ -36,7 +36,7 @@ Authentication (Compliance Mode):
   autoclean-eeg logout                         # Clear authentication
   autoclean-eeg whoami                         # Show current user status
   autoclean-eeg auth0 show                     # Show current Auth0 configuration
-  autoclean-eeg auth0 set --domain ...        # Set custom Auth0 application
+  autoclean-eeg auth0 set                     # Set custom Auth0 application (interactive)
   autoclean-eeg auth0 reset                    # Reset to default Auth0 config
   autoclean-eeg auth0 test                     # Test Auth0 connectivity
 
@@ -296,21 +296,9 @@ Examples:
         dest="auth0_action", help="Auth0 configuration actions"
     )
     
-    # Set custom Auth0 credentials
-    set_auth0_parser = auth0_subparsers.add_parser(
-        "set", help="Set custom Auth0 application credentials"
-    )
-    set_auth0_parser.add_argument(
-        "--domain", required=True, help="Auth0 domain (e.g., your-tenant.us.auth0.com)"
-    )
-    set_auth0_parser.add_argument(
-        "--client-id", required=True, help="Auth0 application client ID"
-    )
-    set_auth0_parser.add_argument(
-        "--client-secret", required=True, help="Auth0 application client secret"
-    )
-    set_auth0_parser.add_argument(
-        "--audience", help="Auth0 API audience (optional)"
+    # Set custom Auth0 credentials (interactive wizard)
+    auth0_subparsers.add_parser(
+        "set", help="Set custom Auth0 application credentials (interactive)"
     )
     
     # Show current Auth0 configuration
@@ -1994,40 +1982,87 @@ def cmd_auth0(args) -> int:
 
 
 def _cmd_auth0_set(args, auth_manager) -> int:
-    """Set custom Auth0 configuration."""
+    """Set custom Auth0 configuration using interactive wizard."""
     try:
-        from autoclean.utils.auth import validate_auth0_config
+        message("info", "🔧 Auth0 Application Setup Wizard")
+        message("info", "")
+        message("info", "This will configure AutoClean to use your custom Auth0 application.")
+        message("info", "You'll need your Auth0 application credentials from your Auth0 dashboard.")
+        message("info", "")
+        
+        # Get Auth0 domain
+        while True:
+            domain = input("Auth0 Domain (e.g., your-tenant.us.auth0.com): ").strip()
+            if not domain:
+                message("error", "Domain is required. Please try again.")
+                continue
+            if not domain.endswith('.auth0.com'):
+                message("error", "Domain should end with '.auth0.com'. Please try again.")
+                continue
+            break
+        
+        # Get Client ID
+        while True:
+            client_id = input("Client ID: ").strip()
+            if not client_id:
+                message("error", "Client ID is required. Please try again.")
+                continue
+            if len(client_id) < 16:
+                message("error", "Client ID seems too short. Please verify and try again.")
+                continue
+            break
+        
+        # Get Client Secret
+        while True:
+            client_secret = input("Client Secret: ").strip()
+            if not client_secret:
+                message("error", "Client Secret is required. Please try again.")
+                continue
+            if len(client_secret) < 32:
+                message("error", "Client Secret seems too short. Please verify and try again.")
+                continue
+            break
+        
+        # Optional audience
+        audience = input(f"Audience (optional, press Enter for default): ").strip()
+        if not audience:
+            audience = f"https://{domain}/api/v2/"
+        
+        message("info", "")
+        message("info", "Validating configuration...")
         
         # Validate the provided credentials
-        is_valid, error_msg = validate_auth0_config(
-            args.domain, args.client_id, args.client_secret
-        )
+        from autoclean.utils.auth import validate_auth0_config
+        is_valid, error_msg = validate_auth0_config(domain, client_id, client_secret)
         
         if not is_valid:
-            message("error", f"Invalid Auth0 configuration: {error_msg}")
+            message("error", f"Configuration validation failed: {error_msg}")
             return 1
-        
-        # Set the audience if not provided
-        audience = args.audience or f"https://{args.domain}/api/v2/"
         
         # Configure Auth0 with custom credentials
         auth_manager.configure_auth0(
-            domain=args.domain,
-            client_id=args.client_id,
-            client_secret=args.client_secret,
+            domain=domain,
+            client_id=client_id,
+            client_secret=client_secret,
             audience=audience
         )
         
-        message("success", f"✓ Custom Auth0 configuration saved")
-        message("info", f"Domain: {args.domain}")
-        message("info", f"Client ID: {args.client_id}")
+        message("success", "✓ Custom Auth0 configuration saved!")
+        message("info", f"Domain: {domain}")
+        message("info", f"Client ID: {client_id}")
         message("info", f"Audience: {audience}")
         message("info", "")
-        message("info", "Required callback URLs for your Auth0 application:")
+        message("info", "📋 Required callback URLs for your Auth0 application:")
         print(auth_manager.get_callback_urls_help())
+        message("info", "")
+        message("info", "Copy the callback URLs above and add them to your Auth0 application settings.")
+        message("info", "Then run 'autoclean-eeg auth0 test' to verify the setup.")
         
         return 0
         
+    except KeyboardInterrupt:
+        message("info", "\nAuth0 setup canceled.")
+        return 0
     except Exception as e:
         message("error", f"Failed to set Auth0 configuration: {e}")
         return 1
