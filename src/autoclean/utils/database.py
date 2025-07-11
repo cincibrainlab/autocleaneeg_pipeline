@@ -562,7 +562,32 @@ def manage_database(
                         created_by_auth0_user_id TEXT,
                         created_by_user_context TEXT,
                         access_requirements TEXT NOT NULL DEFAULT 'none',
-                        schema_version TEXT NOT NULL DEFAULT '1.0'
+                        schema_version TEXT NOT NULL DEFAULT '1.1'
+                    )
+                """
+                )
+
+                # Create encrypted outputs table for compliance mode
+                cursor.execute(
+                    """
+                    CREATE TABLE IF NOT EXISTS encrypted_outputs (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        run_id TEXT NOT NULL,
+                        output_type TEXT NOT NULL,
+                        file_name TEXT NOT NULL,
+                        original_path TEXT,
+                        encrypted_data BLOB NOT NULL,
+                        encryption_algorithm TEXT NOT NULL DEFAULT 'fernet',
+                        encryption_key_id TEXT,
+                        file_size INTEGER NOT NULL,
+                        original_size INTEGER,
+                        content_hash TEXT NOT NULL,
+                        compression_used BOOLEAN DEFAULT FALSE,
+                        metadata TEXT,
+                        created_at TEXT NOT NULL,
+                        created_by_auth0_user_id TEXT,
+                        FOREIGN KEY (run_id) REFERENCES pipeline_runs(run_id),
+                        FOREIGN KEY (created_by_auth0_user_id) REFERENCES authenticated_users(auth0_user_id)
                     )
                 """
                 )
@@ -589,6 +614,31 @@ def manage_database(
                 try:
                     cursor.execute(
                         "ALTER TABLE database_access_log ADD COLUMN auth0_user_id TEXT"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                # Add compliance mode tracking columns to pipeline_runs
+                try:
+                    cursor.execute(
+                        "ALTER TABLE pipeline_runs ADD COLUMN compliance_mode BOOLEAN DEFAULT FALSE"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                try:
+                    cursor.execute(
+                        "ALTER TABLE pipeline_runs ADD COLUMN outputs_encrypted BOOLEAN DEFAULT FALSE"
+                    )
+                except sqlite3.OperationalError:
+                    # Column already exists
+                    pass
+
+                try:
+                    cursor.execute(
+                        "ALTER TABLE pipeline_runs ADD COLUMN encryption_key_id TEXT"
                     )
                 except sqlite3.OperationalError:
                     # Column already exists
@@ -1184,6 +1234,126 @@ def manage_database(
 
                 return signatures
 
+            elif operation == "store_encrypted_output":
+                if not run_record:
+                    raise ValueError("Missing output data for store_encrypted_output operation")
+
+                required_fields = [
+                    "run_id", "output_type", "file_name", "encrypted_data", 
+                    "file_size", "content_hash"
+                ]
+                for field in required_fields:
+                    if field not in run_record:
+                        raise ValueError(f"Missing required field '{field}' for encrypted output")
+
+                # Get current user for compliance mode
+                current_user_id = None
+                from autoclean.utils.config import is_compliance_mode_enabled
+                
+                if is_compliance_mode_enabled():
+                    from autoclean.utils.auth import get_current_user_for_audit
+                    user_context = get_current_user_for_audit()
+                    current_user_id = user_context.get("auth0_user_id")
+
+                current_time = datetime.now().isoformat()
+
+                cursor.execute(
+                    """
+                    INSERT INTO encrypted_outputs (
+                        run_id, output_type, file_name, original_path, encrypted_data,
+                        encryption_algorithm, encryption_key_id, file_size, original_size,
+                        content_hash, compression_used, metadata, created_at, created_by_auth0_user_id
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        run_record["run_id"],
+                        run_record["output_type"],
+                        run_record["file_name"],
+                        run_record.get("original_path"),
+                        run_record["encrypted_data"],
+                        run_record.get("encryption_algorithm", "fernet"),
+                        run_record.get("encryption_key_id"),
+                        run_record["file_size"],
+                        run_record.get("original_size"),
+                        run_record["content_hash"],
+                        run_record.get("compression_used", False),
+                        json.dumps(run_record.get("metadata", {})),
+                        current_time,
+                        current_user_id
+                    )
+                )
+
+                output_id = cursor.lastrowid
+                conn.commit()
+                
+                message("debug", f"Stored encrypted output: {run_record['file_name']} for run {run_record['run_id']}")
+                return output_id
+
+            elif operation == "get_encrypted_outputs":
+                if not run_record or "run_id" not in run_record:
+                    raise ValueError("Missing run_id for get_encrypted_outputs operation")
+
+                cursor.execute(
+                    """
+                    SELECT id, run_id, output_type, file_name, original_path,
+                           encryption_algorithm, encryption_key_id, file_size, 
+                           original_size, content_hash, compression_used, metadata,
+                           created_at, created_by_auth0_user_id
+                    FROM encrypted_outputs 
+                    WHERE run_id = ?
+                    ORDER BY created_at
+                    """,
+                    (run_record["run_id"],)
+                )
+
+                outputs = []
+                for row in cursor.fetchall():
+                    output_dict = dict(row)
+                    if output_dict.get("metadata"):
+                        output_dict["metadata"] = json.loads(output_dict["metadata"])
+                    outputs.append(output_dict)
+
+                return outputs
+
+            elif operation == "get_encrypted_output_data":
+                if not run_record or "output_id" not in run_record:
+                    raise ValueError("Missing output_id for get_encrypted_output_data operation")
+
+                cursor.execute(
+                    """
+                    SELECT encrypted_data, encryption_algorithm, file_name, content_hash
+                    FROM encrypted_outputs 
+                    WHERE id = ?
+                    """,
+                    (run_record["output_id"],)
+                )
+
+                result = cursor.fetchone()
+                if not result:
+                    raise RecordNotFoundError(f"Encrypted output not found: {run_record['output_id']}")
+
+                return {
+                    "encrypted_data": result[0],
+                    "encryption_algorithm": result[1], 
+                    "file_name": result[2],
+                    "content_hash": result[3]
+                }
+
+            elif operation == "delete_encrypted_output":
+                if not run_record or "output_id" not in run_record:
+                    raise ValueError("Missing output_id for delete_encrypted_output operation")
+
+                cursor.execute(
+                    "DELETE FROM encrypted_outputs WHERE id = ?",
+                    (run_record["output_id"],)
+                )
+                
+                deleted_count = cursor.rowcount
+                conn.commit()
+                
+                message("debug", f"Deleted encrypted output: {run_record['output_id']}")
+                return deleted_count > 0
+
             conn.close()
 
         except Exception as e:
@@ -1194,3 +1364,191 @@ def manage_database(
             }
             message("error", f"Database operation failed: {error_context}")
             raise DatabaseError(f"Operation '{operation}' failed: {e}") from e
+
+
+# Convenience functions for encrypted outputs management
+
+def store_encrypted_output(
+    run_id: str,
+    output_type: str, 
+    file_name: str,
+    encrypted_data: bytes,
+    file_size: int,
+    content_hash: str,
+    original_path: Optional[str] = None,
+    original_size: Optional[int] = None,
+    encryption_algorithm: str = "fernet",
+    encryption_key_id: Optional[str] = None,
+    compression_used: bool = False,
+    metadata: Optional[Dict[str, Any]] = None
+) -> int:
+    """
+    Store encrypted output data in the database.
+    
+    Parameters
+    ----------
+    run_id : str
+        The run ID this output belongs to
+    output_type : str
+        Type of output (e.g., 'report_pdf', 'metadata_json', etc.)
+    file_name : str
+        Original filename
+    encrypted_data : bytes
+        Encrypted file content
+    file_size : int
+        Size of encrypted data in bytes
+    content_hash : str
+        Hash of original unencrypted content for integrity verification
+    original_path : str, optional
+        Original filesystem path before encryption
+    original_size : int, optional
+        Size of original unencrypted data
+    encryption_algorithm : str, default 'fernet'
+        Encryption algorithm used
+    encryption_key_id : str, optional
+        ID of encryption key for rotation support
+    compression_used : bool, default False
+        Whether compression was applied before encryption
+    metadata : dict, optional
+        Additional metadata about the output
+        
+    Returns
+    -------
+    int
+        Database ID of stored encrypted output
+    """
+    output_record = {
+        "run_id": run_id,
+        "output_type": output_type,
+        "file_name": file_name,
+        "encrypted_data": encrypted_data,
+        "file_size": file_size,
+        "content_hash": content_hash,
+        "original_path": original_path,
+        "original_size": original_size,
+        "encryption_algorithm": encryption_algorithm,
+        "encryption_key_id": encryption_key_id,
+        "compression_used": compression_used,
+        "metadata": metadata or {}
+    }
+    
+    return manage_database_conditionally("store_encrypted_output", output_record)
+
+
+def get_encrypted_outputs(run_id: str) -> list:
+    """
+    Get all encrypted outputs for a run.
+    
+    Parameters
+    ----------
+    run_id : str
+        The run ID to get outputs for
+        
+    Returns
+    -------
+    list
+        List of encrypted output records (without encrypted_data)
+    """
+    return manage_database_conditionally("get_encrypted_outputs", {"run_id": run_id})
+
+
+def get_encrypted_output_data(output_id: int) -> Dict[str, Any]:
+    """
+    Get encrypted data for a specific output.
+    
+    Parameters
+    ----------
+    output_id : int
+        Database ID of the encrypted output
+        
+    Returns
+    -------
+    dict
+        Dictionary containing encrypted_data, encryption_algorithm, file_name, content_hash
+    """
+    return manage_database_conditionally("get_encrypted_output_data", {"output_id": output_id})
+
+
+def delete_encrypted_output(output_id: int) -> bool:
+    """
+    Delete an encrypted output from the database.
+    
+    Parameters
+    ----------
+    output_id : int
+        Database ID of the encrypted output to delete
+        
+    Returns
+    -------
+    bool
+        True if output was deleted, False if not found
+    """
+    return manage_database_conditionally("delete_encrypted_output", {"output_id": output_id})
+
+
+def has_encrypted_outputs(run_id: str) -> bool:
+    """
+    Check if a run has any encrypted outputs stored.
+    
+    Parameters
+    ---------- 
+    run_id : str
+        The run ID to check
+        
+    Returns
+    -------
+    bool
+        True if run has encrypted outputs, False otherwise
+    """
+    outputs = get_encrypted_outputs(run_id)
+    return len(outputs) > 0
+
+
+def get_database_schema_version() -> str:
+    """
+    Get the current database schema version.
+    
+    Returns
+    -------
+    str
+        Schema version (e.g., '1.1') or '1.0' for legacy databases
+    """
+    try:
+        db_info = get_database_info()
+        return db_info.get("schema_version", "1.0")
+    except Exception:
+        return "1.0"
+
+
+def database_supports_encryption() -> bool:
+    """
+    Check if the current database supports encrypted outputs.
+    
+    Returns
+    -------
+    bool
+        True if database has encrypted_outputs table, False otherwise
+    """
+    if DB_PATH is None:
+        return False
+        
+    db_path = DB_PATH / "pipeline.db"
+    if not db_path.exists():
+        return False
+        
+    try:
+        conn = _get_db_connection(db_path)
+        cursor = conn.cursor()
+        
+        # Check if encrypted_outputs table exists
+        cursor.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='encrypted_outputs'"
+        )
+        
+        table_exists = cursor.fetchone() is not None
+        conn.close()
+        
+        return table_exists
+        
+    except Exception:
+        return False

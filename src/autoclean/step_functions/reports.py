@@ -73,6 +73,21 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
         message("error", "No metadata found for run ID")
         return
 
+    # Check if we're in compliance mode - if so, skip filesystem writes
+    try:
+        from autoclean.utils.config import is_compliance_mode_enabled
+        if is_compliance_mode_enabled():
+            try:
+                from autoclean.utils.auth import get_auth0_manager
+                auth_manager = get_auth0_manager()
+                if auth_manager.is_authenticated():
+                    # In compliance mode with auth - generate PDF in memory and return bytes
+                    return _create_run_report_in_memory(run_id, run_record, autoclean_dict)
+            except ImportError:
+                pass  # No auth available, continue with normal filesystem operation
+    except ImportError:
+        pass  # Config module not available, continue normally
+
     # Early validation of required metadata sections
     required_sections = ["step_prepare_directories"]
     missing_sections = [
@@ -874,6 +889,184 @@ def create_run_report(run_id: str, autoclean_dict: dict = None) -> None:
     return pdf_path
 
 
+def _create_run_report_in_memory(run_id: str, run_record: dict, autoclean_dict: dict = None) -> bytes:
+    """
+    Creates a PDF report in memory (for compliance mode encryption).
+    
+    This is a compliance-mode version that generates the PDF in memory
+    without saving to filesystem, returning the PDF bytes for encryption.
+    """
+    from io import BytesIO
+    
+    # Early validation of required metadata sections
+    required_sections = ["step_prepare_directories"]
+    missing_sections = [
+        section
+        for section in required_sections
+        if section not in run_record["metadata"]
+    ]
+    if missing_sections:
+        message(
+            "error",
+            f"Missing required metadata sections: {', '.join(missing_sections)}",
+        )
+        return None
+
+    # Check if JSON summary exists and use it if available
+    json_summary = None
+    if "json_summary" in run_record["metadata"]:
+        json_summary = run_record["metadata"]["json_summary"]
+        message("info", "Using JSON summary for in-memory report generation")
+
+    # If no JSON summary, create it
+    if not json_summary:
+        message(
+            "warning", "No json summary found, in-memory report may be missing or incomplete"
+        )
+        json_summary = {}
+
+    # Create PDF in memory using BytesIO buffer
+    pdf_buffer = BytesIO()
+    
+    # Initialize the PDF document with memory buffer
+    doc = SimpleDocTemplate(
+        pdf_buffer,
+        pagesize=letter,
+        rightMargin=24,
+        leftMargin=24,
+        topMargin=24,
+        bottomMargin=24,
+    )
+
+    # Get styles (reuse same code from original function)
+    styles = getSampleStyleSheet()
+
+    # Custom styles for better visual hierarchy
+    title_style = ParagraphStyle(
+        "CustomTitle",
+        parent=styles["Title"],
+        fontSize=14,
+        spaceAfter=6,
+        textColor=colors.HexColor("#2C3E50"),
+        alignment=1,
+    )
+
+    heading_style = ParagraphStyle(
+        "CustomHeading",
+        parent=styles["Heading1"],
+        fontSize=10,
+        spaceAfter=4,
+        textColor=colors.HexColor("#34495E"),
+        alignment=1,
+    )
+
+    normal_style = ParagraphStyle(
+        "CustomNormal",
+        parent=styles["Normal"],
+        fontSize=7,
+        spaceAfter=2,
+        textColor=colors.HexColor("#2C3E50"),
+    )
+
+    # Common table style (reuse from original function)
+    table_style = TableStyle(
+        [
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+            ("FONTSIZE", (0, 0), (-1, -1), 7),
+            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+            ("TOPPADDING", (0, 0), (-1, -1), 2),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+        ]
+    )
+
+    # Create story (content) for the PDF
+    story = []
+
+    # Title and Basic Info
+    title = "EEG Processing Report"
+    story.append(Paragraph(title, title_style))
+
+    # Add status-colored subtitle
+    status_color = (
+        colors.HexColor("#2ECC71")
+        if run_record.get("success", False)
+        else colors.HexColor("#E74C3C")
+    )
+    subtitle_style = ParagraphStyle(
+        "CustomSubtitle",
+        parent=heading_style,
+        textColor=status_color,
+        spaceAfter=2,
+    )
+    status_text = "SUCCESS" if run_record.get("success", False) else "FAILED"
+    subtitle = f"Run ID: {run_id} - {status_text}"
+    story.append(Paragraph(subtitle, subtitle_style))
+
+    # Add timestamp
+    timestamp_style = ParagraphStyle(
+        "Timestamp",
+        parent=normal_style,
+        textColor=colors.HexColor("#7F8C8D"),
+        alignment=1,
+        spaceAfter=8,
+    )
+    timestamp = f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+    story.append(Paragraph(timestamp, timestamp_style))
+
+    # Basic compliance mode notice
+    compliance_notice = Paragraph(
+        "Generated in FDA 21 CFR Part 11 Compliance Mode - Access Controlled", 
+        ParagraphStyle(
+            "ComplianceNotice",
+            parent=normal_style,
+            textColor=colors.HexColor("#E67E22"),
+            alignment=1,
+            spaceAfter=8,
+            fontSize=8,
+        )
+    )
+    story.append(compliance_notice)
+
+    # Add simplified content (basic run info)
+    basic_info = [
+        ["Run ID", run_id],
+        ["Task", run_record.get("task", "N/A")],
+        ["Status", status_text],
+        ["Timestamp", run_record.get("created_at", "N/A")]
+    ]
+    
+    basic_table = ReportLabTable(basic_info, colWidths=[2 * inch, 4 * inch])
+    basic_table.setStyle(table_style)
+    story.append(basic_table)
+
+    # Add footer
+    footer_style = ParagraphStyle(
+        "Footer",
+        parent=normal_style,
+        fontSize=6,
+        textColor=colors.HexColor("#7F8C8D"),
+        alignment=1,
+        spaceBefore=12,
+    )
+    footer_text = f"Report generated in compliance mode | Run ID: {run_id}"
+    story.append(Paragraph(footer_text, footer_style))
+
+    # Build the PDF in memory
+    doc.build(story)
+    
+    # Get the PDF bytes
+    pdf_bytes = pdf_buffer.getvalue()
+    pdf_buffer.close()
+
+    message("success", f"Generated in-memory PDF report for run {run_id} ({len(pdf_bytes)} bytes)")
+    return pdf_bytes
+
+
 def update_task_processing_log(
     summary_dict: Dict[str, Any], flagged_reasons: list[str] = []
 ):
@@ -898,6 +1091,20 @@ def update_task_processing_log(
     -----
     Although there are safeguards to ensure updates even upon run failure, it may still fail.
     """
+    # Check if we're in compliance mode - if so, generate CSV in memory
+    try:
+        from autoclean.utils.config import is_compliance_mode_enabled
+        if is_compliance_mode_enabled():
+            try:
+                from autoclean.utils.auth import get_auth0_manager
+                auth_manager = get_auth0_manager()
+                if auth_manager.is_authenticated():
+                    # In compliance mode with auth - generate CSV in memory and return bytes
+                    return _update_task_processing_log_in_memory(summary_dict, flagged_reasons)
+            except ImportError:
+                pass  # No auth available, continue with normal filesystem operation
+    except ImportError:
+        pass  # Config module not available, continue normally
     try:
         # Validate required top-level keys
         required_keys = [
@@ -1118,6 +1325,198 @@ def update_task_processing_log(
             "error",
             f"Error updating processing log: {str(e)}\n{traceback.format_exc()}",
         )
+
+
+def _update_task_processing_log_in_memory(
+    summary_dict: Dict[str, Any], flagged_reasons: list[str] = []
+) -> str:
+    """Generate task processing log CSV in memory (for compliance mode encryption).
+    
+    This is a compliance-mode version that generates the CSV in memory
+    without saving to filesystem, returning the CSV content as string.
+    """
+    from io import StringIO
+    
+    try:
+        # Validate required top-level keys (same as original function)
+        required_keys = [
+            "output_dir",
+            "task",
+            "timestamp",
+            "run_id",
+            "proc_state",
+            "basename",
+            "bids_subject",
+        ]
+        for key in required_keys:
+            if key not in summary_dict:
+                message("error", f"Missing required key in summary_dict: {key}")
+                return None
+
+        # Safe dictionary access function (same as original)
+        def safe_get(d, *keys, default=""):
+            """Safely access nested dictionary keys"""
+            current = d
+            for key in keys:
+                if not isinstance(current, dict):
+                    return default
+                current = current.get(key, {})
+            if isinstance(current, dict):
+                return default
+            return current if current is not None else default
+
+        # Function to calculate bad trials safely (same as original)
+        def calculate_bad_trials():
+            try:
+                initial_epochs = safe_get(
+                    summary_dict, "export_details", "initial_n_epochs", default=0
+                )
+                final_epochs = safe_get(
+                    summary_dict, "export_details", "final_n_epochs", default=0
+                )
+
+                if isinstance(initial_epochs, (int, float, str)):
+                    initial_epochs = int(float(initial_epochs)) if initial_epochs else 0
+                else:
+                    initial_epochs = 0
+
+                if isinstance(final_epochs, (int, float, str)):
+                    final_epochs = int(float(final_epochs)) if final_epochs else 0
+                else:
+                    final_epochs = 0
+
+                return initial_epochs - final_epochs
+            except Exception:
+                return 0
+
+        # Calculate percentages safely (same as original)
+        def safe_percentage(numerator, denominator, default=""):
+            try:
+                num = float(numerator)
+                denom = float(denominator)
+                return str(num / denom) if denom != 0 else default
+            except (ValueError, TypeError):
+                return default
+
+        # Combine flags into a single string
+        flags = "; ".join(flagged_reasons) if flagged_reasons else ""
+
+        # Extract details from summary_dict with safe access (same as original)
+        details = {
+            "timestamp": summary_dict.get("timestamp", ""),
+            "study_user": os.getenv("USERNAME", "unknown"),
+            "run_id": summary_dict.get("run_id", ""),
+            "proc_state": summary_dict.get("proc_state", ""),
+            "subj_basename": Path(summary_dict.get("basename", "")).stem,
+            "bids_subject": summary_dict.get("bids_subject", ""),
+            "task": summary_dict.get("task", ""),
+            "flags": flags,
+            "net_nbchan_orig": str(
+                safe_get(summary_dict, "import_details", "net_nbchan_orig", default="")
+            ),
+            "net_nbchan_post": str(
+                safe_get(summary_dict, "export_details", "net_nbchan_post", default="")
+            ),
+            "proc_badchans": str(
+                safe_get(summary_dict, "channel_dict", "removed_channels", default="")
+            ),
+            "proc_filt_lowcutoff": str(
+                safe_get(summary_dict, "processing_details", "l_freq", default="")
+            ),
+            "proc_filt_highcutoff": str(
+                safe_get(summary_dict, "processing_details", "h_freq", default="")
+            ),
+            "proc_filt_notch": str(
+                safe_get(summary_dict, "processing_details", "notch_freqs", default="")
+            ),
+            "proc_filt_notch_width": str(
+                safe_get(summary_dict, "processing_details", "notch_widths", default="")
+            ),
+            "proc_sRate_raw": str(
+                safe_get(summary_dict, "import_details", "sample_rate", default="")
+            ),
+            "proc_sRate1": str(
+                safe_get(summary_dict, "export_details", "srate_post", default="")
+            ),
+            "proc_xmax_raw": str(
+                safe_get(summary_dict, "import_details", "duration", default="")
+            ),
+            "proc_xmax_post": str(
+                safe_get(summary_dict, "export_details", "final_duration", default="")
+            ),
+        }
+
+        # Add calculated fields (same as original)
+        details.update(
+            {
+                "proc_xmax_percent": safe_percentage(
+                    safe_get(
+                        summary_dict, "export_details", "final_duration", default=""
+                    ),
+                    safe_get(summary_dict, "import_details", "duration", default=""),
+                ),
+                "epoch_length": str(
+                    safe_get(summary_dict, "export_details", "epoch_length", default="")
+                ),
+                "epoch_limits": str(
+                    safe_get(summary_dict, "export_details", "epoch_limits", default="")
+                ),
+                "epoch_trials": str(
+                    safe_get(
+                        summary_dict, "export_details", "initial_n_epochs", default=""
+                    )
+                ),
+                "epoch_badtrials": str(calculate_bad_trials()),
+                "epoch_percent": safe_percentage(
+                    safe_get(
+                        summary_dict, "export_details", "final_n_epochs", default=""
+                    ),
+                    safe_get(
+                        summary_dict, "export_details", "initial_n_epochs", default=""
+                    ),
+                ),
+            }
+        )
+
+        details.update(
+            {
+                "proc_nComps": str(
+                    safe_get(summary_dict, "ica_details", "proc_nComps", default="")
+                ),
+                "proc_removeComps": str(
+                    safe_get(
+                        summary_dict, "ica_details", "proc_removeComps", default=""
+                    )
+                ),
+                "exclude_category": summary_dict.get("exclude_category", ""),
+            }
+        )
+
+        # Generate CSV in memory
+        csv_buffer = StringIO()
+        
+        # Create DataFrame with all columns as string type
+        df = pd.DataFrame([details], dtype=str)
+        
+        # Write CSV to memory buffer
+        df.to_csv(csv_buffer, index=False)
+        
+        # Get CSV content as string
+        csv_content = csv_buffer.getvalue()
+        csv_buffer.close()
+
+        message(
+            "success",
+            f"Generated in-memory CSV processing log for {details['subj_basename']} ({len(csv_content)} bytes)",
+        )
+        return csv_content
+
+    except Exception as e:
+        message(
+            "error",
+            f"Error generating in-memory processing log: {str(e)}\n{traceback.format_exc()}",
+        )
+        return None
 
 
 def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:

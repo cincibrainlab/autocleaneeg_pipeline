@@ -209,6 +209,21 @@ class Pipeline:
         # This creates tables if they don't exist and establishes security triggers
         manage_database_conditionally(operation="create_collection")
 
+        # Initialize compliance mode and encryption settings
+        from autoclean.utils.config import is_compliance_mode_enabled
+        from autoclean.utils.encryption import get_encryption_manager
+        
+        self.compliance_mode = is_compliance_mode_enabled()
+        self.encryption_manager = get_encryption_manager()
+        
+        if self.compliance_mode:
+            if self.encryption_manager.is_encryption_enabled():
+                message("info", "✓ Part 11 compliance mode enabled - outputs will be encrypted")
+            else:
+                message("warning", "Part 11 compliance mode enabled but user not authenticated - outputs will not be encrypted")
+        else:
+            message("debug", "Normal mode - outputs will be saved to filesystem")
+
         # Pre-initialize plugins to avoid race conditions in async processing
         from autoclean.io.import_ import discover_event_processors, discover_plugins
 
@@ -216,10 +231,365 @@ class Pipeline:
         discover_plugins()
         discover_event_processors()
 
+        # Setup output interception for compliance mode
+        if self.compliance_mode and self.encryption_manager.is_encryption_enabled():
+            self._setup_output_interception()
+
         message(
             "success",
             f"✓ Pipeline initialized with output directory: {self.output_dir}",
         )
+
+    def _route_output(
+        self,
+        output_data: Union[str, bytes, Dict],
+        output_type: str,
+        file_name: str,
+        run_id: str,
+        original_path: Optional[Path] = None,
+        metadata: Optional[Dict] = None
+    ) -> Optional[Path]:
+        """
+        Route output based on compliance mode.
+        
+        In compliance mode: encrypt and store in database
+        In normal mode: save to filesystem
+        
+        Parameters
+        ----------
+        output_data : str, bytes, or dict
+            The output data to save
+        output_type : str
+            Type of output (use OutputType constants)
+        file_name : str
+            Name of the output file
+        run_id : str
+            Run ID this output belongs to
+        original_path : Path, optional
+            Original filesystem path (for compliance mode)
+        metadata : dict, optional
+            Additional metadata to store
+            
+        Returns
+        -------
+        Path or None
+            Path where file was saved in normal mode, None in compliance mode
+        """
+        if self.compliance_mode and self.encryption_manager.is_encryption_enabled():
+            # Compliance mode: encrypt and store in database
+            try:
+                from autoclean.utils.encryption import encrypt_and_store_output, OutputType
+                
+                # Use original_path if provided, otherwise create one
+                if original_path is None:
+                    original_path = self.output_dir / file_name
+                
+                output_id = encrypt_and_store_output(
+                    run_id=run_id,
+                    output_type=output_type,
+                    file_path=original_path,
+                    original_data=output_data,
+                    metadata=metadata,
+                    compress=True
+                )
+                
+                if output_id:
+                    message("debug", f"Encrypted and stored {output_type}: {file_name}")
+                
+                return None  # No filesystem path in compliance mode
+                
+            except Exception as e:
+                message("error", f"Failed to encrypt output {file_name}: {e}")
+                # Fall back to filesystem storage with warning
+                message("warning", f"Falling back to filesystem storage for {file_name}")
+        
+        # Normal mode or fallback: save to filesystem
+        if original_path is None:
+            original_path = self.output_dir / file_name
+        
+        # Ensure directory exists
+        original_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Save based on data type
+        if isinstance(output_data, str):
+            with open(original_path, "w", encoding="utf-8") as f:
+                f.write(output_data)
+        elif isinstance(output_data, bytes):
+            with open(original_path, "wb") as f:
+                f.write(output_data)
+        elif isinstance(output_data, dict):
+            with open(original_path, "w", encoding="utf-8") as f:
+                json.dump(output_data, f, indent=2, default=str)
+        else:
+            # Try to convert to JSON
+            with open(original_path, "w", encoding="utf-8") as f:
+                json.dump(output_data, f, indent=2, default=str)
+        
+        message("debug", f"Saved {output_type} to filesystem: {original_path}")
+        return original_path
+
+    def _create_json_summary_routed(self, run_id: str, flagged_reasons: list) -> Dict:
+        """Create JSON summary with output routing."""
+        # Import the original function
+        from autoclean.step_functions.reports import create_json_summary
+        from autoclean.utils.encryption import OutputType
+        
+        # Create the summary
+        json_summary = create_json_summary(run_id, flagged_reasons)
+        
+        if json_summary and self.compliance_mode and self.encryption_manager.is_encryption_enabled():
+            # In compliance mode, also store the JSON summary in encrypted form
+            try:
+                self._route_output(
+                    output_data=json_summary,
+                    output_type=OutputType.METADATA_JSON,
+                    file_name=f"{run_id}_metadata.json",
+                    run_id=run_id,
+                    metadata={"type": "json_summary", "flagged_reasons_count": len(flagged_reasons)}
+                )
+            except Exception as e:
+                message("warning", f"Failed to encrypt JSON summary: {e}")
+        
+        return json_summary
+
+    def _create_run_report_routed(self, run_id: str, run_dict: Optional[Dict] = None) -> None:
+        """Create run report with output routing."""
+        # Import the original function
+        from autoclean.step_functions.reports import create_run_report, _create_run_report_in_memory
+        from autoclean.utils.encryption import OutputType
+        
+        if self.compliance_mode and self.encryption_manager.is_encryption_enabled():
+            # In compliance mode, generate PDF in memory and encrypt directly
+            try:
+                run_record = get_run_record(run_id)
+                if run_record:
+                    # Generate PDF in memory (no filesystem writes)
+                    pdf_bytes = _create_run_report_in_memory(run_id, run_record, run_dict)
+                    
+                    if pdf_bytes:
+                        # Create filename based on run record
+                        report_filename = run_record.get("report_file", f"{run_id}_autoclean_report.pdf")
+                        if not report_filename.endswith(".pdf"):
+                            report_filename += ".pdf"
+                        
+                        # Encrypt the PDF directly
+                        self._route_output(
+                            output_data=pdf_bytes,
+                            output_type=OutputType.REPORT_PDF,
+                            file_name=report_filename,
+                            run_id=run_id,
+                            original_path=None,  # No filesystem path since generated in memory
+                            metadata={
+                                "type": "processing_report", 
+                                "generated_at": datetime.now().isoformat(),
+                                "compliance_mode": True,
+                                "size_bytes": len(pdf_bytes)
+                            }
+                        )
+                        
+                        message("success", f"Generated and encrypted in-memory PDF report: {report_filename}")
+                    else:
+                        message("error", "Failed to generate in-memory PDF report")
+                else:
+                    message("error", f"No run record found for run ID: {run_id}")
+                        
+            except Exception as e:
+                message("error", f"Failed to generate in-memory report: {e}")
+                # Fallback to filesystem generation (but this will still be intercepted by existing logic)
+                try:
+                    create_run_report(run_id, run_dict)
+                except Exception as fallback_error:
+                    message("error", f"Fallback report generation also failed: {fallback_error}")
+        else:
+            # Normal mode - just call the original function
+            create_run_report(run_id, run_dict)
+
+    def _update_task_processing_log_routed(self, json_summary: Dict, flagged_reasons: list) -> None:
+        """Update task processing log with output routing."""
+        # Import the original function
+        from autoclean.step_functions.reports import update_task_processing_log, _update_task_processing_log_in_memory
+        from autoclean.utils.encryption import OutputType
+        
+        if self.compliance_mode and self.encryption_manager.is_encryption_enabled():
+            # In compliance mode, generate CSV in memory and encrypt directly
+            try:
+                # Generate CSV in memory (no filesystem writes)
+                csv_content = _update_task_processing_log_in_memory(json_summary, flagged_reasons)
+                
+                if csv_content:
+                    # Create filename
+                    csv_filename = f"{json_summary.get('task', 'unknown')}_processing_log.csv"
+                    
+                    # Encrypt the CSV directly
+                    self._route_output(
+                        output_data=csv_content,
+                        output_type=OutputType.PROCESSING_LOG,
+                        file_name=csv_filename,
+                        run_id=json_summary.get("run_id", "unknown"),
+                        original_path=None,  # No filesystem path since generated in memory
+                        metadata={
+                            "type": "processing_log", 
+                            "flagged_reasons_count": len(flagged_reasons),
+                            "compliance_mode": True,
+                            "size_bytes": len(csv_content.encode('utf-8'))
+                        }
+                    )
+                    
+                    message("success", f"Generated and encrypted in-memory CSV: {csv_filename}")
+                else:
+                    message("error", "Failed to generate in-memory CSV processing log")
+                    
+            except Exception as e:
+                message("error", f"Failed to generate in-memory processing log: {e}")
+                # Fall back to filesystem generation (but this will still be intercepted by existing logic)
+                try:
+                    update_task_processing_log(json_summary, flagged_reasons)
+                except Exception as fallback_error:
+                    message("error", f"Fallback processing log update failed: {fallback_error}")
+        else:
+            # Normal mode - just call the original function
+            update_task_processing_log(json_summary, flagged_reasons)
+
+    def _generate_bad_channels_tsv_routed(self, json_summary: Dict) -> None:
+        """Generate bad channels TSV - NOT encrypted per requirements."""
+        # Import the original function
+        from autoclean.step_functions.reports import generate_bad_channels_tsv
+        
+        # Always use normal mode - bad channels TSV should NOT be encrypted
+        generate_bad_channels_tsv(json_summary)
+
+    def _setup_output_interception(self) -> None:
+        """Setup interception of file outputs for encryption in compliance mode."""
+        try:
+            from autoclean.utils.encryption import OutputType
+            
+            # Store original functions for restoration
+            if not hasattr(self, '_original_functions'):
+                self._original_functions = {}
+                self._current_run_id = None
+            
+            # Intercept matplotlib figure saving
+            import matplotlib.pyplot as plt
+            import matplotlib.figure
+            
+            original_savefig = matplotlib.figure.Figure.savefig
+            
+            def intercepted_savefig(fig_self, fname, **kwargs):
+                """Intercept matplotlib figure.savefig calls."""
+                try:
+                    # Call original function first to generate the file
+                    result = original_savefig(fig_self, fname, **kwargs)
+                    
+                    # If file was created and we have a current run, encrypt it
+                    if self._current_run_id and Path(fname).exists():
+                        self._encrypt_generated_file(Path(fname), OutputType.PLOT_PNG)
+                    
+                    return result
+                except Exception as e:
+                    message("warning", f"Error in figure save interception: {e}")
+                    return original_savefig(fig_self, fname, **kwargs)
+            
+            # Apply the monkey patch
+            matplotlib.figure.Figure.savefig = intercepted_savefig
+            self._original_functions['matplotlib_savefig'] = original_savefig
+            
+            # Skip ICA file interception - ICA .fif files should NOT be encrypted
+            # (Keeping this code commented for reference)
+            # try:
+            #     import mne
+            #     if hasattr(mne, 'preprocessing') and hasattr(mne.preprocessing, 'ICA'):
+            #         original_ica_save = mne.preprocessing.ICA.save
+            #         # ... ICA interception code removed
+            # except ImportError:
+            #     message("debug", "MNE not available for ICA interception")
+            
+            message("debug", "✓ Output interception setup complete for compliance mode")
+            
+        except Exception as e:
+            message("error", f"Failed to setup output interception: {e}")
+
+    def _encrypt_generated_file(self, file_path: Path, output_type: str) -> None:
+        """Encrypt a file that was just generated and remove the original."""
+        try:
+            from autoclean.utils.encryption import encrypt_and_store_output, OutputType
+            
+            # Check if file is in our output directory
+            if not str(file_path).startswith(str(self.output_dir)):
+                return  # Don't encrypt files outside our output directory
+            
+            # Skip files that should NOT be encrypted per requirements
+            if file_path.suffix.lower() == '.fif':
+                message("debug", f"Skipping ICA .fif file (not encrypted): {file_path.name}")
+                return
+            
+            if 'FlaggedChs' in file_path.name and file_path.suffix.lower() == '.tsv':
+                message("debug", f"Skipping bad channels TSV (not encrypted): {file_path.name}")
+                return
+            
+            # Determine output type based on file extension for files we DO encrypt
+            if output_type == OutputType.PLOT_PNG and file_path.suffix.lower() not in ['.png', '.jpg', '.jpeg', '.svg']:
+                if file_path.suffix.lower() == '.pdf':
+                    output_type = OutputType.REPORT_PDF
+                elif file_path.suffix.lower() in ['.tsv', '.csv']:
+                    output_type = OutputType.PROCESSING_LOG  # Only processing logs, not bad channels
+            
+            # Read and encrypt the file
+            with open(file_path, "rb") as f:
+                file_data = f.read()
+            
+            output_id = encrypt_and_store_output(
+                run_id=self._current_run_id,
+                output_type=output_type,
+                file_path=file_path,
+                original_data=file_data,
+                metadata={
+                    "intercepted": True,
+                    "file_extension": file_path.suffix,
+                    "original_size": len(file_data)
+                }
+            )
+            
+            if output_id:
+                # Remove the original file after successful encryption
+                file_path.unlink()
+                message("debug", f"Encrypted and removed: {file_path.name}")
+            
+        except Exception as e:
+            message("error", f"Failed to encrypt generated file {file_path}: {e}")
+
+    def _set_current_run_id(self, run_id: str) -> None:
+        """Set the current run ID for output interception."""
+        self._current_run_id = run_id
+
+    def _clear_current_run_id(self) -> None:
+        """Clear the current run ID after processing."""
+        self._current_run_id = None
+
+    def _restore_original_functions(self) -> None:
+        """Restore original functions when pipeline is destroyed."""
+        if hasattr(self, '_original_functions'):
+            try:
+                # Restore matplotlib
+                if 'matplotlib_savefig' in self._original_functions:
+                    import matplotlib.figure
+                    matplotlib.figure.Figure.savefig = self._original_functions['matplotlib_savefig']
+                
+                # Restore MNE ICA
+                if 'mne_ica_save' in self._original_functions:
+                    import mne
+                    if hasattr(mne, 'preprocessing') and hasattr(mne.preprocessing, 'ICA'):
+                        mne.preprocessing.ICA.save = self._original_functions['mne_ica_save']
+                
+                message("debug", "✓ Original functions restored")
+            except Exception as e:
+                message("warning", f"Error restoring original functions: {e}")
+
+    def __del__(self):
+        """Cleanup when pipeline is destroyed."""
+        try:
+            self._restore_original_functions()
+        except Exception:
+            pass  # Don't raise exceptions in destructor
 
     def _entrypoint(
         self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
@@ -276,8 +646,10 @@ class Pipeline:
             run_id = str(run_id)
             # Load existing run record for resumed processing
             run_record = get_run_record(run_id)
-            message("info", f"Resuming run {run_id}")
-            message("info", f"Run record: {run_record}")
+
+        # Set current run ID for output interception (after run_id is established)
+        if hasattr(self, '_set_current_run_id'):
+            self._set_current_run_id(run_id)
 
         # Initialize run_dict early for error handling
         run_dict = None
@@ -422,14 +794,14 @@ class Pipeline:
             message("success", f"✓ Task {task} completed successfully")
 
             # Create a run summary in JSON format
-            json_summary = create_json_summary(run_id, flagged_reasons)
+            json_summary = self._create_json_summary_routed(run_id, flagged_reasons)
 
             # Only proceed with processing log update if we have a valid summary
             if json_summary:
                 # Update processing log
-                update_task_processing_log(json_summary, flagged_reasons)
+                self._update_task_processing_log_routed(json_summary, flagged_reasons)
                 try:
-                    generate_bad_channels_tsv(json_summary)
+                    self._generate_bad_channels_tsv_routed(json_summary)
                 except Exception as tsv_error:  # pylint: disable=broad-except
                     message(
                         "warning",
@@ -443,7 +815,7 @@ class Pipeline:
 
             # Generate PDF report if processing succeeded
             try:
-                create_run_report(run_id, run_dict)
+                self._create_run_report_routed(run_id, run_dict)
             except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
 
@@ -484,7 +856,7 @@ class Pipeline:
             except Exception:  # pylint: disable=broad-except
                 error_flagged_reasons = []
 
-            json_summary = create_json_summary(run_id, error_flagged_reasons)
+            json_summary = self._create_json_summary_routed(run_id, error_flagged_reasons)
 
             # Update database with failure status using audit protection
             # Include JSON summary in the failure update to avoid audit record conflicts
@@ -505,13 +877,13 @@ class Pipeline:
             # Try to update processing log even in error case
             if json_summary:
                 try:
-                    update_task_processing_log(json_summary, error_flagged_reasons)
+                    self._update_task_processing_log_routed(json_summary, error_flagged_reasons)
                 except Exception as log_error:  # pylint: disable=broad-except
                     message(
                         "warning", f"Failed to update processing log: {str(log_error)}"
                     )
                 try:
-                    generate_bad_channels_tsv(json_summary)
+                    self._generate_bad_channels_tsv_routed(json_summary)
                 except Exception as tsv_error:  # pylint: disable=broad-except
                     message(
                         "warning",
@@ -523,16 +895,25 @@ class Pipeline:
             # Attempt to generate error report
             try:
                 if run_dict is not None:
-                    create_run_report(run_id, run_dict)
+                    self._create_run_report_routed(run_id, run_dict)
                 else:
-                    create_run_report(run_id)
+                    self._create_run_report_routed(run_id)
             except Exception as report_error:  # pylint: disable=broad-except
                 message(
                     "error", f"Failed to generate error report: {str(report_error)}"
                 )
 
             message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
+            
+            # Clear run ID tracking for output interception
+            if hasattr(self, '_clear_current_run_id'):
+                self._clear_current_run_id()
+            
             raise
+
+        # Clear run ID tracking for output interception (success path)
+        if hasattr(self, '_clear_current_run_id'):
+            self._clear_current_run_id()
 
         return run_record["run_id"]
 
