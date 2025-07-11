@@ -337,18 +337,33 @@ class Pipeline:
         # Create the summary
         json_summary = create_json_summary(run_id, flagged_reasons)
         
-        if json_summary and self.compliance_mode and self.encryption_manager.is_encryption_enabled():
-            # In compliance mode, also store the JSON summary in encrypted form
+        if json_summary:
+            # Store JSON summary in run record metadata for in-memory report generation
             try:
-                self._route_output(
-                    output_data=json_summary,
-                    output_type=OutputType.METADATA_JSON,
-                    file_name=f"{run_id}_metadata.json",
-                    run_id=run_id,
-                    metadata={"type": "json_summary", "flagged_reasons_count": len(flagged_reasons)}
+                update_record = {
+                    "run_id": run_id,
+                    "metadata": {"json_summary": json_summary}
+                }
+                manage_database_conditionally(
+                    operation="update",
+                    update_record=update_record,
                 )
+                message("debug", f"Stored JSON summary in run record metadata for {run_id}")
             except Exception as e:
-                message("warning", f"Failed to encrypt JSON summary: {e}")
+                message("warning", f"Failed to store JSON summary in run record: {e}")
+            
+            if self.compliance_mode and self.encryption_manager.is_encryption_enabled():
+                # In compliance mode, also store the JSON summary in encrypted form
+                try:
+                    self._route_output(
+                        output_data=json_summary,
+                        output_type=OutputType.METADATA_JSON,
+                        file_name=f"{run_id}_metadata.json",
+                        run_id=run_id,
+                        metadata={"type": "json_summary", "flagged_reasons_count": len(flagged_reasons)}
+                    )
+                except Exception as e:
+                    message("warning", f"Failed to encrypt JSON summary: {e}")
         
         return json_summary
 
@@ -843,11 +858,14 @@ class Pipeline:
             # Get final run record for JSON export
             run_record = get_run_record(run_id)
 
-            # Export run metadata to JSON file
-            json_file = metadata_dir / run_record["json_file"]
-            with open(json_file, "w", encoding="utf8") as f:
-                json.dump(run_record, f, indent=4)
-            message("success", f"✓ Run record exported to {json_file}")
+            # Export run metadata to JSON file (skip in compliance mode)
+            if not (self.compliance_mode and self.encryption_manager.is_encryption_enabled()):
+                json_file = metadata_dir / run_record["json_file"]
+                with open(json_file, "w", encoding="utf8") as f:
+                    json.dump(run_record, f, indent=4)
+                message("success", f"✓ Run record exported to {json_file}")
+            else:
+                message("debug", "Skipped JSON file export (compliance mode - encrypted instead)")
 
         except Exception as e:
             # Get flagged status before creating summary for error case
