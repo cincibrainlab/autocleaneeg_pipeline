@@ -2178,12 +2178,26 @@ def cmd_export_outputs(args) -> int:
                     message("warning", f"Could not decrypt output {output['file_name']}")
                     continue
 
-                # Create organized directory structure by run
-                run_id = output["run_info"]["run_id"]
-                run_dir = export_dir / run_id
-                run_dir.mkdir(parents=True, exist_ok=True)
+                # Create organized directory structure by original filename
+                run_info = output["run_info"]
+                run_record = None
+                for run in runs:
+                    if run["run_id"] == run_info["run_id"]:
+                        run_record = run
+                        break
                 
-                file_path = run_dir / output["file_name"]
+                if run_record and run_record.get("unprocessed_file"):
+                    # Use original filename (without extension) as directory name
+                    original_file = Path(run_record["unprocessed_file"])
+                    file_dir_name = original_file.stem  # filename without extension
+                else:
+                    # Fallback to run_id if no original filename
+                    file_dir_name = run_info["run_id"]
+                
+                file_dir = export_dir / file_dir_name
+                file_dir.mkdir(parents=True, exist_ok=True)
+                
+                file_path = file_dir / output["file_name"]
 
                 if output["file_name"].endswith(('.pdf', '.png', '.jpg', '.jpeg')):
                     # Binary files

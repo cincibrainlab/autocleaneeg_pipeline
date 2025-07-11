@@ -355,10 +355,15 @@ class Pipeline:
             if self.compliance_mode and self.encryption_manager.is_encryption_enabled():
                 # In compliance mode, also store the JSON summary in encrypted form
                 try:
+                    # Get the original filename-based metadata filename from run record
+                    from autoclean.utils.database import get_run_record
+                    run_record = get_run_record(run_id)
+                    original_json_filename = run_record.get("json_file", f"{run_id}_metadata.json")
+                    
                     self._route_output(
                         output_data=json_summary,
                         output_type=OutputType.METADATA_JSON,
-                        file_name=f"{run_id}_metadata.json",
+                        file_name=original_json_filename,
                         run_id=run_id,
                         metadata={"type": "json_summary", "flagged_reasons_count": len(flagged_reasons)}
                     )
