@@ -289,6 +289,46 @@ Examples:
         help="Path to database file (default: auto-detect from workspace)",
     )
 
+    # Export encrypted outputs command
+    export_outputs_parser = subparsers.add_parser(
+        "export",
+        help="Export encrypted outputs from compliance mode (requires authentication)",
+    )
+    export_outputs_parser.add_argument(
+        "task",
+        type=str,
+        help="Task name to export outputs for (e.g., 'RestingEyesOpen')",
+    )
+    export_outputs_parser.add_argument(
+        "--output",
+        "-o",
+        type=Path,
+        help="Output directory or file path (default: ./exported_{task})",
+    )
+    export_outputs_parser.add_argument(
+        "--format",
+        choices=["directory", "zip"],
+        default="directory",
+        help="Export format: directory structure or ZIP archive (default: directory)",
+    )
+    export_outputs_parser.add_argument(
+        "--type",
+        "-t",
+        choices=["all", "reports", "plots", "metadata", "logs"],
+        default="all",
+        help="Output types to export (default: all)",
+    )
+    export_outputs_parser.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify data integrity during export",
+    )
+    export_outputs_parser.add_argument(
+        "--database",
+        type=Path,
+        help="Path to database file (default: auto-detect from workspace)",
+    )
+
     # Authentication commands (for compliance mode)
     subparsers.add_parser("login", help="Login to Auth0 for compliance mode")
 
@@ -1644,6 +1684,7 @@ def cmd_help(_args) -> int:
         "[red]login[/red]                    [dim]Authenticate with Auth0[/dim]\n"
         "[red]logout[/red]                   [dim]Clear authentication[/dim]\n"
         "[red]whoami[/red]                   [dim]Show current user status[/dim]\n"
+        "[red]export[/red]                  [dim]Export encrypted outputs (compliance mode)[/dim]",
         "[red]export-access-log[/red]        [dim]Export audit trail[/dim]",
         title="[bold]Regulated Environments Only[/bold]",
         border_style="red",
@@ -2021,6 +2062,197 @@ def cmd_export_access_log(args) -> int:
 
     except Exception as e:
         message("error", f"Failed to export access log: {e}")
+        return 1
+
+
+def cmd_export_outputs(args) -> int:
+    """Export encrypted outputs by task name from compliance mode (requires authentication)."""
+    try:
+        import json
+        import zipfile
+        from datetime import datetime
+        from pathlib import Path
+
+        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled, require_authentication
+        from autoclean.utils.database import get_encrypted_outputs, get_encrypted_output_data, get_run_record
+        from autoclean.utils.encryption import get_encryption_manager
+        from autoclean.utils.logging import message
+        from autoclean.utils.user_config import user_config
+
+        # Check compliance mode
+        if not is_compliance_mode_enabled():
+            message("error", "Export command only available in compliance mode")
+            message("info", "Run 'autoclean-eeg setup --compliance-mode' to enable compliance mode")
+            return 1
+
+        # Require authentication
+        if not require_authentication():
+            message("error", "Authentication required to export encrypted outputs")
+            message("info", "Run 'autoclean-eeg login' to authenticate")
+            return 1
+
+        # Get workspace directory
+        workspace_dir = user_config._get_workspace_path()
+
+        # Find runs by task name
+        from autoclean.utils.database import get_runs_by_task
+        
+        runs = get_runs_by_task(args.task)
+        if not runs:
+            message("error", f"No runs found for task '{args.task}'")
+            return 1
+
+        # Get all encrypted outputs for all runs of this task
+        all_outputs = []
+        run_ids = []
+        for run in runs:
+            run_id = run["run_id"]
+            run_ids.append(run_id)
+            outputs = get_encrypted_outputs(run_id)
+            if outputs:
+                # Add run info to each output for context
+                for output in outputs:
+                    output["run_info"] = {
+                        "run_id": run_id,
+                        "created_at": run.get("created_at"),
+                        "success": run.get("success", False)
+                    }
+                all_outputs.extend(outputs)
+
+        if not all_outputs:
+            message("warning", f"No encrypted outputs found for task '{args.task}'")
+            return 0
+        
+        outputs = all_outputs
+
+        # Filter outputs by type if specified
+        if args.type != "all":
+            type_mapping = {
+                "reports": ["report_pdf"],
+                "plots": ["plot_png", "plot_jpg"],
+                "metadata": ["metadata_json"],
+                "logs": ["processing_log"]
+            }
+            allowed_types = type_mapping.get(args.type, [])
+            outputs = [o for o in outputs if o["output_type"] in allowed_types]
+
+        if not outputs:
+            message("warning", f"No outputs of type '{args.type}' found for run {args.run_id}")
+            return 0
+
+        # Determine output path
+        if args.output:
+            output_path = Path(args.output)
+        else:
+            output_path = Path(f"exported_{args.task}")
+
+        # Create export directory or prepare ZIP
+        if args.format == "directory":
+            output_path.mkdir(parents=True, exist_ok=True)
+            export_dir = output_path
+        else:  # ZIP format
+            if not output_path.suffix:
+                output_path = output_path.with_suffix(".zip")
+            export_dir = output_path.parent / f"temp_{args.task}"
+            export_dir.mkdir(parents=True, exist_ok=True)
+
+        # Get encryption manager
+        encryption_manager = get_encryption_manager()
+
+        # Export outputs
+        exported_files = []
+        for output in outputs:
+            try:
+                # Get and decrypt the data
+                output_data = get_encrypted_output_data(output["id"])
+                if not output_data:
+                    message("warning", f"Could not retrieve data for output {output['file_name']}")
+                    continue
+
+                encrypted_data = output_data["encrypted_data"]
+                decrypted_data = encryption_manager.decrypt_output(encrypted_data, "bytes")
+                if decrypted_data is None:
+                    message("warning", f"Could not decrypt output {output['file_name']}")
+                    continue
+
+                # Create organized directory structure by run
+                run_id = output["run_info"]["run_id"]
+                run_dir = export_dir / run_id
+                run_dir.mkdir(parents=True, exist_ok=True)
+                
+                file_path = run_dir / output["file_name"]
+
+                if output["file_name"].endswith(('.pdf', '.png', '.jpg', '.jpeg')):
+                    # Binary files
+                    with open(file_path, "wb") as f:
+                        f.write(decrypted_data)
+                else:
+                    # Text files (JSON, CSV, etc.)
+                    with open(file_path, "w", encoding="utf-8") as f:
+                        if isinstance(decrypted_data, bytes):
+                            f.write(decrypted_data.decode("utf-8"))
+                        else:
+                            f.write(str(decrypted_data))
+
+                exported_files.append(output["file_name"])
+
+                # Verify integrity if requested
+                if args.verify:
+                    import hashlib
+                    file_hash = hashlib.sha256(decrypted_data).hexdigest()
+                    if file_hash != output.get("content_hash"):
+                        message("warning", f"Integrity check failed for {output['file_name']}")
+
+            except Exception as e:
+                message("error", f"Failed to export {output['file_name']}: {e}")
+
+        # Create ZIP if requested
+        if args.format == "zip":
+            with zipfile.ZipFile(output_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in export_dir.rglob("*"):
+                    if file_path.is_file():
+                        arcname = file_path.relative_to(export_dir)
+                        zipf.write(file_path, arcname)
+
+            # Clean up temporary directory
+            import shutil
+            shutil.rmtree(export_dir)
+
+        # Log export operation for audit trail
+        try:
+            from autoclean.utils.database import manage_database_conditionally
+            audit_details = {
+                "task": args.task,
+                "run_ids": run_ids,
+                "run_count": len(run_ids),
+                "output_type": args.type,
+                "format": args.format,
+                "exported_files": exported_files,
+                "file_count": len(exported_files),
+                "export_path": str(output_path)
+            }
+            
+            manage_database_conditionally(
+                operation="store",
+                record={
+                    "operation": "export_outputs",
+                    "details": json.dumps(audit_details),
+                    "success": True
+                }
+            )
+        except Exception as e:
+            message("warning", f"Failed to log export operation: {e}")
+
+        # Success message
+        if args.format == "zip":
+            message("success", f"✓ Exported {len(exported_files)} files from task '{args.task}' ({len(run_ids)} runs) to ZIP: {output_path}")
+        else:
+            message("success", f"✓ Exported {len(exported_files)} files from task '{args.task}' ({len(run_ids)} runs) to directory: {output_path}")
+
+        return 0
+
+    except Exception as e:
+        message("error", f"Failed to export outputs: {e}")
         return 1
 
 
@@ -2783,6 +3015,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_setup(args)
     elif args.command == "export-access-log":
         return cmd_export_access_log(args)
+    elif args.command == "export":
+        return cmd_export_outputs(args)
     elif args.command == "login":
         return cmd_login(args)
     elif args.command == "logout":

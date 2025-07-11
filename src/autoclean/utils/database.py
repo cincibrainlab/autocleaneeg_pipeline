@@ -160,6 +160,41 @@ def get_database_info(db_path: Optional[Path] = None) -> dict:
         return {"error": f"Failed to read database info: {str(e)}"}
 
 
+def get_runs_by_task(task_name: str) -> list:
+    """
+    Get all run records for a specific task.
+    
+    Args:
+        task_name: Name of the task to find runs for
+        
+    Returns:
+        List of run records matching the task name
+    """
+    try:
+        db_path = get_database_path()
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            
+            cursor.execute(
+                "SELECT * FROM pipeline_runs WHERE task = ? ORDER BY created_at DESC",
+                (task_name,)
+            )
+            
+            runs = []
+            for row in cursor.fetchall():
+                record_dict = dict(row)
+                if record_dict.get("metadata"):
+                    record_dict["metadata"] = json.loads(record_dict["metadata"])
+                runs.append(record_dict)
+            
+            return runs
+            
+    except Exception as e:
+        message("error", f"Failed to get runs for task {task_name}: {e}")
+        return []
+
+
 def get_run_record(run_id: str) -> dict:
     """Get a run record from the database by run ID.
 
