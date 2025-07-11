@@ -2073,8 +2073,8 @@ def cmd_export_outputs(args) -> int:
         from datetime import datetime
         from pathlib import Path
 
-        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled, require_authentication
-        from autoclean.utils.database import get_encrypted_outputs, get_encrypted_output_data, get_run_record
+        from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+        from autoclean.utils.database import get_encrypted_outputs, get_encrypted_output_data, get_run_record, set_database_path
         from autoclean.utils.encryption import get_encryption_manager
         from autoclean.utils.logging import message
         from autoclean.utils.user_config import user_config
@@ -2086,13 +2086,16 @@ def cmd_export_outputs(args) -> int:
             return 1
 
         # Require authentication
-        if not require_authentication():
+        auth_manager = get_auth0_manager()
+        if not auth_manager.is_authenticated():
             message("error", "Authentication required to export encrypted outputs")
             message("info", "Run 'autoclean-eeg login' to authenticate")
             return 1
 
-        # Get workspace directory
+        # Get workspace directory and initialize database path
         workspace_dir = user_config._get_workspace_path()
+        output_dir = user_config.get_default_output_dir()
+        set_database_path(output_dir)
 
         # Find runs by task name
         from autoclean.utils.database import get_runs_by_task
@@ -2233,11 +2236,11 @@ def cmd_export_outputs(args) -> int:
             }
             
             manage_database_conditionally(
-                operation="store",
-                record={
+                operation="add_access_log",
+                run_record={
                     "operation": "export_outputs",
-                    "details": json.dumps(audit_details),
-                    "success": True
+                    "details": audit_details,
+                    "timestamp": datetime.now().isoformat()
                 }
             )
         except Exception as e:

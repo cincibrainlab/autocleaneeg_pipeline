@@ -171,24 +171,12 @@ def get_runs_by_task(task_name: str) -> list:
         List of run records matching the task name
     """
     try:
-        db_path = get_database_path()
-        with sqlite3.connect(db_path) as conn:
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
-            
-            cursor.execute(
-                "SELECT * FROM pipeline_runs WHERE task = ? ORDER BY created_at DESC",
-                (task_name,)
-            )
-            
-            runs = []
-            for row in cursor.fetchall():
-                record_dict = dict(row)
-                if record_dict.get("metadata"):
-                    record_dict["metadata"] = json.loads(record_dict["metadata"])
-                runs.append(record_dict)
-            
-            return runs
+        # Use existing database infrastructure
+        results = manage_database(
+            operation="get_runs_by_task", 
+            run_record={"task": task_name}
+        )
+        return results if results else []
             
     except Exception as e:
         message("error", f"Failed to get runs for task {task_name}: {e}")
@@ -1053,6 +1041,28 @@ def manage_database(
                         record_dict["task_file_info"]
                     )
                 return record_dict
+
+            elif operation == "get_runs_by_task":
+                if not run_record or "task" not in run_record:
+                    raise ValueError("Missing task in run_record")
+
+                cursor.execute(
+                    "SELECT * FROM pipeline_runs WHERE task = ? ORDER BY created_at DESC",
+                    (run_record["task"],),
+                )
+                
+                runs = []
+                for row in cursor.fetchall():
+                    record_dict = dict(row)
+                    if record_dict.get("metadata"):
+                        record_dict["metadata"] = json.loads(record_dict["metadata"])
+                    if record_dict.get("user_context"):
+                        record_dict["user_context"] = json.loads(record_dict["user_context"])
+                    if record_dict.get("task_file_info"):
+                        record_dict["task_file_info"] = json.loads(record_dict["task_file_info"])
+                    runs.append(record_dict)
+                
+                return runs
 
             elif operation == "add_access_log":
                 if not run_record:
