@@ -1063,7 +1063,7 @@ def _create_run_report_in_memory(run_id: str, run_record: dict, autoclean_dict: 
     pdf_bytes = pdf_buffer.getvalue()
     pdf_buffer.close()
 
-    message("success", f"Generated in-memory PDF report for run {run_id} ({len(pdf_bytes)} bytes)")
+    message("debug", f"Generated in-memory PDF report for run {run_id} ({len(pdf_bytes)} bytes)")
     return pdf_bytes
 
 
@@ -1506,7 +1506,7 @@ def _update_task_processing_log_in_memory(
         csv_buffer.close()
 
         message(
-            "success",
+            "debug",
             f"Generated in-memory CSV processing log for {details['subj_basename']} ({len(csv_content)} bytes)",
         )
         return csv_content

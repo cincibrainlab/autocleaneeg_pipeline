@@ -441,7 +441,7 @@ def encrypt_and_store_output(
             metadata=metadata
         )
         
-        message("info", f"Encrypted and stored {output_type}: {file_path.name}")
+        message("debug", f"Encrypted and stored {output_type}: {file_path.name}")
         return output_id
         
     except Exception as e:

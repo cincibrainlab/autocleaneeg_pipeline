@@ -402,7 +402,7 @@ class Pipeline:
                             }
                         )
                         
-                        message("success", f"Generated and encrypted in-memory PDF report: {report_filename}")
+                        message("debug", f"Generated and encrypted in-memory PDF report: {report_filename}")
                     else:
                         message("error", "Failed to generate in-memory PDF report")
                 else:
@@ -450,7 +450,7 @@ class Pipeline:
                         }
                     )
                     
-                    message("success", f"Generated and encrypted in-memory CSV: {csv_filename}")
+                    message("debug", f"Generated and encrypted in-memory CSV: {csv_filename}")
                 else:
                     message("error", "Failed to generate in-memory CSV processing log")
                     
@@ -795,8 +795,6 @@ class Pipeline:
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to save completion data: {str(e)}")
 
-            message("success", f"✓ Task {task} completed successfully")
-
             # Set success status FIRST so JSON summary can detect success correctly
             manage_database_conditionally(
                 operation="update",
@@ -866,6 +864,12 @@ class Pipeline:
                 message("success", f"✓ Run record exported to {json_file}")
             else:
                 message("debug", "Skipped JSON file export (compliance mode - encrypted instead)")
+            
+            # Add comprehensive completion summary
+            if self.compliance_mode and self.encryption_manager.is_encryption_enabled():
+                message("success", "✓ Part 11 compliance mode: All outputs encrypted and access-controlled")
+            else:
+                message("success", "✓ Processing completed - outputs saved to filesystem")
 
         except Exception as e:
             # Get flagged status before creating summary for error case
