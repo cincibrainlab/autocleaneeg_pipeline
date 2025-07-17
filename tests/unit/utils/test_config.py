@@ -54,7 +54,7 @@ class TestConfigLoading(BaseTestCase):
                         "ICA": {
                             "enabled": True,
                             "value": {
-                                "method": "picard",
+                                "method": "infomax",
                                 "n_components": 15,
                                 "random_state": 42
                             }
@@ -164,7 +164,7 @@ class TestConfigLoading(BaseTestCase):
                         "montage": {"enabled": False, "value": None},
                         "ICA": {
                             "enabled": False,
-                            "value": {"method": "picard"}
+                            "value": {"method": "infomax"}
                         },
                         "ICLabel": {
                             "enabled": False,
@@ -312,7 +312,7 @@ class TestConfigMocked:
                         "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
                         "reference_step": {"enabled": False, "value": None},
                         "montage": {"enabled": False, "value": None},
-                        "ICA": {"enabled": False, "value": {"method": "picard"}},
+                        "ICA": {"enabled": False, "value": {"method": "infomax"}},
                         "ICLabel": {"enabled": False, "value": {"ic_flags_to_reject": [], "ic_rejection_threshold": 0.0}},
                         "epoch_settings": {
                             "enabled": False,
@@ -379,7 +379,7 @@ class TestConfigConceptual:
                         "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
                         "reference_step": {"enabled": False, "value": None},
                         "montage": {"enabled": False, "value": None},
-                        "ICA": {"enabled": False, "value": {"method": "picard"}},
+                        "ICA": {"enabled": False, "value": {"method": "infomax"}},
                         "ICLabel": {"enabled": False, "value": {"ic_flags_to_reject": [], "ic_rejection_threshold": 0.0}},
                         "epoch_settings": {
                             "enabled": False,
@@ -462,7 +462,7 @@ class TestConfigErrorHandling:
                         "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
                         "reference_step": {"enabled": False, "value": None},
                         "montage": {"enabled": False, "value": None},
-                        "ICA": {"enabled": False, "value": {"method": "picard"}},
+                        "ICA": {"enabled": False, "value": {"method": "infomax"}},
                         "ICLabel": {
                             "enabled": False,
                             "value": {"ic_flags_to_reject": [], "ic_rejection_threshold": 0.0}
@@ -520,7 +520,7 @@ class TestConfigErrorHandling:
                         "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
                         "reference_step": {"enabled": False, "value": None},
                         "montage": {"enabled": False, "value": None},
-                        "ICA": {"enabled": False, "value": {"method": "picard"}},
+                        "ICA": {"enabled": False, "value": {"method": "infomax"}},
                         "ICLabel": {
                             "enabled": False,
                             "value": {"ic_flags_to_reject": [], "ic_rejection_threshold": 0.0}

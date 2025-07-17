@@ -46,7 +46,7 @@ from autoclean.core.task import Task
 config = {
     'resample_step': {'enabled': True, 'value': 250},
     'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 100}},
-    'ICA': {'enabled': True, 'value': {'method': 'picard'}},
+    'ICA': {'enabled': True, 'value': {'method': 'infomax'}},
     'epoch_settings': {'enabled': True, 'value': {'tmin': -1, 'tmax': 1}}
 }
 

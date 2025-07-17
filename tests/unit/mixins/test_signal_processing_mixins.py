@@ -222,7 +222,7 @@ class TestICAMixin:
                                 "ICA": {
                                     "enabled": True,
                                     "value": {
-                                        "method": "picard",
+                                        "method": "infomax",
                                         "n_components": 15
                                     }
                                 }

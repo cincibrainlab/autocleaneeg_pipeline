@@ -78,7 +78,7 @@ class TestTaskInitialization:
                         "crop_step": {"enabled": False, "value": {"start": 0, "end": None}},
                         "reference_step": {"enabled": True, "value": "average"},
                         "montage": {"enabled": True, "value": "standard_1020"},
-                        "ICA": {"enabled": False, "value": {"method": "picard", "n_components": 15}},
+                        "ICA": {"enabled": False, "value": {"method": "infomax", "n_components": 15}},
                         "ICLabel": {"enabled": False, "value": {"ic_flags_to_reject": [], "ic_rejection_threshold": 0.5}},
                         "epoch_settings": {"enabled": True, "value": {"tmin": -1, "tmax": 1}, "event_id": None}
                     }

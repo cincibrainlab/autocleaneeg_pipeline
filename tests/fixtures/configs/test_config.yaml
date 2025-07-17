@@ -46,7 +46,7 @@ tasks:
       ICA:
         enabled: false  # Disabled for fast testing
         value:
-          method: picard
+          method: infomax
           n_components: 15
       
       ICLabel:
@@ -115,7 +115,7 @@ tasks:
       ICA:
         enabled: false
         value:
-          method: picard
+          method: infomax
           n_components: 15
       
       ICLabel:
@@ -184,7 +184,7 @@ tasks:
       ICA:
         enabled: true
         value:
-          method: picard
+          method: infomax
           n_components: 15  # Small number for testing
           fit_params:
             ortho: false
@@ -261,7 +261,7 @@ tasks:
       ICA:
         enabled: true
         value:
-          method: picard
+          method: infomax
           n_components: 15
       
       ICLabel:

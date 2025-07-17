@@ -63,7 +63,7 @@ def fit_ica(
     Examples
     --------
     >>> ica = fit_ica(raw)
-    >>> ica = fit_ica(raw, n_components=20, method="picard")
+    >>> ica = fit_ica(raw, n_components=20, method="infomax")
 
     See Also
     --------

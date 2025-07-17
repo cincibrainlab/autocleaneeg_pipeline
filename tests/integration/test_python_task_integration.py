@@ -73,7 +73,7 @@ config = {
     'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40}},
     'montage': {'enabled': False, 'value': 'standard_1020'},
     'reference_step': {'enabled': True, 'value': 'average'},
-    'ICA': {'enabled': False, 'value': {'method': 'picard'}},
+    'ICA': {'enabled': False, 'value': {'method': 'infomax'}},
     'epoch_settings': {'enabled': True, 'value': {'tmin': -1, 'tmax': 1}}
 }
 

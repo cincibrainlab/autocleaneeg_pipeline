@@ -67,7 +67,7 @@ class TestFitIca:
         result = fit_ica(
             mock_raw,
             n_components=15,
-            method="picard",
+            method="infomax",
             max_iter=1000,
             random_state=42,
             picks="eeg"
@@ -77,7 +77,7 @@ class TestFitIca:
         mock_ica_class.assert_called_once()
         call_args = mock_ica_class.call_args[1]
         assert call_args["n_components"] == 15
-        assert call_args["method"] == "picard"
+        assert call_args["method"] == "infomax"
         assert call_args["max_iter"] == 1000
         assert call_args["random_state"] == 42
         
