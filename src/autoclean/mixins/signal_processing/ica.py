@@ -19,6 +19,7 @@ class IcaMixin:
         eog_channel: str = None,
         use_epochs: bool = False,
         stage_name: str = "post_ica",
+        temp_highpass_for_ica: float = None,
         **kwargs,
     ) -> ICA:
         """Run ICA on the raw data.
@@ -35,6 +36,10 @@ class IcaMixin:
             If True, epoch data stored in self.epochs will be used.
         stage_name : str, optional
             Name of the processing stage for export. Default is "post_ica".
+        temp_highpass_for_ica : float, optional
+            Temporary high-pass filter frequency (Hz) to apply only for ICA decomposition.
+            Commonly set to 1.0 Hz for better ICA performance. The original data filtering
+            is preserved after ICA fitting. If None, uses data as-is.
         export : bool, optional
             If True, exports the processed data to the stage directory. Default is False.
 
@@ -68,6 +73,10 @@ class IcaMixin:
             # Get ICA parameters from config
             ica_kwargs = config_value.get("value", {})
 
+            # Check for temp_highpass_for_ica in config if not provided
+            if temp_highpass_for_ica is None:
+                temp_highpass_for_ica = ica_kwargs.pop("temp_highpass_for_ica", None)
+
             # Merge with any provided kwargs, with provided kwargs taking precedence
             ica_kwargs.update(kwargs)
 
@@ -79,10 +88,32 @@ class IcaMixin:
                 message("debug", "Setting random_state to 97")
                 ica_kwargs["random_state"] = 97
 
+            # Apply temporary high-pass filter for ICA if requested
+            data_for_ica = data
+            if temp_highpass_for_ica is not None:
+                message(
+                    "info",
+                    f"Applying temporary {temp_highpass_for_ica} Hz high-pass filter for ICA decomposition",
+                )
+                data_for_ica = data.copy().filter(
+                    l_freq=temp_highpass_for_ica, h_freq=None, verbose=False
+                )
+
             message("debug", f"Fitting ICA with {ica_kwargs}")
 
             # Call standalone function for ICA fitting
-            self.final_ica = fit_ica(raw=data, **ica_kwargs)
+            self.final_ica = fit_ica(raw=data_for_ica, **ica_kwargs)
+
+            # Re-fit the ICA mixing matrix to the original (unfiltered) data to preserve original filtering
+            if temp_highpass_for_ica is not None:
+                message("info", "Re-fitting ICA mixing matrix to original data")
+                # Only update the mixing matrix, keep the unmixing matrix from filtered data
+                original_unmixing = self.final_ica.unmixing_matrix_.copy()
+                self.final_ica.fit(data, verbose=False)
+                # Restore the unmixing matrix from the filtered decomposition
+                self.final_ica.unmixing_matrix_ = original_unmixing
+                # Recompute mixing matrix to be consistent
+                self.final_ica.mixing_matrix_ = self.final_ica.unmixing_matrix_.T
 
             if eog_channel is not None:
                 message("info", f"Running EOG detection on {eog_channel}")
@@ -97,6 +128,7 @@ class IcaMixin:
             "ica": {
                 "ica_kwargs": ica_kwargs,
                 "ica_components": self.final_ica.n_components_,
+                "temp_highpass_for_ica": temp_highpass_for_ica,
             }
         }
 
