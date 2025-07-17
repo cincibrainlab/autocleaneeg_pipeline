@@ -84,6 +84,13 @@ def fit_ica(
         raise ValueError(f"n_components must be positive, got {n_components}")
 
     try:
+        # Remove 'ortho' from fit_params if method is 'infomax' and 'ortho' is in kwargs
+        if method == "infomax" and "fit_params" in kwargs and "ortho" in kwargs["fit_params"]:
+            kwargs["fit_params"].pop("ortho")
+
+        if verbose:
+            print(f"Running ICA with method: '{method}'")
+
         # Create ICA object
         ica_kwargs = {
             "n_components": n_components,
