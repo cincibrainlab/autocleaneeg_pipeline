@@ -49,7 +49,7 @@ config = {
     'resample_step': {'enabled': True, 'value': 250},
     'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40, 'notch_freqs': [60]}},
     'reference_step': {'enabled': True, 'value': 'average'},
-    'ICA': {'enabled': True, 'value': {'method': 'picard', 'n_components': 10}},
+    'ICA': {'enabled': True, 'value': {'method': 'infomax', 'n_components': 10}},
     'epoch_settings': {'enabled': True, 'value': {'tmin': -1, 'tmax': 1}}
 }
 

@@ -55,7 +55,7 @@ Create a new Python file in your workspace tasks folder:
        'ICA': {
            'enabled': True,
            'value': {
-               'method': 'picard',
+               'method': 'infomax',
                'n_components': None
            }
        },
@@ -145,12 +145,13 @@ Your task configuration controls every aspect of processing. Here are the key se
        'ICA': {
            'enabled': True,
            'value': {
-               'method': 'picard',        # Algorithm: 'picard', 'fastica', 'infomax'
+               'method': 'infomax',        # Algorithm: 'infomax', 'fastica', 'infomax'
                'n_components': None,      # Auto-determine number of components
                'fit_params': {
                    'ortho': False,        # Orthogonality constraint
                    'extended': True       # Extended ICA for mixed distributions
-               }
+               },
+                'temp_highpass_for_ica': 1.0
            }
        },
        
