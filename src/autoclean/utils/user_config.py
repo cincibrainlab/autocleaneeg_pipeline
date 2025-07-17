@@ -480,10 +480,105 @@ class UserConfigManager:
         """Create workspace directories and copy template files."""
         workspace_dir.mkdir(parents=True, exist_ok=True)
         (workspace_dir / "tasks").mkdir(exist_ok=True)
+        (workspace_dir / "tasks" / "builtin").mkdir(exist_ok=True)
         (workspace_dir / "output").mkdir(exist_ok=True)
 
         # Copy template task file to tasks directory
         self._create_template_task(workspace_dir / "tasks")
+        
+        # Copy built-in tasks to builtin examples directory
+        self._copy_builtin_tasks(workspace_dir / "tasks" / "builtin")
+
+    def _copy_builtin_tasks(self, builtin_dir: Path) -> None:
+        """Copy built-in task files to workspace for easy access and customization."""
+        try:
+            builtin_dir.mkdir(parents=True, exist_ok=True)
+            
+            # Get built-in tasks directory from autoclean package
+            if AUTOCLEAN_AVAILABLE:
+                try:
+                    package_dir = Path(autoclean.__file__).parent
+                    builtin_tasks_dir = package_dir / "tasks"
+                    
+                    if not builtin_tasks_dir.exists():
+                        message("warning", "Built-in tasks directory not found in package")
+                        return
+                    
+                    copied_count = 0
+                    skipped_count = 0
+                    
+                    # Copy each built-in task file
+                    for task_file in builtin_tasks_dir.glob("*.py"):
+                        # Skip private files and __init__.py
+                        if task_file.name.startswith("_") or task_file.name == "__init__.py":
+                            continue
+                            
+                        dest_file = builtin_dir / task_file.name
+                        
+                        # Skip if file already exists (avoid overwrites)
+                        if dest_file.exists():
+                            skipped_count += 1
+                            continue
+                            
+                        # Copy the file with header comment
+                        self._copy_builtin_task_with_header(task_file, dest_file)
+                        copied_count += 1
+                    
+                    # Provide feedback about copied tasks
+                    if RICH_AVAILABLE:
+                        console = Console()
+                        if copied_count > 0:
+                            console.print(f"[green]📋[/green] Copied {copied_count} built-in task examples to [dim]{builtin_dir}[/dim]")
+                        if skipped_count > 0:
+                            console.print(f"[yellow]ℹ[/yellow] Skipped {skipped_count} existing built-in task files")
+                    
+                except Exception as e:
+                    message("warning", f"Could not copy built-in tasks: {e}")
+            else:
+                message("warning", "AutoClean package not available for copying built-in tasks")
+                
+        except Exception as e:
+            message("warning", f"Failed to create built-in tasks directory: {e}")
+
+    def _copy_builtin_task_with_header(self, source_file: Path, dest_file: Path) -> None:
+        """Copy a built-in task file with informative header comment."""
+        try:
+            # Read the source file
+            with open(source_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            
+            # Create header comment
+            header = f"""# =============================================================================
+#                          BUILT-IN TASK: {source_file.name}
+# =============================================================================
+# This is a built-in task from the AutoClean package.
+# 
+# ✨ CUSTOMIZE THIS FILE:
+# - Copy this file to the parent tasks/ directory to customize it
+# - Rename the file and class to match your experiment
+# - Modify the configuration and run() method as needed
+# - The original built-in task remains unchanged in the package
+#
+# 📖 USAGE:
+# - This file serves as a reference and starting point
+# - Built-in tasks are automatically available via Pipeline.process_file()
+# - Custom tasks override built-in tasks when placed in tasks/ directory
+#
+# 🔄 UPDATES:
+# - This file may be updated when AutoClean is upgraded
+# - Your custom tasks in tasks/ directory are never overwritten
+# =============================================================================
+
+"""
+            
+            # Write the file with header
+            with open(dest_file, "w", encoding="utf-8") as f:
+                f.write(header + content)
+                
+        except Exception as e:
+            # Fallback to simple copy if header addition fails
+            shutil.copy2(source_file, dest_file)
+            message("warning", f"Could not add header to {dest_file.name}: {e}")
 
     def _offer_migration(self, old_dir: Path, new_dir: Path) -> None:
         """Offer to migrate workspace."""
