@@ -25,12 +25,14 @@ from platformdirs import user_config_dir
 # Try to import optional dependencies
 try:
     from dotenv import load_dotenv
+
     DOTENV_AVAILABLE = True
 except ImportError:
     DOTENV_AVAILABLE = False
 
 try:
     from ulid import ULID
+
     ULID_AVAILABLE = True
 except ImportError:
     ULID_AVAILABLE = False
@@ -691,8 +693,6 @@ def get_auth0_manager() -> Auth0Manager:
     return get_auth0_manager._instance
 
 
-
-
 def validate_auth0_config(
     domain: str, client_id: str, client_secret: str
 ) -> Tuple[bool, str]:
@@ -813,9 +813,7 @@ def create_electronic_signature(
             "signature_type": signature_type,
         }
 
-        manage_database_conditionally(
-            "store_electronic_signature", signature_record
-        )
+        manage_database_conditionally("store_electronic_signature", signature_record)
 
         message(
             "debug", f"Electronic signature created: {signature_id} for run {run_id}"
