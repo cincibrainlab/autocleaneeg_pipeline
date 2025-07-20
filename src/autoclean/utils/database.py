@@ -13,11 +13,14 @@ from autoclean.utils.logging import message
 # Optional dependencies - may not be available in all contexts
 try:
     from autoclean.utils.config import is_compliance_mode_enabled
+
     CONFIG_AVAILABLE = True
 except ImportError:
     CONFIG_AVAILABLE = False
+
     def is_compliance_mode_enabled():
         return False
+
 
 try:
     from autoclean.utils.audit import (
@@ -26,17 +29,23 @@ try:
         get_user_context,
         log_database_access,
     )
+
     AUDIT_AVAILABLE = True
 except ImportError:
     AUDIT_AVAILABLE = False
+
     def calculate_access_log_hash(*args, **kwargs):
         return "audit_not_available"
+
     def create_database_backup(*args, **kwargs):
         pass
+
     def get_user_context():
         return {}
+
     def log_database_access(*args, **kwargs):
         pass
+
 
 # Global lock for thread safety
 _db_lock = threading.Lock()
@@ -123,11 +132,11 @@ def manage_database_conditionally(
     update_record: Optional[Dict[str, Any]] = None,
 ) -> Any:
     """Use audit protection only when compliance mode is enabled.
-    
+
     This function routes database operations to the appropriate handler based
     on compliance mode settings, ensuring audit logging only occurs when
     FDA 21 CFR Part 11 compliance is required.
-    
+
     Parameters
     ----------
     operation : str
@@ -136,14 +145,16 @@ def manage_database_conditionally(
         Record data for operations
     update_record : dict, optional
         Update data for operations
-    
+
     Returns
     -------
     Any
         Operation result from underlying database function
     """
     if is_compliance_mode_enabled():
-        return manage_database_with_audit_protection(operation, run_record, update_record)
+        return manage_database_with_audit_protection(
+            operation, run_record, update_record
+        )
     else:
         return manage_database(operation, run_record, update_record)
 

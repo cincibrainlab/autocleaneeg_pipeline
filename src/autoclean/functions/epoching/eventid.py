@@ -4,8 +4,8 @@ This module provides standalone functions for creating epochs based on specific
 event markers in continuous EEG data.
 """
 
-from typing import Dict, List, Optional, Tuple, Union
 import warnings
+from typing import Dict, List, Optional, Tuple, Union
 
 import mne
 import numpy as np
