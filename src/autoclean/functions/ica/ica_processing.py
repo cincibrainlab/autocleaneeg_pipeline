@@ -14,6 +14,7 @@ from mne.preprocessing import ICA
 # Optional import for ICVision
 try:
     from icvision.compat import label_components
+
     ICVISION_AVAILABLE = True
 except ImportError:
     ICVISION_AVAILABLE = False
@@ -85,7 +86,11 @@ def fit_ica(
 
     try:
         # Remove 'ortho' from fit_params if method is 'infomax' and 'ortho' is in kwargs
-        if method == "infomax" and "fit_params" in kwargs and "ortho" in kwargs["fit_params"]:
+        if (
+            method == "infomax"
+            and "fit_params" in kwargs
+            and "ortho" in kwargs["fit_params"]
+        ):
             kwargs["fit_params"].pop("ortho")
 
         if verbose:

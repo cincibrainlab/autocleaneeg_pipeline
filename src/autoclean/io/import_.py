@@ -26,6 +26,7 @@ try:
     from autoclean.plugins.event_processors.hbcd_processor import (
         HBCDEventProcessor as DedicatedProcessor,
     )
+
     HBCD_PROCESSOR_AVAILABLE = True
 except ImportError:
     HBCD_PROCESSOR_AVAILABLE = False

@@ -415,22 +415,24 @@ class ChannelsMixin:
                 message("info", "No EOG channels found to drop")
                 return data.copy()
 
-            message("info", f"Dropping {len(eog_ch_names)} EOG channels: {eog_ch_names}")
+            message(
+                "info", f"Dropping {len(eog_ch_names)} EOG channels: {eog_ch_names}"
+            )
 
             # Drop the EOG channels
             result_data = data.copy()
-            result_data.drop_channels(eog_ch_names, on_missing='ignore')
+            result_data.drop_channels(eog_ch_names, on_missing="ignore")
 
             # Export the result
             stage_number = self.config.get("_export_counter", 0) + 1
             self.config["_export_counter"] = stage_number
-            
+
             exported_filename = f"{stage_number:02d}_{stage_name}_raw.fif"
             if use_epochs:
                 exported_filename = f"{stage_number:02d}_{stage_name}_epo.fif"
-            
+
             save_path = self.config["stage_dir"] / exported_filename
-            
+
             if use_epochs:
                 result_data.save(save_path, overwrite=True)
             else:

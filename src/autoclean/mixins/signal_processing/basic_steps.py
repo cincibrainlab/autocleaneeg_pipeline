@@ -4,9 +4,15 @@ from typing import List, Optional, Union
 
 import mne
 
-from autoclean.functions.preprocessing.filtering import filter_data as standalone_filter_data
-from autoclean.functions.preprocessing.referencing import rereference_data as standalone_rereference_data
-from autoclean.functions.preprocessing.resampling import resample_data as standalone_resample_data
+from autoclean.functions.preprocessing.filtering import (
+    filter_data as standalone_filter_data,
+)
+from autoclean.functions.preprocessing.referencing import (
+    rereference_data as standalone_rereference_data,
+)
+from autoclean.functions.preprocessing.resampling import (
+    resample_data as standalone_resample_data,
+)
 from autoclean.utils.logging import message
 
 

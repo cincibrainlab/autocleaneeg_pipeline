@@ -85,15 +85,19 @@ def plot_raw_comparison(
 
     # Handle channel mismatches gracefully
     if raw_original.ch_names != raw_cleaned.ch_names:
-        print(f"Channel count mismatch: original has {len(raw_original.ch_names)}, "
-              f"cleaned has {len(raw_cleaned.ch_names)}")
+        print(
+            f"Channel count mismatch: original has {len(raw_original.ch_names)}, "
+            f"cleaned has {len(raw_cleaned.ch_names)}"
+        )
 
         # Get common channels
         common_channels = list(
             set(raw_original.ch_names).intersection(set(raw_cleaned.ch_names))
         )
-        print(f"Using {len(common_channels)} common channels between "
-              "original and cleaned data")
+        print(
+            f"Using {len(common_channels)} common channels between "
+            "original and cleaned data"
+        )
 
         # Pick common channels
         raw_original = raw_original.copy().pick(common_channels)

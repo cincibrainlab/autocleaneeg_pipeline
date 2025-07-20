@@ -4,8 +4,8 @@ This module provides standalone functions for common EEG data operations includi
 channel dropping, time cropping, edge trimming, and channel type assignment.
 """
 
-from typing import Dict, List, Optional, Union
 import warnings
+from typing import Dict, List, Optional, Union
 
 import mne
 

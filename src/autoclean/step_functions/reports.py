@@ -38,7 +38,6 @@ from reportlab.platypus import TableStyle
 
 from autoclean.utils.database import (
     get_run_record,
-    manage_database_conditionally,
 )
 from autoclean.utils.logging import message
 
@@ -53,7 +52,9 @@ __all__ = [
 matplotlib.use("Agg")
 
 
-def create_run_report(run_id: str, autoclean_dict: dict = None, json_summary: dict = None) -> None:
+def create_run_report(
+    run_id: str, autoclean_dict: dict = None, json_summary: dict = None
+) -> None:
     """
     Creates a pdf report summarizing the run.
 
@@ -1506,7 +1507,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
 
     # Note: Database update moved to pipeline completion to avoid audit record conflicts
     # The JSON summary will be saved when the run is marked as completed
-    
+
     return summary_dict
 
 

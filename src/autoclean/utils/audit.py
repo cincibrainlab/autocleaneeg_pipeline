@@ -19,10 +19,12 @@ from autoclean.utils.logging import message
 # Optional dependencies - may not be available in all contexts
 try:
     from autoclean.utils.database import DB_PATH, manage_database
+
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
     DB_PATH = None
+
     def manage_database(*args, **kwargs):
         return None
 

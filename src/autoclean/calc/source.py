@@ -29,17 +29,20 @@ from tqdm import tqdm
 # Optional imports with availability flags
 try:
     from networkx.algorithms.community import louvain_communities, modularity
+
     NETWORK_ANALYSIS_AVAILABLE = True
 except ImportError:
     NETWORK_ANALYSIS_AVAILABLE = False
 
 try:
     from fooof.analysis import get_band_peak_fm
+
     FOOOF_AVAILABLE = True
 except ImportError:
     FOOOF_AVAILABLE = False
 
 from autoclean.io.export import save_stc_to_file
+
 
 def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):
     """
@@ -96,6 +99,7 @@ def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):
     matplotlib.use("Agg")
     return stc
 
+
 def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None):
     """
     Perform source localization on epoched EEG data using an identity matrix
@@ -150,6 +154,7 @@ def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None):
             save_stc_to_file(stc, config, stage="post_source_localization")
 
     return stc
+
 
 def calculate_source_psd(
     stc,
@@ -368,6 +373,7 @@ def calculate_source_psd(
     print(f"Saved frequency band summary to {csv_path}")
 
     return psd_df, file_path
+
 
 def calculate_source_psd_list(
     stc_list,
@@ -793,6 +799,7 @@ def calculate_source_psd_list(
 
     return psd_df, file_path
 
+
 def visualize_psd_results(psd_df, output_dir=None, subject_id=None):
     """
     Create visualization plots for PSD data to confirm spectral analysis results.
@@ -1044,6 +1051,7 @@ def visualize_psd_results(psd_df, output_dir=None, subject_id=None):
     print(f"Saved PSD visualization to {output_path}")
 
     return fig
+
 
 def calculate_source_connectivity(
     stc,
@@ -1378,9 +1386,11 @@ def calculate_source_connectivity(
                 continue
 
             if not NETWORK_ANALYSIS_AVAILABLE:
-                logger.warning("Network analysis libraries not available. Skipping graph metrics.")
+                logger.warning(
+                    "Network analysis libraries not available. Skipping graph metrics."
+                )
                 continue
-                
+
             G = nx.Graph()
             for _, row in subset_df.iterrows():
                 G.add_edge(row["roi1"], row["roi2"], weight=row["connectivity"])
@@ -1454,6 +1464,7 @@ def calculate_source_connectivity(
     logger.info(f"Log file saved to: {log_file}")
 
     return conn_df, summary_path
+
 
 def test_connectivity_function_list():
     """
@@ -1610,6 +1621,7 @@ def test_connectivity_function_list():
 
     print(f"Test complete. Results in {temp_dir}")
     return test_passed
+
 
 def calculate_source_connectivity_list(
     stc_list,
@@ -1988,9 +2000,11 @@ def calculate_source_connectivity_list(
                 continue
 
             if not NETWORK_ANALYSIS_AVAILABLE:
-                logger.warning("Network analysis libraries not available. Skipping graph metrics.")
+                logger.warning(
+                    "Network analysis libraries not available. Skipping graph metrics."
+                )
                 continue
-                
+
             G = nx.Graph()
             for _, row in subset_df.iterrows():
                 G.add_edge(row["roi1"], row["roi2"], weight=row["connectivity"])
@@ -2067,6 +2081,7 @@ def calculate_source_connectivity_list(
     logger.info(f"Log file saved to: {log_file}")
 
     return conn_df, summary_path
+
 
 def test_connectivity_function():
     """
@@ -2228,6 +2243,7 @@ def test_connectivity_function():
 
     print(f"Test complete. Results in {temp_dir}")
     return test_passed
+
 
 def calculate_aec_connectivity(
     stc_list,
@@ -2444,6 +2460,7 @@ def calculate_aec_connectivity(
         logger.warning("No connectivity data was generated")
 
     return conn_df, conn_matrices
+
 
 def calculate_source_pac(
     stc,
@@ -2831,6 +2848,7 @@ def calculate_source_pac(
 
     return pac_df, file_path
 
+
 def calculate_vertex_level_spectral_power_list(
     stc_list, bands=None, n_jobs=10, output_dir=None, subject_id=None
 ):
@@ -3125,6 +3143,7 @@ def calculate_vertex_level_spectral_power_list(
 
     return power_dict, file_path
 
+
 def calculate_vertex_level_spectral_power(
     stc, bands=None, n_jobs=10, output_dir=None, subject_id=None
 ):
@@ -3254,6 +3273,7 @@ def calculate_vertex_level_spectral_power(
 
     return power_dict, file_path
 
+
 def apply_spatial_smoothing(
     power_dict, stc, smoothing_steps=5, subject_id=None, output_dir=None
 ):
@@ -3343,6 +3363,7 @@ def apply_spatial_smoothing(
     print(f"Saved smoothed vertex-level spectral power to {file_path}")
 
     return smoothed_dict, file_path
+
 
 def calculate_vertex_psd_for_fooof(
     stc, fmin=1.0, fmax=45.0, n_jobs=10, output_dir=None, subject_id=None
@@ -3472,6 +3493,7 @@ def calculate_vertex_psd_for_fooof(
 
     return stc_psd, file_path
 
+
 def calculate_fooof_aperiodic(
     stc_psd, subject_id, output_dir, n_jobs=10, aperiodic_mode="knee"
 ):
@@ -3498,7 +3520,6 @@ def calculate_fooof_aperiodic(
     file_path : str
         Path to saved file
     """
-    import warnings
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
@@ -3710,6 +3731,7 @@ def calculate_fooof_aperiodic(
         print(f"Average R²: {successful_fits['r_squared'].mean():.3f}")
 
     return aperiodic_df, file_path
+
 
 def visualize_fooof_results(
     aperiodic_df,
@@ -4049,6 +4071,7 @@ def visualize_fooof_results(
 
     return fig
 
+
 def calculate_fooof_periodic(
     stc,
     freq_bands=None,
@@ -4224,6 +4247,7 @@ def calculate_fooof_periodic(
 
     return periodic_df, file_path
 
+
 def calculate_vertex_peak_frequencies(
     stc,
     freq_range=(6, 12),
@@ -4261,7 +4285,6 @@ def calculate_vertex_peak_frequencies(
         Path to the saved data file
     """
 
-    from scipy.optimize import curve_fit
 
     if output_dir is None:
         output_dir = os.getcwd()
@@ -4490,6 +4513,7 @@ def calculate_vertex_peak_frequencies(
 
     return peaks_df, file_path
 
+
 def visualize_peak_frequencies(
     peaks_df,
     stc_template,
@@ -4573,6 +4597,7 @@ def visualize_peak_frequencies(
     brain.save_image(os.path.join(output_dir, "peak_frequency_medial.png"))
 
     return brain
+
 
 def convert_stc_to_eeg(
     stc, subject="fsaverage", subjects_dir=None, output_dir=None, subject_id=None
@@ -4683,6 +4708,7 @@ def convert_stc_to_eeg(
     )
 
     return raw_eeg, eeglab_out_file
+
 
 def convert_stc_list_to_eeg(
     stc_list,

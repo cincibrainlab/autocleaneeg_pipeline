@@ -105,7 +105,7 @@ class IcaMixin:
             # Call standalone function for ICA fitting on (potentially filtered) data
             self.final_ica = fit_ica(raw=data_for_ica, **ica_kwargs)
 
-            # No refit or matrix manipulation needed - MNE handles applying ICA 
+            # No refit or matrix manipulation needed - MNE handles applying ICA
             # fitted on filtered data to original data seamlessly via ica.apply()
 
             if eog_channel is not None:
