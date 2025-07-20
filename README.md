@@ -111,6 +111,65 @@ pipeline.process_directory(
 - **Flexible**: Optional `export=True` parameters control file outputs
 - **Intuitive**: Pandas-like API with sensible defaults
 
+## Task Customization & Workspace Priority
+
+AutoClean EEG features a powerful workspace priority system that enables safe customization of built-in tasks without modifying the package installation.
+
+### How It Works
+
+**Workspace tasks automatically override built-in tasks** with the same name:
+
+1. **Workspace Setup**: Built-in tasks are copied to `workspace/tasks/builtin/` as examples
+2. **Safe Customization**: Copy any example to `workspace/tasks/` and modify as needed
+3. **Automatic Override**: Your workspace task takes precedence over the built-in version
+4. **Upgrade Protection**: Package updates never overwrite your customizations
+
+### Example Workflow
+
+```bash
+# 1. Initial setup (copies built-in tasks to examples directory)
+autoclean-eeg setup
+
+# 2. Customize a built-in task
+cp ~/Documents/Autoclean-EEG/tasks/builtin/assr_default.py ~/Documents/Autoclean-EEG/tasks/my_assr.py
+# Edit my_assr.py with your custom parameters...
+
+# 3. Use your customized task (automatically overrides built-in)
+autoclean-eeg process MyAssr data.raw
+
+# 4. Check which tasks are overridden
+autoclean-eeg list-tasks --overrides
+```
+
+### Override Management
+
+Monitor and manage task overrides with CLI commands:
+
+```bash
+# List all available tasks
+autoclean-eeg list-tasks
+
+# Show which workspace tasks override built-in tasks  
+autoclean-eeg list-tasks --overrides
+
+# Example output:
+# Task Overrides (2 found)
+# ┌─────────────────┬──────────────────┬─────────────────┬─────────────────────┐
+# │ Task Name       │ Workspace Source │ Built-in Source │ Description         │
+# ├─────────────────┼──────────────────┼─────────────────┼─────────────────────┤
+# │ AssrDefault     │ my_assr.py       │ assr_default.py │ Custom ASSR task    │
+# │ RestingEyesOpen │ my_resting.py    │ resting.py      │ Custom resting task │ 
+# └─────────────────┴──────────────────┴─────────────────┴─────────────────────┘
+```
+
+### Benefits
+
+- 🔒 **Safe**: Never break package installations by editing workspace copies
+- ⚡ **Intuitive**: Follows standard software override patterns (user > system)  
+- 🎯 **Friction-free**: No manual steps - tasks work directly from workspace
+- 🔄 **Future-proof**: Upgrades preserve your customizations
+- 👥 **Shareable**: Easy to share custom tasks between team members
+
 ## Documentation
 
 Full documentation is available at [https://cincibrainlab.github.io/autoclean_pipeline/](https://cincibrainlab.github.io/autoclean_pipeline/)
