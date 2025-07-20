@@ -10,11 +10,13 @@ from autoclean.utils.logging import message
 # Handle importlib.resources compatibility
 try:
     from importlib import resources
+
     IMPORTLIB_RESOURCES_AVAILABLE = True
 except ImportError:
     # Python < 3.9 compatibility
     try:
         import importlib_resources as resources
+
         IMPORTLIB_RESOURCES_AVAILABLE = True
     except ImportError:
         IMPORTLIB_RESOURCES_AVAILABLE = False
@@ -23,6 +25,7 @@ except ImportError:
 # Handle configs import - this may be optional
 try:
     import configs
+
     CONFIGS_AVAILABLE = True
 except ImportError:
     CONFIGS_AVAILABLE = False
@@ -49,7 +52,7 @@ def load_valid_montages() -> Dict[str, str]:
                 )
             except FileNotFoundError:
                 pass  # Will fall back to file path
-        
+
         # Fallback to relative path (for development)
         if config_data is None:
             config_path = os.path.join(

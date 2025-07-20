@@ -19,6 +19,7 @@ from autoclean.utils.logging import message
 # Optional dependencies - may not be available in all contexts
 try:
     from autoclean import __version__
+
     VERSION_AVAILABLE = True
 except ImportError:
     VERSION_AVAILABLE = False
