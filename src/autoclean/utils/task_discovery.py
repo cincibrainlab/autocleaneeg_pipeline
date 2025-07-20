@@ -12,14 +12,17 @@ from autoclean.core.task import Task
 # Optional dependencies - may not be available in all contexts
 try:
     from autoclean.utils.user_config import user_config
+
     USER_CONFIG_AVAILABLE = True
 except ImportError:
     USER_CONFIG_AVAILABLE = False
+
     # Mock user_config for when it's not available
     class MockUserConfig:
         @property
         def tasks_dir(self):
             return Path.home() / ".autoclean" / "tasks"
+
     user_config = MockUserConfig()
 
 
@@ -37,6 +40,15 @@ class InvalidTaskFile(NamedTuple):
 
     source: str
     error: str
+
+
+class TaskOverride(NamedTuple):
+    """Represents a workspace task that overrides a built-in task."""
+
+    task_name: str
+    workspace_source: str
+    builtin_source: str
+    description: str
 
 
 def _extract_task_description(task_class: Type[Task]) -> str:
@@ -133,7 +145,8 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
     if not USER_CONFIG_AVAILABLE:
         invalid_files.append(
             InvalidTaskFile(
-                source="user_config", error="Failed to import user config: user_config module not available"
+                source="user_config",
+                error="Failed to import user config: user_config module not available",
             )
         )
         return valid_tasks, invalid_files
@@ -221,7 +234,11 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
 
 
 def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
-    """Safely discover all built-in and custom tasks.
+    """Safely discover all built-in and custom tasks with workspace priority.
+
+    Workspace tasks automatically override built-in tasks with the same name.
+    This allows users to safely customize built-in tasks without modifying
+    the package installation.
 
     Returns:
         A tuple containing two lists:
@@ -231,40 +248,63 @@ def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
     all_valid_tasks: List[DiscoveredTask] = []
     all_invalid_files: List[InvalidTaskFile] = []
 
-    # Discover built-in tasks
-    builtin_tasks, builtin_errors = _discover_builtin_tasks()
-    all_valid_tasks.extend(builtin_tasks)
-    all_invalid_files.extend(builtin_errors)
-
-    # Discover custom tasks
+    # Discover custom tasks FIRST (higher priority)
     custom_tasks, custom_errors = _discover_custom_tasks()
     all_valid_tasks.extend(custom_tasks)
     all_invalid_files.extend(custom_errors)
 
-    # Handle duplicates and track conflicts
+    # Discover built-in tasks SECOND (lower priority)
+    builtin_tasks, builtin_errors = _discover_builtin_tasks()
+    all_valid_tasks.extend(builtin_tasks)
+    all_invalid_files.extend(builtin_errors)
+
+    # Handle duplicates with workspace priority (workspace tasks override built-in)
     seen_names: Dict[str, DiscoveredTask] = {}
     unique_tasks = []
-    duplicate_warnings = []
+    override_info = []
 
     for task in all_valid_tasks:
         if task.name not in seen_names:
             seen_names[task.name] = task
             unique_tasks.append(task)
         else:
-            # Found duplicate - create warning
-            first_task = seen_names[task.name]
-            first_source = Path(first_task.source).name
-            duplicate_source = Path(task.source).name
+            # Found duplicate - workspace task overrides built-in task
+            existing_task = seen_names[task.name]
+            existing_source = Path(existing_task.source).name
+            override_source = Path(task.source).name
 
-            duplicate_warnings.append(
-                InvalidTaskFile(
-                    source=duplicate_source,
-                    error=f"Duplicate task name '{task.name}' (already defined in {first_source})",
+            # Determine if this is a workspace override of a built-in task
+            if "tasks" in existing_task.source and "autoclean.tasks" in task.source:
+                # Workspace task is already loaded, built-in task is being skipped
+                override_info.append(
+                    InvalidTaskFile(
+                        source=f"override: {existing_source}",
+                        error=f"Workspace task '{task.name}' overrides built-in task from package",
+                    )
                 )
-            )
+            elif "autoclean.tasks" in existing_task.source and "tasks" in task.source:
+                # This shouldn't happen with our discovery order, but handle it
+                # Replace built-in with workspace task
+                seen_names[task.name] = task
+                unique_tasks = [t for t in unique_tasks if t.name != task.name]
+                unique_tasks.append(task)
+                override_info.append(
+                    InvalidTaskFile(
+                        source=f"override: {override_source}",
+                        error=f"Workspace task '{task.name}' overrides built-in task from package",
+                    )
+                )
+            else:
+                # True duplicate within same source type - still a warning
+                override_info.append(
+                    InvalidTaskFile(
+                        source=override_source,
+                        error=f"Duplicate task name '{task.name}' (already defined in {existing_source})",
+                    )
+                )
 
-    # Add duplicate warnings to invalid files list
-    all_invalid_files.extend(duplicate_warnings)
+    # Add override info to invalid files list for reporting
+    all_invalid_files.extend(override_info)
 
     return unique_tasks, all_invalid_files
 
@@ -319,6 +359,38 @@ def extract_config_from_task(task_name: str, config_key: str) -> Optional[str]:
         pass
 
     return None
+
+
+def get_task_overrides() -> List[TaskOverride]:
+    """Get information about workspace tasks that override built-in tasks.
+
+    Returns:
+        List of TaskOverride objects describing which workspace tasks
+        override which built-in tasks.
+    """
+    overrides = []
+
+    # Get all built-in and custom tasks separately
+    builtin_tasks, _ = _discover_builtin_tasks()
+    custom_tasks, _ = _discover_custom_tasks()
+
+    # Create lookup for built-in tasks
+    builtin_by_name = {task.name: task for task in builtin_tasks}
+
+    # Check for overrides
+    for custom_task in custom_tasks:
+        if custom_task.name in builtin_by_name:
+            builtin_task = builtin_by_name[custom_task.name]
+            overrides.append(
+                TaskOverride(
+                    task_name=custom_task.name,
+                    workspace_source=custom_task.source,
+                    builtin_source=builtin_task.source,
+                    description=custom_task.description,
+                )
+            )
+
+    return overrides
 
 
 def get_task_by_name(task_name: str) -> Optional[Type[Task]]:

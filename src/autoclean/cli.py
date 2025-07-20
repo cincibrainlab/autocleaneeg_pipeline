@@ -7,42 +7,50 @@ standalone tool (via uv tool) and within development environments.
 """
 
 import argparse
-import sys
-from pathlib import Path
-from typing import Optional
 import csv
 import json
-import sqlite3
-from datetime import datetime
 import os
 import shutil
+import sqlite3
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
 
 import requests
-from rich.console import Console
-from rich.table import Table
 from rich.columns import Columns
+from rich.console import Console
 from rich.panel import Panel
+from rich.table import Table
 
-from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-from autoclean.utils.logging import message
-from autoclean.utils.user_config import user_config
+from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
-from autoclean.utils.database import DB_PATH
+from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
 from autoclean.utils.branding import AutoCleanBranding
-from autoclean.utils.task_discovery import extract_config_from_task, safe_discover_tasks, get_task_by_name
 from autoclean.utils.config import (
+    disable_compliance_mode,
+    enable_compliance_mode,
     get_compliance_status,
     load_user_config,
     save_user_config,
-    enable_compliance_mode,
-    disable_compliance_mode,
 )
-from autoclean import __version__
-from autoclean.utils.user_config import UserConfigManager
+from autoclean.utils.database import DB_PATH
+from autoclean.utils.logging import message
+from autoclean.utils.task_discovery import (
+    extract_config_from_task,
+    get_task_by_name,
+    get_task_overrides,
+    safe_discover_tasks,
+)
+from autoclean.utils.user_config import UserConfigManager, user_config
 
 # Try to import database functions (used conditionally in login)
 try:
-    from autoclean.utils.database import manage_database_conditionally, set_database_path
+    from autoclean.utils.database import (
+        manage_database_conditionally,
+        set_database_path,
+    )
+
     DATABASE_AVAILABLE = True
 except ImportError:
     DATABASE_AVAILABLE = False
@@ -50,6 +58,7 @@ except ImportError:
 # Try to import inquirer (used for interactive setup)
 try:
     import inquirer
+
     INQUIRER_AVAILABLE = True
 except ImportError:
     INQUIRER_AVAILABLE = False
@@ -57,6 +66,7 @@ except ImportError:
 # Try to import autoclean core components (may fail in some environments)
 try:
     from autoclean.core.pipeline import Pipeline
+
     PIPELINE_AVAILABLE = True
 except ImportError:
     PIPELINE_AVAILABLE = False
@@ -73,6 +83,7 @@ Processing:
   autoclean-eeg process TaskName data.raw       # Process single file
   autoclean-eeg process TaskName data_dir/      # Process directory
   autoclean-eeg list-tasks                      # Show available tasks
+  autoclean-eeg list-tasks --overrides          # Show workspace task overrides
   autoclean-eeg review --output results/       # Start review GUI
 
 Authentication (Compliance Mode):
@@ -205,6 +216,11 @@ Examples:
     list_tasks_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed information"
     )
+    list_tasks_parser.add_argument(
+        "--overrides",
+        action="store_true",
+        help="Show workspace tasks that override built-in tasks",
+    )
 
     # Review command
     review_parser = subparsers.add_parser("review", help="Start review GUI")
@@ -245,6 +261,11 @@ Examples:
     )
     list_all_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed information"
+    )
+    list_all_parser.add_argument(
+        "--overrides",
+        action="store_true",
+        help="Show workspace tasks that override built-in tasks",
     )
 
     # Show config location
@@ -417,7 +438,10 @@ def cmd_process(args) -> int:
     try:
         # Check if Pipeline is available
         if not PIPELINE_AVAILABLE:
-            message("error", "Pipeline not available. Please ensure autoclean is properly installed.")
+            message(
+                "error",
+                "Pipeline not available. Please ensure autoclean is properly installed.",
+            )
             return 1
 
         # Initialize pipeline with verbose logging if requested
@@ -484,10 +508,56 @@ def cmd_process(args) -> int:
         return 1
 
 
-def cmd_list_tasks(_args) -> int:
+def cmd_list_tasks(args) -> int:
     """Execute the list-tasks command."""
     try:
         console = Console()
+
+        # If --overrides flag is specified, show override information
+        if hasattr(args, "overrides") and args.overrides:
+            overrides = get_task_overrides()
+
+            if not overrides:
+                console.print("\n[green]✓[/green] [bold]No Task Overrides[/bold]")
+                console.print(
+                    "[dim]All tasks are using their built-in package versions.[/dim]"
+                )
+                return 0
+
+            console.print(
+                f"\n[bold]Task Overrides[/bold] [dim]({len(overrides)} found)[/dim]\n"
+            )
+
+            override_table = Table(
+                show_header=True, header_style="bold yellow", box=None, padding=(0, 1)
+            )
+            override_table.add_column("Task Name", style="cyan", no_wrap=True)
+            override_table.add_column("Workspace Source", style="green")
+            override_table.add_column("Built-in Source", style="dim")
+            override_table.add_column("Description", style="dim", max_width=40)
+
+            for override in sorted(overrides, key=lambda x: x.task_name):
+                workspace_file = Path(override.workspace_source).name
+                builtin_file = Path(override.builtin_source).name
+                override_table.add_row(
+                    override.task_name,
+                    workspace_file,
+                    builtin_file,
+                    override.description or "No description",
+                )
+
+            override_panel = Panel(
+                override_table,
+                title="[bold]Workspace Tasks Overriding Built-in Tasks[/bold]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
+            console.print(override_panel)
+
+            console.print(
+                "\n[dim]💡 Tip: Move workspace tasks to a different name to use built-in versions.[/dim]"
+            )
+            return 0
 
         valid_tasks, invalid_files = safe_discover_tasks()
 
@@ -611,7 +681,10 @@ def cmd_review(args) -> int:
     try:
         # Check if Pipeline is available
         if not PIPELINE_AVAILABLE:
-            message("error", "Pipeline not available. Please ensure autoclean is properly installed.")
+            message(
+                "error",
+                "Pipeline not available. Please ensure autoclean is properly installed.",
+            )
             return 1
 
         pipeline = Pipeline(output_dir=args.output)
@@ -643,7 +716,9 @@ def _run_interactive_setup() -> int:
     """Run interactive setup wizard with arrow key navigation."""
     try:
         if not INQUIRER_AVAILABLE:
-            message("warning", "Interactive prompts not available. Running basic setup...")
+            message(
+                "warning", "Interactive prompts not available. Running basic setup..."
+            )
             user_config.setup_workspace()
             return 0
 
@@ -1796,9 +1871,7 @@ def cmd_login(args) -> int:
                     "name": user_info.get("name"),
                     "user_metadata": user_info,
                 }
-                manage_database_conditionally(
-                    "store_authenticated_user", user_record
-                )
+                manage_database_conditionally("store_authenticated_user", user_record)
 
             return 0
         else:
