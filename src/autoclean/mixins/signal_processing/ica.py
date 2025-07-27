@@ -254,6 +254,16 @@ class IcaMixin:
 
         message("success", f"ICA component classification with {method} complete")
 
+        # --- NEW: automatically generate a PDF report when using ICLabel ---
+        if method == "iclabel":
+            try:
+                # Provided by ICAReportingMixin
+                if hasattr(self, "generate_ica_reports"):
+                    self.generate_ica_reports()
+            except Exception as e:
+                message("warning", f"Failed to generate ICA component report: {e}")
+        # -------------------------------------------------------------------
+
         # Apply rejection if requested
         if reject:
             self.apply_ica_component_rejection()
