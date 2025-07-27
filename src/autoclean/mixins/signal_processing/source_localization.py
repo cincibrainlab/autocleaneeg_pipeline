@@ -10,7 +10,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from autoclean.io.export import save_epochs_to_set, save_raw_to_set
+from autoclean.io.export import (
+    save_epochs_to_set,
+    save_raw_to_set,
+    _get_stage_number,
+)
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
@@ -57,27 +61,32 @@ class SourceLocalizationMixin:
                 "`uv pip install autoclean-eeg2source`."
             ) from _IMPORT_ERR
 
-        # 1.  Decide input & export as a *pre_source_localization* stage
+        # 1. Save the *input* we are about to localise
+        stage_name = "pre_source_loc"
         if use_epochs and getattr(self, "epochs", None) is not None:
             input_path = save_epochs_to_set(
                 epochs=self.epochs,
                 autoclean_dict=self.config,
-                stage="pre_source_localization",
+                stage=stage_name,
             )
         elif getattr(self, "raw", None) is not None:
             input_path = save_raw_to_set(
                 raw=self.raw,
                 autoclean_dict=self.config,
-                stage="pre_source_localization",
+                stage=stage_name,
             )
         else:
             raise RuntimeError("No epochs or raw data available.")
 
-        # 2.  Prepare output directory
-        out_dir = Path(self.config["stage_dir"]) / output_subdir
+        # 2. Prepare a *numbered* output directory, e.g. '07_source_localization'
+        stage_num = _get_stage_number("post_source_localization", self.config)
+        out_dir = (
+            Path(self.config["stage_dir"])
+            / f"{stage_num}_source_localization"
+        )
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        # 3.  Call the processor
+        # 3. Call the processor
         montage = montage or self.config.get("eeg_system", "standard_1020")
         mem_mgr = MemoryManager(max_memory_gb=processor_kwargs.pop("max_memory_gb", 4))
 
@@ -86,7 +95,7 @@ class SourceLocalizationMixin:
         processor = SequentialProcessor(memory_manager=mem_mgr, montage=montage, **processor_kwargs)
         result = processor.process_file(str(input_path), str(out_dir))
 
-        # 4.  Persist metadata
+        # 4. Persist metadata
         manage_database_conditionally(
             operation="update",
             update_record={
