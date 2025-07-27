@@ -1115,6 +1115,33 @@ def update_task_processing_log(
             message("error", f"Error saving CSV: {str(save_err)}")
             return
 
+        # -------------------------------------------------------------
+        # NEW: Save a *per-file* one-row CSV into the derivatives folder
+        # -------------------------------------------------------------
+        try:
+            # Determine derivatives directory from summary (fallback to output_dir)
+            derivatives_root = Path(summary_dict.get("derivatives_dir", summary_dict["output_dir"]))
+            per_file_csv = derivatives_root / f"{details['subj_basename']}_processing_log.csv"
+
+            # Create the directory if it doesn't exist
+            per_file_csv.parent.mkdir(parents=True, exist_ok=True)
+
+            pd.DataFrame([details], dtype=str).to_csv(per_file_csv, index=False)
+            message("success", f"Saved per-file processing log to {per_file_csv}")
+
+            # Also drop a copy into the `final_files` folder for easy collation
+            final_files_dir = Path(summary_dict.get("output_dir", "")) / "bids" / "final_files"
+            try:
+                final_files_dir.mkdir(parents=True, exist_ok=True)
+                final_file_csv = final_files_dir / per_file_csv.name
+                pd.DataFrame([details], dtype=str).to_csv(final_file_csv, index=False)
+                message("success", f"Saved per-file processing log to {final_file_csv}")
+            except Exception as ff_err:  # pylint: disable=broad-except
+                message("error", f"Error saving CSV to final_files directory: {str(ff_err)}")
+
+        except Exception as perfile_err:  # pylint: disable=broad-except
+            message("error", f"Error saving per-file CSV: {str(perfile_err)}")
+
         # Note: Database update removed to avoid audit record conflicts
         # Processing log metadata would be included in completion update if needed
         # The CSV file has been successfully created above
