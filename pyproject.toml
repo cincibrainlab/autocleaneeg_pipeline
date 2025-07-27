@@ -69,6 +69,7 @@ dependencies = [
     "cryptography>=3.4.8",
     "inquirer>=3.1.0",
     "autoclean-icvision>=0.1.0",
+    "autoclean-eeg2source>=0.1.0",  # ← new optional dependency
 ]
 
 [project.urls]
