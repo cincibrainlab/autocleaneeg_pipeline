@@ -3,9 +3,9 @@
 This module contains functions for setting up and validating directory structures.
 """
 import os
+import shutil
 from datetime import datetime
 from pathlib import Path
-
 from autoclean import __version__
 from autoclean.utils.logging import message
 
@@ -49,6 +49,17 @@ def step_prepare_directories(
 
     # BIDS-compliant directory structure - everything under derivatives
     bids_root = autoclean_dir / dir_name / "bids"
+
+    # Backup existing directory if it exists
+    task_root = autoclean_dir / dir_name
+    if task_root.exists():
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        backup_name = f"{dir_name}_backup_{timestamp}"
+        backup_path = autoclean_dir / backup_name
+        
+        message("warning", f"Directory '{dir_name}' exists, backing up to: {backup_name}")
+        shutil.move(str(task_root), str(backup_path))
+        message("info", "Backup complete, creating fresh directory")
 
     # Use version for derivatives directory naming
     derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
