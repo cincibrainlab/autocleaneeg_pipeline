@@ -423,23 +423,13 @@ class ChannelsMixin:
             result_data = data.copy()
             result_data.drop_channels(eog_ch_names, on_missing="ignore")
 
-            # Export the result
-            stage_number = self.config.get("_export_counter", 0) + 1
-            self.config["_export_counter"] = stage_number
-
-            exported_filename = f"{stage_number:02d}_{stage_name}_raw.fif"
+            # Export the result using standard pipeline saving
             if use_epochs:
-                exported_filename = f"{stage_number:02d}_{stage_name}_epo.fif"
-
-            save_path = self.config["stage_dir"] / exported_filename
-
-            if use_epochs:
-                result_data.save(save_path, overwrite=True)
+                self._save_epochs_result(result_data, stage_name)
             else:
-                result_data.save(save_path, overwrite=True)
+                self._save_raw_result(result_data, stage_name)
 
-            message("info", f"Exported {stage_name} data to {save_path}")
-
+            message("info", f"Exported {stage_name} data using standard pipeline method")
             # Update self.raw or self.epochs
             self._update_instance_data(data, result_data, use_epochs)
 
