@@ -301,10 +301,24 @@ def save_epochs_to_set(
                                 )
                     # else: it's not a list after dropna(), so it was NaN or another non-list type.
 
-                event_id_rebuilt = {
-                    label: idx + 1 for idx, label in enumerate(sorted(list(all_labels)))
-                }
-
+                # Preserve original event codes instead of creating sequential ones
+                event_id_rebuilt = {}
+                if hasattr(epochs, 'event_id') and epochs.event_id:
+                    # Use original event codes from epochs object
+                    for label in all_labels:
+                        # Find matching event code from original event_id
+                        for orig_label, orig_code in epochs.event_id.items():
+                            if str(orig_label) == str(label):
+                                event_id_rebuilt[label] = orig_code
+                                break
+                        else:
+                            # Fallback: if no match found, use sequential numbering
+                            event_id_rebuilt[label] = len(event_id_rebuilt) + 1
+                else:
+                    # Fallback: if no original event_id available, use sequential numbering
+                    event_id_rebuilt = {
+                        label: idx + 1 for idx, label in enumerate(sorted(list(all_labels)))
+                    }
                 # Reconstruct events array with global sample positions
                 events_in_epochs = []
                 used_samples = set()  # Track used samples to prevent collisions
