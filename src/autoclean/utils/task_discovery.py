@@ -49,6 +49,13 @@ class InvalidTaskFile(NamedTuple):
     error: str
 
 
+class SkippedTaskFile(NamedTuple):
+    """Represents a file that was intentionally skipped during discovery."""
+
+    source: str
+    reason: str
+
+
 class TaskOverride(NamedTuple):
     """Represents a workspace task that overrides a built-in task."""
 
@@ -144,10 +151,11 @@ def _discover_builtin_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFil
     return valid_tasks, invalid_files
 
 
-def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
+def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile], List[SkippedTaskFile]]:
     """Discover custom tasks from user configuration directory."""
     valid_tasks: List[DiscoveredTask] = []
     invalid_files: List[InvalidTaskFile] = []
+    skipped_files: List[SkippedTaskFile] = []
 
     if not USER_CONFIG_AVAILABLE:
         invalid_files.append(
@@ -156,28 +164,45 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
                 error="Failed to import user config: user_config module not available",
             )
         )
-        return valid_tasks, invalid_files
+        return valid_tasks, invalid_files, skipped_files
 
     # Check if tasks directory exists
     if not user_config.tasks_dir.exists():
-        return valid_tasks, invalid_files
+        return valid_tasks, invalid_files, skipped_files
 
     for task_file in user_config.tasks_dir.glob("*.py"):
         # Skip private files, templates, and test fixtures
-        if (
-            task_file.name.startswith("_")
-            or "template" in task_file.name.lower()
-            or "test" in task_file.name.lower()
-            or task_file.name
-            in ["bad_import_task.py", "bad_syntax_task.py", "good_task.py"]
-        ):
-            # Add warning for files with "test" in name
-            if "test" in task_file.name.lower() and LOGGING_AVAILABLE:
-                message(
-                    "warning",
-                    f"Task file '{task_file.name}' was skipped because it contains 'test' in the filename. "
-                    f"Rename the file to remove 'test' if you want it to be loaded as a task."
+        if task_file.name.startswith("_"):
+            skipped_files.append(
+                SkippedTaskFile(
+                    source=str(task_file),
+                    reason="Private file (starts with '_')"
                 )
+            )
+            continue
+        elif "template" in task_file.name.lower():
+            skipped_files.append(
+                SkippedTaskFile(
+                    source=str(task_file),
+                    reason="Template file (contains 'template' in name)"
+                )
+            )
+            continue
+        elif "test" in task_file.name.lower():
+            skipped_files.append(
+                SkippedTaskFile(
+                    source=str(task_file),
+                    reason="Test file (contains 'test' in name) - rename to remove 'test' if you want it loaded"
+                )
+            )
+            continue
+        elif task_file.name in ["bad_import_task.py", "bad_syntax_task.py", "good_task.py"]:
+            skipped_files.append(
+                SkippedTaskFile(
+                    source=str(task_file),
+                    reason="Test fixture file"
+                )
+            )
             continue
 
         try:
@@ -244,10 +269,10 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
                 )
             )
 
-    return valid_tasks, invalid_files
+    return valid_tasks, invalid_files, skipped_files
 
 
-def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
+def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile], List[SkippedTaskFile]]:
     """Safely discover all built-in and custom tasks with workspace priority.
 
     Workspace tasks automatically override built-in tasks with the same name.
@@ -255,17 +280,20 @@ def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
     the package installation.
 
     Returns:
-        A tuple containing two lists:
+        A tuple containing three lists:
         - A list of DiscoveredTask objects for valid tasks
         - A list of InvalidTaskFile objects for files that failed to load
+        - A list of SkippedTaskFile objects for files that were intentionally skipped
     """
     all_valid_tasks: List[DiscoveredTask] = []
     all_invalid_files: List[InvalidTaskFile] = []
+    all_skipped_files: List[SkippedTaskFile] = []
 
     # Discover custom tasks FIRST (higher priority)
-    custom_tasks, custom_errors = _discover_custom_tasks()
+    custom_tasks, custom_errors, custom_skipped = _discover_custom_tasks()
     all_valid_tasks.extend(custom_tasks)
     all_invalid_files.extend(custom_errors)
+    all_skipped_files.extend(custom_skipped)
 
     # Discover built-in tasks SECOND (lower priority)
     builtin_tasks, builtin_errors = _discover_builtin_tasks()
@@ -320,7 +348,7 @@ def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile]]:
     # Add override info to invalid files list for reporting
     all_invalid_files.extend(override_info)
 
-    return unique_tasks, all_invalid_files
+    return unique_tasks, all_invalid_files, all_skipped_files
 
 
 def extract_config_from_task(task_name: str, config_key: str) -> Optional[str]:
@@ -335,7 +363,7 @@ def extract_config_from_task(task_name: str, config_key: str) -> Optional[str]:
     """
     try:
         # Get all valid tasks
-        valid_tasks, _ = safe_discover_tasks()
+        valid_tasks, _, _ = safe_discover_tasks()
 
         # Find the task by name (case-insensitive)
         task_obj = None
@@ -386,7 +414,7 @@ def get_task_overrides() -> List[TaskOverride]:
 
     # Get all built-in and custom tasks separately
     builtin_tasks, _ = _discover_builtin_tasks()
-    custom_tasks, _ = _discover_custom_tasks()
+    custom_tasks, _, _ = _discover_custom_tasks()
 
     # Create lookup for built-in tasks
     builtin_by_name = {task.name: task for task in builtin_tasks}
@@ -416,7 +444,7 @@ def get_task_by_name(task_name: str) -> Optional[Type[Task]]:
     Returns:
         The Task class if found, None otherwise
     """
-    valid_tasks, _ = safe_discover_tasks()
+    valid_tasks, _, _ = safe_discover_tasks()
 
     for task in valid_tasks:
         if task.name == task_name and task.class_obj:
