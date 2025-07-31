@@ -559,7 +559,7 @@ def cmd_list_tasks(args) -> int:
             )
             return 0
 
-        valid_tasks, invalid_files = safe_discover_tasks()
+        valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
         console.print("\n[bold]Available Processing Tasks[/bold]\n")
 
@@ -636,6 +636,27 @@ def cmd_list_tasks(args) -> int:
                 )
             )
 
+        # --- Skipped Task Files ---
+        if skipped_files:
+            skipped_table = Table(
+                show_header=True, header_style="bold yellow", box=None, padding=(0, 1)
+            )
+            skipped_table.add_column("File", style="yellow", no_wrap=True)
+            skipped_table.add_column("Reason", style="dim", max_width=70)
+
+            for file in skipped_files:
+                # Show just the filename for skipped files
+                file_name = Path(file.source).name
+                skipped_table.add_row(file_name, file.reason)
+
+            skipped_panel = Panel(
+                skipped_table,
+                title="[bold]Skipped Task Files[/bold]",
+                border_style="yellow",
+                padding=(1, 1),
+            )
+            console.print(skipped_panel)
+
         # --- Invalid Task Files ---
         if invalid_files:
             invalid_table = Table(
@@ -665,8 +686,8 @@ def cmd_list_tasks(args) -> int:
         # Summary statistics
         console.print(
             f"\n[dim]Found {len(valid_tasks)} valid tasks "
-            f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom) "
-            f"and {len(invalid_files)} invalid files[/dim]"
+            f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom), "
+            f"{len(skipped_files)} skipped files, and {len(invalid_files)} invalid files[/dim]"
         )
 
         return 0
