@@ -360,9 +360,23 @@ Examples:
         help="Show detailed diagnostic information",
     )
 
+    # Clean task command
+    clean_task_parser = subparsers.add_parser(
+        "clean-task", help="Remove task output directory and database entries"
+    )
+    clean_task_parser.add_argument("task", help="Task name to clean")
+    clean_task_parser.add_argument(
+        "--output-dir", type=Path, help="Output directory (defaults to configured workspace)"
+    )
+    clean_task_parser.add_argument(
+        "--force", action="store_true", help="Skip confirmation prompt"
+    )
+    clean_task_parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be deleted without actually deleting"
+    )
+
     # Version command
     subparsers.add_parser("version", help="Show version information")
-
     # Help command (for consistency)
     subparsers.add_parser("help", help="Show detailed help information")
 
@@ -1407,6 +1421,116 @@ def cmd_config_import(args) -> int:
         return 1
 
 
+def cmd_clean_task(args) -> int:
+    """Remove task output directory and database entries."""
+    console = Console()
+    
+    # Determine output directory
+    output_dir = args.output_dir or user_config._get_workspace_path()
+    
+    # Find matching task directories (could be task name or dataset name)
+    potential_dirs = []
+    
+    # First try exact match
+    exact_match = output_dir / args.task
+    if exact_match.exists() and (exact_match / "bids").exists():
+        potential_dirs.append(exact_match)
+    
+    # If no exact match, search for directories containing the task name
+    if not potential_dirs:
+        for item in output_dir.iterdir():
+            if item.is_dir() and args.task.lower() in item.name.lower():
+                if (item / "bids").exists():
+                    potential_dirs.append(item)
+    
+    if not potential_dirs:
+        message("warning", f"No task directories found matching: {args.task}")
+        message("info", f"Searched in: {output_dir}")
+        return 1
+    
+    if len(potential_dirs) > 1:
+        console.print(f"\n[yellow]Multiple directories found matching '{args.task}':[/yellow]")
+        for i, dir_path in enumerate(potential_dirs, 1):
+            console.print(f"  {i}. {dir_path.name}")
+        console.print("\nPlease be more specific or use the full directory name.")
+        return 1
+    
+    # Use the single matching directory
+    task_root_dir = potential_dirs[0]
+    task_dir = task_root_dir / "bids"
+    
+    # Count files and calculate size
+    total_files = 0
+    total_size = 0
+    for item in task_root_dir.rglob("*"):
+        if item.is_file():
+            total_files += 1
+            total_size += item.stat().st_size
+    
+    # Format size for display
+    size_mb = total_size / (1024 * 1024)
+    size_str = f"{size_mb:.1f} MB" if size_mb < 1024 else f"{size_mb/1024:.1f} GB"
+    
+    # Database entries (if database exists) - search by both task name and directory name
+    db_entries = 0
+    if DB_PATH and Path(DB_PATH).exists():
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            # Search for entries matching either the provided task name or the directory name
+            cursor.execute(
+                "SELECT COUNT(*) FROM runs WHERE task = ? OR task = ?", 
+                (args.task, task_root_dir.name)
+            )
+            db_entries = cursor.fetchone()[0]
+            conn.close()
+        except Exception:
+            pass
+    
+    # Display what will be deleted
+    console.print("\n[bold]Task Cleanup Summary:[/bold]")
+    console.print(f"Task: [cyan]{args.task}[/cyan]")
+    console.print(f"Directory: [yellow]{task_root_dir}[/yellow]")
+    console.print(f"Files: [red]{total_files:,}[/red]")
+    console.print(f"Size: [red]{size_str}[/red]")
+    if db_entries > 0:
+        console.print(f"Database entries: [red]{db_entries}[/red]")
+    
+    if args.dry_run:
+        console.print("\n[yellow]DRY RUN - No files will be deleted[/yellow]")
+        return 0
+    
+    # Simple Y/N confirmation
+    if not args.force:
+        confirm = console.input("\n[bold red]Delete this task? (Y/N):[/bold red] ").strip().upper()
+        if confirm != "Y":
+            console.print("[yellow]Cancelled[/yellow]")
+            return 1
+    
+    # Perform deletion
+    try:
+        # Delete filesystem
+        console.print("\n[bold]Cleaning task files...[/bold]")
+        shutil.rmtree(task_root_dir)
+        console.print(f"✓ Removed directory: {task_root_dir}")
+        
+        # Delete database entries for both task name and directory name
+        if db_entries > 0 and DB_PATH:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM runs WHERE task = ? OR task = ?", (args.task, task_root_dir.name))
+            conn.commit()
+            conn.close()
+            console.print(f"✓ Removed {db_entries} database entries")
+        
+        console.print("\n[green]Task cleaned successfully![/green]")
+        return 0
+        
+    except Exception as e:
+        console.print(f"\n[red]Error during cleanup: {e}[/red]")
+        return 1
+
+
 def cmd_help(_args) -> int:
     """Show elegant, user-friendly help information."""
     console = Console()
@@ -2351,6 +2475,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_whoami(args)
     elif args.command == "auth0-diagnostics":
         return cmd_auth0_diagnostics(args)
+    elif args.command == "clean-task":
+        return cmd_clean_task(args)
     elif args.command == "version":
         return cmd_version(args)
     elif args.command == "help":
