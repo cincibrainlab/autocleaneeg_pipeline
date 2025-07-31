@@ -31,10 +31,9 @@ def step_prepare_directories(
     (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, logs_dir, final_files_dir)
 
     """
-    # Generate directory name - use dataset_name + timestamp if provided, otherwise task name
+    # Generate directory name - use dataset_name if provided, otherwise task name
     if dataset_name:
-        timestamp = datetime.now().strftime("%m-%d-%Y")
-        dir_name = f"{dataset_name}_{timestamp}"
+        dir_name = dataset_name
         message(
             "header",
             f"Setting up BIDS-compliant directories for dataset: {dataset_name} (task: {task})",
@@ -42,7 +41,6 @@ def step_prepare_directories(
     else:
         dir_name = task
         message("header", f"Setting up BIDS-compliant directories for task: {task}")
-
     autoclean_dir = Path(autoclean_dir_str)
     if not autoclean_dir.exists() and not autoclean_dir.parent.exists():
         raise EnvironmentError(
