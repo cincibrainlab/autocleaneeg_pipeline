@@ -25,6 +25,13 @@ except ImportError:
 
     user_config = MockUserConfig()
 
+# Import logging utilities for warnings
+try:
+    from autoclean.utils.logging import message
+    LOGGING_AVAILABLE = True
+except ImportError:
+    LOGGING_AVAILABLE = False
+
 
 class DiscoveredTask(NamedTuple):
     """Represents a successfully discovered task."""
@@ -164,6 +171,13 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
             or task_file.name
             in ["bad_import_task.py", "bad_syntax_task.py", "good_task.py"]
         ):
+            # Add warning for files with "test" in name
+            if "test" in task_file.name.lower() and LOGGING_AVAILABLE:
+                message(
+                    "warning",
+                    f"Task file '{task_file.name}' was skipped because it contains 'test' in the filename. "
+                    f"Rename the file to remove 'test' if you want it to be loaded as a task."
+                )
             continue
 
         try:
