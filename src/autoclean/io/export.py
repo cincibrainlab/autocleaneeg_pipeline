@@ -489,18 +489,16 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
         ica.save(ica_path, overwrite=True)
         components.append(ch for ch in ica.exclude)
 
-    pre_ica_path = derivatives_dir / f"{basename}_pre_ica.set"
-    pre_ica_raw.export(pre_ica_path, fmt="eeglab", overwrite=True)
-
+    # Use standard pipeline saving for pre_ica data
+    pre_ica_path = save_raw_to_set(pre_ica_raw, autoclean_dict, stage="pre_ica")
     metadata = {
         "save_ica_to_fif": {
             "creationDateTime": datetime.now().isoformat(),
             "components": components,
             "ica_path": ica_path.name,
-            "pre_ica_path": pre_ica_path.name,
+            "pre_ica_path": str(pre_ica_path),
         }
     }
-
     run_id = autoclean_dict["run_id"]
 
     manage_database_conditionally(
