@@ -146,6 +146,7 @@ class EventIDEpochsMixin:
             )
             # Filter events to include only those with matching trigger codes
             trigger_codes = list(event_patterns.values())
+            
             events_trig = events_all[np.isin(events_all[:, 2], trigger_codes)]
 
             if len(events_trig) == 0:
