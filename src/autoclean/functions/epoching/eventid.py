@@ -177,6 +177,7 @@ def create_eventid_epochs(
     mne.Epochs : MNE epochs class
     autoclean.create_regular_epochs : Create fixed-length epochs
     """
+
     # Input validation
     if not isinstance(data, mne.io.BaseRaw):
         raise TypeError(f"Data must be an MNE Raw object, got {type(data).__name__}")
@@ -197,7 +198,9 @@ def create_eventid_epochs(
     try:
         # Extract events from raw data
         try:
-            events, event_id_all = mne.events_from_annotations(data, verbose=verbose)
+            events, event_id_all = mne.events_from_annotations(
+                data, event_id=event_id, verbose=verbose
+            )
         except Exception as e:
             if on_missing == "raise":
                 raise ValueError(f"No events found in data: {str(e)}") from e
