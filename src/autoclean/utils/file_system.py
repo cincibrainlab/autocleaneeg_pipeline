@@ -8,6 +8,13 @@ from datetime import datetime
 from pathlib import Path
 from autoclean import __version__
 from autoclean.utils.logging import message
+import threading
+
+# Cache to ensure we only perform a backup once per directory in a single
+# Python process. If the user aborts with Ctrl-C, the process ends and this
+# cache is cleared automatically on the next run.
+_PREPARED_TASK_ROOTS: set[Path] = set()
+_CACHE_LOCK = threading.Lock()
 
 
 def step_prepare_directories(
@@ -50,9 +57,21 @@ def step_prepare_directories(
     # BIDS-compliant directory structure - everything under derivatives
     bids_root = autoclean_dir / dir_name / "bids"
 
-    # Backup existing directory if it exists
-    task_root = autoclean_dir / dir_name
-    if task_root.exists():
+    # ------------------------------------------------------------------
+    # In-process cache: ensure the backup logic runs at most once per
+    # directory within the lifetime of this Python process.  This guards
+    # against creating a new backup for every file when batch-processing,
+    # while remaining safe if the user interrupts the run with Ctrl-C.
+    task_root = (autoclean_dir / dir_name).resolve()
+
+    with _CACHE_LOCK:
+        first_time = task_root not in _PREPARED_TASK_ROOTS
+        if first_time:
+            _PREPARED_TASK_ROOTS.add(task_root)
+
+    # Perform backup only the first time we encounter this directory in
+    # the current process.
+    if first_time and task_root.exists():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"{dir_name}_backup_{timestamp}"
         backup_path = autoclean_dir / backup_name
