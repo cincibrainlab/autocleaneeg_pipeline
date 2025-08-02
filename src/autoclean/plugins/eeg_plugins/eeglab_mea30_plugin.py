@@ -51,18 +51,21 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
             message("success", "Successfully loaded .set file")
 
             # Step 2: Configure the MEA30 montage
-            message("info", "Configuring MEA30 channels")
+            # Skip channel configuration for epochs - they already have proper setup
+            if isinstance(raw, mne.Epochs):
+                message("info", "Epochs file detected - skipping channel configuration")
+            else:
+                message("info", "Configuring MEA30 channels")
 
-            # MEA30 requires EEG channels only
-            raw.pick_types(eeg=True, exclude=[])
+                # MEA30 requires EEG channels only
+                raw.pick_types(eeg=True, exclude=[])
 
-            # Check if we have the expected channel count
-            if len(raw.ch_names) != 30:
-                message(
-                    "warning",
-                    f"Expected 30 channels for MEA30, found {len(raw.ch_names)}",
-                )
-
+                # Check if we have the expected channel count
+                if len(raw.ch_names) != 30:
+                    message(
+                        "warning",
+                        f"Expected 30 channels for MEA30, found {len(raw.ch_names)}",
+                    )
             # Add custom channel locations if needed
             # In this example, we're just picking EEG channels
             # In a real implementation, you might set up specific positions
