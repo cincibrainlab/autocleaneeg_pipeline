@@ -2327,8 +2327,12 @@ def main(argv: Optional[list] = None) -> int:
 
     # For real sub-commands, log the workspace path via the existing logger.
     if args.command:
+        # Compact branding header for consistency across all commands
+        console = Console()
+        console.print(AutoCleanBranding.get_compact_logo(), style="bright_green")
+
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
-            message("info", f"Workspace directory: {workspace_dir}")
+            console.print(f"\n[dim]Workspace:[/dim] {workspace_dir}")
         else:
             message(
                 "warning",
