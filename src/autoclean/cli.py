@@ -215,7 +215,13 @@ Examples:
         action="store_true",
         help="Enable verbose/debug output",
     )
-
+    process_parser.add_argument(
+        "--parallel",
+        "-p",
+        type=int,
+        metavar="N",
+        help="Process files in parallel (default: 3 concurrent files, max: 8)",
+    )
     # List tasks command (alias for 'task list')
     list_tasks_parser = subparsers.add_parser(
         "list-tasks", help="List all available tasks"
@@ -523,13 +529,26 @@ def cmd_process(args) -> int:
             message("info", f"Using file format: {args.format}")
             if args.recursive:
                 message("info", "Recursive search: enabled")
-            pipeline.process_directory(
-                directory=args.final_input,
-                task=task_name,
-                pattern=args.format,
-                recursive=args.recursive,
-            )
-
+            
+            # Use parallel processing if requested
+            if hasattr(args, 'parallel') and args.parallel:
+                import asyncio
+                max_concurrent = min(max(1, args.parallel), 8)  # Clamp between 1-8
+                message("info", f"Parallel processing: {max_concurrent} concurrent files")
+                asyncio.run(pipeline.process_directory_async(
+                    directory_path=args.final_input,
+                    task=task_name,
+                    pattern=args.format,
+                    sub_directories=args.recursive,
+                    max_concurrent=max_concurrent,
+                ))
+            else:
+                pipeline.process_directory(
+                    directory=args.final_input,
+                    task=task_name,
+                    pattern=args.format,
+                    recursive=args.recursive,
+                )
         message("info", "Processing completed successfully!")
         return 0
 
@@ -1614,13 +1633,12 @@ def cmd_help(_args) -> int:
         "[yellow]autoclean-eeg process --task RestingEyesOpen \\[/yellow]\n"
         "[yellow]  --file data.raw --output results/[/yellow]\n\n"
         "[yellow]autoclean-eeg process --task-file my_task.py \\[/yellow]\n"
-        '[yellow]  --dir data/ --format "*.raw"[/yellow]\n\n'
-        "[dim]Specify custom output directories and file formats[/dim]",
+        '[yellow]  --dir data/ --format "*.raw" --parallel 5[/yellow]\n\n'
+        "[dim]Specify custom output directories, file formats, and parallel processing[/dim]",
         title="[bold]Advanced Options[/bold]",
         border_style="yellow",
         padding=(0, 1),
     )
-
     console.print(Columns([simple_panel, advanced_panel], equal=True, expand=True))
 
     # Part11 compliance section
@@ -1666,6 +1684,7 @@ def cmd_help(_args) -> int:
     ref_table.add_column("Example", style="green")
 
     ref_table.add_row("process", "Process EEG data", "process RestingEyesOpen data.raw")
+    ref_table.add_row("process --parallel", "Parallel processing", "process MMN data/ --parallel 5")
     ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
     ref_table.add_row("list-tasks", "Show available tasks", "list-tasks")
     ref_table.add_row("config", "Manage settings", "config show")
@@ -1690,7 +1709,9 @@ def cmd_help(_args) -> int:
     console.print(
         "  • Run [bright_white]setup[/bright_white] first to configure your workspace"
     )
-
+    console.print(
+        "  • Speed up batch processing: [bright_white]--parallel 5[/bright_white] (uses 1-4GB RAM per file)"
+    )
     # Support section
     console.print("\n[bold]🤝 Support & Community[/bold]")
     console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
