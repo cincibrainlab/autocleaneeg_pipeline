@@ -53,14 +53,15 @@ class EEGLABSetStandard1020Plugin(BaseEEGPlugin):
             message("success", "Successfully loaded .set file")
 
             # Step 2: Configure the standard 10-20 montage
-            message("info", "Setting up standard 10-20 montage")
-
-            # Apply the standard 10-20 montage
-            montage = mne.channels.make_standard_montage("standard_1020")
-            raw.set_montage(montage, match_case=False)
-
-            message("success", "Successfully configured standard 10-20 montage")
-
+            # Skip montage configuration for epochs - they already have channel positions
+            if isinstance(raw, mne.Epochs):
+                message("info", "Epochs file detected - skipping montage configuration")
+            else:
+                message("info", "Setting up standard 10-20 montage")
+                # Apply the standard 10-20 montage
+                montage = mne.channels.make_standard_montage("standard_1020")
+                raw.set_montage(montage, match_case=False)
+                message("success", "Successfully configured standard 10-20 montage")
             # Step 3: Extract and process events
             # Note: For standard_1020, we don't use complex event extraction by default
             # but we'll implement it for completeness

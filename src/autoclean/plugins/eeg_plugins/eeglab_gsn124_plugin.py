@@ -73,23 +73,26 @@ class EEGLABSetGSN124Plugin(BaseEEGPlugin):
                     break
 
             # Step 2: Configure the GSN-HydroCel-124 montage
-            message("info", "Configuring GSN-HydroCel-124 channels")
+            # Skip channel configuration for epochs - they already have proper setup
+            if isinstance(raw, mne.Epochs):
+                message("info", "Epochs file detected - skipping channel configuration")
+            else:
+                message("info", "Configuring GSN-HydroCel-124 channels")
 
-            # Handle ECG channels (125-128)
-            ecg_channels = ["E125", "E126", "E127", "E128"]
+                # Handle ECG channels (125-128)
+                ecg_channels = ["E125", "E126", "E127", "E128"]
 
-            # Set channel types for ECG channels
-            ecg_mapping = {ch: "ecg" for ch in ecg_channels if ch in raw.ch_names}
-            if ecg_mapping:
-                raw.set_channel_types(ecg_mapping)
-                # Drop ECG channels
-                raw.drop_channels(list(ecg_mapping.keys()))
+                # Set channel types for ECG channels
+                ecg_mapping = {ch: "ecg" for ch in ecg_channels if ch in raw.ch_names}
+                if ecg_mapping:
+                    raw.set_channel_types(ecg_mapping)
+                    # Drop ECG channels
+                    raw.drop_channels(list(ecg_mapping.keys()))
 
-            # Pick only EEG channels
-            raw.pick("eeg")
+                # Pick only EEG channels
+                raw.pick("eeg")
 
-            message("success", "Successfully configured GSN-HydroCel-124 channels")
-
+                message("success", "Successfully configured GSN-HydroCel-124 channels")
             # Step 3: Extract and process events
             events_df = self._get_matlab_annotations_table(file_path)
 

@@ -73,19 +73,22 @@ class EEGLABSetGSN129Plugin(BaseEEGPlugin):
                     break
 
             # Step 2: Configure the GSN-HydroCel-129 montage
-            message("info", "Configuring GSN-HydroCel-129 montage")
+            # Skip montage configuration for epochs - they already have channel positions
+            if isinstance(raw, mne.Epochs):
+                message("info", "Epochs file detected - skipping montage configuration")
+            else:
+                message("info", "Configuring GSN-HydroCel-129 montage")
 
-            # Create montage and set the special 129th electrode name
-            montage = mne.channels.make_standard_montage("GSN-HydroCel-129")
+                # Create montage and set the special 129th electrode name
+                montage = mne.channels.make_standard_montage("GSN-HydroCel-129")
 
-            # Apply the montage
-            raw.set_montage(montage, match_case=False)
+                # Apply the montage
+                raw.set_montage(montage, match_case=False)
 
-            # Pick only EEG channels
-            raw.pick("eeg")
+                # Pick only EEG channels
+                raw.pick("eeg")
 
-            message("success", "Successfully configured GSN-HydroCel-129 montage")
-
+                message("success", "Successfully configured GSN-HydroCel-129 montage")
             # Step 3: Extract and process events
             events_df = self._get_matlab_annotations_table(file_path)
 
