@@ -12,6 +12,7 @@ import json
 import os
 import shutil
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -86,9 +87,10 @@ Processing:
   autoclean-eeg list-tasks --overrides          # Show workspace task overrides
   autoclean-eeg review                          # Start review GUI (uses workspace/output)
   autoclean-eeg review --output results/        # Start review GUI with custom directory
+  autoclean-eeg view data.set                   # View EEG files in MNE-QT Browser
+  autoclean-eeg view data.set --no-view         # Validate file without viewing
 
-Authentication (Compliance Mode):
-  autoclean-eeg setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
+Authentication (Compliance Mode):  autoclean-eeg setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
   autoclean-eeg login                          # Authenticate with Auth0
   autoclean-eeg logout                         # Clear authentication
   autoclean-eeg whoami                         # Show current user status
@@ -127,8 +129,11 @@ Examples:
   autoclean-eeg review
   autoclean-eeg review --output results/
   
-  # Add a custom task (saves to user config)
-  autoclean-eeg task add my_task.py --name MyCustomTask
+  # View EEG files
+  autoclean-eeg view data.set
+  autoclean-eeg view data.set --no-view
+  
+  # Add a custom task (saves to user config)  autoclean-eeg task add my_task.py --name MyCustomTask
   
   # List all tasks (built-in and custom)
   autoclean-eeg task list
@@ -377,9 +382,13 @@ Examples:
         "--dry-run", action="store_true", help="Show what would be deleted without actually deleting"
     )
 
+    # View command
+    view_parser = subparsers.add_parser("view", help="View EEG files using MNE-QT Browser")
+    view_parser.add_argument("file", type=Path, help="Path to EEG file")
+    view_parser.add_argument("--no-view", action="store_true", help="Validate without viewing")
+
     # Version command
-    subparsers.add_parser("version", help="Show version information")
-    # Help command (for consistency)
+    subparsers.add_parser("version", help="Show version information")    # Help command (for consistency)
     subparsers.add_parser("help", help="Show detailed help information")
 
     # Tutorial command
@@ -1538,6 +1547,37 @@ def cmd_clean_task(args) -> int:
         return 1
 
 
+def cmd_view(args) -> int:
+    """View EEG files using autoclean-view."""
+    # Check if file exists
+    if not args.file.exists():
+        message("error", f"File not found: {args.file}")
+        return 1
+    
+    # Build command
+    cmd = ["autoclean-view", str(args.file)]
+    if args.no_view:
+        cmd.append("--no-view")
+    
+    # Launch viewer
+    message("info", f"Opening {args.file.name} in MNE-QT Browser...")
+    
+    try:
+        process = subprocess.run(cmd, capture_output=True, text=True)
+        if process.returncode == 0:
+            message("success", "Viewer closed" if not args.no_view else "File validated")
+            return 0
+        else:
+            message("error", f"Error: {process.stderr}")
+            return 1
+    except FileNotFoundError:
+        message("error", "autoclean-view not installed. Run: pip install autoclean-view")
+        return 1
+    except Exception as e:
+        message("error", f"Failed to launch viewer: {str(e)}")
+        return 1
+
+
 def cmd_help(_args) -> int:
     """Show elegant, user-friendly help information."""
     console = Console()
@@ -1630,6 +1670,7 @@ def cmd_help(_args) -> int:
     ref_table.add_row("list-tasks", "Show available tasks", "list-tasks")
     ref_table.add_row("config", "Manage settings", "config show")
     ref_table.add_row("review", "Review results", "review")
+    ref_table.add_row("view", "View EEG files", "view data.set")
     ref_table.add_row("setup", "Configure workspace", "setup")
     ref_table.add_row("version", "System information", "version")
 
@@ -2515,6 +2556,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_auth0_diagnostics(args)
     elif args.command == "clean-task":
         return cmd_clean_task(args)
+    elif args.command == "view":
+        return cmd_view(args)
     elif args.command == "version":
         return cmd_version(args)
     elif args.command == "help":
