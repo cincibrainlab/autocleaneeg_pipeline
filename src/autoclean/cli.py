@@ -84,7 +84,8 @@ Processing:
   autoclean-eeg process TaskName data_dir/      # Process directory
   autoclean-eeg list-tasks                      # Show available tasks
   autoclean-eeg list-tasks --overrides          # Show workspace task overrides
-  autoclean-eeg review --output results/       # Start review GUI
+  autoclean-eeg review                          # Start review GUI (uses workspace/output)
+  autoclean-eeg review --output results/        # Start review GUI with custom directory
 
 Authentication (Compliance Mode):
   autoclean-eeg setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
@@ -123,6 +124,7 @@ Examples:
   autoclean-eeg task list
   
   # Start review GUI
+  autoclean-eeg review
   autoclean-eeg review --output results/
   
   # Add a custom task (saves to user config)
@@ -227,8 +229,8 @@ Examples:
     review_parser.add_argument(
         "--output",
         type=Path,
-        required=True,
-        help="AutoClean output directory to review",
+        required=False,  # Changed from required=True to required=False
+        help="AutoClean output directory to review (default: workspace/output)",
     )
 
     # Task management commands
@@ -426,6 +428,11 @@ def validate_args(args) -> bool:
             return False
 
     elif args.command == "review":
+        # Set default output directory if not provided
+        if not args.output:
+            args.output = user_config.get_default_output_dir()
+            message("info", f"Using default workspace output directory: {args.output}")
+        
         if not args.output.exists():
             message("error", f"Output directory does not exist: {args.output}")
             return False
@@ -1498,7 +1505,7 @@ def cmd_help(_args) -> int:
     ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
     ref_table.add_row("list-tasks", "Show available tasks", "list-tasks")
     ref_table.add_row("config", "Manage settings", "config show")
-    ref_table.add_row("review", "Review results", "review --output results/")
+    ref_table.add_row("review", "Review results", "review")
     ref_table.add_row("setup", "Configure workspace", "setup")
     ref_table.add_row("version", "System information", "version")
 
