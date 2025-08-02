@@ -2318,10 +2318,37 @@ def main(argv: Optional[list] = None) -> int:
     parser = create_parser()
     args = parser.parse_args(argv)
 
+    # ------------------------------------------------------------------
+    # Always inform the user where the AutoClean workspace is (or will be)
+    # so they can easily locate their configuration and results.  This runs
+    # for *every* CLI invocation, including the bare `autoclean-eeg` call.
+    # ------------------------------------------------------------------
+    workspace_dir = user_config.config_dir
+
+    # For real sub-commands, log the workspace path via the existing logger.
+    if args.command:
+        if workspace_dir.exists() and (workspace_dir / "tasks").exists():
+            message("info", f"Workspace directory: {workspace_dir}")
+        else:
+            message(
+                "warning",
+                f"Workspace directory not configured yet: {workspace_dir} (run 'autoclean-eeg setup' to configure)",
+            )
+
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = Console()
         AutoCleanBranding.print_main_interface(console)
+
+        # Show workspace info elegantly beneath the banner
+        if workspace_dir.exists() and (workspace_dir / "tasks").exists():
+            console.print(f"\n[dim]Workspace:[/dim] {workspace_dir}")
+        else:
+            console.print(
+                f"[yellow]⚠ Workspace not configured:[/yellow] {workspace_dir}\n"
+                "Run [cyan]autoclean-eeg setup[/cyan] to configure."
+            )
+
         return 0
 
     # Validate arguments
