@@ -84,7 +84,8 @@ Processing:
   autoclean-eeg process TaskName data_dir/      # Process directory
   autoclean-eeg list-tasks                      # Show available tasks
   autoclean-eeg list-tasks --overrides          # Show workspace task overrides
-  autoclean-eeg review --output results/       # Start review GUI
+  autoclean-eeg review                          # Start review GUI (uses workspace/output)
+  autoclean-eeg review --output results/        # Start review GUI with custom directory
 
 Authentication (Compliance Mode):
   autoclean-eeg setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
@@ -123,6 +124,7 @@ Examples:
   autoclean-eeg task list
   
   # Start review GUI
+  autoclean-eeg review
   autoclean-eeg review --output results/
   
   # Add a custom task (saves to user config)
@@ -227,8 +229,8 @@ Examples:
     review_parser.add_argument(
         "--output",
         type=Path,
-        required=True,
-        help="AutoClean output directory to review",
+        required=False,  # Changed from required=True to required=False
+        help="AutoClean output directory to review (default: workspace/output)",
     )
 
     # Task management commands
@@ -440,6 +442,11 @@ def validate_args(args) -> bool:
             return False
 
     elif args.command == "review":
+        # Set default output directory if not provided
+        if not args.output:
+            args.output = user_config.get_default_output_dir()
+            message("info", f"Using default workspace output directory: {args.output}")
+        
         if not args.output.exists():
             message("error", f"Output directory does not exist: {args.output}")
             return False
@@ -1622,7 +1629,7 @@ def cmd_help(_args) -> int:
     ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
     ref_table.add_row("list-tasks", "Show available tasks", "list-tasks")
     ref_table.add_row("config", "Manage settings", "config show")
-    ref_table.add_row("review", "Review results", "review --output results/")
+    ref_table.add_row("review", "Review results", "review")
     ref_table.add_row("setup", "Configure workspace", "setup")
     ref_table.add_row("version", "System information", "version")
 
@@ -2442,10 +2449,41 @@ def main(argv: Optional[list] = None) -> int:
     parser = create_parser()
     args = parser.parse_args(argv)
 
+    # ------------------------------------------------------------------
+    # Always inform the user where the AutoClean workspace is (or will be)
+    # so they can easily locate their configuration and results.  This runs
+    # for *every* CLI invocation, including the bare `autoclean-eeg` call.
+    # ------------------------------------------------------------------
+    workspace_dir = user_config.config_dir
+
+    # For real sub-commands, log the workspace path via the existing logger.
+    if args.command:
+        # Compact branding header for consistency across all commands
+        console = Console()
+        console.print(AutoCleanBranding.get_compact_logo(), style="bright_green")
+
+        if workspace_dir.exists() and (workspace_dir / "tasks").exists():
+            console.print(f"\n[dim]Workspace:[/dim] {workspace_dir}")
+        else:
+            message(
+                "warning",
+                f"Workspace directory not configured yet: {workspace_dir} (run 'autoclean-eeg setup' to configure)",
+            )
+
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = Console()
         AutoCleanBranding.print_main_interface(console)
+
+        # Show workspace info elegantly beneath the banner
+        if workspace_dir.exists() and (workspace_dir / "tasks").exists():
+            console.print(f"\n[dim]Workspace:[/dim] {workspace_dir}")
+        else:
+            console.print(
+                f"[yellow]⚠ Workspace not configured:[/yellow] {workspace_dir}\n"
+                "Run [cyan]autoclean-eeg setup[/cyan] to configure."
+            )
+
         return 0
 
     # Validate arguments
