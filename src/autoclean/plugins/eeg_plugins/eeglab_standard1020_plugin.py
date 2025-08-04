@@ -38,20 +38,27 @@ class EEGLABSetStandard1020Plugin(BaseEEGPlugin):
         message(
             "info", f"Loading EEGLAB .set file with standard 10-20 montage: {file_path}"
         )
-
         try:
             # Step 1: Import the .set file
             try:
                 raw = mne.io.read_raw_eeglab(
                     input_fname=file_path, preload=preload, verbose=True
                 )
+            except TypeError as e:
+                # Custom error: The number of trials is 355. It must be 1 for raw files. Please use `mne.io.read_epochs_eeglab` if the .set file contains epochs.
+                if (
+                    "The number of trials is" in str(e)
+                    and "must be 1 for raw files" in str(e)
+                ):
+                    raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
+                else:
+                    raise e
             except ValueError as e:
                 if "trials" in str(e) and "read_epochs_eeglab" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
                 else:
                     raise e
             message("success", "Successfully loaded .set file")
-
             # Step 2: Configure the standard 10-20 montage
             # Skip montage configuration for epochs - they already have channel positions
             if isinstance(raw, mne.Epochs):
