@@ -29,11 +29,12 @@ class StatisticalLearningEpochsMixin:
         self,
         data: Union[mne.io.Raw, None] = None,
         tmin: float = 0,
-        tmax: float = 5.4,
+        num_syllables: int = 30,
         volt_threshold: Optional[Dict[str, float]] = None,
         stage_name: str = "post_epochs",
         reject_by_annotation: bool = False,
         subject_id: Optional[str] = None,
+        baseline: Optional[bool] = True,
     ) -> mne.Epochs:
         """Create syllable-based epochs (SL_epochs) from raw EEG data.
 
@@ -43,8 +44,8 @@ class StatisticalLearningEpochsMixin:
             The raw EEG data. If None, uses self.raw.
         tmin : float, Optional
             Start time of the epoch in seconds. Default is 0.
-        tmax : float, Optional
-            End time of the epoch in seconds. Default is 5.4 (18 syllables * 300ms).
+        num_syllables : int, Optional
+            Number of syllables per epoch. Default is 30.
         volt_threshold : dict, Optional
             Dictionary of channel types and thresholds for rejection. Default is None.
         stage_name : str, Optional
@@ -71,7 +72,7 @@ class StatisticalLearningEpochsMixin:
             epoch_value = config_value.get("value", {})
             if isinstance(epoch_value, dict):
                 tmin = epoch_value.get("tmin", tmin)
-                tmax = epoch_value.get("tmax", tmax)
+                tmax = num_syllables * 0.3
 
             threshold_settings = config_value.get("threshold_rejection", {})
             if isinstance(threshold_settings, dict) and threshold_settings.get(
@@ -140,17 +141,43 @@ class StatisticalLearningEpochsMixin:
                 raise ValueError("No word onset events found in annotations")
             word_onset_events = events_all[np.isin(events_all[:, 2], word_onset_ids)]
 
-            # Validate epochs for 18 syllable events
-            message("info", "Validating epochs for 18 syllable events...")
+            # Get all syllable events (including word onsets) for proper spacing calculation
             syllable_code_ids = [
                 event_id_all[code] for code in syllable_codes if code in event_id_all
             ]
+            all_syllable_events = events_all[np.isin(events_all[:, 2], syllable_code_ids)]
+            
+            # Select non-overlapping word onset events by finding onsets that are num_syllables apart
+            non_overlapping_events = []
+            for i, word_event in enumerate(word_onset_events):
+                word_sample = word_event[0]
+                # Find this word event's position in the syllable sequence
+                word_idx_in_syllables = np.where(all_syllable_events[:, 0] == word_sample)[0]
+                if len(word_idx_in_syllables) > 0:
+                    syllable_pos = word_idx_in_syllables[0]
+                    # Only select if we can fit num_syllables from this position
+                    if syllable_pos + num_syllables <= len(all_syllable_events):
+                        # Check if this doesn't overlap with previously selected epoch
+                        if not non_overlapping_events:
+                            non_overlapping_events.append(word_event)
+                        else:
+                            last_selected_sample = non_overlapping_events[-1][0]
+                            last_syllable_idx = np.where(all_syllable_events[:, 0] == last_selected_sample)[0][0]
+                            # Ensure gap of at least num_syllables between epochs
+                            if syllable_pos >= last_syllable_idx + num_syllables:
+                                non_overlapping_events.append(word_event)
+            
+            non_overlapping_events = np.array(non_overlapping_events, dtype=int)
+            message("info", f"Selected {len(non_overlapping_events)} non-overlapping word onsets from {len(word_onset_events)} total (ensuring {num_syllables} syllables between epochs)")
+
+            # Validate epochs for num_syllables syllable events
+            message("info", f"Validating epochs for {num_syllables} syllable events...")
+            # syllable_code_ids already defined above
 
             # Working up to here
             valid_events = []
-            num_syllables_per_epoch = 18
 
-            for i, onset_event in enumerate(word_onset_events):
+            for i, onset_event in enumerate(non_overlapping_events):
                 # MATLAB: # Skip first 4 events (3 start codes + 1st syllable)
                 # Python: # Skip first 1 event of word onset events (1st syllable)
                 if i < 1:
@@ -167,7 +194,7 @@ class StatisticalLearningEpochsMixin:
                 # Events are invalidated because of DI64
                 for j in range(
                     current_idx,
-                    min(current_idx + num_syllables_per_epoch, len(events_all)),
+                    min(current_idx + num_syllables, len(events_all)),
                 ):
                     event_code = events_all[j, 2]
                     event_label = event_id_all.get(event_code, f"code_{event_code}")
@@ -179,14 +206,14 @@ class StatisticalLearningEpochsMixin:
                         syllable_count = 0
                         break
 
-                    if syllable_count == num_syllables_per_epoch:
+                    if syllable_count == num_syllables:
                         valid_events.append(onset_event)
                         message(
                             "debug", f"Valid epoch found at sample {candidate_sample}"
                         )
                         break
 
-                if syllable_count < num_syllables_per_epoch - 1:  # Allow 17 syllables
+                if syllable_count < num_syllables - 1:  # Allow 17 syllables
                     message(
                         "info",
                         f"Epoch at sample {candidate_sample} has only {syllable_count} syllables, skipping",
@@ -203,7 +230,7 @@ class StatisticalLearningEpochsMixin:
                 valid_events,
                 tmin=tmin,
                 tmax=tmax,
-                baseline=None,  # No baseline correction
+                baseline=(None, tmax) if baseline else None,
                 reject=volt_threshold,
                 preload=True,
                 reject_by_annotation=reject_by_annotation,
