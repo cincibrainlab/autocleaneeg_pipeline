@@ -1374,6 +1374,8 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         epoch_metadata = metadata["step_create_regular_epochs"]
     elif "step_create_eventid_epochs" in metadata:
         epoch_metadata = metadata["step_create_eventid_epochs"]
+    elif "step_create_sl_epochs" in metadata:
+        epoch_metadata = metadata["step_create_sl_epochs"]
     else:
         message(
             "warning",
