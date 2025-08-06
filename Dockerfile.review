@@ -112,7 +112,7 @@ RUN echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
     echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo '[program:autoclean]' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'priority=5' >> /etc/supervisor/conf.d/supervisord.conf && \
-    echo 'command=/app/venv/bin/python -u -c "from autoclean import Pipeline; pipeline = Pipeline(autoclean_dir='"'"'/app/output'"'"', autoclean_config='"'"'/app/configs/autoclean_config.yaml'"'"', verbose='"'"'INFO'"'"'); pipeline.start_autoclean_review()"' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=/app/venv/bin/python -u -c "from autoclean import Pipeline; pipeline = Pipeline(output_dir='"'"'/app/output'"'"'); pipeline.start_autoclean_review()"' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'environment=DISPLAY=:99,PYTHONUNBUFFERED=1,QT_DEBUG_PLUGINS=1,PYTHONPATH=/app/src' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'directory=/app' >> /etc/supervisor/conf.d/supervisord.conf && \
     echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
