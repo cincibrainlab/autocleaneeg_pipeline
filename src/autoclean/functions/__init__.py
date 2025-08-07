@@ -34,6 +34,11 @@ from .advanced import (
     autoreject_epochs,
 )
 
+# Analysis functions
+from .analysis import (
+    compute_statistical_learning_itc,
+)
+
 # Artifact functions
 from .artifacts import (
     detect_bad_channels,
@@ -100,6 +105,8 @@ __all__ = [
     "create_statistical_learning_epochs",
     "detect_outlier_epochs",
     "gfp_clean_epochs",
+    # Analysis functions
+    "compute_statistical_learning_itc",
     # Artifact functions
     "detect_bad_channels",
     "interpolate_bad_channels",
