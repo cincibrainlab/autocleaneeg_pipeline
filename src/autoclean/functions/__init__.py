@@ -44,7 +44,7 @@ from .artifacts import (
 from .epoching import (
     create_eventid_epochs,
     create_regular_epochs,
-    create_sl_epochs,
+    create_statistical_learning_epochs,
     detect_outlier_epochs,
     gfp_clean_epochs,
 )
@@ -97,7 +97,7 @@ __all__ = [
     # Epoching functions
     "create_regular_epochs",
     "create_eventid_epochs",
-    "create_sl_epochs",
+    "create_statistical_learning_epochs",
     "detect_outlier_epochs",
     "gfp_clean_epochs",
     # Artifact functions
