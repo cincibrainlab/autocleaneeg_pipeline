@@ -8,7 +8,7 @@ Functions
 ---------
 create_regular_epochs : Create fixed-length epochs
 create_eventid_epochs : Create epochs around specific events
-create_sl_epochs : Create statistical learning epochs
+create_statistical_learning_epochs : Create statistical learning epochs
 detect_outlier_epochs : Identify outlier epochs
 gfp_clean_epochs : Clean epochs using global field power
 """
@@ -18,12 +18,12 @@ from .quality import detect_outlier_epochs, gfp_clean_epochs
 
 # Import implemented functions
 from .regular import create_regular_epochs
-from .statistical import create_sl_epochs
+from .statistical import create_statistical_learning_epochs
 
 __all__ = [
     "create_regular_epochs",
     "create_eventid_epochs",
-    "create_sl_epochs",
+    "create_statistical_learning_epochs",
     "detect_outlier_epochs",
     "gfp_clean_epochs",
 ]
