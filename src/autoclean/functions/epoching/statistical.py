@@ -1,319 +1,353 @@
 """Statistical learning epochs creation functions for EEG data.
 
 This module provides standalone functions for creating epochs based on statistical
-learning paradigm event patterns, specifically for validating 18-syllable sequences.
+learning paradigm event patterns, specifically for validating 30-syllable sequences.
 """
 
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
 import mne
 import numpy as np
 import pandas as pd
 
+from autoclean.utils.logging import message
 
-def create_sl_epochs(
-    data: mne.io.BaseRaw,
-    tmin: float = 0.0,
-    tmax: float = 5.4,
-    baseline: Optional[tuple] = None,
-    reject: Optional[Dict[str, float]] = None,
-    flat: Optional[Dict[str, float]] = None,
-    reject_by_annotation: bool = True,
+
+def create_statistical_learning_epochs(
+    data: mne.io.Raw,
+    tmin: float = 0,
+    num_syllables: int = 30,
+    volt_threshold: Optional[Dict[str, float]] = None,
+    reject_by_annotation: bool = False,
     subject_id: Optional[str] = None,
-    syllable_codes: Optional[List[str]] = None,
-    word_onset_codes: Optional[List[str]] = None,
-    num_syllables_per_epoch: int = 18,
-    preload: bool = True,
-    verbose: Optional[bool] = None,
+    baseline: Optional[bool] = True,
+    verbose: bool = True,
 ) -> mne.Epochs:
-    """Create statistical learning epochs based on syllable event patterns.
+    """Create syllable-based epochs (SL_epochs) from raw EEG data.
 
-    This function creates epochs for statistical learning experiments by identifying
-    valid word onset events followed by the expected number of syllable events.
-    It validates that each epoch contains exactly the specified number of syllables
-    and removes problematic DI64 events that can interfere with the analysis.
-
-    Statistical learning paradigms typically present sequences of syllables where
-    participants learn statistical regularities. This function identifies valid
-    epochs by ensuring each epoch contains a complete syllable sequence.
+    This function implements the core logic for creating statistical learning epochs,
+    following MATLAB logic for event skipping and syllable validation. It can be used
+    independently of the AutoClean pipeline.
 
     Parameters
     ----------
-    data : mne.io.BaseRaw
-        The continuous EEG data containing statistical learning events.
-    tmin : float, default 0.0
-        Start time of the epoch relative to the word onset event in seconds.
-    tmax : float, default 5.4
-        End time of the epoch relative to the word onset event in seconds.
-        Default corresponds to 18 syllables * 300ms duration.
-    baseline : tuple or None, default None
-        Time interval for baseline correction. None applies no baseline correction.
-        Statistical learning epochs typically don't use baseline correction.
-    reject : dict or None, default None
-        Rejection thresholds for different channel types in volts.
-        Example: {'eeg': 100e-6, 'eog': 200e-6}.
-    flat : dict or None, default None
-        Rejection thresholds for flat channels in volts.
-        Example: {'eeg': 1e-6}.
-    reject_by_annotation : bool, default True
-        Whether to automatically reject epochs that overlap with 'bad' annotations.
-    subject_id : str or None, default None
-        Subject ID for handling special event code mappings (e.g., '2310').
-        If None, uses standard event codes.
-    syllable_codes : list of str or None, default None
-        List of event codes representing syllables. If None, uses default codes:
-        ['DIN1', 'DIN2', ..., 'DIN9', 'DI10', 'DI11', 'DI12']
-    word_onset_codes : list of str or None, default None
-        List of event codes representing word onsets. If None, uses default:
-        ['DIN1', 'DIN8', 'DIN9', 'DI11']
-    num_syllables_per_epoch : int, default 18
-        Expected number of syllables per valid epoch.
-    preload : bool, default True
-        Whether to preload epoch data into memory.
-    verbose : bool or None, default None
-        Control verbosity of output.
+    data : mne.io.Raw
+        The raw EEG data.
+    tmin : float, optional
+        Start time of the epoch in seconds. Default is 0.
+    num_syllables : int, optional
+        Number of syllables per epoch. Default is 30.
+    volt_threshold : dict, optional
+        Dictionary of channel types and thresholds for rejection. Default is None.
+    reject_by_annotation : bool, optional
+        Whether to reject epochs overlapping bad annotations or mark them in metadata. Default is False.
+    subject_id : str, optional
+        Subject ID to handle specific event codes (e.g., for subject 2310). Default is None.
+    baseline : bool, optional
+        Whether to apply baseline correction. Default is True.
+    verbose : bool, optional
+        Whether to print progress messages. Default is True.
 
     Returns
     -------
-    epochs : mne.Epochs
-        The created epochs object containing valid statistical learning sequences.
+    epochs_clean : mne.Epochs
+        The created epochs object with bad epochs marked (and dropped if reject_by_annotation=True).
 
-    Examples
-    --------
-    >>> epochs = create_sl_epochs(raw, tmin=0, tmax=5.4)
-    >>> epochs = create_sl_epochs(raw, subject_id='2310', num_syllables_per_epoch=16)
+    Raises
+    ------
+    TypeError
+        If data is not an MNE Raw object.
+    ValueError
+        If no valid epochs are found or insufficient events exist.
 
-    See Also
-    --------
-    create_regular_epochs : Create fixed-length epochs
-    create_eventid_epochs : Create event-based epochs
-    mne.events_from_annotations : Extract events from annotations
-    mne.Epochs : MNE epochs class
+    Notes
+    -----
+    This function implements MATLAB-compatible logic including:
+    - Skipping first 5 events to avoid auditory onset responses
+    - Validating 30-syllable sequences without interruption
+    - Handling subject-specific event codes
+    - Adding metadata for events within epochs
     """
-    # Input validation
-    if not isinstance(data, mne.io.BaseRaw):
-        raise TypeError(f"Data must be an MNE Raw object, got {type(data).__name__}")
 
-    if tmin >= tmax:
-        raise ValueError(f"tmin ({tmin}) must be less than tmax ({tmax})")
+    if not isinstance(data, (mne.io.Raw, mne.io.base.BaseRaw)):
+        raise TypeError("Data must be an MNE Raw object for SL epoch creation")
 
-    if num_syllables_per_epoch <= 0:
-        raise ValueError(
-            f"num_syllables_per_epoch must be positive, got {num_syllables_per_epoch}"
-        )
+    # Calculate tmax from num_syllables
+    tmax = num_syllables * 0.3
 
-    try:
-        # Set up event codes based on subject or defaults
-        if syllable_codes is None:
-            if subject_id == "2310":
-                syllable_codes = [f"D1{i:02d}" for i in range(1, 13)]
-            else:
-                syllable_codes = [
-                    "DIN1",
-                    "DIN2",
-                    "DIN3",
-                    "DIN4",
-                    "DIN5",
-                    "DIN6",
-                    "DIN7",
-                    "DIN8",
-                    "DIN9",
-                    "DI10",
-                    "DI11",
-                    "DI12",
-                ]
+    # Define event codes
+    syllable_codes = [
+        "DIN1", "DIN2", "DIN3", "DIN4", "DIN5", "DIN6", 
+        "DIN7", "DIN8", "DIN9", "DI10", "DI11", "DI12",
+    ]
+    word_onset_codes = ["DIN1", "DIN8", "DIN9", "DI11"]
+    if subject_id == "2310":
+        syllable_codes = [f"D1{i:02d}" for i in range(1, 13)]
+        word_onset_codes = ["D101", "D108", "D109", "D111"]
 
-        if word_onset_codes is None:
-            if subject_id == "2310":
-                word_onset_codes = ["D101", "D108", "D109", "D111"]
-            else:
-                word_onset_codes = ["DIN1", "DIN8", "DIN9", "DI11"]
-
-        # Create a copy of data to avoid modifying the original
-        data_copy = data.copy()
-
-        # Remove DI64 events from annotations
-        if data_copy.annotations is not None:
-            di64_indices = [
-                i
-                for i, desc in enumerate(data_copy.annotations.description)
-                if desc == "DI64"
-            ]
-            if di64_indices:
-                new_annotations = data_copy.annotations.copy()
-                new_annotations.delete(di64_indices)
-                data_copy.set_annotations(new_annotations)
-
-        # Extract all events from cleaned annotations
-        try:
-            events_all, event_id_all = mne.events_from_annotations(
-                data_copy, verbose=verbose
-            )
-        except Exception as e:
-            raise ValueError(f"No events found in data: {str(e)}") from e
-
-        # Get word onset events
-        word_onset_ids = [
-            event_id_all[code] for code in word_onset_codes if code in event_id_all
+    # Remove DI64 events from annotations before extracting events
+    if verbose:
+        message("info", "Removing DI64 events from annotations...")
+    if data.annotations is not None:
+        # Get indices of DI64 annotations
+        di64_indices = [
+            i for i, desc in enumerate(data.annotations.description)
+            if desc == "DI64"
         ]
-        if not word_onset_ids:
-            raise ValueError(
-                f"No word onset events found. Expected: {word_onset_codes}, Available: {list(event_id_all.keys())}"
-            )
+        if di64_indices:
+            # Create new annotations without DI64
+            new_annotations = data.annotations.copy()
+            new_annotations.delete(di64_indices)
+            data.set_annotations(new_annotations)
+            if verbose:
+                message("debug", f"Removed {len(di64_indices)} DI64 events from annotations")
 
-        word_onset_events = events_all[np.isin(events_all[:, 2], word_onset_ids)]
+    # Extract all events from cleaned annotations
+    if verbose:
+        message("info", "Extracting events from annotations...")
+    events_all, event_id_all = mne.events_from_annotations(data)
 
-        # Get syllable event IDs
-        syllable_code_ids = [
-            event_id_all[code] for code in syllable_codes if code in event_id_all
-        ]
-        if not syllable_code_ids:
-            raise ValueError(
-                f"No syllable events found. Expected: {syllable_codes}, Available: {list(event_id_all.keys())}"
-            )
+    # Create an array of [sample, event_id_label] for all events
+    # This will help map each event's sample index to its string label
+    # The event_id_all dict maps label -> int, so we need to invert it for int -> label
+    event_id_label_map = {v: k for k, v in event_id_all.items()}
+    # Build array: each row is [sample, event_id_label]
+    events_with_labels = np.array([
+        (sample, event_id_label_map.get(event_id, "UNKNOWN"))
+        for sample, _, event_id in events_all
+    ], dtype=object)
+    # Now events_with_labels is an array of [sample, label] for all events
 
-        # Validate epochs for required syllable count
-        valid_events = []
+    # Skip first 5 events to match MATLAB's y = 5 logic
+    # MATLAB comment: "don't include the very first syllable due to sharp auditory onset response; skip over four 'start codes' plus first syllable"
+    if verbose:
+        message("info", "Skipping first 5 events to match MATLAB logic...")
+    if len(events_all) > 5:
+        events_all = events_all[5:]  # Skip first 5 events
+        events_with_labels = events_with_labels[5:]  # Also skip in the label array
+        if verbose:
+            message("debug", f"Skipped first 5 events, now processing {len(events_all)} events")
+    else:
+        raise ValueError(f"Not enough events to skip initial 5 events. Found only {len(events_all)} events.")
 
-        for i, onset_event in enumerate(word_onset_events):
-            # Skip first event as per original implementation
-            if i < 1:
-                continue
+    # Get the event IDs that correspond to our word onset codes
+    word_onset_ids = [
+        event_id_all[code] for code in word_onset_codes if code in event_id_all
+    ]
+    if not word_onset_ids:
+        raise ValueError("No word onset events found in annotations")
+    word_onset_events = events_all[np.isin(events_all[:, 2], word_onset_ids)]
 
-            candidate_sample = onset_event[0]
-            syllable_count = 0
-            current_idx = np.where(events_all[:, 0] == candidate_sample)[0]
-            if current_idx.size == 0:
-                continue
-            current_idx = current_idx[0]
-
-            # Count syllables from candidate onset
-            for j in range(
-                current_idx, min(current_idx + num_syllables_per_epoch, len(events_all))
-            ):
-                event_code = events_all[j, 2]
-                if event_code in syllable_code_ids:
-                    syllable_count += 1
+    # Get all syllable events (including word onsets) for proper spacing calculation
+    syllable_code_ids = [
+        event_id_all[code] for code in syllable_codes if code in event_id_all
+    ]
+    all_syllable_events = events_all[np.isin(events_all[:, 2], syllable_code_ids)]
+    
+    # Select non-overlapping word onset events by finding onsets that are num_syllables apart
+    non_overlapping_events = []
+    for i, word_event in enumerate(word_onset_events):
+        word_sample = word_event[0]
+        # Find this word event's position in the syllable sequence
+        word_idx_in_syllables = np.where(all_syllable_events[:, 0] == word_sample)[0]
+        if len(word_idx_in_syllables) > 0:
+            syllable_pos = word_idx_in_syllables[0]
+            # Only select if we can fit num_syllables from this position
+            if syllable_pos + num_syllables <= len(all_syllable_events):
+                # Check if this doesn't overlap with previously selected epoch
+                if not non_overlapping_events:
+                    non_overlapping_events.append(word_event)
                 else:
-                    # Non-syllable event breaks the sequence
-                    syllable_count = 0
-                    break
+                    last_selected_sample = non_overlapping_events[-1][0]
+                    last_syllable_idx = np.where(all_syllable_events[:, 0] == last_selected_sample)[0][0]
+                    # Ensure gap of at least num_syllables between epochs
+                    if syllable_pos >= last_syllable_idx + num_syllables:
+                        non_overlapping_events.append(word_event)
+    
+    non_overlapping_events = np.array(non_overlapping_events, dtype=int)
+    if verbose:
+        message("info", f"Selected {len(non_overlapping_events)} non-overlapping word onsets from {len(word_onset_events)} total (ensuring {num_syllables} syllables between epochs)")
 
-                if syllable_count == num_syllables_per_epoch:
-                    valid_events.append(onset_event)
-                    break
+    # Validate epochs for num_syllables syllable events
+    if verbose:
+        message("info", f"Validating epochs for {num_syllables} syllable events...")
+    valid_events = []
 
-            # Allow slight flexibility (17-18 syllables)
-            if syllable_count >= num_syllables_per_epoch - 1:
-                if onset_event.tolist() not in [v.tolist() for v in valid_events]:
-                    valid_events.append(onset_event)
+    for i, onset_event in enumerate(non_overlapping_events):
+        candidate_sample = onset_event[0]
+        syllable_count = 0
+        current_idx = np.where(events_all[:, 0] == candidate_sample)[0]
+        if current_idx.size == 0:
+            continue
+        current_idx = current_idx[0]
 
-        valid_events = np.array(valid_events, dtype=int)
-        if valid_events.size == 0:
-            raise ValueError(
-                f"No valid epochs found with {num_syllables_per_epoch} syllables"
-            )
+        # Count syllables from candidate onset
+        for j in range(
+            current_idx,
+            min(current_idx + num_syllables, len(events_all)),
+        ):
+            event_code = events_all[j, 2]
+            event_label = event_id_all.get(event_code, f"code_{event_code}")
+            if event_code in syllable_code_ids:
+                syllable_count += 1
+            else:
+                # Non-syllable event (e.g., boundary), reset and skip
+                if verbose:
+                    message("debug", f"Non-syllable event found: {event_label}")
+                syllable_count = 0
+                break
 
-        # Create epochs using valid events (match original mixin exactly)
-        epochs = mne.Epochs(
-            data_copy,
-            valid_events,
-            tmin=tmin,
-            tmax=tmax,
-            baseline=baseline,
-            reject=reject,
-            preload=preload,
-            reject_by_annotation=reject_by_annotation,
-        )
+            if syllable_count == num_syllables:
+                valid_events.append(onset_event)
+                if verbose:
+                    message("debug", f"Valid epoch found at sample {candidate_sample}")
+                break
 
-        # Add metadata about syllable events within epochs
-        epochs = _add_sl_metadata(epochs, data_copy, events_all, event_id_all)
+        if syllable_count < num_syllables - 1:  # Allow tolerance
+            if verbose:
+                message("info", f"Epoch at sample {candidate_sample} has only {syllable_count} syllables, skipping")
 
-        return epochs
+    valid_events = np.array(valid_events, dtype=int)
+    if valid_events.size == 0:
+        raise ValueError(f"No valid epochs found with {num_syllables} syllables")
 
-    except Exception as e:
-        if "No events found" in str(e) or "No valid epochs" in str(e):
-            # Let validation errors bubble up
-            raise
-        raise RuntimeError(
-            f"Failed to create statistical learning epochs: {str(e)}"
-        ) from e
+    # Create epochs
+    if verbose:
+        message("info", f"Creating SL epochs from {tmin}s to {tmax}s...")
+    epochs = mne.Epochs(
+        data,
+        valid_events,
+        tmin=tmin,
+        tmax=tmax,
+        baseline=(None, tmax) if baseline else None,
+        reject=volt_threshold,
+        preload=True,
+        reject_by_annotation=reject_by_annotation,
+    )
 
+    # Add metadata for events that fall within the kept epochs
+    sfreq = data.info["sfreq"]
+    epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers
 
-def _add_sl_metadata(
-    epochs: mne.Epochs, raw: mne.io.BaseRaw, events_all: np.ndarray, event_id_all: Dict
-) -> mne.Epochs:
-    """Add metadata about syllable events within each statistical learning epoch.
+    # Compute valid ranges for each epoch (in raw sample indices)
+    start_offsets = int(tmin * sfreq)
+    end_offsets = int(tmax * sfreq)
+    epoch_sample_ranges = [
+        (s + start_offsets, s + end_offsets) for s in epoch_samples
+    ]
 
-    Parameters
-    ----------
-    epochs : mne.Epochs
-        The epochs object to add metadata to.
-    raw : mne.io.BaseRaw
-        The raw data containing events.
-    events_all : np.ndarray
-        Array of all events from the data.
-    event_id_all : dict
-        Mapping of event descriptions to event codes.
+    # Filter events_all for events that fall inside any of those ranges
+    events_in_epochs = []
+    for sample, prev, code in events_all:
+        for i, (start, end) in enumerate(epoch_sample_ranges):
+            if start <= sample <= end:
+                events_in_epochs.append([sample, prev, code])
+                break  # prevent double counting
+            elif sample < start:
+                break
 
-    Returns
-    -------
-    epochs : mne.Epochs
-        Epochs object with added metadata.
-    """
-    try:
-        # Get epoch timing information
-        sfreq = raw.info["sfreq"]
-        epoch_samples = epochs.events[:, 0]  # Sample indices of epoch triggers
-        tmin_samples = int(epochs.tmin * sfreq)
-        tmax_samples = int(epochs.tmax * sfreq)
+    events_in_epochs = np.array(events_in_epochs, dtype=int)
+    event_descriptions = {v: k for k, v in event_id_all.items()}
 
-        # Build metadata for each epoch
-        metadata_rows = []
-        event_descriptions = {v: k for k, v in event_id_all.items()}
+    # Build metadata rows
+    metadata_rows = []
+    for i, (start, end) in enumerate(epoch_sample_ranges):
+        epoch_events = []
+        for sample, _, code in events_in_epochs:
+            if start <= sample <= end:
+                relative_time = (sample - epoch_samples[i]) / sfreq
+                label = event_descriptions.get(code, f"code_{code}")
+                epoch_events.append((label, relative_time))
+        metadata_rows.append({"additional_events": epoch_events})
 
-        for i, epoch_start_sample in enumerate(epoch_samples):
-            # Calculate sample range for this epoch
-            epoch_start = epoch_start_sample + tmin_samples
-            epoch_end = epoch_start_sample + tmax_samples
+    # Add the metadata column
+    if epochs.metadata is not None:
+        epochs.metadata["additional_events"] = [
+            row["additional_events"] for row in metadata_rows
+        ]
+    else:
+        epochs.metadata = pd.DataFrame(metadata_rows)
 
-            # Find syllable events within this epoch
-            epoch_events = []
-            syllable_count = 0
+    # Create a copy for potential dropping
+    epochs_clean = epochs.copy()
 
-            for sample, _, code in events_all:
-                if epoch_start <= sample <= epoch_end:
-                    # Calculate relative time within epoch
-                    relative_time = (sample - epoch_start_sample) / sfreq
-                    label = event_descriptions.get(code, f"code_{code}")
-                    epoch_events.append((label, relative_time))
+    # If not using reject_by_annotation, manually track bad annotations
+    if not reject_by_annotation:
+        # Find epochs that overlap with any "bad" or "BAD" annotations
+        bad_epochs = []
+        bad_annotations = {}  # To track which annotation affected each epoch
 
-                    # Count syllables (assuming syllable codes contain 'DIN' or 'D1')
-                    if "DIN" in label or label.startswith("D1"):
-                        syllable_count += 1
+        for ann in data.annotations:
+            # Check if annotation description starts with "bad" or "BAD"
+            if ann["description"].lower().startswith("bad"):
+                ann_start = ann["onset"]
+                ann_end = ann["onset"] + ann["duration"]
 
-            metadata_rows.append(
-                {
-                    "epoch_number": i,
-                    "epoch_start_sample": epoch_start_sample,
-                    "epoch_duration": epochs.tmax - epochs.tmin,
-                    "syllable_events": epoch_events,
-                    "syllable_count": syllable_count,
-                }
-            )
+                # Check each epoch
+                for idx, event in enumerate(epochs.events):
+                    epoch_start = (
+                        event[0] / epochs.info["sfreq"]
+                    )  # Convert to seconds
+                    epoch_end = epoch_start + (tmax - tmin)
 
-        # Create metadata DataFrame
-        metadata_df = pd.DataFrame(metadata_rows)
+                    # Check for overlap
+                    if (epoch_start <= ann_end) and (epoch_end >= ann_start):
+                        bad_epochs.append(idx)
 
-        if epochs.metadata is not None:
-            # Merge with existing metadata
-            epochs.metadata = pd.concat([epochs.metadata, metadata_df], axis=1)
-        else:
-            # Create new metadata
-            epochs.metadata = metadata_df
+                        # Track which annotation affected this epoch
+                        if idx not in bad_annotations:
+                            bad_annotations[idx] = []
+                        bad_annotations[idx].append(ann["description"])
 
-        return epochs
+        # Remove duplicates and sort
+        bad_epochs = sorted(list(set(bad_epochs)))
 
-    except Exception:
-        # If metadata creation fails, return epochs without metadata
-        return epochs
+        # Mark bad epochs in metadata
+        epochs.metadata["BAD_ANNOTATION"] = [
+            idx in bad_epochs for idx in range(len(epochs))
+        ]
+
+        # Add specific annotation types to metadata
+        for idx, annotations in bad_annotations.items():
+            for annotation in annotations:
+                col_name = annotation.upper()
+                if col_name not in epochs.metadata.columns:
+                    epochs.metadata[col_name] = False
+                epochs.metadata.loc[idx, col_name] = True
+
+        if verbose:
+            message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
+
+        # Drop bad epochs from the cleaned version
+        epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
+
+        # Align metadata with surviving epochs
+        if epochs_clean.metadata is not None:
+            # Get sample times of events that survived in epochs_clean
+            surviving_event_samples = epochs_clean.events[:, 0]
+
+            # Get sample times of the events in the original 'epochs' object
+            original_event_samples = epochs.events[:, 0]
+
+            # Find the indices that match
+            kept_original_indices = np.where(
+                np.isin(original_event_samples, surviving_event_samples)
+            )[0]
+
+            if len(kept_original_indices) != len(epochs_clean.events):
+                if verbose:
+                    message("warning", 
+                        f"Mismatch when aligning surviving events to original metadata. "
+                        f"Expected {len(epochs_clean.events)} matches, found {len(kept_original_indices)}. "
+                        f"Metadata might be incorrect.")
+
+            # Slice the metadata using these indices
+            epochs_clean.metadata = epochs.metadata.iloc[
+                kept_original_indices
+            ].reset_index(drop=True)
+    
+    else:
+        epochs_clean = None
+
+    return epochs,epochs_clean
+

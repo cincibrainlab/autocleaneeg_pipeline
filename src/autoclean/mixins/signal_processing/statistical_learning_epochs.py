@@ -19,6 +19,7 @@ import mne
 import numpy as np
 import pandas as pd
 
+from autoclean.functions.epoching.statistical import create_statistical_learning_epochs
 from autoclean.utils.logging import message
 
 
@@ -38,6 +39,10 @@ class StatisticalLearningEpochsMixin:
     ) -> mne.Epochs:
         """Create syllable-based epochs (SL_epochs) from raw EEG data.
 
+        This is a mixin wrapper that handles configuration, metadata tracking,
+        and result saving. The core epoching logic is implemented in the
+        standalone function create_statistical_learning_epochs().
+
         Parameters
         ----------
         data : mne.io.Raw, Optional
@@ -49,11 +54,13 @@ class StatisticalLearningEpochsMixin:
         volt_threshold : dict, Optional
             Dictionary of channel types and thresholds for rejection. Default is None.
         stage_name : str, Optional
-            Name for saving and metadata tracking. Default is "sl_epochs".
+            Name for saving and metadata tracking. Default is "post_epochs".
         reject_by_annotation : bool, Optional
             Whether to reject epochs overlapping bad annotations or mark them in metadata. Default is False.
         subject_id : str, Optional
             Subject ID to handle specific event codes (e.g., for subject 2310). Default is None.
+        baseline : bool, Optional
+            Whether to apply baseline correction. Default is True.
 
         Returns
         -------
@@ -72,7 +79,7 @@ class StatisticalLearningEpochsMixin:
             epoch_value = config_value.get("value", {})
             if isinstance(epoch_value, dict):
                 tmin = epoch_value.get("tmin", tmin)
-                tmax = num_syllables * 0.3
+                num_syllables = epoch_value.get("num_syllables", num_syllables)
 
             threshold_settings = config_value.get("threshold_rejection", {})
             if isinstance(threshold_settings, dict) and threshold_settings.get(
@@ -90,308 +97,30 @@ class StatisticalLearningEpochsMixin:
             raise TypeError("Data must be an MNE Raw object for SL epoch creation")
 
         try:
-            # Define event codes
-            syllable_codes = [
-                "DIN1",
-                "DIN2",
-                "DIN3",
-                "DIN4",
-                "DIN5",
-                "DIN6",
-                "DIN7",
-                "DIN8",
-                "DIN9",
-                "DI10",
-                "DI11",
-                "DI12",
-            ]
-            word_onset_codes = ["DIN1", "DIN8", "DIN9", "DI11"]
-            if subject_id == "2310":
-                syllable_codes = [f"D1{i:02d}" for i in range(1, 13)]
-                word_onset_codes = ["D101", "D108", "D109", "D111"]
-
-            # Remove DI64 events from annotations before extracting events
-            message("header", "Removing DI64 events from annotations...")
-            if data.annotations is not None:
-                # Get indices of DI64 annotations
-                di64_indices = [
-                    i
-                    for i, desc in enumerate(data.annotations.description)
-                    if desc == "DI64"
-                ]
-                if di64_indices:
-                    # Create new annotations without DI64
-                    new_annotations = data.annotations.copy()
-                    new_annotations.delete(di64_indices)
-                    data.set_annotations(new_annotations)
-                    message(
-                        "debug",
-                        f"Removed {len(di64_indices)} DI64 events from annotations",
-                    )
-
-            # Extract all events from cleaned annotations
-            message("header", "Extracting events from annotations...")
-            events_all, event_id_all = mne.events_from_annotations(data)
-            
-            # Skip first 5 events to match MATLAB's y = 5 logic
-            # MATLAB comment: "don't include the very first syllable due to sharp auditory onset response; skip over four 'start codes' plus first syllable"
-            message("header", "Skipping first 5 events to match MATLAB logic...")
-            if len(events_all) > 5:
-                events_all = events_all[5:]  # Skip first 5 events
-                message("debug", f"Skipped first 5 events, now processing {len(events_all)} events")
-            else:
-                raise ValueError(f"Not enough events to skip initial 5 events. Found only {len(events_all)} events.")
-
-            # Get the event IDs that correspond to our word onset codes
-            word_onset_ids = [
-                event_id_all[code] for code in word_onset_codes if code in event_id_all
-            ]
-            if not word_onset_ids:
-                raise ValueError("No word onset events found in annotations")
-            word_onset_events = events_all[np.isin(events_all[:, 2], word_onset_ids)]
-
-            # Get all syllable events (including word onsets) for proper spacing calculation
-            syllable_code_ids = [
-                event_id_all[code] for code in syllable_codes if code in event_id_all
-            ]
-            all_syllable_events = events_all[np.isin(events_all[:, 2], syllable_code_ids)]
-            
-            # Select non-overlapping word onset events by finding onsets that are num_syllables apart
-            non_overlapping_events = []
-            for i, word_event in enumerate(word_onset_events):
-                word_sample = word_event[0]
-                # Find this word event's position in the syllable sequence
-                word_idx_in_syllables = np.where(all_syllable_events[:, 0] == word_sample)[0]
-                if len(word_idx_in_syllables) > 0:
-                    syllable_pos = word_idx_in_syllables[0]
-                    # Only select if we can fit num_syllables from this position
-                    if syllable_pos + num_syllables <= len(all_syllable_events):
-                        # Check if this doesn't overlap with previously selected epoch
-                        if not non_overlapping_events:
-                            non_overlapping_events.append(word_event)
-                        else:
-                            last_selected_sample = non_overlapping_events[-1][0]
-                            last_syllable_idx = np.where(all_syllable_events[:, 0] == last_selected_sample)[0][0]
-                            # Ensure gap of at least num_syllables between epochs
-                            if syllable_pos >= last_syllable_idx + num_syllables:
-                                non_overlapping_events.append(word_event)
-            
-            non_overlapping_events = np.array(non_overlapping_events, dtype=int)
-            message("info", f"Selected {len(non_overlapping_events)} non-overlapping word onsets from {len(word_onset_events)} total (ensuring {num_syllables} syllables between epochs)")
-
-            # Validate epochs for num_syllables syllable events
-            message("info", f"Validating epochs for {num_syllables} syllable events...")
-            # syllable_code_ids already defined above
-
-            # Working up to here
-            valid_events = []
-
-            for i, onset_event in enumerate(non_overlapping_events):
-
-                candidate_sample = onset_event[0]
-                syllable_count = 0
-                current_idx = np.where(events_all[:, 0] == candidate_sample)[0]
-                if current_idx.size == 0:
-                    continue
-                current_idx = current_idx[0]
-
-                # Count syllables from candidate onset
-                # Events are invalidated because of DI64
-                for j in range(
-                    current_idx,
-                    min(current_idx + num_syllables, len(events_all)),
-                ):
-                    event_code = events_all[j, 2]
-                    event_label = event_id_all.get(event_code, f"code_{event_code}")
-                    if event_code in syllable_code_ids:
-                        syllable_count += 1
-                    else:
-                        # Non-syllable event (e.g., boundary), reset and skip
-                        message("debug", f"Non-syllable event found: {event_label}")
-                        syllable_count = 0
-                        break
-
-                    if syllable_count == num_syllables:
-                        valid_events.append(onset_event)
-                        message(
-                            "debug", f"Valid epoch found at sample {candidate_sample}"
-                        )
-                        break
-
-                if syllable_count < num_syllables - 1:  # Allow 17 syllables
-                    message(
-                        "info",
-                        f"Epoch at sample {candidate_sample} has only {syllable_count} syllables, skipping",
-                    )
-
-            valid_events = np.array(valid_events, dtype=int)
-            if valid_events.size == 0:
-                raise ValueError("No valid epochs found with 18 syllables")
-
-            # Create epochs
-            message("header", f"Creating SL epochs from {tmin}s to {tmax}s...")
-            epochs = mne.Epochs(
-                data,
-                valid_events,
+            # Call the standalone epoching function with verbose=False (use autoclean logging)
+            message("header", f"Creating statistical learning epochs with {num_syllables} syllables...")
+            epochs, epochs_dropped = create_statistical_learning_epochs(
+                data=data,
                 tmin=tmin,
-                tmax=tmax,
-                baseline=(None, tmax) if baseline else None,
-                reject=volt_threshold,
-                preload=True,
+                num_syllables=num_syllables,
+                volt_threshold=volt_threshold,
                 reject_by_annotation=reject_by_annotation,
+                subject_id=subject_id,
+                baseline=baseline,
+                verbose=True,  # Use autoclean logging instead
             )
 
-            # Step 5: Filter other events to keep only those that fall *within the kept epochs*
-            sfreq = data.info["sfreq"]
-            epoch_samples = epochs.events[:, 0]  # sample indices of epoch triggers
-
-            # Compute valid ranges for each epoch (in raw sample indices)
-            start_offsets = int(tmin * sfreq)
-            end_offsets = int(tmax * sfreq)
-            epoch_sample_ranges = [
-                (s + start_offsets, s + end_offsets) for s in epoch_samples
-            ]
-
-            # Filter events_all for events that fall inside any of those ranges
-            events_in_epochs = []
-            for sample, prev, code in events_all:
-                for i, (start, end) in enumerate(epoch_sample_ranges):
-                    if start <= sample <= end:
-                        events_in_epochs.append([sample, prev, code])
-                        break  # prevent double counting
-                    elif sample < start:
-                        break
-
-            events_in_epochs = np.array(events_in_epochs, dtype=int)
-            event_descriptions = {v: k for k, v in event_id_all.items()}
-
-            # Build metadata rows
-            metadata_rows = []
-            for i, (start, end) in enumerate(epoch_sample_ranges):
-                epoch_events = []
-                for sample, _, code in events_in_epochs:
-                    if start <= sample <= end:
-                        relative_time = (sample - epoch_samples[i]) / sfreq
-                        label = event_descriptions.get(code, f"code_{code}")
-                        epoch_events.append((label, relative_time))
-                metadata_rows.append({"additional_events": epoch_events})
-
-            # Add the metadata column
-            if epochs.metadata is not None:
-                epochs.metadata["additional_events"] = [
-                    row["additional_events"] for row in metadata_rows
-                ]
+            self._save_epochs_result(result_data=epochs, stage_name=stage_name)
+            if epochs_dropped is not None:
+                self._save_epochs_result(result_data=epochs_dropped, stage_name="post_drop_bad_epochs")
             else:
-                epochs.metadata = pd.DataFrame(metadata_rows)
+                epochs_dropped = epochs
 
-            # Create a copy for potential dropping
-            epochs_clean = epochs.copy()
-
-            # If not using reject_by_annotation or keeping all epochs, manually track bad annotations
-            if not reject_by_annotation:
-                # Find epochs that overlap with any "bad" or "BAD" annotations
-                bad_epochs = []
-                bad_annotations = {}  # To track which annotation affected each epoch
-
-                for ann in data.annotations:
-                    # Check if annotation description starts with "bad" or "BAD"
-                    if ann["description"].lower().startswith("bad"):
-                        ann_start = ann["onset"]
-                        ann_end = ann["onset"] + ann["duration"]
-
-                        # Check each epoch
-                        for idx, event in enumerate(epochs.events):
-                            epoch_start = (
-                                event[0] / epochs.info["sfreq"]
-                            )  # Convert to seconds
-                            epoch_end = epoch_start + (tmax - tmin)
-
-                            # Check for overlap
-                            if (epoch_start <= ann_end) and (epoch_end >= ann_start):
-                                bad_epochs.append(idx)
-
-                                # Track which annotation affected this epoch
-                                if idx not in bad_annotations:
-                                    bad_annotations[idx] = []
-                                bad_annotations[idx].append(ann["description"])
-
-                # Remove duplicates and sort
-                bad_epochs = sorted(list(set(bad_epochs)))
-
-                # Mark bad epochs in metadata
-                epochs.metadata["BAD_ANNOTATION"] = [
-                    idx in bad_epochs for idx in range(len(epochs))
-                ]
-
-                # Add specific annotation types to metadata
-                for idx, annotations in bad_annotations.items():
-                    for annotation in annotations:
-                        col_name = annotation.upper()
-                        if col_name not in epochs.metadata.columns:
-                            epochs.metadata[col_name] = False
-                        epochs.metadata.loc[idx, col_name] = True
-
-                message(
-                    "info",
-                    f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)",
-                )
-
-                # Save epochs with bad epochs marked but not dropped
-                self._save_epochs_result(result_data=epochs, stage_name=stage_name)
-
-                # Drop bad epochs only if not keeping all epochs
-                epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
-
-                message("debug", "reordering metadata after dropping")
-                # After epochs_clean.drop(), epochs_clean.events contains the actual surviving events.
-                # epochs.metadata contains the fully augmented metadata for the original set of epochs
-                # (before this manual annotation-based drop).
-                # We need to select rows from epochs.metadata that correspond to the events
-                # actually remaining in epochs_clean.
-
-                if (
-                    epochs_clean.metadata is not None
-                ):  # Should always be true as it's copied
-                    # Get sample times of events that survived in epochs_clean
-                    surviving_event_samples = epochs_clean.events[:, 0]
-
-                    # Get sample times of the events in the original 'epochs' object
-                    # (from which epochs.metadata was derived)
-                    original_event_samples = epochs.events[:, 0]
-
-                    # Find the indices in 'original_event_samples' that match 'surviving_event_samples'.
-                    # This effectively maps the surviving events in epochs_clean back to their
-                    # corresponding rows in the original (and fully augmented) epochs.metadata.
-                    # np.isin creates a boolean mask, np.where converts it to indices.
-                    kept_original_indices = np.where(
-                        np.isin(original_event_samples, surviving_event_samples)
-                    )[0]
-
-                    if len(kept_original_indices) != len(epochs_clean.events):
-                        message(
-                            "error",
-                            f"Mismatch when aligning surviving events to original metadata. "
-                            f"Expected {len(epochs_clean.events)} matches, found {len(kept_original_indices)}. "
-                            f"Metadata might be incorrect.",
-                        )
-                        # If there's a mismatch, it indicates a deeper issue, perhaps non-unique event samples
-                        # or an unexpected state. For now, we proceed with potentially incorrect metadata
-                        # or let MNE raise an error if lengths still don't match later.
-                        # A more robust solution might involve raising an error here.
-
-                    # Slice the augmented epochs.metadata using these derived indices.
-                    # The resulting DataFrame will have the same number of rows as len(epochs_clean.events).
-                    epochs_clean.metadata = epochs.metadata.iloc[
-                        kept_original_indices
-                    ].reset_index(drop=True)
-                else:
-                    message(
-                        "warning",
-                        "epochs_clean.metadata was None before assignment, which is unexpected.",
-                    )
+            self.epochs = epochs_dropped
 
             # Analyze drop log to tally different annotation types
-            drop_log = epochs_clean.drop_log
+            tmax = num_syllables * 0.3
+            drop_log = epochs_dropped.drop_log
             total_epochs = len(drop_log)
             good_epochs = sum(1 for log in drop_log if len(log) == 0)
 
@@ -423,30 +152,24 @@ class StatisticalLearningEpochsMixin:
             metadata = {
                 "duration": tmax - tmin,
                 "reject_by_annotation": reject_by_annotation,
-                "initial_epoch_count": len(epochs),
-                "final_epoch_count": len(epochs_clean),
+                "initial_epoch_count": total_epochs,  # Approximation since we don't have pre-drop count
+                "final_epoch_count": good_epochs,
                 "single_epoch_duration": epochs.times[-1] - epochs.times[0],
                 "single_epoch_samples": epochs.times.shape[0],
-                "initial_duration": (epochs.times[-1] - epochs.times[0])
-                * len(epochs_clean),
-                "numberSamples": epochs.times.shape[0] * len(epochs_clean),
+                "initial_duration": (epochs.times[-1] - epochs.times[0]) * good_epochs,
+                "numberSamples": epochs.times.shape[0] * good_epochs,
                 "channelCount": len(epochs.ch_names),
                 "annotation_types": annotation_types,
                 "marked_epochs_file": stage_name,
                 "cleaned_epochs_file": "post_drop_bad_sl_epochs",
                 "tmin": tmin,
                 "tmax": tmax,
+                "num_syllables": num_syllables,
             }
             self._update_metadata("step_create_sl_epochs", metadata)
 
-            # Store and save epochs
-            if hasattr(self, "config") and self.config.get("run_id"):
-                self.epochs = epochs_clean
-            self._save_epochs_result(
-                result_data=epochs_clean, stage_name="post_drop_bad_epochs"
-            )
 
-            return epochs_clean
+            return epochs_dropped
 
         except Exception as e:
             message("error", f"Error during SL epoch creation: {str(e)}")
