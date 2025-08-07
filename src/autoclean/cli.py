@@ -775,16 +775,17 @@ def cmd_review(args) -> int:
 
 def cmd_setup(args) -> int:
     """Run the interactive setup wizard."""
-    from autoclean.utils.cli_display import setup_display
-    
     try:
         # Check if compliance mode flag was passed
         if hasattr(args, "compliance_mode") and args.compliance_mode:
             return _setup_compliance_mode()
         else:
             return _run_interactive_setup()
+    except KeyboardInterrupt:
+        # User canceled - exit gracefully without error message
+        return 0
     except Exception as e:
-        setup_display.error("Setup failed", str(e))
+        print(f"❌ Setup failed: {str(e)}")
         return 1
 
 
@@ -890,17 +891,15 @@ def _run_interactive_setup() -> int:
 
         answers = inquirer.prompt(questions)
         if not answers:  # User canceled
-            setup_display.info("Setup canceled")
             return 0
 
         setup_type = answers["setup_type"]
 
         if setup_type == "exit":
-            setup_display.info("Setup canceled")
             return 0
         elif setup_type == "workspace_only":
             user_config.setup_workspace()
-            setup_display.success("Workspace setup complete!")
+            console.print("[green]✓[/green] Workspace setup complete!")
             return 0
         elif setup_type == "basic":
             # Standard setup
@@ -916,10 +915,9 @@ def _run_interactive_setup() -> int:
             return _setup_compliance_mode()
 
     except KeyboardInterrupt:
-        setup_display.info("Setup canceled by user")
         return 0
     except Exception as e:
-        setup_display.error("Interactive setup failed", str(e))
+        console.print(f"[red]❌[/red] Interactive setup failed: {str(e)}")
         return 1
 
 
