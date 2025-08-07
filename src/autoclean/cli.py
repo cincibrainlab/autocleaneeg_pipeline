@@ -860,24 +860,21 @@ def _run_interactive_setup() -> int:
                 )
             ]
         else:
-            # Build setup options based on current state
+            # Build setup options - simplified to 2 choices
             choices = [
-                ("Basic setup (standard research use)", "basic"),
-                ("Just configure workspace location", "workspace_only"),
+                ("Basic setup (workspace + standard research use)", "basic"),
             ]
 
             if is_enabled:
-                choices.insert(
-                    1,
+                choices.append(
                     (
                         "Disable FDA 21 CFR Part 11 compliance mode",
                         "disable_compliance",
-                    ),
+                    )
                 )
             else:
-                choices.insert(
-                    1,
-                    ("Enable FDA 21 CFR Part 11 compliance mode", "enable_compliance"),
+                choices.append(
+                    ("Enable FDA 21 CFR Part 11 compliance mode", "enable_compliance")
                 )
 
             questions = [
@@ -897,12 +894,8 @@ def _run_interactive_setup() -> int:
 
         if setup_type == "exit":
             return 0
-        elif setup_type == "workspace_only":
-            user_config.setup_workspace()
-            console.print("[green]✓[/green] Workspace setup complete!")
-            return 0
         elif setup_type == "basic":
-            # Standard setup
+            # Basic setup always includes workspace configuration
             return _setup_basic_mode()
         elif setup_type == "enable_compliance":
             # Enable compliance mode
@@ -932,19 +925,15 @@ def _setup_basic_mode() -> int:
             user_config.setup_workspace()
             return 0
 
-        _simple_header(console, "Basic Setup Configuration", "Standard research use")
+        console.print()
+        console.print("[bold green]Basic Setup Configuration[/bold green]")
+        console.print("[dim]Workspace + standard research use[/dim]")
+        console.print()
 
-        # Simple workspace check - don't show full setup if already configured
-        if user_config._is_workspace_valid():
-            console.print(f"[green]✓[/green] Workspace already configured: {user_config.config_dir}")
-        else:
-            console.print("[blue]ℹ[/blue] Setting up workspace...")
-            # Just ensure workspace exists without showing full flow
-            user_config.config_dir.mkdir(parents=True, exist_ok=True)
-            user_config.tasks_dir.mkdir(parents=True, exist_ok=True)
-            user_config._save_global_config(user_config.config_dir)
-            console.print(f"[green]✓[/green] Workspace created: {user_config.config_dir}")
-
+        # Always run full workspace setup (includes prompting to change location if exists)
+        # Don't show branding since we already showed it at the start of setup
+        workspace_path = user_config.setup_workspace(show_branding=False)
+        
         # Update user configuration - auto-backup enabled by default
         user_config_data = load_user_config()
 

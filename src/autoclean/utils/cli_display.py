@@ -301,21 +301,8 @@ class SetupDisplay(CLIDisplay):
             self.console.print("[bright_white]Let's set up your workspace for EEG processing.[/bright_white]")
             self.console.print("[dim cyan]This workspace will contain your custom tasks, configuration, and results.[/dim cyan]")
         else:
-            # Reconfiguration - simpler boxed header
-            branding_text = Text()
-            branding_text.append(f"{LOGO_ICON} Welcome to AutoClean", style="bold bright_cyan")
-            branding_text.append(f"\n{TAGLINE}", style="bright_blue")
-            
-            branding_panel = Panel(
-                Align.center(branding_text),
-                style="cyan",
-                padding=(0, 1),
-                title="[bold yellow]⚙️ Workspace Reconfiguration ⚙️[/bold yellow]",
-                title_align="center"
-            )
-            
-            self.console.print(branding_panel)
-            self.blank_line()
+            # Reconfiguration - simple section title, no boxed header
+            self.console.print("[bold yellow]⚙️ Workspace Reconfiguration[/bold yellow]")
             self.console.print("[dim]Setting up new workspace location[/dim]")
             
         self.blank_line()
