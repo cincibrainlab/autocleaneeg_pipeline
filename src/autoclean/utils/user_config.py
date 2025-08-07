@@ -47,7 +47,11 @@ try:
 except ImportError:
     AUTOCLEAN_AVAILABLE = False
 
-from autoclean.utils.branding import AutoCleanBranding
+# Simple branding constants
+PRODUCT_NAME = "AutoClean EEG"
+TAGLINE = "Professional EEG Processing & Analysis Platform" 
+LOGO_ICON = "🧠"
+DIVIDER = "═════════════════════════════════════════════════"
 from autoclean.utils.logging import message
 
 
@@ -123,7 +127,9 @@ class UserConfigManager:
                 }
 
             except Exception as e:
-                message("warning", f"Could not parse {task_file.name}: {e}")
+                # Use print for internal warnings since this is a utility function
+                # not part of the main CLI setup experience
+                print(f"Warning: Could not parse {task_file.name}: {e}")
                 continue
 
         return custom_tasks
@@ -256,53 +262,90 @@ class UserConfigManager:
 
         return "None detected"
 
+    def _get_system_info_dict(self) -> Dict[str, str]:
+        """Get system information as dictionary for table display."""
+        # Get AutoClean version
+        if AUTOCLEAN_AVAILABLE:
+            version = __version__
+        else:
+            version = "unknown"
+
+        info = {
+            "Version": f"AutoClean EEG v{version}",
+            "Python": f"{sys.version.split()[0]} ({platform.python_implementation()})",
+            "Platform": f"{platform.system()} {platform.release()}",
+            "Architecture": platform.machine(),
+        }
+
+        # System resources (if psutil is available)
+        if PSUTIL_AVAILABLE:
+            try:
+                memory = psutil.virtual_memory()
+                cpu_count = psutil.cpu_count(logical=True)
+                cpu_physical = psutil.cpu_count(logical=False)
+
+                memory_gb = memory.total / (1024**3)
+                memory_available_gb = memory.available / (1024**3)
+                info["Memory"] = f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available"
+
+                if cpu_physical and cpu_physical != cpu_count:
+                    info["CPU"] = f"{cpu_physical} cores ({cpu_count} threads)"
+                else:
+                    info["CPU"] = f"{cpu_count} cores"
+            except Exception:
+                info["Memory"] = "Unable to detect"
+                info["CPU"] = "Unable to detect"
+        else:
+            info["Memory"] = "psutil not available"
+            info["CPU"] = "psutil not available"
+
+        # GPU information
+        info["GPU"] = self._get_gpu_info()
+
+        return info
+
     def setup_workspace(self) -> Path:
         """Smart workspace setup."""
-        if RICH_AVAILABLE:
-            console = Console()
-        else:
-            console = None
+        from autoclean.utils.cli_display import setup_display
+        
         workspace_status = self._check_workspace_status()
 
         if workspace_status == "first_time":
             return self._run_setup_wizard(is_first_time=True)
 
         elif workspace_status == "missing":
-            # Professional header for missing workspace
-            AutoCleanBranding.get_professional_header(console)
-            console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
-            console.print("\n[yellow]⚠[/yellow] [bold]Workspace Missing[/bold]")
-            console.print("[dim]Previous workspace location no longer exists[/dim]")
+            setup_display.console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
+            setup_display.console.print(f"[dim]{DIVIDER}[/dim]")
+            setup_display.blank_line()
+            setup_display.warning("Workspace Missing", "Previous workspace location no longer exists")
             return self._run_setup_wizard(is_first_time=False)
 
         elif workspace_status == "valid":
-            # Professional header with clear hierarchy
-            AutoCleanBranding.get_professional_header(console)
-
-            # Clean section separator
-            console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
-
-            # Configuration section without redundant brain icon
-            console.print("\n[bold blue]Workspace Configuration[/bold blue]")
-            console.print(
-                "[green]✓[/green] [dim]Workspace is properly configured[/dim]"
+            # Display workspace status cleanly with boxed header
+            setup_display.boxed_header(
+                f"{LOGO_ICON} Welcome to AutoClean",
+                TAGLINE,
+                title="[bold green]✓ Workspace Ready[/bold green]"
             )
+            setup_display.blank_line()
 
-            # System information in organized layout
-            console.print("\n[bold]Current Workspace:[/bold]")
-            console.print(f"  📁 [dim]{self.config_dir}[/dim]")
+            # Workspace information
+            setup_display.header("Workspace Configuration")
+            setup_display.workspace_info(self.config_dir, is_valid=True)
 
-            # Compact system info
-            console.print("\n[bold]System Information:[/bold]")
-            self._display_system_info(console)
+            # System information
+            system_info = self._get_system_info_dict()
+            setup_display.console.print("[bold]System Information:[/bold]")
+            setup_display.system_info_table(system_info)
 
+            # Prompt for changes
             try:
-                response = input("\nChange workspace location? (y/N): ").strip().lower()
-                if response not in ["y", "yes"]:
-                    console.print("[green]✓[/green] Keeping current location")
+                change_location = setup_display.prompt_yes_no("Change workspace location?", default=False)
+                if not change_location:
+                    setup_display.success("Keeping current location")
                     return self.config_dir
             except (EOFError, KeyboardInterrupt):
-                console.print("[green]✓[/green] Keeping current location")
+                setup_display.success("Keeping current location")
                 return self.config_dir
 
             # User wants to change
@@ -341,64 +384,32 @@ class UserConfigManager:
 
     def _run_setup_wizard(self, is_first_time: bool = True) -> Path:
         """Run setup wizard."""
-        if RICH_AVAILABLE:
-            console = Console()
-        else:
-            console = None
+        from autoclean.utils.cli_display import setup_display
 
-        # Professional header with system info
+        # Display header based on setup type
+        setup_display.welcome_header(is_first_time)
+
         if is_first_time:
-            # Main header panel with consistent branding
-            console.print(AutoCleanBranding.get_welcome_panel(console))
-
-            # Status message
-            console.print(
-                "\n[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]"
-            )
+            # System information for first-time setup
+            setup_display.blank_line()
+            setup_display.console.print("[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]")
+            setup_display.blank_line()
 
             # System information
-            self._display_system_info(console)
+            system_info = self._get_system_info_dict()
+            setup_display.system_info_table(system_info)
+            setup_display.blank_line()
 
-            # Welcome message
-            console.print(
-                "\n[bold]Welcome to AutoClean![/bold] Let's set up your workspace for EEG processing.\n"
-                "This workspace will contain your custom tasks, configuration, and results."
-            )
-        else:
-            # Professional header for reconfigure case
-            AutoCleanBranding.get_professional_header(console)
-            console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
-            console.print(
-                "\n[blue]⚙️[/blue] [bold blue]Workspace Reconfiguration[/bold blue]"
-            )
-            console.print("[dim]Setting up new workspace location[/dim]")
-
-        # Get location
+        # Get workspace location
         default_dir = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
-        console.print(f"\n[bold]Workspace location:[/bold] [dim]{default_dir}[/dim]")
-        console.print(
-            "[dim]• Custom tasks  • Configuration  • Results  • Easy backup[/dim]"
-        )
-
-        try:
-            response = input(
-                "\nPress Enter for default, or type a custom path: "
-            ).strip()
-            if response:
-                chosen_dir = Path(response).expanduser()
-                console.print(f"[green]✓[/green] Using: [bold]{chosen_dir}[/bold]")
-            else:
-                chosen_dir = default_dir
-                console.print("[green]✓[/green] Using default location")
-        except (EOFError, KeyboardInterrupt):
-            chosen_dir = default_dir
-            console.print("[yellow]⚠[/yellow] Using default location")
+        chosen_dir = setup_display.workspace_location_prompt(default_dir)
 
         # Save config and create workspace
         self._save_global_config(chosen_dir)
         self._create_workspace_structure(chosen_dir)
 
-        console.print(f"\n[green]✅ Setup complete![/green] [dim]{chosen_dir}[/dim]")
+        # Setup completion
+        setup_display.setup_complete_summary(chosen_dir)
         self._create_example_script(chosen_dir)
 
         # Update instance
@@ -424,7 +435,7 @@ class UserConfigManager:
             with open(global_config, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
         except Exception as e:
-            message("warning", f"Could not save global config: {e}")
+            print(f"Warning: Could not save global config: {e}")
 
     def setup_part11_workspace(self) -> Path:
         """
@@ -439,14 +450,14 @@ class UserConfigManager:
 
         # Check if Part-11 workspace already exists
         if part11_workspace.exists() and (part11_workspace / "tasks").exists():
-            message("info", f"Part-11 workspace already exists: {part11_workspace}")
+            print(f"Part-11 workspace already exists: {part11_workspace}")
             self._save_global_config(part11_workspace)
             self.config_dir = part11_workspace
             self.tasks_dir = part11_workspace / "tasks"
             return part11_workspace
 
         # Create Part-11 workspace
-        message("info", f"Creating Part-11 compliance workspace: {part11_workspace}")
+        print(f"Creating Part-11 compliance workspace: {part11_workspace}")
         self._create_workspace_structure(part11_workspace)
         self._save_global_config(part11_workspace)
 
@@ -454,7 +465,7 @@ class UserConfigManager:
         self.config_dir = part11_workspace
         self.tasks_dir = part11_workspace / "tasks"
 
-        message("info", f"✓ Part-11 workspace created: {part11_workspace}")
+        print(f"✓ Part-11 workspace created: {part11_workspace}")
         return part11_workspace
 
     def _get_base_workspace_path(self) -> Path:
@@ -505,9 +516,7 @@ class UserConfigManager:
                     builtin_tasks_dir = package_dir / "tasks"
 
                     if not builtin_tasks_dir.exists():
-                        message(
-                            "warning", "Built-in tasks directory not found in package"
-                        )
+                        print("Warning: Built-in tasks directory not found in package")
                         return
 
                     copied_count = 0
@@ -535,26 +544,19 @@ class UserConfigManager:
 
                     # Provide feedback about copied tasks
                     if RICH_AVAILABLE:
-                        console = Console()
+                        from autoclean.utils.cli_display import setup_display
                         if copied_count > 0:
-                            console.print(
-                                f"[green]📋[/green] Copied {copied_count} built-in task examples to [dim]{builtin_dir}[/dim]"
-                            )
+                            setup_display.success(f"Copied {copied_count} built-in task examples", str(builtin_dir))
                         if skipped_count > 0:
-                            console.print(
-                                f"[yellow]ℹ[/yellow] Skipped {skipped_count} existing built-in task files"
-                            )
+                            setup_display.info(f"Skipped {skipped_count} existing built-in task files")
 
                 except Exception as e:
-                    message("warning", f"Could not copy built-in tasks: {e}")
+                    print(f"Warning: Could not copy built-in tasks: {e}")
             else:
-                message(
-                    "warning",
-                    "AutoClean package not available for copying built-in tasks",
-                )
+                print("Warning: AutoClean package not available for copying built-in tasks")
 
         except Exception as e:
-            message("warning", f"Failed to create built-in tasks directory: {e}")
+            print(f"Warning: Failed to create built-in tasks directory: {e}")
 
     def _copy_builtin_task_with_header(
         self, source_file: Path, dest_file: Path
@@ -602,26 +604,25 @@ class UserConfigManager:
         except Exception as e:
             # Fallback to simple copy if header addition fails
             shutil.copy2(source_file, dest_file)
-            message("warning", f"Could not add header to {dest_file.name}: {e}")
+            print(f"Warning: Could not add header to {dest_file.name}: {e}")
 
     def _offer_migration(self, old_dir: Path, new_dir: Path) -> None:
         """Offer to migrate workspace."""
-        if RICH_AVAILABLE:
-            console = Console()
-        else:
-            console = None
+        from autoclean.utils.cli_display import setup_display
 
-        try:
-            response = input("\nMigrate existing tasks? (y/N): ").strip().lower()
-            if response in ["yes", "y"] and old_dir.exists():
+        migrate = setup_display.migration_prompt(old_dir, new_dir)
+        
+        if migrate and old_dir.exists():
+            try:
                 shutil.copytree(
                     old_dir / "tasks", new_dir / "tasks", dirs_exist_ok=True
                 )
-                console.print("[green]✓[/green] Tasks migrated")
-            else:
-                console.print("[green]✓[/green] Starting fresh")
-        except (EOFError, KeyboardInterrupt):
-            console.print("[yellow]⚠[/yellow] Starting fresh")
+                setup_display.success("Tasks migrated successfully")
+            except Exception as e:
+                setup_display.error("Migration failed", str(e))
+                setup_display.info("Starting with fresh workspace")
+        else:
+            setup_display.success("Starting with fresh workspace")
 
         # Update instance
         self.config_dir = new_dir
@@ -648,13 +649,11 @@ class UserConfigManager:
                 self._create_fallback_example(dest_file)
 
             if RICH_AVAILABLE:
-                console = Console()
-                console.print(
-                    f"[green]📄[/green] Example script: [dim]{dest_file}[/dim]"
-                )
+                from autoclean.utils.cli_display import setup_display
+                setup_display.success("Example script created", str(dest_file))
 
         except Exception as e:
-            message("warning", f"Could not create example script: {e}")
+            print(f"Warning: Could not create example script: {e}")
 
     def _create_fallback_example(self, dest_file: Path) -> None:
         """Create fallback example script."""
@@ -706,13 +705,11 @@ if __name__ == "__main__":
                 self._create_fallback_template(dest_file)
 
             if RICH_AVAILABLE:
-                console = Console()
-                console.print(
-                    f"[green]📋[/green] Template task: [dim]{dest_file}[/dim]"
-                )
+                from autoclean.utils.cli_display import setup_display  
+                setup_display.success("Template task created", str(dest_file))
 
         except Exception as e:
-            message("warning", f"Could not create template task: {e}")
+            print(f"Warning: Could not create template task: {e}")
 
     def _create_fallback_template(self, dest_file: Path) -> None:
         """Create fallback template task file."""
