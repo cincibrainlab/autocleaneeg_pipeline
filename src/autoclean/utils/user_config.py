@@ -304,33 +304,37 @@ class UserConfigManager:
 
         return info
 
-    def setup_workspace(self) -> Path:
+    def setup_workspace(self, show_branding: bool = True) -> Path:
         """Smart workspace setup."""
         from autoclean.utils.cli_display import setup_display
         
         workspace_status = self._check_workspace_status()
 
         if workspace_status == "first_time":
-            return self._run_setup_wizard(is_first_time=True)
+            return self._run_setup_wizard(is_first_time=True, show_branding=show_branding)
 
         elif workspace_status == "missing":
-            setup_display.console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
-            setup_display.console.print(f"[dim]{DIVIDER}[/dim]")
-            setup_display.blank_line()
+            if show_branding:
+                setup_display.console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
+                setup_display.console.print(f"[dim]{DIVIDER}[/dim]")
+                setup_display.blank_line()
             setup_display.warning("Workspace Missing", "Previous workspace location no longer exists")
-            return self._run_setup_wizard(is_first_time=False)
+            return self._run_setup_wizard(is_first_time=False, show_branding=show_branding)
 
         elif workspace_status == "valid":
-            # Display workspace status cleanly with boxed header
-            setup_display.boxed_header(
-                f"{LOGO_ICON} Welcome to AutoClean",
-                TAGLINE,
-                title="[bold green]✓ Workspace Ready[/bold green]"
-            )
-            setup_display.blank_line()
+            # Display workspace status cleanly with boxed header (only if showing branding)
+            if show_branding:
+                setup_display.boxed_header(
+                    f"{LOGO_ICON} Welcome to AutoClean",
+                    TAGLINE,
+                    title="[bold green]✓ Workspace Ready[/bold green]"
+                )
+                setup_display.blank_line()
+            else:
+                # Just show the workspace info without branding
+                setup_display.console.print("[bold]Workspace Configuration[/bold]")
 
-            # Workspace information
-            setup_display.header("Workspace Configuration")
+            # Workspace information (no duplicate header)
             setup_display.workspace_info(self.config_dir, is_valid=True)
 
             # System information
@@ -382,12 +386,13 @@ class UserConfigManager:
         except (json.JSONDecodeError, KeyError, FileNotFoundError):
             return "first_time"
 
-    def _run_setup_wizard(self, is_first_time: bool = True) -> Path:
+    def _run_setup_wizard(self, is_first_time: bool = True, show_branding: bool = True) -> Path:
         """Run setup wizard."""
         from autoclean.utils.cli_display import setup_display
 
-        # Display header based on setup type
-        setup_display.welcome_header(is_first_time)
+        # Display header based on setup type (only if showing branding)
+        if show_branding:
+            setup_display.welcome_header(is_first_time)
 
         if is_first_time:
             # System information for first-time setup
