@@ -132,6 +132,15 @@ class StatisticalLearningEpochsMixin:
             # Extract all events from cleaned annotations
             message("header", "Extracting events from annotations...")
             events_all, event_id_all = mne.events_from_annotations(data)
+            
+            # Skip first 5 events to match MATLAB's y = 5 logic
+            # MATLAB comment: "don't include the very first syllable due to sharp auditory onset response; skip over four 'start codes' plus first syllable"
+            message("header", "Skipping first 5 events to match MATLAB logic...")
+            if len(events_all) > 5:
+                events_all = events_all[5:]  # Skip first 5 events
+                message("debug", f"Skipped first 5 events, now processing {len(events_all)} events")
+            else:
+                raise ValueError(f"Not enough events to skip initial 5 events. Found only {len(events_all)} events.")
 
             # Get the event IDs that correspond to our word onset codes
             word_onset_ids = [
@@ -178,10 +187,6 @@ class StatisticalLearningEpochsMixin:
             valid_events = []
 
             for i, onset_event in enumerate(non_overlapping_events):
-                # MATLAB: # Skip first 4 events (3 start codes + 1st syllable)
-                # Python: # Skip first 1 event of word onset events (1st syllable)
-                if i < 1:
-                    continue
 
                 candidate_sample = onset_event[0]
                 syllable_count = 0
