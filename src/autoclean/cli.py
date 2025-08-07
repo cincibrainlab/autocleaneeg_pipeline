@@ -27,7 +27,11 @@ from rich.table import Table
 from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-from autoclean.utils.branding import AutoCleanBranding
+# Simple branding constants
+PRODUCT_NAME = "AutoClean EEG"
+TAGLINE = "Professional EEG Processing & Analysis Platform" 
+LOGO_ICON = "🧠"
+DIVIDER = "═════════════════════════════════════════════════"
 from autoclean.utils.config import (
     disable_compliance_mode,
     enable_compliance_mode,
@@ -76,7 +80,7 @@ except ImportError:
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for AutoClean CLI."""
     parser = argparse.ArgumentParser(
-        description=f"{AutoCleanBranding.PRODUCT_NAME}\n{AutoCleanBranding.TAGLINE}\n\nGitHub: https://github.com/cincibrainlab/autoclean_pipeline",
+        description=f"{PRODUCT_NAME}\n{TAGLINE}\n\nGitHub: https://github.com/cincibrainlab/autoclean_pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Processing:
@@ -771,6 +775,8 @@ def cmd_review(args) -> int:
 
 def cmd_setup(args) -> int:
     """Run the interactive setup wizard."""
+    from autoclean.utils.cli_display import setup_display
+    
     try:
         # Check if compliance mode flag was passed
         if hasattr(args, "compliance_mode") and args.compliance_mode:
@@ -778,37 +784,68 @@ def cmd_setup(args) -> int:
         else:
             return _run_interactive_setup()
     except Exception as e:
-        message("error", f"Setup failed: {str(e)}")
+        setup_display.error("Setup failed", str(e))
         return 1
+
+
+def _simple_header(console, title: str, subtitle: str = None):
+    """Simple, consistent header for setup."""
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich.align import Align
+    
+    console.print()
+    
+    # Create branding content
+    branding_text = Text()
+    branding_text.append(f"{LOGO_ICON} Welcome to AutoClean", style="bold bright_cyan")
+    branding_text.append(f"\n{TAGLINE}", style="bright_blue")
+    
+    # Create panel with branding
+    branding_panel = Panel(
+        Align.center(branding_text),
+        style="cyan",
+        padding=(0, 1),
+        title_align="center"
+    )
+    
+    console.print(branding_panel)
+    console.print()
+    console.print(f"[bold green]{title}[/bold green]")
+    if subtitle:
+        console.print(f"[yellow]{subtitle}[/yellow]")
+    console.print()
 
 
 def _run_interactive_setup() -> int:
     """Run interactive setup wizard with arrow key navigation."""
+    from rich.console import Console
+    
     try:
+        console = Console()
+        _simple_header(console, "Setup Wizard", "Use arrow keys to navigate, Enter to select")
+        
         if not INQUIRER_AVAILABLE:
-            message(
-                "warning", "Interactive prompts not available. Running basic setup..."
-            )
+            console.print("[yellow]⚠[/yellow] Interactive prompts not available. Running basic setup...")
             user_config.setup_workspace()
             return 0
-
-        message("info", "🧠 AutoClean EEG Setup Wizard")
-        message("info", "Use arrow keys to navigate, Enter to select\n")
 
         # Get current compliance status
         compliance_status = get_compliance_status()
         is_enabled = compliance_status["enabled"]
         is_permanent = compliance_status["permanent"]
 
+        # Display compliance status - simple
+        if is_permanent:
+            console.print("[yellow]⚠[/yellow] FDA 21 CFR Part 11 compliance mode is permanently enabled")
+            console.print("[blue]ℹ[/blue] You can only configure workspace location in compliance mode")
+        elif is_enabled:
+            console.print("[blue]ℹ[/blue] FDA 21 CFR Part 11 compliance mode is currently enabled")
+        else:
+            console.print("[dim]Current compliance mode: disabled[/dim]")
+
         # Check if compliance mode is permanently enabled
         if is_permanent:
-            message(
-                "warning", "FDA 21 CFR Part 11 compliance mode is permanently enabled."
-            )
-            message(
-                "info", "You can only configure workspace location in compliance mode."
-            )
-
             # Only allow workspace configuration
             questions = [
                 inquirer.List(
@@ -822,10 +859,6 @@ def _run_interactive_setup() -> int:
                 )
             ]
         else:
-            # Show current compliance mode status
-            status_msg = "enabled" if is_enabled else "disabled"
-            message("info", f"Current compliance mode: {status_msg}")
-
             # Build setup options based on current state
             choices = [
                 ("Basic setup (standard research use)", "basic"),
@@ -851,23 +884,23 @@ def _run_interactive_setup() -> int:
                     "setup_type",
                     message="What would you like to configure?",
                     choices=choices,
-                    default="workspace_only",
+                    default="basic",
                 )
             ]
 
         answers = inquirer.prompt(questions)
         if not answers:  # User canceled
-            message("info", "Setup canceled.")
+            setup_display.info("Setup canceled")
             return 0
 
         setup_type = answers["setup_type"]
 
         if setup_type == "exit":
-            message("info", "Setup canceled.")
+            setup_display.info("Setup canceled")
             return 0
         elif setup_type == "workspace_only":
             user_config.setup_workspace()
-            message("success", "✓ Workspace setup complete!")
+            setup_display.success("Workspace setup complete!")
             return 0
         elif setup_type == "basic":
             # Standard setup
@@ -883,39 +916,38 @@ def _run_interactive_setup() -> int:
             return _setup_compliance_mode()
 
     except KeyboardInterrupt:
-        message("info", "\nSetup canceled by user.")
+        setup_display.info("Setup canceled by user")
         return 0
     except Exception as e:
-        message("error", f"Interactive setup failed: {e}")
+        setup_display.error("Interactive setup failed", str(e))
         return 1
 
 
 def _setup_basic_mode() -> int:
     """Setup basic (non-compliance) mode."""
+    from rich.console import Console
+    
     try:
+        console = Console()
+        
         if not INQUIRER_AVAILABLE:
             user_config.setup_workspace()
             return 0
 
-        message("info", "\n📋 Basic Setup Configuration")
+        _simple_header(console, "Basic Setup Configuration", "Standard research use")
 
-        # Setup workspace first
-        user_config.setup_workspace()
+        # Simple workspace check - don't show full setup if already configured
+        if user_config._is_workspace_valid():
+            console.print(f"[green]✓[/green] Workspace already configured: {user_config.config_dir}")
+        else:
+            console.print("[blue]ℹ[/blue] Setting up workspace...")
+            # Just ensure workspace exists without showing full flow
+            user_config.config_dir.mkdir(parents=True, exist_ok=True)
+            user_config.tasks_dir.mkdir(parents=True, exist_ok=True)
+            user_config._save_global_config(user_config.config_dir)
+            console.print(f"[green]✓[/green] Workspace created: {user_config.config_dir}")
 
-        # Ask about workspace preferences
-        questions = [
-            inquirer.Confirm(
-                "auto_backup",
-                message="Enable automatic database backups?",
-                default=True,
-            ),
-        ]
-
-        answers = inquirer.prompt(questions)
-        if not answers:
-            return 0
-
-        # Update user configuration
+        # Update user configuration - auto-backup enabled by default
         user_config_data = load_user_config()
 
         # Ensure compliance and workspace are dictionaries
@@ -925,36 +957,41 @@ def _setup_basic_mode() -> int:
             user_config_data["workspace"] = {}
 
         user_config_data["compliance"]["enabled"] = False
-        user_config_data["workspace"]["auto_backup"] = answers["auto_backup"]
+        user_config_data["workspace"]["auto_backup"] = True  # Always enabled for safety
 
         save_user_config(user_config_data)
 
-        message("success", "✓ Basic setup complete!")
-        message("info", "You can now use AutoClean for standard EEG processing.")
-        message("info", "Run 'autoclean-eeg process TaskName file.raw' to get started.")
+        console.print("[green]✓[/green] Basic setup complete!")
+        console.print("[blue]ℹ[/blue] You can now use AutoClean for standard EEG processing")
+        console.print("[blue]ℹ[/blue] Run 'autoclean-eeg process TaskName file.raw' to get started")
 
         return 0
 
     except Exception as e:
-        message("error", f"Basic setup failed: {e}")
+        console.print(f"[red]❌[/red] Basic setup failed: {str(e)}")
         return 1
 
 
 def _setup_compliance_mode() -> int:
     """Setup FDA 21 CFR Part 11 compliance mode with developer-managed Auth0."""
+    from autoclean.utils.cli_display import setup_display
+    
     try:
         if not INQUIRER_AVAILABLE:
-            message("error", "Interactive setup requires 'inquirer' package.")
-            message("info", "Install with: pip install inquirer")
+            setup_display.error("Interactive setup requires 'inquirer' package")
+            setup_display.info("Install with: pip install inquirer")
             return 1
 
-        message("info", "\n🔐 FDA 21 CFR Part 11 Compliance Setup")
-        message("warning", "⚠️  Once enabled, compliance mode cannot be disabled.")
-        message("info", "This mode provides:")
-        message("info", "• Mandatory user authentication")
-        message("info", "• Tamper-proof audit trails")
-        message("info", "• Encrypted data storage")
-        message("info", "• Electronic signature support")
+        setup_display.blank_line()
+        setup_display.header("FDA 21 CFR Part 11 Compliance Setup", "Regulatory compliance mode")
+        setup_display.warning("Once enabled, compliance mode cannot be disabled")
+        setup_display.blank_line()
+        setup_display.console.print("[bold]This mode provides:[/bold]")
+        setup_display.list_item("Mandatory user authentication")
+        setup_display.list_item("Tamper-proof audit trails")
+        setup_display.list_item("Encrypted data storage")
+        setup_display.list_item("Electronic signature support")
+        setup_display.blank_line()
 
         # Confirm user understands permanent nature
         confirm_question = [
@@ -967,7 +1004,7 @@ def _setup_compliance_mode() -> int:
 
         confirm_answer = inquirer.prompt(confirm_question)
         if not confirm_answer or not confirm_answer["confirm_permanent"]:
-            message("info", "Compliance mode setup canceled.")
+            setup_display.info("Compliance mode setup canceled")
             return 0
 
         # Setup Part-11 workspace with suffix
@@ -1011,19 +1048,17 @@ def _setup_compliance_mode() -> int:
 
         save_user_config(user_config_data)
 
-        message("success", "✓ Compliance mode setup complete!")
-        message("info", "\nNext steps:")
-        message("info", "1. Run 'autoclean-eeg login' to authenticate")
-        message("info", "2. Use 'autoclean-eeg whoami' to check authentication status")
-        message(
-            "info",
-            "3. All processing will now include audit trails and user authentication",
-        )
+        setup_display.success("Compliance mode setup complete!")
+        setup_display.blank_line()
+        setup_display.console.print("[bold]Next steps:[/bold]")
+        setup_display.list_item("Run 'autoclean-eeg login' to authenticate", indent=0)
+        setup_display.list_item("Use 'autoclean-eeg whoami' to check authentication status", indent=0)
+        setup_display.list_item("All processing will now include audit trails and user authentication", indent=0)
 
         return 0
 
     except Exception as e:
-        message("error", f"Compliance setup failed: {e}")
+        setup_display.error("Compliance setup failed", str(e))
         return 1
 
 
@@ -1259,8 +1294,10 @@ def cmd_version(args) -> int:
         console = Console()
 
         # Professional header consistent with setup
-        AutoCleanBranding.get_professional_header(console)
-        console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+        console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
+        console.print(f"[dim]{DIVIDER}[/dim]")
+        console.print(f"[dim]{TAGLINE}[/dim]")
+        console.print(f"\n[dim]{DIVIDER}[/dim]")
 
         console.print("\n[bold]Version Information:[/bold]")
         console.print(f"  🏷️  [bold]{__version__}[/bold]")
@@ -1270,7 +1307,7 @@ def cmd_version(args) -> int:
         temp_config = UserConfigManager()
         temp_config._display_system_info(console)
 
-        console.print(f"\n[dim]{AutoCleanBranding.TAGLINE}[/dim]")
+        console.print(f"\n[dim]{TAGLINE}[/dim]")
 
         # GitHub and support info
         console.print("\n[bold]GitHub Repository:[/bold]")
@@ -1602,8 +1639,9 @@ def cmd_help(_args) -> int:
     console = Console()
 
     # Professional header with branding
-    AutoCleanBranding.get_professional_header(console)
-    # console.print(f"\n{AutoCleanBranding.get_simple_divider()}")
+    console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
+    console.print(f"[dim]{DIVIDER}[/dim]")
+    console.print(f"[dim]{TAGLINE}[/dim]")
 
     # Main help sections organized for new users
     console.print("\n[bold bright_green]🚀 Getting Started[/bold bright_green]")
@@ -1725,7 +1763,7 @@ def cmd_tutorial(_args) -> int:
     console = Console()
 
     # Use the tutorial header for consistent branding
-    AutoCleanBranding.print_tutorial_header(console)
+    _simple_header(console, "Tutorial", "Interactive guide to AutoClean EEG")
 
     console.print(
         "\n[bold bright_green]🚀 Welcome to the AutoClean EEG Tutorial![/bold bright_green]"
@@ -2519,10 +2557,10 @@ def main(argv: Optional[list] = None) -> int:
     workspace_dir = user_config.config_dir
 
     # For real sub-commands, log the workspace path via the existing logger.
-    if args.command:
-        # Compact branding header for consistency across all commands
+    if args.command and args.command != "setup":
+        # Compact branding header for consistency across all commands (except setup which has its own branding)
         console = Console()
-        console.print(AutoCleanBranding.get_compact_logo(), style="bright_green")
+        console.print(f"{LOGO_ICON} {PRODUCT_NAME}", style="bright_green")
 
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
             console.print(f"\n[dim]Workspace:[/dim] {workspace_dir}")
@@ -2535,7 +2573,7 @@ def main(argv: Optional[list] = None) -> int:
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = Console()
-        AutoCleanBranding.print_main_interface(console)
+        _simple_header(console, "Welcome", "Professional EEG Processing & Analysis Platform")
 
         # Show workspace info elegantly beneath the banner
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
