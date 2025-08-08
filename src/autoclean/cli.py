@@ -80,79 +80,20 @@ except ImportError:
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for AutoClean CLI."""
     parser = argparse.ArgumentParser(
-        description=f"{PRODUCT_NAME}\n{TAGLINE}\n\nGitHub: https://github.com/cincibrainlab/autoclean_pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Processing:
-  autoclean-eeg setup                           # Interactive setup wizard
-  autoclean-eeg process TaskName data.raw       # Process single file
-  autoclean-eeg process TaskName data_dir/      # Process directory
-  autoclean-eeg list-tasks                      # Show available tasks
-  autoclean-eeg list-tasks --overrides          # Show workspace task overrides
-  autoclean-eeg review                          # Start review GUI (uses workspace/output)
-  autoclean-eeg review --output results/        # Start review GUI with custom directory
-  autoclean-eeg view data.set                   # View EEG files in MNE-QT Browser
-  autoclean-eeg view data.set --no-view         # Validate file without viewing
-
-Authentication (Compliance Mode):  autoclean-eeg setup --compliance-mode        # Enable FDA 21 CFR Part 11 compliance
-  autoclean-eeg login                          # Authenticate with Auth0
-  autoclean-eeg logout                         # Clear authentication
-  autoclean-eeg whoami                         # Show current user status
+Basic Usage:
+  autoclean-eeg setup                          # First time setup
+  autoclean-eeg process RestingEyesOpen data.raw   # Process single file
+  autoclean-eeg list-tasks                     # Show available tasks
+  autoclean-eeg review                         # Start review GUI
 
 Custom Tasks:
-  autoclean-eeg task add my_task.py            # Add custom task
-  autoclean-eeg task list                      # List custom tasks
-  autoclean-eeg task remove TaskName           # Remove custom task
+  autoclean-eeg task add my_task.py            # Add custom task file
+  autoclean-eeg task list                      # List all tasks
 
-Configuration:
-  autoclean-eeg config show                    # Show config location
-  autoclean-eeg config setup                   # Reconfigure workspace
-  autoclean-eeg config reset                   # Reset to defaults
 
-Audit & Export:
-  autoclean-eeg export-access-log              # Export compliance audit log
-  autoclean-eeg version                        # Show version info
-
-Examples:
-  # Simple usage (recommended)
-  autoclean-eeg process RestingEyesOpen data.raw
-  autoclean-eeg process RestingEyesOpen data_directory/
-  
-  # Advanced usage with options
-  autoclean-eeg process --task RestingEyesOpen --file data.raw --output results/
-  autoclean-eeg process --task RestingEyesOpen --dir data/ --output results/ --format "*.raw"
-  
-  # Use Python task file
-  autoclean-eeg process --task-file my_task.py --file data.raw
-  autoclean-eeg process --task-file custom.py --file data.raw
-  
-  # List available tasks
-  autoclean-eeg task list
-  
-  # Start review GUI
-  autoclean-eeg review
-  autoclean-eeg review --output results/
-  
-  # View EEG files
-  autoclean-eeg view data.set
-  autoclean-eeg view data.set --no-view
-  
-  # Add a custom task (saves to user config)  autoclean-eeg task add my_task.py --name MyCustomTask
-  
-  # List all tasks (built-in and custom)
-  autoclean-eeg task list
-  
-  # Remove a custom task
-  autoclean-eeg task remove MyCustomTask
-  
-  # Run setup wizard
-  autoclean-eeg setup
-  
-  # Show user config location
-  autoclean-eeg config show
-  
-  # Compliance and audit features
-  autoclean-eeg export-access-log --format csv --start-date 2025-01-01
+For detailed help on any command: autoclean-eeg <command> --help
         """,
     )
 
@@ -362,11 +303,8 @@ Examples:
 
     # Authentication commands (for compliance mode)
     subparsers.add_parser("login", help="Login to Auth0 for compliance mode")
-
     subparsers.add_parser("logout", help="Logout and clear authentication tokens")
-
     subparsers.add_parser("whoami", help="Show current authenticated user")
-
     auth_diag_parser = subparsers.add_parser(
         "auth0-diagnostics", help="Diagnose Auth0 configuration and connectivity issues"
     )
@@ -1609,127 +1547,10 @@ def cmd_view(args) -> int:
         return 1
 
 
-def cmd_help(_args) -> int:
-    """Show elegant, user-friendly help information."""
-    console = Console()
-
-    # Professional header with branding
-    console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
-    console.print(f"[dim]{DIVIDER}[/dim]")
-    console.print(f"[dim]{TAGLINE}[/dim]")
-
-    # Main help sections organized for new users
-    console.print("\n[bold bright_green]🚀 Getting Started[/bold bright_green]")
-    console.print(
-        "  [bright_yellow]autoclean-eeg setup[/bright_yellow]     [dim]→[/dim] Configure your workspace (run this first!)"
-    )
-    console.print(
-        "  [bright_yellow]autoclean-eeg version[/bright_yellow]   [dim]→[/dim] Check system information"
-    )
-
-    # Core workflow - Processing
-    console.print("\n[bold bright_blue]⚡ Process EEG Data[/bold bright_blue]")
-
-    # Simple usage examples
-    simple_panel = Panel(
-        "[green]autoclean-eeg process RestingEyesOpen data.raw[/green]\n"
-        "[green]autoclean-eeg process MMN data_folder/[/green]\n"
-        "[green]autoclean-eeg process ASSR experiment.edf[/green]\n\n"
-        "[dim]Built-in tasks: RestingEyesOpen, RestingEyesClosed, MMN, ASSR, Chirp[/dim]",
-        title="[bold]Simple Processing[/bold]",
-        border_style="green",
-        padding=(0, 1),
-    )
-
-    # Advanced usage examples
-    advanced_panel = Panel(
-        "[yellow]autoclean-eeg process --task RestingEyesOpen \\[/yellow]\n"
-        "[yellow]  --file data.raw --output results/[/yellow]\n\n"
-        "[yellow]autoclean-eeg process --task-file my_task.py \\[/yellow]\n"
-        '[yellow]  --dir data/ --format "*.raw" --parallel 5[/yellow]\n\n'
-        "[dim]Specify custom output directories, file formats, and parallel processing[/dim]",
-        title="[bold]Advanced Options[/bold]",
-        border_style="yellow",
-        padding=(0, 1),
-    )
-    console.print(Columns([simple_panel, advanced_panel], equal=True, expand=True))
-
-    # Part11 compliance section
-    console.print(
-        "\n[bold bright_red]🔒 FDA 21 CFR Part 11 Compliance[/bold bright_red]"
-    )
-
-    compliance_panel = Panel(
-        "[red]setup --compliance-mode[/red]  [dim]Enable regulatory compliance mode[/dim]\n"
-        "[red]login[/red]                    [dim]Authenticate with Auth0[/dim]\n"
-        "[red]logout[/red]                   [dim]Clear authentication[/dim]\n"
-        "[red]whoami[/red]                   [dim]Show current user status[/dim]\n"
-        "[red]export-access-log[/red]        [dim]Export audit trail[/dim]",
-        title="[bold]Regulated Environments Only[/bold]",
-        border_style="red",
-        padding=(0, 1),
-    )
-
-    console.print(compliance_panel)
-
-    # Task management workflow
-    console.print("\n[bold bright_magenta]📋 Task Management[/bold bright_magenta]")
-
-    task_manage_panel = Panel(
-        "[cyan]task add my_task.py[/cyan]  [dim]Add custom task file[/dim]\n"
-        "[cyan]task remove MyTask[/cyan]   [dim]Remove custom task[/dim]\n"
-        "[cyan]task list[/cyan]          [dim]Show available tasks[/dim]",
-        title="[bold]Tasks Commands[/bold]",
-        border_style="cyan",
-        padding=(0, 1),
-    )
-
-    console.print(task_manage_panel)
-
-    # Quick reference table
-    console.print("\n[bold]📖 Quick Reference[/bold]")
-
-    ref_table = Table(
-        show_header=True, header_style="bold blue", box=None, padding=(0, 1)
-    )
-    ref_table.add_column("Command", style="cyan", no_wrap=True)
-    ref_table.add_column("Purpose", style="dim")
-    ref_table.add_column("Example", style="green")
-
-    ref_table.add_row("process", "Process EEG data", "process RestingEyesOpen data.raw")
-    ref_table.add_row("process --parallel", "Parallel processing", "process MMN data/ --parallel 5")
-    ref_table.add_row("task", "Manage custom tasks", "task add my_task.py")
-    ref_table.add_row("list-tasks", "Show available tasks", "list-tasks")
-    ref_table.add_row("config", "Manage settings", "config show")
-    ref_table.add_row("review", "Review results", "review")
-    ref_table.add_row("view", "View EEG files", "view data.set")
-    ref_table.add_row("setup", "Configure workspace", "setup")
-    ref_table.add_row("version", "System information", "version")
-
-    console.print(ref_table)
-
-    # Help tips
-    console.print("\n[bold]💡 Pro Tips[/bold]")
-    console.print(
-        "  • Get command-specific help: [bright_white]autoclean-eeg <command> --help[/bright_white]"
-    )
-    console.print(
-        "  • Process entire directories: [bright_white]autoclean-eeg process TaskName folder/[/bright_white]"
-    )
-    console.print(
-        "  • Create custom tasks: Save Python task files and add with [bright_white]task add[/bright_white]"
-    )
-    console.print(
-        "  • Run [bright_white]setup[/bright_white] first to configure your workspace"
-    )
-    console.print(
-        "  • Speed up batch processing: [bright_white]--parallel 5[/bright_white] (uses 1-4GB RAM per file)"
-    )
-    # Support section
-    console.print("\n[bold]🤝 Support & Community[/bold]")
-    console.print("  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]")
-    console.print("  [dim]Report issues • Documentation • Contribute • Get help[/dim]")
-
+def cmd_help(args) -> int:
+    """Show the same help as -h/--help."""
+    parser = create_parser()
+    parser.print_help()
     return 0
 
 
