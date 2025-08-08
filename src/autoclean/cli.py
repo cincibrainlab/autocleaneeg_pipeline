@@ -1281,20 +1281,8 @@ def cmd_version(args) -> int:
         console = Console()
 
         # Professional header consistent with setup
-        console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
-        console.print(f"[dim]{DIVIDER}[/dim]")
-        console.print(f"[dim]{TAGLINE}[/dim]")
-        console.print(f"\n[dim]{DIVIDER}[/dim]")
-
-        console.print("\n[bold]Version Information:[/bold]")
+        console.print(f"[bold]{LOGO_ICON} Autoclean-EEG Version Information:[/bold]")
         console.print(f"  🏷️  [bold]{__version__}[/bold]")
-
-        # Include system information for troubleshooting
-        console.print("\n[bold]System Information:[/bold]")
-        temp_config = UserConfigManager()
-        temp_config._display_system_info(console)
-
-        console.print(f"\n[dim]{TAGLINE}[/dim]")
 
         # GitHub and support info
         console.print("\n[bold]GitHub Repository:[/bold]")
@@ -2547,10 +2535,9 @@ def main(argv: Optional[list] = None) -> int:
     if args.command and args.command != "setup":
         # Compact branding header for consistency across all commands (except setup which has its own branding)
         console = Console()
-        console.print(f"{LOGO_ICON} {PRODUCT_NAME}", style="bright_green")
 
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
-            console.print(f"\n[dim]Workspace:[/dim] {workspace_dir}")
+            console.print(f"[green]Autoclean Workspace Directory:[/green] {workspace_dir}")
         else:
             message(
                 "warning",
