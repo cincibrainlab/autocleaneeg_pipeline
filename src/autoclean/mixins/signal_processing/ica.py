@@ -127,6 +127,8 @@ class IcaMixin:
 
         self._update_metadata("step_run_ica", metadata)
 
+        self._auto_export_if_enabled(self.raw, stage_name, True)
+
         save_ica_to_fif(self.final_ica, self.config, data)
 
         message("success", "ICA step complete")

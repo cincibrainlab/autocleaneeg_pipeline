@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working with this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Commit Guidelines
 - DO NOT add anything about claude in git commit messages or descriptions
@@ -307,8 +307,23 @@ For enhanced reproducibility and compliance, the system captures:
 - **Audit Trail**: All changes logged with user context and timestamps
 
 ## Current Status
-- **Version**: 2.0.0 (Major release with breaking changes)
-- **Production Ready**: Yes (85.8% test coverage, dependency locked)
-- **PyPI Publishing**: Ready for deployment
-- **Documentation**: Updated for v2.0.0 workflow
+- **Version**: 2.1.0 (Latest stable release)
+- **Production Ready**: Yes (85.8+ test coverage, dependency locked)
+- **PyPI Publishing**: Available as `autoclean-eeg`
+- **Documentation**: Updated for v2.x workflow
 - **CI/CD**: Cross-platform compatibility (Linux/macOS/Windows)
+
+## Single Test Execution
+```bash
+# Run specific test file
+pytest tests/unit/test_pipeline.py -v
+
+# Run specific test method
+pytest tests/unit/test_pipeline.py::TestPipeline::test_initialization -v
+
+# Run tests matching pattern
+pytest tests/unit/ -k "test_pipeline" -v
+
+# Run with debugging output
+pytest tests/unit/test_pipeline.py -v -s --tb=short
+```
