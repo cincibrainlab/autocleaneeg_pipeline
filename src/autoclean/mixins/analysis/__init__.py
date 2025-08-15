@@ -9,7 +9,7 @@ Classes
 InterTrialCoherenceMixin : Mixin for computing inter-trial coherence analysis
 """
 
-from .inter_trial_coherence import InterTrialCoherenceMixin
+from .intertrial_coherence import InterTrialCoherenceMixin
 
 __all__ = [
     "InterTrialCoherenceMixin",

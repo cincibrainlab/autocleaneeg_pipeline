@@ -8,6 +8,6 @@ pipeline = Pipeline(verbose='INFO')
 
 # Process the file
 pipeline.process_file(
-    file_path="C:/Users/Gam9LG/Documents/DATA/stat_learning/0878_slstructured.raw",
+    file_path="C:/Users/Gam9LG/Documents/DATA/stat_learning/1037_slstructured.raw",
     task="Statistical_Learning",  # Choose appropriate task
 )

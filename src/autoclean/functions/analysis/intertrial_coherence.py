@@ -16,20 +16,34 @@ def compute_itc(
     tmax: float | None = None,
     target_frequencies: list[float] | None = None,
 ):
-    """Compute ROI-averaged PLV and power spectra on the same frequency grid.
+    """Compute ROI-averaged ITC/PLV and power spectra on one frequency grid.
 
-    Power is estimated via a simple periodogram: mean over trials and ROI of
-    |DFT|^2 divided by the number of time samples in the window.
+    Parameters
+    ----------
+    epochs : mne.BaseEpochs
+        Epoched EEG data. Montage is not required for these computations.
+    roi : list[str] | None
+        Channel names to average across. If None or empty, all EEG channels are used.
+    fmin, fmax : float
+        Frequency range in Hz to evaluate.
+    df : float
+        Frequency step used to sample the grid (does not change true resolution ~ 1/T).
+    tmin, tmax : float | None
+        Optional time window in seconds within each epoch. If either is None, the full epoch is used.
+    target_frequencies : list[float] | None
+        Specific frequencies to include on the grid (e.g., 1.111, 3.333). Values outside [fmin, fmax]
+        are ignored with a warning. Included targets are reflected back in ``info``.
+
     Returns
     -------
     freqs : np.ndarray
-        Frequency grid in Hz (includes ``target_frequencies`` if provided and within range).
+        Frequency grid in Hz (includes any valid ``target_frequencies``).
     plv_roi : np.ndarray
-        ROI-averaged PLV at each frequency, values in [0, 1].
+        ROI-averaged PLV (ITC) at each frequency, in [0, 1].
     power_roi : np.ndarray
-        ROI- and trial-averaged power at each frequency (periodogram units).
+        ROI- and trial-averaged power at each frequency (periodogram-style units).
     info : dict
-        Dictionary with key ``target_frequencies`` (np.ndarray or empty list).
+        Contains ``target_frequencies`` (np.ndarray of those included on the grid).
     """
     data = epochs.get_data(picks="eeg")
     sfreq = epochs.info["sfreq"]
@@ -84,8 +98,9 @@ def plot_itc(
     plv: np.ndarray,
     target_frequencies: list[float] | None = None,
     xlim: tuple[float, float] = (0.6, 5.0),
+    output_path: str | None = None,
 ):
-    """Plot a PLV spectrum with optional markers at target frequencies.
+    """Plot an ITC/PLV spectrum with optional vertical lines at target frequencies.
 
     Parameters
     ----------
@@ -93,8 +108,8 @@ def plot_itc(
         Frequency grid in Hz.
     plv : np.ndarray
         PLV values per frequency (typically ROI-averaged).
-    word_frequency, syllable_frequency : float | None
-        Optional target frequencies to annotate on the plot.
+    target_frequencies : list[float] | None
+        Frequencies to annotate with vertical lines on the plot.
     xlim : tuple[float, float]
         X-axis limits in Hz.
 
@@ -118,6 +133,8 @@ def plot_itc(
     plt.grid(alpha=0.3)
     plt.legend()
     plt.tight_layout()
+    if output_path:
+        plt.savefig(output_path)
     return plt.gcf()
 
 
@@ -128,9 +145,25 @@ def export_itc_csv(
     plv_roi: np.ndarray,
     power_roi: np.ndarray,
 ) -> str:
-    """Export a CSV with columns file_name, frequency, phase_locking_value, power.
+    """Export a CSV with columns: file_name, frequency, phase_locking_value, power.
 
-    Returns the path to the written CSV.
+    Parameters
+    ----------
+    output_path : str
+        Destination CSV file. Appends if the file exists; writes header only once.
+    file_name : str
+        Identifier to store in the file_name column (e.g., subject or dataset name).
+    freqs : np.ndarray
+        Frequency grid in Hz.
+    plv_roi : np.ndarray
+        ROI-averaged PLV values per frequency.
+    power_roi : np.ndarray
+        ROI- and trial-averaged power values per frequency.
+
+    Returns
+    -------
+    str
+        The path to the written CSV file.
     """
 
     import os
@@ -152,17 +185,3 @@ def export_itc_csv(
         index=False,
     )
     return output_path
-
-
-if __name__ == "__main__":
-    epochs = mne.read_epochs_eeglab("C:/Users/Gam9LG/Documents/Autoclean-EEG/output/Statistical_Learning/bids/derivatives/autoclean-v2.1.0/intermediate/FLAGGED_08_drop_bad_epochs/1037_slstructured_drop_bad_epochs_epo.set")
-    freqs, plv_roi, power_roi, info = compute_itc(epochs, roi=[f"E{idx + 1}" for idx in [27,19,11,4,117,116,28,12,5,111,110,35,29,6,105,104,103,30,79,54,36,86,40,102]], target_frequencies=[10/9, 30/9])
-    plot_itc(freqs, plv_roi, target_frequencies=info["target_frequencies"])
-    plt.show()
-    export_itc_csv(
-        output_path="./plv_power_spectrum.csv",
-        file_name="glibglob",
-        freqs=freqs,
-        plv_roi=plv_roi,
-        power_roi=power_roi,
-    )

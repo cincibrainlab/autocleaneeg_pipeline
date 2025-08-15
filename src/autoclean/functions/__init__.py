@@ -36,7 +36,9 @@ from .advanced import (
 
 # Analysis functions
 from .analysis import (
-    compute_statistical_learning_itc,
+    compute_itc,
+    plot_itc,
+    export_itc_csv,
 )
 
 # Artifact functions
@@ -106,7 +108,9 @@ __all__ = [
     "detect_outlier_epochs",
     "gfp_clean_epochs",
     # Analysis functions
-    "compute_statistical_learning_itc",
+    "compute_itc",
+    "plot_itc",
+    "export_itc_csv",
     # Artifact functions
     "detect_bad_channels",
     "interpolate_bad_channels",
