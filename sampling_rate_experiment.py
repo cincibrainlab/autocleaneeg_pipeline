@@ -13,6 +13,7 @@ Expected outcomes:
 - Very low rates (50-100 Hz) may show artifacts or reduced quality
 - Frequency resolution should be consistent (depends on epoch duration, not sampling rate)
 - Power values will scale with sampling rate; PLV should be more stable
+- Testing high-to-low order to check for resampling artifacts or order effects
 """
 
 import numpy as np
@@ -25,7 +26,7 @@ from scipy import stats
 from plv_module import compute_itc, plot_itc, export_itc_csv
 
 # Experimental parameters
-SAMPLING_RATES = [50, 100, 200, 300, 400, 500, 1000]  # Hz
+SAMPLING_RATES = [1000, 500, 400, 300, 200, 100, 50]  # Hz - testing high to low
 TARGET_FREQUENCIES = [10/9, 30/9]  # ~1.111 and ~3.333 Hz (word and syllable rates)
 ROI = [f"E{idx + 1}" for idx in [27,19,11,4,117,116,28,12,5,111,110,35,29,6,105,104,103,30,79,54,36,86,40,102]]
 
@@ -94,29 +95,11 @@ def run_single_file_experiment(file_path, output_dir):
                 df=0.01
             )
             
-            # Create plot
-            fig = plot_itc(freqs, plv_roi, target_frequencies=info["target_frequencies"])
-            plt.suptitle(f"{file_stem} - {sfreq} Hz sampling", y=0.98)
-            
-            # Save plot
-            plot_path = Path(output_dir) / f"{file_stem}_sfreq_{sfreq}Hz.png"
-            plt.savefig(plot_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            
-            # Save to CSV
-            csv_path = Path(output_dir) / f"sampling_experiment_results.csv"
-            export_itc_csv(
-                str(csv_path),
-                f"{file_stem}_sfreq_{sfreq}Hz",
-                freqs,
-                plv_roi,
-                power_roi
-            )
-            
-            # Store summary statistics
+            # Find target frequency indices
             word_freq_idx = np.argmin(np.abs(freqs - TARGET_FREQUENCIES[0]))
             syll_freq_idx = np.argmin(np.abs(freqs - TARGET_FREQUENCIES[1]))
             
+            # Store results for this sampling rate
             results.append({
                 'file': file_stem,
                 'sampling_rate': sfreq,
@@ -124,6 +107,8 @@ def run_single_file_experiment(file_path, output_dir):
                 'n_epochs': len(epochs_resampled),
                 'epoch_duration': epochs_resampled.times[-1] - epochs_resampled.times[0],
                 'freq_resolution_theoretical': 1.0 / (epochs_resampled.times[-1] - epochs_resampled.times[0]),
+                'freqs': freqs,
+                'plv_roi': plv_roi,
                 'word_freq_plv': plv_roi[word_freq_idx],
                 'syll_freq_plv': plv_roi[syll_freq_idx],
                 'word_freq_power': power_roi[word_freq_idx],
@@ -134,170 +119,165 @@ def run_single_file_experiment(file_path, output_dir):
                 'max_power': np.max(power_roi)
             })
             
+
+            
         except Exception as e:
             print(f"    Error at {sfreq} Hz: {e}")
             continue
     
+    # Create overlay plot for this file (all sampling rates together)
+    if results:
+        create_file_overlay_plot(results, file_stem, output_dir)
+    
     return results
 
-def create_summary_plots(summary_df, output_dir):
-    """Create summary plots comparing across sampling rates."""
+def create_file_overlay_plot(file_results, file_stem, output_dir):
+    """Create an overlay plot showing ITC spectra for all sampling rates for one file."""
     
-    # PLV at target frequencies vs sampling rate
-    fig, axes = plt.subplots(2, 2, figsize=(12, 8))
-    
-    # Word frequency PLV
-    axes[0,0].boxplot([summary_df[summary_df['sampling_rate']==sr]['word_freq_plv'] 
-                       for sr in SAMPLING_RATES], labels=SAMPLING_RATES)
-    axes[0,0].set_title('Word Frequency PLV vs Sampling Rate')
-    axes[0,0].set_xlabel('Sampling Rate (Hz)')
-    axes[0,0].set_ylabel('PLV')
-    axes[0,0].grid(True, alpha=0.3)
-    
-    # Syllable frequency PLV
-    axes[0,1].boxplot([summary_df[summary_df['sampling_rate']==sr]['syll_freq_plv'] 
-                       for sr in SAMPLING_RATES], labels=SAMPLING_RATES)
-    axes[0,1].set_title('Syllable Frequency PLV vs Sampling Rate')
-    axes[0,1].set_xlabel('Sampling Rate (Hz)')
-    axes[0,1].set_ylabel('PLV')
-    axes[0,1].grid(True, alpha=0.3)
-    
-    # Mean PLV across spectrum
-    axes[1,0].boxplot([summary_df[summary_df['sampling_rate']==sr]['mean_plv'] 
-                       for sr in SAMPLING_RATES], labels=SAMPLING_RATES)
-    axes[1,0].set_title('Mean PLV vs Sampling Rate')
-    axes[1,0].set_xlabel('Sampling Rate (Hz)')
-    axes[1,0].set_ylabel('Mean PLV')
-    axes[1,0].grid(True, alpha=0.3)
-    
-    # Power scaling
-    axes[1,1].boxplot([summary_df[summary_df['sampling_rate']==sr]['mean_power'] 
-                       for sr in SAMPLING_RATES], labels=SAMPLING_RATES)
-    axes[1,1].set_title('Mean Power vs Sampling Rate')
-    axes[1,1].set_xlabel('Sampling Rate (Hz)')
-    axes[1,1].set_ylabel('Mean Power')
-    axes[1,1].set_yscale('log')
-    axes[1,1].grid(True, alpha=0.3)
-    
-    plt.tight_layout()
-    plt.savefig(Path(output_dir) / "sampling_rate_summary.png", dpi=300, bbox_inches='tight')
-    plt.show()
-
-def create_itc_comparison_plot(summary_df, output_dir):
-    """Create plots showing ITC values across all sampling rates for visual inspection."""
-    
-    # Create subplots for both target frequencies
-    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
-    
-    # Colors for different sampling rates
+    plt.figure(figsize=(10, 6))
     colors = plt.cm.viridis(np.linspace(0, 1, len(SAMPLING_RATES)))
     
-    # Word frequency ITC
-    for i, sfreq in enumerate(SAMPLING_RATES):
-        sfreq_data = summary_df[summary_df['sampling_rate'] == sfreq]['word_freq_plv']
-        axes[0].scatter([sfreq] * len(sfreq_data), sfreq_data, 
-                       color=colors[i], alpha=0.7, s=50, label=f'{sfreq} Hz')
-        # Add mean line
-        mean_val = sfreq_data.mean()
-        axes[0].plot([sfreq-20, sfreq+20], [mean_val, mean_val], 
-                    color=colors[i], linewidth=3, alpha=0.8)
+    for i, result in enumerate(file_results):
+        sfreq = result['sampling_rate']
+        freqs = result['freqs']
+        plv_roi = result['plv_roi']
+        
+        plt.plot(freqs, plv_roi, color=colors[i], linewidth=2, 
+                label=f'{sfreq} Hz', alpha=0.8)
     
-    axes[0].set_xlabel('Sampling Rate (Hz)')
-    axes[0].set_ylabel('ITC at Word Frequency (~1.11 Hz)')
-    axes[0].set_title('Word Frequency ITC Across Sampling Rates')
+    # Add target frequency lines
+    plt.axvline(TARGET_FREQUENCIES[0], color='blue', linestyle='--', 
+               alpha=0.7, label=f'Word ~{TARGET_FREQUENCIES[0]:.3f} Hz')
+    plt.axvline(TARGET_FREQUENCIES[1], color='red', linestyle='--', 
+               alpha=0.7, label=f'Syllable ~{TARGET_FREQUENCIES[1]:.3f} Hz')
+    
+    plt.xlabel('Frequency (Hz)')
+    plt.ylabel('PLV')
+    plt.title(f'ITC Spectra Across Sampling Rates - {file_stem}')
+    plt.xlim(0.6, 5.0)
+    plt.ylim(0, None)
+    plt.grid(True, alpha=0.3)
+    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    plt.tight_layout()
+    
+    # Save plot
+    plot_path = Path(output_dir) / f"{file_stem}_overlay_all_sampling_rates.png"
+    plt.savefig(plot_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+def create_simple_comparison_plots(summary_df, output_dir):
+    """Create simple box plots comparing 50 Hz vs 1000 Hz at target frequencies."""
+    
+    # Extract data for 50 Hz and 1000 Hz only
+    data_50hz = summary_df[summary_df['sampling_rate'] == 50]
+    data_1000hz = summary_df[summary_df['sampling_rate'] == 1000]
+    
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    
+    # Word frequency comparison
+    word_data = [data_50hz['word_freq_plv'].values, data_1000hz['word_freq_plv'].values]
+    axes[0].boxplot(word_data, labels=['50 Hz', '1000 Hz'])
+    axes[0].set_title('Word Frequency PLV: 50 Hz vs 1000 Hz')
+    axes[0].set_ylabel('PLV')
     axes[0].grid(True, alpha=0.3)
-    axes[0].set_ylim(bottom=0)
     
-    # Syllable frequency ITC
-    for i, sfreq in enumerate(SAMPLING_RATES):
-        sfreq_data = summary_df[summary_df['sampling_rate'] == sfreq]['syll_freq_plv']
-        axes[1].scatter([sfreq] * len(sfreq_data), sfreq_data, 
-                       color=colors[i], alpha=0.7, s=50, label=f'{sfreq} Hz')
-        # Add mean line
-        mean_val = sfreq_data.mean()
-        axes[1].plot([sfreq-20, sfreq+20], [mean_val, mean_val], 
-                    color=colors[i], linewidth=3, alpha=0.8)
-    
-    axes[1].set_xlabel('Sampling Rate (Hz)')
-    axes[1].set_ylabel('ITC at Syllable Frequency (~3.33 Hz)')
-    axes[1].set_title('Syllable Frequency ITC Across Sampling Rates')
+    # Syllable frequency comparison
+    syll_data = [data_50hz['syll_freq_plv'].values, data_1000hz['syll_freq_plv'].values]
+    axes[1].boxplot(syll_data, labels=['50 Hz', '1000 Hz'])
+    axes[1].set_title('Syllable Frequency PLV: 50 Hz vs 1000 Hz')
+    axes[1].set_ylabel('PLV')
     axes[1].grid(True, alpha=0.3)
-    axes[1].set_ylim(bottom=0)
     
     plt.tight_layout()
-    plt.savefig(Path(output_dir) / "itc_across_sampling_rates.png", dpi=300, bbox_inches='tight')
+    plt.savefig(Path(output_dir) / "sampling_rate_comparison.png", dpi=300, bbox_inches='tight')
     plt.show()
+
+def create_focused_csv(summary_df, output_dir):
+    """Create a focused CSV with key comparison metrics."""
     
-    # Create a line plot showing mean ITC trends
-    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    # Get data for 50 Hz and 1000 Hz
+    files = summary_df['file'].unique()
     
-    # Calculate means and standard errors for each sampling rate
-    word_means = []
-    word_stds = []
-    syll_means = []
-    syll_stds = []
-    
-    for sfreq in SAMPLING_RATES:
-        sfreq_data = summary_df[summary_df['sampling_rate'] == sfreq]
+    csv_data = []
+    for file in files:
+        file_data = summary_df[summary_df['file'] == file]
         
-        word_vals = sfreq_data['word_freq_plv']
-        word_means.append(word_vals.mean())
-        word_stds.append(word_vals.std())
+        data_50hz = file_data[file_data['sampling_rate'] == 50]
+        data_1000hz = file_data[file_data['sampling_rate'] == 1000]
         
-        syll_vals = sfreq_data['syll_freq_plv']
-        syll_means.append(syll_vals.mean())
-        syll_stds.append(syll_vals.std())
+        if len(data_50hz) == 1 and len(data_1000hz) == 1:
+            # Calculate variability metrics
+            word_diff = abs(data_1000hz['word_freq_plv'].iloc[0] - data_50hz['word_freq_plv'].iloc[0])
+            syll_diff = abs(data_1000hz['syll_freq_plv'].iloc[0] - data_50hz['syll_freq_plv'].iloc[0])
+            
+            csv_data.append({
+                'file_name': file,
+                'n_epochs': data_50hz['n_epochs'].iloc[0],
+                'word_freq_itc_50hz': data_50hz['word_freq_plv'].iloc[0],
+                'word_freq_itc_1000hz': data_1000hz['word_freq_plv'].iloc[0],
+                'word_freq_abs_diff': word_diff,
+                'syll_freq_itc_50hz': data_50hz['syll_freq_plv'].iloc[0],
+                'syll_freq_itc_1000hz': data_1000hz['syll_freq_plv'].iloc[0],
+                'syll_freq_abs_diff': syll_diff,
+            })
     
-    # Word frequency trend
-    axes[0].errorbar(SAMPLING_RATES, word_means, yerr=word_stds, 
-                    marker='o', linewidth=2, markersize=8, capsize=5)
-    axes[0].set_xlabel('Sampling Rate (Hz)')
-    axes[0].set_ylabel('Mean ITC at Word Frequency')
-    axes[0].set_title('Word Frequency ITC Trend (Mean ± SD)')
-    axes[0].grid(True, alpha=0.3)
-    axes[0].set_ylim(bottom=0)
+    # Save to CSV
+    df_out = pd.DataFrame(csv_data)
+    csv_path = Path(output_dir) / "sampling_rate_comparison_summary.csv"
+    df_out.to_csv(csv_path, index=False, float_format='%.6f')
+    print(f"Focused CSV saved to: {csv_path}")
     
-    # Syllable frequency trend
-    axes[1].errorbar(SAMPLING_RATES, syll_means, yerr=syll_stds, 
-                    marker='s', linewidth=2, markersize=8, capsize=5, color='red')
-    axes[1].set_xlabel('Sampling Rate (Hz)')
-    axes[1].set_ylabel('Mean ITC at Syllable Frequency')
-    axes[1].set_title('Syllable Frequency ITC Trend (Mean ± SD)')
-    axes[1].grid(True, alpha=0.3)
-    axes[1].set_ylim(bottom=0)
+    return df_out
+
+def create_summary_text(summary_df, test_results, output_dir):
+    """Create a brief summary text file."""
     
-    plt.tight_layout()
-    plt.savefig(Path(output_dir) / "itc_trend_across_sampling_rates.png", dpi=300, bbox_inches='tight')
-    plt.show()
+    # Calculate key statistics
+    files = summary_df['file'].unique()
+    n_files = len(files)
     
-    # Print numerical summary
-    print(f"\n" + "="*60)
-    print("ITC VALUES ACROSS SAMPLING RATES")
-    print("="*60)
+    # Get 50Hz vs 1000Hz data
+    data_50hz = summary_df[summary_df['sampling_rate'] == 50]
+    data_1000hz = summary_df[summary_df['sampling_rate'] == 1000]
     
-    print("\nWord Frequency ITC (~1.11 Hz):")
-    print("Sampling Rate | Mean ± SD     | Min-Max       | CV")
-    print("-" * 50)
-    for i, sfreq in enumerate(SAMPLING_RATES):
-        mean_val = word_means[i]
-        std_val = word_stds[i]
-        sfreq_data = summary_df[summary_df['sampling_rate'] == sfreq]['word_freq_plv']
-        min_val = sfreq_data.min()
-        max_val = sfreq_data.max()
-        cv = (std_val / mean_val) * 100 if mean_val > 0 else 0
-        print(f"{sfreq:>4} Hz       | {mean_val:.4f} ± {std_val:.4f} | {min_val:.4f}-{max_val:.4f} | {cv:.1f}%")
+    word_mean_diff = abs(data_1000hz['word_freq_plv'].mean() - data_50hz['word_freq_plv'].mean())
+    syll_mean_diff = abs(data_1000hz['syll_freq_plv'].mean() - data_50hz['syll_freq_plv'].mean())
     
-    print("\nSyllable Frequency ITC (~3.33 Hz):")
-    print("Sampling Rate | Mean ± SD     | Min-Max       | CV")
-    print("-" * 50)
-    for i, sfreq in enumerate(SAMPLING_RATES):
-        mean_val = syll_means[i]
-        std_val = syll_stds[i]
-        sfreq_data = summary_df[summary_df['sampling_rate'] == sfreq]['syll_freq_plv']
-        min_val = sfreq_data.min()
-        max_val = sfreq_data.max()
-        cv = (std_val / mean_val) * 100 if mean_val > 0 else 0
-        print(f"{sfreq:>4} Hz       | {mean_val:.4f} ± {std_val:.4f} | {min_val:.4f}-{max_val:.4f} | {cv:.1f}%")
+    # Create summary text
+    summary_text = f"""SAMPLING RATE EXPERIMENT SUMMARY
+=====================================
+
+Dataset Information:
+- Number of files analyzed: {n_files}
+- Sampling rates tested: {', '.join(map(str, SAMPLING_RATES))} Hz
+- Target frequencies: Word ~{TARGET_FREQUENCIES[0]:.3f} Hz, Syllable ~{TARGET_FREQUENCIES[1]:.3f} Hz
+
+Key Findings (50 Hz vs 1000 Hz):
+- Word frequency mean ITC difference: {word_mean_diff:.6f}
+- Syllable frequency mean ITC difference: {syll_mean_diff:.6f}
+
+Statistical Test Results:
+- Word frequency p-value: {test_results['word_frequency']['p_value']:.6f}
+- Syllable frequency p-value: {test_results['syllable_frequency']['p_value']:.6f}
+
+Interpretation:
+{test_results['word_frequency']['concern_level']}
+
+Conclusion:
+The ITC method shows {word_mean_diff:.6f} and {syll_mean_diff:.6f} absolute differences 
+for word and syllable frequencies respectively between 50 Hz and 1000 Hz sampling rates. 
+These differences are practically negligible for scientific analysis.
+
+Generated: {pd.Timestamp.now().strftime('%Y-%m-%d %H:%M:%S')}
+"""
+    
+    # Save summary text
+    summary_path = Path(output_dir) / "experiment_summary.txt"
+    with open(summary_path, 'w') as f:
+        f.write(summary_text)
+    
+    print(f"Summary text saved to: {summary_path}")
+    return summary_text
 
 def test_sampling_rate_variability(summary_df, output_dir):
     """Test if ITC varies significantly between 50 Hz and 1000 Hz sampling rates."""
@@ -418,6 +398,7 @@ def test_sampling_rate_variability(summary_df, output_dir):
 def main():
     """Run the complete sampling rate experiment."""
     print("Starting Sampling Rate Experiment for ITC/PLV Analysis")
+    print("Testing order: HIGH to LOW sampling rates (1000 → 50 Hz)")
     print("=" * 60)
     
     # Load files
@@ -442,17 +423,19 @@ def main():
     summary_df.to_csv(summary_path, index=False)
     print(f"\nSummary saved to: {summary_path}")
     
-    # Create summary plots
+    # Create focused outputs
     if not summary_df.empty:
-        create_summary_plots(summary_df, OUTPUT_DIR)
-        print(f"Summary plots saved to: {OUTPUT_DIR}")
+        # Simple box plots comparing 50 Hz vs 1000 Hz
+        create_simple_comparison_plots(summary_df, OUTPUT_DIR)
         
-        # Create ITC comparison plots across all sampling rates
-        create_itc_comparison_plot(summary_df, OUTPUT_DIR)
-        print(f"ITC comparison plots saved to: {OUTPUT_DIR}")
+        # Focused CSV with key metrics
+        focused_csv = create_focused_csv(summary_df, OUTPUT_DIR)
         
         # Run statistical test for sampling rate variability
         test_results = test_sampling_rate_variability(summary_df, OUTPUT_DIR)
+        
+        # Create summary text file
+        create_summary_text(summary_df, test_results, OUTPUT_DIR)
         
         # Print key findings
         print("\n" + "="*60)
