@@ -132,7 +132,7 @@ class RichHelpAction(argparse.Action):
 
 
 class RootRichHelpAction(argparse.Action):
-    """Root -h/--help: show styled header + context, then elegant summary help."""
+    """Root -h/--help: show styled header + context; supports optional topic like '-h auth'."""
 
     def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
         from rich.table import Table as _Table
@@ -140,6 +140,26 @@ class RootRichHelpAction(argparse.Action):
         console = get_console(namespace if isinstance(namespace, argparse.Namespace) else None)
         _simple_header(console)
         _print_startup_context(console)
+
+        topic = (values or "").strip().lower() if isinstance(values, str) else None
+        if topic in {"auth", "authentication"}:
+            console.print("[header]Auth Commands[/header]")
+            tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+            tbl.add_column("Command", style="accent", no_wrap=True)
+            tbl.add_column("Description", style="muted")
+            tbl.add_column("Example", style="muted")
+            rows = [
+                ("login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline login"),
+                ("logout", "Logout and clear tokens", "autocleaneeg-pipeline logout"),
+                ("whoami", "Show authenticated user", "autocleaneeg-pipeline whoami"),
+                ("auth0-diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth0-diagnostics"),
+                ("setup --compliance-mode", "Enable compliance mode (Auth0)", "autocleaneeg-pipeline setup --compliance-mode"),
+            ]
+            for c, d, e in rows:
+                tbl.add_row(c, d, e)
+            console.print(tbl)
+            console.print("[muted]Tip: For details on a command, run '<command> --help'.[/muted]")
+            sys.exit(0)
 
         console.print("[header]Commands[/header]")
         tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
@@ -153,6 +173,7 @@ class RootRichHelpAction(argparse.Action):
             ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
             ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
             ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
+            ("auth", "Authentication commands", "autocleaneeg-pipeline -h auth"),
         ]
         for c, d, e in rows:
             tbl.add_row(c, d, e)
@@ -169,7 +190,8 @@ def attach_rich_help(p: argparse.ArgumentParser, *, root: bool = False) -> None:
                 p._actions.remove(a)
                 break
     action = RootRichHelpAction if root else RichHelpAction
-    p.add_argument('-h', '--help', action=action, nargs=0, help='Show help')
+    nargs = '?' if root else 0
+    p.add_argument('-h', '--help', action=action, nargs=nargs, help='Show help (use "-h auth" for authentication help)')
 
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
@@ -522,6 +544,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )  # Help command (for consistency)
     attach_rich_help(_version)
     _help = subparsers.add_parser("help", help="Show detailed help information", add_help=False)
+    _help.add_argument("topic", nargs="?", help="Optional help topic (e.g., 'auth')")
     attach_rich_help(_help)
 
     # Tutorial command
@@ -1778,6 +1801,26 @@ def cmd_help(args) -> int:
     _simple_header(console)
     _print_startup_context(console)
 
+    topic = getattr(args, "topic", None)
+    if topic and topic.lower() in {"auth", "authentication"}:
+        console.print("[header]Auth Commands[/header]")
+        tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        tbl.add_column("Example", style="muted")
+        rows = [
+            ("login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline login"),
+            ("logout", "Logout and clear tokens", "autocleaneeg-pipeline logout"),
+            ("whoami", "Show authenticated user", "autocleaneeg-pipeline whoami"),
+            ("auth0-diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth0-diagnostics"),
+            ("setup --compliance-mode", "Enable compliance mode (Auth0)", "autocleaneeg-pipeline setup --compliance-mode"),
+        ]
+        for c, d, e in rows:
+            tbl.add_row(c, d, e)
+        console.print(tbl)
+        console.print("[muted]Tip: For details on a command, run '<command> --help'.[/muted]")
+        return 0
+
     console.print("[header]Commands[/header]")
     tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
     tbl.add_column("Command", style="accent", no_wrap=True)
@@ -1790,6 +1833,7 @@ def cmd_help(args) -> int:
         ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
         ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
         ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
+        ("auth", "Authentication commands", "autocleaneeg-pipeline -h auth"),
     ]
     for c, d, e in rows:
         tbl.add_row(c, d, e)
