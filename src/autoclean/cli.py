@@ -752,7 +752,7 @@ def cmd_setup(args) -> int:
         return 1
 
 
-def _simple_header(console, title: str, subtitle: str = None):
+def _simple_header(console, title: Optional[str] = None, subtitle: Optional[str] = None):
     """Simple, consistent header for setup."""
     from rich.align import Align
     from rich.panel import Panel
@@ -760,9 +760,11 @@ def _simple_header(console, title: str, subtitle: str = None):
 
     console.print()
 
-    # Create branding content
+    # Create branding content (no borders; app name with version)
     branding_text = Text()
-    branding_text.append(f"{LOGO_ICON} Welcome to AutoClean", style="brand")
+    branding_text.append(
+        f"{LOGO_ICON} AutocleanEEG Pipeline ({__version__})", style="brand"
+    )
     branding_text.append(f"\n{TAGLINE}", style="accent")
 
     # Create panel with branding
@@ -770,12 +772,13 @@ def _simple_header(console, title: str, subtitle: str = None):
         Align.center(branding_text),
         padding=(0, 1),
         title_align="center",
-        border_style="border",
+        box=None,
     )
 
     console.print(branding_panel)
     console.print()
-    console.print(f"[title]{title}[/title]")
+    if title:
+        console.print(f"[title]{title}[/title]")
     if subtitle:
         console.print(f"[subtitle]{subtitle}[/subtitle]")
     console.print()
@@ -2441,9 +2444,7 @@ def main(argv: Optional[list] = None) -> int:
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = get_console(args)
-        _simple_header(
-            console, "Welcome", "Professional EEG Processing & Analysis Platform"
-        )
+        _simple_header(console)
 
         # Show workspace info elegantly beneath the banner
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
