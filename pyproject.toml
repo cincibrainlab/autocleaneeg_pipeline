@@ -81,6 +81,8 @@ dependencies = [
     "PyMuPDF",
     "pyvistaqt>=0.11.2",
     "qtpy>=2.4.3",
+    # OpenGL acceleration
+    "PyOpenGL-accelerate",
     # Documentation dependencies
     "mkdocs",
     "mkdocs-material",
