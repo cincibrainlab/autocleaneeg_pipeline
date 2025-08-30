@@ -149,11 +149,13 @@ class RootRichHelpAction(argparse.Action):
             tbl.add_column("Description", style="muted")
             tbl.add_column("Example", style="muted")
             rows = [
-                ("login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline login"),
-                ("logout", "Logout and clear tokens", "autocleaneeg-pipeline logout"),
-                ("whoami", "Show authenticated user", "autocleaneeg-pipeline whoami"),
-                ("auth0-diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth0-diagnostics"),
-                ("setup --compliance-mode", "Enable compliance mode (Auth0)", "autocleaneeg-pipeline setup --compliance-mode"),
+                ("auth login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline auth login"),
+                ("auth logout", "Logout and clear tokens", "autocleaneeg-pipeline auth logout"),
+                ("auth whoami", "Show authenticated user", "autocleaneeg-pipeline auth whoami"),
+                ("auth diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth diagnostics"),
+                ("auth setup", "Enable Part-11 compliance (permanent)", "autocleaneeg-pipeline auth setup"),
+                ("auth enable", "Enable compliance mode (non-permanent)", "autocleaneeg-pipeline auth enable"),
+                ("auth disable", "Disable compliance mode (if permitted)", "autocleaneeg-pipeline auth disable"),
             ]
             for c, d, e in rows:
                 tbl.add_row(c, d, e)
@@ -166,15 +168,15 @@ class RootRichHelpAction(argparse.Action):
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         tbl.add_column("Example", style="muted")
-        rows = [
-            ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
-            ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
-            ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
-            ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
-            ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
-            ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
-            ("auth", "Authentication commands", "autocleaneeg-pipeline -h auth"),
-        ]
+    rows = [
+        ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
+        ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
+        ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
+        ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
+        ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
+        ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
+        ("auth", "Authentication & Part-11 commands", "autocleaneeg-pipeline auth --help | -h auth"),
+    ]
         for c, d, e in rows:
             tbl.add_row(c, d, e)
         console.print(tbl)
@@ -552,6 +554,34 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "tutorial", help="Show a helpful tutorial for first-time users", add_help=False
     )
     attach_rich_help(_tutorial)
+
+    # Auth command group (aliases for authentication/Part-11 tasks)
+    auth_parser = subparsers.add_parser(
+        "auth", help="Authentication & Part-11 commands", add_help=False
+    )
+    attach_rich_help(auth_parser)
+    auth_subparsers = auth_parser.add_subparsers(dest="auth_action", help="Auth actions")
+
+    auth_login = auth_subparsers.add_parser("login", help="Login to Auth0", add_help=False)
+    attach_rich_help(auth_login)
+
+    auth_logout = auth_subparsers.add_parser("logout", help="Logout and clear tokens", add_help=False)
+    attach_rich_help(auth_logout)
+
+    auth_whoami = auth_subparsers.add_parser("whoami", help="Show authenticated user", add_help=False)
+    attach_rich_help(auth_whoami)
+
+    auth_diag = auth_subparsers.add_parser("diagnostics", help="Diagnose Auth0 configuration/connectivity", add_help=False)
+    attach_rich_help(auth_diag)
+
+    auth_setup = auth_subparsers.add_parser("setup", help="Enable Part-11 compliance (permanent)", add_help=False)
+    attach_rich_help(auth_setup)
+
+    auth_enable = auth_subparsers.add_parser("enable", help="Enable compliance mode (non-permanent)", add_help=False)
+    attach_rich_help(auth_enable)
+
+    auth_disable = auth_subparsers.add_parser("disable", help="Disable compliance mode (if permitted)", add_help=False)
+    attach_rich_help(auth_disable)
 
     return parser
 
@@ -1794,6 +1824,27 @@ def cmd_view(args) -> int:
         return 1
 
 
+def cmd_auth(args) -> int:
+    """Dispatch for 'auth' subcommands."""
+    action = getattr(args, "auth_action", None)
+    if action == "login":
+        return cmd_login(args)
+    if action == "logout":
+        return cmd_logout(args)
+    if action == "whoami":
+        return cmd_whoami(args)
+    if action == "diagnostics":
+        return cmd_auth0_diagnostics(args)
+    if action == "setup":
+        return _setup_compliance_mode()
+    if action == "enable":
+        return _enable_compliance_mode()
+    if action == "disable":
+        return _disable_compliance_mode()
+    message("error", "No auth action specified")
+    return 1
+
+
 def cmd_help(args) -> int:
     """Styled help output consistent with rich header."""
     from rich.table import Table as _Table
@@ -2800,6 +2851,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_whoami(args)
     elif args.command == "auth0-diagnostics":
         return cmd_auth0_diagnostics(args)
+    elif args.command == "auth":
+        return cmd_auth(args)
     elif args.command == "clean-task":
         return cmd_clean_task(args)
     elif args.command == "view":
