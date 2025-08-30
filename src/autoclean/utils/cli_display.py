@@ -7,7 +7,7 @@ visually appealing user interactions.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 try:
     from rich.align import Align
@@ -238,7 +238,7 @@ class CLIDisplay:
 
     def migration_prompt(self, old_path: Path, new_path: Path) -> bool:
         """Prompt for workspace migration."""
-        self.console.print(f"\n[bold cyan]Workspace Migration[/bold cyan]")
+        self.console.print("\n[bold cyan]Workspace Migration[/bold cyan]")
         self.console.print(
             f"[yellow]From:[/yellow] [dim bright_white]{old_path}[/dim bright_white]"
         )

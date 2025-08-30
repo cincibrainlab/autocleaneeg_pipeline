@@ -1,13 +1,9 @@
 """Unit tests for mixin discovery system."""
 
-import sys
-from pathlib import Path
-from typing import Any, List, Type
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 
-from tests.fixtures.test_utils import BaseTestCase
 
 # Import will be mocked for tests that don't need full functionality
 try:

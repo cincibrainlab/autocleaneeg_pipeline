@@ -10,7 +10,7 @@ import json
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import mne
 import numpy as np
@@ -239,7 +239,7 @@ class TestQualityControlThresholds:
                 # May or may not have specific QC files depending on implementation
                 # The main test is that processing handles poor quality data gracefully
 
-            except Exception as processing_error:
+            except Exception:
                 # Poor quality data might cause processing to fail, which is acceptable
                 pass
 

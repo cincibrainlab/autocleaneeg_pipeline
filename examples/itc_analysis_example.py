@@ -54,7 +54,7 @@ class StatisticalLearningITCTask(Task):
             significant_mask, threshold = validate_itc_significance(
                 itc.data, n_trials, alpha=0.05, verbose=False
             )
-            print(f"\nSignificance Testing:")
+            print("\nSignificance Testing:")
             print(f"  Threshold (α=0.05): {threshold:.4f}")
             print(
                 f"  Significant time-freq points: {np.sum(significant_mask)}/{significant_mask.size}"

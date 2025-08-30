@@ -1,11 +1,9 @@
 """Unit tests for montage utilities."""
 
-from typing import Dict, List
 from unittest.mock import Mock, mock_open, patch
 
 import pytest
 
-from tests.fixtures.test_utils import BaseTestCase
 
 # Import will be mocked for tests that don't need full functionality
 try:

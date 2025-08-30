@@ -7,12 +7,11 @@ Tests the complete workflow using Python task files with synthetic data.
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
-from tests.fixtures.test_utils import MockOperations
 
 # Only run if core imports are available
 pytest.importorskip("autoclean.core.pipeline")
