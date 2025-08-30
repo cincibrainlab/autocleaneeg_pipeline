@@ -145,45 +145,49 @@ class RootRichHelpAction(argparse.Action):
 
 
 def _print_root_help(console, topic: Optional[str] = None) -> None:
-    """Print the root help menu with optional topic sections."""
+    """Print the root help menu with optional topic sections, in a clean minimalist layout."""
     from rich.table import Table as _Table
+    # Compact usage line for quick orientation
+    console.print("[muted]Usage:[/muted] [accent]autocleaneeg-pipeline <command> [options][/accent]")
+    console.print()
 
     if topic in {"auth", "authentication"}:
         console.print("[header]Auth Commands[/header]")
-        tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
-        tbl.add_column("Example", style="muted")
+        
         rows = [
-            ("auth login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline auth login"),
-            ("auth logout", "Logout and clear tokens", "autocleaneeg-pipeline auth logout"),
-            ("auth whoami", "Show authenticated user", "autocleaneeg-pipeline auth whoami"),
-            ("auth diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth diagnostics"),
-            ("auth setup", "Enable Part-11 compliance (permanent)", "autocleaneeg-pipeline auth setup"),
-            ("auth enable", "Enable compliance mode (non-permanent)", "autocleaneeg-pipeline auth enable"),
-            ("auth disable", "Disable compliance mode (if permitted)", "autocleaneeg-pipeline auth disable"),
+            ("🔐 auth login", "Login to Auth0 (compliance mode)"),
+            ("🔓 auth logout", "Logout and clear tokens"),
+            ("👤 auth whoami", "Show authenticated user"),
+            ("🩺 auth diagnostics", "Diagnose Auth0 configuration/connectivity"),
+            ("⚙️ auth setup", "Enable Part-11 compliance (permanent)"),
+            ("🟢 auth enable", "Enable compliance mode (non-permanent)"),
+            ("🔴 auth disable", "Disable compliance mode (if permitted)"),
         ]
-        for c, d, e in rows:
-            tbl.add_row(c, d, e)
+        for c, d in rows:
+            tbl.add_row(c, d)
         console.print(tbl)
         console.print("[muted]Tip: For details on a command, run '<command> --help'.[/muted]")
         return
 
     console.print("[header]Commands[/header]")
-    tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+    tbl = _Table(show_header=False, box=None, padding=(0, 1))
     tbl.add_column("Command", style="accent", no_wrap=True)
     tbl.add_column("Description", style="muted")
-    tbl.add_column("Example", style="muted")
+    
     rows = [
-        ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
-        ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
-        ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
-        ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
-        ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
-        ("auth", "Authentication & Part-11 commands", "autocleaneeg-pipeline auth --help | -h auth"),
+        ("❓ help", "Show help and topics (alias for -h/--help)"),
+        ("⚙️ setup", "Setup or reconfigure workspace"),
+        ("👁 view", "View EEG file (MNE-QT)"),
+        ("📜 list-tasks", "List available tasks"),
+        ("▶ process", "Process EEG data"),
+        ("📝 review", "Start review GUI"),
+        ("🔐 auth", "Authentication & Part-11 commands"),
     ]
-    for c, d, e in rows:
-        tbl.add_row(c, d, e)
+    for c, d in rows:
+        tbl.add_row(c, d)
     console.print(tbl)
     console.print("[muted]Tip: Use '<command> --help' for detailed options.[/muted]")
 
