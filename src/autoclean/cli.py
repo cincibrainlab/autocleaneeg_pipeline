@@ -20,6 +20,8 @@ from typing import Optional
 
 import requests
 from rich.console import Console
+from rich.theme import Theme
+from rich.style import Style
 from rich.panel import Panel
 from rich.table import Table
 
@@ -43,6 +45,147 @@ from autoclean.utils.task_discovery import (
     safe_discover_tasks,
 )
 from autoclean.utils.user_config import user_config
+
+# ------------------------------------------------------------
+# Theming & Console configuration
+# ------------------------------------------------------------
+# Respect env knobs and provide semantic styles mapped via a Theme.
+# Users can override detection with env or --theme.
+AUTOCLEAN_THEME = os.getenv("AUTOCLEAN_THEME", "auto")  # auto|dark|light|hc|mono
+AUTOCLEAN_COLOR_DEPTH = os.getenv("AUTOCLEAN_COLOR_DEPTH", "auto")  # auto|8|256|truecolor
+NO_COLOR = os.getenv("NO_COLOR") is not None
+FORCE_COLOR = os.getenv("FORCE_COLOR") is not None
+
+
+def _choose_color_system():
+    if NO_COLOR:
+        return None
+    if AUTOCLEAN_COLOR_DEPTH == "8":
+        return "standard"
+    if AUTOCLEAN_COLOR_DEPTH == "256":
+        return "256"
+    if AUTOCLEAN_COLOR_DEPTH == "truecolor":
+        return "truecolor"
+    return "auto"
+
+
+def _is_probably_dark_terminal() -> bool:
+    # No reliable background detection; prefer dark as sensible default
+    if os.getenv("TERM_PROGRAM") in {"iTerm.app", "Apple_Terminal"}:
+        return True
+    return True
+
+
+def _resolve_mode(explicit: Optional[str] = None) -> str:
+    mode = (explicit or AUTOCLEAN_THEME or "auto").lower()
+    if mode == "auto":
+        return "dark" if _is_probably_dark_terminal() else "light"
+    if mode in ("hc", "high-contrast"):
+        return "hc"
+    if mode in ("mono", "monochrome"):
+        return "mono"
+    if mode in ("dark", "light"):
+        return mode
+    return "dark"
+
+
+def _theme_for(mode: str) -> Theme:
+    # Define semantic styles; do not hard-code literal hues elsewhere.
+    if mode == "mono":
+        return Theme(
+            {
+                "brand": "bold",
+                "title": "bold underline",
+                "subtitle": "italic",
+                "header": "bold",
+                "accent": "bold",
+                "info": "bold",
+                "success": "bold",
+                "warning": "bold",
+                "error": "bold",
+                "muted": "dim",
+                "dim": "dim",
+                "border": "bold",
+            }
+        )
+
+    if mode == "hc":
+        return Theme(
+            {
+                "brand": Style(color="#000000", bgcolor="#FFD54F", bold=True),
+                "title": Style(color="#000000", bgcolor="#FFFFFF", bold=True),
+                "subtitle": Style(color="#000000", bgcolor="#EEEEEE"),
+                "header": Style(color="#000000", bgcolor="#DDDDDD", bold=True),
+                "accent": "bold",
+                "info": "bright_white",
+                "success": "bright_green",
+                "warning": "bright_yellow bold",
+                "error": "bright_red bold",
+                "muted": "grey93 on #333333",
+                "dim": "dim",
+                "border": "bright_white",
+            }
+        )
+
+    if mode == "light":
+        return Theme(
+            {
+                "brand": "#005f99 bold",
+                "title": "#003554 bold",
+                "subtitle": "#334155 italic",
+                "header": "#0f172a bold",
+                "accent": "#124559",
+                "info": "#1e40af",
+                "success": "#166534",
+                "warning": "#b45309",
+                "error": "#b91c1c",
+                "muted": "#475569",
+                "dim": "dim",
+                "border": "#0ea5e9",
+            }
+        )
+
+    # default: dark
+    return Theme(
+        {
+            "brand": "#00b8d9 bold",
+            "title": "bold",
+            "subtitle": "italic dim",
+            "header": "bold #e2e8f0",
+            "accent": "#80cbc4",
+            "info": "#7dd3fc",
+            "success": "bold #22c55e",
+            "warning": "bold #f59e0b",
+            "error": "bold #ef4444",
+            "muted": "#94a3b8",
+            "dim": "dim",
+            "border": "#38bdf8",
+        }
+    )
+
+
+def make_console(theme_mode: Optional[str] = None) -> Console:
+    if NO_COLOR and not FORCE_COLOR:
+        return Console(color_system=None, no_color=True, highlight=False, soft_wrap=True)
+    mode = _resolve_mode(theme_mode)
+    return Console(
+        theme=_theme_for(mode),
+        color_system=_choose_color_system(),
+        highlight=False,
+        soft_wrap=True,
+        force_terminal=True if FORCE_COLOR else None,
+    )
+
+
+GLOBAL_CONSOLE: Optional[Console] = None
+
+
+def get_console(args: Optional[argparse.Namespace] = None) -> Console:
+    global GLOBAL_CONSOLE
+    if GLOBAL_CONSOLE is None:
+        explicit_mode = getattr(args, "theme", None) if args else None
+        GLOBAL_CONSOLE = make_console(explicit_mode)
+    return GLOBAL_CONSOLE
 
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
@@ -96,6 +239,14 @@ Custom Tasks:
 
 For detailed help on any command: autocleaneeg-pipeline <command> --help
         """,
+    )
+
+    # Global UI options
+    parser.add_argument(
+        "--theme",
+        choices=["auto", "dark", "light", "hc", "mono"],
+        default="auto",
+        help="CLI color theme (default: auto). Use 'mono' for no hues, 'hc' for high contrast.",
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
@@ -518,30 +669,30 @@ def cmd_process(args) -> int:
 def cmd_list_tasks(args) -> int:
     """Execute the list-tasks command."""
     try:
-        console = Console()
+        console = get_console(args)
 
         # If --overrides flag is specified, show override information
         if hasattr(args, "overrides") and args.overrides:
             overrides = get_task_overrides()
 
             if not overrides:
-                console.print("\n[green]✓[/green] [bold]No Task Overrides[/bold]")
+                console.print("\n[success]✓[/success] [title]No Task Overrides[/title]")
                 console.print(
-                    "[dim]All tasks are using their built-in package versions.[/dim]"
+                    "[muted]All tasks are using their built-in package versions.[/muted]"
                 )
                 return 0
 
             console.print(
-                f"\n[bold]Task Overrides[/bold] [dim]({len(overrides)} found)[/dim]\n"
+                f"\n[title]Task Overrides[/title] [muted]({len(overrides)} found)[/muted]\n"
             )
 
             override_table = Table(
-                show_header=True, header_style="bold yellow", box=None, padding=(0, 1)
+                show_header=True, header_style="header", box=None, padding=(0, 1)
             )
-            override_table.add_column("Task Name", style="cyan", no_wrap=True)
-            override_table.add_column("Workspace Source", style="green")
-            override_table.add_column("Built-in Source", style="dim")
-            override_table.add_column("Description", style="dim", max_width=40)
+            override_table.add_column("Task Name", style="accent", no_wrap=True)
+            override_table.add_column("Workspace Source", style="info")
+            override_table.add_column("Built-in Source", style="muted")
+            override_table.add_column("Description", style="muted", max_width=40)
 
             for override in sorted(overrides, key=lambda x: x.task_name):
                 workspace_file = Path(override.workspace_source).name
@@ -555,20 +706,20 @@ def cmd_list_tasks(args) -> int:
 
             override_panel = Panel(
                 override_table,
-                title="[bold]Workspace Tasks Overriding Built-in Tasks[/bold]",
-                border_style="yellow",
+                title="[title]Workspace Tasks Overriding Built-in Tasks[/title]",
+                border_style="border",
                 padding=(1, 1),
             )
             console.print(override_panel)
 
             console.print(
-                "\n[dim]💡 Tip: Move workspace tasks to a different name to use built-in versions.[/dim]"
+                "\n[muted]💡 Tip: Move workspace tasks to a different name to use built-in versions.[/muted]"
             )
             return 0
 
         valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
-        console.print("\n[bold]Available Processing Tasks[/bold]\n")
+        console.print("\n[title]Available Processing Tasks[/title]\n")
 
         # --- Built-in Tasks ---
         built_in_tasks = [
@@ -576,11 +727,11 @@ def cmd_list_tasks(args) -> int:
         ]
         if built_in_tasks:
             built_in_table = Table(
-                show_header=True, header_style="bold blue", box=None, padding=(0, 1)
+                show_header=True, header_style="header", box=None, padding=(0, 1)
             )
-            built_in_table.add_column("Task Name", style="cyan", no_wrap=True)
-            built_in_table.add_column("Module", style="dim")
-            built_in_table.add_column("Description", style="dim", max_width=50)
+            built_in_table.add_column("Task Name", style="accent", no_wrap=True)
+            built_in_table.add_column("Module", style="muted")
+            built_in_table.add_column("Description", style="muted", max_width=50)
 
             for task in sorted(built_in_tasks, key=lambda x: x.name):
                 # Extract just the module name from the full path
@@ -591,17 +742,17 @@ def cmd_list_tasks(args) -> int:
 
             built_in_panel = Panel(
                 built_in_table,
-                title="[bold]Built-in Tasks[/bold]",
-                border_style="blue",
+                title="[title]Built-in Tasks[/title]",
+                border_style="border",
                 padding=(1, 1),
             )
             console.print(built_in_panel)
         else:
             console.print(
                 Panel(
-                    "[dim]No built-in tasks found[/dim]",
-                    title="[bold]Built-in Tasks[/bold]",
-                    border_style="blue",
+                    "[muted]No built-in tasks found[/muted]",
+                    title="[title]Built-in Tasks[/title]",
+                    border_style="border",
                     padding=(1, 1),
                 )
             )
@@ -612,11 +763,11 @@ def cmd_list_tasks(args) -> int:
         ]
         if custom_tasks:
             custom_table = Table(
-                show_header=True, header_style="bold magenta", box=None, padding=(0, 1)
+                show_header=True, header_style="header", box=None, padding=(0, 1)
             )
-            custom_table.add_column("Task Name", style="magenta", no_wrap=True)
-            custom_table.add_column("File", style="dim")
-            custom_table.add_column("Description", style="dim", max_width=50)
+            custom_table.add_column("Task Name", style="accent", no_wrap=True)
+            custom_table.add_column("File", style="muted")
+            custom_table.add_column("Description", style="muted", max_width=50)
 
             for task in sorted(custom_tasks, key=lambda x: x.name):
                 # Show just the filename for custom tasks
@@ -627,18 +778,18 @@ def cmd_list_tasks(args) -> int:
 
             custom_panel = Panel(
                 custom_table,
-                title="[bold]Custom Tasks[/bold]",
-                border_style="magenta",
+                title="[title]Custom Tasks[/title]",
+                border_style="border",
                 padding=(1, 1),
             )
             console.print(custom_panel)
         else:
             console.print(
                 Panel(
-                    "[dim]No custom tasks found.\n"
-                    "Use [yellow]autocleaneeg-pipeline task add <file.py>[/yellow] to add one.[/dim]",
-                    title="[bold]Custom Tasks[/bold]",
-                    border_style="magenta",
+                    "[muted]No custom tasks found.\n"
+                    "Use [accent]autocleaneeg-pipeline task add <file.py>[/accent] to add one.[/muted]",
+                    title="[title]Custom Tasks[/title]",
+                    border_style="border",
                     padding=(1, 1),
                 )
             )
@@ -646,10 +797,10 @@ def cmd_list_tasks(args) -> int:
         # --- Skipped Task Files ---
         if skipped_files:
             skipped_table = Table(
-                show_header=True, header_style="bold yellow", box=None, padding=(0, 1)
+                show_header=True, header_style="header", box=None, padding=(0, 1)
             )
-            skipped_table.add_column("File", style="yellow", no_wrap=True)
-            skipped_table.add_column("Reason", style="dim", max_width=70)
+            skipped_table.add_column("File", style="warning", no_wrap=True)
+            skipped_table.add_column("Reason", style="muted", max_width=70)
 
             for file in skipped_files:
                 # Show just the filename for skipped files
@@ -658,8 +809,8 @@ def cmd_list_tasks(args) -> int:
 
             skipped_panel = Panel(
                 skipped_table,
-                title="[bold]Skipped Task Files[/bold]",
-                border_style="yellow",
+                title="[title]Skipped Task Files[/title]",
+                border_style="border",
                 padding=(1, 1),
             )
             console.print(skipped_panel)
@@ -667,10 +818,10 @@ def cmd_list_tasks(args) -> int:
         # --- Invalid Task Files ---
         if invalid_files:
             invalid_table = Table(
-                show_header=True, header_style="bold red", box=None, padding=(0, 1)
+                show_header=True, header_style="header", box=None, padding=(0, 1)
             )
-            invalid_table.add_column("File", style="red", no_wrap=True)
-            invalid_table.add_column("Error", style="yellow", max_width=70)
+            invalid_table.add_column("File", style="error", no_wrap=True)
+            invalid_table.add_column("Error", style="warning", max_width=70)
 
             for file in invalid_files:
                 # Show relative path if in workspace, otherwise just filename
@@ -684,17 +835,17 @@ def cmd_list_tasks(args) -> int:
 
             invalid_panel = Panel(
                 invalid_table,
-                title="[bold]Invalid Task Files[/bold]",
-                border_style="red",
+                title="[title]Invalid Task Files[/title]",
+                border_style="border",
                 padding=(1, 1),
             )
             console.print(invalid_panel)
 
         # Summary statistics
         console.print(
-            f"\n[dim]Found {len(valid_tasks)} valid tasks "
+            f"\n[muted]Found {len(valid_tasks)} valid tasks "
             f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom), "
-            f"{len(skipped_files)} skipped files, and {len(invalid_files)} invalid files[/dim]"
+            f"{len(skipped_files)} skipped files, and {len(invalid_files)} invalid files[/muted]"
         )
 
         return 0
@@ -753,35 +904,34 @@ def _simple_header(console, title: str, subtitle: str = None):
 
     # Create branding content
     branding_text = Text()
-    branding_text.append(f"{LOGO_ICON} Welcome to AutoClean", style="bold bright_cyan")
-    branding_text.append(f"\n{TAGLINE}", style="bright_blue")
+    branding_text.append(f"{LOGO_ICON} Welcome to AutoClean", style="brand")
+    branding_text.append(f"\n{TAGLINE}", style="accent")
 
     # Create panel with branding
     branding_panel = Panel(
-        Align.center(branding_text), style="cyan", padding=(0, 1), title_align="center"
+        Align.center(branding_text), padding=(0, 1), title_align="center", border_style="border"
     )
 
     console.print(branding_panel)
     console.print()
-    console.print(f"[bold green]{title}[/bold green]")
+    console.print(f"[title]{title}[/title]")
     if subtitle:
-        console.print(f"[yellow]{subtitle}[/yellow]")
+        console.print(f"[subtitle]{subtitle}[/subtitle]")
     console.print()
 
 
 def _run_interactive_setup() -> int:
     """Run interactive setup wizard with arrow key navigation."""
-    from rich.console import Console
 
     try:
-        console = Console()
+        console = get_console()
         _simple_header(
             console, "Setup Wizard", "Use arrow keys to navigate, Enter to select"
         )
 
         if not INQUIRER_AVAILABLE:
             console.print(
-                "[yellow]⚠[/yellow] Interactive prompts not available. Running basic setup..."
+                "[warning]⚠ Interactive prompts not available. Running basic setup...[/warning]"
             )
             user_config.setup_workspace()
             return 0
@@ -794,17 +944,17 @@ def _run_interactive_setup() -> int:
         # Display compliance status - simple
         if is_permanent:
             console.print(
-                "[yellow]⚠[/yellow] FDA 21 CFR Part 11 compliance mode is permanently enabled"
+                "[warning]⚠ FDA 21 CFR Part 11 compliance mode is permanently enabled[/warning]"
             )
             console.print(
-                "[blue]ℹ[/blue] You can only configure workspace location in compliance mode"
+                "[info]ℹ You can only configure workspace location in compliance mode[/info]"
             )
         elif is_enabled:
             console.print(
-                "[blue]ℹ[/blue] FDA 21 CFR Part 11 compliance mode is currently enabled"
+                "[info]ℹ FDA 21 CFR Part 11 compliance mode is currently enabled[/info]"
             )
         else:
-            console.print("[dim]Current compliance mode: disabled[/dim]")
+            console.print("[muted]Current compliance mode: disabled[/muted]")
 
         # Check if compliance mode is permanently enabled
         if is_permanent:
@@ -871,24 +1021,23 @@ def _run_interactive_setup() -> int:
     except KeyboardInterrupt:
         return 0
     except Exception as e:
-        console.print(f"[red]❌[/red] Interactive setup failed: {str(e)}")
+        console.print(f"[error]❌ Interactive setup failed: {str(e)}[/error]")
         return 1
 
 
 def _setup_basic_mode() -> int:
     """Setup basic (non-compliance) mode."""
-    from rich.console import Console
 
     try:
-        console = Console()
+        console = get_console()
 
         if not INQUIRER_AVAILABLE:
             user_config.setup_workspace()
             return 0
 
         console.print()
-        console.print("[bold green]Basic Setup Configuration[/bold green]")
-        console.print("[dim]Workspace + standard research use[/dim]")
+        console.print("[title]Basic Setup Configuration[/title]")
+        console.print("[muted]Workspace + standard research use[/muted]")
         console.print()
 
         # Always run full workspace setup (includes prompting to change location if exists)
@@ -909,18 +1058,18 @@ def _setup_basic_mode() -> int:
 
         save_user_config(user_config_data)
 
-        console.print("[green]✓[/green] Basic setup complete!")
+        console.print("[success]✓ Basic setup complete![/success]")
         console.print(
-            "[blue]ℹ[/blue] You can now use AutoClean for standard EEG processing"
+            "[info]ℹ You can now use AutoClean for standard EEG processing[/info]"
         )
         console.print(
-            "[blue]ℹ[/blue] Run 'autocleaneeg-pipeline process TaskName file.raw' to get started"
+            "[info]ℹ Run 'autocleaneeg-pipeline process TaskName file.raw' to get started[/info]"
         )
 
         return 0
 
     except Exception as e:
-        console.print(f"[red]❌[/red] Basic setup failed: {str(e)}")
+        console.print(f"[error]❌ Basic setup failed: {str(e)}[/error]")
         return 1
 
 
@@ -1257,18 +1406,18 @@ def _disable_compliance_mode() -> int:
 def cmd_version(args) -> int:
     """Show version information."""
     try:
-        console = Console()
+        console = get_console(args)
 
         # Professional header consistent with setup
-        console.print(f"[bold]{LOGO_ICON} Autoclean-EEG Version Information:[/bold]")
-        console.print(f"  🏷️  [bold]{__version__}[/bold]")
+        console.print(f"[title]{LOGO_ICON} Autoclean-EEG Version Information:[/title]")
+        console.print(f"  🏷️  [brand]{__version__}[/brand]")
 
         # GitHub and support info
-        console.print("\n[bold]GitHub Repository:[/bold]")
+        console.print("\n[header]GitHub Repository:[/header]")
         console.print(
-            "  [blue]https://github.com/cincibrainlab/autoclean_pipeline[/blue]"
+            "  [info]https://github.com/cincibrainlab/autoclean_pipeline[/info]"
         )
-        console.print("  [dim]Report issues, contribute, or get help[/dim]")
+        console.print("  [muted]Report issues, contribute, or get help[/muted]")
 
         return 0
     except ImportError:
@@ -1449,7 +1598,7 @@ def cmd_config_import(args) -> int:
 
 def cmd_clean_task(args) -> int:
     """Remove task output directory and database entries."""
-    console = Console()
+    console = get_console(args)
 
     # Determine output directory
     output_dir = args.output_dir or user_config._get_workspace_path()
@@ -1476,7 +1625,7 @@ def cmd_clean_task(args) -> int:
 
     if len(potential_dirs) > 1:
         console.print(
-            f"\n[yellow]Multiple directories found matching '{args.task}':[/yellow]"
+            f"\n[warning]Multiple directories found matching '{args.task}':[/warning]"
         )
         for i, dir_path in enumerate(potential_dirs, 1):
             console.print(f"  {i}. {dir_path.name}")
@@ -1516,35 +1665,35 @@ def cmd_clean_task(args) -> int:
             pass
 
     # Display what will be deleted
-    console.print("\n[bold]Task Cleanup Summary:[/bold]")
-    console.print(f"Task: [cyan]{args.task}[/cyan]")
-    console.print(f"Directory: [yellow]{task_root_dir}[/yellow]")
-    console.print(f"Files: [red]{total_files:,}[/red]")
-    console.print(f"Size: [red]{size_str}[/red]")
+    console.print("\n[title]Task Cleanup Summary:[/title]")
+    console.print(f"Task: [accent]{args.task}[/accent]")
+    console.print(f"Directory: [accent]{task_root_dir}[/accent]")
+    console.print(f"Files: [warning]{total_files:,}[/warning]")
+    console.print(f"Size: [warning]{size_str}[/warning]")
     if db_entries > 0:
-        console.print(f"Database entries: [red]{db_entries}[/red]")
+        console.print(f"Database entries: [warning]{db_entries}[/warning]")
 
     if args.dry_run:
-        console.print("\n[yellow]DRY RUN - No files will be deleted[/yellow]")
+        console.print("\n[warning]DRY RUN - No files will be deleted[/warning]")
         return 0
 
     # Simple Y/N confirmation
     if not args.force:
         confirm = (
-            console.input("\n[bold red]Delete this task? (Y/N):[/bold red] ")
+            console.input("\n[error]Delete this task? (Y/N):[/error] ")
             .strip()
             .upper()
         )
         if confirm != "Y":
-            console.print("[yellow]Cancelled[/yellow]")
+            console.print("[warning]Cancelled[/warning]")
             return 1
 
     # Perform deletion
     try:
         # Delete filesystem
-        console.print("\n[bold]Cleaning task files...[/bold]")
+        console.print("\n[header]Cleaning task files...[/header]")
         shutil.rmtree(task_root_dir)
-        console.print(f"✓ Removed directory: {task_root_dir}")
+        console.print(f"[success]✓ Removed directory: {task_root_dir}[/success]")
 
         # Delete database entries for both task name and directory name
         if db_entries > 0 and DB_PATH:
@@ -1556,13 +1705,13 @@ def cmd_clean_task(args) -> int:
             )
             conn.commit()
             conn.close()
-            console.print(f"✓ Removed {db_entries} database entries")
+            console.print(f"[success]✓ Removed {db_entries} database entries[/success]")
 
-        console.print("\n[green]Task cleaned successfully![/green]")
+        console.print("\n[success]Task cleaned successfully![/success]")
         return 0
 
     except Exception as e:
-        console.print(f"\n[red]Error during cleanup: {e}[/red]")
+        console.print(f"\n[error]Error during cleanup: {e}[/error]")
         return 1
 
 
@@ -1610,36 +1759,36 @@ def cmd_help(args) -> int:
 
 def cmd_tutorial(_args) -> int:
     """Show a helpful tutorial for first-time users."""
-    console = Console()
+    console = get_console()
 
     # Use the tutorial header for consistent branding
     _simple_header(console, "Tutorial", "Interactive guide to AutoClean EEG")
 
     console.print(
-        "\n[bold bright_green]🚀 Welcome to the AutoClean EEG Tutorial![/bold bright_green]"
+        "\n[title]🚀 Welcome to the AutoClean EEG Tutorial![/title]"
     )
     console.print(
         "This tutorial will walk you through the basics of using AutoClean EEG."
     )
     console.print(
-        "\n[bold bright_yellow]Step 1: Setup your workspace[/bold bright_yellow]"
+        "\n[header]Step 1: Setup your workspace[/header]"
     )
     console.print(
         "The first step is to set up your workspace. This is where AutoClean EEG will store its configuration and any custom tasks you create."
     )
     console.print("To do this, run the following command:")
-    console.print("\n[green]autocleaneeg-pipeline setup[/green]\n")
+    console.print("\n[accent]autocleaneeg-pipeline setup[/accent]\n")
 
     console.print(
-        "\n[bold bright_yellow]Step 2: List available tasks[/bold bright_yellow]"
+        "\n[header]Step 2: List available tasks[/header]"
     )
     console.print(
         "Once your workspace is set up, you can see the built-in processing tasks that are available."
     )
     console.print("To do this, run the following command:")
-    console.print("\n[green]autocleaneeg-pipeline task list[/green]\n")
+    console.print("\n[accent]autocleaneeg-pipeline task list[/accent]\n")
 
-    console.print("\n[bold bright_yellow]Step 3: Process a file[/bold bright_yellow]")
+    console.print("\n[header]Step 3: Process a file[/header]")
     console.print(
         "Now you are ready to process a file. You will need to specify the task you want to use and the path to the file you want to process."
     )
@@ -1647,7 +1796,7 @@ def cmd_tutorial(_args) -> int:
         "For example, to process a file called 'data.raw' with the 'RestingEyesOpen' task, you would run the following command:"
     )
     console.print(
-        "\n[green]autocleaneeg-pipeline process RestingEyesOpen data.raw[/green]\n"
+        "\n[accent]autocleaneeg-pipeline process RestingEyesOpen data.raw[/accent]\n"
     )
 
     return 0
@@ -2070,30 +2219,30 @@ def cmd_whoami(args) -> int:
 def cmd_auth0_diagnostics(args) -> int:
     """Execute the auth0-diagnostics command."""
     try:
-        console = Console()
+        console = get_console(args)
 
         # Header
-        console.print("\n🔍 [bold]Auth0 Configuration Diagnostics[/bold]", style="blue")
-        console.print("[dim]Checking Auth0 setup and connectivity...[/dim]\n")
+        console.print("\n🔍 [title]Auth0 Configuration Diagnostics[/title]")
+        console.print("[muted]Checking Auth0 setup and connectivity...[/muted]\n")
 
         # 1. Check compliance mode
         compliance_enabled = is_compliance_mode_enabled()
         console.print(
-            f"✓ Compliance mode: {'[green]Enabled[/green]' if compliance_enabled else '[yellow]Disabled[/yellow]'}"
+            f"✓ Compliance mode: {'[success]Enabled[/success]' if compliance_enabled else '[warning]Disabled[/warning]'}"
         )
 
         if not compliance_enabled:
             console.print(
-                "[yellow]ℹ[/yellow] Auth0 is only used in compliance mode. Run 'autocleaneeg-pipeline setup --compliance-mode' to enable."
+                "[info]ℹ Auth0 is only used in compliance mode. Run 'autocleaneeg-pipeline setup --compliance-mode' to enable.[/info]"
             )
             return 0
 
         # 2. Check environment variables
-        console.print("\n📋 [bold]Environment Variables[/bold]")
-        env_table = Table(show_header=True, header_style="bold blue")
-        env_table.add_column("Variable", style="cyan", no_wrap=True)
-        env_table.add_column("Status", style="green")
-        env_table.add_column("Value Preview", style="dim")
+        console.print("\n📋 [header]Environment Variables[/header]")
+        env_table = Table(show_header=True, header_style="header")
+        env_table.add_column("Variable", style="accent", no_wrap=True)
+        env_table.add_column("Status", style="success")
+        env_table.add_column("Value Preview", style="muted")
 
         env_vars = [
             ("AUTOCLEAN_AUTH0_DOMAIN", os.getenv("AUTOCLEAN_AUTH0_DOMAIN")),
@@ -2116,12 +2265,12 @@ def cmd_auth0_diagnostics(args) -> int:
                     preview = var_value
                 env_table.add_row(var_name, "✓ Set", preview)
             else:
-                env_table.add_row(var_name, "[red]✗ Not Set[/red]", "")
+                env_table.add_row(var_name, "[error]✗ Not Set[/error]", "")
 
         console.print(env_table)
 
         # 3. Check .env file
-        console.print("\n📄 [bold].env File Detection[/bold]")
+        console.print("\n📄 [header].env File Detection[/header]")
         env_paths = [
             Path(".env"),
             Path(".env.local"),
@@ -2131,7 +2280,7 @@ def cmd_auth0_diagnostics(args) -> int:
         env_found = False
         for env_path in env_paths:
             if env_path.exists():
-                console.print(f"✓ Found .env file: [cyan]{env_path.absolute()}[/cyan]")
+                console.print(f"✓ Found .env file: [accent]{env_path.absolute()}[/accent]")
                 env_found = True
                 if args.verbose:
                     try:
@@ -2144,7 +2293,7 @@ def cmd_auth0_diagnostics(args) -> int:
                                 and not line.strip().startswith("#")
                             ]
                             if auth_lines:
-                                console.print("[dim]  Auth0 variables in file:[/dim]")
+                                console.print("[muted]  Auth0 variables in file:[/muted]")
                                 for line in auth_lines:
                                     # Mask secrets
                                     if "SECRET" in line and "=" in line:
@@ -2155,21 +2304,21 @@ def cmd_auth0_diagnostics(args) -> int:
                                             else "***"
                                         )
                                         console.print(
-                                            f"[dim]    {key}={masked_value}[/dim]"
+                                            f"[muted]    {key}={masked_value}[/muted]"
                                         )
                                     else:
-                                        console.print(f"[dim]    {line}[/dim]")
+                                        console.print(f"[muted]    {line}[/muted]")
                     except Exception as e:
-                        console.print(f"[red]  Error reading file: {e}[/red]")
+                        console.print(f"[error]  Error reading file: {e}[/error]")
                 break
 
         if not env_found:
             console.print(
-                "[yellow]⚠[/yellow] No .env file found in current or parent directories"
+                "[warning]⚠ No .env file found in current or parent directories[/warning]"
             )
 
         # 4. Test credential loading
-        console.print("\n🔧 [bold]Credential Loading Test[/bold]")
+        console.print("\n🔧 [header]Credential Loading Test[/header]")
         try:
             auth_manager = get_auth0_manager()
             credentials = auth_manager._load_developer_credentials()
@@ -2177,23 +2326,23 @@ def cmd_auth0_diagnostics(args) -> int:
             if credentials:
                 console.print("✓ Credentials loaded successfully")
                 console.print(
-                    f"  Source: [cyan]{credentials.get('source', 'unknown')}[/cyan]"
+                    f"  Source: [accent]{credentials.get('source', 'unknown')}[/accent]"
                 )
                 console.print(
-                    f"  Domain: [cyan]{credentials.get('domain', 'NOT FOUND')}[/cyan]"
+                    f"  Domain: [accent]{credentials.get('domain', 'NOT FOUND')}[/accent]"
                 )
                 client_id = credentials.get("client_id", "NOT FOUND")
                 if client_id != "NOT FOUND":
-                    console.print(f"  Client ID: [cyan]{client_id[:8]}...[/cyan]")
+                    console.print(f"  Client ID: [accent]{client_id[:8]}...[/accent]")
                 else:
-                    console.print(f"  Client ID: [red]{client_id}[/red]")
+                    console.print(f"  Client ID: [error]{client_id}[/error]")
             else:
-                console.print("[red]✗ Failed to load credentials[/red]")
+                console.print("[error]✗ Failed to load credentials[/error]")
                 console.print(
-                    "[yellow]  Try setting environment variables or checking .env file[/yellow]"
+                    "[warning]  Try setting environment variables or checking .env file[/warning]"
                 )
         except Exception as e:
-            console.print(f"[red]✗ Error loading credentials: {e}[/red]")
+            console.print(f"[error]✗ Error loading credentials: {e}[/error]")
 
         # 5. Test Auth0 domain connectivity
         console.print("\n🌐 [bold]Domain Connectivity Test[/bold]")
@@ -2207,7 +2356,7 @@ def cmd_auth0_diagnostics(args) -> int:
 
             if credentials and credentials.get("domain"):
                 domain = credentials["domain"]
-                console.print(f"Testing connection to: [cyan]{domain}[/cyan]")
+                console.print(f"Testing connection to: [accent]{domain}[/accent]")
 
                 # Test basic connectivity
                 try:
@@ -2227,16 +2376,16 @@ def cmd_auth0_diagnostics(args) -> int:
                         connectivity_error = (
                             f"Unexpected status code: {response.status_code}"
                         )
-                        console.print(f"[yellow]⚠[/yellow] {connectivity_error}")
+                        console.print(f"[warning]⚠ {connectivity_error}[/warning]")
                 except requests.Timeout:
                     connectivity_error = "Connection timeout"
-                    console.print(f"[red]✗ {connectivity_error}[/red]")
+                    console.print(f"[error]✗ {connectivity_error}[/error]")
                 except requests.ConnectionError:
                     connectivity_error = "Connection failed - check domain name"
-                    console.print(f"[red]✗ {connectivity_error}[/red]")
+                    console.print(f"[error]✗ {connectivity_error}[/error]")
                 except Exception as e:
                     connectivity_error = f"Connection error: {e}"
-                    console.print(f"[red]✗ {connectivity_error}[/red]")
+                    console.print(f"[error]✗ {connectivity_error}[/error]")
 
                 # Test Auth0 authorization endpoint (what login actually uses)
                 try:
@@ -2251,7 +2400,7 @@ def cmd_auth0_diagnostics(args) -> int:
                             console.print(f"  Response status: {response.status_code}")
                     else:
                         console.print(
-                            f"[yellow]⚠[/yellow] Auth0 authorization endpoint unexpected status: {response.status_code}"
+                            f"[warning]⚠ Auth0 authorization endpoint unexpected status: {response.status_code}[/warning]"
                         )
 
                     # Also test the well-known endpoint (optional)
@@ -2268,22 +2417,22 @@ def cmd_auth0_diagnostics(args) -> int:
                             )
                     else:
                         console.print(
-                            f"[dim]ℹ OpenID config not available (status: {response.status_code}) - this is optional[/dim]"
+                            f"[muted]ℹ OpenID config not available (status: {response.status_code}) - this is optional[/muted]"
                         )
 
                 except Exception as e:
                     console.print(
-                        f"[yellow]⚠[/yellow] Could not test Auth0 endpoints: {e}"
+                        f"[warning]⚠ Could not test Auth0 endpoints: {e}[/warning]"
                     )
             else:
                 connectivity_error = "No domain configured"
-                console.print("[red]✗ No domain configured[/red]")
+                console.print("[error]✗ No domain configured[/error]")
         except Exception as e:
             connectivity_error = f"Error testing connectivity: {e}"
-            console.print(f"[red]✗ {connectivity_error}[/red]")
+            console.print(f"[error]✗ {connectivity_error}[/error]")
 
         # 6. Configuration summary
-        console.print("\n📊 [bold]Configuration Summary[/bold]")
+        console.print("\n📊 [header]Configuration Summary[/header]")
         try:
             auth_manager = get_auth0_manager()
             # Ensure configuration is loaded from environment/credentials
@@ -2291,16 +2440,16 @@ def cmd_auth0_diagnostics(args) -> int:
             if credentials and not auth_manager.is_configured():
                 auth_manager.configure_developer_auth0()
 
-            summary_table = Table(show_header=True, header_style="bold blue")
-            summary_table.add_column("Component", style="cyan")
-            summary_table.add_column("Status", style="green")
-            summary_table.add_column("Details", style="dim")
+            summary_table = Table(show_header=True, header_style="header")
+            summary_table.add_column("Component", style="accent")
+            summary_table.add_column("Status", style="success")
+            summary_table.add_column("Details", style="muted")
 
             # Check if configured
             is_configured = auth_manager.is_configured()
             summary_table.add_row(
                 "Auth0 Configuration",
-                "✓ Valid" if is_configured else "[red]✗ Invalid[/red]",
+                "✓ Valid" if is_configured else "[error]✗ Invalid[/error]",
                 "Ready for login" if is_configured else "Missing required credentials",
             )
 
@@ -2308,7 +2457,7 @@ def cmd_auth0_diagnostics(args) -> int:
             is_authenticated = auth_manager.is_authenticated()
             summary_table.add_row(
                 "Authentication",
-                "✓ Logged in" if is_authenticated else "[yellow]Not logged in[/yellow]",
+                "✓ Logged in" if is_authenticated else "[warning]Not logged in[/warning]",
                 (
                     "Valid session"
                     if is_authenticated
@@ -2321,17 +2470,17 @@ def cmd_auth0_diagnostics(args) -> int:
             config_exists = config_file.exists()
             summary_table.add_row(
                 "Config File",
-                "✓ Exists" if config_exists else "[yellow]Not found[/yellow]",
+                "✓ Exists" if config_exists else "[warning]Not found[/warning]",
                 str(config_file) if config_exists else "Will be created on first setup",
             )
 
             console.print(summary_table)
 
         except Exception as e:
-            console.print(f"[red]Error generating summary: {e}[/red]")
+            console.print(f"[error]Error generating summary: {e}[/error]")
 
         # 7. Recommendations
-        console.print("\n💡 [bold]Recommendations[/bold]")
+        console.print("\n💡 [header]Recommendations[/header]")
         try:
             auth_manager = get_auth0_manager()
             credentials = auth_manager._load_developer_credentials()
@@ -2339,22 +2488,22 @@ def cmd_auth0_diagnostics(args) -> int:
             if not credentials:
                 console.print("1. Set Auth0 environment variables:")
                 console.print(
-                    '   [cyan]export AUTOCLEAN_AUTH0_DOMAIN="your-tenant.us.auth0.com"[/cyan]'
+                    '   [accent]export AUTOCLEAN_AUTH0_DOMAIN="your-tenant.us.auth0.com"[/accent]'
                 )
                 console.print(
-                    '   [cyan]export AUTOCLEAN_AUTH0_CLIENT_ID="your_client_id"[/cyan]'
+                    '   [accent]export AUTOCLEAN_AUTH0_CLIENT_ID="your_client_id"[/accent]'
                 )
                 console.print(
-                    '   [cyan]export AUTOCLEAN_AUTH0_CLIENT_SECRET="your_client_secret"[/cyan]'
+                    '   [accent]export AUTOCLEAN_AUTH0_CLIENT_SECRET="your_client_secret"[/accent]'
                 )
                 console.print("2. Or create a .env file with these variables")
                 console.print(
-                    "3. Install python-dotenv if using .env: [cyan]pip install python-dotenv[/cyan]"
+                    "3. Install python-dotenv if using .env: [accent]pip install python-dotenv[/accent]"
                 )
             elif connectivity_error:
                 # Don't recommend login if there are connectivity issues
                 console.print(
-                    f"[red]⚠ Auth0 connectivity issue detected:[/red] {connectivity_error}"
+                    f"[error]⚠ Auth0 connectivity issue detected:[/error] {connectivity_error}"
                 )
                 console.print("")
                 console.print("Please check:")
@@ -2366,11 +2515,11 @@ def cmd_auth0_diagnostics(args) -> int:
                 console.print("4. Verify your Auth0 tenant is active and accessible")
                 console.print("")
                 console.print(
-                    "Once connectivity is fixed, run [cyan]autocleaneeg-pipeline login[/cyan] to authenticate"
+                    "Once connectivity is fixed, run [accent]autocleaneeg-pipeline login[/accent] to authenticate"
                 )
             elif not openid_accessible:
                 console.print(
-                    "[yellow]⚠ Auth0 OpenID configuration not accessible[/yellow]"
+                    "[warning]⚠ Auth0 OpenID configuration not accessible[/warning]"
                 )
                 console.print("")
                 console.print("This may indicate:")
@@ -2379,12 +2528,12 @@ def cmd_auth0_diagnostics(args) -> int:
                 console.print("3. Network or firewall issues")
                 console.print("")
                 console.print(
-                    "You can try [cyan]autocleaneeg-pipeline login[/cyan] but it may fail"
+                    "You can try [accent]autocleaneeg-pipeline login[/accent] but it may fail"
                 )
             elif not auth_manager.is_authenticated():
                 console.print("✓ Configuration looks good!")
                 console.print(
-                    "1. Run [cyan]autocleaneeg-pipeline login[/cyan] to authenticate"
+                    "1. Run [accent]autocleaneeg-pipeline login[/accent] to authenticate"
                 )
             else:
                 console.print(
@@ -2392,7 +2541,7 @@ def cmd_auth0_diagnostics(args) -> int:
                 )
 
         except Exception as e:
-            console.print(f"[red]Error generating recommendations: {e}[/red]")
+            console.print(f"[error]Error generating recommendations: {e}[/error]")
 
         return 0
 
@@ -2416,11 +2565,11 @@ def main(argv: Optional[list] = None) -> int:
     # For real sub-commands, log the workspace path via the existing logger.
     if args.command and args.command != "setup":
         # Compact branding header for consistency across all commands (except setup which has its own branding)
-        console = Console()
+        console = get_console(args)
 
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
             console.print(
-                f"[green]Autoclean Workspace Directory:[/green] {workspace_dir}"
+                f"[success]Autoclean Workspace Directory:[/success] {workspace_dir}"
             )
         else:
             message(
@@ -2430,18 +2579,18 @@ def main(argv: Optional[list] = None) -> int:
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
-        console = Console()
+        console = get_console(args)
         _simple_header(
             console, "Welcome", "Professional EEG Processing & Analysis Platform"
         )
 
         # Show workspace info elegantly beneath the banner
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
-            console.print(f"\n[dim]Workspace:[/dim] {workspace_dir}")
+            console.print(f"\n[muted]Workspace:[/muted] {workspace_dir}")
         else:
             console.print(
-                f"[yellow]⚠ Workspace not configured:[/yellow] {workspace_dir}\n"
-                "Run [cyan]autocleaneeg-pipeline setup[/cyan] to configure."
+                f"[warning]⚠ Workspace not configured:[/warning] {workspace_dir}\n"
+                "Run [accent]autocleaneeg-pipeline setup[/accent] to configure."
             )
 
         return 0
