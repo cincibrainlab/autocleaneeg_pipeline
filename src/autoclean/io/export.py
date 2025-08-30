@@ -303,7 +303,7 @@ def save_epochs_to_set(
 
                 # Preserve original event codes instead of creating sequential ones
                 event_id_rebuilt = {}
-                if hasattr(epochs, 'event_id') and epochs.event_id:
+                if hasattr(epochs, "event_id") and epochs.event_id:
                     # Use original event codes from epochs object
                     for label in all_labels:
                         # Find matching event code from original event_id
@@ -317,7 +317,8 @@ def save_epochs_to_set(
                 else:
                     # Fallback: if no original event_id available, use sequential numbering
                     event_id_rebuilt = {
-                        label: idx + 1 for idx, label in enumerate(sorted(list(all_labels)))
+                        label: idx + 1
+                        for idx, label in enumerate(sorted(list(all_labels)))
                     }
                 # Reconstruct events array with global sample positions
                 events_in_epochs = []

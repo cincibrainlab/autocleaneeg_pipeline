@@ -98,7 +98,10 @@ class StatisticalLearningEpochsMixin:
 
         try:
             # Call the standalone epoching function with verbose=False (use autoclean logging)
-            message("header", f"Creating statistical learning epochs with {num_syllables} syllables...")
+            message(
+                "header",
+                f"Creating statistical learning epochs with {num_syllables} syllables...",
+            )
             epochs, epochs_dropped = create_statistical_learning_epochs(
                 data=data,
                 tmin=tmin,
@@ -112,7 +115,9 @@ class StatisticalLearningEpochsMixin:
 
             self._save_epochs_result(result_data=epochs, stage_name=stage_name)
             if epochs_dropped is not None:
-                self._save_epochs_result(result_data=epochs_dropped, stage_name="post_drop_bad_epochs")
+                self._save_epochs_result(
+                    result_data=epochs_dropped, stage_name="post_drop_bad_epochs"
+                )
             else:
                 epochs_dropped = epochs
 
@@ -167,7 +172,6 @@ class StatisticalLearningEpochsMixin:
                 "num_syllables": num_syllables,
             }
             self._update_metadata("step_create_sl_epochs", metadata)
-
 
             return epochs_dropped
 

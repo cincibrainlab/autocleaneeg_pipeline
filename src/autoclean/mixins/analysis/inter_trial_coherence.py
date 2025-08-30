@@ -2,22 +2,23 @@
 
 This module provides functionality for computing inter-trial coherence (ITC)
 analysis on epoched EEG data. The mixin wraps the standalone ITC analysis
-function while providing configuration handling, metadata tracking, and 
+function while providing configuration handling, metadata tracking, and
 result saving capabilities within the AutoClean pipeline.
 
 ITC analysis is particularly useful for statistical learning paradigms where
 neural entrainment to rhythmic stimuli is expected.
 """
 
-from typing import Dict, Optional, Union, List, Tuple
-import numpy as np
-import mne
 import os
+from typing import Dict, List, Optional, Tuple, Union
+
+import mne
+import numpy as np
 
 from autoclean.functions.analysis.statistical_learning import (
-    compute_statistical_learning_itc,
     analyze_itc_bands,
     calculate_word_learning_index,
+    compute_statistical_learning_itc,
     extract_itc_at_frequencies,
 )
 from autoclean.utils.logging import message
@@ -43,7 +44,11 @@ class InterTrialCoherenceMixin:
         analyze_bands: bool = True,
         time_window: Optional[Tuple[float, float]] = None,
         calculate_wli: bool = False,
-    ) -> Tuple[mne.time_frequency.AverageTFR, mne.time_frequency.AverageTFR, Optional[Dict[str, float]]]:
+    ) -> Tuple[
+        mne.time_frequency.AverageTFR,
+        mne.time_frequency.AverageTFR,
+        Optional[Dict[str, float]],
+    ]:
         """Compute inter-trial coherence (ITC) analysis on epoched data.
 
         This is a mixin wrapper that handles configuration, metadata tracking,
@@ -94,7 +99,7 @@ class InterTrialCoherenceMixin:
         """
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("itc_analysis")
-        
+
         if not is_enabled:
             message("info", "ITC analysis step is disabled in configuration")
             return None, None, None
@@ -119,14 +124,19 @@ class InterTrialCoherenceMixin:
             if hasattr(self, "epochs") and self.epochs is not None:
                 epochs = self.epochs
             else:
-                raise ValueError("No epochs available. Run epoching first or provide epochs parameter.")
+                raise ValueError(
+                    "No epochs available. Run epoching first or provide epochs parameter."
+                )
 
         if not isinstance(epochs, mne.Epochs):
             raise TypeError("epochs must be an MNE Epochs object")
 
         try:
-            message("header", f"Computing inter-trial coherence analysis on {len(epochs)} epochs...")
-            
+            message(
+                "header",
+                f"Computing inter-trial coherence analysis on {len(epochs)} epochs...",
+            )
+
             # Call the standalone ITC analysis function
             power, itc = compute_statistical_learning_itc(
                 epochs=epochs,
@@ -152,7 +162,7 @@ class InterTrialCoherenceMixin:
                     picks=picks,
                     verbose=True,
                 )
-                
+
                 # Log band results
                 message("info", "Frequency band ITC results:")
                 for band, value in band_results.items():
@@ -169,16 +179,21 @@ class InterTrialCoherenceMixin:
                     picks=picks,
                     verbose=True,
                 )
-                
+
                 # Log WLI results
-                wli_mean = wli_results.get('wli_mean', np.nan)
+                wli_mean = wli_results.get("wli_mean", np.nan)
                 message("info", f"Word Learning Index: {wli_mean:.4f}")
                 message("debug", f"  Word ITC: {np.mean(wli_results['itc_word']):.4f}")
-                message("debug", f"  Syllable ITC: {np.mean(wli_results['itc_syllable']):.4f}")
+                message(
+                    "debug",
+                    f"  Syllable ITC: {np.mean(wli_results['itc_syllable']):.4f}",
+                )
 
             # Save results if requested
             if save_results:
-                self._save_itc_results(power, itc, band_results, stage_name, wli_results)
+                self._save_itc_results(
+                    power, itc, band_results, stage_name, wli_results
+                )
 
             # Update metadata
             self._update_itc_metadata(power, itc, band_results, stage_name, epochs)
@@ -236,44 +251,52 @@ class InterTrialCoherenceMixin:
             # Save band results as JSON if available
             if band_results is not None:
                 import json
+
                 band_filename = f"{stage_name}_bands.json"
-                
+
                 # Convert numpy values to float for JSON serialization
                 json_bands = {}
                 for key, value in band_results.items():
                     if isinstance(value, np.ndarray):
-                        json_bands[key] = float(value) if value.size == 1 else value.tolist()
+                        json_bands[key] = (
+                            float(value) if value.size == 1 else value.tolist()
+                        )
                     else:
                         json_bands[key] = float(value) if not np.isnan(value) else None
-                
+
                 if hasattr(self, "output_dir"):
                     full_path = os.path.join(self.output_dir, band_filename)
-                    with open(full_path, 'w') as f:
+                    with open(full_path, "w") as f:
                         json.dump(json_bands, f, indent=2)
                     message("debug", f"Saved frequency band results to {band_filename}")
 
             # Save WLI results if available
             if wli_results is not None:
                 import json
+
                 wli_filename = f"{stage_name}_wli.json"
-                
+
                 # Convert numpy values to serializable format
                 json_wli = {}
                 for key, value in wli_results.items():
                     if isinstance(value, np.ndarray):
-                        json_wli[key] = value.tolist() if value.ndim > 0 else float(value)
+                        json_wli[key] = (
+                            value.tolist() if value.ndim > 0 else float(value)
+                        )
                     elif isinstance(value, (int, float, np.integer, np.floating)):
                         json_wli[key] = float(value)
                     elif isinstance(value, list):
                         json_wli[key] = value
                     else:
                         json_wli[key] = str(value)
-                
+
                 if hasattr(self, "output_dir"):
                     full_path = os.path.join(self.output_dir, wli_filename)
-                    with open(full_path, 'w') as f:
+                    with open(full_path, "w") as f:
                         json.dump(json_wli, f, indent=2)
-                    message("debug", f"Saved Word Learning Index results to {wli_filename}")
+                    message(
+                        "debug", f"Saved Word Learning Index results to {wli_filename}"
+                    )
 
         except Exception as e:
             message("warning", f"Could not save ITC results: {str(e)}")
@@ -303,17 +326,19 @@ class InterTrialCoherenceMixin:
                 "itc_max": float(np.max(itc.data)),
                 "stage_name": stage_name,
             }
-            
+
             # Add band results to metadata
             if band_results is not None:
                 metadata["frequency_bands"] = {}
                 for band, value in band_results.items():
-                    metadata["frequency_bands"][band] = float(value) if not np.isnan(value) else None
+                    metadata["frequency_bands"][band] = (
+                        float(value) if not np.isnan(value) else None
+                    )
 
             # Update metadata using pipeline method if available
             if hasattr(self, "_update_metadata"):
                 self._update_metadata("step_itc_analysis", metadata)
-            
+
             message("debug", f"Updated metadata for ITC analysis: {stage_name}")
 
         except Exception as e:

@@ -3,6 +3,7 @@ from pathlib import Path
 
 from autoclean import Pipeline
 
+
 async def main():
     """Example of batch processing multiple EEG files asynchronously."""
     # Create pipeline instance

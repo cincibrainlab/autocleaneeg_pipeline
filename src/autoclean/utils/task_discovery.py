@@ -28,6 +28,7 @@ except ImportError:
 # Import logging utilities for warnings
 try:
     from autoclean.utils.logging import message
+
     LOGGING_AVAILABLE = True
 except ImportError:
     LOGGING_AVAILABLE = False
@@ -151,7 +152,9 @@ def _discover_builtin_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFil
     return valid_tasks, invalid_files
 
 
-def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile], List[SkippedTaskFile]]:
+def _discover_custom_tasks() -> (
+    Tuple[List[DiscoveredTask], List[InvalidTaskFile], List[SkippedTaskFile]]
+):
     """Discover custom tasks from user configuration directory."""
     valid_tasks: List[DiscoveredTask] = []
     invalid_files: List[InvalidTaskFile] = []
@@ -175,8 +178,7 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
         if task_file.name.startswith("_"):
             skipped_files.append(
                 SkippedTaskFile(
-                    source=str(task_file),
-                    reason="Private file (starts with '_')"
+                    source=str(task_file), reason="Private file (starts with '_')"
                 )
             )
             continue
@@ -184,7 +186,7 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
             skipped_files.append(
                 SkippedTaskFile(
                     source=str(task_file),
-                    reason="Template file (contains 'template' in name)"
+                    reason="Template file (contains 'template' in name)",
                 )
             )
             continue
@@ -192,16 +194,17 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
             skipped_files.append(
                 SkippedTaskFile(
                     source=str(task_file),
-                    reason="Test file (contains 'test' in name) - rename to remove 'test' if you want it loaded"
+                    reason="Test file (contains 'test' in name) - rename to remove 'test' if you want it loaded",
                 )
             )
             continue
-        elif task_file.name in ["bad_import_task.py", "bad_syntax_task.py", "good_task.py"]:
+        elif task_file.name in [
+            "bad_import_task.py",
+            "bad_syntax_task.py",
+            "good_task.py",
+        ]:
             skipped_files.append(
-                SkippedTaskFile(
-                    source=str(task_file),
-                    reason="Test fixture file"
-                )
+                SkippedTaskFile(source=str(task_file), reason="Test fixture file")
             )
             continue
 
@@ -272,7 +275,9 @@ def _discover_custom_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile
     return valid_tasks, invalid_files, skipped_files
 
 
-def safe_discover_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFile], List[SkippedTaskFile]]:
+def safe_discover_tasks() -> (
+    Tuple[List[DiscoveredTask], List[InvalidTaskFile], List[SkippedTaskFile]]
+):
     """Safely discover all built-in and custom tasks with workspace priority.
 
     Workspace tasks automatically override built-in tasks with the same name.

@@ -4285,7 +4285,6 @@ def calculate_vertex_peak_frequencies(
         Path to the saved data file
     """
 
-
     if output_dir is None:
         output_dir = os.getcwd()
     os.makedirs(output_dir, exist_ok=True)
