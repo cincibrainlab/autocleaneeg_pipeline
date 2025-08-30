@@ -25,18 +25,21 @@ repos:
       - id: black
         args: [--line-length=88]
         language_version: python3
+        exclude: ^tests/fixtures/tasks/(bad_import_task\.py|bad_syntax_task\.py)$
 
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
     hooks:
       - id: isort
         args: [--profile=black]
+        exclude: ^tests/fixtures/tasks/(bad_import_task\.py|bad_syntax_task\.py)$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.1.9
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^tests/fixtures/tasks/(bad_import_task\.py|bad_syntax_task\.py)$
 
   # Temporarily disabled - type checking
   # - repo: https://github.com/pre-commit/mirrors-mypy
