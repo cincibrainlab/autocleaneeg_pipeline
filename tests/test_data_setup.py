@@ -3,15 +3,15 @@
 import sys
 from pathlib import Path
 
-# Add the project root and src to the Python path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-sys.path.insert(0, str(project_root / "src"))
-
 from tests.fixtures.synthetic_data import (
     create_corrupted_data_samples,
     save_synthetic_data_files,
 )
+
+# Add the project root and src to the Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+sys.path.insert(0, str(project_root / "src"))
 
 
 def main():

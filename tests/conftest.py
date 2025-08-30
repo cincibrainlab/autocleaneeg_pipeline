@@ -1,7 +1,5 @@
 """Pytest configuration and shared fixtures for AutoClean EEG tests."""
 
-import os
-import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, Dict, Generator
@@ -10,12 +8,10 @@ import mne
 import numpy as np
 import pytest
 import yaml
-from mne.io import RawArray
 
 from tests.fixtures.synthetic_data import (
     create_synthetic_events,
     create_synthetic_raw,
-    create_test_montage_info,
 )
 
 
