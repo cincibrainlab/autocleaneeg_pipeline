@@ -19,7 +19,6 @@ from pathlib import Path
 from typing import Optional
 
 import requests
-from rich.columns import Columns
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -28,11 +27,6 @@ from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
 
-# Simple branding constants
-PRODUCT_NAME = "AutoClean EEG"
-TAGLINE = "Professional EEG Processing & Analysis Platform"
-LOGO_ICON = "🧠"
-DIVIDER = "═════════════════════════════════════════════════"
 from autoclean.utils.config import (
     disable_compliance_mode,
     enable_compliance_mode,
@@ -48,7 +42,13 @@ from autoclean.utils.task_discovery import (
     get_task_overrides,
     safe_discover_tasks,
 )
-from autoclean.utils.user_config import UserConfigManager, user_config
+from autoclean.utils.user_config import user_config
+
+# Simple branding constants
+PRODUCT_NAME = "AutoClean EEG"
+TAGLINE = "Professional EEG Processing & Analysis Platform"
+LOGO_ICON = "🧠"
+DIVIDER = "═════════════════════════════════════════════════"
 
 # Try to import database functions (used conditionally in login)
 try:

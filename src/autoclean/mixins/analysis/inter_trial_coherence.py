@@ -19,7 +19,6 @@ from autoclean.functions.analysis.statistical_learning import (
     analyze_itc_bands,
     calculate_word_learning_index,
     compute_statistical_learning_itc,
-    extract_itc_at_frequencies,
 )
 from autoclean.utils.logging import message
 
