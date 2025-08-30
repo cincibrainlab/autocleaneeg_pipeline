@@ -2787,21 +2787,31 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
-        # Centered docs and GitHub links (minimalist)
+        # Centered docs and GitHub links (minimalist, wrapped to avoid wide lines)
         try:
             from rich.text import Text as _LText
             from rich.align import Align as _LAlign
 
-            links = _LText()
-            links.append("📘 Docs ", style="muted")
-            links.append("https://docs.autocleaneeg.org", style="accent")
-            links.append("  •  ", style="muted")
-            links.append("GitHub ", style="muted")
-            links.append(
-                "https://github.com/cincibrainlab/autoclean_pipeline",
-                style="accent",
-            )
-            console.print(_LAlign.center(links))
+            # Docs line
+            docs_line = _LText()
+            docs_line.append("📘 Docs ", style="muted")
+            docs_line.append("https://docs.autocleaneeg.org", style="accent")
+            console.print(_LAlign.center(docs_line))
+
+            # GitHub link line
+            gh_line = _LText()
+            gh_line.append("GitHub ", style="muted")
+            gh_line.append("https://github.com/cincibrainlab/autoclean_pipeline", style="accent")
+            console.print(_LAlign.center(gh_line))
+
+            # GitHub meta line (short descriptors)
+            gh_meta = _LText()
+            gh_meta.append("code", style="muted")
+            gh_meta.append("  •  ", style="muted")
+            gh_meta.append("issues", style="muted")
+            gh_meta.append("  •  ", style="muted")
+            gh_meta.append("discussions", style="muted")
+            console.print(_LAlign.center(gh_meta))
             console.print()
         except Exception:
             pass
