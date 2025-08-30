@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Dict
 
 
-
 class IntegrationTestRunner:
     """Runner for comprehensive integration testing."""
 

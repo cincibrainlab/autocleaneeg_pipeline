@@ -1,6 +1,5 @@
 """Test the testing utilities themselves."""
 
-
 import mne
 import numpy as np
 import pytest
