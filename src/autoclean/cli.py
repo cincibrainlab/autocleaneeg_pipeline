@@ -2802,6 +2802,24 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
+        # Minimal centered key commands belt (for quick discovery)
+        try:
+            from rich.text import Text as _KText
+            from rich.align import Align as _KAlign
+
+            key_cmds = ["setup", "view", "list-tasks", "process", "review"]
+            belt = _KText()
+            for i, cmd in enumerate(key_cmds):
+                if i > 0:
+                    belt.append("  •  ", style="muted")
+                belt.append(cmd, style="accent")
+
+            console.print()
+            console.print(_KAlign.center(belt))
+            console.print()
+        except Exception:
+            pass
+
         # Quick Start (left-aligned, expandable)
         try:
             from rich.text import Text as _QText
