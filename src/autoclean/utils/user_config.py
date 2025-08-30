@@ -321,7 +321,7 @@ class UserConfigManager:
                 setup_display.console.print(
                     f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]"
                 )
-                setup_display.console.print(f"[dim]{DIVIDER}[/dim]")
+                setup_display.console.print(f"[muted]{DIVIDER}[/muted]")
                 setup_display.blank_line()
             setup_display.warning(
                 "Workspace Missing", "Previous workspace location no longer exists"
@@ -341,14 +341,14 @@ class UserConfigManager:
                 setup_display.blank_line()
             else:
                 # Just show the workspace info without branding
-                setup_display.console.print("[bold]Workspace Configuration[/bold]")
+                setup_display.console.print("[header]Workspace Configuration[/header]")
 
             # Workspace information (no duplicate header)
             setup_display.workspace_info(self.config_dir, is_valid=True)
 
             # System information
             system_info = self._get_system_info_dict()
-            setup_display.console.print("[bold]System Information:[/bold]")
+            setup_display.console.print("[header]System Information:[/header]")
             setup_display.system_info_table(system_info)
 
             # Prompt for changes
@@ -411,7 +411,7 @@ class UserConfigManager:
             # System information for first-time setup
             setup_display.blank_line()
             setup_display.console.print(
-                "[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]"
+                "[header]System Status:[/header] [success]✓ Ready for initialization[/success]"
             )
             setup_display.blank_line()
 
