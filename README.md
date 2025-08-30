@@ -61,6 +61,27 @@ List tasks and show overrides:
 autocleaneeg-pipeline list-tasks --overrides
 ```
 
+## Theme and Color
+
+AutoClean’s CLI uses Rich with semantic styles and adaptive themes for readable output across light/dark terminals, limited color depth, and colorless logs.
+
+- Flag: `--theme auto|dark|light|hc|mono` (default: `auto`)
+  - `mono`: Monochrome (no hues), ideal for logs or unknown backgrounds
+  - `hc`: High-contrast, accessible on both dark and light backgrounds
+- Env overrides:
+  - `AUTOCLEAN_THEME=auto|dark|light|hc|mono`
+  - `AUTOCLEAN_COLOR_DEPTH=auto|8|256|truecolor`
+  - `NO_COLOR=1` disables color
+  - `FORCE_COLOR=1` forces color even in non-TTY (e.g., CI)
+
+Examples:
+
+```bash
+autocleaneeg-pipeline --theme light list-tasks
+AUTOCLEAN_THEME=hc autocleaneeg-pipeline version
+NO_COLOR=1 autocleaneeg-pipeline list-tasks
+```
+
 ## Documentation
 
 Full documentation is available at [https://cincibrainlab.github.io/autoclean_pipeline/](https://cincibrainlab.github.io/autoclean_pipeline/)
