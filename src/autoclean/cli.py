@@ -767,15 +767,8 @@ def _simple_header(console, title: Optional[str] = None, subtitle: Optional[str]
     )
     branding_text.append(f"\n{TAGLINE}", style="accent")
 
-    # Create panel with branding
-    branding_panel = Panel(
-        Align.center(branding_text),
-        padding=(0, 1),
-        title_align="center",
-        box=None,
-    )
-
-    console.print(branding_panel)
+    # Print centered branding (no borders)
+    console.print(Align.center(branding_text))
     console.print()
     if title:
         console.print(f"[title]{title}[/title]")
