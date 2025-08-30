@@ -11,13 +11,13 @@ This guide helps you solve common issues with AutoClean. Most problems can be re
 .. code-block:: bash
 
    # Check if AutoClean is installed
-   pip list | grep autocleaneeg
+   pip list | grep autocleaneeg-pipeline
    
    # If not found, install it
-   pip install autocleaneeg
+   pip install autocleaneeg-pipeline
    
    # Some systems need pip3
-   pip3 install autocleaneeg
+   pip3 install autocleaneeg-pipeline
    
    # Verify installation
    autoclean version
@@ -30,7 +30,7 @@ This guide helps you solve common issues with AutoClean. Most problems can be re
    # Right-click Command Prompt → "Run as administrator"
    
    # On Mac/Linux: Use sudo (be careful!)
-   sudo pip install autocleaneeg
+   sudo pip install autocleaneeg-pipeline
 
 **Python/pip not found**
 
@@ -270,10 +270,10 @@ AutoClean creates several copies of your data during processing:
 
    # If using conda/miniconda
    conda activate your_environment
-   pip install autocleaneeg
+   pip install autocleaneeg-pipeline
    
    # Or install in conda directly
-   conda install -c conda-forge autocleaneeg
+   conda install -c conda-forge autocleaneeg-pipeline
 
 **Corporate firewall blocking installation**
 
@@ -294,7 +294,7 @@ AutoClean creates several copies of your data during processing:
 .. code-block:: bash
 
    # Update to latest version
-   pip install --upgrade autocleaneeg
+   pip install --upgrade autocleaneeg-pipeline
 
 **Report bugs or ask for help:**
 
@@ -318,13 +318,13 @@ AutoClean creates several copies of your data during processing:
 .. code-block:: bash
 
    # Uninstall AutoClean
-   pip uninstall autocleaneeg
+   pip uninstall autocleaneeg-pipeline
    
    # Clear pip cache
    pip cache purge
    
    # Reinstall
-   pip install autocleaneeg
+   pip install autocleaneeg-pipeline
    
    # Reset configuration
    autoclean config reset --confirm

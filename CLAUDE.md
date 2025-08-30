@@ -171,19 +171,19 @@ python -m build
 ```bash
 # Install AutoClean as a standalone uv tool
 uv tool install .                    # From source (development)
-uv tool install autoclean-eeg         # From PyPI (when published)
+uv tool install autocleaneeg-pipeline         # From PyPI (when published)
 
 # Use AutoClean CLI (isolated environment, no conflicts!)
-uv tool run autoclean-eeg --help
-uv tool run autoclean-eeg process --task RestingEyesOpen --file data.raw --output results/
-uv tool run autoclean-eeg list-tasks
-uv tool run autoclean-eeg review --output results/
-uv tool run autoclean-eeg export-access-log --output audit-log.jsonl
+uv tool run autocleaneeg-pipeline --help
+uv tool run autocleaneeg-pipeline process --task RestingEyesOpen --file data.raw --output results/
+uv tool run autocleaneeg-pipeline list-tasks
+uv tool run autocleaneeg-pipeline review --output results/
+uv tool run autocleaneeg-pipeline export-access-log --output audit-log.jsonl
 
 # Manage AutoClean tool
 uv tool list                         # Show installed tools
-uv tool upgrade autoclean-eeg         # Upgrade AutoClean
-uv tool uninstall autoclean-eeg       # Remove AutoClean
+uv tool upgrade autocleaneeg-pipeline         # Upgrade AutoClean
+uv tool uninstall autocleaneeg-pipeline       # Remove AutoClean
 
 # Makefile shortcuts
 make install-uv-tool                 # Install AutoClean as uv tool
@@ -224,7 +224,7 @@ docker-compose run autoclean bash
 ## Development Notes (v2.0.0)
 - Python 3.10+ required, <3.13
 - MNE-Python ecosystem + scientific computing stack
-- Entry point: `autoclean-eeg` CLI command
+- Entry point: `autocleaneeg-pipeline` CLI command
 - **Breaking Changes**: v2.0.0 API migration required (`autoclean_dir` → `output_dir`)
 - **No YAML Required**: Built-in tasks work without configuration files
 - **Production Ready**: 85.8% test pass rate, full dependency locking
@@ -264,22 +264,22 @@ Export audit logs for compliance reporting and external analysis:
 
 ```bash
 # Export all access logs to JSONL format
-autoclean-eeg export-access-log --output audit-trail.jsonl
+autocleaneeg-pipeline export-access-log --output audit-trail.jsonl
 
 # Export with date filtering
-autoclean-eeg export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
+autocleaneeg-pipeline export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
 
 # Export specific operations only
-autoclean-eeg export-access-log --operation "store" --output store-operations.jsonl
+autocleaneeg-pipeline export-access-log --operation "store" --output store-operations.jsonl
 
 # Export to CSV for analysis
-autoclean-eeg export-access-log --format csv --output audit-data.csv
+autocleaneeg-pipeline export-access-log --format csv --output audit-data.csv
 
 # Human-readable report
-autoclean-eeg export-access-log --format human --output audit-report.txt
+autocleaneeg-pipeline export-access-log --format human --output audit-report.txt
 
 # Verify integrity only (no export)
-autoclean-eeg export-access-log --verify-only
+autocleaneeg-pipeline export-access-log --verify-only
 ```
 
 #### Export Formats:
@@ -309,7 +309,7 @@ For enhanced reproducibility and compliance, the system captures:
 ## Current Status
 - **Version**: 2.1.0 (Latest stable release)
 - **Production Ready**: Yes (85.8+ test coverage, dependency locked)
-- **PyPI Publishing**: Available as `autoclean-eeg`
+- **PyPI Publishing**: Available as `autocleaneeg-pipeline`
 - **Documentation**: Updated for v2.x workflow
 - **CI/CD**: Cross-platform compatibility (Linux/macOS/Windows)
 
