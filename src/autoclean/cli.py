@@ -135,52 +135,57 @@ class RootRichHelpAction(argparse.Action):
     """Root -h/--help: show styled header + context; supports optional topic like '-h auth'."""
 
     def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
-        from rich.table import Table as _Table
-
         console = get_console(namespace if isinstance(namespace, argparse.Namespace) else None)
         _simple_header(console)
         _print_startup_context(console)
 
         topic = (values or "").strip().lower() if isinstance(values, str) else None
-        if topic in {"auth", "authentication"}:
-            console.print("[header]Auth Commands[/header]")
-            tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
-            tbl.add_column("Command", style="accent", no_wrap=True)
-            tbl.add_column("Description", style="muted")
-            tbl.add_column("Example", style="muted")
-            rows = [
-                ("auth login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline auth login"),
-                ("auth logout", "Logout and clear tokens", "autocleaneeg-pipeline auth logout"),
-                ("auth whoami", "Show authenticated user", "autocleaneeg-pipeline auth whoami"),
-                ("auth diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth diagnostics"),
-                ("auth setup", "Enable Part-11 compliance (permanent)", "autocleaneeg-pipeline auth setup"),
-                ("auth enable", "Enable compliance mode (non-permanent)", "autocleaneeg-pipeline auth enable"),
-                ("auth disable", "Disable compliance mode (if permitted)", "autocleaneeg-pipeline auth disable"),
-            ]
-            for c, d, e in rows:
-                tbl.add_row(c, d, e)
-            console.print(tbl)
-            console.print("[muted]Tip: For details on a command, run '<command> --help'.[/muted]")
-            sys.exit(0)
+        _print_root_help(console, topic)
+        sys.exit(0)
 
-        console.print("[header]Commands[/header]")
+
+def _print_root_help(console, topic: Optional[str] = None) -> None:
+    """Print the root help menu with optional topic sections."""
+    from rich.table import Table as _Table
+
+    if topic in {"auth", "authentication"}:
+        console.print("[header]Auth Commands[/header]")
         tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         tbl.add_column("Example", style="muted")
         rows = [
-            ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
-            ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
-            ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
-            ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
-            ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
-            ("auth", "Authentication & Part-11 commands", "autocleaneeg-pipeline auth --help | -h auth"),
+            ("auth login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline auth login"),
+            ("auth logout", "Logout and clear tokens", "autocleaneeg-pipeline auth logout"),
+            ("auth whoami", "Show authenticated user", "autocleaneeg-pipeline auth whoami"),
+            ("auth diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth diagnostics"),
+            ("auth setup", "Enable Part-11 compliance (permanent)", "autocleaneeg-pipeline auth setup"),
+            ("auth enable", "Enable compliance mode (non-permanent)", "autocleaneeg-pipeline auth enable"),
+            ("auth disable", "Disable compliance mode (if permitted)", "autocleaneeg-pipeline auth disable"),
         ]
         for c, d, e in rows:
             tbl.add_row(c, d, e)
         console.print(tbl)
-        console.print("[muted]Tip: Use '<command> --help' for detailed options.[/muted]")
-        sys.exit(0)
+        console.print("[muted]Tip: For details on a command, run '<command> --help'.[/muted]")
+        return
+
+    console.print("[header]Commands[/header]")
+    tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+    tbl.add_column("Command", style="accent", no_wrap=True)
+    tbl.add_column("Description", style="muted")
+    tbl.add_column("Example", style="muted")
+    rows = [
+        ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
+        ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
+        ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
+        ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
+        ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
+        ("auth", "Authentication & Part-11 commands", "autocleaneeg-pipeline auth --help | -h auth"),
+    ]
+    for c, d, e in rows:
+        tbl.add_row(c, d, e)
+    console.print(tbl)
+    console.print("[muted]Tip: Use '<command> --help' for detailed options.[/muted]")
 
 
 def attach_rich_help(p: argparse.ArgumentParser, *, root: bool = False) -> None:
@@ -1845,50 +1850,12 @@ def cmd_auth(args) -> int:
 
 
 def cmd_help(args) -> int:
-    """Styled help output consistent with rich header."""
-    from rich.table import Table as _Table
+    """Help alias: shows the same styled root help as '-h/--help'."""
     console = get_console(args)
     _simple_header(console)
     _print_startup_context(console)
-
     topic = getattr(args, "topic", None)
-    if topic and topic.lower() in {"auth", "authentication"}:
-        console.print("[header]Auth Commands[/header]")
-        tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
-        tbl.add_column("Command", style="accent", no_wrap=True)
-        tbl.add_column("Description", style="muted")
-        tbl.add_column("Example", style="muted")
-        rows = [
-            ("login", "Login to Auth0 (compliance mode)", "autocleaneeg-pipeline login"),
-            ("logout", "Logout and clear tokens", "autocleaneeg-pipeline logout"),
-            ("whoami", "Show authenticated user", "autocleaneeg-pipeline whoami"),
-            ("auth0-diagnostics", "Diagnose Auth0 config/connectivity", "autocleaneeg-pipeline auth0-diagnostics"),
-            ("setup --compliance-mode", "Enable compliance mode (Auth0)", "autocleaneeg-pipeline setup --compliance-mode"),
-        ]
-        for c, d, e in rows:
-            tbl.add_row(c, d, e)
-        console.print(tbl)
-        console.print("[muted]Tip: For details on a command, run '<command> --help'.[/muted]")
-        return 0
-
-    console.print("[header]Commands[/header]")
-    tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
-    tbl.add_column("Command", style="accent", no_wrap=True)
-    tbl.add_column("Description", style="muted")
-    tbl.add_column("Example", style="muted")
-    rows = [
-        ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
-        ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
-        ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
-        ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
-        ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
-        ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
-        ("auth", "Authentication commands", "autocleaneeg-pipeline -h auth"),
-    ]
-    for c, d, e in rows:
-        tbl.add_row(c, d, e)
-    console.print(tbl)
-    console.print("[muted]Tip: Use '<command> --help' for detailed options.[/muted]")
+    _print_root_help(console, topic.strip().lower() if isinstance(topic, str) else None)
     return 0
 
 
@@ -2807,7 +2774,7 @@ def main(argv: Optional[list] = None) -> int:
             from rich.text import Text as _KText
             from rich.align import Align as _KAlign
 
-            key_cmds = ["setup", "view", "list-tasks", "process", "review"]
+            key_cmds = ["help", "setup", "view", "list-tasks", "process", "review"]
             belt = _KText()
             for i, cmd in enumerate(key_cmds):
                 if i > 0:
@@ -2820,24 +2787,7 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
-        # Quick Start (left-aligned, expandable)
-        try:
-            from rich.text import Text as _QText
-            # Title
-            console.print(_QText("Quick Start", style="header"))
-            # Commands table (easy to expand)
-            qs_rows = [
-                ("autocleaneeg-pipeline --help | -h", "Show commands and options"),
-            ]
-            qs_table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
-            qs_table.add_column("Command", style="accent", no_wrap=True)
-            qs_table.add_column("Description", style="muted")
-            for cmd, desc in qs_rows:
-                qs_table.add_row(cmd, desc)
-            console.print(qs_table)
-            console.print()
-        except Exception:
-            pass
+        # (Quick Start section intentionally removed for a cleaner minimalist banner)
 
         return 0
 
