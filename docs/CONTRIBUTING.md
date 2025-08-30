@@ -23,7 +23,7 @@ We use GitHub to host code, to track issues and feature requests, as well as acc
 
 1. Clone your fork and install development dependencies:
 ```bash
-git clone https://github.com/yourusername/autoclean-eeg.git
+git clone https://github.com/cincibrainlab/autoclean_pipeline.git
 cd autoclean-eeg
 pip install -e ".[dev]"
 ```
@@ -81,9 +81,9 @@ make html
 
 In short, when you submit code changes, your submissions are understood to be under the same [MIT License](LICENSE) that covers the project. Feel free to contact the maintainers if that's a concern.
 
-## Report bugs using GitHub's [issue tracker](https://github.com/yourusername/autoclean-eeg/issues)
+## Report bugs using GitHub's [issue tracker](https://github.com/cincibrainlab/autoclean_pipeline/issues)
 
-We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/yourusername/autoclean-eeg/issues/new).
+We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/cincibrainlab/autoclean_pipeline/issues/new).
 
 ## Write bug reports with detail, background, and sample code
 
