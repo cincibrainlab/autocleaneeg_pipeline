@@ -168,15 +168,14 @@ class RootRichHelpAction(argparse.Action):
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         tbl.add_column("Example", style="muted")
-    rows = [
-        ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
-        ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
-        ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
-        ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
-        ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
-        ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
-        ("auth", "Authentication & Part-11 commands", "autocleaneeg-pipeline auth --help | -h auth"),
-    ]
+        rows = [
+            ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
+            ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
+            ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
+            ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
+            ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
+            ("auth", "Authentication & Part-11 commands", "autocleaneeg-pipeline auth --help | -h auth"),
+        ]
         for c, d, e in rows:
             tbl.add_row(c, d, e)
         console.print(tbl)
