@@ -429,7 +429,9 @@ class ChannelsMixin:
             else:
                 self._save_raw_result(result_data, stage_name)
 
-            message("info", f"Exported {stage_name} data using standard pipeline method")
+            message(
+                "info", f"Exported {stage_name} data using standard pipeline method"
+            )
             # Update self.raw or self.epochs
             self._update_instance_data(data, result_data, use_epochs)
 

@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from autoclean.io.export import (
+    _get_stage_number,
     save_epochs_to_set,
     save_raw_to_set,
-    _get_stage_number,
 )
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
@@ -21,8 +21,8 @@ from autoclean.utils.logging import message
 try:
     from autoclean_eeg2source import MemoryManager, SequentialProcessor
 except ImportError as exc:  # pragma: no cover
-    SequentialProcessor = None                # type: ignore
-    MemoryManager = None                       # type: ignore
+    SequentialProcessor = None  # type: ignore
+    MemoryManager = None  # type: ignore
     _IMPORT_ERR = exc
 else:
     _IMPORT_ERR = None
@@ -34,7 +34,7 @@ class SourceLocalizationMixin:
     # --------------------------------------------------------------------- #
     # Public API                                                            #
     # --------------------------------------------------------------------- #
-    def run_source_localization(          # type: ignore[override]
+    def run_source_localization(  # type: ignore[override]
         self,
         use_epochs: bool = True,
         montage: Optional[str] = None,
@@ -80,10 +80,7 @@ class SourceLocalizationMixin:
 
         # 2. Prepare a *numbered* output directory, e.g. '07_source_localization'
         stage_num = _get_stage_number("post_source_localization", self.config)
-        out_dir = (
-            Path(self.config["stage_dir"])
-            / f"{stage_num}_source_localization"
-        )
+        out_dir = Path(self.config["stage_dir"]) / f"{stage_num}_source_localization"
         out_dir.mkdir(parents=True, exist_ok=True)
 
         # 3. Call the processor
@@ -92,7 +89,9 @@ class SourceLocalizationMixin:
 
         message("info", f"Source localisation → {out_dir} (montage={montage})")
 
-        processor = SequentialProcessor(memory_manager=mem_mgr, montage=montage, **processor_kwargs)
+        processor = SequentialProcessor(
+            memory_manager=mem_mgr, montage=montage, **processor_kwargs
+        )
         result = processor.process_file(str(input_path), str(out_dir))
 
         # 4. Persist metadata
@@ -113,4 +112,4 @@ class SourceLocalizationMixin:
         )
 
         message("success", f"✓ Source localisation complete – results in {out_dir}")
-        return out_dir 
+        return out_dir
