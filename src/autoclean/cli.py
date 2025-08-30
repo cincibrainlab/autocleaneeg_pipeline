@@ -2816,6 +2816,21 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
+        # Centered attribution
+        try:
+            from rich.text import Text as _AText
+            from rich.align import Align as _AAlign
+
+            lab = _AText()
+            lab.append(
+                "Pedapati Lab @ Cincinnati Children's Hospital Medical Center",
+                style="muted",
+            )
+            console.print(_AAlign.center(lab))
+            console.print()
+        except Exception:
+            pass
+
         # (Quick Start section intentionally removed for a cleaner minimalist banner)
 
         return 0
