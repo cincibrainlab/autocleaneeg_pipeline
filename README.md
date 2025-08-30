@@ -18,7 +18,7 @@ A modular framework for automated EEG data processing, built on MNE-Python.
 ## Installation
 
 ```bash
-pip install autoclean-eeg
+pip install autocleaneeg-pipeline
 ```
 
 For development installation:
@@ -128,17 +128,17 @@ AutoClean EEG features a powerful workspace priority system that enables safe cu
 
 ```bash
 # 1. Initial setup (copies built-in tasks to examples directory)
-autoclean-eeg setup
+autocleaneeg-pipeline setup
 
 # 2. Customize a built-in task
 cp ~/Documents/Autoclean-EEG/tasks/builtin/assr_default.py ~/Documents/Autoclean-EEG/tasks/my_assr.py
 # Edit my_assr.py with your custom parameters...
 
 # 3. Use your customized task (automatically overrides built-in)
-autoclean-eeg process MyAssr data.raw
+autocleaneeg-pipeline process MyAssr data.raw
 
 # 4. Check which tasks are overridden
-autoclean-eeg list-tasks --overrides
+autocleaneeg-pipeline list-tasks --overrides
 ```
 
 ### Override Management
@@ -147,10 +147,10 @@ Monitor and manage task overrides with CLI commands:
 
 ```bash
 # List all available tasks
-autoclean-eeg list-tasks
+autocleaneeg-pipeline list-tasks
 
 # Show which workspace tasks override built-in tasks  
-autoclean-eeg list-tasks --overrides
+autocleaneeg-pipeline list-tasks --overrides
 
 # Example output:
 # Task Overrides (2 found)

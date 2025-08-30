@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "autoclean-eeg"
+name = "autocleaneeg-pipeline"
 version = "2.1.0"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
@@ -107,7 +107,7 @@ ai = [
 ]
 
 [project.scripts]
-autoclean-eeg = "autoclean.__main__:main"
+autocleaneeg-pipeline = "autoclean.__main__:main"
 
 [tool.hatch]
 version.path = "src/autoclean/__init__.py"

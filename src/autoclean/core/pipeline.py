@@ -899,7 +899,7 @@ class Pipeline:
         Notes
         -----
         This method requires the GUI dependencies to be installed.
-        Install them with: pip install autocleaneeg[gui]
+        Install them with: pip install autocleaneeg-pipeline[gui]
 
         Note: The ideal use of the Review tool is as a docker container.
         """
@@ -908,7 +908,7 @@ class Pipeline:
                 "error",
                 "GUI dependencies not installed. To use the review tool, install:",
             )
-            message("error", "pip install autocleaneeg[gui]")
+            message("error", "pip install autocleaneeg-pipeline[gui]")
             raise ImportError("GUI dependencies not available")
 
         run_autoclean_review(self.output_dir)

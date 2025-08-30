@@ -419,7 +419,7 @@ class Auth0Manager:
         if not self.is_configured():
             message(
                 "error",
-                "Auth0 not configured. Run 'autoclean-eeg setup --compliance-mode' first.",
+                "Auth0 not configured. Run 'autocleaneeg-pipeline setup --compliance-mode' first.",
             )
             return False
 
@@ -887,20 +887,20 @@ def require_authentication(func):
                 message("error", "Compliance mode enabled but Auth0 not configured.")
                 message(
                     "error",
-                    "Run 'autoclean-eeg setup --compliance-mode' to configure authentication.",
+                    "Run 'autocleaneeg-pipeline setup --compliance-mode' to configure authentication.",
                 )
                 return False
 
             if not auth_manager.is_authenticated():
                 message("error", "Authentication required for compliance mode.")
-                message("error", "Run 'autoclean-eeg login' to authenticate.")
+                message("error", "Run 'autocleaneeg-pipeline login' to authenticate.")
                 return False
 
             # Try to refresh token if needed
             if not auth_manager.is_authenticated() and auth_manager.refresh_token:
                 if not auth_manager.refresh_access_token():
                     message("error", "Token refresh failed. Please login again.")
-                    message("error", "Run 'autoclean-eeg login' to re-authenticate.")
+                    message("error", "Run 'autocleaneeg-pipeline login' to re-authenticate.")
                     return False
 
         return func(*args, **kwargs)

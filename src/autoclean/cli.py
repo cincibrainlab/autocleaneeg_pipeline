@@ -83,17 +83,17 @@ def create_parser() -> argparse.ArgumentParser:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Basic Usage:
-  autoclean-eeg setup                          # First time setup
-  autoclean-eeg process RestingEyesOpen data.raw   # Process single file
-  autoclean-eeg list-tasks                     # Show available tasks
-  autoclean-eeg review                         # Start review GUI
+  autocleaneeg-pipeline setup                          # First time setup
+  autocleaneeg-pipeline process RestingEyesOpen data.raw   # Process single file
+  autocleaneeg-pipeline list-tasks                     # Show available tasks
+  autocleaneeg-pipeline review                         # Start review GUI
 
 Custom Tasks:
-  autoclean-eeg task add my_task.py            # Add custom task file
-  autoclean-eeg task list                      # List all tasks
+  autocleaneeg-pipeline task add my_task.py            # Add custom task file
+  autocleaneeg-pipeline task list                      # List all tasks
 
 
-For detailed help on any command: autoclean-eeg <command> --help
+For detailed help on any command: autocleaneeg-pipeline <command> --help
         """,
     )
 
@@ -102,7 +102,7 @@ For detailed help on any command: autoclean-eeg <command> --help
     # Process command
     process_parser = subparsers.add_parser("process", help="Process EEG data")
 
-    # Positional arguments for simple usage: autoclean-eeg process TaskName FilePath
+    # Positional arguments for simple usage: autocleaneeg-pipeline process TaskName FilePath
     process_parser.add_argument(
         "task_name", nargs="?", type=str, help="Task name (e.g., RestingEyesOpen)"
     )
@@ -620,7 +620,7 @@ def cmd_list_tasks(args) -> int:
             console.print(
                 Panel(
                     "[dim]No custom tasks found.\n"
-                    "Use [yellow]autoclean-eeg task add <file.py>[/yellow] to add one.[/dim]",
+                    "Use [yellow]autocleaneeg-pipeline task add <file.py>[/yellow] to add one.[/dim]",
                     title="[bold]Custom Tasks[/bold]",
                     border_style="magenta",
                     padding=(1, 1),
@@ -888,7 +888,7 @@ def _setup_basic_mode() -> int:
 
         console.print("[green]✓[/green] Basic setup complete!")
         console.print("[blue]ℹ[/blue] You can now use AutoClean for standard EEG processing")
-        console.print("[blue]ℹ[/blue] Run 'autoclean-eeg process TaskName file.raw' to get started")
+        console.print("[blue]ℹ[/blue] Run 'autocleaneeg-pipeline process TaskName file.raw' to get started")
 
         return 0
 
@@ -976,8 +976,8 @@ def _setup_compliance_mode() -> int:
         setup_display.success("Compliance mode setup complete!")
         setup_display.blank_line()
         setup_display.console.print("[bold]Next steps:[/bold]")
-        setup_display.list_item("Run 'autoclean-eeg login' to authenticate", indent=0)
-        setup_display.list_item("Use 'autoclean-eeg whoami' to check authentication status", indent=0)
+        setup_display.list_item("Run 'autocleaneeg-pipeline login' to authenticate", indent=0)
+        setup_display.list_item("Use 'autocleaneeg-pipeline whoami' to check authentication status", indent=0)
         setup_display.list_item("All processing will now include audit trails and user authentication", indent=0)
 
         return 0
@@ -1027,9 +1027,9 @@ def _enable_compliance_mode() -> int:
             message("success", "✓ Compliance mode enabled!")
             message("info", "\nNext steps:")
             message(
-                "info", "1. Run 'autoclean-eeg login' to authenticate (when needed)"
+                "info", "1. Run 'autocleaneeg-pipeline login' to authenticate (when needed)"
             )
-            message("info", "2. Run 'autoclean-eeg setup' again to disable if needed")
+            message("info", "2. Run 'autocleaneeg-pipeline setup' again to disable if needed")
             return 0
         else:
             message("error", "Failed to enable compliance mode")
@@ -1287,7 +1287,7 @@ def cmd_task_add(args) -> int:
         message("info", f"Task '{task_name}' added to workspace!")
         print(f"📁 Copied to: {dest_file}")
         print("\nUse your custom task with:")
-        print(f"  autoclean-eeg process {task_name} <data_file>")
+        print(f"  autocleaneeg-pipeline process {task_name} <data_file>")
 
         return 0
 
@@ -1574,7 +1574,7 @@ def cmd_tutorial(_args) -> int:
         "The first step is to set up your workspace. This is where AutoClean EEG will store its configuration and any custom tasks you create."
     )
     console.print("To do this, run the following command:")
-    console.print("\n[green]autoclean-eeg setup[/green]\n")
+    console.print("\n[green]autocleaneeg-pipeline setup[/green]\n")
 
     console.print(
         "\n[bold bright_yellow]Step 2: List available tasks[/bold bright_yellow]"
@@ -1583,7 +1583,7 @@ def cmd_tutorial(_args) -> int:
         "Once your workspace is set up, you can see the built-in processing tasks that are available."
     )
     console.print("To do this, run the following command:")
-    console.print("\n[green]autoclean-eeg task list[/green]\n")
+    console.print("\n[green]autocleaneeg-pipeline task list[/green]\n")
 
     console.print("\n[bold bright_yellow]Step 3: Process a file[/bold bright_yellow]")
     console.print(
@@ -1592,7 +1592,7 @@ def cmd_tutorial(_args) -> int:
     console.print(
         "For example, to process a file called 'data.raw' with the 'RestingEyesOpen' task, you would run the following command:"
     )
-    console.print("\n[green]autoclean-eeg process RestingEyesOpen data.raw[/green]\n")
+    console.print("\n[green]autocleaneeg-pipeline process RestingEyesOpen data.raw[/green]\n")
 
     return 0
 
@@ -1863,7 +1863,7 @@ def cmd_login(args) -> int:
             message("error", "Compliance mode is not enabled.")
             message(
                 "info",
-                "Run 'autoclean-eeg setup --compliance-mode' to enable compliance mode and configure Auth0.",
+                "Run 'autocleaneeg-pipeline setup --compliance-mode' to enable compliance mode and configure Auth0.",
             )
             return 1
 
@@ -1974,14 +1974,14 @@ def cmd_whoami(args) -> int:
             message("info", "Authentication: Not configured")
             message(
                 "info",
-                "Run 'autoclean-eeg setup --compliance-mode' to configure Auth0.",
+                "Run 'autocleaneeg-pipeline setup --compliance-mode' to configure Auth0.",
             )
             return 0
 
         if not auth_manager.is_authenticated():
             message("info", "Compliance mode: Enabled")
             message("info", "Authentication: Not logged in")
-            message("info", "Run 'autoclean-eeg login' to authenticate.")
+            message("info", "Run 'autocleaneeg-pipeline login' to authenticate.")
             return 0
 
         user_info = auth_manager.get_current_user()
@@ -2029,7 +2029,7 @@ def cmd_auth0_diagnostics(args) -> int:
 
         if not compliance_enabled:
             console.print(
-                "[yellow]ℹ[/yellow] Auth0 is only used in compliance mode. Run 'autoclean-eeg setup --compliance-mode' to enable."
+                "[yellow]ℹ[/yellow] Auth0 is only used in compliance mode. Run 'autocleaneeg-pipeline setup --compliance-mode' to enable."
             )
             return 0
 
@@ -2348,7 +2348,7 @@ def main(argv: Optional[list] = None) -> int:
     # ------------------------------------------------------------------
     # Always inform the user where the AutoClean workspace is (or will be)
     # so they can easily locate their configuration and results.  This runs
-    # for *every* CLI invocation, including the bare `autoclean-eeg` call.
+    # for *every* CLI invocation, including the bare `autocleaneeg-pipeline` call.
     # ------------------------------------------------------------------
     workspace_dir = user_config.config_dir
 
@@ -2362,7 +2362,7 @@ def main(argv: Optional[list] = None) -> int:
         else:
             message(
                 "warning",
-                f"Workspace directory not configured yet: {workspace_dir} (run 'autoclean-eeg setup' to configure)",
+                f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline setup' to configure)",
             )
 
     if not args.command:
@@ -2376,7 +2376,7 @@ def main(argv: Optional[list] = None) -> int:
         else:
             console.print(
                 f"[yellow]⚠ Workspace not configured:[/yellow] {workspace_dir}\n"
-                "Run [cyan]autoclean-eeg setup[/cyan] to configure."
+                "Run [cyan]autocleaneeg-pipeline setup[/cyan] to configure."
             )
 
         return 0

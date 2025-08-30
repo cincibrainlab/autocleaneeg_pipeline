@@ -63,7 +63,7 @@ install-uv-tool: ## Install AutoClean as a uv tool (standalone)
 
 uninstall-uv-tool: ## Uninstall AutoClean uv tool
 	@echo "🗑️ Uninstalling AutoClean uv tool..."
-	@uv tool uninstall autocleaneeg
+	@uv tool uninstall autocleaneeg-pipeline
 
 # Code Quality - Individual Tools
 format: ## Auto-format code with black and isort (using uv tool)

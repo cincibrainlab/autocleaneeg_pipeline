@@ -221,7 +221,7 @@ This means AutoClean isn't installed properly. Try:
 
 .. code-block:: bash
 
-   pip install autocleaneeg
+   pip install autocleaneeg-pipeline
 
 **"File not found" error:**
 Check that you're in the right folder and the filename is correct:
