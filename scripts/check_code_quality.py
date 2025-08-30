@@ -8,9 +8,9 @@ for isolated tool execution without installation conflicts.
 """
 
 import argparse
+import shutil
 import subprocess
 import sys
-import shutil
 from pathlib import Path
 from typing import List, Tuple
 

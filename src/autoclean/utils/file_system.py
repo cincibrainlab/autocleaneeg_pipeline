@@ -4,11 +4,12 @@ This module contains functions for setting up and validating directory structure
 """
 import os
 import shutil
+import threading
 from datetime import datetime
 from pathlib import Path
+
 from autoclean import __version__
 from autoclean.utils.logging import message
-import threading
 
 # Cache to ensure we only perform a backup once per directory in a single
 # Python process. If the user aborts with Ctrl-C, the process ends and this
@@ -75,8 +76,10 @@ def step_prepare_directories(
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"{dir_name}_backup_{timestamp}"
         backup_path = autoclean_dir / backup_name
-        
-        message("warning", f"Directory '{dir_name}' exists, backing up to: {backup_name}")
+
+        message(
+            "warning", f"Directory '{dir_name}' exists, backing up to: {backup_name}"
+        )
         shutil.move(str(task_root), str(backup_path))
         message("info", "Backup complete, creating fresh directory")
 

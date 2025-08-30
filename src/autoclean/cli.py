@@ -745,9 +745,9 @@ def cmd_setup(args) -> int:
 
 def _simple_header(console, title: str, subtitle: str = None):
     """Simple, consistent header for setup."""
+    from rich.align import Align
     from rich.panel import Panel
     from rich.text import Text
-    from rich.align import Align
 
     console.print()
 

@@ -7,12 +7,12 @@ commits by type and providing a standardized format for release notes.
 """
 
 import argparse
-import subprocess
 import re
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Tuple, Optional
+from typing import Dict, List, Optional, Tuple
 
 
 class ChangelogGenerator:

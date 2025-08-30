@@ -173,7 +173,8 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
         self.create_bids_path(use_epochs=True)
 
-        save_epochs_to_set(            epochs=self.epochs,
+        save_epochs_to_set(
+            epochs=self.epochs,
             autoclean_dict=self.config,
             stage="post_import",
             flagged=self.flagged,

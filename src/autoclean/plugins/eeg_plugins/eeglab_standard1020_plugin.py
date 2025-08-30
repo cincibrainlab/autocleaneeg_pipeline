@@ -46,10 +46,9 @@ class EEGLABSetStandard1020Plugin(BaseEEGPlugin):
                 )
             except TypeError as e:
                 # Custom error: The number of trials is 355. It must be 1 for raw files. Please use `mne.io.read_epochs_eeglab` if the .set file contains epochs.
-                if (
-                    "The number of trials is" in str(e)
-                    and "must be 1 for raw files" in str(e)
-                ):
+                if "The number of trials is" in str(
+                    e
+                ) and "must be 1 for raw files" in str(e):
                     raw = mne.io.read_epochs_eeglab(input_fname=file_path, verbose=True)
                 else:
                     raise e
