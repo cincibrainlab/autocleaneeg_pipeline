@@ -46,7 +46,7 @@ from autoclean.utils.user_config import user_config
 
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
-TAGLINE = "Professional EEG Processing & Analysis Platform"
+TAGLINE = "Automated EEG Processing Software"
 LOGO_ICON = "🧠"
 DIVIDER = "═════════════════════════════════════════════════"
 
@@ -996,9 +996,9 @@ def _setup_compliance_mode() -> int:
         user_config_data["compliance"]["require_electronic_signatures"] = (
             signature_answer["require_signatures"]
         )
-        user_config_data["workspace"][
-            "auto_backup"
-        ] = True  # Always enabled for compliance
+        user_config_data["workspace"]["auto_backup"] = (
+            True  # Always enabled for compliance
+        )
 
         save_user_config(user_config_data)
 
@@ -1497,7 +1497,7 @@ def cmd_clean_task(args) -> int:
 
     # Format size for display
     size_mb = total_size / (1024 * 1024)
-    size_str = f"{size_mb:.1f} MB" if size_mb < 1024 else f"{size_mb/1024:.1f} GB"
+    size_str = f"{size_mb:.1f} MB" if size_mb < 1024 else f"{size_mb / 1024:.1f} GB"
 
     # Database entries (if database exists) - search by both task name and directory name
     db_entries = 0
@@ -2053,7 +2053,6 @@ def cmd_whoami(args) -> int:
                 hasattr(auth_manager, "token_expires_at")
                 and auth_manager.token_expires_at
             ):
-
                 expires_str = auth_manager.token_expires_at.strftime(
                     "%Y-%m-%d %H:%M:%S"
                 )
