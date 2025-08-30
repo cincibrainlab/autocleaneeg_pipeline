@@ -45,6 +45,132 @@ from autoclean.utils.task_discovery import (
 from autoclean.utils.user_config import user_config
 from autoclean.utils.console import get_console
 
+# ------------------------------------------------------------
+# Rich help integration
+# ------------------------------------------------------------
+def _print_startup_context(console) -> None:
+    """Print system info, workspace path, and free disk space (shared for header/help)."""
+    try:
+        from rich.text import Text
+        from rich.align import Align
+        import platform as _platform
+
+        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+        os_name = _platform.system() or "UnknownOS"
+        os_rel = _platform.release() or ""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+        info = Text()
+        info.append("🐍 Python ", style="muted")
+        info.append(py_ver, style="accent")
+        info.append("  •  ", style="muted")
+        info.append("🖥 ", style="muted")
+        info.append(f"{os_name} {os_rel}".strip(), style="accent")
+        info.append("  •  ", style="muted")
+        info.append("🕒 ", style="muted")
+        info.append(now_str, style="accent")
+        console.print(Align.center(info))
+    except Exception:
+        pass
+
+    # Workspace + disk
+    try:
+        from rich.text import Text as _Text
+        from rich.align import Align as _Align
+
+        workspace_dir = user_config.config_dir
+        valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+        home = str(Path.home())
+        display_path = str(workspace_dir)
+        if display_path.startswith(home):
+            display_path = display_path.replace(home, "~", 1)
+
+        ws = _Text()
+        if valid_ws:
+            ws.append("✓ ", style="success")
+            ws.append("Workspace ", style="muted")
+            ws.append(display_path, style="accent")
+            console.print(_Align.center(ws))
+        else:
+            ws.append("⚠ ", style="warning")
+            ws.append("Workspace not configured — ", style="muted")
+            ws.append(display_path, style="accent")
+            console.print(_Align.center(ws))
+            tip = _Text()
+            tip.append("Run ", style="muted")
+            tip.append("autocleaneeg-pipeline setup", style="accent")
+            tip.append(" to configure.", style="muted")
+            console.print(_Align.center(tip))
+
+        # Disk free
+        usage_path = (
+            workspace_dir
+            if workspace_dir.exists()
+            else (workspace_dir.parent if workspace_dir.parent.exists() else Path.home())
+        )
+        du = shutil.disk_usage(str(usage_path))
+        free_gb = du.free / (1024 ** 3)
+        free_line = _Text()
+        free_line.append("💾 ", style="muted")
+        free_line.append("Free space ", style="muted")
+        free_line.append(f"{free_gb:.1f} GB", style="accent")
+        console.print(_Align.center(free_line))
+        console.print()
+    except Exception:
+        pass
+
+
+class RichHelpAction(argparse.Action):
+    """Subparser -h/--help: show styled header + context, then default help."""
+
+    def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
+        console = get_console(namespace if isinstance(namespace, argparse.Namespace) else None)
+        _simple_header(console)
+        _print_startup_context(console)
+        console.print(parser.format_help())
+        sys.exit(0)
+
+
+class RootRichHelpAction(argparse.Action):
+    """Root -h/--help: show styled header + context, then elegant summary help."""
+
+    def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
+        from rich.table import Table as _Table
+
+        console = get_console(namespace if isinstance(namespace, argparse.Namespace) else None)
+        _simple_header(console)
+        _print_startup_context(console)
+
+        console.print("[header]Commands[/header]")
+        tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        tbl.add_column("Example", style="muted")
+        rows = [
+            ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
+            ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
+            ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
+            ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
+            ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
+            ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
+        ]
+        for c, d, e in rows:
+            tbl.add_row(c, d, e)
+        console.print(tbl)
+        console.print("[muted]Tip: Use '<command> --help' for detailed options.[/muted]")
+        sys.exit(0)
+
+
+def attach_rich_help(p: argparse.ArgumentParser, *, root: bool = False) -> None:
+    # Replace default help with our rich-aware action
+    if any(a.option_strings == ['-h'] for a in p._actions):  # remove default
+        for a in list(p._actions):
+            if a.option_strings == ['-h'] or a.option_strings == ['-h', '--help']:
+                p._actions.remove(a)
+                break
+    action = RootRichHelpAction if root else RichHelpAction
+    p.add_argument('-h', '--help', action=action, nargs=0, help='Show help')
+
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
 TAGLINE = "Automated EEG Processing Software"
@@ -70,6 +196,18 @@ try:
 except ImportError:
     INQUIRER_AVAILABLE = False
 
+# Tame noisy third-party INFO logs by default (user can override)
+if os.getenv("AUTOCLEAN_VERBOSE_LIBS") not in {"1", "true", "True", "YES", "yes"}:
+    # Ensure MNE reduces verbose backend messages (like "Using qt as 2D backend.")
+    os.environ.setdefault("MNE_LOGGING_LEVEL", "WARNING")
+    import logging as _logging
+
+    for _name in ("OpenGL", "OpenGL.acceleratesupport"):
+        try:
+            _logging.getLogger(_name).setLevel(_logging.ERROR)
+        except Exception:
+            pass
+
 # Try to import autoclean core components (may fail in some environments)
 try:
     from autoclean.core.pipeline import Pipeline
@@ -83,6 +221,7 @@ def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for AutoClean CLI."""
     parser = argparse.ArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        add_help=False,
         epilog="""
 Basic Usage:
   autocleaneeg-pipeline setup                          # First time setup
@@ -108,9 +247,12 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    # Attach rich help to root
+    attach_rich_help(parser, root=True)
 
     # Process command
-    process_parser = subparsers.add_parser("process", help="Process EEG data")
+    process_parser = subparsers.add_parser("process", help="Process EEG data", add_help=False)
+    attach_rich_help(process_parser)
 
     # Positional arguments for simple usage: autocleaneeg-pipeline process TaskName FilePath
     process_parser.add_argument(
@@ -179,8 +321,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     # List tasks command (alias for 'task list')
     list_tasks_parser = subparsers.add_parser(
-        "list-tasks", help="List all available tasks"
+        "list-tasks", help="List all available tasks", add_help=False
     )
+    attach_rich_help(list_tasks_parser)
     list_tasks_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed information"
     )
@@ -191,7 +334,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Review command
-    review_parser = subparsers.add_parser("review", help="Start review GUI")
+    review_parser = subparsers.add_parser("review", help="Start review GUI", add_help=False)
+    attach_rich_help(review_parser)
     review_parser.add_argument(
         "--output",
         type=Path,
@@ -200,13 +344,15 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Task management commands
-    task_parser = subparsers.add_parser("task", help="Manage custom tasks")
+    task_parser = subparsers.add_parser("task", help="Manage custom tasks", add_help=False)
+    attach_rich_help(task_parser)
     task_subparsers = task_parser.add_subparsers(
         dest="task_action", help="Task actions"
     )
 
     # Add task
-    add_task_parser = task_subparsers.add_parser("add", help="Add a custom task")
+    add_task_parser = task_subparsers.add_parser("add", help="Add a custom task", add_help=False)
+    attach_rich_help(add_task_parser)
     add_task_parser.add_argument("task_file", type=Path, help="Python task file to add")
     add_task_parser.add_argument(
         "--name", type=str, help="Custom name for the task (default: filename)"
@@ -217,16 +363,18 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Remove task
     remove_task_parser = task_subparsers.add_parser(
-        "remove", help="Remove a custom task"
+        "remove", help="Remove a custom task", add_help=False
     )
+    attach_rich_help(remove_task_parser)
     remove_task_parser.add_argument(
         "task_name", type=str, help="Name of the task to remove"
     )
 
     # List all tasks (replaces old list-tasks command)
     list_all_parser = task_subparsers.add_parser(
-        "list", help="List all available tasks"
+        "list", help="List all available tasks", add_help=False
     )
+    attach_rich_help(list_all_parser)
     list_all_parser.add_argument(
         "--verbose", "-v", action="store_true", help="Show detailed information"
     )
@@ -237,38 +385,45 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Show config location
-    config_parser = subparsers.add_parser("config", help="Manage user configuration")
+    config_parser = subparsers.add_parser("config", help="Manage user configuration", add_help=False)
+    attach_rich_help(config_parser)
     config_subparsers = config_parser.add_subparsers(
         dest="config_action", help="Config actions"
     )
 
     # Show config location
-    config_subparsers.add_parser("show", help="Show configuration directory location")
+    _cfg_show = config_subparsers.add_parser("show", help="Show configuration directory location", add_help=False)
+    attach_rich_help(_cfg_show)
 
     # Setup/reconfigure workspace
-    config_subparsers.add_parser("setup", help="Reconfigure workspace location")
+    _cfg_setup = config_subparsers.add_parser("setup", help="Reconfigure workspace location", add_help=False)
+    attach_rich_help(_cfg_setup)
 
     # Reset config
     reset_parser = config_subparsers.add_parser(
-        "reset", help="Reset configuration to defaults"
+        "reset", help="Reset configuration to defaults", add_help=False
     )
+    attach_rich_help(reset_parser)
     reset_parser.add_argument(
         "--confirm", action="store_true", help="Confirm the reset action"
     )
 
     # Export/import config
-    export_parser = config_subparsers.add_parser("export", help="Export configuration")
+    export_parser = config_subparsers.add_parser("export", help="Export configuration", add_help=False)
+    attach_rich_help(export_parser)
     export_parser.add_argument(
         "export_path", type=Path, help="Directory to export configuration to"
     )
 
-    import_parser = config_subparsers.add_parser("import", help="Import configuration")
+    import_parser = config_subparsers.add_parser("import", help="Import configuration", add_help=False)
+    attach_rich_help(import_parser)
     import_parser.add_argument(
         "import_path", type=Path, help="Directory to import configuration from"
     )
 
     # Setup command (same as config setup for simplicity)
-    setup_parser = subparsers.add_parser("setup", help="Setup or reconfigure workspace")
+    setup_parser = subparsers.add_parser("setup", help="Setup or reconfigure workspace", add_help=False)
+    attach_rich_help(setup_parser)
     setup_parser.add_argument(
         "--compliance-mode",
         action="store_true",
@@ -279,7 +434,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     export_log_parser = subparsers.add_parser(
         "export-access-log",
         help="Export database access log with integrity verification",
+        add_help=False,
     )
+    attach_rich_help(export_log_parser)
     export_log_parser.add_argument(
         "--output",
         type=Path,
@@ -312,12 +469,16 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Authentication commands (for compliance mode)
-    subparsers.add_parser("login", help="Login to Auth0 for compliance mode")
-    subparsers.add_parser("logout", help="Logout and clear authentication tokens")
-    subparsers.add_parser("whoami", help="Show current authenticated user")
+    _login = subparsers.add_parser("login", help="Login to Auth0 for compliance mode", add_help=False)
+    attach_rich_help(_login)
+    _logout = subparsers.add_parser("logout", help="Logout and clear authentication tokens", add_help=False)
+    attach_rich_help(_logout)
+    _whoami = subparsers.add_parser("whoami", help="Show current authenticated user", add_help=False)
+    attach_rich_help(_whoami)
     auth_diag_parser = subparsers.add_parser(
-        "auth0-diagnostics", help="Diagnose Auth0 configuration and connectivity issues"
+        "auth0-diagnostics", help="Diagnose Auth0 configuration and connectivity issues", add_help=False
     )
+    attach_rich_help(auth_diag_parser)
     auth_diag_parser.add_argument(
         "--verbose",
         "-v",
@@ -327,8 +488,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Clean task command
     clean_task_parser = subparsers.add_parser(
-        "clean-task", help="Remove task output directory and database entries"
+        "clean-task", help="Remove task output directory and database entries", add_help=False
     )
+    attach_rich_help(clean_task_parser)
     clean_task_parser.add_argument("task", help="Task name to clean")
     clean_task_parser.add_argument(
         "--output-dir",
@@ -346,23 +508,27 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # View command
     view_parser = subparsers.add_parser(
-        "view", help="View EEG files using MNE-QT Browser"
+        "view", help="View EEG files using MNE-QT Browser", add_help=False
     )
+    attach_rich_help(view_parser)
     view_parser.add_argument("file", type=Path, help="Path to EEG file")
     view_parser.add_argument(
         "--no-view", action="store_true", help="Validate without viewing"
     )
 
     # Version command
-    subparsers.add_parser(
-        "version", help="Show version information"
+    _version = subparsers.add_parser(
+        "version", help="Show version information", add_help=False
     )  # Help command (for consistency)
-    subparsers.add_parser("help", help="Show detailed help information")
+    attach_rich_help(_version)
+    _help = subparsers.add_parser("help", help="Show detailed help information", add_help=False)
+    attach_rich_help(_help)
 
     # Tutorial command
-    subparsers.add_parser(
-        "tutorial", help="Show a helpful tutorial for first-time users"
+    _tutorial = subparsers.add_parser(
+        "tutorial", help="Show a helpful tutorial for first-time users", add_help=False
     )
+    attach_rich_help(_tutorial)
 
     return parser
 
@@ -1606,9 +1772,29 @@ def cmd_view(args) -> int:
 
 
 def cmd_help(args) -> int:
-    """Show the same help as -h/--help."""
-    parser = create_parser()
-    parser.print_help()
+    """Styled help output consistent with rich header."""
+    from rich.table import Table as _Table
+    console = get_console(args)
+    _simple_header(console)
+    _print_startup_context(console)
+
+    console.print("[header]Commands[/header]")
+    tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+    tbl.add_column("Command", style="accent", no_wrap=True)
+    tbl.add_column("Description", style="muted")
+    tbl.add_column("Example", style="muted")
+    rows = [
+        ("process", "Process EEG data", "autocleaneeg-pipeline process RestingEyesOpen /path/data.raw"),
+        ("list-tasks", "List available tasks", "autocleaneeg-pipeline list-tasks"),
+        ("review", "Start review GUI", "autocleaneeg-pipeline review --output ~/Autoclean-EEG/output"),
+        ("view", "View EEG file (MNE-QT)", "autocleaneeg-pipeline view /path/data.set"),
+        ("setup", "Setup or reconfigure workspace", "autocleaneeg-pipeline setup"),
+        ("config", "Manage user configuration", "autocleaneeg-pipeline config show"),
+    ]
+    for c, d, e in rows:
+        tbl.add_row(c, d, e)
+    console.print(tbl)
+    console.print("[muted]Tip: Use '<command> --help' for detailed options.[/muted]")
     return 0
 
 
@@ -2439,14 +2625,107 @@ def main(argv: Optional[list] = None) -> int:
         console = get_console(args)
         _simple_header(console)
 
-        # Show workspace info elegantly beneath the banner
-        if workspace_dir.exists() and (workspace_dir / "tasks").exists():
-            console.print(f"\n[muted]Workspace:[/muted] {workspace_dir}")
-        else:
-            console.print(
-                f"[warning]⚠ Workspace not configured:[/warning] {workspace_dir}\n"
-                "Run [accent]autocleaneeg-pipeline setup[/accent] to configure."
+        # Centered system info: Python, OS, Date/Time
+        try:
+            from rich.text import Text
+            from rich.align import Align
+            import platform as _platform
+
+            py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            os_name = _platform.system() or "UnknownOS"
+            os_rel = _platform.release() or ""
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+            info = Text()
+            info.append("🐍 Python ", style="muted")
+            info.append(py_ver, style="accent")
+            info.append("  •  ", style="muted")
+            info.append("🖥 ", style="muted")
+            info.append(f"{os_name} {os_rel}".strip(), style="accent")
+            info.append("  •  ", style="muted")
+            info.append("🕒 ", style="muted")
+            info.append(now_str, style="accent")
+
+            console.print(Align.center(info))
+            console.print()
+        except Exception:
+            pass
+
+        # Show workspace info elegantly beneath the banner (centered)
+        try:
+            from rich.text import Text
+            from rich.align import Align
+
+            valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+            home = str(Path.home())
+            display_path = str(workspace_dir)
+            if display_path.startswith(home):
+                display_path = display_path.replace(home, "~", 1)
+
+            ws = Text()
+            if valid_ws:
+                ws.append("✓ ", style="success")
+                ws.append("Workspace ", style="muted")
+                ws.append(display_path, style="accent")
+                console.print(Align.center(ws))
+            else:
+                ws.append("⚠ ", style="warning")
+                ws.append("Workspace not configured — ", style="muted")
+                ws.append(display_path, style="accent")
+                console.print(Align.center(ws))
+
+                tip = Text()
+                tip.append("Run ", style="muted")
+                tip.append("autocleaneeg-pipeline setup", style="accent")
+                tip.append(" to configure.", style="muted")
+                console.print(Align.center(tip))
+        except Exception:
+            # Fallback to simple prints if Rich alignment fails
+            if workspace_dir.exists() and (workspace_dir / "tasks").exists():
+                console.print(f"\n[muted]Workspace:[/muted] {workspace_dir}")
+            else:
+                console.print(
+                    f"[warning]⚠ Workspace not configured:[/warning] {workspace_dir}\n"
+                    "Run [accent]autocleaneeg-pipeline setup[/accent] to configure."
+                )
+
+        # Disk free space for workspace volume (guarded)
+        try:
+            from rich.text import Text as _Text
+            from rich.align import Align as _Align
+            usage_path = (
+                workspace_dir
+                if workspace_dir.exists()
+                else (workspace_dir.parent if workspace_dir.parent.exists() else Path.home())
             )
+            du = shutil.disk_usage(str(usage_path))
+            free_gb = du.free / (1024 ** 3)
+            free_line = _Text()
+            free_line.append("💾 ", style="muted")
+            free_line.append("Free space ", style="muted")
+            free_line.append(f"{free_gb:.1f} GB", style="accent")
+            console.print(_Align.center(free_line))
+        except Exception:
+            pass
+
+        # Quick Start (left-aligned, expandable)
+        try:
+            from rich.text import Text as _QText
+            # Title
+            console.print(_QText("Quick Start", style="header"))
+            # Commands table (easy to expand)
+            qs_rows = [
+                ("autocleaneeg-pipeline --help | -h", "Show commands and options"),
+            ]
+            qs_table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+            qs_table.add_column("Command", style="accent", no_wrap=True)
+            qs_table.add_column("Description", style="muted")
+            for cmd, desc in qs_rows:
+                qs_table.add_row(cmd, desc)
+            console.print(qs_table)
+            console.print()
+        except Exception:
+            pass
 
         return 0
 
