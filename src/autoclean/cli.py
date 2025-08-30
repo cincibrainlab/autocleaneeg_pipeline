@@ -2787,6 +2787,25 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
+        # Centered docs and GitHub links (minimalist)
+        try:
+            from rich.text import Text as _LText
+            from rich.align import Align as _LAlign
+
+            links = _LText()
+            links.append("📘 Docs ", style="muted")
+            links.append("https://docs.autocleaneeg.org", style="accent")
+            links.append("  •  ", style="muted")
+            links.append("GitHub ", style="muted")
+            links.append(
+                "https://github.com/cincibrainlab/autoclean_pipeline",
+                style="accent",
+            )
+            console.print(_LAlign.center(links))
+            console.print()
+        except Exception:
+            pass
+
         # (Quick Start section intentionally removed for a cleaner minimalist banner)
 
         return 0
