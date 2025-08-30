@@ -595,7 +595,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "view", help="View EEG files using MNE-QT Browser", add_help=False
     )
     attach_rich_help(view_parser)
-    view_parser.add_argument("file", type=Path, help="Path to EEG file")
+    view_parser.add_argument("file", nargs="?", type=Path, help="Path to EEG file")
     view_parser.add_argument(
         "--no-view", action="store_true", help="Validate without viewing"
     )
@@ -713,6 +713,32 @@ def validate_args(args) -> bool:
         # Check task file exists if provided
         if args.task_file and not args.task_file.exists():
             message("error", f"Task file does not exist: {args.task_file}")
+            return False
+
+    elif args.command == "view":
+        # Friendly brief help when file is missing
+        if not getattr(args, "file", None):
+            console = get_console(args)
+            _simple_header(console)
+            try:
+                from rich.text import Text as _Text
+                from rich.align import Align as _Align
+                from rich.table import Table as _Table
+
+                console.print("[header]View EEG[/header]")
+                console.print("[muted]Usage:[/muted] [accent]autocleaneeg-pipeline view <file> [--no-view][/accent]")
+                console.print()
+
+                tbl = _Table(show_header=False, box=None, padding=(0, 1))
+                tbl.add_column("Item", style="accent", no_wrap=True)
+                tbl.add_column("Details", style="muted")
+                tbl.add_row("file", "Path to EEG file (.set, .edf, .fif, .raw)")
+                tbl.add_row("--no-view", "Validate without opening the viewer")
+                console.print(tbl)
+                console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+                console.print()
+            except Exception:
+                console.print("Usage: autocleaneeg-pipeline view <file> [--no-view]")
             return False
 
     elif args.command == "review":
