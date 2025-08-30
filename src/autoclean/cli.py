@@ -169,7 +169,8 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         for c, d in rows:
             tbl.add_row(c, d)
         console.print(tbl)
-        console.print("[muted]Tip: For details on a command, run '<command> --help'.[/muted]")
+        console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+        console.print()
         return
 
     console.print("[header]Commands[/header]")
@@ -179,17 +180,18 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
     
     rows = [
         ("❓ help", "Show help and topics (alias for -h/--help)"),
-        ("⚙️ setup", "Setup or reconfigure workspace"),
-        ("👁 view", "View EEG file (MNE-QT)"),
+        ("⚙️  setup", "Setup or reconfigure workspace"),
+        ("👁  view", "View EEG file (MNE-QT)"),
         ("📜 list-tasks", "List available tasks"),
-        ("▶ process", "Process EEG data"),
+        ("▶  process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
         ("🔐 auth", "Authentication & Part-11 commands"),
     ]
     for c, d in rows:
         tbl.add_row(c, d)
     console.print(tbl)
-    console.print("[muted]Tip: Use '<command> --help' for detailed options.[/muted]")
+    console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+    console.print()
 
 
 def attach_rich_help(p: argparse.ArgumentParser, *, root: bool = False) -> None:
