@@ -27,9 +27,10 @@ from rich.table import Table
 from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
-TAGLINE = "Professional EEG Processing & Analysis Platform" 
+TAGLINE = "Professional EEG Processing & Analysis Platform"
 LOGO_ICON = "🧠"
 DIVIDER = "═════════════════════════════════════════════════"
 from autoclean.utils.config import (
@@ -321,22 +322,32 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     clean_task_parser.add_argument("task", help="Task name to clean")
     clean_task_parser.add_argument(
-        "--output-dir", type=Path, help="Output directory (defaults to configured workspace)"
+        "--output-dir",
+        type=Path,
+        help="Output directory (defaults to configured workspace)",
     )
     clean_task_parser.add_argument(
         "--force", action="store_true", help="Skip confirmation prompt"
     )
     clean_task_parser.add_argument(
-        "--dry-run", action="store_true", help="Show what would be deleted without actually deleting"
+        "--dry-run",
+        action="store_true",
+        help="Show what would be deleted without actually deleting",
     )
 
     # View command
-    view_parser = subparsers.add_parser("view", help="View EEG files using MNE-QT Browser")
+    view_parser = subparsers.add_parser(
+        "view", help="View EEG files using MNE-QT Browser"
+    )
     view_parser.add_argument("file", type=Path, help="Path to EEG file")
-    view_parser.add_argument("--no-view", action="store_true", help="Validate without viewing")
+    view_parser.add_argument(
+        "--no-view", action="store_true", help="Validate without viewing"
+    )
 
     # Version command
-    subparsers.add_parser("version", help="Show version information")    # Help command (for consistency)
+    subparsers.add_parser(
+        "version", help="Show version information"
+    )  # Help command (for consistency)
     subparsers.add_parser("help", help="Show detailed help information")
 
     # Tutorial command
@@ -403,7 +414,7 @@ def validate_args(args) -> bool:
         if not args.output:
             args.output = user_config.get_default_output_dir()
             message("info", f"Using default workspace output directory: {args.output}")
-        
+
         if not args.output.exists():
             message("error", f"Output directory does not exist: {args.output}")
             return False
@@ -471,19 +482,24 @@ def cmd_process(args) -> int:
             message("info", f"Using file format: {args.format}")
             if args.recursive:
                 message("info", "Recursive search: enabled")
-            
+
             # Use parallel processing if requested
-            if hasattr(args, 'parallel') and args.parallel:
+            if hasattr(args, "parallel") and args.parallel:
                 import asyncio
+
                 max_concurrent = min(max(1, args.parallel), 8)  # Clamp between 1-8
-                message("info", f"Parallel processing: {max_concurrent} concurrent files")
-                asyncio.run(pipeline.process_directory_async(
-                    directory_path=args.final_input,
-                    task=task_name,
-                    pattern=args.format,
-                    sub_directories=args.recursive,
-                    max_concurrent=max_concurrent,
-                ))
+                message(
+                    "info", f"Parallel processing: {max_concurrent} concurrent files"
+                )
+                asyncio.run(
+                    pipeline.process_directory_async(
+                        directory_path=args.final_input,
+                        task=task_name,
+                        pattern=args.format,
+                        sub_directories=args.recursive,
+                        max_concurrent=max_concurrent,
+                    )
+                )
             else:
                 pipeline.process_directory(
                     directory=args.final_input,
@@ -732,22 +748,19 @@ def _simple_header(console, title: str, subtitle: str = None):
     from rich.panel import Panel
     from rich.text import Text
     from rich.align import Align
-    
+
     console.print()
-    
+
     # Create branding content
     branding_text = Text()
     branding_text.append(f"{LOGO_ICON} Welcome to AutoClean", style="bold bright_cyan")
     branding_text.append(f"\n{TAGLINE}", style="bright_blue")
-    
+
     # Create panel with branding
     branding_panel = Panel(
-        Align.center(branding_text),
-        style="cyan",
-        padding=(0, 1),
-        title_align="center"
+        Align.center(branding_text), style="cyan", padding=(0, 1), title_align="center"
     )
-    
+
     console.print(branding_panel)
     console.print()
     console.print(f"[bold green]{title}[/bold green]")
@@ -759,13 +772,17 @@ def _simple_header(console, title: str, subtitle: str = None):
 def _run_interactive_setup() -> int:
     """Run interactive setup wizard with arrow key navigation."""
     from rich.console import Console
-    
+
     try:
         console = Console()
-        _simple_header(console, "Setup Wizard", "Use arrow keys to navigate, Enter to select")
-        
+        _simple_header(
+            console, "Setup Wizard", "Use arrow keys to navigate, Enter to select"
+        )
+
         if not INQUIRER_AVAILABLE:
-            console.print("[yellow]⚠[/yellow] Interactive prompts not available. Running basic setup...")
+            console.print(
+                "[yellow]⚠[/yellow] Interactive prompts not available. Running basic setup..."
+            )
             user_config.setup_workspace()
             return 0
 
@@ -776,10 +793,16 @@ def _run_interactive_setup() -> int:
 
         # Display compliance status - simple
         if is_permanent:
-            console.print("[yellow]⚠[/yellow] FDA 21 CFR Part 11 compliance mode is permanently enabled")
-            console.print("[blue]ℹ[/blue] You can only configure workspace location in compliance mode")
+            console.print(
+                "[yellow]⚠[/yellow] FDA 21 CFR Part 11 compliance mode is permanently enabled"
+            )
+            console.print(
+                "[blue]ℹ[/blue] You can only configure workspace location in compliance mode"
+            )
         elif is_enabled:
-            console.print("[blue]ℹ[/blue] FDA 21 CFR Part 11 compliance mode is currently enabled")
+            console.print(
+                "[blue]ℹ[/blue] FDA 21 CFR Part 11 compliance mode is currently enabled"
+            )
         else:
             console.print("[dim]Current compliance mode: disabled[/dim]")
 
@@ -855,10 +878,10 @@ def _run_interactive_setup() -> int:
 def _setup_basic_mode() -> int:
     """Setup basic (non-compliance) mode."""
     from rich.console import Console
-    
+
     try:
         console = Console()
-        
+
         if not INQUIRER_AVAILABLE:
             user_config.setup_workspace()
             return 0
@@ -871,7 +894,7 @@ def _setup_basic_mode() -> int:
         # Always run full workspace setup (includes prompting to change location if exists)
         # Don't show branding since we already showed it at the start of setup
         workspace_path = user_config.setup_workspace(show_branding=False)
-        
+
         # Update user configuration - auto-backup enabled by default
         user_config_data = load_user_config()
 
@@ -887,8 +910,12 @@ def _setup_basic_mode() -> int:
         save_user_config(user_config_data)
 
         console.print("[green]✓[/green] Basic setup complete!")
-        console.print("[blue]ℹ[/blue] You can now use AutoClean for standard EEG processing")
-        console.print("[blue]ℹ[/blue] Run 'autocleaneeg-pipeline process TaskName file.raw' to get started")
+        console.print(
+            "[blue]ℹ[/blue] You can now use AutoClean for standard EEG processing"
+        )
+        console.print(
+            "[blue]ℹ[/blue] Run 'autocleaneeg-pipeline process TaskName file.raw' to get started"
+        )
 
         return 0
 
@@ -900,7 +927,7 @@ def _setup_basic_mode() -> int:
 def _setup_compliance_mode() -> int:
     """Setup FDA 21 CFR Part 11 compliance mode with developer-managed Auth0."""
     from autoclean.utils.cli_display import setup_display
-    
+
     try:
         if not INQUIRER_AVAILABLE:
             setup_display.error("Interactive setup requires 'inquirer' package")
@@ -908,7 +935,9 @@ def _setup_compliance_mode() -> int:
             return 1
 
         setup_display.blank_line()
-        setup_display.header("FDA 21 CFR Part 11 Compliance Setup", "Regulatory compliance mode")
+        setup_display.header(
+            "FDA 21 CFR Part 11 Compliance Setup", "Regulatory compliance mode"
+        )
         setup_display.warning("Once enabled, compliance mode cannot be disabled")
         setup_display.blank_line()
         setup_display.console.print("[bold]This mode provides:[/bold]")
@@ -976,9 +1005,17 @@ def _setup_compliance_mode() -> int:
         setup_display.success("Compliance mode setup complete!")
         setup_display.blank_line()
         setup_display.console.print("[bold]Next steps:[/bold]")
-        setup_display.list_item("Run 'autocleaneeg-pipeline login' to authenticate", indent=0)
-        setup_display.list_item("Use 'autocleaneeg-pipeline whoami' to check authentication status", indent=0)
-        setup_display.list_item("All processing will now include audit trails and user authentication", indent=0)
+        setup_display.list_item(
+            "Run 'autocleaneeg-pipeline login' to authenticate", indent=0
+        )
+        setup_display.list_item(
+            "Use 'autocleaneeg-pipeline whoami' to check authentication status",
+            indent=0,
+        )
+        setup_display.list_item(
+            "All processing will now include audit trails and user authentication",
+            indent=0,
+        )
 
         return 0
 
@@ -1027,9 +1064,13 @@ def _enable_compliance_mode() -> int:
             message("success", "✓ Compliance mode enabled!")
             message("info", "\nNext steps:")
             message(
-                "info", "1. Run 'autocleaneeg-pipeline login' to authenticate (when needed)"
+                "info",
+                "1. Run 'autocleaneeg-pipeline login' to authenticate (when needed)",
             )
-            message("info", "2. Run 'autocleaneeg-pipeline setup' again to disable if needed")
+            message(
+                "info",
+                "2. Run 'autocleaneeg-pipeline setup' again to disable if needed",
+            )
             return 0
         else:
             message("error", "Failed to enable compliance mode")
@@ -1409,41 +1450,43 @@ def cmd_config_import(args) -> int:
 def cmd_clean_task(args) -> int:
     """Remove task output directory and database entries."""
     console = Console()
-    
+
     # Determine output directory
     output_dir = args.output_dir or user_config._get_workspace_path()
-    
+
     # Find matching task directories (could be task name or dataset name)
     potential_dirs = []
-    
+
     # First try exact match
     exact_match = output_dir / args.task
     if exact_match.exists() and (exact_match / "bids").exists():
         potential_dirs.append(exact_match)
-    
+
     # If no exact match, search for directories containing the task name
     if not potential_dirs:
         for item in output_dir.iterdir():
             if item.is_dir() and args.task.lower() in item.name.lower():
                 if (item / "bids").exists():
                     potential_dirs.append(item)
-    
+
     if not potential_dirs:
         message("warning", f"No task directories found matching: {args.task}")
         message("info", f"Searched in: {output_dir}")
         return 1
-    
+
     if len(potential_dirs) > 1:
-        console.print(f"\n[yellow]Multiple directories found matching '{args.task}':[/yellow]")
+        console.print(
+            f"\n[yellow]Multiple directories found matching '{args.task}':[/yellow]"
+        )
         for i, dir_path in enumerate(potential_dirs, 1):
             console.print(f"  {i}. {dir_path.name}")
         console.print("\nPlease be more specific or use the full directory name.")
         return 1
-    
+
     # Use the single matching directory
     task_root_dir = potential_dirs[0]
     task_dir = task_root_dir / "bids"
-    
+
     # Count files and calculate size
     total_files = 0
     total_size = 0
@@ -1451,11 +1494,11 @@ def cmd_clean_task(args) -> int:
         if item.is_file():
             total_files += 1
             total_size += item.stat().st_size
-    
+
     # Format size for display
     size_mb = total_size / (1024 * 1024)
     size_str = f"{size_mb:.1f} MB" if size_mb < 1024 else f"{size_mb/1024:.1f} GB"
-    
+
     # Database entries (if database exists) - search by both task name and directory name
     db_entries = 0
     if DB_PATH and Path(DB_PATH).exists():
@@ -1464,14 +1507,14 @@ def cmd_clean_task(args) -> int:
             cursor = conn.cursor()
             # Search for entries matching either the provided task name or the directory name
             cursor.execute(
-                "SELECT COUNT(*) FROM runs WHERE task = ? OR task = ?", 
-                (args.task, task_root_dir.name)
+                "SELECT COUNT(*) FROM runs WHERE task = ? OR task = ?",
+                (args.task, task_root_dir.name),
             )
             db_entries = cursor.fetchone()[0]
             conn.close()
         except Exception:
             pass
-    
+
     # Display what will be deleted
     console.print("\n[bold]Task Cleanup Summary:[/bold]")
     console.print(f"Task: [cyan]{args.task}[/cyan]")
@@ -1480,37 +1523,44 @@ def cmd_clean_task(args) -> int:
     console.print(f"Size: [red]{size_str}[/red]")
     if db_entries > 0:
         console.print(f"Database entries: [red]{db_entries}[/red]")
-    
+
     if args.dry_run:
         console.print("\n[yellow]DRY RUN - No files will be deleted[/yellow]")
         return 0
-    
+
     # Simple Y/N confirmation
     if not args.force:
-        confirm = console.input("\n[bold red]Delete this task? (Y/N):[/bold red] ").strip().upper()
+        confirm = (
+            console.input("\n[bold red]Delete this task? (Y/N):[/bold red] ")
+            .strip()
+            .upper()
+        )
         if confirm != "Y":
             console.print("[yellow]Cancelled[/yellow]")
             return 1
-    
+
     # Perform deletion
     try:
         # Delete filesystem
         console.print("\n[bold]Cleaning task files...[/bold]")
         shutil.rmtree(task_root_dir)
         console.print(f"✓ Removed directory: {task_root_dir}")
-        
+
         # Delete database entries for both task name and directory name
         if db_entries > 0 and DB_PATH:
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
-            cursor.execute("DELETE FROM runs WHERE task = ? OR task = ?", (args.task, task_root_dir.name))
+            cursor.execute(
+                "DELETE FROM runs WHERE task = ? OR task = ?",
+                (args.task, task_root_dir.name),
+            )
             conn.commit()
             conn.close()
             console.print(f"✓ Removed {db_entries} database entries")
-        
+
         console.print("\n[green]Task cleaned successfully![/green]")
         return 0
-        
+
     except Exception as e:
         console.print(f"\n[red]Error during cleanup: {e}[/red]")
         return 1
@@ -1522,25 +1572,29 @@ def cmd_view(args) -> int:
     if not args.file.exists():
         message("error", f"File not found: {args.file}")
         return 1
-    
+
     # Build command
     cmd = ["autoclean-view", str(args.file)]
     if args.no_view:
         cmd.append("--no-view")
-    
+
     # Launch viewer
     message("info", f"Opening {args.file.name} in MNE-QT Browser...")
-    
+
     try:
         process = subprocess.run(cmd, capture_output=True, text=True)
         if process.returncode == 0:
-            message("success", "Viewer closed" if not args.no_view else "File validated")
+            message(
+                "success", "Viewer closed" if not args.no_view else "File validated"
+            )
             return 0
         else:
             message("error", f"Error: {process.stderr}")
             return 1
     except FileNotFoundError:
-        message("error", "autoclean-view not installed. Run: pip install autoclean-view")
+        message(
+            "error", "autoclean-view not installed. Run: pip install autoclean-view"
+        )
         return 1
     except Exception as e:
         message("error", f"Failed to launch viewer: {str(e)}")
@@ -1592,7 +1646,9 @@ def cmd_tutorial(_args) -> int:
     console.print(
         "For example, to process a file called 'data.raw' with the 'RestingEyesOpen' task, you would run the following command:"
     )
-    console.print("\n[green]autocleaneeg-pipeline process RestingEyesOpen data.raw[/green]\n")
+    console.print(
+        "\n[green]autocleaneeg-pipeline process RestingEyesOpen data.raw[/green]\n"
+    )
 
     return 0
 
@@ -2254,7 +2310,11 @@ def cmd_auth0_diagnostics(args) -> int:
             summary_table.add_row(
                 "Authentication",
                 "✓ Logged in" if is_authenticated else "[yellow]Not logged in[/yellow]",
-                "Valid session" if is_authenticated else "Run 'autoclean-eeg login'",
+                (
+                    "Valid session"
+                    if is_authenticated
+                    else "Run 'autocleaneeg-pipeline login'"
+                ),
             )
 
             # Check config file
@@ -2307,7 +2367,7 @@ def cmd_auth0_diagnostics(args) -> int:
                 console.print("4. Verify your Auth0 tenant is active and accessible")
                 console.print("")
                 console.print(
-                    "Once connectivity is fixed, run [cyan]autoclean-eeg login[/cyan] to authenticate"
+                    "Once connectivity is fixed, run [cyan]autocleaneeg-pipeline login[/cyan] to authenticate"
                 )
             elif not openid_accessible:
                 console.print(
@@ -2320,11 +2380,13 @@ def cmd_auth0_diagnostics(args) -> int:
                 console.print("3. Network or firewall issues")
                 console.print("")
                 console.print(
-                    "You can try [cyan]autoclean-eeg login[/cyan] but it may fail"
+                    "You can try [cyan]autocleaneeg-pipeline login[/cyan] but it may fail"
                 )
             elif not auth_manager.is_authenticated():
                 console.print("✓ Configuration looks good!")
-                console.print("1. Run [cyan]autoclean-eeg login[/cyan] to authenticate")
+                console.print(
+                    "1. Run [cyan]autocleaneeg-pipeline login[/cyan] to authenticate"
+                )
             else:
                 console.print(
                     "✓ Configuration looks good! You're ready to use Auth0 authentication."
@@ -2358,7 +2420,9 @@ def main(argv: Optional[list] = None) -> int:
         console = Console()
 
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
-            console.print(f"[green]Autoclean Workspace Directory:[/green] {workspace_dir}")
+            console.print(
+                f"[green]Autoclean Workspace Directory:[/green] {workspace_dir}"
+            )
         else:
             message(
                 "warning",
@@ -2368,7 +2432,9 @@ def main(argv: Optional[list] = None) -> int:
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = Console()
-        _simple_header(console, "Welcome", "Professional EEG Processing & Analysis Platform")
+        _simple_header(
+            console, "Welcome", "Professional EEG Processing & Analysis Platform"
+        )
 
         # Show workspace info elegantly beneath the banner
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
