@@ -11,7 +11,7 @@ requires-python = ">=3.10,<3.14"
 license = {file = "LICENSE"}
 keywords = ["eeg", "neuroscience", "signal-processing", "preprocessing", "mne-python", "bids", "electrophysiology"]
 authors = [
-        { name = "Ernest Pedapati", email = "ernest.pedapati@cchmc.org" },
+    { name = "Ernest Pedapati", email = "ernest.pedapati@cchmc.org" },
     { name = "Gavin Gammoh", email = "gavin.gammoh@cchmc.org" }
 ]
 classifiers = [
