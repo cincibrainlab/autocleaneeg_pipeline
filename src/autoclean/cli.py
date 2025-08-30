@@ -671,9 +671,37 @@ def validate_args(args) -> bool:
         task_name = args.task_name or args.task
         input_path = args.input_path or args.file or args.directory
 
-        # Check that either task or task-file is provided
+        # If no task specified, show a brief, elegant help instead of a raw error
         if not task_name and not args.task_file:
-            message("error", "Either task name or --task-file must be specified")
+            console = get_console(args)
+            _simple_header(console)
+            try:
+                from rich.table import Table as _Table
+
+                console.print("[header]Process EEG[/header]")
+                console.print(
+                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
+                )
+                console.print()
+
+                tbl = _Table(show_header=False, box=None, padding=(0, 1))
+                tbl.add_column("Item", style="accent", no_wrap=True)
+                tbl.add_column("Details", style="muted")
+                tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
+                tbl.add_row("--task-file", "Path to Python task file")
+                tbl.add_row("file|--file", "Single EEG file (.raw, .edf, .set, .fif)")
+                tbl.add_row("dir|--dir", "Directory of EEG files (use --format, --recursive)")
+                tbl.add_row("--format", "Glob pattern (default: *.set; '*.raw', '*.edf', ...)")
+                tbl.add_row("--recursive", "Search subdirectories for matching files")
+                tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
+                tbl.add_row("--dry-run", "Show what would run without processing")
+                console.print(tbl)
+                console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+                console.print()
+            except Exception:
+                console.print(
+                    "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
+                )
             return False
 
         if task_name and args.task_file:
@@ -700,10 +728,35 @@ def validate_args(args) -> bool:
                     return False
                 message("info", f"Using input path from task config: {input_path}")
             else:
-                message(
-                    "error",
-                    "Input file or directory must be specified (via CLI or task config)",
-                )
+                console = get_console(args)
+                _simple_header(console)
+                try:
+                    from rich.table import Table as _Table
+
+                    console.print("[header]Process EEG[/header]")
+                    console.print(
+                        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
+                    )
+                    console.print()
+
+                    tbl = _Table(show_header=False, box=None, padding=(0, 1))
+                    tbl.add_column("Item", style="accent", no_wrap=True)
+                    tbl.add_column("Details", style="muted")
+                    tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
+                    tbl.add_row("--task-file", "Path to Python task file")
+                    tbl.add_row("file|--file", "Single EEG file (.raw, .edf, .set, .fif)")
+                    tbl.add_row("dir|--dir", "Directory of EEG files (use --format, --recursive)")
+                    tbl.add_row("--format", "Glob pattern (default: *.set; '*.raw', '*.edf', ...)")
+                    tbl.add_row("--recursive", "Search subdirectories for matching files")
+                    tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
+                    tbl.add_row("--dry-run", "Show what would run without processing")
+                    console.print(tbl)
+                    console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+                    console.print()
+                except Exception:
+                    console.print(
+                        "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
+                    )
                 return False
 
         # Store normalized values back to args
