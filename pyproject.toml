@@ -11,8 +11,8 @@ requires-python = ">=3.10,<3.14"
 license = {file = "LICENSE"}
 keywords = ["eeg", "neuroscience", "signal-processing", "preprocessing", "mne-python", "bids", "electrophysiology"]
 authors = [
-    { name = "Gavin Gammoh", email = "gavin.gammoh@cchmc.org" },
-    { name = "Ernest Pedapati", email = "ernest.pedapati@cchmc.org" }
+        { name = "Ernest Pedapati", email = "ernest.pedapati@cchmc.org" },
+    { name = "Gavin Gammoh", email = "gavin.gammoh@cchmc.org" }
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -69,7 +69,7 @@ dependencies = [
     "cryptography>=3.4.8",
     "inquirer>=3.1.0",
     "autoclean-icvision>=0.1.0",
-    "autoclean-eeg2source>=0.1.0",  # ← new optional dependency
+    "autoclean-eeg2source>=0.1.0", # ← new optional dependency
 ]
 
 [project.urls]
@@ -151,4 +151,4 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-per-file-ignores = { "autoclean/step_functions/__init__.py" = ["E402", "F403"], "autoclean/tools/autoclean_review.py" = ["E402"] }
+per-file-ignores = { "autoclean/step_functions/__init__.py" = ["E402", "F403"], "autoclean/tools/autoclean_review.py" = ["E402"], "autoclean/calc/source.py" = ["F401"] }
