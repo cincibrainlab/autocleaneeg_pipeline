@@ -18,8 +18,6 @@ for comparison with structured statistical learning results.
 from typing import Dict, Optional, Union
 
 import mne
-import numpy as np
-import pandas as pd
 
 from autoclean.functions.epoching.statistical_randomized import (
     create_statistical_learning_randomized_epochs,

@@ -28,6 +28,7 @@ from tqdm import tqdm
 
 # Optional imports with availability flags
 try:
+    import networkx as nx
     from networkx.algorithms.community import louvain_communities, modularity
 
     NETWORK_ANALYSIS_AVAILABLE = True
@@ -35,6 +36,8 @@ except ImportError:
     NETWORK_ANALYSIS_AVAILABLE = False
 
 try:
+    from bctpy import charpath, clustering_coef_wu, efficiency_wei
+    from fooof import FOOOF, FOOOFGroup
     from fooof.analysis import get_band_peak_fm
 
     FOOOF_AVAILABLE = True

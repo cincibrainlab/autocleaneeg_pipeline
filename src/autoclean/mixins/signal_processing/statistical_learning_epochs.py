@@ -16,8 +16,6 @@ the data needs to be segmented into manageable chunks for further processing and
 from typing import Dict, Optional, Union
 
 import mne
-import numpy as np
-import pandas as pd
 
 from autoclean.functions.epoching.statistical import create_statistical_learning_epochs
 from autoclean.utils.logging import message

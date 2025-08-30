@@ -25,7 +25,6 @@ using neural entrainment analysis in the 0.6-5 Hz range to capture rhythmic
 brain responses to syllable and word presentation rates.
 """
 
-import warnings
 from typing import Dict, List, Optional, Tuple, Union
 
 import mne
@@ -320,7 +319,7 @@ def compute_statistical_learning_itc(
             power_mean = np.mean(power.data)
             itc_mean = np.mean(itc.data)
             itc_max = np.max(itc.data)
-            message("info", f"Analysis complete:")
+            message("info", "Analysis complete:")
             message("debug", f"  Power mean: {power_mean:.3e}")
             message("debug", f"  ITC mean: {itc_mean:.3f}, max: {itc_max:.3f}")
             message("debug", f"  Time samples: {power.data.shape[-1]}")
@@ -607,7 +606,7 @@ def calculate_word_learning_index(
     Statistical learning paradigm as described in the research protocol.
     """
     if verbose:
-        message("info", f"Computing Word Learning Index (WLI)...")
+        message("info", "Computing Word Learning Index (WLI)...")
         message(
             "debug",
             f"Target frequencies: word={word_freq} Hz, syllable={syllable_freq} Hz",
@@ -679,7 +678,7 @@ def calculate_word_learning_index(
     wli_std = np.nanstd(wli)
 
     if verbose:
-        message("info", f"Word Learning Index Results:")
+        message("info", "Word Learning Index Results:")
         message("debug", f"  Mean WLI: {wli_mean:.4f} ± {wli_std:.4f}")
         message(
             "debug",

@@ -4,7 +4,6 @@ This module tests all preprocessing functions including filtering, resampling,
 referencing, and basic channel operations.
 """
 
-import mne
 import numpy as np
 import pytest
 

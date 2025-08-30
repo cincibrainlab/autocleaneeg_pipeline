@@ -1,12 +1,11 @@
 """Unit tests for the Pipeline class."""
 
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
 
-from tests.fixtures.test_utils import BaseTestCase, EEGAssertions
+from tests.fixtures.test_utils import BaseTestCase
 
 # Import will be mocked for tests that don't need full functionality
 try:

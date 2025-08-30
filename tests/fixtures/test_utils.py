@@ -1,19 +1,15 @@
 """Core testing utilities and base classes for AutoClean EEG tests."""
 
-import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional
 
-import mne
 import numpy as np
-import pytest
 import yaml
 from mne.io import Raw
 
 from autoclean.core.pipeline import Pipeline
-from autoclean.core.task import Task
 
 
 class BaseTestCase:

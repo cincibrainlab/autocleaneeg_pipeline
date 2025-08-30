@@ -52,7 +52,6 @@ PRODUCT_NAME = "AutoClean EEG"
 TAGLINE = "Professional EEG Processing & Analysis Platform"
 LOGO_ICON = "🧠"
 DIVIDER = "═════════════════════════════════════════════════"
-from autoclean.utils.logging import message
 
 
 class UserConfigManager:

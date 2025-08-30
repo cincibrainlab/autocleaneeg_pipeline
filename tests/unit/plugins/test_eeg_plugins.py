@@ -1,13 +1,13 @@
 """Unit tests for EEG plugins."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import mne
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
-from tests.fixtures.test_utils import BaseTestCase, EEGAssertions
+from tests.fixtures.test_utils import EEGAssertions
 
 # Test with mock plugins to avoid heavy import dependencies
 try:

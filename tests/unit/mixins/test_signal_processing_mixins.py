@@ -1,13 +1,11 @@
 """Unit tests for signal processing mixins."""
 
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
-import numpy as np
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
-from tests.fixtures.test_utils import BaseTestCase, EEGAssertions, MockOperations
+from tests.fixtures.test_utils import EEGAssertions, MockOperations
 
 # Import will be mocked for tests that don't need full functionality
 try:
@@ -42,7 +40,7 @@ class TestBasicStepsMixin:
                         "trim_step": {"enabled": True, "value": 2},
                         "crop_step": {
                             "enabled": False,
-                            "value": {"start": 0, "end": null},
+                            "value": {"start": 0, "end": None},
                         },
                         "drop_outerlayer": {"enabled": False, "value": []},
                         "eog_step": {"enabled": False, "value": []},

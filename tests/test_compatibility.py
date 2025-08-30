@@ -119,7 +119,7 @@ def test_mixed_usage():
         if python_task_added:
             print(f"✓ Initial YAML tasks: {len(initial_tasks)}")
             print(f"✓ Final mixed tasks: {len(final_tasks)}")
-            print(f"✓ Successfully mixed YAML and Python tasks")
+            print("✓ Successfully mixed YAML and Python tasks")
             return True
         else:
             print("⚠️  Could not test mixed usage - example file not found")

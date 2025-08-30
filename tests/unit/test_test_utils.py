@@ -1,6 +1,5 @@
 """Test the testing utilities themselves."""
 
-from pathlib import Path
 
 import mne
 import numpy as np

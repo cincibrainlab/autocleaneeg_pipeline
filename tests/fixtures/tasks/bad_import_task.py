@@ -1,4 +1,3 @@
-import non_existent_library
 
 from autoclean.core.task import Task
 

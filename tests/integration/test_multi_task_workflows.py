@@ -163,7 +163,7 @@ class TestMultiTaskWorkflows:
                 if result is not None:
                     successful_tasks.append(scenario["name"])
 
-            except Exception as e:
+            except Exception:
                 # Some tasks might fail due to missing task definitions
                 # This is expected in testing environment
                 pass

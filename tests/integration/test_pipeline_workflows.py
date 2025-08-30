@@ -8,9 +8,8 @@ with synthetic data, testing the actual workflow that users experience.
 import shutil
 import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import mne
 import pytest
 import yaml
 
@@ -184,7 +183,7 @@ class TestPipelineWorkflows:
                     file_path=input_file, task="RestingEyesOpen"
                 )
                 results.append(result)
-            except Exception as e:
+            except Exception:
                 # Track but don't fail on individual file errors in batch
                 results.append(None)
 
@@ -253,7 +252,7 @@ class TestPipelineWorkflows:
                 result = pipeline.process_file(file_path=input_file, task=task_name)
                 if result is not None:
                     successful_tasks.append(task_name)
-            except Exception as e:
+            except Exception:
                 # Some tasks might fail due to missing task definitions
                 # This is expected in integration testing
                 pass
@@ -355,7 +354,7 @@ class TestPipelineWorkflows:
                 if result is not None:
                     successful_configs.append(config_name)
 
-            except Exception as e:
+            except Exception:
                 # Some configurations might fail - that's part of testing
                 pass
 

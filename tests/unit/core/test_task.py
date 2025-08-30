@@ -2,12 +2,11 @@
 
 from abc import ABC
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from tests.fixtures.synthetic_data import create_synthetic_raw
-from tests.fixtures.test_utils import BaseTestCase, EEGAssertions, MockOperations
 
 # Import will be mocked for tests that don't need full functionality
 try:
