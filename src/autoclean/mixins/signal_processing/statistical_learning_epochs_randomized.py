@@ -21,7 +21,9 @@ import mne
 import numpy as np
 import pandas as pd
 
-from autoclean.functions.epoching.statistical_randomized import create_statistical_learning_randomized_epochs
+from autoclean.functions.epoching.statistical_randomized import (
+    create_statistical_learning_randomized_epochs,
+)
 from autoclean.utils.logging import message
 
 
@@ -103,7 +105,10 @@ class StatisticalLearningRandomizedEpochsMixin:
 
         try:
             # Call the standalone epoching function with verbose=False (use autoclean logging)
-            message("header", f"Creating randomized statistical learning epochs with {num_syllables} syllables...")
+            message(
+                "header",
+                f"Creating randomized statistical learning epochs with {num_syllables} syllables...",
+            )
             epochs, epochs_dropped = create_statistical_learning_randomized_epochs(
                 data=data,
                 tmin=tmin,
@@ -117,7 +122,9 @@ class StatisticalLearningRandomizedEpochsMixin:
 
             self._save_epochs_result(result_data=epochs, stage_name=stage_name)
             if epochs_dropped is not None:
-                self._save_epochs_result(result_data=epochs_dropped, stage_name="post_drop_bad_epochs")
+                self._save_epochs_result(
+                    result_data=epochs_dropped, stage_name="post_drop_bad_epochs"
+                )
             else:
                 epochs_dropped = epochs
 
@@ -172,7 +179,6 @@ class StatisticalLearningRandomizedEpochsMixin:
                 "num_syllables": num_syllables,
             }
             self._update_metadata("step_create_sl_epochs", metadata)
-
 
             return epochs_dropped
 

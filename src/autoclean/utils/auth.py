@@ -900,7 +900,9 @@ def require_authentication(func):
             if not auth_manager.is_authenticated() and auth_manager.refresh_token:
                 if not auth_manager.refresh_access_token():
                     message("error", "Token refresh failed. Please login again.")
-                    message("error", "Run 'autocleaneeg-pipeline login' to re-authenticate.")
+                    message(
+                        "error", "Run 'autocleaneeg-pipeline login' to re-authenticate."
+                    )
                     return False
 
         return func(*args, **kwargs)

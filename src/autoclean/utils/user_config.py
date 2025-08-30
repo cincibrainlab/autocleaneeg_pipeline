@@ -49,7 +49,7 @@ except ImportError:
 
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
-TAGLINE = "Professional EEG Processing & Analysis Platform" 
+TAGLINE = "Professional EEG Processing & Analysis Platform"
 LOGO_ICON = "🧠"
 DIVIDER = "═════════════════════════════════════════════════"
 from autoclean.utils.logging import message
@@ -286,7 +286,9 @@ class UserConfigManager:
 
                 memory_gb = memory.total / (1024**3)
                 memory_available_gb = memory.available / (1024**3)
-                info["Memory"] = f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available"
+                info["Memory"] = (
+                    f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available"
+                )
 
                 if cpu_physical and cpu_physical != cpu_count:
                     info["CPU"] = f"{cpu_physical} cores ({cpu_count} threads)"
@@ -307,19 +309,27 @@ class UserConfigManager:
     def setup_workspace(self, show_branding: bool = True) -> Path:
         """Smart workspace setup."""
         from autoclean.utils.cli_display import setup_display
-        
+
         workspace_status = self._check_workspace_status()
 
         if workspace_status == "first_time":
-            return self._run_setup_wizard(is_first_time=True, show_branding=show_branding)
+            return self._run_setup_wizard(
+                is_first_time=True, show_branding=show_branding
+            )
 
         elif workspace_status == "missing":
             if show_branding:
-                setup_display.console.print(f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]")
+                setup_display.console.print(
+                    f"[bold green]{LOGO_ICON} {PRODUCT_NAME}[/bold green]"
+                )
                 setup_display.console.print(f"[dim]{DIVIDER}[/dim]")
                 setup_display.blank_line()
-            setup_display.warning("Workspace Missing", "Previous workspace location no longer exists")
-            return self._run_setup_wizard(is_first_time=False, show_branding=show_branding)
+            setup_display.warning(
+                "Workspace Missing", "Previous workspace location no longer exists"
+            )
+            return self._run_setup_wizard(
+                is_first_time=False, show_branding=show_branding
+            )
 
         elif workspace_status == "valid":
             # Display workspace status cleanly with boxed header (only if showing branding)
@@ -327,7 +337,7 @@ class UserConfigManager:
                 setup_display.boxed_header(
                     f"{LOGO_ICON} Welcome to AutoClean",
                     TAGLINE,
-                    title="[bold green]✓ Workspace Ready[/bold green]"
+                    title="[bold green]✓ Workspace Ready[/bold green]",
                 )
                 setup_display.blank_line()
             else:
@@ -344,7 +354,9 @@ class UserConfigManager:
 
             # Prompt for changes
             try:
-                change_location = setup_display.prompt_yes_no("Change workspace location?", default=False)
+                change_location = setup_display.prompt_yes_no(
+                    "Change workspace location?", default=False
+                )
                 if not change_location:
                     setup_display.success("Keeping current location")
                     return self.config_dir
@@ -386,7 +398,9 @@ class UserConfigManager:
         except (json.JSONDecodeError, KeyError, FileNotFoundError):
             return "first_time"
 
-    def _run_setup_wizard(self, is_first_time: bool = True, show_branding: bool = True) -> Path:
+    def _run_setup_wizard(
+        self, is_first_time: bool = True, show_branding: bool = True
+    ) -> Path:
         """Run setup wizard."""
         from autoclean.utils.cli_display import setup_display
 
@@ -397,7 +411,9 @@ class UserConfigManager:
         if is_first_time:
             # System information for first-time setup
             setup_display.blank_line()
-            setup_display.console.print("[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]")
+            setup_display.console.print(
+                "[bold]System Status:[/bold] [green]✓ Ready for initialization[/green]"
+            )
             setup_display.blank_line()
 
             # System information
@@ -550,15 +566,23 @@ class UserConfigManager:
                     # Provide feedback about copied tasks
                     if RICH_AVAILABLE:
                         from autoclean.utils.cli_display import setup_display
+
                         if copied_count > 0:
-                            setup_display.success(f"Copied {copied_count} built-in task examples", str(builtin_dir))
+                            setup_display.success(
+                                f"Copied {copied_count} built-in task examples",
+                                str(builtin_dir),
+                            )
                         if skipped_count > 0:
-                            setup_display.info(f"Skipped {skipped_count} existing built-in task files")
+                            setup_display.info(
+                                f"Skipped {skipped_count} existing built-in task files"
+                            )
 
                 except Exception as e:
                     print(f"Warning: Could not copy built-in tasks: {e}")
             else:
-                print("Warning: AutoClean package not available for copying built-in tasks")
+                print(
+                    "Warning: AutoClean package not available for copying built-in tasks"
+                )
 
         except Exception as e:
             print(f"Warning: Failed to create built-in tasks directory: {e}")
@@ -588,7 +612,7 @@ class UserConfigManager:
 # - Tasks in workspace/tasks/ automatically override built-in tasks with same name
 # - Move/copy this file to tasks/ directory to activate override
 # - Your workspace task will take precedence over the package version
-# - Use 'autoclean-eeg list-tasks --overrides' to see active overrides
+# - Use 'autocleaneeg-pipeline list-tasks --overrides' to see active overrides
 #
 # 📖 USAGE:
 # - This file serves as a reference and starting point
@@ -616,7 +640,7 @@ class UserConfigManager:
         from autoclean.utils.cli_display import setup_display
 
         migrate = setup_display.migration_prompt(old_dir, new_dir)
-        
+
         if migrate and old_dir.exists():
             try:
                 shutil.copytree(
@@ -655,6 +679,7 @@ class UserConfigManager:
 
             if RICH_AVAILABLE:
                 from autoclean.utils.cli_display import setup_display
+
                 setup_display.success("Example script created", str(dest_file))
 
         except Exception as e:
@@ -710,7 +735,8 @@ if __name__ == "__main__":
                 self._create_fallback_template(dest_file)
 
             if RICH_AVAILABLE:
-                from autoclean.utils.cli_display import setup_display  
+                from autoclean.utils.cli_display import setup_display
+
                 setup_display.success("Template task created", str(dest_file))
 
         except Exception as e:

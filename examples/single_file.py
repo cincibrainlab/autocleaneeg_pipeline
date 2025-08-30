@@ -1,5 +1,7 @@
-from autoclean import Pipeline
 from mne.io import read_raw_eeglab
+
+from autoclean import Pipeline
+
 """Example of processing a single EEG file."""
 
 # raw = read_raw_eeglab("C:/Users/Gam9LG/Documents/Autoclean-EEG/output/Test_Merge_07-22-2025/bids/derivatives/autoclean-v2.1.0/intermediate/04_trim/0199_rest_trim_raw.set", preload=True)

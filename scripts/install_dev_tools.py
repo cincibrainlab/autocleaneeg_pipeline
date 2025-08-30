@@ -7,9 +7,9 @@ using uv tool for isolated tool management. Each tool runs in its own environmen
 to prevent dependency conflicts.
 """
 
+import shutil
 import subprocess
 import sys
-import shutil
 
 
 def run_command(cmd, description):

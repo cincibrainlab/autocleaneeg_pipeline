@@ -27,8 +27,8 @@ def create_statistical_learning_randomized_epochs(
     """Create randomized syllable-based epochs (SL_epochs) from raw EEG data.
 
     This function implements the core logic for creating randomized statistical learning epochs,
-    following MATLAB logic for event skipping and syllable validation but selecting every 30th 
-    syllable as epoch starts instead of word onsets. It can be used independently of the 
+    following MATLAB logic for event skipping and syllable validation but selecting every 30th
+    syllable as epoch starts instead of word onsets. It can be used independently of the
     AutoClean pipeline.
 
     Parameters
@@ -73,15 +73,27 @@ def create_statistical_learning_randomized_epochs(
     """
 
     if not isinstance(data, (mne.io.Raw, mne.io.base.BaseRaw)):
-        raise TypeError("Data must be an MNE Raw object for SL randomized epoch creation")
+        raise TypeError(
+            "Data must be an MNE Raw object for SL randomized epoch creation"
+        )
 
     # Calculate tmax from num_syllables
     tmax = num_syllables * 0.3
 
     # Define event codes
     syllable_codes = [
-        "DIN1", "DIN2", "DIN3", "DIN4", "DIN5", "DIN6", 
-        "DIN7", "DIN8", "DIN9", "DI10", "DI11", "DI12",
+        "DIN1",
+        "DIN2",
+        "DIN3",
+        "DIN4",
+        "DIN5",
+        "DIN6",
+        "DIN7",
+        "DIN8",
+        "DIN9",
+        "DI10",
+        "DI11",
+        "DI12",
     ]
     if subject_id == "2310":
         syllable_codes = [f"D1{i:02d}" for i in range(1, 13)]
@@ -92,8 +104,7 @@ def create_statistical_learning_randomized_epochs(
     if data.annotations is not None:
         # Get indices of DI64 annotations
         di64_indices = [
-            i for i, desc in enumerate(data.annotations.description)
-            if desc == "DI64"
+            i for i, desc in enumerate(data.annotations.description) if desc == "DI64"
         ]
         if di64_indices:
             # Create new annotations without DI64
@@ -101,7 +112,9 @@ def create_statistical_learning_randomized_epochs(
             new_annotations.delete(di64_indices)
             data.set_annotations(new_annotations)
             if verbose:
-                message("debug", f"Removed {len(di64_indices)} DI64 events from annotations")
+                message(
+                    "debug", f"Removed {len(di64_indices)} DI64 events from annotations"
+                )
 
     # Extract all events from cleaned annotations
     if verbose:
@@ -113,10 +126,13 @@ def create_statistical_learning_randomized_epochs(
     # The event_id_all dict maps label -> int, so we need to invert it for int -> label
     event_id_label_map = {v: k for k, v in event_id_all.items()}
     # Build array: each row is [sample, event_id_label]
-    events_with_labels = np.array([
-        (sample, event_id_label_map.get(event_id, "UNKNOWN"))
-        for sample, _, event_id in events_all
-    ], dtype=object)
+    events_with_labels = np.array(
+        [
+            (sample, event_id_label_map.get(event_id, "UNKNOWN"))
+            for sample, _, event_id in events_all
+        ],
+        dtype=object,
+    )
     # Now events_with_labels is an array of [sample, label] for all events
 
     # Skip first 5 events to match MATLAB's y = 5 logic
@@ -127,26 +143,34 @@ def create_statistical_learning_randomized_epochs(
         events_all = events_all[5:]  # Skip first 5 events
         events_with_labels = events_with_labels[5:]  # Also skip in the label array
         if verbose:
-            message("debug", f"Skipped first 5 events, now processing {len(events_all)} events")
+            message(
+                "debug",
+                f"Skipped first 5 events, now processing {len(events_all)} events",
+            )
     else:
-        raise ValueError(f"Not enough events to skip initial 5 events. Found only {len(events_all)} events.")
+        raise ValueError(
+            f"Not enough events to skip initial 5 events. Found only {len(events_all)} events."
+        )
 
     # Get all syllable events (including word onsets) for proper spacing calculation
     syllable_code_ids = [
         event_id_all[code] for code in syllable_codes if code in event_id_all
     ]
     all_syllable_events = events_all[np.isin(events_all[:, 2], syllable_code_ids)]
-    
+
     # Select every 30th syllable as epoch starts (randomized approach)
     # This ignores word boundaries and creates epochs every num_syllables syllables
     non_overlapping_events = []
     for i in range(0, len(all_syllable_events), num_syllables):
         if i + num_syllables <= len(all_syllable_events):
             non_overlapping_events.append(all_syllable_events[i])
-    
+
     non_overlapping_events = np.array(non_overlapping_events, dtype=int)
     if verbose:
-        message("info", f"Selected {len(non_overlapping_events)} randomized syllable onsets (every {num_syllables} syllables)")
+        message(
+            "info",
+            f"Selected {len(non_overlapping_events)} randomized syllable onsets (every {num_syllables} syllables)",
+        )
 
     # Validate epochs for num_syllables syllable events
     if verbose:
@@ -180,16 +204,24 @@ def create_statistical_learning_randomized_epochs(
             if syllable_count == num_syllables:
                 valid_events.append(onset_event)
                 if verbose:
-                    message("debug", f"Valid randomized epoch found at sample {candidate_sample}")
+                    message(
+                        "debug",
+                        f"Valid randomized epoch found at sample {candidate_sample}",
+                    )
                 break
 
         if syllable_count < num_syllables - 1:  # Allow tolerance
             if verbose:
-                message("info", f"Randomized epoch at sample {candidate_sample} has only {syllable_count} syllables, skipping")
+                message(
+                    "info",
+                    f"Randomized epoch at sample {candidate_sample} has only {syllable_count} syllables, skipping",
+                )
 
     valid_events = np.array(valid_events, dtype=int)
     if valid_events.size == 0:
-        raise ValueError(f"No valid randomized epochs found with {num_syllables} syllables")
+        raise ValueError(
+            f"No valid randomized epochs found with {num_syllables} syllables"
+        )
 
     # Create epochs
     if verbose:
@@ -212,9 +244,7 @@ def create_statistical_learning_randomized_epochs(
     # Compute valid ranges for each epoch (in raw sample indices)
     start_offsets = int(tmin * sfreq)
     end_offsets = int(tmax * sfreq)
-    epoch_sample_ranges = [
-        (s + start_offsets, s + end_offsets) for s in epoch_samples
-    ]
+    epoch_sample_ranges = [(s + start_offsets, s + end_offsets) for s in epoch_samples]
 
     # Filter events_all for events that fall inside any of those ranges
     events_in_epochs = []
@@ -265,9 +295,7 @@ def create_statistical_learning_randomized_epochs(
 
                 # Check each epoch
                 for idx, event in enumerate(epochs.events):
-                    epoch_start = (
-                        event[0] / epochs.info["sfreq"]
-                    )  # Convert to seconds
+                    epoch_start = event[0] / epochs.info["sfreq"]  # Convert to seconds
                     epoch_end = epoch_start + (tmax - tmin)
 
                     # Check for overlap
@@ -296,7 +324,10 @@ def create_statistical_learning_randomized_epochs(
                 epochs.metadata.loc[idx, col_name] = True
 
         if verbose:
-            message("info", f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)")
+            message(
+                "info",
+                f"Marked {len(bad_epochs)} epochs with bad annotations (not dropped)",
+            )
 
         # Drop bad epochs from the cleaned version
         epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
@@ -316,18 +347,19 @@ def create_statistical_learning_randomized_epochs(
 
             if len(kept_original_indices) != len(epochs_clean.events):
                 if verbose:
-                    message("warning", 
+                    message(
+                        "warning",
                         f"Mismatch when aligning surviving events to original metadata. "
                         f"Expected {len(epochs_clean.events)} matches, found {len(kept_original_indices)}. "
-                        f"Metadata might be incorrect.")
+                        f"Metadata might be incorrect.",
+                    )
 
             # Slice the metadata using these indices
             epochs_clean.metadata = epochs.metadata.iloc[
                 kept_original_indices
             ].reset_index(drop=True)
-    
+
     else:
         epochs_clean = None
 
-    return epochs,epochs_clean
-
+    return epochs, epochs_clean

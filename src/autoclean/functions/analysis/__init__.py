@@ -14,12 +14,12 @@ extract_itc_at_frequencies : Extract ITC values at specific target frequencies
 """
 
 from .statistical_learning import (
-    compute_statistical_learning_itc,
     analyze_itc_bands,
-    validate_itc_significance,
-    compute_itc_confidence_intervals,
     calculate_word_learning_index,
+    compute_itc_confidence_intervals,
+    compute_statistical_learning_itc,
     extract_itc_at_frequencies,
+    validate_itc_significance,
 )
 
 __all__ = [

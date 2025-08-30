@@ -7,9 +7,9 @@ including installation, upgrading, and listing of tools.
 """
 
 import argparse
+import shutil
 import subprocess
 import sys
-import shutil
 from typing import List, Tuple
 
 
