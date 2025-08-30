@@ -45,6 +45,7 @@ from autoclean.utils.task_discovery import (
 from autoclean.utils.user_config import user_config
 from autoclean.utils.console import get_console
 
+
 # ------------------------------------------------------------
 # Rich help integration
 # ------------------------------------------------------------
@@ -106,10 +107,12 @@ def _print_startup_context(console) -> None:
         usage_path = (
             workspace_dir
             if workspace_dir.exists()
-            else (workspace_dir.parent if workspace_dir.parent.exists() else Path.home())
+            else (
+                workspace_dir.parent if workspace_dir.parent.exists() else Path.home()
+            )
         )
         du = shutil.disk_usage(str(usage_path))
-        free_gb = du.free / (1024 ** 3)
+        free_gb = du.free / (1024**3)
         free_line = _Text()
         free_line.append("💾 ", style="muted")
         free_line.append("Free space ", style="muted")
@@ -124,7 +127,9 @@ class RichHelpAction(argparse.Action):
     """Subparser -h/--help: show styled header + context, then default help."""
 
     def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
-        console = get_console(namespace if isinstance(namespace, argparse.Namespace) else None)
+        console = get_console(
+            namespace if isinstance(namespace, argparse.Namespace) else None
+        )
         _simple_header(console)
         _print_startup_context(console)
         console.print(parser.format_help())
@@ -135,7 +140,9 @@ class RootRichHelpAction(argparse.Action):
     """Root -h/--help: show styled header + context; supports optional topic like '-h auth'."""
 
     def __call__(self, parser, namespace, values, option_string=None):  # type: ignore[override]
-        console = get_console(namespace if isinstance(namespace, argparse.Namespace) else None)
+        console = get_console(
+            namespace if isinstance(namespace, argparse.Namespace) else None
+        )
         _simple_header(console)
         _print_startup_context(console)
 
@@ -147,8 +154,11 @@ class RootRichHelpAction(argparse.Action):
 def _print_root_help(console, topic: Optional[str] = None) -> None:
     """Print the root help menu with optional topic sections, in a clean minimalist layout."""
     from rich.table import Table as _Table
+
     # Compact usage line for quick orientation
-    console.print("[muted]Usage:[/muted] [accent]autocleaneeg-pipeline <command> [options][/accent]")
+    console.print(
+        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline <command> [options][/accent]"
+    )
     console.print()
 
     if topic in {"auth", "authentication"}:
@@ -156,7 +166,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
-        
+
         rows = [
             ("🔐 auth login", "Login to Auth0 (compliance mode)"),
             ("🔓 auth logout", "Logout and clear tokens"),
@@ -169,7 +179,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         for c, d in rows:
             tbl.add_row(c, d)
         console.print(tbl)
-        console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+        console.print(
+            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
         console.print()
         return
 
@@ -177,7 +189,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
     tbl = _Table(show_header=False, box=None, padding=(0, 1))
     tbl.add_column("Command", style="accent", no_wrap=True)
     tbl.add_column("Description", style="muted")
-    
+
     rows = [
         ("❓ help", "Show help and topics (alias for -h/--help)"),
         ("⚙️  setup", "Setup or reconfigure workspace"),
@@ -190,20 +202,28 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
     for c, d in rows:
         tbl.add_row(c, d)
     console.print(tbl)
+    console.print()
     console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
     console.print()
 
 
 def attach_rich_help(p: argparse.ArgumentParser, *, root: bool = False) -> None:
     # Replace default help with our rich-aware action
-    if any(a.option_strings == ['-h'] for a in p._actions):  # remove default
+    if any(a.option_strings == ["-h"] for a in p._actions):  # remove default
         for a in list(p._actions):
-            if a.option_strings == ['-h'] or a.option_strings == ['-h', '--help']:
+            if a.option_strings == ["-h"] or a.option_strings == ["-h", "--help"]:
                 p._actions.remove(a)
                 break
     action = RootRichHelpAction if root else RichHelpAction
-    nargs = '?' if root else 0
-    p.add_argument('-h', '--help', action=action, nargs=nargs, help='Show help (use "-h auth" for authentication help)')
+    nargs = "?" if root else 0
+    p.add_argument(
+        "-h",
+        "--help",
+        action=action,
+        nargs=nargs,
+        help='Show help (use "-h auth" for authentication help)',
+    )
+
 
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
@@ -285,7 +305,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     attach_rich_help(parser, root=True)
 
     # Process command
-    process_parser = subparsers.add_parser("process", help="Process EEG data", add_help=False)
+    process_parser = subparsers.add_parser(
+        "process", help="Process EEG data", add_help=False
+    )
     attach_rich_help(process_parser)
 
     # Positional arguments for simple usage: autocleaneeg-pipeline process TaskName FilePath
@@ -368,7 +390,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Review command
-    review_parser = subparsers.add_parser("review", help="Start review GUI", add_help=False)
+    review_parser = subparsers.add_parser(
+        "review", help="Start review GUI", add_help=False
+    )
     attach_rich_help(review_parser)
     review_parser.add_argument(
         "--output",
@@ -378,14 +402,18 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Task management commands
-    task_parser = subparsers.add_parser("task", help="Manage custom tasks", add_help=False)
+    task_parser = subparsers.add_parser(
+        "task", help="Manage custom tasks", add_help=False
+    )
     attach_rich_help(task_parser)
     task_subparsers = task_parser.add_subparsers(
         dest="task_action", help="Task actions"
     )
 
     # Add task
-    add_task_parser = task_subparsers.add_parser("add", help="Add a custom task", add_help=False)
+    add_task_parser = task_subparsers.add_parser(
+        "add", help="Add a custom task", add_help=False
+    )
     attach_rich_help(add_task_parser)
     add_task_parser.add_argument("task_file", type=Path, help="Python task file to add")
     add_task_parser.add_argument(
@@ -419,18 +447,24 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Show config location
-    config_parser = subparsers.add_parser("config", help="Manage user configuration", add_help=False)
+    config_parser = subparsers.add_parser(
+        "config", help="Manage user configuration", add_help=False
+    )
     attach_rich_help(config_parser)
     config_subparsers = config_parser.add_subparsers(
         dest="config_action", help="Config actions"
     )
 
     # Show config location
-    _cfg_show = config_subparsers.add_parser("show", help="Show configuration directory location", add_help=False)
+    _cfg_show = config_subparsers.add_parser(
+        "show", help="Show configuration directory location", add_help=False
+    )
     attach_rich_help(_cfg_show)
 
     # Setup/reconfigure workspace
-    _cfg_setup = config_subparsers.add_parser("setup", help="Reconfigure workspace location", add_help=False)
+    _cfg_setup = config_subparsers.add_parser(
+        "setup", help="Reconfigure workspace location", add_help=False
+    )
     attach_rich_help(_cfg_setup)
 
     # Reset config
@@ -443,20 +477,26 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Export/import config
-    export_parser = config_subparsers.add_parser("export", help="Export configuration", add_help=False)
+    export_parser = config_subparsers.add_parser(
+        "export", help="Export configuration", add_help=False
+    )
     attach_rich_help(export_parser)
     export_parser.add_argument(
         "export_path", type=Path, help="Directory to export configuration to"
     )
 
-    import_parser = config_subparsers.add_parser("import", help="Import configuration", add_help=False)
+    import_parser = config_subparsers.add_parser(
+        "import", help="Import configuration", add_help=False
+    )
     attach_rich_help(import_parser)
     import_parser.add_argument(
         "import_path", type=Path, help="Directory to import configuration from"
     )
 
     # Setup command (same as config setup for simplicity)
-    setup_parser = subparsers.add_parser("setup", help="Setup or reconfigure workspace", add_help=False)
+    setup_parser = subparsers.add_parser(
+        "setup", help="Setup or reconfigure workspace", add_help=False
+    )
     attach_rich_help(setup_parser)
     setup_parser.add_argument(
         "--compliance-mode",
@@ -503,14 +543,22 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     # Authentication commands (for compliance mode)
-    _login = subparsers.add_parser("login", help="Login to Auth0 for compliance mode", add_help=False)
+    _login = subparsers.add_parser(
+        "login", help="Login to Auth0 for compliance mode", add_help=False
+    )
     attach_rich_help(_login)
-    _logout = subparsers.add_parser("logout", help="Logout and clear authentication tokens", add_help=False)
+    _logout = subparsers.add_parser(
+        "logout", help="Logout and clear authentication tokens", add_help=False
+    )
     attach_rich_help(_logout)
-    _whoami = subparsers.add_parser("whoami", help="Show current authenticated user", add_help=False)
+    _whoami = subparsers.add_parser(
+        "whoami", help="Show current authenticated user", add_help=False
+    )
     attach_rich_help(_whoami)
     auth_diag_parser = subparsers.add_parser(
-        "auth0-diagnostics", help="Diagnose Auth0 configuration and connectivity issues", add_help=False
+        "auth0-diagnostics",
+        help="Diagnose Auth0 configuration and connectivity issues",
+        add_help=False,
     )
     attach_rich_help(auth_diag_parser)
     auth_diag_parser.add_argument(
@@ -522,7 +570,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Clean task command
     clean_task_parser = subparsers.add_parser(
-        "clean-task", help="Remove task output directory and database entries", add_help=False
+        "clean-task",
+        help="Remove task output directory and database entries",
+        add_help=False,
     )
     attach_rich_help(clean_task_parser)
     clean_task_parser.add_argument("task", help="Task name to clean")
@@ -555,7 +605,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "version", help="Show version information", add_help=False
     )  # Help command (for consistency)
     attach_rich_help(_version)
-    _help = subparsers.add_parser("help", help="Show detailed help information", add_help=False)
+    _help = subparsers.add_parser(
+        "help", help="Show detailed help information", add_help=False
+    )
     _help.add_argument("topic", nargs="?", help="Optional help topic (e.g., 'auth')")
     attach_rich_help(_help)
 
@@ -570,27 +622,43 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "auth", help="Authentication & Part-11 commands", add_help=False
     )
     attach_rich_help(auth_parser)
-    auth_subparsers = auth_parser.add_subparsers(dest="auth_action", help="Auth actions")
+    auth_subparsers = auth_parser.add_subparsers(
+        dest="auth_action", help="Auth actions"
+    )
 
-    auth_login = auth_subparsers.add_parser("login", help="Login to Auth0", add_help=False)
+    auth_login = auth_subparsers.add_parser(
+        "login", help="Login to Auth0", add_help=False
+    )
     attach_rich_help(auth_login)
 
-    auth_logout = auth_subparsers.add_parser("logout", help="Logout and clear tokens", add_help=False)
+    auth_logout = auth_subparsers.add_parser(
+        "logout", help="Logout and clear tokens", add_help=False
+    )
     attach_rich_help(auth_logout)
 
-    auth_whoami = auth_subparsers.add_parser("whoami", help="Show authenticated user", add_help=False)
+    auth_whoami = auth_subparsers.add_parser(
+        "whoami", help="Show authenticated user", add_help=False
+    )
     attach_rich_help(auth_whoami)
 
-    auth_diag = auth_subparsers.add_parser("diagnostics", help="Diagnose Auth0 configuration/connectivity", add_help=False)
+    auth_diag = auth_subparsers.add_parser(
+        "diagnostics", help="Diagnose Auth0 configuration/connectivity", add_help=False
+    )
     attach_rich_help(auth_diag)
 
-    auth_setup = auth_subparsers.add_parser("setup", help="Enable Part-11 compliance (permanent)", add_help=False)
+    auth_setup = auth_subparsers.add_parser(
+        "setup", help="Enable Part-11 compliance (permanent)", add_help=False
+    )
     attach_rich_help(auth_setup)
 
-    auth_enable = auth_subparsers.add_parser("enable", help="Enable compliance mode (non-permanent)", add_help=False)
+    auth_enable = auth_subparsers.add_parser(
+        "enable", help="Enable compliance mode (non-permanent)", add_help=False
+    )
     attach_rich_help(auth_enable)
 
-    auth_disable = auth_subparsers.add_parser("disable", help="Disable compliance mode (if permitted)", add_help=False)
+    auth_disable = auth_subparsers.add_parser(
+        "disable", help="Disable compliance mode (if permitted)", add_help=False
+    )
     attach_rich_help(auth_disable)
 
     return parser
@@ -981,7 +1049,9 @@ def cmd_setup(args) -> int:
         return 1
 
 
-def _simple_header(console, title: Optional[str] = None, subtitle: Optional[str] = None):
+def _simple_header(
+    console, title: Optional[str] = None, subtitle: Optional[str] = None
+):
     """Simple, consistent header for setup."""
     from rich.align import Align
     from rich.panel import Panel
@@ -1231,9 +1301,9 @@ def _setup_compliance_mode() -> int:
         user_config_data["compliance"]["require_electronic_signatures"] = (
             signature_answer["require_signatures"]
         )
-        user_config_data["workspace"][
-            "auto_backup"
-        ] = True  # Always enabled for compliance
+        user_config_data["workspace"]["auto_backup"] = (
+            True  # Always enabled for compliance
+        )
 
         save_user_config(user_config_data)
 
@@ -2760,13 +2830,18 @@ def main(argv: Optional[list] = None) -> int:
         try:
             from rich.text import Text as _Text
             from rich.align import Align as _Align
+
             usage_path = (
                 workspace_dir
                 if workspace_dir.exists()
-                else (workspace_dir.parent if workspace_dir.parent.exists() else Path.home())
+                else (
+                    workspace_dir.parent
+                    if workspace_dir.parent.exists()
+                    else Path.home()
+                )
             )
             du = shutil.disk_usage(str(usage_path))
-            free_gb = du.free / (1024 ** 3)
+            free_gb = du.free / (1024**3)
             free_line = _Text()
             free_line.append("💾 ", style="muted")
             free_line.append("Free space ", style="muted")
@@ -2807,7 +2882,9 @@ def main(argv: Optional[list] = None) -> int:
             # GitHub link line
             gh_line = _LText()
             gh_line.append("GitHub ", style="muted")
-            gh_line.append("https://github.com/cincibrainlab/autoclean_pipeline", style="accent")
+            gh_line.append(
+                "https://github.com/cincibrainlab/autoclean_pipeline", style="accent"
+            )
             console.print(_LAlign.center(gh_line))
 
             # GitHub meta line (short descriptors)
