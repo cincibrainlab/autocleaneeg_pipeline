@@ -28,7 +28,7 @@ Development Setup
 
    .. code-block:: bash
 
-      git clone https://github.com/yourusername/autoclean-eeg.git
+      git clone https://github.com/cincibrainlab/autoclean_pipeline.git
       cd autoclean-eeg
       pip install -e ".[dev]"
 
@@ -100,7 +100,7 @@ In short, when you submit code changes, your submissions are understood to be un
 Bug Reports
 -----------
 
-We use GitHub issues to track public bugs. Report a bug by `opening a new issue <https://github.com/yourusername/autoclean-eeg/issues/new>`_.
+We use GitHub issues to track public bugs. Report a bug by `opening a new issue <https://github.com/cincibrainlab/autoclean_pipeline/issues/new>`_.
 
 Great Bug Reports tend to have:
 
