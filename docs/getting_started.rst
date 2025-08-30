@@ -10,7 +10,7 @@ Install AutoClean using Python's package manager:
 
 .. code-block:: bash
 
-   pip install autocleaneeg
+   pip install autocleaneeg-pipeline
 
 Workspace Setup
 ---------------

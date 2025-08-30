@@ -20,7 +20,7 @@ Install and set up AutoClean:
 
    # Install if needed
    import subprocess
-   subprocess.run(["pip", "install", "autocleaneeg"])
+   subprocess.run(["pip", "install", "autocleaneeg-pipeline"])
    
    # Set up workspace
    subprocess.run(["autoclean", "setup"])

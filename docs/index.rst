@@ -67,7 +67,7 @@ Quick Start Examples
 .. code-block:: bash
 
    # Install AutoClean
-   pip install autocleaneeg
+   pip install autocleaneeg-pipeline
    
    # Run first-time setup
    autoclean setup
