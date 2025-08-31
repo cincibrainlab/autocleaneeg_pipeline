@@ -344,7 +344,24 @@ class UserConfigManager:
             return self._select_source_rich()
         else:
             return self._select_source_basic()
-    
+
+    @staticmethod
+    def _strip_wrapping_quotes(text: Optional[str]) -> Optional[str]:
+        """Remove matching wrapping quotes (single or double), up to two layers.
+
+        Handles common paste cases like "'/path with spaces'" and '\"/path\"'.
+        Returns input unchanged if not quoted or None.
+        """
+        if text is None:
+            return None
+        s = text.strip()
+        for _ in range(2):
+            if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+                s = s[1:-1].strip()
+            else:
+                break
+        return s
+
     def _select_source_rich(self) -> Optional[str]:
         """Rich-based interactive source selection."""
         from rich.console import Console
@@ -383,7 +400,8 @@ class UserConfigManager:
             if choice_num == 1:
                 # File selection
                 from rich.prompt import Prompt
-                file_path = Prompt.ask("Enter file path")
+                file_path = Prompt.ask("Enter file path (quotes OK)")
+                file_path = self._strip_wrapping_quotes(file_path)
                 if file_path and Path(file_path).exists():
                     return str(Path(file_path).resolve())
                 else:
@@ -393,7 +411,8 @@ class UserConfigManager:
             elif choice_num == 2:
                 # Directory selection
                 from rich.prompt import Prompt
-                dir_path = Prompt.ask("Enter directory path") 
+                dir_path = Prompt.ask("Enter directory path (quotes OK)") 
+                dir_path = self._strip_wrapping_quotes(dir_path)
                 if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
                     return str(Path(dir_path).resolve())
                 else:
@@ -438,7 +457,8 @@ class UserConfigManager:
             
             if choice_num == 1:
                 # File selection
-                file_path = input("Enter file path: ").strip()
+                file_path = input("Enter file path (quotes OK): ").strip()
+                file_path = self._strip_wrapping_quotes(file_path)
                 if file_path and Path(file_path).exists():
                     return str(Path(file_path).resolve())
                 else:
@@ -447,7 +467,8 @@ class UserConfigManager:
                     
             elif choice_num == 2:
                 # Directory selection
-                dir_path = input("Enter directory path: ").strip()
+                dir_path = input("Enter directory path (quotes OK): ").strip()
+                dir_path = self._strip_wrapping_quotes(dir_path)
                 if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
                     return str(Path(dir_path).resolve())
                 else:
