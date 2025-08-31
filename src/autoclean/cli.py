@@ -3771,6 +3771,34 @@ def cmd_auth0_diagnostics(args) -> int:
         return 1
 
 
+def _log_cli_execution(workspace_dir: Path, argv: Optional[list] = None) -> None:
+    """Log CLI command execution to workspace process log file."""
+    try:
+        # Only log if workspace directory exists
+        if not workspace_dir.exists():
+            return
+            
+        log_file = workspace_dir / "process_log.txt"
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Reconstruct command from argv or sys.argv
+        if argv is None:
+            command_args = sys.argv
+        else:
+            command_args = ["autocleaneeg-pipeline"] + (argv if argv else [])
+        
+        command_str = " ".join(command_args)
+        log_entry = f"[{timestamp}] {command_str}\n"
+        
+        # Append to log file (create if doesn't exist)
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(log_entry)
+            
+    except Exception:
+        # Silently fail to avoid disrupting CLI functionality
+        pass
+
+
 def main(argv: Optional[list] = None) -> int:
     """Main entry point for the AutoClean CLI."""
     parser = create_parser()
@@ -3782,6 +3810,9 @@ def main(argv: Optional[list] = None) -> int:
     # for *every* CLI invocation, including the bare `autocleaneeg-pipeline` call.
     # ------------------------------------------------------------------
     workspace_dir = user_config.config_dir
+    
+    # Log CLI command execution to workspace directory
+    _log_cli_execution(workspace_dir, argv)
 
     # For real sub-commands, log the workspace path via the existing logger.
     if args.command and args.command != "workspace":
