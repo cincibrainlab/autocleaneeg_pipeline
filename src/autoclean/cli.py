@@ -225,6 +225,20 @@ def _print_startup_context(console) -> None:
             tip.append(" to configure.", style="muted")
             console.print(_Align.center(tip))
 
+        # Always show active task line beneath Workspace (or guard if not set)
+        try:
+            active_task = user_config.get_active_task()
+            at = _Text()
+            at.append("🎯 ", style="muted")
+            at.append("Active task: ", style="muted")
+            if active_task:
+                at.append(str(active_task), style="accent")
+            else:
+                at.append("not set", style="warning")
+            console.print(_Align.center(at))
+        except Exception:
+            pass
+
         # Disk free
         usage_path = (
             workspace_dir
@@ -315,10 +329,13 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         rows = [
             ("📜 task list", "List available tasks (same as 'list-tasks')"),
             ("📂 task explore", "Open the workspace tasks folder"),
-            ("✏️  task edit <name|path>", "Edit a task in your editor"),
+            ("✏️  task edit [name|path]", "Edit task (omit uses active)"),
             ("📥 task import <path>", "Copy a task file into workspace"),
-            ("📄 task copy <name|path>", "Copy a task to a new file"),
-            ("🗑  task delete <name|path>", "Delete a workspace task file"),
+            ("📄 task copy [name|path]", "Copy task (omit uses active)"),
+            ("🗑  task delete [name|path]", "Delete task (omit uses active)"),
+            ("🎯 task set [name]", "Set active task (interactive if omitted)"),
+            ("🧹 task unset", "Clear the active task"),
+            ("👁️  task show", "Show the current active task"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -455,6 +472,11 @@ Basic Usage:
   autocleaneeg-pipeline process RestingEyesOpen data.raw   # Process single file
   autocleaneeg-pipeline task list                      # Show available tasks
   autocleaneeg-pipeline review                         # Start review GUI
+
+Active Task (Simplified Workflow):
+  autocleaneeg-pipeline task set                       # Select active task interactively
+  autocleaneeg-pipeline task show                      # Show current active task
+  autocleaneeg-pipeline process data.raw               # Process file with active task
 
 Custom Tasks:
   autocleaneeg-pipeline task add my_task.py            # Add custom task file
@@ -607,11 +629,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Delete task (alias with path/name support)
     delete_task_parser = task_subparsers.add_parser(
-        "delete", help="Delete a workspace task file", add_help=False
+        "delete", help="Delete a workspace task file (omit target to use active task)", add_help=False
     )
     attach_rich_help(delete_task_parser)
     delete_task_parser.add_argument(
-        "target", type=str, help="Task name (workspace) or path to task file"
+        "target", type=str, nargs="?", help="Task name (workspace) or path to task file (omit to use active task)"
     )
     delete_task_parser.add_argument(
         "--force", action="store_true", help="Skip confirmation"
@@ -639,13 +661,14 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Edit task (open in shell editor)
     edit_parser = task_subparsers.add_parser(
-        "edit", help="Edit a task in your editor", add_help=False
+        "edit", help="Edit a task in your editor (omit target to use active task)", add_help=False
     )
     attach_rich_help(edit_parser)
     edit_parser.add_argument(
         "target",
         type=str,
-        help="Task name (workspace) or path to a task file",
+        nargs="?",
+        help="Task name (workspace) or path to a task file (omit to use active task)",
     )
     edit_parser.add_argument(
         "--name",
@@ -681,13 +704,14 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Copy task (name or path)
     copy_parser = task_subparsers.add_parser(
-        "copy", help="Copy a task to a new workspace file", add_help=False
+        "copy", help="Copy a task to a new workspace file (omit source to use active task)", add_help=False
     )
     attach_rich_help(copy_parser)
     copy_parser.add_argument(
         "source",
         type=str,
-        help="Task name (workspace/built-in) or path to copy from",
+        nargs="?",
+        help="Task name (workspace/built-in) or path to copy from (omit to use active task)",
     )
     copy_parser.add_argument(
         "--name",
@@ -699,6 +723,30 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Overwrite existing file without prompting",
     )
+
+    # Set active task
+    set_task_parser = task_subparsers.add_parser(
+        "set", help="Set the active task (used when no task specified in process)", add_help=False
+    )
+    attach_rich_help(set_task_parser)
+    set_task_parser.add_argument(
+        "task_name",
+        type=str,
+        nargs="?",
+        help="Task name to set as active (omit to choose interactively)",
+    )
+
+    # Unset active task
+    unset_task_parser = task_subparsers.add_parser(
+        "unset", help="Clear the active task", add_help=False
+    )
+    attach_rich_help(unset_task_parser)
+
+    # Show active task
+    show_task_parser = task_subparsers.add_parser(
+        "show", help="Show the current active task", add_help=False
+    )
+    attach_rich_help(show_task_parser)
 
     # Show config location
     config_parser = subparsers.add_parser(
@@ -973,16 +1021,34 @@ def validate_args(args) -> bool:
         task_name = args.task_name or args.task
         input_path = args.input_path or args.file or args.directory
 
-        # If no task specified, show a brief, elegant help instead of a raw error
+        # If no task specified, check for active task first
+        if not task_name and not args.task_file:
+            # Try to use active task
+            active_task = user_config.get_active_task()
+            if active_task:
+                # Validate that the active task still exists
+                custom_tasks = user_config.list_custom_tasks()
+                if active_task in custom_tasks:
+                    task_name = active_task
+                    message("info", f"Using active task: {active_task}")
+                else:
+                    message("warning", f"Active task '{active_task}' no longer exists in workspace")
+                    message("info", "Please set a new active task with: autocleaneeg-pipeline task set")
+            
+            # If still no task, show help
         if not task_name and not args.task_file:
             console = get_console(args)
             _simple_header(console)
+            _print_startup_context(console)
             try:
                 from rich.table import Table as _Table
 
                 console.print("[header]Process EEG[/header]")
                 console.print(
-                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
+                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options][/accent]"
+                )
+                console.print(
+                    "[dim]Note: Task is optional if you have set an active task with 'task set'[/dim]"
                 )
                 console.print()
 
@@ -1008,8 +1074,9 @@ def validate_args(args) -> bool:
                 console.print()
             except Exception:
                 console.print(
-                    "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
+                    "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
                 )
+                console.print("Note: Task is optional if you have set an active task with 'task set'")
             return False
 
         if task_name and args.task_file:
@@ -1038,12 +1105,16 @@ def validate_args(args) -> bool:
             else:
                 console = get_console(args)
                 _simple_header(console)
+                _print_startup_context(console)
                 try:
                     from rich.table import Table as _Table
 
                     console.print("[header]Process EEG[/header]")
                     console.print(
-                        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
+                        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options][/accent]"
+                    )
+                    console.print(
+                        "[dim]Note: Task is optional if you have set an active task with 'task set'[/dim]"
                     )
                     console.print()
 
@@ -1077,8 +1148,9 @@ def validate_args(args) -> bool:
                     console.print()
                 except Exception:
                     console.print(
-                        "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
+                        "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
                     )
+                    console.print("Note: Task is optional if you have set an active task with 'task set'")
                 return False
 
         # Store normalized values back to args
@@ -1095,6 +1167,7 @@ def validate_args(args) -> bool:
         if not getattr(args, "file", None):
             console = get_console(args)
             _simple_header(console)
+            _print_startup_context(console)
             try:
                 from rich.text import Text as _Text
                 from rich.align import Align as _Align
@@ -1770,6 +1843,20 @@ def _run_interactive_setup() -> int:
             ws.append(display_path, style="accent")
             console.print(_SAlign.center(ws))
 
+            # Active task line (or guard if not set)
+            try:
+                active = _SText()
+                active.append("🎯 ", style="muted")
+                active.append("Active task: ", style="muted")
+                current = user_config.get_active_task()
+                if current:
+                    active.append(str(current), style="accent")
+                else:
+                    active.append("not set", style="warning")
+                console.print(_SAlign.center(active))
+            except Exception:
+                pass
+
             # Centered setup hint line
             hint = _SText()
             hint.append("Use arrow keys to navigate  •  Enter to select", style="muted")
@@ -1939,6 +2026,19 @@ def _setup_compliance_mode() -> int:
             ws_line.append("Workspace: ", style="muted")
             ws_line.append(display_path, style="accent")
             setup_display.console.print(_XAlign.center(ws_line))
+            # Active task line (or guard)
+            try:
+                at_line = _XText()
+                at_line.append("🎯 ", style="muted")
+                at_line.append("Active task: ", style="muted")
+                current = user_config.get_active_task()
+                if current:
+                    at_line.append(str(current), style="accent")
+                else:
+                    at_line.append("not set", style="warning")
+                setup_display.console.print(_XAlign.center(at_line))
+            except Exception:
+                pass
             setup_display.blank_line()
         except Exception:
             pass
@@ -2285,6 +2385,7 @@ def cmd_task(args) -> int:
         # Show elegant task help (like '-h task') when no subcommand provided
         console = get_console(args)
         _simple_header(console)
+        _print_startup_context(console)
         _print_root_help(console, "task")
         return 0
     if args.task_action == "add":
@@ -2303,6 +2404,12 @@ def cmd_task(args) -> int:
         return cmd_task_delete(args)
     elif args.task_action == "copy":
         return cmd_task_copy(args)
+    elif args.task_action == "set":
+        return cmd_task_set(args)
+    elif args.task_action == "unset":
+        return cmd_task_unset(args)
+    elif args.task_action == "show":
+        return cmd_task_show(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -2469,7 +2576,37 @@ def _detect_editor() -> Optional[list]:
 def cmd_task_edit(args) -> int:
     """Open specified task in the user's editor."""
     try:
-        target = args.target
+        target = getattr(args, "target", None)
+        if not target:
+            try:
+                from rich.prompt import Confirm as _Confirm
+
+                active = user_config.get_active_task()
+                if active:
+                    if not _Confirm.ask(
+                        f"Open active task '{active}'?", default=True
+                    ):
+                        message("info", "Canceled")
+                        return 0
+                    target = active
+                else:
+                    message(
+                        "error",
+                        "No target provided and no active task is set.",
+                    )
+                    message(
+                        "info",
+                        "Set one with: autocleaneeg-pipeline task set or pass a task name/path",
+                    )
+                    return 1
+            except Exception:
+                message(
+                    "error",
+                    "Interactive prompt unavailable and no target provided. Re-run with a task name/path.",
+                )
+                return 1
+
+        # Resolve task target
         f = _resolve_task_file(target)
         if not f:
             # Try to resolve by discovered task name (built-in or workspace)
@@ -2703,10 +2840,41 @@ def cmd_task_import(args) -> int:
 def cmd_task_delete(args) -> int:
     """Delete a task file from the workspace tasks directory."""
     try:
+        # Determine target: use provided or confirm using active task
+        target = getattr(args, "target", None)
+        if not target:
+            try:
+                from rich.prompt import Confirm as _Confirm
+
+                active = user_config.get_active_task()
+                if active:
+                    if not _Confirm.ask(
+                        f"Use active task '{active}'?", default=True
+                    ):
+                        message("info", "Canceled")
+                        return 0
+                    target = active
+                else:
+                    message(
+                        "error",
+                        "No target provided and no active task is set.",
+                    )
+                    message(
+                        "info",
+                        "Set one with: autocleaneeg-pipeline task set or pass a task name/path",
+                    )
+                    return 1
+            except Exception:
+                message(
+                    "error",
+                    "Interactive prompt unavailable and no target provided. Re-run with a task name/path.",
+                )
+                return 1
+
         # Resolve to path; don't allow deleting built-ins
-        f = _resolve_task_file(args.target)
+        f = _resolve_task_file(target)
         if not f:
-            message("error", f"Task not found: {args.target}")
+            message("error", f"Task not found: {target}")
             message(
                 "info",
                 "Provide a workspace task name or a path under your workspace tasks/",
@@ -2756,8 +2924,33 @@ def cmd_task_copy(args) -> int:
             args.source if hasattr(args, "source") else getattr(args, "target", None)
         )
         if not source:
-            message("error", "No source provided")
-            return 1
+            try:
+                from rich.prompt import Confirm as _Confirm
+
+                active = user_config.get_active_task()
+                if active:
+                    if not _Confirm.ask(
+                        f"Use active task '{active}'?", default=True
+                    ):
+                        message("info", "Canceled")
+                        return 0
+                    source = active
+                else:
+                    message(
+                        "error",
+                        "No source provided and no active task is set.",
+                    )
+                    message(
+                        "info",
+                        "Set one with: autocleaneeg-pipeline task set or pass a task name/path",
+                    )
+                    return 1
+            except Exception:
+                message(
+                    "error",
+                    "Interactive prompt unavailable and no source provided. Re-run with a task name/path.",
+                )
+                return 1
 
         # Resolve source: path or discovered name
         src_path = _resolve_task_file(source)
@@ -2832,6 +3025,90 @@ def cmd_task_copy(args) -> int:
         return 0
     except Exception as e:
         message("error", f"Copy failed: {e}")
+        return 1
+
+
+def cmd_task_set(args) -> int:
+    """Set the active task."""
+    try:
+        # If task name provided, use it directly
+        if hasattr(args, 'task_name') and args.task_name:
+            task_name = args.task_name
+            
+            # Validate task exists in custom tasks
+            custom_tasks = user_config.list_custom_tasks()
+            if task_name not in custom_tasks:
+                message("error", f"Task '{task_name}' not found in workspace.")
+                message("info", "Available tasks:")
+                for name in custom_tasks:
+                    print(f"  • {name}")
+                return 1
+        else:
+            # Interactive selection
+            task_name = user_config.select_active_task_interactive()
+            if task_name is None:
+                message("info", "No task selected.")
+                return 0
+        
+        # Set the active task
+        if user_config.set_active_task(task_name):
+            message("success", f"✓ Active task set to: {task_name}")
+            message("info", f"Now you can use: autocleaneeg-pipeline process <file>")
+            return 0
+        else:
+            message("error", "Failed to save active task configuration.")
+            return 1
+            
+    except Exception as e:
+        message("error", f"Failed to set active task: {e}")
+        return 1
+
+
+def cmd_task_unset(_args) -> int:
+    """Clear the active task."""
+    try:
+        current_task = user_config.get_active_task()
+        if current_task is None:
+            message("info", "No active task is currently set.")
+            return 0
+        
+        if user_config.set_active_task(None):
+            message("success", f"✓ Active task cleared (was: {current_task})")
+            return 0
+        else:
+            message("error", "Failed to clear active task configuration.")
+            return 1
+            
+    except Exception as e:
+        message("error", f"Failed to unset active task: {e}")
+        return 1
+
+
+def cmd_task_show(_args) -> int:
+    """Show the current active task."""
+    try:
+        active_task = user_config.get_active_task()
+        
+        if active_task is None:
+            message("info", "No active task is currently set.")
+            message("info", "Set one with: autocleaneeg-pipeline task set")
+        else:
+            message("info", f"Active task: {active_task}")
+            
+            # Verify the task still exists
+            custom_tasks = user_config.list_custom_tasks()
+            if active_task in custom_tasks:
+                task_info = custom_tasks[active_task]
+                message("info", f"Description: {task_info.get('description', 'No description')}")
+                message("info", f"File: {task_info['file_path']}")
+            else:
+                message("warning", f"Active task '{active_task}' no longer exists in workspace")
+                message("info", "Consider setting a different active task or adding the missing task file.")
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to show active task: {e}")
         return 1
 
 
@@ -3925,6 +4202,18 @@ def main(argv: Optional[list] = None) -> int:
                 f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline workspace' to configure)",
             )
 
+        # Always show active task status for real sub-commands
+        try:
+            current = user_config.get_active_task()
+            if current:
+                console.print(f"[info]Active task:[/info] [accent]{current}[/accent]")
+            else:
+                console.print(
+                    "[warning]Active task not set[/warning] [muted](run 'autocleaneeg-pipeline task set')[/muted]"
+                )
+        except Exception:
+            pass
+
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = get_console(args)
@@ -3984,6 +4273,19 @@ def main(argv: Optional[list] = None) -> int:
                 tip.append("autocleaneeg-pipeline workspace", style="accent")
                 tip.append(" to configure.", style="muted")
                 console.print(Align.center(tip))
+            # Always show active task line beneath Workspace (or guard if not set)
+            try:
+                active_task = user_config.get_active_task()
+                at = Text()
+                at.append("🎯 ", style="muted")
+                at.append("Active task: ", style="muted")
+                if active_task:
+                    at.append(str(active_task), style="accent")
+                else:
+                    at.append("not set", style="warning")
+                console.print(Align.center(at))
+            except Exception:
+                pass
         except Exception:
             # Suppress fallback to avoid left-justified output in banner
             pass

@@ -140,6 +140,152 @@ class UserConfigManager:
             return Path(custom_tasks[task_name]["file_path"])
         return None
 
+    def get_active_task(self) -> Optional[str]:
+        """Get the currently active task name."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+        
+        if not global_config.exists():
+            return None
+            
+        try:
+            with open(global_config, "r", encoding="utf-8") as f:
+                config = json.load(f)
+                return config.get("active_task")
+        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+            return None
+
+    def set_active_task(self, task_name: Optional[str]) -> bool:
+        """Set the active task name. Use None to unset."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+        
+        # Load existing config or create new one
+        config = {
+            "version": "1.0",
+            "setup_date": self._current_timestamp(),
+        }
+        
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config.update(json.load(f))
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        
+        # Update active task
+        if task_name is None:
+            config.pop("active_task", None)
+        else:
+            config["active_task"] = task_name
+        
+        # Save config
+        global_config.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(global_config, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Warning: Could not save active task config: {e}")
+            return False
+
+    def select_active_task_interactive(self) -> Optional[str]:
+        """Interactive selection of active task from available custom tasks."""
+        custom_tasks = self.list_custom_tasks()
+        
+        if not custom_tasks:
+            print("No custom tasks found in workspace.")
+            print("Add tasks to your workspace with: autocleaneeg-pipeline task add <file>")
+            return None
+        
+        # Try to use rich for better display, fallback to basic if not available
+        if RICH_AVAILABLE:
+            return self._select_task_rich(custom_tasks)
+        else:
+            return self._select_task_basic(custom_tasks)
+    
+    def _select_task_rich(self, custom_tasks: Dict[str, Dict[str, Any]]) -> Optional[str]:
+        """Rich-based interactive task selection."""
+        from rich.console import Console
+        from rich.prompt import Prompt
+        from rich.table import Table
+        
+        console = Console()
+        
+        console.print("\n[bold]Available Custom Tasks:[/bold]")
+        
+        # Create table of tasks
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Task Name", style="cyan")
+        table.add_column("Description", style="green")
+        table.add_column("Modified", style="dim")
+        
+        task_list = list(custom_tasks.items())
+        for i, (task_name, task_info) in enumerate(task_list, 1):
+            description = task_info.get("description", "No description")
+            # Format modified time
+            try:
+                from datetime import datetime
+                mod_time = datetime.fromtimestamp(task_info["modified_time"])
+                mod_str = mod_time.strftime("%Y-%m-%d %H:%M")
+            except (KeyError, ValueError, OSError):
+                mod_str = "Unknown"
+            
+            table.add_row(str(i), task_name, description, mod_str)
+        
+        console.print(table)
+        
+        # Get current active task to show in prompt
+        current_active = self.get_active_task()
+        current_msg = f" (current: {current_active})" if current_active else ""
+        
+        console.print(f"\nSelect a task by number{current_msg}, or press Enter to cancel:")
+        
+        try:
+            choice = Prompt.ask("Choice", default="", show_default=False)
+            if not choice.strip():
+                return None
+                
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(task_list):
+                selected_task = task_list[choice_num - 1][0]
+                return selected_task
+            else:
+                console.print("[red]Invalid selection.[/red]")
+                return None
+        except (ValueError, KeyboardInterrupt):
+            return None
+    
+    def _select_task_basic(self, custom_tasks: Dict[str, Dict[str, Any]]) -> Optional[str]:
+        """Basic console-based interactive task selection."""
+        print("\nAvailable Custom Tasks:")
+        
+        task_list = list(custom_tasks.items())
+        for i, (task_name, task_info) in enumerate(task_list, 1):
+            description = task_info.get("description", "No description")
+            print(f"  {i}. {task_name} - {description}")
+        
+        current_active = self.get_active_task()
+        current_msg = f" (current: {current_active})" if current_active else ""
+        
+        try:
+            choice = input(f"\nSelect a task by number{current_msg}, or press Enter to cancel: ").strip()
+            if not choice:
+                return None
+                
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(task_list):
+                selected_task = task_list[choice_num - 1][0]
+                return selected_task
+            else:
+                print("Invalid selection.")
+                return None
+        except (ValueError, KeyboardInterrupt):
+            return None
+
     def _display_system_info(self, console) -> None:
         """Display system information and status."""
         if not RICH_AVAILABLE:
@@ -433,11 +579,24 @@ class UserConfigManager:
         )
         global_config.parent.mkdir(parents=True, exist_ok=True)
 
+        # Load existing config to preserve active_task and other settings
+        existing_config = {}
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    existing_config = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+
         config = {
             "config_directory": str(workspace_dir),
             "setup_date": self._current_timestamp(),
             "version": "1.0",
         }
+        
+        # Preserve active_task if it exists
+        if "active_task" in existing_config:
+            config["active_task"] = existing_config["active_task"]
 
         try:
             with open(global_config, "w", encoding="utf-8") as f:
