@@ -2984,18 +2984,12 @@ def main(argv: Optional[list] = None) -> int:
 
                 tip = Text()
                 tip.append("Run ", style="muted")
-            tip.append("autocleaneeg-pipeline workspace", style="accent")
-            tip.append(" to configure.", style="muted")
-            console.print(Align.center(tip))
+                tip.append("autocleaneeg-pipeline workspace", style="accent")
+                tip.append(" to configure.", style="muted")
+                console.print(Align.center(tip))
         except Exception:
-            # Fallback to simple prints if Rich alignment fails
-            if workspace_dir.exists() and (workspace_dir / "tasks").exists():
-                console.print(f"\n[muted]Workspace:[/muted] {workspace_dir}")
-            else:
-                console.print(
-                    f"[warning]⚠ Workspace not configured:[/warning] {workspace_dir}\n"
-                    "Run [accent]autocleaneeg-pipeline workspace[/accent] to configure."
-                )
+            # Suppress fallback to avoid left-justified output in banner
+            pass
 
         # Disk free space for workspace volume (guarded)
         try:
