@@ -225,6 +225,18 @@ def _print_startup_context(console) -> None:
             tip.append(" to configure.", style="muted")
             console.print(_Align.center(tip))
 
+        # If an active task is present, display it beautifully beneath Workspace
+        try:
+            active_task = user_config.get_active_task()
+            if active_task:
+                at = _Text()
+                at.append("🎯 ", style="muted")
+                at.append("Active task: ", style="muted")
+                at.append(str(active_task), style="accent")
+                console.print(_Align.center(at))
+        except Exception:
+            pass
+
         # Disk free
         usage_path = (
             workspace_dir
@@ -4125,6 +4137,17 @@ def main(argv: Optional[list] = None) -> int:
                 tip.append("autocleaneeg-pipeline workspace", style="accent")
                 tip.append(" to configure.", style="muted")
                 console.print(Align.center(tip))
+            # If an active task is present, display it beautifully beneath Workspace
+            try:
+                active_task = user_config.get_active_task()
+                if active_task:
+                    at = Text()
+                    at.append("🎯 ", style="muted")
+                    at.append("Active task: ", style="muted")
+                    at.append(str(active_task), style="accent")
+                    console.print(Align.center(at))
+            except Exception:
+                pass
         except Exception:
             # Suppress fallback to avoid left-justified output in banner
             pass
