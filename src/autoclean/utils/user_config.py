@@ -410,6 +410,30 @@ class UserConfigManager:
 
         # Get workspace location
         default_dir = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
+
+        # Show current vs suggested default side by side for clarity
+        try:
+            if RICH_AVAILABLE:
+                from rich.table import Table as _Table
+
+                home = str(Path.home())
+                current_path = str(self.config_dir)
+                if current_path.startswith(home):
+                    current_path = current_path.replace(home, "~", 1)
+                default_path = str(default_dir)
+                if default_path.startswith(home):
+                    default_path = default_path.replace(home, "~", 1)
+
+                if current_path != default_path:
+                    _tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+                    _tbl.add_column("Current workspace", style="accent")
+                    _tbl.add_column("Suggested default", style="muted")
+                    _tbl.add_row(current_path, default_path)
+                    setup_display.console.print(_tbl)
+                    setup_display.blank_line()
+        except Exception:
+            pass
+
         chosen_dir = setup_display.workspace_location_prompt(default_dir)
 
         # Save config and create workspace

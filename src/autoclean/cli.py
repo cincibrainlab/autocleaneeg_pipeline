@@ -303,6 +303,8 @@ except ImportError:
 if os.getenv("AUTOCLEAN_VERBOSE_LIBS") not in {"1", "true", "True", "YES", "yes"}:
     # Ensure MNE reduces verbose backend messages (like "Using qt as 2D backend.")
     os.environ.setdefault("MNE_LOGGING_LEVEL", "WARNING")
+    # Reduce VisPy noise sometimes emitted by visualization deps
+    os.environ.setdefault("VISPY_LOG_LEVEL", "ERROR")
     import logging as _logging
 
     for _name in ("OpenGL", "OpenGL.acceleratesupport"):
@@ -1423,7 +1425,12 @@ def cmd_workspace_set(args) -> int:
     try:
         # If no path provided, enter interactive mode to choose a folder
         if not getattr(args, "path", None):
-            chosen = user_config.setup_workspace(show_branding=False)
+            # Directly invoke the reconfiguration wizard to avoid duplicate prompts
+            try:
+                chosen = user_config._run_setup_wizard(is_first_time=False, show_branding=False)
+            except Exception:
+                # Fallback to standard setup if private API unavailable
+                chosen = user_config.setup_workspace(show_branding=False)
             message("success", "✓ Workspace updated")
             message("info", str(chosen))
             return 0
