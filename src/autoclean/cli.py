@@ -225,15 +225,17 @@ def _print_startup_context(console) -> None:
             tip.append(" to configure.", style="muted")
             console.print(_Align.center(tip))
 
-        # If an active task is present, display it beautifully beneath Workspace
+        # Always show active task line beneath Workspace (or guard if not set)
         try:
             active_task = user_config.get_active_task()
+            at = _Text()
+            at.append("🎯 ", style="muted")
+            at.append("Active task: ", style="muted")
             if active_task:
-                at = _Text()
-                at.append("🎯 ", style="muted")
-                at.append("Active task: ", style="muted")
                 at.append(str(active_task), style="accent")
-                console.print(_Align.center(at))
+            else:
+                at.append("not set", style="warning")
+            console.print(_Align.center(at))
         except Exception:
             pass
 
@@ -1035,6 +1037,7 @@ def validate_args(args) -> bool:
         if not task_name and not args.task_file:
             console = get_console(args)
             _simple_header(console)
+            _print_startup_context(console)
             try:
                 from rich.table import Table as _Table
 
@@ -1100,6 +1103,7 @@ def validate_args(args) -> bool:
             else:
                 console = get_console(args)
                 _simple_header(console)
+                _print_startup_context(console)
                 try:
                     from rich.table import Table as _Table
 
@@ -1161,6 +1165,7 @@ def validate_args(args) -> bool:
         if not getattr(args, "file", None):
             console = get_console(args)
             _simple_header(console)
+            _print_startup_context(console)
             try:
                 from rich.text import Text as _Text
                 from rich.align import Align as _Align
@@ -1836,6 +1841,20 @@ def _run_interactive_setup() -> int:
             ws.append(display_path, style="accent")
             console.print(_SAlign.center(ws))
 
+            # Active task line (or guard if not set)
+            try:
+                active = _SText()
+                active.append("🎯 ", style="muted")
+                active.append("Active task: ", style="muted")
+                current = user_config.get_active_task()
+                if current:
+                    active.append(str(current), style="accent")
+                else:
+                    active.append("not set", style="warning")
+                console.print(_SAlign.center(active))
+            except Exception:
+                pass
+
             # Centered setup hint line
             hint = _SText()
             hint.append("Use arrow keys to navigate  •  Enter to select", style="muted")
@@ -2005,6 +2024,19 @@ def _setup_compliance_mode() -> int:
             ws_line.append("Workspace: ", style="muted")
             ws_line.append(display_path, style="accent")
             setup_display.console.print(_XAlign.center(ws_line))
+            # Active task line (or guard)
+            try:
+                at_line = _XText()
+                at_line.append("🎯 ", style="muted")
+                at_line.append("Active task: ", style="muted")
+                current = user_config.get_active_task()
+                if current:
+                    at_line.append(str(current), style="accent")
+                else:
+                    at_line.append("not set", style="warning")
+                setup_display.console.print(_XAlign.center(at_line))
+            except Exception:
+                pass
             setup_display.blank_line()
         except Exception:
             pass
@@ -2351,6 +2383,7 @@ def cmd_task(args) -> int:
         # Show elegant task help (like '-h task') when no subcommand provided
         console = get_console(args)
         _simple_header(console)
+        _print_startup_context(console)
         _print_root_help(console, "task")
         return 0
     if args.task_action == "add":
@@ -4081,6 +4114,18 @@ def main(argv: Optional[list] = None) -> int:
                 f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline workspace' to configure)",
             )
 
+        # Always show active task status for real sub-commands
+        try:
+            current = user_config.get_active_task()
+            if current:
+                console.print(f"[info]Active task:[/info] [accent]{current}[/accent]")
+            else:
+                console.print(
+                    "[warning]Active task not set[/warning] [muted](run 'autocleaneeg-pipeline task set')[/muted]"
+                )
+        except Exception:
+            pass
+
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = get_console(args)
@@ -4140,15 +4185,17 @@ def main(argv: Optional[list] = None) -> int:
                 tip.append("autocleaneeg-pipeline workspace", style="accent")
                 tip.append(" to configure.", style="muted")
                 console.print(Align.center(tip))
-            # If an active task is present, display it beautifully beneath Workspace
+            # Always show active task line beneath Workspace (or guard if not set)
             try:
                 active_task = user_config.get_active_task()
+                at = Text()
+                at.append("🎯 ", style="muted")
+                at.append("Active task: ", style="muted")
                 if active_task:
-                    at = Text()
-                    at.append("🎯 ", style="muted")
-                    at.append("Active task: ", style="muted")
                     at.append(str(active_task), style="accent")
-                    console.print(Align.center(at))
+                else:
+                    at.append("not set", style="warning")
+                console.print(Align.center(at))
             except Exception:
                 pass
         except Exception:
