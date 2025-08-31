@@ -943,7 +943,7 @@ class VisualizationMixin:
 
         # Add suptitle and adjust layout
         fig.suptitle(os.path.basename(raw_cleaned.filenames[0]), fontsize=16)
-        plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+        fig.subplots_adjust(top=0.95, bottom=0.03)
 
         # Save and close figure
         fig.savefig(target_figure, dpi=300)
