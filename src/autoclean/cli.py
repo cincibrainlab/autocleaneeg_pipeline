@@ -213,6 +213,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("📏 workspace size", "Show total workspace size"),
             ("📌 workspace set <path>", "Change the workspace folder"),
             ("❎ workspace unset", "Unassign current workspace (clear config)"),
+            ("🏠 workspace default", "Set recommended default location"),
             ("—", "—"),
             ("🔐 auth setup|enable|disable", "Compliance controls (Auth0)"),
         ]
@@ -567,6 +568,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "unset", help="Unassign current workspace (clear config)", add_help=False
     )
     attach_rich_help(ws_unset)
+
+    ws_default = workspace_subparsers.add_parser(
+        "default", help="Set workspace to the recommended default location", add_help=False
+    )
+    attach_rich_help(ws_default)
 
     # Export access log command
     export_log_parser = subparsers.add_parser(
@@ -1195,6 +1201,8 @@ def cmd_workspace(args) -> int:
         return cmd_workspace_set(args)
     if action == "unset":
         return cmd_workspace_unset(args)
+    if action == "default":
+        return cmd_workspace_default(args)
     message("error", f"Unknown workspace action: {action}")
     return 1
 
@@ -1312,6 +1320,30 @@ def cmd_workspace_unset(_args) -> int:
         return 0
     except Exception as e:
         message("error", f"Failed to unset workspace: {e}")
+        return 1
+
+
+def cmd_workspace_default(_args) -> int:
+    """Set workspace to the cross-platform default documents path."""
+    try:
+        import platformdirs  # local import to avoid global dep at module import
+
+        default_path = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
+        default_path.mkdir(parents=True, exist_ok=True)
+
+        # Initialize structure and save config
+        user_config._save_global_config(default_path)
+        user_config._create_workspace_structure(default_path)
+
+        # Update current instance
+        user_config.config_dir = default_path
+        user_config.tasks_dir = default_path / "tasks"
+
+        message("success", "✓ Workspace set to default location")
+        message("info", str(default_path))
+        return 0
+    except Exception as e:
+        message("error", f"Failed to set default workspace: {e}")
         return 1
 
 
