@@ -2,7 +2,9 @@
 
 import importlib.util
 import inspect
+import json
 import pkgutil
+import re
 import sys
 from pathlib import Path
 from typing import Dict, List, NamedTuple, Optional, Tuple, Type
@@ -79,6 +81,65 @@ def _extract_task_description(task_class: Type[Task]) -> str:
             return cleaned
 
     return "No description available"
+
+
+def parse_json_header(file_path: Path) -> Optional[Dict]:
+    """Parse JSON header from the beginning of a task file.
+    
+    Looks for JSON data enclosed in triple quotes or block comments
+    at the very beginning of a Python file.
+    
+    Args:
+        file_path: Path to the task file to parse
+        
+    Returns:
+        Dictionary containing parsed JSON data, or None if no valid JSON header found
+    """
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Look for JSON at the start of the file (after possible shebang and encoding)
+        # Pattern 1: JSON in triple quotes at start of file
+        triple_quote_pattern = r'^(?:#.*?\n)?(?:\s*#.*coding.*?\n)?\s*"""(.*?)"""'
+        match = re.match(triple_quote_pattern, content, re.DOTALL)
+        
+        if match:
+            json_text = match.group(1).strip()
+            try:
+                return json.loads(json_text)
+            except json.JSONDecodeError:
+                pass
+        
+        # Pattern 2: JSON in block comment at start of file
+        block_comment_pattern = r'^(?:#.*?\n)?(?:\s*#.*coding.*?\n)?\s*/\*(.*?)\*/'
+        match = re.match(block_comment_pattern, content, re.DOTALL)
+        
+        if match:
+            json_text = match.group(1).strip()
+            try:
+                return json.loads(json_text)
+            except json.JSONDecodeError:
+                pass
+        
+        # Pattern 3: JSON in first multi-line string literal
+        string_pattern = r'^(?:#.*?\n)?(?:\s*#.*coding.*?\n)?\s*r?["\'"]{3}(.*?)["\'"]{3}'
+        match = re.match(string_pattern, content, re.DOTALL)
+        
+        if match:
+            json_text = match.group(1).strip()
+            # Skip if it looks like a docstring (starts with alphabetic character)
+            if json_text and not json_text[0].isalpha():
+                try:
+                    return json.loads(json_text)
+                except json.JSONDecodeError:
+                    pass
+    
+    except Exception:
+        # If file reading fails, return None
+        pass
+    
+    return None
 
 
 def _is_valid_task_class(obj: type, module_name: str) -> bool:

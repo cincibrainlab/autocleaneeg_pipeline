@@ -98,6 +98,10 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 self.settings = module.config
             else:
                 self.settings = None
+        
+        # Initialize task_context with JSON header variables
+        self.task_context = {}
+        self._load_json_header_variables()
 
         # Extract EEG system from task settings before validation
         config["eeg_system"] = self._extract_eeg_system()
@@ -131,6 +135,30 @@ class Task(ABC, *DISCOVERED_MIXINS):
         ):
             return self.settings["montage"]["value"]
         return "auto"
+    
+    def _load_json_header_variables(self) -> None:
+        """Load user-defined variables from JSON header in the task file.
+        
+        Parses JSON header from the task file and makes variables available
+        in self.task_context for use in pipeline functions.
+        """
+        try:
+            # Get the module where this class was defined
+            module = inspect.getmodule(self.__class__)
+            if module and hasattr(module, '__file__') and module.__file__:
+                from pathlib import Path
+                from autoclean.utils.task_discovery import parse_json_header
+                
+                task_file_path = Path(module.__file__)
+                json_vars = parse_json_header(task_file_path)
+                
+                if json_vars:
+                    # Merge JSON header variables into task_context
+                    self.task_context.update(json_vars)
+                    
+        except Exception:
+            # If parsing fails for any reason, continue with empty task_context
+            pass
 
     def import_raw(self) -> None:
         """Import the raw EEG data from file.
