@@ -156,6 +156,22 @@ class UserConfigManager:
         except (json.JSONDecodeError, KeyError, FileNotFoundError):
             return None
 
+    def get_active_source(self) -> Optional[str]:
+        """Get the currently active source path."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+        
+        if not global_config.exists():
+            return None
+            
+        try:
+            with open(global_config, "r", encoding="utf-8") as f:
+                config = json.load(f)
+                return config.get("active_source")
+        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+            return None
+
     def set_active_task(self, task_name: Optional[str]) -> bool:
         """Set the active task name. Use None to unset."""
         global_config = (
@@ -189,6 +205,41 @@ class UserConfigManager:
             return True
         except Exception as e:
             print(f"Warning: Could not save active task config: {e}")
+            return False
+
+    def set_active_source(self, source_path: Optional[str]) -> bool:
+        """Set the active source path. Use None to unset."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+        
+        # Load existing config or create new one
+        config = {
+            "version": "1.0",
+            "setup_date": self._current_timestamp(),
+        }
+        
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config.update(json.load(f))
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        
+        # Update active source
+        if source_path is None:
+            config.pop("active_source", None)
+        else:
+            config["active_source"] = str(source_path)
+        
+        # Save config
+        global_config.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(global_config, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Warning: Could not save active source config: {e}")
             return False
 
     def select_active_task_interactive(self) -> Optional[str]:
@@ -283,6 +334,138 @@ class UserConfigManager:
             else:
                 print("Invalid selection.")
                 return None
+        except (ValueError, KeyboardInterrupt):
+            return None
+
+    def select_active_source_interactive(self) -> Optional[str]:
+        """Interactive selection of active source path."""
+        # Try to use rich for better display, fallback to basic if not available
+        if RICH_AVAILABLE:
+            return self._select_source_rich()
+        else:
+            return self._select_source_basic()
+    
+    def _select_source_rich(self) -> Optional[str]:
+        """Rich-based interactive source selection."""
+        from rich.console import Console
+        from rich.prompt import Prompt
+        from rich.table import Table
+        
+        console = Console()
+        
+        console.print("\n[bold]Select Active Source:[/bold]")
+        console.print("[muted]Choose how to handle input files for processing[/muted]\n")
+        
+        # Create options table
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Option", style="cyan")
+        table.add_column("Description", style="green")
+        
+        table.add_row("1", "Select File", "Choose a specific EEG file")
+        table.add_row("2", "Select Directory", "Choose a directory containing EEG files")
+        table.add_row("3", "No Default", "Always prompt for input (current behavior)")
+        
+        current_source = self.get_active_source()
+        if current_source:
+            table.add_row("4", "Keep Current", f"Keep: {current_source}")
+        
+        console.print(table)
+        
+        try:
+            max_choice = 4 if current_source else 3
+            choice = Prompt.ask("Choice", default="", show_default=False)
+            if not choice.strip():
+                return None
+                
+            choice_num = int(choice)
+            
+            if choice_num == 1:
+                # File selection
+                from rich.prompt import Prompt
+                file_path = Prompt.ask("Enter file path")
+                if file_path and Path(file_path).exists():
+                    return str(Path(file_path).resolve())
+                else:
+                    console.print("[red]File not found[/red]")
+                    return None
+                    
+            elif choice_num == 2:
+                # Directory selection
+                from rich.prompt import Prompt
+                dir_path = Prompt.ask("Enter directory path") 
+                if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
+                    return str(Path(dir_path).resolve())
+                else:
+                    console.print("[red]Directory not found[/red]")
+                    return None
+                    
+            elif choice_num == 3:
+                # No default
+                return "NONE"
+                
+            elif choice_num == 4 and current_source:
+                # Keep current
+                return current_source
+                
+            else:
+                console.print("[red]Invalid selection.[/red]")
+                return None
+                
+        except (ValueError, KeyboardInterrupt):
+            return None
+    
+    def _select_source_basic(self) -> Optional[str]:
+        """Basic console-based interactive source selection."""
+        print("\nSelect Active Source:")
+        print("Choose how to handle input files for processing\n")
+        
+        print("  1. Select File - Choose a specific EEG file")
+        print("  2. Select Directory - Choose a directory containing EEG files") 
+        print("  3. No Default - Always prompt for input (current behavior)")
+        
+        current_source = self.get_active_source()
+        if current_source:
+            print(f"  4. Keep Current - Keep: {current_source}")
+        
+        try:
+            max_choice = 4 if current_source else 3
+            choice = input("\nSelect option (1-{}), or press Enter to cancel: ".format(max_choice)).strip()
+            if not choice:
+                return None
+                
+            choice_num = int(choice)
+            
+            if choice_num == 1:
+                # File selection
+                file_path = input("Enter file path: ").strip()
+                if file_path and Path(file_path).exists():
+                    return str(Path(file_path).resolve())
+                else:
+                    print("File not found")
+                    return None
+                    
+            elif choice_num == 2:
+                # Directory selection
+                dir_path = input("Enter directory path: ").strip()
+                if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
+                    return str(Path(dir_path).resolve())
+                else:
+                    print("Directory not found")
+                    return None
+                    
+            elif choice_num == 3:
+                # No default
+                return "NONE"
+                
+            elif choice_num == 4 and current_source:
+                # Keep current  
+                return current_source
+                
+            else:
+                print("Invalid selection.")
+                return None
+                
         except (ValueError, KeyboardInterrupt):
             return None
 
