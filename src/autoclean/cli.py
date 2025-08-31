@@ -336,6 +336,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
+            ("📁 source set [path]", "Set active source path (interactive if omitted)"),
+            ("🧹 source unset", "Clear the active source path"),
+            ("👁️  source show", "Show the current active source path"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -748,6 +751,38 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(show_task_parser)
 
+    # Source management commands
+    source_parser = subparsers.add_parser(
+        "source", help="Manage active source path", add_help=False
+    )
+    attach_rich_help(source_parser)
+    source_subparsers = source_parser.add_subparsers(
+        dest="source_action", help="Source actions"
+    )
+
+    # Set active source
+    set_source_parser = source_subparsers.add_parser(
+        "set", help="Set the active source path (used when no input specified in process)", add_help=False
+    )
+    attach_rich_help(set_source_parser)
+    set_source_parser.add_argument(
+        "source_path",
+        nargs="?",
+        help="Source path to set as active (file or directory, omit to choose interactively)",
+    )
+
+    # Unset active source
+    unset_source_parser = source_subparsers.add_parser(
+        "unset", help="Clear the active source path", add_help=False
+    )
+    attach_rich_help(unset_source_parser)
+
+    # Show active source
+    show_source_parser = source_subparsers.add_parser(
+        "show", help="Show the current active source path", add_help=False
+    )
+    attach_rich_help(show_source_parser)
+
     # Show config location
     config_parser = subparsers.add_parser(
         "config", help="Manage user configuration", add_help=False
@@ -1103,55 +1138,69 @@ def validate_args(args) -> bool:
                     return False
                 message("info", f"Using input path from task config: {input_path}")
             else:
-                console = get_console(args)
-                _simple_header(console)
-                _print_startup_context(console)
-                try:
-                    from rich.table import Table as _Table
+                # Try to get input_path from active source as fallback
+                active_source = user_config.get_active_source()
+                if active_source:
+                    input_path = Path(active_source)
+                    if not input_path.exists():
+                        message(
+                            "error",
+                            f"Active source path no longer exists: {input_path}",
+                        )
+                        message("info", "Please set a new active source with: autocleaneeg-pipeline source set")
+                        return False
+                    message("info", f"Using active source: {input_path}")
+                else:
+                    # No fallback available, show help
+                    console = get_console(args)
+                    _simple_header(console)
+                    _print_startup_context(console)
+                    try:
+                        from rich.table import Table as _Table
 
-                    console.print("[header]Process EEG[/header]")
-                    console.print(
-                        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options][/accent]"
-                    )
-                    console.print(
-                        "[dim]Note: Task is optional if you have set an active task with 'task set'[/dim]"
-                    )
-                    console.print()
+                        console.print("[header]Process EEG[/header]")
+                        console.print(
+                            "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options][/accent]"
+                        )
+                        console.print(
+                            "[dim]Note: Task is optional if you have set an active task with 'task set'[/dim]"
+                        )
+                        console.print()
 
-                    tbl = _Table(show_header=False, box=None, padding=(0, 1))
-                    tbl.add_column("Item", style="accent", no_wrap=True)
-                    tbl.add_column("Details", style="muted")
-                    tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
-                    tbl.add_row("--task-file", "Path to Python task file")
-                    tbl.add_row(
-                        "file|--file", "Single EEG file (.raw, .edf, .set, .fif)"
-                    )
-                    tbl.add_row(
-                        "dir|--dir",
-                        "Directory of EEG files (use --format, --recursive)",
-                    )
-                    tbl.add_row(
-                        "--format",
-                        "Glob pattern (default: *.set; '*.raw', '*.edf', ...)",
-                    )
-                    tbl.add_row(
-                        "--recursive", "Search subdirectories for matching files"
-                    )
-                    tbl.add_row(
-                        "-p N", "Process N files in parallel (default 3, max 8)"
-                    )
-                    tbl.add_row("--dry-run", "Show what would run without processing")
-                    console.print(tbl)
-                    console.print(
-                        "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
-                    )
-                    console.print()
-                except Exception:
-                    console.print(
-                        "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
-                    )
-                    console.print("Note: Task is optional if you have set an active task with 'task set'")
-                return False
+                        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+                        tbl.add_column("Item", style="accent", no_wrap=True)
+                        tbl.add_column("Details", style="muted")
+                        tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
+                        tbl.add_row("--task-file", "Path to Python task file")
+                        tbl.add_row(
+                            "file|--file", "Single EEG file (.raw, .edf, .set, .fif)"
+                        )
+                        tbl.add_row(
+                            "dir|--dir",
+                            "Directory of EEG files (use --format, --recursive)",
+                        )
+                        tbl.add_row(
+                            "--format",
+                            "Glob pattern (default: *.set; '*.raw', '*.edf', ...)",
+                        )
+                        tbl.add_row(
+                            "--recursive", "Search subdirectories for matching files"
+                        )
+                        tbl.add_row(
+                            "-p N", "Process N files in parallel (default 3, max 8)"
+                        )
+                        tbl.add_row("--dry-run", "Show what would run without processing")
+                        console.print(tbl)
+                        console.print(
+                            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+                        )
+                        console.print()
+                    except Exception:
+                        console.print(
+                            "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
+                        )
+                        console.print("Note: Task is optional if you have set an active task with 'task set'")
+                    return False
 
         # Store normalized values back to args
         args.final_task = task_name
@@ -3112,6 +3161,108 @@ def cmd_task_show(_args) -> int:
         return 1
 
 
+def cmd_source(args) -> int:
+    """Execute source management commands."""
+    if args.source_action == "set":
+        return cmd_source_set(args)
+    elif args.source_action == "unset":
+        return cmd_source_unset(args)
+    elif args.source_action == "show":
+        return cmd_source_show(args)
+    else:
+        message("error", "No source action specified")
+        return 1
+
+
+def cmd_source_set(args) -> int:
+    """Set the active source path."""
+    try:
+        source_path = getattr(args, "source_path", None)
+        
+        # If path provided directly, use it
+        if source_path:
+            path = Path(source_path).expanduser().resolve()
+            if not path.exists():
+                message("error", f"Source path does not exist: {path}")
+                return 1
+            
+            if user_config.set_active_source(str(path)):
+                message("success", f"Active source set to: {path}")
+                return 0
+            else:
+                message("error", "Failed to save active source configuration")
+                return 1
+        
+        # Otherwise, use interactive selection
+        selected_source = user_config.select_active_source_interactive()
+        if selected_source is None:
+            message("info", "Canceled")
+            return 0
+        elif selected_source == "NONE":
+            # User chose to have no default
+            if user_config.set_active_source(None):
+                message("success", "Active source cleared - will prompt for input each time")
+                return 0
+            else:
+                message("error", "Failed to clear active source")
+                return 1
+        else:
+            # User selected a path
+            if user_config.set_active_source(selected_source):
+                message("success", f"Active source set to: {selected_source}")
+                return 0
+            else:
+                message("error", "Failed to save active source configuration")
+                return 1
+                
+    except Exception as e:
+        message("error", f"Failed to set active source: {e}")
+        return 1
+
+
+def cmd_source_unset(_args) -> int:
+    """Clear the active source path."""
+    try:
+        if user_config.set_active_source(None):
+            message("success", "Active source cleared")
+            return 0
+        else:
+            message("error", "Failed to clear active source")
+            return 1
+            
+    except Exception as e:
+        message("error", f"Failed to unset active source: {e}")
+        return 1
+
+
+def cmd_source_show(_args) -> int:
+    """Show the current active source path."""
+    try:
+        active_source = user_config.get_active_source()
+        
+        if active_source is None:
+            message("info", "No active source path is currently set.")
+            message("info", "Set one with: autocleaneeg-pipeline source set")
+        else:
+            path = Path(active_source)
+            if path.exists():
+                if path.is_file():
+                    message("info", f"Active source (file): {active_source}")
+                elif path.is_dir():
+                    message("info", f"Active source (directory): {active_source}")
+                else:
+                    message("info", f"Active source: {active_source}")
+            else:
+                message("warning", f"Active source path no longer exists: {active_source}")
+                message("info", "Consider setting a new active source.")
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to show active source: {e}")
+        return 1
+
+
 def cmd_config(args) -> int:
     """Execute configuration management commands."""
     if args.config_action == "show":
@@ -4395,6 +4546,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_review(args)
     elif args.command == "task":
         return cmd_task(args)
+    elif args.command == "source":
+        return cmd_source(args)
     elif args.command == "config":
         return cmd_config(args)
     elif args.command == "workspace":
