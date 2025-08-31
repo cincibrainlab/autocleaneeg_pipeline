@@ -456,6 +456,11 @@ Basic Usage:
   autocleaneeg-pipeline task list                      # Show available tasks
   autocleaneeg-pipeline review                         # Start review GUI
 
+Active Task (Simplified Workflow):
+  autocleaneeg-pipeline task set                       # Select active task interactively
+  autocleaneeg-pipeline task show                      # Show current active task
+  autocleaneeg-pipeline process data.raw               # Process file with active task
+
 Custom Tasks:
   autocleaneeg-pipeline task add my_task.py            # Add custom task file
   autocleaneeg-pipeline task list                      # List all tasks
@@ -699,6 +704,30 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Overwrite existing file without prompting",
     )
+
+    # Set active task
+    set_task_parser = task_subparsers.add_parser(
+        "set", help="Set the active task (used when no task specified in process)", add_help=False
+    )
+    attach_rich_help(set_task_parser)
+    set_task_parser.add_argument(
+        "task_name",
+        type=str,
+        nargs="?",
+        help="Task name to set as active (omit to choose interactively)",
+    )
+
+    # Unset active task
+    unset_task_parser = task_subparsers.add_parser(
+        "unset", help="Clear the active task", add_help=False
+    )
+    attach_rich_help(unset_task_parser)
+
+    # Show active task
+    show_task_parser = task_subparsers.add_parser(
+        "show", help="Show the current active task", add_help=False
+    )
+    attach_rich_help(show_task_parser)
 
     # Show config location
     config_parser = subparsers.add_parser(
@@ -973,7 +1002,21 @@ def validate_args(args) -> bool:
         task_name = args.task_name or args.task
         input_path = args.input_path or args.file or args.directory
 
-        # If no task specified, show a brief, elegant help instead of a raw error
+        # If no task specified, check for active task first
+        if not task_name and not args.task_file:
+            # Try to use active task
+            active_task = user_config.get_active_task()
+            if active_task:
+                # Validate that the active task still exists
+                custom_tasks = user_config.list_custom_tasks()
+                if active_task in custom_tasks:
+                    task_name = active_task
+                    message("info", f"Using active task: {active_task}")
+                else:
+                    message("warning", f"Active task '{active_task}' no longer exists in workspace")
+                    message("info", "Please set a new active task with: autocleaneeg-pipeline task set")
+            
+            # If still no task, show help
         if not task_name and not args.task_file:
             console = get_console(args)
             _simple_header(console)
@@ -982,7 +1025,10 @@ def validate_args(args) -> bool:
 
                 console.print("[header]Process EEG[/header]")
                 console.print(
-                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
+                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options][/accent]"
+                )
+                console.print(
+                    "[dim]Note: Task is optional if you have set an active task with 'task set'[/dim]"
                 )
                 console.print()
 
@@ -1008,8 +1054,9 @@ def validate_args(args) -> bool:
                 console.print()
             except Exception:
                 console.print(
-                    "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
+                    "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
                 )
+                console.print("Note: Task is optional if you have set an active task with 'task set'")
             return False
 
         if task_name and args.task_file:
@@ -1043,7 +1090,10 @@ def validate_args(args) -> bool:
 
                     console.print("[header]Process EEG[/header]")
                     console.print(
-                        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
+                        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options][/accent]"
+                    )
+                    console.print(
+                        "[dim]Note: Task is optional if you have set an active task with 'task set'[/dim]"
                     )
                     console.print()
 
@@ -1077,8 +1127,9 @@ def validate_args(args) -> bool:
                     console.print()
                 except Exception:
                     console.print(
-                        "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
+                        "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
                     )
+                    console.print("Note: Task is optional if you have set an active task with 'task set'")
                 return False
 
         # Store normalized values back to args
@@ -2303,6 +2354,12 @@ def cmd_task(args) -> int:
         return cmd_task_delete(args)
     elif args.task_action == "copy":
         return cmd_task_copy(args)
+    elif args.task_action == "set":
+        return cmd_task_set(args)
+    elif args.task_action == "unset":
+        return cmd_task_unset(args)
+    elif args.task_action == "show":
+        return cmd_task_show(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -2832,6 +2889,90 @@ def cmd_task_copy(args) -> int:
         return 0
     except Exception as e:
         message("error", f"Copy failed: {e}")
+        return 1
+
+
+def cmd_task_set(args) -> int:
+    """Set the active task."""
+    try:
+        # If task name provided, use it directly
+        if hasattr(args, 'task_name') and args.task_name:
+            task_name = args.task_name
+            
+            # Validate task exists in custom tasks
+            custom_tasks = user_config.list_custom_tasks()
+            if task_name not in custom_tasks:
+                message("error", f"Task '{task_name}' not found in workspace.")
+                message("info", "Available tasks:")
+                for name in custom_tasks:
+                    print(f"  • {name}")
+                return 1
+        else:
+            # Interactive selection
+            task_name = user_config.select_active_task_interactive()
+            if task_name is None:
+                message("info", "No task selected.")
+                return 0
+        
+        # Set the active task
+        if user_config.set_active_task(task_name):
+            message("success", f"✓ Active task set to: {task_name}")
+            message("info", f"Now you can use: autocleaneeg-pipeline process <file>")
+            return 0
+        else:
+            message("error", "Failed to save active task configuration.")
+            return 1
+            
+    except Exception as e:
+        message("error", f"Failed to set active task: {e}")
+        return 1
+
+
+def cmd_task_unset(_args) -> int:
+    """Clear the active task."""
+    try:
+        current_task = user_config.get_active_task()
+        if current_task is None:
+            message("info", "No active task is currently set.")
+            return 0
+        
+        if user_config.set_active_task(None):
+            message("success", f"✓ Active task cleared (was: {current_task})")
+            return 0
+        else:
+            message("error", "Failed to clear active task configuration.")
+            return 1
+            
+    except Exception as e:
+        message("error", f"Failed to unset active task: {e}")
+        return 1
+
+
+def cmd_task_show(_args) -> int:
+    """Show the current active task."""
+    try:
+        active_task = user_config.get_active_task()
+        
+        if active_task is None:
+            message("info", "No active task is currently set.")
+            message("info", "Set one with: autocleaneeg-pipeline task set")
+        else:
+            message("info", f"Active task: {active_task}")
+            
+            # Verify the task still exists
+            custom_tasks = user_config.list_custom_tasks()
+            if active_task in custom_tasks:
+                task_info = custom_tasks[active_task]
+                message("info", f"Description: {task_info.get('description', 'No description')}")
+                message("info", f"File: {task_info['file_path']}")
+            else:
+                message("warning", f"Active task '{active_task}' no longer exists in workspace")
+                message("info", "Consider setting a different active task or adding the missing task file.")
+        
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to show active task: {e}")
         return 1
 
 
