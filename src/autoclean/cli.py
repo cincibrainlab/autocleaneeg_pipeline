@@ -241,10 +241,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
 
     rows = [
         ("❓ help", "Show help and topics (alias for -h/--help)"),
-        ("🗂 workspace", "Configure workspace folder"),
-        ("👁  view", "View EEG file (MNE-QT)"),
-        ("🗂 task", "Manage tasks (list, explore)"),
-        ("▶  process", "Process EEG data"),
+        ("🗂\u00a0 workspace", "Configure workspace folder"),
+        ("👁\u00a0 view", "View EEG file (MNE-QT)"),
+        ("🗂\u00a0 task", "Manage tasks (list, explore)"),
+        ("▶\u00a0 process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
         ("🔐 auth", "Authentication & Part-11 commands"),
     ]
@@ -1427,7 +1427,9 @@ def cmd_workspace_set(args) -> int:
         if not getattr(args, "path", None):
             # Directly invoke the reconfiguration wizard to avoid duplicate prompts
             try:
-                chosen = user_config._run_setup_wizard(is_first_time=False, show_branding=False)
+                chosen = user_config._run_setup_wizard(
+                    is_first_time=False, show_branding=False
+                )
             except Exception:
                 # Fallback to standard setup if private API unavailable
                 chosen = user_config.setup_workspace(show_branding=False)
