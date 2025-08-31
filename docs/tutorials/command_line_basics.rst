@@ -1,273 +1,430 @@
-Command Line Basics for AutoClean
-==================================
+AutoClean EEG CLI Usage Guide
+==============================
 
-Don't worry - you don't need to be a programmer to use AutoClean! This guide will teach you the few simple commands you need to know.
+Don't worry - you don't need to be a programmer to use AutoClean! This guide will teach you the simple commands you need to know, starting from the very basics.
 
-🖥️ What is the Command Line?
-----------------------------
+🚀 Getting Started (No Arguments)
+----------------------------------
 
-The command line (also called "terminal", "command prompt", or "shell") is a way to give instructions to your computer by typing text commands instead of clicking buttons.
+When you first install AutoClean EEG, try running it without any arguments to see what happens:
 
-**Why use it?**
-- It's actually faster once you learn a few commands
-- AutoClean can process your data automatically 
-- You can repeat the same analysis easily
-- It works the same way on Windows, Mac, and Linux
+.. code-block:: bash
 
-🚀 Opening the Command Line
+   autocleaneeg-pipeline
+
+This shows you a helpful overview with:
+
+* System information (Python version, OS, current time)
+* Your workspace directory location
+* Quick links to get help and tutorials
+* First-time setup reminder if needed
+
+This is your starting point - bookmark this command!
+
+🏠 Setting Up Your Workspace
+-----------------------------
+
+Before processing any data, you need to configure your workspace:
+
+.. code-block:: bash
+
+   # First time setup - interactive wizard
+   autocleaneeg-pipeline workspace
+
+This runs an interactive setup that helps you:
+
+* Choose your workspace directory location
+* Create the necessary folder structure
+* Set up basic configuration
+
+**Workspace management commands:**
+
+.. code-block:: bash
+
+   # See current workspace location
+   autocleaneeg-pipeline workspace
+   
+   # Open workspace folder in your file manager
+   autocleaneeg-pipeline workspace explore
+   
+   # Change workspace location
+   autocleaneeg-pipeline workspace set /path/to/new/location
+   
+   # Reset to default location
+   autocleaneeg-pipeline workspace default
+   
+   # Navigate to workspace in terminal
+   autocleaneeg-pipeline workspace cd
+
+📋 Finding Available Tasks
 ---------------------------
 
-**Windows:**
-1. Press `Windows key + R`
-2. Type `cmd` and press Enter
-3. A black window opens - this is your command prompt
-
-**Mac:**
-1. Press `Command + Space` to open Spotlight
-2. Type `terminal` and press Enter
-3. A window opens - this is your terminal
-
-**Linux:**
-1. Press `Ctrl + Alt + T`
-2. Or search for "Terminal" in your applications
-
-📁 Basic Navigation
--------------------
-
-These commands help you move around your computer:
-
-**See where you are:**
+Before processing data, see what analysis workflows are available:
 
 .. code-block:: bash
 
-   # Windows
-   cd
+   # List all available tasks (built-in + custom)
+   autocleaneeg-pipeline list-tasks
    
-   # Mac/Linux  
-   pwd
+   # Or use the task command
+   autocleaneeg-pipeline task list
+   
+   # Show detailed information about tasks
+   autocleaneeg-pipeline list-tasks --verbose
 
-**See what files are in your current folder:**
+Common built-in tasks you'll see:
+* ``RestingEyesOpen`` - Resting state with eyes open
+* ``RestingEyesClosed`` - Resting state with eyes closed  
+* ``MMN`` - Mismatch negativity paradigm
+* ``ASSR`` - Auditory steady-state response
+* ``Chirp`` - Chirp stimulus paradigm
+
+🔄 Processing Your Data (Main Commands)
+----------------------------------------
+
+The most important command is ``process`` - this is where the magic happens!
+
+**Simple processing (recommended):**
 
 .. code-block:: bash
 
-   # Windows
-   dir
+   # Process a single file
+   autocleaneeg-pipeline process RestingEyesOpen my_data.raw
    
-   # Mac/Linux
-   ls
+   # Process all .raw files in current directory  
+   autocleaneeg-pipeline process RestingEyesOpen --dir . --format "*.raw"
+   
+   # Process with custom output directory
+   autocleaneeg-pipeline process RestingEyesOpen data.raw --output ~/EEG_Results
 
-**Change to a different folder:**
+**Advanced processing options:**
 
 .. code-block:: bash
 
-   # Go to your Documents folder
-   cd Documents
+   # Process multiple formats
+   autocleaneeg-pipeline process RestingEyesOpen --dir /data --format "*.set"
    
-   # Go to a specific folder
-   cd "path/to/your/folder"
+   # Recursive directory search
+   autocleaneeg-pipeline process RestingEyesOpen --dir /data --recursive
    
-   # Go back to the previous folder
-   cd ..
+   # Parallel processing (faster for multiple files)
+   autocleaneeg-pipeline process RestingEyesOpen --dir /data --parallel 4
+   
+   # See what would be processed (don't actually run)
+   autocleaneeg-pipeline process RestingEyesOpen --dir /data --dry-run
+   
+   # Verbose output for troubleshooting
+   autocleaneeg-pipeline process RestingEyesOpen data.raw --verbose
 
-**Pro tip:** Use quotes around folder names that have spaces!
+🛠️ Managing Custom Tasks
+-------------------------
 
-🧠 AutoClean Commands You Need to Know
+Create and manage your own analysis workflows:
+
+**Adding custom tasks:**
+
+.. code-block:: bash
+
+   # Add a task file to your workspace
+   autocleaneeg-pipeline task add my_custom_analysis.py
+   
+   # Add with a specific name
+   autocleaneeg-pipeline task add analysis.py --name MySpecialTask
+   
+   # Force overwrite if task exists
+   autocleaneeg-pipeline task add analysis.py --force
+
+**Editing tasks:**
+
+.. code-block:: bash
+
+   # Edit a workspace task in your default editor
+   autocleaneeg-pipeline task edit MyCustomTask
+   
+   # Copy a built-in task to edit it
+   autocleaneeg-pipeline task edit RestingEyesOpen --name MyRestingTask
+
+**Managing task files:**
+
+.. code-block:: bash
+
+   # Copy any task to a new workspace file
+   autocleaneeg-pipeline task copy RestingEyesOpen --name MyModifiedResting
+   
+   # Import a task file from anywhere
+   autocleaneeg-pipeline task import /path/to/task.py --name ImportedTask
+   
+   # Remove a custom task
+   autocleaneeg-pipeline task remove MyCustomTask
+   
+   # Delete task file completely
+   autocleaneeg-pipeline task delete MyCustomTask
+   
+   # Open tasks folder in file manager
+   autocleaneeg-pipeline task explore
+
+📊 Reviewing Results
+--------------------
+
+After processing, review your results with the GUI:
+
+.. code-block:: bash
+
+   # Start the review GUI (uses workspace output directory)
+   autocleaneeg-pipeline review
+   
+   # Review a specific output directory
+   autocleaneeg-pipeline review --output /path/to/results
+
+The review GUI lets you:
+* Browse processed files visually
+* Compare before/after signal quality
+* Export results and reports
+* Generate publication-ready figures
+
+⚙️ Configuration Management
+----------------------------
+
+Manage your AutoClean configuration:
+
+.. code-block:: bash
+
+   # Show configuration directory location
+   autocleaneeg-pipeline config show
+   
+   # Reconfigure workspace (same as workspace setup)
+   autocleaneeg-pipeline config setup
+   
+   # Reset all configuration to defaults
+   autocleaneeg-pipeline config reset --confirm
+   
+   # Export your configuration  
+   autocleaneeg-pipeline config export ~/my-autoclean-backup
+   
+   # Import configuration from backup
+   autocleaneeg-pipeline config import ~/my-autoclean-backup
+
+🔍 Viewing EEG Files
+--------------------
+
+Quickly view EEG files without processing:
+
+.. code-block:: bash
+
+   # View an EEG file in MNE's browser
+   autocleaneeg-pipeline view data.raw
+   
+   # Just validate the file (don't open viewer)
+   autocleaneeg-pipeline view data.raw --no-view
+
+🧹 Maintenance Commands
+-----------------------
+
+Keep your workspace clean and organized:
+
+.. code-block:: bash
+
+   # Remove all outputs for a specific task
+   autocleaneeg-pipeline clean-task RestingEyesOpen
+   
+   # See what would be deleted (don't actually delete)
+   autocleaneeg-pipeline clean-task RestingEyesOpen --dry-run
+   
+   # Force deletion without confirmation
+   autocleaneeg-pipeline clean-task RestingEyesOpen --force
+   
+   # Check workspace size
+   autocleaneeg-pipeline workspace size
+
+📋 Audit and Compliance
+------------------------
+
+For research documentation and compliance:
+
+.. code-block:: bash
+
+   # Export complete audit trail
+   autocleaneeg-pipeline export-access-log --output audit-trail.jsonl
+   
+   # Export specific date range
+   autocleaneeg-pipeline export-access-log \
+     --start-date 2025-01-01 \
+     --end-date 2025-01-31 \
+     --output monthly-audit.jsonl
+   
+   # Export as CSV for spreadsheet analysis
+   autocleaneeg-pipeline export-access-log --format csv --output audit.csv
+   
+   # Just verify database integrity (no export)
+   autocleaneeg-pipeline export-access-log --verify-only
+
+🔐 Authentication (Advanced)
+-----------------------------
+
+For compliance environments requiring user authentication:
+
+.. code-block:: bash
+
+   # Login to authentication system
+   autocleaneeg-pipeline login
+   
+   # Check who is currently logged in
+   autocleaneeg-pipeline whoami
+   
+   # Logout and clear tokens
+   autocleaneeg-pipeline logout
+   
+   # Diagnose authentication issues
+   autocleaneeg-pipeline auth0-diagnostics --verbose
+
+ℹ️ Getting Help
+----------------
+
+When you need more information:
+
+.. code-block:: bash
+
+   # Show version information
+   autocleaneeg-pipeline version
+   
+   # Show general help
+   autocleaneeg-pipeline help
+   
+   # Show help for specific commands
+   autocleaneeg-pipeline process --help
+   autocleaneeg-pipeline task --help
+   
+   # Run the interactive tutorial
+   autocleaneeg-pipeline tutorial
+
+🎯 Your First Analysis (Step by Step)
 --------------------------------------
 
-Once AutoClean is installed, you only need to remember these commands:
+Here's exactly what to type for your first EEG analysis:
 
 **1. Check if AutoClean is working:**
 
 .. code-block:: bash
 
-   autoclean version
+   autocleaneeg-pipeline
 
-This should show you the AutoClean version number.
+You should see the welcome screen.
 
-**2. Set up your workspace (first time only):**
+**2. Set up your workspace:**
 
 .. code-block:: bash
 
-   autoclean setup
+   autocleaneeg-pipeline workspace
 
-This runs a clean setup wizard that creates your personal AutoClean workspace in Documents/Autoclean-EEG.
+Follow the interactive prompts.
 
 **3. See what tasks are available:**
 
 .. code-block:: bash
 
-   # Built-in tasks only
-   autoclean list-tasks
-   
-   # Include your custom tasks too
-   autoclean list-tasks --include-custom
+   autocleaneeg-pipeline list-tasks
 
-This shows all the processing workflows you can use.
-
-**4. Process your data:**
+**4. Navigate to your data:**
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen my_data_file.raw
+   # Change to your data directory
+   cd /path/to/your/eeg/data
 
-Replace "RestingEyesOpen" with your task name and "my_data_file.raw" with your actual file.
-
-**5. Manage your custom tasks:**
-
-.. code-block:: bash
-
-   # Add a custom task
-   autoclean task add my_custom_task.py
-   
-   # List your custom tasks
-   autoclean task list
-   
-   # Remove a custom task
-   autoclean task remove MyTaskName
-
-**6. Check your results:**
+**5. Process your first file:**
 
 .. code-block:: bash
 
-   autoclean config show
+   autocleaneeg-pipeline process RestingEyesOpen your_file.raw
 
-This shows where your results are saved.
-
-**7. Export audit trail (for compliance/research records):**
+**6. Review results:**
 
 .. code-block:: bash
 
-   # Export all database access logs
-   autoclean export-access-log --output audit-trail.jsonl
-   
-   # Export with date filtering
-   autoclean export-access-log --start-date 2025-01-01 --end-date 2025-01-31 --output monthly-audit.jsonl
-   
-   # Export to CSV for spreadsheet analysis
-   autoclean export-access-log --format csv --output audit-data.csv
-   
-   # Just verify database integrity (no export)
-   autoclean export-access-log --verify-only
+   autocleaneeg-pipeline review
 
-This creates detailed logs of all processing activities for compliance and research documentation.
-
-🎯 Step-by-Step: Your First Analysis
-------------------------------------
-
-Let's walk through processing your first EEG file:
-
-**Step 1: Open the command line** (see instructions above)
-
-**Step 2: Navigate to your data folder**
-
-If your EEG files are in Documents/EEG_Data:
+**7. Check where everything was saved:**
 
 .. code-block:: bash
 
-   cd Documents/EEG_Data
+   autocleaneeg-pipeline config show
 
-**Step 3: Check what files are there**
+🚨 Troubleshooting Common Issues
+---------------------------------
 
-.. code-block:: bash
-
-   # Windows
-   dir
-   
-   # Mac/Linux
-   ls
-
-You should see your .raw, .set, or other EEG files listed.
-
-**Step 4: Process your data**
+**"Command not found":**
 
 .. code-block:: bash
 
-   autoclean process RestingEyesOpen subject001.raw
-
-Replace "subject001.raw" with your actual filename.
-
-**Step 5: Wait for processing to complete**
-
-You'll see messages showing the progress. When it's done, you'll see "Processing completed successfully!"
-
-**Step 6: Check your results**
-
-.. code-block:: bash
-
-   autoclean config show
-
-This tells you where to find your processed data and reports.
-
-📋 Common File and Folder Names
--------------------------------
-
-**Your data files might be named like:**
-- subject001.raw
-- participant_01_rest.set  
-- data_session1.eeg
-- sub-01_task-rest_eeg.raw
-
-**Folder paths you might use:**
-- Documents/Research/EEG_Data
-- Desktop/Experiment_Data
-- C:\Research\Subject_Data (Windows)
-- /Users/yourname/Research (Mac)
-
-🆘 What If Something Goes Wrong?
--------------------------------
-
-**"Command not found" error:**
-This means AutoClean isn't installed properly. Try:
-
-.. code-block:: bash
-
+   # Install AutoClean EEG
    pip install autocleaneeg-pipeline
 
-**"File not found" error:**
-Check that you're in the right folder and the filename is correct:
+**"Workspace not configured":**
 
 .. code-block:: bash
 
-   # See what files are available
-   dir    # Windows
-   ls     # Mac/Linux
+   # Run workspace setup
+   autocleaneeg-pipeline workspace
 
-**"Permission denied" error:**
-Try running the command as administrator (Windows) or with sudo (Mac/Linux).
+**"Task not found":**
 
-**AutoClean seems stuck:**
-- Wait a few minutes - EEG processing takes time
-- Press Ctrl+C to cancel if needed
-- Check the error messages for clues
+.. code-block:: bash
 
-💡 Helpful Tips
----------------
+   # List available tasks
+   autocleaneeg-pipeline list-tasks
 
-**Use Tab completion:**
-Start typing a filename and press Tab - the computer will try to complete it for you!
+**"File not found":**
 
-**Use the up arrow:**
-Press the up arrow key to repeat your last command.
+.. code-block:: bash
 
-**Copy and paste:**
-- Windows: Right-click to paste
-- Mac: Cmd+V to paste  
-- Linux: Ctrl+Shift+V to paste
+   # Check you're in the right directory
+   pwd           # Mac/Linux
+   cd            # Windows
+   
+   # List files
+   ls            # Mac/Linux  
+   dir           # Windows
 
-**Keep a cheat sheet:**
-Write down the commands you use most often until you memorize them.
+**Processing seems stuck:**
+* Wait - EEG processing takes time (especially for large files)
+* Press Ctrl+C to cancel if needed
+* Use ``--verbose`` flag to see detailed progress
 
-🎉 You're Ready!
-----------------
+💡 Pro Tips
+-----------
 
-That's all you need to know! With these few commands, you can:
-- Navigate to your data
-- Process EEG files with AutoClean
-- Find your results
+**Tab completion:**
+Start typing filenames and press Tab for auto-completion.
 
-The command line becomes easier with practice. Start with these basics and gradually learn more as needed.
+**Command history:**
+Use up/down arrow keys to repeat previous commands.
 
-**Next steps:**
-- Try the :doc:`first_time_processing` tutorial
-- Learn about :doc:`understanding_results`
-- Explore :doc:`creating_custom_task` for your research
+**Batch processing:**
+Use ``--dir`` and ``--format`` to process multiple files at once.
+
+**Parallel processing:**
+Use ``--parallel N`` for faster processing of multiple files.
+
+**Dry run:**
+Always use ``--dry-run`` first when processing directories to see what will happen.
+
+**Keep organized:**
+Use meaningful task names and organize your workspace folders.
+
+🎉 You're Ready to Go!
+-----------------------
+
+With these commands, you can:
+
+✅ Set up AutoClean EEG  
+✅ Process single files or entire directories  
+✅ Manage custom analysis workflows  
+✅ Review and export results  
+✅ Maintain audit trails for research  
+
+Start with the basic workflow above, then gradually explore more advanced features as your needs grow.
+
+**Next Steps:**
+* Try :doc:`first_time_processing` for a detailed walkthrough
+* Learn about :doc:`understanding_results` to interpret your data
+* Explore :doc:`creating_custom_task` for specialized analyses
