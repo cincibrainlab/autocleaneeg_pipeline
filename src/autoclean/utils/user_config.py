@@ -97,6 +97,76 @@ class UserConfigManager:
         """Get default output directory."""
         return self.config_dir / "output"
 
+    def get_active_source_path(self) -> Optional[Path]:
+        """Get configured active source path."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+                    if "active_source_path" in config:
+                        source_path = Path(config["active_source_path"])
+                        # Only return if the path still exists
+                        if source_path.exists():
+                            return source_path
+            except (json.JSONDecodeError, KeyError, FileNotFoundError):
+                pass
+
+        return None
+
+    def set_active_source_path(self, source_path: Path) -> None:
+        """Set the active source path in global config."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+        global_config.parent.mkdir(parents=True, exist_ok=True)
+
+        # Load existing config or create new
+        config = {}
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+            except (json.JSONDecodeError, KeyError, FileNotFoundError):
+                config = {}
+
+        # Update active source path
+        config["active_source_path"] = str(source_path.resolve())
+        config["active_source_set_date"] = self._current_timestamp()
+
+        # Save updated config
+        try:
+            with open(global_config, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+        except Exception as e:
+            print(f"Warning: Could not save active source path: {e}")
+
+    def unset_active_source_path(self) -> None:
+        """Remove the active source path from global config."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        if not global_config.exists():
+            return
+
+        try:
+            with open(global_config, "r", encoding="utf-8") as f:
+                config = json.load(f)
+
+            # Remove active source path entries
+            config.pop("active_source_path", None)
+            config.pop("active_source_set_date", None)
+
+            # Save updated config
+            with open(global_config, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+        except (json.JSONDecodeError, KeyError, FileNotFoundError, Exception) as e:
+            print(f"Warning: Could not unset active source path: {e}")
+
     def list_custom_tasks(self) -> Dict[str, Dict[str, Any]]:
         """List custom tasks by scanning tasks directory."""
         custom_tasks = {}

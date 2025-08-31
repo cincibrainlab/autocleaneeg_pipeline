@@ -412,6 +412,129 @@ class SetupDisplay(CLIDisplay):
         self.blank_line()
         return chosen_dir
 
+    def source_location_prompt(self, current_source: Optional[Path] = None) -> Optional[Path]:
+        """Prompt for source file/directory location with clear choices."""
+        from pathlib import Path as _Path
+        import os
+
+        self.console.print("[header]Select Input Source[/header]")
+        self.console.print(
+            "[muted]Choose a default file or directory for EEG data processing.[/muted]"
+        )
+        self.blank_line()
+
+        home = str(_Path.home())
+
+        def _short(p: _Path) -> str:
+            s = str(p)
+            return s.replace(home, "~", 1) if s.startswith(home) else s
+
+        # Show options table
+        try:
+            from rich.table import Table as _Table
+
+            tbl = _Table(show_header=False, box=None, padding=(0, 1))
+            tbl.add_column("Option", style="accent", no_wrap=True)
+            tbl.add_column("Description", style="muted")
+            
+            idx = 1
+            if current_source is not None and current_source.exists():
+                source_type = "directory" if current_source.is_dir() else "file"
+                tbl.add_row(f"{idx})", f"Keep current {source_type}: {_short(current_source)}")
+                idx += 1
+            
+            tbl.add_row(f"{idx})", "Select a file…")
+            idx += 1
+            tbl.add_row(f"{idx})", "Select a directory…")
+            idx += 1
+            tbl.add_row(f"{idx})", "No default source (prompt each time)")
+            
+            self.console.print(tbl)
+            self.blank_line()
+        except Exception:
+            pass
+
+        # Build choices
+        choices = []
+        default_choice = "current" if current_source is not None and current_source.exists() else "none"
+        
+        if current_source is not None and current_source.exists():
+            choices.append("current")
+        choices.extend(["file", "directory", "none"])
+
+        # Ask for choice
+        try:
+            choice = self.prompt_choice(
+                "Select an option",
+                choices=choices,
+                default=default_choice,
+            )
+        except (EOFError, KeyboardInterrupt):
+            choice = "none"
+
+        if choice == "current" and current_source is not None:
+            chosen_source = current_source
+            source_type = "directory" if chosen_source.is_dir() else "file"
+            self.success(f"Keeping current {source_type}", _short(chosen_source))
+        elif choice == "file":
+            # File selection
+            try:
+                response = self.prompt_text(
+                    "Enter file path",
+                    default=str(current_source) if current_source and current_source.is_file() else "",
+                    show_default=bool(current_source and current_source.is_file()),
+                ).strip()
+                
+                if not response:
+                    chosen_source = None
+                    self.info("No source file selected")
+                else:
+                    chosen_source = _Path(response).expanduser().resolve()
+                    if not chosen_source.exists():
+                        self.warning(f"File does not exist yet: {_short(chosen_source)}")
+                        self.info("Path will be saved and checked when processing")
+                    elif not chosen_source.is_file():
+                        self.error(f"Path is not a file: {_short(chosen_source)}")
+                        chosen_source = None
+                    else:
+                        self.success("Selected source file", _short(chosen_source))
+            except (EOFError, KeyboardInterrupt):
+                chosen_source = None
+                self.info("No source file selected due to interrupt")
+                
+        elif choice == "directory":
+            # Directory selection
+            try:
+                response = self.prompt_text(
+                    "Enter directory path",
+                    default=str(current_source) if current_source and current_source.is_dir() else str(_Path.home()),
+                    show_default=True,
+                ).strip()
+                
+                if not response:
+                    chosen_source = None
+                    self.info("No source directory selected")
+                else:
+                    chosen_source = _Path(response).expanduser().resolve()
+                    if not chosen_source.exists():
+                        self.warning(f"Directory does not exist yet: {_short(chosen_source)}")
+                        self.info("Path will be saved and checked when processing")
+                    elif not chosen_source.is_dir():
+                        self.error(f"Path is not a directory: {_short(chosen_source)}")
+                        chosen_source = None
+                    else:
+                        self.success("Selected source directory", _short(chosen_source))
+            except (EOFError, KeyboardInterrupt):
+                chosen_source = None
+                self.info("No source directory selected due to interrupt")
+        else:
+            # No default source
+            chosen_source = None
+            self.info("No default source selected - you'll be prompted each time")
+
+        self.blank_line()
+        return chosen_source
+
     def compliance_status_display(self, is_enabled: bool, is_permanent: bool) -> None:
         """Display compliance status information."""
         if is_permanent:

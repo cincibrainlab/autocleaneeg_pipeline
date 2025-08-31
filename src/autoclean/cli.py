@@ -364,6 +364,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
     rows = [
         ("❓ help", "Show help and topics (alias for -h/--help)"),
         ("🗂\u00a0 workspace", "Configure workspace folder"),
+        ("📁 source", "Manage active source file/directory"),
         ("👁\u00a0 view", "View EEG file (MNE-QT)"),
         ("🗂\u00a0 task", "Manage tasks (list, explore)"),
         ("▶\u00a0 process", "Process EEG data"),
@@ -806,6 +807,39 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Print a shell-specific cd command you can eval",
     )
 
+    # Source management commands
+    source_parser = subparsers.add_parser(
+        "source", help="Manage active source file/directory", add_help=False
+    )
+    attach_rich_help(source_parser)
+    source_subparsers = source_parser.add_subparsers(
+        dest="source_action", help="Source actions"
+    )
+
+    # Set active source
+    source_set = source_subparsers.add_parser(
+        "set", help="Set the active source file or directory", add_help=False
+    )
+    attach_rich_help(source_set)
+    source_set.add_argument(
+        "path",
+        type=Path,
+        nargs="?",
+        help="Source file or directory path (omit to choose interactively)",
+    )
+
+    # Show current source
+    source_show = source_subparsers.add_parser(
+        "show", help="Show current active source", add_help=False
+    )
+    attach_rich_help(source_show)
+
+    # Unset active source
+    source_unset = source_subparsers.add_parser(
+        "unset", help="Remove active source (prompt each time)", add_help=False
+    )
+    attach_rich_help(source_unset)
+
     # Export access log command
     export_log_parser = subparsers.add_parser(
         "export-access-log",
@@ -1021,7 +1055,7 @@ def validate_args(args) -> bool:
             message("error", f"Input path does not exist: {input_path}")
             return False
         elif not input_path:
-            # Try to get input_path from task config as fallback
+            # Try to get input_path from task config as first fallback
             task_input_path = None
             if task_name:
                 task_input_path = extract_config_from_task(task_name, "input_path")
@@ -1036,50 +1070,57 @@ def validate_args(args) -> bool:
                     return False
                 message("info", f"Using input path from task config: {input_path}")
             else:
-                console = get_console(args)
-                _simple_header(console)
-                try:
-                    from rich.table import Table as _Table
+                # Try to get active source path as second fallback
+                active_source = user_config.get_active_source_path()
+                if active_source and active_source.exists():
+                    input_path = active_source
+                    source_type = "directory" if active_source.is_dir() else "file"
+                    message("info", f"Using active source {source_type}: {input_path}")
+                else:
+                    console = get_console(args)
+                    _simple_header(console)
+                    try:
+                        from rich.table import Table as _Table
 
-                    console.print("[header]Process EEG[/header]")
-                    console.print(
-                        "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
-                    )
-                    console.print()
+                        console.print("[header]Process EEG[/header]")
+                        console.print(
+                            "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options][/accent]"
+                        )
+                        console.print()
 
-                    tbl = _Table(show_header=False, box=None, padding=(0, 1))
-                    tbl.add_column("Item", style="accent", no_wrap=True)
-                    tbl.add_column("Details", style="muted")
-                    tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
-                    tbl.add_row("--task-file", "Path to Python task file")
-                    tbl.add_row(
-                        "file|--file", "Single EEG file (.raw, .edf, .set, .fif)"
-                    )
-                    tbl.add_row(
-                        "dir|--dir",
-                        "Directory of EEG files (use --format, --recursive)",
-                    )
-                    tbl.add_row(
-                        "--format",
-                        "Glob pattern (default: *.set; '*.raw', '*.edf', ...)",
-                    )
-                    tbl.add_row(
-                        "--recursive", "Search subdirectories for matching files"
-                    )
-                    tbl.add_row(
-                        "-p N", "Process N files in parallel (default 3, max 8)"
-                    )
-                    tbl.add_row("--dry-run", "Show what would run without processing")
-                    console.print(tbl)
-                    console.print(
-                        "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
-                    )
-                    console.print()
-                except Exception:
-                    console.print(
-                        "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
-                    )
-                return False
+                        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+                        tbl.add_column("Item", style="accent", no_wrap=True)
+                        tbl.add_column("Details", style="muted")
+                        tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
+                        tbl.add_row("--task-file", "Path to Python task file")
+                        tbl.add_row(
+                            "file|--file", "Single EEG file (.raw, .edf, .set, .fif)"
+                        )
+                        tbl.add_row(
+                            "dir|--dir",
+                            "Directory of EEG files (use --format, --recursive)",
+                        )
+                        tbl.add_row(
+                            "--format",
+                            "Glob pattern (default: *.set; '*.raw', '*.edf', ...)",
+                        )
+                        tbl.add_row(
+                            "--recursive", "Search subdirectories for matching files"
+                        )
+                        tbl.add_row(
+                            "-p N", "Process N files in parallel (default 3, max 8)"
+                        )
+                        tbl.add_row("--dry-run", "Show what would run without processing")
+                        console.print(tbl)
+                        console.print(
+                            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+                        )
+                        console.print()
+                    except Exception:
+                        console.print(
+                            "Usage: autocleaneeg-pipeline process <TaskName|--task-file FILE> <file|--dir DIR> [options]"
+                        )
+                    return False
 
         # Store normalized values back to args
         args.final_task = task_name
@@ -1716,6 +1757,114 @@ def cmd_workspace_cd(args) -> int:
         return 0
     except Exception as e:
         message("error", f"Failed to resolve workspace directory: {e}")
+        return 1
+
+
+def cmd_source(args) -> int:
+    """Source command dispatcher and helpers."""
+    # No subcommand → show elegant source help
+    if not getattr(args, "source_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "source")
+        return 0
+
+    action = args.source_action
+    if action == "set":
+        return cmd_source_set(args)
+    if action == "show":
+        return cmd_source_show(args)
+    if action == "unset":
+        return cmd_source_unset(args)
+    message("error", f"Unknown source action: {action}")
+    return 1
+
+
+def cmd_source_set(args) -> int:
+    """Set the active source file or directory."""
+    try:
+        # If no path provided, enter interactive mode
+        if not getattr(args, "path", None):
+            from autoclean.utils.cli_display import setup_display
+            
+            current_source = user_config.get_active_source_path()
+            chosen_source = setup_display.source_location_prompt(current_source)
+            
+            if chosen_source is not None:
+                user_config.set_active_source_path(chosen_source)
+                message("success", "✓ Active source updated")
+                message("info", str(chosen_source))
+            else:
+                user_config.unset_active_source_path()
+                message("success", "✓ Active source cleared (will prompt each time)")
+            return 0
+
+        # Path provided as argument
+        source_path = args.path.expanduser().resolve()
+        
+        # Validate the path
+        if not source_path.exists():
+            message("error", f"Path does not exist: {source_path}")
+            return 1
+            
+        user_config.set_active_source_path(source_path)
+        source_type = "directory" if source_path.is_dir() else "file"
+        message("success", f"✓ Active source {source_type} set")
+        message("info", str(source_path))
+        return 0
+
+    except Exception as e:
+        message("error", f"Failed to set active source: {e}")
+        return 1
+
+
+def cmd_source_show(_args) -> int:
+    """Show current active source."""
+    try:
+        current_source = user_config.get_active_source_path()
+        
+        console = get_console()
+        from rich.text import Text as _Text
+        from rich.align import Align as _Align
+
+        if current_source is not None:
+            source_type = "directory" if current_source.is_dir() else "file"
+            line = _Text()
+            line.append("📁 " if current_source.is_dir() else "📄 ", style="muted")
+            line.append(f"Active source {source_type}: ", style="muted")
+            line.append(str(current_source), style="accent")
+            console.print(_Align.center(line))
+        else:
+            line = _Text()
+            line.append("❌ ", style="muted")
+            line.append("No active source set (will prompt each time)", style="warning")
+            console.print(_Align.center(line))
+        
+        console.print()
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to show active source: {e}")
+        return 1
+
+
+def cmd_source_unset(_args) -> int:
+    """Remove active source configuration."""
+    try:
+        current_source = user_config.get_active_source_path()
+        
+        if current_source is None:
+            message("info", "No active source is currently set")
+            return 0
+            
+        user_config.unset_active_source_path()
+        message("success", "✓ Active source cleared")
+        message("info", "You will be prompted for input path each time")
+        return 0
+        
+    except Exception as e:
+        message("error", f"Failed to unset active source: {e}")
         return 1
 
 
@@ -4097,6 +4246,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_config(args)
     elif args.command == "workspace":
         return cmd_workspace(args)
+    elif args.command == "source":
+        return cmd_source(args)
     elif args.command == "export-access-log":
         return cmd_export_access_log(args)
     elif args.command == "login":
