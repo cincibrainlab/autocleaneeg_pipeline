@@ -346,10 +346,7 @@ class UserConfigManager:
             # Workspace information (no duplicate header)
             setup_display.workspace_info(self.config_dir, is_valid=True)
 
-            # System information
-            system_info = self._get_system_info_dict()
-            setup_display.console.print("[header]System Information:[/header]")
-            setup_display.system_info_table(system_info)
+            # Suppress system information to keep directory selection focused
 
             # Prompt for changes
             try:
@@ -408,17 +405,8 @@ class UserConfigManager:
             setup_display.welcome_header(is_first_time)
 
         if is_first_time:
-            # System information for first-time setup
-            setup_display.blank_line()
-            setup_display.console.print(
-                "[header]System Status:[/header] [success]✓ Ready for initialization[/success]"
-            )
-            setup_display.blank_line()
-
-            # System information
-            system_info = self._get_system_info_dict()
-            setup_display.system_info_table(system_info)
-            setup_display.blank_line()
+            # Keep first-time flow minimalist: no system information section
+            pass
 
         # Get workspace location
         default_dir = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
