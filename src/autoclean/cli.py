@@ -99,7 +99,7 @@ def _print_startup_context(console) -> None:
             console.print(_Align.center(ws))
             tip = _Text()
             tip.append("Run ", style="muted")
-            tip.append("autocleaneeg-pipeline setup", style="accent")
+            tip.append("autocleaneeg-pipeline workspace", style="accent")
             tip.append(" to configure.", style="muted")
             console.print(_Align.center(tip))
 
@@ -202,14 +202,14 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
-    if topic in {"setup"}:
-        console.print("[header]Setup[/header]")
+    if topic in {"workspace", "setup"}:
+        console.print("[header]Workspace[/header]")
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         rows = [
-            ("⚙️  setup", "Configure workspace folder (standard use)"),
-            ("⚙️  setup --compliance-mode", "Enable Part-11 compliance (Auth0)"),
+            ("🗂 workspace", "Configure workspace folder"),
+            ("🔐 auth setup|enable|disable", "Compliance controls (Auth0)")
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -226,7 +226,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
 
     rows = [
         ("❓ help", "Show help and topics (alias for -h/--help)"),
-        ("⚙️  setup", "Setup or reconfigure workspace"),
+        ("🗂 workspace", "Configure workspace folder"),
         ("👁  view", "View EEG file (MNE-QT)"),
         ("🗂 task", "Manage tasks (list, explore)"),
         ("▶  process", "Process EEG data"),
@@ -312,9 +312,9 @@ def create_parser() -> argparse.ArgumentParser:
         add_help=False,
         epilog="""
 Basic Usage:
-  autocleaneeg-pipeline setup                          # First time setup
+  autocleaneeg-pipeline workspace                      # First time setup
   autocleaneeg-pipeline process RestingEyesOpen data.raw   # Process single file
-  autocleaneeg-pipeline list-tasks                     # Show available tasks
+  autocleaneeg-pipeline task list                      # Show available tasks
   autocleaneeg-pipeline review                         # Start review GUI
 
 Custom Tasks:
@@ -533,16 +533,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "import_path", type=Path, help="Directory to import configuration from"
     )
 
-    # Setup command (same as config setup for simplicity)
-    setup_parser = subparsers.add_parser(
-        "setup", help="Configure workspace; manage compliance", add_help=False
+    # Workspace command (replaces old 'setup' for workspace configuration)
+    workspace_parser = subparsers.add_parser(
+        "workspace", help="Configure workspace folder", add_help=False
     )
-    attach_rich_help(setup_parser)
-    setup_parser.add_argument(
-        "--compliance-mode",
-        action="store_true",
-        help="Enable FDA 21 CFR Part 11 compliance mode (Auth0 required)",
-    )
+    attach_rich_help(workspace_parser)
 
     # Export access log command
     export_log_parser = subparsers.add_parser(
@@ -1152,19 +1147,14 @@ def cmd_review(args) -> int:
         return 1
 
 
-def cmd_setup(args) -> int:
-    """Run the interactive setup wizard."""
+def cmd_workspace(_args) -> int:
+    """Run the workspace configuration wizard (workspace only)."""
     try:
-        # Check if compliance mode flag was passed
-        if hasattr(args, "compliance_mode") and args.compliance_mode:
-            return _setup_compliance_mode()
-        else:
-            return _run_interactive_setup()
+        return _setup_basic_mode()
     except KeyboardInterrupt:
-        # User canceled - exit gracefully without error message
         return 0
     except Exception as e:
-        print(f"❌ Setup failed: {str(e)}")
+        print(f"❌ Workspace setup failed: {str(e)}")
         return 1
 
 
@@ -1516,10 +1506,7 @@ def _enable_compliance_mode() -> int:
                 "info",
                 "1. Run 'autocleaneeg-pipeline login' to authenticate (when needed)",
             )
-            message(
-                "info",
-                "2. Run 'autocleaneeg-pipeline setup' again to disable if needed",
-            )
+            message("info", "2. Use 'autocleaneeg-pipeline auth disable' to turn it off")
             return 0
         else:
             message("error", "Failed to enable compliance mode")
@@ -2130,12 +2117,12 @@ def cmd_tutorial(_args) -> int:
     console.print(
         "This tutorial will walk you through the basics of using AutoClean EEG."
     )
-    console.print("\n[header]Step 1: Setup your workspace[/header]")
+    console.print("\n[header]Step 1: Configure your workspace[/header]")
     console.print(
         "The first step is to set up your workspace. This is where AutoClean EEG will store its configuration and any custom tasks you create."
     )
     console.print("To do this, run the following command:")
-    console.print("\n[accent]autocleaneeg-pipeline setup[/accent]\n")
+    console.print("\n[accent]autocleaneeg-pipeline workspace[/accent]\n")
 
     console.print("\n[header]Step 2: List available tasks[/header]")
     console.print(
@@ -2424,7 +2411,7 @@ def cmd_login(args) -> int:
             message("error", "Compliance mode is not enabled.")
             message(
                 "info",
-                "Run 'autocleaneeg-pipeline setup --compliance-mode' to enable compliance mode and configure Auth0.",
+                "Run 'autocleaneeg-pipeline auth setup' to enable compliance mode and configure Auth0.",
             )
             return 1
 
@@ -2535,7 +2522,7 @@ def cmd_whoami(args) -> int:
             message("info", "Authentication: Not configured")
             message(
                 "info",
-                "Run 'autocleaneeg-pipeline setup --compliance-mode' to configure Auth0.",
+                "Run 'autocleaneeg-pipeline auth setup' to configure Auth0.",
             )
             return 0
 
@@ -2589,7 +2576,7 @@ def cmd_auth0_diagnostics(args) -> int:
 
         if not compliance_enabled:
             console.print(
-                "[info]ℹ Auth0 is only used in compliance mode. Run 'autocleaneeg-pipeline setup --compliance-mode' to enable.[/info]"
+                    "[info]ℹ Auth0 is only used in compliance mode. Run 'autocleaneeg-pipeline auth enable' to enable.[/info]"
             )
             return 0
 
@@ -2927,8 +2914,8 @@ def main(argv: Optional[list] = None) -> int:
     workspace_dir = user_config.config_dir
 
     # For real sub-commands, log the workspace path via the existing logger.
-    if args.command and args.command != "setup":
-        # Compact branding header for consistency across all commands (except setup which has its own branding)
+    if args.command and args.command != "workspace":
+        # Compact branding header for consistency across all commands (except workspace which has its own branding)
         console = get_console(args)
 
         if workspace_dir.exists() and (workspace_dir / "tasks").exists():
@@ -2938,7 +2925,7 @@ def main(argv: Optional[list] = None) -> int:
         else:
             message(
                 "warning",
-                f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline setup' to configure)",
+                f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline workspace' to configure)",
             )
 
     if not args.command:
@@ -2997,9 +2984,9 @@ def main(argv: Optional[list] = None) -> int:
 
                 tip = Text()
                 tip.append("Run ", style="muted")
-                tip.append("autocleaneeg-pipeline setup", style="accent")
-                tip.append(" to configure.", style="muted")
-                console.print(Align.center(tip))
+            tip.append("autocleaneeg-pipeline workspace", style="accent")
+            tip.append(" to configure.", style="muted")
+            console.print(Align.center(tip))
         except Exception:
             # Fallback to simple prints if Rich alignment fails
             if workspace_dir.exists() and (workspace_dir / "tasks").exists():
@@ -3007,7 +2994,7 @@ def main(argv: Optional[list] = None) -> int:
             else:
                 console.print(
                     f"[warning]⚠ Workspace not configured:[/warning] {workspace_dir}\n"
-                    "Run [accent]autocleaneeg-pipeline setup[/accent] to configure."
+                    "Run [accent]autocleaneeg-pipeline workspace[/accent] to configure."
                 )
 
         # Disk free space for workspace volume (guarded)
@@ -3039,7 +3026,7 @@ def main(argv: Optional[list] = None) -> int:
             from rich.text import Text as _KText
             from rich.align import Align as _KAlign
 
-            key_cmds = ["help", "setup", "view", "task", "process", "review"]
+            key_cmds = ["help", "workspace", "view", "task", "process", "review"]
             belt = _KText()
             for i, cmd in enumerate(key_cmds):
                 if i > 0:
@@ -3117,8 +3104,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_task(args)
     elif args.command == "config":
         return cmd_config(args)
-    elif args.command == "setup":
-        return cmd_setup(args)
+    elif args.command == "workspace":
+        return cmd_workspace(args)
     elif args.command == "export-access-log":
         return cmd_export_access_log(args)
     elif args.command == "login":
