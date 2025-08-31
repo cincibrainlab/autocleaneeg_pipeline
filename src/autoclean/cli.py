@@ -1200,30 +1200,41 @@ def _run_interactive_setup() -> int:
 
     try:
         console = get_console()
-        _simple_header(console, "Setup", "Choose an action")
+        _simple_header(console, "Setup", "Configure your workspace or compliance")
 
-        # Show current workspace path in the banner (centered)
+        # Show current workspace path directly beneath the banner (centered)
         try:
             from rich.text import Text as _SText
             from rich.align import Align as _SAlign
 
             workspace_dir = user_config.config_dir
-            valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
             home = str(Path.home())
             display_path = str(workspace_dir)
             if display_path.startswith(home):
                 display_path = display_path.replace(home, "~", 1)
 
             ws = _SText()
-            if valid_ws:
-                ws.append("✓ ", style="success")
-                ws.append("Workspace ", style="muted")
-                ws.append(display_path, style="accent")
-            else:
-                ws.append("⚠ ", style="warning")
-                ws.append("Workspace ", style="muted")
-                ws.append(display_path, style="accent")
+            ws.append("📂 ", style="muted")
+            ws.append("Workspace: ", style="muted")
+            ws.append(display_path, style="accent")
             console.print(_SAlign.center(ws))
+
+            # Centered setup hint line
+            hint = _SText()
+            hint.append("Use arrow keys to navigate  •  Enter to select", style="muted")
+            console.print(_SAlign.center(hint))
+
+            # Centered compliance status
+            from rich.text import Text as _CText
+            status = _CText()
+            compliance = get_compliance_status()
+            if compliance["permanent"]:
+                status.append("Compliance: permanently enabled", style="warning")
+            elif compliance["enabled"]:
+                status.append("Compliance: enabled", style="info")
+            else:
+                status.append("Compliance: disabled", style="muted")
+            console.print(_SAlign.center(status))
             console.print()
         except Exception:
             pass
@@ -1240,13 +1251,7 @@ def _run_interactive_setup() -> int:
         is_enabled = compliance_status["enabled"]
         is_permanent = compliance_status["permanent"]
 
-        # Display compliance status (concise)
-        if is_permanent:
-            console.print("[warning]Compliance: permanently enabled[/warning]")
-        elif is_enabled:
-            console.print("[info]Compliance: enabled[/info]")
-        else:
-            console.print("[muted]Compliance: disabled[/muted]")
+        # (status already shown centered under the banner above)
 
         # Check if compliance mode is permanently enabled
         if is_permanent:
@@ -1366,12 +1371,20 @@ def _setup_compliance_mode() -> int:
         setup_display.header(
             "FDA 21 CFR Part 11 Compliance Setup", "Regulatory compliance mode"
         )
-        # Show workspace location beneath header for context
+        # Show workspace location beneath header (centered, minimalist)
         try:
-            setup_display.workspace_info(
-                user_config.config_dir,
-                is_valid=(user_config.config_dir.exists() and (user_config.tasks_dir.exists())),
-            )
+            from rich.text import Text as _XText
+            from rich.align import Align as _XAlign
+            ws_line = _XText()
+            home = str(Path.home())
+            display_path = str(user_config.config_dir)
+            if display_path.startswith(home):
+                display_path = display_path.replace(home, "~", 1)
+            ws_line.append("📂 ", style="muted")
+            ws_line.append("Workspace: ", style="muted")
+            ws_line.append(display_path, style="accent")
+            setup_display.console.print(_XAlign.center(ws_line))
+            setup_display.blank_line()
         except Exception:
             pass
         setup_display.warning("Once enabled, compliance mode cannot be disabled")
