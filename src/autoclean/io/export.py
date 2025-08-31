@@ -436,6 +436,8 @@ def save_epochs_to_set(
             # Add run_id to EEGLAB's etc field for tracking
             # pylint: disable=invalid-name
             EEG = sio.loadmat(path)
+            for k in ["__header__", "__version__", "__globals__"]:
+                EEG.pop(k, None)
             EEG["etc"] = {}
             EEG["etc"]["run_id"] = autoclean_dict["run_id"]
             sio.savemat(path, EEG, do_compression=False)
