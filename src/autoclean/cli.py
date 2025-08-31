@@ -193,6 +193,8 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         rows = [
             ("📜 task list", "List available tasks (same as 'list-tasks')"),
             ("📂 task explore", "Open the workspace tasks folder"),
+            ("✏️  task edit <name|path>", "Edit a task in your editor"),
+            ("📥 task import <path>", "Copy a task file into workspace"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -496,6 +498,48 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "explore", help="Open the workspace tasks folder in your OS", add_help=False
     )
     attach_rich_help(explore_parser)
+
+    # Edit task (open in shell editor)
+    edit_parser = task_subparsers.add_parser(
+        "edit", help="Edit a task in your editor", add_help=False
+    )
+    attach_rich_help(edit_parser)
+    edit_parser.add_argument(
+        "target",
+        type=str,
+        help="Task name (workspace) or path to a task file",
+    )
+    edit_parser.add_argument(
+        "--name",
+        type=str,
+        help="When copying a built-in task, save as this name (without .py)",
+    )
+    edit_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="When copying a built-in task, overwrite existing without prompting",
+    )
+
+    # Import task (copy file into workspace tasks folder)
+    import_parser = task_subparsers.add_parser(
+        "import", help="Import a task file into your workspace", add_help=False
+    )
+    attach_rich_help(import_parser)
+    import_parser.add_argument(
+        "source",
+        type=Path,
+        help="Path to a Python task file to import (.py)",
+    )
+    import_parser.add_argument(
+        "--name",
+        type=str,
+        help="Save as this filename (without .py)",
+    )
+    import_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing file without prompting",
+    )
 
     # Show config location
     config_parser = subparsers.add_parser(
@@ -2073,6 +2117,10 @@ def cmd_task(args) -> int:
         return cmd_list_tasks(args)
     elif args.task_action == "explore":
         return cmd_task_explore(args)
+    elif args.task_action == "edit":
+        return cmd_task_edit(args)
+    elif args.task_action == "import":
+        return cmd_task_import(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -2185,6 +2233,282 @@ def cmd_task_explore(_args) -> int:
         return 0
     except Exception as e:
         message("error", f"Failed to open tasks folder: {e}")
+        return 1
+
+
+def _resolve_task_file(target: str) -> Optional[Path]:
+    """Resolve a task target to a file path.
+
+    Accepts:
+      - Absolute/relative path to a file
+      - Task name present in workspace tasks directory (with or without .py)
+    """
+    try:
+        p = Path(target).expanduser()
+        if p.exists() and p.is_file():
+            return p
+        # Try within workspace tasks dir
+        candidates = []
+        if target.endswith(".py"):
+            candidates.append(user_config.tasks_dir / target)
+        else:
+            candidates.append(user_config.tasks_dir / f"{target}.py")
+            candidates.append(user_config.tasks_dir / target)
+        for c in candidates:
+            if c.exists() and c.is_file():
+                return c
+    except Exception:
+        pass
+    return None
+
+
+def _detect_editor() -> Optional[list]:
+    """Detect a suitable editor command as a list.
+
+    Order:
+      $VISUAL, $EDITOR, nano, vim/vi, notepad (Windows)
+    """
+    env = os.environ
+    for var in ("VISUAL", "EDITOR"):
+        ed = env.get(var)
+        if ed:
+            return ed.split()
+    if shutil.which("nano"):
+        return ["nano"]
+    if shutil.which("vim"):
+        return ["vim"]
+    if shutil.which("vi"):
+        return ["vi"]
+    if sys.platform.startswith("win"):
+        return ["notepad"]
+    return None
+
+
+def cmd_task_edit(args) -> int:
+    """Open specified task in the user's editor."""
+    try:
+        target = args.target
+        f = _resolve_task_file(target)
+        if not f:
+            # Try to resolve by discovered task name (built-in or workspace)
+            try:
+                from autoclean.utils.task_discovery import safe_discover_tasks
+                from rich.prompt import Confirm as _Confirm, Prompt as _Prompt
+
+                tasks, _, _ = safe_discover_tasks()
+                match = None
+                for t in tasks:
+                    if t.name.lower() == target.lower():
+                        match = t
+                        break
+                if match:
+                    src = Path(match.source)
+                    # If built-in (not in workspace), offer to copy into workspace first
+                    if user_config.tasks_dir not in src.parents:
+                        # Determine destination filename
+                        suggested_name = args.name or src.stem
+                        if not args.force:
+                            # Ask to confirm copy and allow rename
+                            console = get_console()
+                            console.print(
+                                f"[muted]Built-in task detected:[/muted] [accent]{match.name}[/accent]"
+                            )
+                            if not _Confirm.ask(
+                                "Copy to your workspace to edit?", default=True
+                            ):
+                                message("info", "Canceled")
+                                return 0
+                            new_name = _Prompt.ask(
+                                "Save as (filename)", default=f"{suggested_name}.py"
+                            )
+                        else:
+                            new_name = (
+                                f"{suggested_name}.py"
+                                if not str(suggested_name).endswith(".py")
+                                else suggested_name
+                            )
+
+                        dest = user_config.tasks_dir / new_name
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        if dest.exists():
+                            if args.force:
+                                try:
+                                    shutil.copy2(src, dest)
+                                except Exception as e:
+                                    message("error", f"Failed to overwrite: {e}")
+                                    return 1
+                            else:
+                                # Offer choices: open existing, overwrite, rename, cancel
+                                choice = _Prompt.ask(
+                                    "File exists. Choose",
+                                    choices=["open", "overwrite", "rename", "cancel"],
+                                    default="open",
+                                )
+                                if choice == "open":
+                                    f = dest
+                                elif choice == "overwrite":
+                                    try:
+                                        shutil.copy2(src, dest)
+                                        f = dest
+                                    except Exception as e:
+                                        message(
+                                            "error", f"Failed to overwrite file: {e}"
+                                        )
+                                        return 1
+                                elif choice == "rename":
+                                    renamed = _Prompt.ask(
+                                        "New filename", default=f"copy_of_{new_name}"
+                                    )
+                                    dest = user_config.tasks_dir / (
+                                        renamed
+                                        if renamed.endswith(".py")
+                                        else f"{renamed}.py"
+                                    )
+                                    try:
+                                        shutil.copy2(src, dest)
+                                        f = dest
+                                    except Exception as e:
+                                        message(
+                                            "error", f"Failed to copy as '{dest.name}': {e}"
+                                        )
+                                        return 1
+                                else:  # cancel
+                                    message("info", "Canceled")
+                                    return 0
+                        else:
+                            try:
+                                shutil.copy2(src, dest)
+                                f = dest
+                                message(
+                                    "info",
+                                    f"Copied built-in task to workspace: {dest.name}",
+                                )
+                            except Exception as e:
+                                message("error", f"Failed to copy task: {e}")
+                                return 1
+                    else:
+                        f = src
+                else:
+                    message(
+                        "error",
+                        f"Task not found: {target}. Use 'autocleaneeg-pipeline task list' or provide a path.",
+                    )
+                    return 1
+            except ImportError:
+                message(
+                    "error",
+                    "Discovery tools unavailable. Provide a path to the task file.",
+                )
+                return 1
+            except Exception as e:
+                message("error", f"Task resolution failed: {e}")
+                return 1
+
+        editor = _detect_editor()
+        if not editor:
+            message(
+                "error",
+                "No editor found. Set $EDITOR or $VISUAL, or install nano/vim.",
+            )
+            return 1
+
+        message("info", f"Opening: {f}")
+        try:
+            subprocess.call(editor + [str(f)])
+            return 0
+        except FileNotFoundError:
+            message("error", f"Editor not found: {' '.join(editor)}")
+            return 1
+    except Exception as e:
+        message("error", f"Failed to edit task: {e}")
+        return 1
+
+
+def cmd_task_import(args) -> int:
+    """Import a task Python file into the workspace tasks folder.
+
+    Guards and guidance:
+    - Verifies source exists and is a .py file
+    - Warns on private names (leading underscore) and common test/fixture names
+    - Prompts before overwriting unless --force
+    - Lets user rename via --name or interactive prompt
+    - After copy, shows how to use the task
+    """
+    try:
+        src: Path = args.source.expanduser().resolve()
+        if not src.exists() or not src.is_file():
+            message("error", f"Source file not found: {src}")
+            message("info", "Provide a valid Python file path (e.g., /path/to/task.py)")
+            return 1
+        if src.suffix.lower() != ".py":
+            message("error", "Only Python files (.py) can be imported as tasks")
+            return 1
+
+        # Heuristic warnings
+        if src.name.startswith("_"):
+            message(
+                "warning",
+                "File starts with '_' and may be ignored by loader. Consider renaming.",
+            )
+        lower = src.name.lower()
+        if any(x in lower for x in ("test", "fixture", "template")):
+            message(
+                "warning",
+                "File name looks like a test/fixture/template. Ensure it contains a Task subclass.",
+            )
+
+        # Destination
+        dest_dir = user_config.tasks_dir
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        dest_name = args.name or src.stem
+        dest_name = dest_name if dest_name.endswith(".py") else f"{dest_name}.py"
+        dest = dest_dir / dest_name
+
+        # Confirm overwrite if exists
+        if dest.exists() and not args.force:
+            try:
+                from rich.prompt import Prompt as _Prompt
+
+                choice = _Prompt.ask(
+                    f"{dest.name} exists. Choose",
+                    choices=["overwrite", "rename", "cancel"],
+                    default="rename",
+                )
+                if choice == "cancel":
+                    message("info", "Canceled")
+                    return 0
+                if choice == "rename":
+                    new_name = _Prompt.ask(
+                        "New filename", default=f"copy_of_{dest.name}"
+                    )
+                    dest = dest_dir / (new_name if new_name.endswith(".py") else f"{new_name}.py")
+            except Exception:
+                message(
+                    "warning",
+                    "Interactive prompt unavailable; re-run with --force or --name to control destination.",
+                )
+                return 1
+
+        # Perform copy
+        try:
+            shutil.copy2(src, dest)
+            message("success", f"✓ Imported task to workspace: {dest.name}")
+        except Exception as e:
+            message("error", f"Failed to copy file: {e}")
+            return 1
+
+        # Extract class name and show usage
+        try:
+            class_name, _ = user_config._extract_task_info(dest)
+            message("info", f"Detected task class: {class_name}")
+            print("\nUse your task with:")
+            print(f"  autocleaneeg-pipeline process {class_name} <data_file>")
+        except Exception:
+            message("warning", "Could not detect Task class. Ensure the file defines a class extending Task.")
+
+        return 0
+    except Exception as e:
+        message("error", f"Failed to import task: {e}")
         return 1
 
 
