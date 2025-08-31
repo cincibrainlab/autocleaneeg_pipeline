@@ -202,6 +202,23 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
+    if topic in {"setup"}:
+        console.print("[header]Setup[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        rows = [
+            ("⚙️  setup", "Configure workspace folder (standard use)"),
+            ("⚙️  setup --compliance-mode", "Enable Part-11 compliance (Auth0)"),
+        ]
+        for c, d in rows:
+            tbl.add_row(c, d)
+        console.print(tbl)
+        console.print()
+        console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+        console.print()
+        return
+
     console.print("[header]Commands[/header]")
     tbl = _Table(show_header=False, box=None, padding=(0, 1))
     tbl.add_column("Command", style="accent", no_wrap=True)
@@ -518,13 +535,13 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Setup command (same as config setup for simplicity)
     setup_parser = subparsers.add_parser(
-        "setup", help="Setup or reconfigure workspace", add_help=False
+        "setup", help="Configure workspace; manage compliance", add_help=False
     )
     attach_rich_help(setup_parser)
     setup_parser.add_argument(
         "--compliance-mode",
         action="store_true",
-        help="Enable FDA 21 CFR Part 11 compliance mode with Auth0 authentication",
+        help="Enable FDA 21 CFR Part 11 compliance mode (Auth0 required)",
     )
 
     # Export access log command
@@ -1183,9 +1200,7 @@ def _run_interactive_setup() -> int:
 
     try:
         console = get_console()
-        _simple_header(
-            console, "Setup Wizard", "Use arrow keys to navigate, Enter to select"
-        )
+        _simple_header(console, "Setup", "Choose an action")
 
         if not INQUIRER_AVAILABLE:
             console.print(
@@ -1199,20 +1214,13 @@ def _run_interactive_setup() -> int:
         is_enabled = compliance_status["enabled"]
         is_permanent = compliance_status["permanent"]
 
-        # Display compliance status - simple
+        # Display compliance status (concise)
         if is_permanent:
-            console.print(
-                "[warning]⚠ FDA 21 CFR Part 11 compliance mode is permanently enabled[/warning]"
-            )
-            console.print(
-                "[info]ℹ You can only configure workspace location in compliance mode[/info]"
-            )
+            console.print("[warning]Compliance: permanently enabled[/warning]")
         elif is_enabled:
-            console.print(
-                "[info]ℹ FDA 21 CFR Part 11 compliance mode is currently enabled[/info]"
-            )
+            console.print("[info]Compliance: enabled[/info]")
         else:
-            console.print("[muted]Current compliance mode: disabled[/muted]")
+            console.print("[muted]Compliance: disabled[/muted]")
 
         # Check if compliance mode is permanently enabled
         if is_permanent:
@@ -1220,38 +1228,31 @@ def _run_interactive_setup() -> int:
             questions = [
                 inquirer.List(
                     "setup_type",
-                    message="What would you like to configure?",
+                    message="Select an option:",
                     choices=[
-                        ("Configure workspace location", "workspace_only"),
-                        ("Exit setup", "exit"),
+                        ("Configure workspace folder", "workspace_only"),
+                        ("Exit", "exit"),
                     ],
                     default="workspace_only",
                 )
             ]
         else:
-            # Build setup options - simplified to 2 choices
-            choices = [
-                ("Basic setup (workspace + standard research use)", "basic"),
-            ]
+            # Build setup options
+            choices = [("Configure workspace folder", "workspace")]
 
             if is_enabled:
                 choices.append(
-                    (
-                        "Disable FDA 21 CFR Part 11 compliance mode",
-                        "disable_compliance",
-                    )
+                    ("Disable compliance mode", "disable_compliance")
                 )
             else:
-                choices.append(
-                    ("Enable FDA 21 CFR Part 11 compliance mode", "enable_compliance")
-                )
+                choices.append(("Enable compliance mode", "enable_compliance"))
 
             questions = [
                 inquirer.List(
                     "setup_type",
-                    message="What would you like to configure?",
+                    message="Select an option:",
                     choices=choices,
-                    default="basic",
+                    default="workspace",
                 )
             ]
 
@@ -1263,8 +1264,7 @@ def _run_interactive_setup() -> int:
 
         if setup_type == "exit":
             return 0
-        elif setup_type == "basic":
-            # Basic setup always includes workspace configuration
+        elif setup_type in {"workspace", "workspace_only"}:
             return _setup_basic_mode()
         elif setup_type == "enable_compliance":
             # Enable compliance mode
@@ -1294,8 +1294,8 @@ def _setup_basic_mode() -> int:
             return 0
 
         console.print()
-        console.print("[title]Basic Setup Configuration[/title]")
-        console.print("[muted]Workspace + standard research use[/muted]")
+        console.print("[title]Workspace Configuration[/title]")
+        console.print("[muted]Choose or confirm the folder where AutoClean stores config and tasks.[/muted]")
         console.print()
 
         # Always run full workspace setup (includes prompting to change location if exists)
@@ -1316,13 +1316,8 @@ def _setup_basic_mode() -> int:
 
         save_user_config(user_config_data)
 
-        console.print("[success]✓ Basic setup complete![/success]")
-        console.print(
-            "[info]ℹ You can now use AutoClean for standard EEG processing[/info]"
-        )
-        console.print(
-            "[info]ℹ Run 'autocleaneeg-pipeline process TaskName file.raw' to get started[/info]"
-        )
+        console.print("[success]✓ Workspace configured[/success]")
+        console.print("[muted]Next: run 'autocleaneeg-pipeline task list' or 'process'.[/muted]")
 
         return 0
 
