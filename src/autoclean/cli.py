@@ -54,6 +54,23 @@ from autoclean.utils.console import get_console
 # Maximum log file size (5MB)
 MAX_LOG_SIZE = 5 * 1024 * 1024
 
+def _strip_wrapping_quotes(text: Optional[str]) -> Optional[str]:
+    """Remove a single or nested pair of matching wrapping quotes from text.
+
+    Handles common copy/paste cases like "'/Users/me/My Folder'" or '"/path"'.
+    Returns None unchanged and leaves interior quotes untouched.
+    """
+    if text is None:
+        return None
+    s = text.strip()
+    # Remove up to two layers of matching quotes (single or double)
+    for _ in range(2):
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+            s = s[1:-1].strip()
+        else:
+            break
+    return s
+
 def _sanitize_arguments(args: List[str]) -> List[str]:
     """Sanitize command-line arguments to remove sensitive information."""
     sanitized = []
@@ -874,7 +891,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     set_input_parser.add_argument(
         "source_path",
         nargs="?",
-        help="Input path to set as active (file or directory, omit to choose interactively)",
+        help="Input path to set as active (file or directory; quotes OK; omit to choose interactively)",
     )
 
     # Unset active input
@@ -1155,6 +1172,135 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     return parser
 
 
+def _show_process_guard(args) -> bool:
+    """Show interactive guard with key information before processing.
+    
+    Returns True if user confirms to proceed, False to cancel.
+    """
+    console = get_console(args)
+    
+    # Get current values
+    task_name = args.task_name or args.task
+    input_path = args.input_path or args.file or args.directory
+    
+    # If no task, try to get active task
+    if not task_name and not args.task_file:
+        active_task = user_config.get_active_task()
+        if active_task:
+            task_name = active_task
+    
+    # If no input, try to get active source
+    if not input_path:
+        active_source = user_config.get_active_source()
+        if active_source and active_source != "NONE":
+            input_path = Path(active_source)
+    
+    # Header
+    console.print()
+    console.print("📋 [bold cyan]Process Command Guard[/bold cyan]")
+    console.print("═" * 50)
+    
+    # Workspace Information
+    console.print()
+    console.print("🏠 [bold]Workspace Information[/bold]")
+    workspace_dir = user_config.config_dir
+    console.print(f"   Directory: [accent]{workspace_dir}[/accent]")
+    
+    # Free space calculation
+    try:
+        usage_path = workspace_dir if workspace_dir.exists() else workspace_dir.parent
+        du = shutil.disk_usage(str(usage_path))
+        free_gb = du.free / (1024**3)
+        console.print(f"   Free Space: [accent]{free_gb:.1f} GB[/accent]")
+    except Exception:
+        console.print("   Free Space: [muted]Unable to determine[/muted]")
+    
+    # Task Information
+    console.print()
+    console.print("🎯 [bold]Task Information[/bold]")
+    if task_name:
+        console.print(f"   Task: [accent]{task_name}[/accent]")
+        
+        # Try to extract montage information
+        try:
+            montage_info = extract_config_from_task(task_name, "montage")
+            if montage_info:
+                if isinstance(montage_info, dict) and "value" in montage_info:
+                    montage_value = montage_info["value"]
+                else:
+                    montage_value = montage_info
+                console.print(f"   Montage: [accent]{montage_value}[/accent]")
+            else:
+                console.print("   Montage: [muted]Not specified in task[/muted]")
+        except Exception:
+            console.print("   Montage: [muted]Unable to extract[/muted]")
+        
+    elif args.task_file:
+        console.print(f"   Task File: [accent]{args.task_file}[/accent]")
+    else:
+        console.print("   Task: [red]Not specified[/red]")
+    
+    # Input Information
+    console.print()
+    console.print("📁 [bold]Input Information[/bold]")
+    if input_path:
+        console.print(f"   Path: [accent]{input_path}[/accent]")
+        
+        if input_path.exists():
+            if input_path.is_file():
+                console.print("   Type: [accent]Single File[/accent]")
+                # Show file size
+                try:
+                    file_size = input_path.stat().st_size / (1024**2)  # MB
+                    console.print(f"   Size: [accent]{file_size:.1f} MB[/accent]")
+                except Exception:
+                    console.print("   Size: [muted]Unable to determine[/muted]")
+            elif input_path.is_dir():
+                console.print("   Type: [accent]Directory[/accent]")
+                
+                # Count files based on format pattern
+                format_pattern = getattr(args, 'format', '*.set')
+                try:
+                    if getattr(args, 'recursive', False):
+                        files = list(input_path.rglob(format_pattern))
+                    else:
+                        files = list(input_path.glob(format_pattern))
+                    
+                    file_count = len(files)
+                    console.print(f"   Files to process: [accent]{file_count}[/accent] (pattern: {format_pattern})")
+                    
+                    if getattr(args, 'recursive', False):
+                        console.print("   Recursive search: [accent]Enabled[/accent]")
+                    
+                except Exception:
+                    console.print("   Files: [muted]Unable to count[/muted]")
+        else:
+            console.print("   Status: [red]Path does not exist[/red]")
+    else:
+        console.print("   Path: [red]Not specified[/red]")
+    
+    # Additional Processing Options
+    if hasattr(args, 'parallel') and args.parallel:
+        console.print()
+        console.print("⚙️  [bold]Processing Options[/bold]")
+        console.print(f"   Parallel processing: [accent]{args.parallel} concurrent files[/accent]")
+    
+    # Confirmation prompt
+    console.print()
+    console.print("═" * 50)
+    
+    try:
+        from rich.prompt import Confirm
+        return Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
+    except ImportError:
+        # Fallback for systems without rich Confirm
+        try:
+            response = input("🚀 Proceed with processing? (y/N): ").lower().strip()
+            return response in ['y', 'yes']
+        except (EOFError, KeyboardInterrupt):
+            return False
+
+
 def validate_args(args) -> bool:
     """Validate command line arguments."""
     if args.command == "process":
@@ -1316,6 +1462,29 @@ def validate_args(args) -> bool:
         if args.task_file and not args.task_file.exists():
             message("error", f"Task file does not exist: {args.task_file}")
             return False
+
+        # Show process guard when no explicit arguments were provided
+        # This triggers when the user ran "autocleaneeg-pipeline process" without arguments
+        # and we resolved task/input from active settings, or when only partial arguments were given
+        show_guard = False
+        
+        # Check if this was a minimal command invocation
+        if not (args.task_name or args.task or args.task_file):
+            # No task specified on command line - using active task
+            show_guard = True
+        elif not (args.input_path or args.file or args.directory):
+            # No input specified on command line - using active input
+            show_guard = True
+        
+        # Don't show guard for dry run (already shows what would be processed)
+        if hasattr(args, 'dry_run') and args.dry_run:
+            show_guard = False
+        
+        # Show the guard if needed
+        if show_guard:
+            if not _show_process_guard(args):
+                message("info", "Processing cancelled by user")
+                return False
 
     elif args.command == "view":
         # Friendly brief help when file is missing
@@ -3317,6 +3486,7 @@ def cmd_source_set(args) -> int:
     """Set the active input path (stored internally as 'source')."""
     try:
         source_path = getattr(args, "source_path", None)
+        source_path = _strip_wrapping_quotes(source_path)
         
         # If path provided directly, use it
         if source_path:
@@ -3334,6 +3504,7 @@ def cmd_source_set(args) -> int:
         
         # Otherwise, use interactive selection
         selected_source = user_config.select_active_source_interactive()
+        selected_source = _strip_wrapping_quotes(selected_source)
         if selected_source is None:
             message("info", "Canceled")
             return 0
