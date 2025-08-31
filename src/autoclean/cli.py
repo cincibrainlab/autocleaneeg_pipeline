@@ -195,6 +195,8 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("📂 task explore", "Open the workspace tasks folder"),
             ("✏️  task edit <name|path>", "Edit a task in your editor"),
             ("📥 task import <path>", "Copy a task file into workspace"),
+            ("📄 task copy <name|path>", "Copy a task to a new file"),
+            ("🗑  task delete <name|path>", "Delete a workspace task file"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -479,6 +481,18 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "task_name", type=str, help="Name of the task to remove"
     )
 
+    # Delete task (alias with path/name support)
+    delete_task_parser = task_subparsers.add_parser(
+        "delete", help="Delete a workspace task file", add_help=False
+    )
+    attach_rich_help(delete_task_parser)
+    delete_task_parser.add_argument(
+        "target", type=str, help="Task name (workspace) or path to task file"
+    )
+    delete_task_parser.add_argument(
+        "--force", action="store_true", help="Skip confirmation"
+    )
+
     # List all tasks (replaces old list-tasks command)
     list_all_parser = task_subparsers.add_parser(
         "list", help="List all available tasks", add_help=False
@@ -536,6 +550,27 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Save as this filename (without .py)",
     )
     import_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing file without prompting",
+    )
+
+    # Copy task (name or path)
+    copy_parser = task_subparsers.add_parser(
+        "copy", help="Copy a task to a new workspace file", add_help=False
+    )
+    attach_rich_help(copy_parser)
+    copy_parser.add_argument(
+        "source",
+        type=str,
+        help="Task name (workspace/built-in) or path to copy from",
+    )
+    copy_parser.add_argument(
+        "--name",
+        type=str,
+        help="Destination filename (without .py)",
+    )
+    copy_parser.add_argument(
         "--force",
         action="store_true",
         help="Overwrite existing file without prompting",
@@ -2121,6 +2156,10 @@ def cmd_task(args) -> int:
         return cmd_task_edit(args)
     elif args.task_action == "import":
         return cmd_task_import(args)
+    elif args.task_action == "delete":
+        return cmd_task_delete(args)
+    elif args.task_action == "copy":
+        return cmd_task_copy(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -2509,6 +2548,124 @@ def cmd_task_import(args) -> int:
         return 0
     except Exception as e:
         message("error", f"Failed to import task: {e}")
+        return 1
+
+
+def cmd_task_delete(args) -> int:
+    """Delete a task file from the workspace tasks directory."""
+    try:
+        # Resolve to path; don't allow deleting built-ins
+        f = _resolve_task_file(args.target)
+        if not f:
+            message("error", f"Task not found: {args.target}")
+            message("info", "Provide a workspace task name or a path under your workspace tasks/")
+            return 1
+
+        # Ensure within workspace tasks dir
+        try:
+            ws_tasks = user_config.tasks_dir.resolve()
+            if ws_tasks not in f.resolve().parents:
+                message("error", "Refusing to delete files outside workspace tasks/")
+                return 1
+        except Exception:
+            message("error", "Could not verify task location")
+            return 1
+
+        if not args.force:
+            try:
+                from rich.prompt import Confirm as _Confirm
+
+                if not _Confirm.ask(f"Delete '{f.name}'?", default=False):
+                    message("info", "Canceled")
+                    return 0
+            except Exception:
+                message("warning", "Interactive prompt unavailable; re-run with --force to skip")
+                return 1
+
+        try:
+            f.unlink()
+            message("success", f"✓ Deleted: {f.name}")
+            return 0
+        except Exception as e:
+            message("error", f"Failed to delete file: {e}")
+            return 1
+    except Exception as e:
+        message("error", f"Delete failed: {e}")
+        return 1
+
+
+def cmd_task_copy(args) -> int:
+    """Copy a task to a new file in the workspace tasks directory."""
+    try:
+        source = args.source if hasattr(args, "source") else getattr(args, "target", None)
+        if not source:
+            message("error", "No source provided")
+            return 1
+
+        # Resolve source: path or discovered name
+        src_path = _resolve_task_file(source)
+        if not src_path:
+            try:
+                from autoclean.utils.task_discovery import safe_discover_tasks
+
+                tasks, _, _ = safe_discover_tasks()
+                for t in tasks:
+                    if t.name.lower() == str(source).lower():
+                        src_path = Path(t.source)
+                        break
+            except Exception:
+                src_path = None
+
+        if not src_path or not src_path.exists():
+            message("error", f"Task not found: {source}")
+            return 1
+
+        # Prepare destination
+        dest_dir = user_config.tasks_dir
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        base_name = args.name or src_path.stem
+        dest = dest_dir / (base_name if str(base_name).endswith(".py") else f"{base_name}.py")
+
+        # Conflict handling
+        if dest.exists() and not getattr(args, "force", False):
+            try:
+                from rich.prompt import Prompt as _Prompt
+
+                choice = _Prompt.ask(
+                    f"{dest.name} exists. Choose",
+                    choices=["overwrite", "rename", "cancel"],
+                    default="rename",
+                )
+                if choice == "cancel":
+                    message("info", "Canceled")
+                    return 0
+                if choice == "rename":
+                    new_name = _Prompt.ask("New filename", default=f"copy_of_{dest.name}")
+                    dest = dest_dir / (new_name if new_name.endswith(".py") else f"{new_name}.py")
+            except Exception:
+                message("warning", "Interactive prompt unavailable; re-run with --force or --name")
+                return 1
+
+        # Execute copy
+        try:
+            shutil.copy2(src_path, dest)
+            message("success", f"✓ Copied to: {dest.name}")
+        except Exception as e:
+            message("error", f"Failed to copy file: {e}")
+            return 1
+
+        # Provide usage
+        try:
+            class_name, _ = user_config._extract_task_info(dest)
+            message("info", f"Detected task class: {class_name}")
+            print("\nUse with:")
+            print(f"  autocleaneeg-pipeline process {class_name} <data_file>")
+        except Exception:
+            pass
+
+        return 0
+    except Exception as e:
+        message("error", f"Copy failed: {e}")
         return 1
 
 
