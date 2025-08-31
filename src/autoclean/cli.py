@@ -1202,6 +1202,32 @@ def _run_interactive_setup() -> int:
         console = get_console()
         _simple_header(console, "Setup", "Choose an action")
 
+        # Show current workspace path in the banner (centered)
+        try:
+            from rich.text import Text as _SText
+            from rich.align import Align as _SAlign
+
+            workspace_dir = user_config.config_dir
+            valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+            home = str(Path.home())
+            display_path = str(workspace_dir)
+            if display_path.startswith(home):
+                display_path = display_path.replace(home, "~", 1)
+
+            ws = _SText()
+            if valid_ws:
+                ws.append("✓ ", style="success")
+                ws.append("Workspace ", style="muted")
+                ws.append(display_path, style="accent")
+            else:
+                ws.append("⚠ ", style="warning")
+                ws.append("Workspace ", style="muted")
+                ws.append(display_path, style="accent")
+            console.print(_SAlign.center(ws))
+            console.print()
+        except Exception:
+            pass
+
         if not INQUIRER_AVAILABLE:
             console.print(
                 "[warning]⚠ Interactive prompts not available. Running basic setup...[/warning]"
@@ -1340,6 +1366,14 @@ def _setup_compliance_mode() -> int:
         setup_display.header(
             "FDA 21 CFR Part 11 Compliance Setup", "Regulatory compliance mode"
         )
+        # Show workspace location beneath header for context
+        try:
+            setup_display.workspace_info(
+                user_config.config_dir,
+                is_valid=(user_config.config_dir.exists() and (user_config.tasks_dir.exists())),
+            )
+        except Exception:
+            pass
         setup_display.warning("Once enabled, compliance mode cannot be disabled")
         setup_display.blank_line()
         setup_display.console.print("[bold]This mode provides:[/bold]")
