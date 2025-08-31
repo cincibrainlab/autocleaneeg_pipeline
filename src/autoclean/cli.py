@@ -584,6 +584,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Spawn an interactive shell in the workspace directory",
     )
+    ws_cd.add_argument(
+        "--print",
+        choices=["auto", "bash", "zsh", "fish", "powershell", "cmd"],
+        help="Print a shell-specific cd command you can eval",
+    )
 
     # Export access log command
     export_log_parser = subparsers.add_parser(
@@ -1378,6 +1383,42 @@ def _detect_shell() -> list:
         return ["/bin/sh"]
 
 
+def _detect_shell_kind() -> str:
+    """Best-effort detection of user's shell kind for printing snippets."""
+    try:
+        if sys.platform.startswith("win"):
+            # Heuristic: if running inside PowerShell, PSModulePath is usually set
+            if os.environ.get("PSModulePath"):
+                return "powershell"
+            return "cmd"
+        sh = os.environ.get("SHELL", "")
+        if "fish" in sh:
+            return "fish"
+        if "zsh" in sh:
+            return "zsh"
+        if "bash" in sh:
+            return "bash"
+        return "bash"
+    except Exception:
+        return "bash"
+
+
+def _esc_for_bash_zsh(path: str) -> str:
+    return path.replace("'", "'\"'\"'")
+
+
+def _esc_for_fish(path: str) -> str:
+    return path.replace('"', '\\"')
+
+
+def _esc_for_powershell(path: str) -> str:
+    return path.replace("'", "''")
+
+
+def _esc_for_cmd(path: str) -> str:
+    return path.replace('"', '""')
+
+
 def cmd_workspace_cd(args) -> int:
     """Change directory to the workspace.
 
@@ -1398,6 +1439,20 @@ def cmd_workspace_cd(args) -> int:
             except Exception as e:
                 message("error", f"Failed to spawn shell: {e}")
                 return 1
+            return 0
+
+        # Optional: print a shell-specific snippet for eval
+        if getattr(args, "print", None):
+            kind = args.print if args.print != "auto" else _detect_shell_kind()
+            p = str(ws)
+            if kind in ("bash", "zsh"):
+                print(f"cd '{_esc_for_bash_zsh(p)}'")
+            elif kind == "fish":
+                print(f"cd \"{_esc_for_fish(p)}\"")
+            elif kind == "powershell":
+                print(f"Set-Location -Path '{_esc_for_powershell(p)}'")
+            else:  # cmd
+                print(f"cd /D \"{_esc_for_cmd(p)}\"")
             return 0
 
         # Default: print path only (no styling) for command substitution
