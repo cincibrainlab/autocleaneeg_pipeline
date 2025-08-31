@@ -322,9 +322,11 @@ class SetupDisplay(CLIDisplay):
                 "[muted]This workspace will contain your custom tasks, configuration, and results.[/muted]"
             )
         else:
-            # Reconfiguration - simple section title, no boxed header
-            self.console.print("[header]⚙️ Workspace Reconfiguration[/header]")
-            self.console.print("[muted]Setting up new workspace location[/muted]")
+            # Reconfiguration – concise, action-oriented header
+            self.console.print("[header]⚙️ Change Workspace Folder[/header]")
+            self.console.print(
+                "[muted]Pick current, use the recommended default, or choose another folder.[/muted]"
+            )
 
         self.blank_line()
 
@@ -334,36 +336,81 @@ class SetupDisplay(CLIDisplay):
         if details:
             self.console.print(f"  {details}", style="muted")
 
-    def workspace_location_prompt(self, default_dir: Path) -> Path:
-        """Prompt for workspace location with clean formatting."""
-        self.console.print("[header]Workspace Location[/header]")
-        self.console.print(f"[muted]Default: [/muted][accent]{default_dir}[/accent]")
+    def workspace_location_prompt(self, default_dir: Path, current_dir: Optional[Path] = None) -> Path:
+        """Prompt for workspace location with clear choices."""
+        from pathlib import Path as _Path
+
+        self.console.print("[header]Select Workspace Folder[/header]")
         self.console.print(
-            "[muted]• Custom tasks  • Configuration  • Results  • Easy backup[/muted]"
+            "[muted]Where AutoClean stores your tasks, configuration, and results.[/muted]"
         )
         self.blank_line()
 
+        home = str(_Path.home())
+
+        def _short(p: _Path) -> str:
+            s = str(p)
+            return s.replace(home, "~", 1) if s.startswith(home) else s
+
+        # Show options table when possible
         try:
-            response = self.prompt_text(
-                "[bold]Press Enter for default, or enter custom path[/bold]",
-                default="",
-                show_default=False,
-            ).strip()
+            from rich.table import Table as _Table
 
-            if response:
-                chosen_dir = Path(response).expanduser()
-                self.success("Using custom location", str(chosen_dir))
-            else:
-                chosen_dir = default_dir
-                self.success("Using default location", str(chosen_dir))
-
+            tbl = _Table(show_header=False, box=None, padding=(0, 1))
+            tbl.add_column("Option", style="accent", no_wrap=True)
+            tbl.add_column("Description", style="muted")
+            idx = 1
+            if current_dir is not None:
+                tbl.add_row(f"{idx})", f"Keep current: {_short(current_dir)}")
+                idx += 1
+            tbl.add_row(f"{idx})", f"Use recommended: {_short(default_dir)}")
+            idx += 1
+            tbl.add_row(f"{idx})", "Choose another folder…")
+            self.console.print(tbl)
             self.blank_line()
-            return chosen_dir
+        except Exception:
+            pass
 
+        # Build choices
+        choices = []
+        default_choice = "current" if current_dir is not None else "default"
+        if current_dir is not None:
+            choices.append("current")
+        choices.append("default")
+        choices.append("custom")
+
+        # Ask for choice
+        try:
+            choice = self.prompt_choice(
+                "Select an option",
+                choices=choices,
+                default=default_choice,
+            )
         except (EOFError, KeyboardInterrupt):
-            self.warning("Using default location due to interrupt")
-            self.blank_line()
-            return default_dir
+            choice = default_choice
+
+        if choice == "current" and current_dir is not None:
+            chosen_dir = current_dir
+            self.success("Keeping current workspace", _short(chosen_dir))
+        elif choice == "default":
+            chosen_dir = default_dir
+            self.success("Using recommended default", _short(chosen_dir))
+        else:
+            # Custom path entry
+            try:
+                response = self.prompt_text(
+                    "Enter folder path",
+                    default=str(current_dir or default_dir),
+                    show_default=True,
+                ).strip()
+                chosen_dir = _Path(response).expanduser()
+                self.success("Using custom folder", _short(chosen_dir))
+            except (EOFError, KeyboardInterrupt):
+                chosen_dir = default_dir
+                self.warning("Using recommended default due to interrupt", _short(chosen_dir))
+
+        self.blank_line()
+        return chosen_dir
 
     def compliance_status_display(self, is_enabled: bool, is_permanent: bool) -> None:
         """Display compliance status information."""
