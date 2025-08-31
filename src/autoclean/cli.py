@@ -331,6 +331,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("📥 task import <path>", "Copy a task file into workspace"),
             ("📄 task copy <name|path>", "Copy a task to a new file"),
             ("🗑  task delete <name|path>", "Delete a workspace task file"),
+            ("🎯 task set [name]", "Set active task (interactive if omitted)"),
+            ("🧹 task unset", "Clear the active task"),
+            ("👁️  task show", "Show the current active task"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
