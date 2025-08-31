@@ -239,6 +239,39 @@ def _print_startup_context(console) -> None:
         except Exception:
             pass
 
+        # Show active input (or guard if not set/missing)
+        try:
+            active_source = user_config.get_active_source()
+            src = _Text()
+            if active_source:
+                sp = Path(active_source)
+                display_src = str(sp)
+                home = str(Path.home())
+                if display_src.startswith(home):
+                    display_src = display_src.replace(home, "~", 1)
+                if sp.exists():
+                    if sp.is_file():
+                        src.append("📄 ", style="muted")
+                        src.append("Input file: ", style="muted")
+                    elif sp.is_dir():
+                        src.append("📂 ", style="muted")
+                        src.append("Input folder: ", style="muted")
+                    else:
+                        src.append("📁 ", style="muted")
+                        src.append("Input: ", style="muted")
+                    src.append(display_src, style="accent")
+                else:
+                    src.append("⚠ ", style="warning")
+                    src.append("Input missing — ", style="muted")
+                    src.append(display_src, style="accent")
+            else:
+                src.append("📁 ", style="muted")
+                src.append("Active input: ", style="muted")
+                src.append("not set", style="warning")
+            console.print(_Align.center(src))
+        except Exception:
+            pass
+
         # Disk free
         usage_path = (
             workspace_dir
@@ -336,9 +369,49 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
-            ("📁 source set [path]", "Set active source path (interactive if omitted)"),
-            ("🧹 source unset", "Clear the active source path"),
-            ("👁️  source show", "Show the current active source path"),
+            ("📁 input set [path]", "Set active input path (interactive if omitted)"),
+            ("🧹 input unset", "Clear the active input path"),
+            ("👁️  input show", "Show the current active input path"),
+        ]
+        for c, d in rows:
+            tbl.add_row(c, d)
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
+        console.print()
+        return
+
+    if topic in {"input", "inputs"}:
+        console.print("[header]Input Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        rows = [
+            ("📁 input set [path]", "Set active input path (file or directory; interactive if omitted)"),
+            ("🧹 input unset", "Clear the active input path"),
+            ("👁️  input show", "Show the current active input path"),
+        ]
+        for c, d in rows:
+            tbl.add_row(c, d)
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
+        console.print()
+        return
+
+    if topic in {"source", "sources"}:
+        console.print("[header]Source Commands[/header] [warning](deprecated — use 'input')[/warning]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        rows = [
+            ("📁 source set [path]", "Alias of 'input set' (interactive if omitted)"),
+            ("🧹 source unset", "Alias of 'input unset'"),
+            ("👁️  source show", "Alias of 'input show'"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -386,6 +459,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("🗂\u00a0 workspace", "Configure workspace folder"),
         ("👁\u00a0 view", "View EEG file (MNE-QT)"),
         ("🗂\u00a0 task", "Manage tasks (list, explore)"),
+        ("📁\u00a0 input", "Manage active input path"),
         ("▶\u00a0 process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
         ("🔐 auth", "Authentication & Part-11 commands"),
@@ -751,9 +825,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(show_task_parser)
 
-    # Source management commands
+    # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(
-        "source", help="Manage active source path", add_help=False
+        "source", help="[deprecated] Manage active input path (use 'input')", add_help=False
     )
     attach_rich_help(source_parser)
     source_subparsers = source_parser.add_subparsers(
@@ -762,26 +836,58 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Set active source
     set_source_parser = source_subparsers.add_parser(
-        "set", help="Set the active source path (used when no input specified in process)", add_help=False
+        "set", help="[deprecated] Set the active input path (use 'input set')", add_help=False
     )
     attach_rich_help(set_source_parser)
     set_source_parser.add_argument(
         "source_path",
         nargs="?",
-        help="Source path to set as active (file or directory, omit to choose interactively)",
+        help="Input path to set as active (file or directory, omit to choose interactively)",
     )
 
     # Unset active source
     unset_source_parser = source_subparsers.add_parser(
-        "unset", help="Clear the active source path", add_help=False
+        "unset", help="[deprecated] Clear the active input path (use 'input unset')", add_help=False
     )
     attach_rich_help(unset_source_parser)
 
     # Show active source
     show_source_parser = source_subparsers.add_parser(
-        "show", help="Show the current active source path", add_help=False
+        "show", help="[deprecated] Show the current active input path (use 'input show')", add_help=False
     )
     attach_rich_help(show_source_parser)
+
+    # Input management commands (preferred)
+    input_parser = subparsers.add_parser(
+        "input", help="Manage active input path", add_help=False
+    )
+    attach_rich_help(input_parser)
+    input_subparsers = input_parser.add_subparsers(
+        dest="input_action", help="Input actions"
+    )
+
+    # Set active input
+    set_input_parser = input_subparsers.add_parser(
+        "set", help="Set the active input path (used when no input specified in process)", add_help=False
+    )
+    attach_rich_help(set_input_parser)
+    set_input_parser.add_argument(
+        "source_path",
+        nargs="?",
+        help="Input path to set as active (file or directory, omit to choose interactively)",
+    )
+
+    # Unset active input
+    unset_input_parser = input_subparsers.add_parser(
+        "unset", help="Clear the active input path", add_help=False
+    )
+    attach_rich_help(unset_input_parser)
+
+    # Show active input
+    show_input_parser = input_subparsers.add_parser(
+        "show", help="Show the current active input path", add_help=False
+    )
+    attach_rich_help(show_input_parser)
 
     # Show config location
     config_parser = subparsers.add_parser(
@@ -1138,18 +1244,18 @@ def validate_args(args) -> bool:
                     return False
                 message("info", f"Using input path from task config: {input_path}")
             else:
-                # Try to get input_path from active source as fallback
+                # Try to get input_path from active input as fallback
                 active_source = user_config.get_active_source()
                 if active_source:
                     input_path = Path(active_source)
                     if not input_path.exists():
                         message(
                             "error",
-                            f"Active source path no longer exists: {input_path}",
+                            f"Active input path no longer exists: {input_path}",
                         )
-                        message("info", "Please set a new active source with: autocleaneeg-pipeline source set")
+                        message("info", "Please set a new active input with: autocleaneeg-pipeline input set")
                         return False
-                    message("info", f"Using active source: {input_path}")
+                    message("info", f"Using active input: {input_path}")
                 else:
                     # No fallback available, show help
                     console = get_console(args)
@@ -3162,7 +3268,17 @@ def cmd_task_show(_args) -> int:
 
 
 def cmd_source(args) -> int:
-    """Execute source management commands."""
+    """Deprecated: execute source management commands (alias of 'input')."""
+    # Friendly deprecation hint
+    message("warning", "'source' is deprecated. Use 'input' (e.g., 'input set').")
+    # No subcommand → show elegant source help
+    if not getattr(args, "source_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "source")
+        return 0
+
     if args.source_action == "set":
         return cmd_source_set(args)
     elif args.source_action == "unset":
@@ -3174,8 +3290,31 @@ def cmd_source(args) -> int:
         return 1
 
 
+def cmd_input(args) -> int:
+    """Execute input management commands (preferred)."""
+    # No subcommand → show elegant input help
+    if not getattr(args, "input_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "input")
+        return 0
+
+    # Reuse the existing source handlers to avoid duplication
+    # Note: we pass through args; it carries 'source_path' if provided
+    if args.input_action == "set":
+        return cmd_source_set(args)
+    elif args.input_action == "unset":
+        return cmd_source_unset(args)
+    elif args.input_action == "show":
+        return cmd_source_show(args)
+    else:
+        message("error", "No input action specified")
+        return 1
+
+
 def cmd_source_set(args) -> int:
-    """Set the active source path."""
+    """Set the active input path (stored internally as 'source')."""
     try:
         source_path = getattr(args, "source_path", None)
         
@@ -3183,14 +3322,14 @@ def cmd_source_set(args) -> int:
         if source_path:
             path = Path(source_path).expanduser().resolve()
             if not path.exists():
-                message("error", f"Source path does not exist: {path}")
+                message("error", f"Input path does not exist: {path}")
                 return 1
             
             if user_config.set_active_source(str(path)):
-                message("success", f"Active source set to: {path}")
+                message("success", f"Active input set to: {path}")
                 return 0
             else:
-                message("error", "Failed to save active source configuration")
+                message("error", "Failed to save active input configuration")
                 return 1
         
         # Otherwise, use interactive selection
@@ -3201,65 +3340,65 @@ def cmd_source_set(args) -> int:
         elif selected_source == "NONE":
             # User chose to have no default
             if user_config.set_active_source(None):
-                message("success", "Active source cleared - will prompt for input each time")
+                message("success", "Active input cleared - will prompt for input each time")
                 return 0
             else:
-                message("error", "Failed to clear active source")
+                message("error", "Failed to clear active input")
                 return 1
         else:
             # User selected a path
             if user_config.set_active_source(selected_source):
-                message("success", f"Active source set to: {selected_source}")
+                message("success", f"Active input set to: {selected_source}")
                 return 0
             else:
-                message("error", "Failed to save active source configuration")
+                message("error", "Failed to save active input configuration")
                 return 1
                 
     except Exception as e:
-        message("error", f"Failed to set active source: {e}")
+        message("error", f"Failed to set active input: {e}")
         return 1
 
 
 def cmd_source_unset(_args) -> int:
-    """Clear the active source path."""
+    """Clear the active input path."""
     try:
         if user_config.set_active_source(None):
-            message("success", "Active source cleared")
+            message("success", "Active input cleared")
             return 0
         else:
-            message("error", "Failed to clear active source")
+            message("error", "Failed to clear active input")
             return 1
             
     except Exception as e:
-        message("error", f"Failed to unset active source: {e}")
+        message("error", f"Failed to unset active input: {e}")
         return 1
 
 
 def cmd_source_show(_args) -> int:
-    """Show the current active source path."""
+    """Show the current active input path."""
     try:
         active_source = user_config.get_active_source()
         
         if active_source is None:
-            message("info", "No active source path is currently set.")
-            message("info", "Set one with: autocleaneeg-pipeline source set")
+            message("info", "No active input path is currently set.")
+            message("info", "Set one with: autocleaneeg-pipeline input set")
         else:
             path = Path(active_source)
             if path.exists():
                 if path.is_file():
-                    message("info", f"Active source (file): {active_source}")
+                    message("info", f"Active input (file): {active_source}")
                 elif path.is_dir():
-                    message("info", f"Active source (directory): {active_source}")
+                    message("info", f"Active input (directory): {active_source}")
                 else:
-                    message("info", f"Active source: {active_source}")
+                    message("info", f"Active input: {active_source}")
             else:
-                message("warning", f"Active source path no longer exists: {active_source}")
-                message("info", "Consider setting a new active source.")
+                message("warning", f"Active input path no longer exists: {active_source}")
+                message("info", "Consider setting a new active input.")
         
         return 0
         
     except Exception as e:
-        message("error", f"Failed to show active source: {e}")
+        message("error", f"Failed to show active input: {e}")
         return 1
 
 
@@ -4365,6 +4504,29 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
+        # Show active input (file vs folder) for real sub-commands
+        try:
+            active_src = user_config.get_active_source()
+            if active_src:
+                p = Path(active_src)
+                if p.exists():
+                    if p.is_file():
+                        console.print(f"[info]Input file:[/info] [accent]{active_src}[/accent]")
+                    elif p.is_dir():
+                        console.print(f"[info]Input folder:[/info] [accent]{active_src}[/accent]")
+                    else:
+                        console.print(f"[info]Input:[/info] [accent]{active_src}[/accent]")
+                else:
+                    console.print(
+                        f"[warning]Input missing[/warning] [muted]—[/muted] [accent]{active_src}[/accent]"
+                    )
+            else:
+                console.print(
+                    "[warning]Active input not set[/warning] [muted](run 'autocleaneeg-pipeline input set')[/muted]"
+                )
+        except Exception:
+            pass
+
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = get_console(args)
@@ -4437,6 +4599,40 @@ def main(argv: Optional[list] = None) -> int:
                 console.print(Align.center(at))
             except Exception:
                 pass
+
+            # Show active input (file vs folder) beneath task
+            try:
+                from rich.text import Text as _SrcText
+                from rich.align import Align as _SrcAlign
+                active_src = user_config.get_active_source()
+                src_line = _SrcText()
+                if active_src:
+                    p = Path(active_src)
+                    display_src = str(p)
+                    if display_src.startswith(home):
+                        display_src = display_src.replace(home, "~", 1)
+                    if p.exists():
+                        if p.is_file():
+                            src_line.append("📄 ", style="muted")
+                            src_line.append("Input file: ", style="muted")
+                        elif p.is_dir():
+                            src_line.append("📂 ", style="muted")
+                            src_line.append("Input folder: ", style="muted")
+                        else:
+                            src_line.append("📁 ", style="muted")
+                            src_line.append("Input: ", style="muted")
+                        src_line.append(display_src, style="accent")
+                    else:
+                        src_line.append("⚠ ", style="warning")
+                        src_line.append("Input missing — ", style="muted")
+                        src_line.append(display_src, style="accent")
+                else:
+                    src_line.append("📁 ", style="muted")
+                    src_line.append("Active input: ", style="muted")
+                    src_line.append("not set", style="warning")
+                console.print(_SrcAlign.center(src_line))
+            except Exception:
+                pass
         except Exception:
             # Suppress fallback to avoid left-justified output in banner
             pass
@@ -4470,7 +4666,7 @@ def main(argv: Optional[list] = None) -> int:
             from rich.text import Text as _KText
             from rich.align import Align as _KAlign
 
-            key_cmds = ["help", "workspace", "view", "task", "process", "review"]
+            key_cmds = ["help", "workspace", "view", "task", "input", "process", "review"]
             belt = _KText()
             for i, cmd in enumerate(key_cmds):
                 if i > 0:
@@ -4546,6 +4742,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_review(args)
     elif args.command == "task":
         return cmd_task(args)
+    elif args.command == "input":
+        return cmd_input(args)
     elif args.command == "source":
         return cmd_source(args)
     elif args.command == "config":
