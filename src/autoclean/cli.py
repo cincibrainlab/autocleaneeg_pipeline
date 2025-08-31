@@ -213,6 +213,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("📏 workspace size", "Show total workspace size"),
             ("📌 workspace set <path>", "Change the workspace folder"),
             ("❎ workspace unset", "Unassign current workspace (clear config)"),
+            ("📁 workspace cd [--spawn]", "Print path for cd, or spawn subshell"),
             ("🏠 workspace default", "Set recommended default location"),
             ("—", "—"),
             ("🔐 auth setup|enable|disable", "Compliance controls (Auth0)"),
@@ -573,6 +574,16 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "default", help="Set workspace to the recommended default location", add_help=False
     )
     attach_rich_help(ws_default)
+
+    ws_cd = workspace_subparsers.add_parser(
+        "cd", help="Change directory to workspace (prints path or spawns subshell)", add_help=False
+    )
+    attach_rich_help(ws_cd)
+    ws_cd.add_argument(
+        "--spawn",
+        action="store_true",
+        help="Spawn an interactive shell in the workspace directory",
+    )
 
     # Export access log command
     export_log_parser = subparsers.add_parser(
@@ -1203,6 +1214,8 @@ def cmd_workspace(args) -> int:
         return cmd_workspace_unset(args)
     if action == "default":
         return cmd_workspace_default(args)
+    if action == "cd":
+        return cmd_workspace_cd(args)
     message("error", f"Unknown workspace action: {action}")
     return 1
 
@@ -1344,6 +1357,54 @@ def cmd_workspace_default(_args) -> int:
         return 0
     except Exception as e:
         message("error", f"Failed to set default workspace: {e}")
+        return 1
+
+
+def _detect_shell() -> list:
+    """Return command list for user's interactive shell."""
+    try:
+        if sys.platform.startswith("win"):
+            # Prefer PowerShell if available
+            pwsh = shutil.which("pwsh") or shutil.which("powershell")
+            if pwsh:
+                return [pwsh]
+            return [os.environ.get("COMSPEC", "cmd")]
+        # Unix-like
+        shell = os.environ.get("SHELL")
+        if shell:
+            return [shell]
+        return ["/bin/sh"]
+    except Exception:
+        return ["/bin/sh"]
+
+
+def cmd_workspace_cd(args) -> int:
+    """Change directory to the workspace.
+
+    Default behavior prints the absolute path to stdout so users can:
+      cd "$(autocleaneeg-pipeline workspace cd)"
+
+    With --spawn, launches a new interactive shell in that directory.
+    """
+    try:
+        ws = user_config.config_dir
+        ws.mkdir(parents=True, exist_ok=True)
+
+        if getattr(args, "spawn", False):
+            shell_cmd = _detect_shell()
+            message("info", f"Spawning shell in: {ws}")
+            try:
+                subprocess.call(shell_cmd, cwd=str(ws))
+            except Exception as e:
+                message("error", f"Failed to spawn shell: {e}")
+                return 1
+            return 0
+
+        # Default: print path only (no styling) for command substitution
+        print(str(ws))
+        return 0
+    except Exception as e:
+        message("error", f"Failed to resolve workspace directory: {e}")
         return 1
 
 
