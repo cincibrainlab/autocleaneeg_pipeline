@@ -185,6 +185,23 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
+    if topic in {"task", "tasks"}:
+        console.print("[header]Task Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        rows = [
+            ("📜 task list", "List available tasks (same as 'list-tasks')"),
+            ("📂 task explore", "Open the workspace tasks folder"),
+        ]
+        for c, d in rows:
+            tbl.add_row(c, d)
+        console.print(tbl)
+        console.print()
+        console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+        console.print()
+        return
+
     console.print("[header]Commands[/header]")
     tbl = _Table(show_header=False, box=None, padding=(0, 1))
     tbl.add_column("Command", style="accent", no_wrap=True)
@@ -409,8 +426,6 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     task_subparsers = task_parser.add_subparsers(
         dest="task_action", help="Task actions"
     )
-    # Default to 'list' when no subcommand is provided (so 'task' == 'task list')
-    task_parser.set_defaults(task_action="list")
 
     # Add task
     add_task_parser = task_subparsers.add_parser(
@@ -1670,6 +1685,12 @@ def cmd_version(args) -> int:
 
 def cmd_task(args) -> int:
     """Execute task management commands."""
+    if not getattr(args, "task_action", None):
+        # Show elegant task help (like '-h task') when no subcommand provided
+        console = get_console(args)
+        _simple_header(console)
+        _print_root_help(console, "task")
+        return 0
     if args.task_action == "add":
         return cmd_task_add(args)
     elif args.task_action == "remove":
