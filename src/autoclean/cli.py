@@ -54,6 +54,23 @@ from autoclean.utils.console import get_console
 # Maximum log file size (5MB)
 MAX_LOG_SIZE = 5 * 1024 * 1024
 
+def _strip_wrapping_quotes(text: Optional[str]) -> Optional[str]:
+    """Remove a single or nested pair of matching wrapping quotes from text.
+
+    Handles common copy/paste cases like "'/Users/me/My Folder'" or '"/path"'.
+    Returns None unchanged and leaves interior quotes untouched.
+    """
+    if text is None:
+        return None
+    s = text.strip()
+    # Remove up to two layers of matching quotes (single or double)
+    for _ in range(2):
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in ("'", '"'):
+            s = s[1:-1].strip()
+        else:
+            break
+    return s
+
 def _sanitize_arguments(args: List[str]) -> List[str]:
     """Sanitize command-line arguments to remove sensitive information."""
     sanitized = []
@@ -874,7 +891,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     set_input_parser.add_argument(
         "source_path",
         nargs="?",
-        help="Input path to set as active (file or directory, omit to choose interactively)",
+        help="Input path to set as active (file or directory; quotes OK; omit to choose interactively)",
     )
 
     # Unset active input
@@ -3469,6 +3486,7 @@ def cmd_source_set(args) -> int:
     """Set the active input path (stored internally as 'source')."""
     try:
         source_path = getattr(args, "source_path", None)
+        source_path = _strip_wrapping_quotes(source_path)
         
         # If path provided directly, use it
         if source_path:
@@ -3486,6 +3504,7 @@ def cmd_source_set(args) -> int:
         
         # Otherwise, use interactive selection
         selected_source = user_config.select_active_source_interactive()
+        selected_source = _strip_wrapping_quotes(selected_source)
         if selected_source is None:
             message("info", "Canceled")
             return 0
