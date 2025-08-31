@@ -448,6 +448,12 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Show workspace tasks that override built-in tasks",
     )
 
+    # Explore tasks folder (open in OS file browser)
+    explore_parser = task_subparsers.add_parser(
+        "explore", help="Open the workspace tasks folder in your OS", add_help=False
+    )
+    attach_rich_help(explore_parser)
+
     # Show config location
     config_parser = subparsers.add_parser(
         "config", help="Manage user configuration", add_help=False
@@ -1670,6 +1676,8 @@ def cmd_task(args) -> int:
         return cmd_task_remove(args)
     elif args.task_action == "list":
         return cmd_list_tasks(args)
+    elif args.task_action == "explore":
+        return cmd_task_explore(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -1750,6 +1758,38 @@ def cmd_task_remove(args) -> int:
 
     except Exception as e:
         message("error", f"Failed to remove custom task: {str(e)}")
+        return 1
+
+
+def cmd_task_explore(_args) -> int:
+    """Open the workspace tasks directory in the system file browser."""
+    try:
+        tasks_dir = user_config.tasks_dir
+        tasks_dir.mkdir(parents=True, exist_ok=True)
+
+        # Detect platform and open folder
+        platform = sys.platform
+        path_str = str(tasks_dir)
+        message("info", f"Opening tasks folder: {tasks_dir}")
+
+        try:
+            if platform.startswith("darwin"):
+                subprocess.run(["open", path_str], check=False)
+            elif platform.startswith("win"):
+                os.startfile(path_str)  # type: ignore[attr-defined]
+            else:
+                # Linux and others
+                if shutil.which("xdg-open"):
+                    subprocess.run(["xdg-open", path_str], check=False)
+                else:
+                    # Fallback: print path if no opener available
+                    print(path_str)
+        except Exception:
+            print(path_str)
+
+        return 0
+    except Exception as e:
+        message("error", f"Failed to open tasks folder: {e}")
         return 1
 
 
