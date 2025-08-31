@@ -646,7 +646,12 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "set", help="Change the workspace folder", add_help=False
     )
     attach_rich_help(ws_set)
-    ws_set.add_argument("path", type=Path, help="New workspace directory path")
+    ws_set.add_argument(
+        "path",
+        type=Path,
+        nargs="?",
+        help="New workspace directory path (omit to choose interactively)",
+    )
 
     ws_unset = workspace_subparsers.add_parser(
         "unset", help="Unassign current workspace (clear config)", add_help=False
@@ -1416,6 +1421,13 @@ def cmd_workspace_size(_args) -> int:
 def cmd_workspace_set(args) -> int:
     """Change the workspace folder to the given path and initialize structure."""
     try:
+        # If no path provided, enter interactive mode to choose a folder
+        if not getattr(args, "path", None):
+            chosen = user_config.setup_workspace(show_branding=False)
+            message("success", "✓ Workspace updated")
+            message("info", str(chosen))
+            return 0
+
         new_path = args.path.expanduser().resolve()
         new_path.mkdir(parents=True, exist_ok=True)
         # Initialize structure and save config
@@ -2408,7 +2420,8 @@ def cmd_task_edit(args) -> int:
                                         f = dest
                                     except Exception as e:
                                         message(
-                                            "error", f"Failed to copy as '{dest.name}': {e}"
+                                            "error",
+                                            f"Failed to copy as '{dest.name}': {e}",
                                         )
                                         return 1
                                 else:  # cancel
@@ -2520,7 +2533,9 @@ def cmd_task_import(args) -> int:
                     new_name = _Prompt.ask(
                         "New filename", default=f"copy_of_{dest.name}"
                     )
-                    dest = dest_dir / (new_name if new_name.endswith(".py") else f"{new_name}.py")
+                    dest = dest_dir / (
+                        new_name if new_name.endswith(".py") else f"{new_name}.py"
+                    )
             except Exception:
                 message(
                     "warning",
@@ -2543,7 +2558,10 @@ def cmd_task_import(args) -> int:
             print("\nUse your task with:")
             print(f"  autocleaneeg-pipeline process {class_name} <data_file>")
         except Exception:
-            message("warning", "Could not detect Task class. Ensure the file defines a class extending Task.")
+            message(
+                "warning",
+                "Could not detect Task class. Ensure the file defines a class extending Task.",
+            )
 
         return 0
     except Exception as e:
@@ -2558,7 +2576,10 @@ def cmd_task_delete(args) -> int:
         f = _resolve_task_file(args.target)
         if not f:
             message("error", f"Task not found: {args.target}")
-            message("info", "Provide a workspace task name or a path under your workspace tasks/")
+            message(
+                "info",
+                "Provide a workspace task name or a path under your workspace tasks/",
+            )
             return 1
 
         # Ensure within workspace tasks dir
@@ -2579,7 +2600,10 @@ def cmd_task_delete(args) -> int:
                     message("info", "Canceled")
                     return 0
             except Exception:
-                message("warning", "Interactive prompt unavailable; re-run with --force to skip")
+                message(
+                    "warning",
+                    "Interactive prompt unavailable; re-run with --force to skip",
+                )
                 return 1
 
         try:
@@ -2597,7 +2621,9 @@ def cmd_task_delete(args) -> int:
 def cmd_task_copy(args) -> int:
     """Copy a task to a new file in the workspace tasks directory."""
     try:
-        source = args.source if hasattr(args, "source") else getattr(args, "target", None)
+        source = (
+            args.source if hasattr(args, "source") else getattr(args, "target", None)
+        )
         if not source:
             message("error", "No source provided")
             return 1
@@ -2624,7 +2650,9 @@ def cmd_task_copy(args) -> int:
         dest_dir = user_config.tasks_dir
         dest_dir.mkdir(parents=True, exist_ok=True)
         base_name = args.name or src_path.stem
-        dest = dest_dir / (base_name if str(base_name).endswith(".py") else f"{base_name}.py")
+        dest = dest_dir / (
+            base_name if str(base_name).endswith(".py") else f"{base_name}.py"
+        )
 
         # Conflict handling
         if dest.exists() and not getattr(args, "force", False):
@@ -2640,10 +2668,17 @@ def cmd_task_copy(args) -> int:
                     message("info", "Canceled")
                     return 0
                 if choice == "rename":
-                    new_name = _Prompt.ask("New filename", default=f"copy_of_{dest.name}")
-                    dest = dest_dir / (new_name if new_name.endswith(".py") else f"{new_name}.py")
+                    new_name = _Prompt.ask(
+                        "New filename", default=f"copy_of_{dest.name}"
+                    )
+                    dest = dest_dir / (
+                        new_name if new_name.endswith(".py") else f"{new_name}.py"
+                    )
             except Exception:
-                message("warning", "Interactive prompt unavailable; re-run with --force or --name")
+                message(
+                    "warning",
+                    "Interactive prompt unavailable; re-run with --force or --name",
+                )
                 return 1
 
         # Execute copy
@@ -3866,7 +3901,7 @@ def main(argv: Optional[list] = None) -> int:
 
             # Docs line
             docs_line = _LText()
-            docs_line.append("📘 Docs ", style="muted")
+            docs_line.append("📘 Quick Start & Docs ", style="muted")
             docs_line.append("https://docs.autocleaneeg.org", style="accent")
             console.print(_LAlign.center(docs_line))
 
