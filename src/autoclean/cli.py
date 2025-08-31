@@ -329,10 +329,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         rows = [
             ("📜 task list", "List available tasks (same as 'list-tasks')"),
             ("📂 task explore", "Open the workspace tasks folder"),
-            ("✏️  task edit <name|path>", "Edit a task in your editor"),
+            ("✏️  task edit [name|path]", "Edit task (omit uses active)"),
             ("📥 task import <path>", "Copy a task file into workspace"),
-            ("📄 task copy <name|path>", "Copy a task to a new file"),
-            ("🗑  task delete <name|path>", "Delete a workspace task file"),
+            ("📄 task copy [name|path]", "Copy task (omit uses active)"),
+            ("🗑  task delete [name|path]", "Delete task (omit uses active)"),
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
@@ -629,11 +629,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Delete task (alias with path/name support)
     delete_task_parser = task_subparsers.add_parser(
-        "delete", help="Delete a workspace task file", add_help=False
+        "delete", help="Delete a workspace task file (omit target to use active task)", add_help=False
     )
     attach_rich_help(delete_task_parser)
     delete_task_parser.add_argument(
-        "target", type=str, help="Task name (workspace) or path to task file"
+        "target", type=str, nargs="?", help="Task name (workspace) or path to task file (omit to use active task)"
     )
     delete_task_parser.add_argument(
         "--force", action="store_true", help="Skip confirmation"
@@ -661,13 +661,14 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Edit task (open in shell editor)
     edit_parser = task_subparsers.add_parser(
-        "edit", help="Edit a task in your editor", add_help=False
+        "edit", help="Edit a task in your editor (omit target to use active task)", add_help=False
     )
     attach_rich_help(edit_parser)
     edit_parser.add_argument(
         "target",
         type=str,
-        help="Task name (workspace) or path to a task file",
+        nargs="?",
+        help="Task name (workspace) or path to a task file (omit to use active task)",
     )
     edit_parser.add_argument(
         "--name",
@@ -703,13 +704,14 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Copy task (name or path)
     copy_parser = task_subparsers.add_parser(
-        "copy", help="Copy a task to a new workspace file", add_help=False
+        "copy", help="Copy a task to a new workspace file (omit source to use active task)", add_help=False
     )
     attach_rich_help(copy_parser)
     copy_parser.add_argument(
         "source",
         type=str,
-        help="Task name (workspace/built-in) or path to copy from",
+        nargs="?",
+        help="Task name (workspace/built-in) or path to copy from (omit to use active task)",
     )
     copy_parser.add_argument(
         "--name",
@@ -2574,7 +2576,37 @@ def _detect_editor() -> Optional[list]:
 def cmd_task_edit(args) -> int:
     """Open specified task in the user's editor."""
     try:
-        target = args.target
+        target = getattr(args, "target", None)
+        if not target:
+            try:
+                from rich.prompt import Confirm as _Confirm
+
+                active = user_config.get_active_task()
+                if active:
+                    if not _Confirm.ask(
+                        f"Open active task '{active}'?", default=True
+                    ):
+                        message("info", "Canceled")
+                        return 0
+                    target = active
+                else:
+                    message(
+                        "error",
+                        "No target provided and no active task is set.",
+                    )
+                    message(
+                        "info",
+                        "Set one with: autocleaneeg-pipeline task set or pass a task name/path",
+                    )
+                    return 1
+            except Exception:
+                message(
+                    "error",
+                    "Interactive prompt unavailable and no target provided. Re-run with a task name/path.",
+                )
+                return 1
+
+        # Resolve task target
         f = _resolve_task_file(target)
         if not f:
             # Try to resolve by discovered task name (built-in or workspace)
@@ -2808,10 +2840,41 @@ def cmd_task_import(args) -> int:
 def cmd_task_delete(args) -> int:
     """Delete a task file from the workspace tasks directory."""
     try:
+        # Determine target: use provided or confirm using active task
+        target = getattr(args, "target", None)
+        if not target:
+            try:
+                from rich.prompt import Confirm as _Confirm
+
+                active = user_config.get_active_task()
+                if active:
+                    if not _Confirm.ask(
+                        f"Use active task '{active}'?", default=True
+                    ):
+                        message("info", "Canceled")
+                        return 0
+                    target = active
+                else:
+                    message(
+                        "error",
+                        "No target provided and no active task is set.",
+                    )
+                    message(
+                        "info",
+                        "Set one with: autocleaneeg-pipeline task set or pass a task name/path",
+                    )
+                    return 1
+            except Exception:
+                message(
+                    "error",
+                    "Interactive prompt unavailable and no target provided. Re-run with a task name/path.",
+                )
+                return 1
+
         # Resolve to path; don't allow deleting built-ins
-        f = _resolve_task_file(args.target)
+        f = _resolve_task_file(target)
         if not f:
-            message("error", f"Task not found: {args.target}")
+            message("error", f"Task not found: {target}")
             message(
                 "info",
                 "Provide a workspace task name or a path under your workspace tasks/",
@@ -2861,8 +2924,33 @@ def cmd_task_copy(args) -> int:
             args.source if hasattr(args, "source") else getattr(args, "target", None)
         )
         if not source:
-            message("error", "No source provided")
-            return 1
+            try:
+                from rich.prompt import Confirm as _Confirm
+
+                active = user_config.get_active_task()
+                if active:
+                    if not _Confirm.ask(
+                        f"Use active task '{active}'?", default=True
+                    ):
+                        message("info", "Canceled")
+                        return 0
+                    source = active
+                else:
+                    message(
+                        "error",
+                        "No source provided and no active task is set.",
+                    )
+                    message(
+                        "info",
+                        "Set one with: autocleaneeg-pipeline task set or pass a task name/path",
+                    )
+                    return 1
+            except Exception:
+                message(
+                    "error",
+                    "Interactive prompt unavailable and no source provided. Re-run with a task name/path.",
+                )
+                return 1
 
         # Resolve source: path or discovered name
         src_path = _resolve_task_file(source)
