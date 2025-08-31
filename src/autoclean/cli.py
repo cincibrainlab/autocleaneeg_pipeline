@@ -194,7 +194,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("❓ help", "Show help and topics (alias for -h/--help)"),
         ("⚙️  setup", "Setup or reconfigure workspace"),
         ("👁  view", "View EEG file (MNE-QT)"),
-        ("📜 list-tasks", "List available tasks"),
+        ("📜 list-tasks", "List available tasks (alias: 'task list')"),
         ("▶  process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
         ("🔐 auth", "Authentication & Part-11 commands"),
@@ -409,6 +409,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     task_subparsers = task_parser.add_subparsers(
         dest="task_action", help="Task actions"
     )
+    # Default to 'list' when no subcommand is provided (so 'task' == 'task list')
+    task_parser.set_defaults(task_action="list")
 
     # Add task
     add_task_parser = task_subparsers.add_parser(
