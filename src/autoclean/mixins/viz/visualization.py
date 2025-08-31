@@ -827,7 +827,57 @@ class VisualizationMixin:
         # Parameters for PSD
         fmin = 0.5
         fmax = 80
-        n_fft = int(raw_original.info["sfreq"] * 2)  # Window length of 2 seconds
+
+        sfreq = raw_original.info["sfreq"]
+
+        def _get_good_segments(raw: mne.io.BaseRaw) -> List[Tuple[int, int]]:
+            """Return good data segments in sample indices."""
+            n_times = raw.n_times
+            if len(raw.annotations) == 0:
+                return [(0, n_times)]
+
+            onsets = ((raw.annotations.onset - raw.first_time) * sfreq).astype(int)
+            durations = (raw.annotations.duration * sfreq).astype(int)
+            descriptions = raw.annotations.description
+            bad_segments = [
+                (max(0, start), min(n_times, start + dur))
+                for start, dur, desc in zip(onsets, durations, descriptions)
+                if desc.lower().startswith("bad")
+            ]
+            bad_segments.sort()
+
+            segments: List[Tuple[int, int]] = []
+            prev_end = 0
+            for start, end in bad_segments:
+                if start > prev_end:
+                    segments.append((prev_end, start))
+                prev_end = max(prev_end, end)
+            if prev_end < n_times:
+                segments.append((prev_end, n_times))
+            return segments
+
+        # Determine good segments and optionally discard short ones
+        good_segments = _get_good_segments(raw_original)
+        min_seg_sec = self.config.get("psd_min_segment_sec", 0)
+        min_seg_samples = int(min_seg_sec * sfreq)
+
+        if min_seg_samples > 0:
+            for start, end in good_segments:
+                if end - start < min_seg_samples:
+                    onset = start / sfreq + raw_original.first_time
+                    duration = (end - start) / sfreq
+                    raw_original.annotations.append(onset, duration, "BAD_short")
+                    raw_cleaned.annotations.append(onset, duration, "BAD_short")
+            good_segments = [
+                (s, e) for s, e in good_segments if e - s >= min_seg_samples
+            ]
+
+        if good_segments:
+            min_segment_samples = min(e - s for s, e in good_segments)
+        else:
+            min_segment_samples = raw_original.n_times
+
+        n_fft = int(min(sfreq * 2, min_segment_samples))
 
         # Compute PSD for original and cleaned data
         psd_original = raw_original.compute_psd(
