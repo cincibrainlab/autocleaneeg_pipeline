@@ -208,8 +208,13 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         rows = [
-            ("🗂 workspace", "Configure workspace folder"),
-            ("🔐 auth setup|enable|disable", "Compliance controls (Auth0)")
+            ("🗂 workspace", "Configure workspace folder (wizard)"),
+            ("📂 workspace explore", "Open the workspace folder"),
+            ("📏 workspace size", "Show total workspace size"),
+            ("📌 workspace set <path>", "Change the workspace folder"),
+            ("❎ workspace unset", "Unassign current workspace (clear config)"),
+            ("—", "—"),
+            ("🔐 auth setup|enable|disable", "Compliance controls (Auth0)"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -538,6 +543,30 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "workspace", help="Configure workspace folder", add_help=False
     )
     attach_rich_help(workspace_parser)
+    workspace_subparsers = workspace_parser.add_subparsers(
+        dest="workspace_action", help="Workspace actions"
+    )
+
+    ws_explore = workspace_subparsers.add_parser(
+        "explore", help="Open the workspace folder in Finder/Explorer", add_help=False
+    )
+    attach_rich_help(ws_explore)
+
+    ws_size = workspace_subparsers.add_parser(
+        "size", help="Show total workspace size", add_help=False
+    )
+    attach_rich_help(ws_size)
+
+    ws_set = workspace_subparsers.add_parser(
+        "set", help="Change the workspace folder", add_help=False
+    )
+    attach_rich_help(ws_set)
+    ws_set.add_argument("path", type=Path, help="New workspace directory path")
+
+    ws_unset = workspace_subparsers.add_parser(
+        "unset", help="Unassign current workspace (clear config)", add_help=False
+    )
+    attach_rich_help(ws_unset)
 
     # Export access log command
     export_log_parser = subparsers.add_parser(
@@ -1147,14 +1176,142 @@ def cmd_review(args) -> int:
         return 1
 
 
-def cmd_workspace(_args) -> int:
-    """Run the workspace configuration wizard (workspace only)."""
+def cmd_workspace(args) -> int:
+    """Workspace command dispatcher and helpers."""
+    # No subcommand → show elegant workspace help
+    if not getattr(args, "workspace_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "workspace")
+        return 0
+
+    action = args.workspace_action
+    if action == "explore":
+        return cmd_workspace_explore(args)
+    if action == "size":
+        return cmd_workspace_size(args)
+    if action == "set":
+        return cmd_workspace_set(args)
+    if action == "unset":
+        return cmd_workspace_unset(args)
+    message("error", f"Unknown workspace action: {action}")
+    return 1
+
+
+def cmd_workspace_explore(_args) -> int:
+    """Open the workspace directory in the system file browser."""
     try:
-        return _setup_basic_mode()
-    except KeyboardInterrupt:
+        ws = user_config.config_dir
+        ws.mkdir(parents=True, exist_ok=True)
+        message("info", f"Opening workspace folder: {ws}")
+        try:
+            if sys.platform.startswith("darwin"):
+                subprocess.run(["open", str(ws)], check=False)
+            elif sys.platform.startswith("win"):
+                os.startfile(str(ws))  # type: ignore[attr-defined]
+            else:
+                if shutil.which("xdg-open"):
+                    subprocess.run(["xdg-open", str(ws)], check=False)
+                else:
+                    print(str(ws))
+        except Exception:
+            print(str(ws))
         return 0
     except Exception as e:
-        print(f"❌ Workspace setup failed: {str(e)}")
+        message("error", f"Failed to open workspace folder: {e}")
+        return 1
+
+
+def _dir_size_bytes(path: Path) -> int:
+    total = 0
+    try:
+        for p in path.rglob("*"):
+            try:
+                if p.is_file():
+                    total += p.stat().st_size
+            except Exception:
+                continue
+    except Exception:
+        pass
+    return total
+
+
+def _fmt_bytes(n: int) -> str:
+    gb = n / (1024 ** 3)
+    if gb >= 1:
+        return f"{gb:.2f} GB"
+    mb = n / (1024 ** 2)
+    if mb >= 1:
+        return f"{mb:.2f} MB"
+    kb = n / 1024
+    if kb >= 1:
+        return f"{kb:.2f} KB"
+    return f"{n} B"
+
+
+def cmd_workspace_size(_args) -> int:
+    """Show total workspace size."""
+    try:
+        ws = user_config.config_dir
+        size_b = _dir_size_bytes(ws) if ws.exists() else 0
+        console = get_console()
+        from rich.text import Text as _Text
+        from rich.align import Align as _Align
+
+        line = _Text()
+        line.append("📂 ", style="muted")
+        line.append("Workspace: ", style="muted")
+        line.append(str(ws), style="accent")
+        console.print(_Align.center(line))
+
+        size_line = _Text()
+        size_line.append("Total size: ", style="muted")
+        size_line.append(_fmt_bytes(size_b), style="accent")
+        console.print(_Align.center(size_line))
+        console.print()
+        return 0
+    except Exception as e:
+        message("error", f"Failed to compute workspace size: {e}")
+        return 1
+
+
+def cmd_workspace_set(args) -> int:
+    """Change the workspace folder to the given path and initialize structure."""
+    try:
+        new_path = args.path.expanduser().resolve()
+        new_path.mkdir(parents=True, exist_ok=True)
+        # Initialize structure and save config
+        user_config._save_global_config(new_path)
+        user_config._create_workspace_structure(new_path)
+        # Update current instance
+        user_config.config_dir = new_path
+        user_config.tasks_dir = new_path / "tasks"
+        message("success", "✓ Workspace updated")
+        message("info", str(new_path))
+        return 0
+    except Exception as e:
+        message("error", f"Failed to set workspace: {e}")
+        return 1
+
+
+def cmd_workspace_unset(_args) -> int:
+    """Unassign current workspace by clearing saved config."""
+    try:
+        import platformdirs  # local import to avoid global dep in CLI
+
+        cfg = Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        if cfg.exists():
+            cfg.unlink()
+            message("success", "✓ Workspace unassigned (config cleared)")
+        else:
+            message("info", "No saved workspace configuration found")
+        # Reset in-memory paths to default suggestion
+        user_config.config_dir = user_config._get_workspace_path()
+        user_config.tasks_dir = user_config.config_dir / "tasks"
+        return 0
+    except Exception as e:
+        message("error", f"Failed to unset workspace: {e}")
         return 1
 
 
