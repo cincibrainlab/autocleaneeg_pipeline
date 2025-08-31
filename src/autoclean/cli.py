@@ -211,7 +211,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("❓ help", "Show help and topics (alias for -h/--help)"),
         ("⚙️  setup", "Setup or reconfigure workspace"),
         ("👁  view", "View EEG file (MNE-QT)"),
-        ("📜 list-tasks", "List available tasks (alias: 'task list')"),
+        ("🗂 task", "Manage tasks (list, explore)"),
         ("▶  process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
         ("🔐 auth", "Authentication & Part-11 commands"),
@@ -2997,7 +2997,7 @@ def main(argv: Optional[list] = None) -> int:
             from rich.text import Text as _KText
             from rich.align import Align as _KAlign
 
-            key_cmds = ["help", "setup", "view", "list-tasks", "process", "review"]
+            key_cmds = ["help", "setup", "view", "task", "process", "review"]
             belt = _KText()
             for i, cmd in enumerate(key_cmds):
                 if i > 0:
