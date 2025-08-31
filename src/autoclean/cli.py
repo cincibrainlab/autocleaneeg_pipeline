@@ -198,7 +198,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             tbl.add_row(c, d)
         console.print(tbl)
         console.print()
-        console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+        console.print(
+            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
         console.print()
         return
 
@@ -208,7 +210,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         rows = [
-            ("🗂 workspace", "Configure workspace folder (wizard)"),
+            ("🗂  workspace", "Configure workspace folder (wizard)"),
             ("📂 workspace explore", "Open the workspace folder"),
             ("📏 workspace size", "Show total workspace size"),
             ("📌 workspace set <path>", "Change the workspace folder"),
@@ -222,7 +224,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             tbl.add_row(c, d)
         console.print(tbl)
         console.print()
-        console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+        console.print(
+            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
         console.print()
         return
 
@@ -571,12 +575,16 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     attach_rich_help(ws_unset)
 
     ws_default = workspace_subparsers.add_parser(
-        "default", help="Set workspace to the recommended default location", add_help=False
+        "default",
+        help="Set workspace to the recommended default location",
+        add_help=False,
     )
     attach_rich_help(ws_default)
 
     ws_cd = workspace_subparsers.add_parser(
-        "cd", help="Change directory to workspace (prints path or spawns subshell)", add_help=False
+        "cd",
+        help="Change directory to workspace (prints path or spawns subshell)",
+        add_help=False,
     )
     attach_rich_help(ws_cd)
     ws_cd.add_argument(
@@ -776,13 +784,19 @@ def validate_args(args) -> bool:
                 tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
                 tbl.add_row("--task-file", "Path to Python task file")
                 tbl.add_row("file|--file", "Single EEG file (.raw, .edf, .set, .fif)")
-                tbl.add_row("dir|--dir", "Directory of EEG files (use --format, --recursive)")
-                tbl.add_row("--format", "Glob pattern (default: *.set; '*.raw', '*.edf', ...)")
+                tbl.add_row(
+                    "dir|--dir", "Directory of EEG files (use --format, --recursive)"
+                )
+                tbl.add_row(
+                    "--format", "Glob pattern (default: *.set; '*.raw', '*.edf', ...)"
+                )
                 tbl.add_row("--recursive", "Search subdirectories for matching files")
                 tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
                 tbl.add_row("--dry-run", "Show what would run without processing")
                 console.print(tbl)
-                console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+                console.print(
+                    "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+                )
                 console.print()
             except Exception:
                 console.print(
@@ -830,14 +844,28 @@ def validate_args(args) -> bool:
                     tbl.add_column("Details", style="muted")
                     tbl.add_row("task|--task", "Task name (e.g., RestingEyesOpen)")
                     tbl.add_row("--task-file", "Path to Python task file")
-                    tbl.add_row("file|--file", "Single EEG file (.raw, .edf, .set, .fif)")
-                    tbl.add_row("dir|--dir", "Directory of EEG files (use --format, --recursive)")
-                    tbl.add_row("--format", "Glob pattern (default: *.set; '*.raw', '*.edf', ...)")
-                    tbl.add_row("--recursive", "Search subdirectories for matching files")
-                    tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
+                    tbl.add_row(
+                        "file|--file", "Single EEG file (.raw, .edf, .set, .fif)"
+                    )
+                    tbl.add_row(
+                        "dir|--dir",
+                        "Directory of EEG files (use --format, --recursive)",
+                    )
+                    tbl.add_row(
+                        "--format",
+                        "Glob pattern (default: *.set; '*.raw', '*.edf', ...)",
+                    )
+                    tbl.add_row(
+                        "--recursive", "Search subdirectories for matching files"
+                    )
+                    tbl.add_row(
+                        "-p N", "Process N files in parallel (default 3, max 8)"
+                    )
                     tbl.add_row("--dry-run", "Show what would run without processing")
                     console.print(tbl)
-                    console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+                    console.print(
+                        "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+                    )
                     console.print()
                 except Exception:
                     console.print(
@@ -865,7 +893,9 @@ def validate_args(args) -> bool:
                 from rich.table import Table as _Table
 
                 console.print("[header]View EEG[/header]")
-                console.print("[muted]Usage:[/muted] [accent]autocleaneeg-pipeline view <file> [--no-view][/accent]")
+                console.print(
+                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline view <file> [--no-view][/accent]"
+                )
                 console.print()
 
                 tbl = _Table(show_header=False, box=None, padding=(0, 1))
@@ -874,7 +904,9 @@ def validate_args(args) -> bool:
                 tbl.add_row("file", "Path to EEG file (.set, .edf, .fif, .raw)")
                 tbl.add_row("--no-view", "Validate without opening the viewer")
                 console.print(tbl)
-                console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
+                console.print(
+                    "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+                )
                 console.print()
             except Exception:
                 console.print("Usage: autocleaneeg-pipeline view <file> [--no-view]")
@@ -1264,10 +1296,10 @@ def _dir_size_bytes(path: Path) -> int:
 
 
 def _fmt_bytes(n: int) -> str:
-    gb = n / (1024 ** 3)
+    gb = n / (1024**3)
     if gb >= 1:
         return f"{gb:.2f} GB"
-    mb = n / (1024 ** 2)
+    mb = n / (1024**2)
     if mb >= 1:
         return f"{mb:.2f} MB"
     kb = n / 1024
@@ -1326,7 +1358,9 @@ def cmd_workspace_unset(_args) -> int:
     try:
         import platformdirs  # local import to avoid global dep in CLI
 
-        cfg = Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        cfg = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
         if cfg.exists():
             cfg.unlink()
             message("success", "✓ Workspace unassigned (config cleared)")
@@ -1448,11 +1482,11 @@ def cmd_workspace_cd(args) -> int:
             if kind in ("bash", "zsh"):
                 print(f"cd '{_esc_for_bash_zsh(p)}'")
             elif kind == "fish":
-                print(f"cd \"{_esc_for_fish(p)}\"")
+                print(f'cd "{_esc_for_fish(p)}"')
             elif kind == "powershell":
                 print(f"Set-Location -Path '{_esc_for_powershell(p)}'")
             else:  # cmd
-                print(f"cd /D \"{_esc_for_cmd(p)}\"")
+                print(f'cd /D "{_esc_for_cmd(p)}"')
             return 0
 
         # Default: print path only (no styling) for command substitution
@@ -1521,6 +1555,7 @@ def _run_interactive_setup() -> int:
 
             # Centered compliance status
             from rich.text import Text as _CText
+
             status = _CText()
             compliance = get_compliance_status()
             if compliance["permanent"]:
@@ -1567,9 +1602,7 @@ def _run_interactive_setup() -> int:
             choices = [("Configure workspace folder", "workspace")]
 
             if is_enabled:
-                choices.append(
-                    ("Disable compliance mode", "disable_compliance")
-                )
+                choices.append(("Disable compliance mode", "disable_compliance"))
             else:
                 choices.append(("Enable compliance mode", "enable_compliance"))
 
@@ -1621,7 +1654,9 @@ def _setup_basic_mode() -> int:
 
         console.print()
         console.print("[title]Workspace Configuration[/title]")
-        console.print("[muted]Choose or confirm the folder where AutoClean stores config and tasks.[/muted]")
+        console.print(
+            "[muted]Choose or confirm the folder where AutoClean stores config and tasks.[/muted]"
+        )
         console.print()
 
         # Always run full workspace setup (includes prompting to change location if exists)
@@ -1643,7 +1678,9 @@ def _setup_basic_mode() -> int:
         save_user_config(user_config_data)
 
         console.print("[success]✓ Workspace configured[/success]")
-        console.print("[muted]Next: run 'autocleaneeg-pipeline task list' or 'process'.[/muted]")
+        console.print(
+            "[muted]Next: run 'autocleaneeg-pipeline task list' or 'process'.[/muted]"
+        )
 
         return 0
 
@@ -1670,6 +1707,7 @@ def _setup_compliance_mode() -> int:
         try:
             from rich.text import Text as _XText
             from rich.align import Align as _XAlign
+
             ws_line = _XText()
             home = str(Path.home())
             display_path = str(user_config.config_dir)
@@ -1811,7 +1849,9 @@ def _enable_compliance_mode() -> int:
                 "info",
                 "1. Run 'autocleaneeg-pipeline login' to authenticate (when needed)",
             )
-            message("info", "2. Use 'autocleaneeg-pipeline auth disable' to turn it off")
+            message(
+                "info", "2. Use 'autocleaneeg-pipeline auth disable' to turn it off"
+            )
             return 0
         else:
             message("error", "Failed to enable compliance mode")
@@ -2881,7 +2921,7 @@ def cmd_auth0_diagnostics(args) -> int:
 
         if not compliance_enabled:
             console.print(
-                    "[info]ℹ Auth0 is only used in compliance mode. Run 'autocleaneeg-pipeline auth enable' to enable.[/info]"
+                "[info]ℹ Auth0 is only used in compliance mode. Run 'autocleaneeg-pipeline auth enable' to enable.[/info]"
             )
             return 0
 
