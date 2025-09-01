@@ -13,7 +13,10 @@ from autoclean.functions.ica import (
     classify_ica_components,
     fit_ica,
 )
-from autoclean.functions.ica.ica_processing import update_ica_control_sheet
+from autoclean.functions.ica.ica_processing import (
+    process_ica_control_sheet,
+    update_ica_control_sheet,
+)
 
 
 @pytest.fixture
@@ -387,3 +390,58 @@ class TestIcaControlSheet:
         assert df2.loc[0, "manual_drop"] == ""
         assert df2.loc[0, "status"] == "applied"
         assert df2.loc[0, "final_removed"] == "0,2,3,7"
+
+    def test_process_ica_control_sheet(self, tmp_path):
+        """Ensure manual ICA edits are applied and data saved."""
+        raw_dir = tmp_path / "raw"
+        raw_dir.mkdir()
+        derivatives_dir = tmp_path / "derivatives"
+        derivatives_dir.mkdir()
+        metadata_dir = tmp_path / "meta"
+        metadata_dir.mkdir()
+
+        # Create synthetic raw data
+        sfreq = 100.0
+        info = mne.create_info(["Fz", "Cz"], sfreq, ch_types="eeg")
+        data = np.random.randn(2, int(sfreq * 2))
+        raw = mne.io.RawArray(data, info)
+        unprocessed_file = raw_dir / "subject_raw.fif"
+        raw.save(unprocessed_file, overwrite=True)
+
+        # Fit and save ICA
+        ica = ICA(n_components=2, random_state=97, max_iter=1)
+        ica.fit(raw)
+        ica_path = derivatives_dir / "subject_raw-ica.fif"
+        ica.save(ica_path)
+
+        autoclean_dict = {
+            "metadata_dir": metadata_dir,
+            "derivatives_dir": derivatives_dir,
+            "unprocessed_file": unprocessed_file,
+        }
+
+        # Initial control sheet entry
+        update_ica_control_sheet(autoclean_dict, [0])
+
+        # Simulate manual addition of component 1
+        sheet = metadata_dir / "ica_control_sheet.csv"
+        df = pd.read_csv(sheet, dtype=str, keep_default_na=False)
+        df.loc[0, "manual_add"] = "1"
+        df.loc[0, "status"] = "pending"
+        df.to_csv(sheet, index=False)
+
+        # Process control sheet updates
+        process_ica_control_sheet(autoclean_dict)
+
+        # Verify control sheet updated
+        df2 = pd.read_csv(sheet, dtype=str, keep_default_na=False)
+        assert df2.loc[0, "manual_add"] == ""
+        assert df2.loc[0, "manual_drop"] == ""
+        assert df2.loc[0, "final_removed"] == "0,1"
+        assert df2.loc[0, "status"] == "applied"
+
+        # Verify cleaned file saved
+        cleaned = derivatives_dir / "subject_raw.fif"
+        assert cleaned.exists()
+        cleaned_raw = mne.io.read_raw_fif(cleaned, preload=True)
+        assert not np.allclose(raw.get_data(), cleaned_raw.get_data())
