@@ -451,12 +451,20 @@ def _discover_pre_ica_path(
     """
     try:
         stage_dir = Path(autoclean_dict.get("stage_dir") or Path(autoclean_dict["derivatives_dir"]) / "intermediate")
-        candidates = sorted(
+        # Prefer FIF to avoid EEGLAB event parsing issues
+        fif_candidates = sorted(
+            stage_dir.glob(f"**/*_pre_ica/{basename}_pre_ica_raw.fif"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        if fif_candidates:
+            return fif_candidates[0]
+        set_candidates = sorted(
             stage_dir.glob(f"**/*_pre_ica/{basename}_pre_ica_raw.set"),
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
-        return candidates[0] if candidates else None
+        return set_candidates[0] if set_candidates else None
     except Exception:  # best-effort discovery; ignore errors
         return None
 
@@ -622,8 +630,11 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
             f"Could not find pre-ICA stage file for {original_file}. Run an ICA processing pass first."
         )
 
-    # Read EEGLAB pre-ICA set
-    raw = mne.io.read_raw_eeglab(str(pre_ica_path), preload=True)
+    # Read pre-ICA data (prefer FIF if provided)
+    if str(pre_ica_path).lower().endswith(".fif"):
+        raw = mne.io.read_raw_fif(str(pre_ica_path), preload=True, verbose=False)
+    else:
+        raw = mne.io.read_raw_eeglab(str(pre_ica_path), preload=True)
     ica = read_ica(ica_fif)
 
     # Apply exclusions and save cleaned data as a new stage
