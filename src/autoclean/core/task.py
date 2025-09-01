@@ -91,7 +91,8 @@ class Task(ABC, *DISCOVERED_MIXINS):
         ...         # Processing steps here
         """
         # Auto-detect module-level config for Python tasks
-        if not hasattr(self, "settings"):
+        # Ensure binding occurs even if a placeholder attribute exists but is None
+        if not hasattr(self, "settings") or getattr(self, "settings", None) is None:
             # Get the module where this class was defined
             module = inspect.getmodule(self.__class__)
             if module and hasattr(module, "config"):
