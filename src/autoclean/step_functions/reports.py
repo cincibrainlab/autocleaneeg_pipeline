@@ -484,28 +484,119 @@ def create_run_report(
     # Processing Steps Section
     story.append(Paragraph("Processing Steps", heading_style))
 
-    # Get processing steps from metadata
+    # Get processing steps from metadata with parameters
     steps_data = []
+    
+    def format_parameters(step_name, step_data):
+        """Format parameters for display based on step type."""
+        if not isinstance(step_data, dict):
+            return "N/A"
+        
+        params = []
+        
+        if step_name == "step_filter_data":
+            # Filter parameters
+            if "applied_l_freq" in step_data and step_data["applied_l_freq"] is not None:
+                params.append(f"High-pass: {step_data['applied_l_freq']} Hz")
+            if "applied_h_freq" in step_data and step_data["applied_h_freq"] is not None:
+                params.append(f"Low-pass: {step_data['applied_h_freq']} Hz")
+            if "applied_notch_freqs" in step_data and step_data["applied_notch_freqs"]:
+                freqs = step_data["applied_notch_freqs"]
+                if isinstance(freqs, list):
+                    params.append(f"Notch: {', '.join(map(str, freqs))} Hz")
+                else:
+                    params.append(f"Notch: {freqs} Hz")
+        
+        elif step_name == "step_resample_data":
+            # Resample parameters
+            if "target_sfreq" in step_data and step_data["target_sfreq"] is not None:
+                params.append(f"Target rate: {step_data['target_sfreq']} Hz")
+            if "actual_sfreq" in step_data and step_data["actual_sfreq"] is not None:
+                params.append(f"Actual rate: {step_data['actual_sfreq']} Hz")
+        
+        elif step_name == "step_rereference_data":
+            # Rereference parameters
+            if "new_ref_type" in step_data and step_data["new_ref_type"] is not None:
+                params.append(f"Reference: {step_data['new_ref_type']}")
+        
+        elif step_name == "step_drop_outerlayer":
+            # Drop channels parameters
+            if "dropped_outer_layer_channels" in step_data:
+                channels = step_data["dropped_outer_layer_channels"]
+                if channels and isinstance(channels, list):
+                    params.append(f"Dropped {len(channels)} channels")
+        
+        elif step_name == "step_assign_eog_channels":
+            # EOG assignment parameters
+            if "assigned_eog_channels" in step_data:
+                eog_channels = step_data["assigned_eog_channels"]
+                if eog_channels and isinstance(eog_channels, list):
+                    params.append(f"EOG: {', '.join(eog_channels)}")
+        
+        elif step_name == "step_trim_edges":
+            # Trim parameters
+            if "trim_duration" in step_data and step_data["trim_duration"] is not None:
+                params.append(f"Trim: {step_data['trim_duration']} sec")
+        
+        elif step_name == "step_crop_duration":
+            # Crop parameters
+            if "crop_duration" in step_data and step_data["crop_duration"] is not None:
+                params.append(f"Duration: {step_data['crop_duration']} sec")
+            if "crop_start" in step_data and "crop_end" in step_data:
+                start = step_data["crop_start"]
+                end = step_data["crop_end"]
+                if start is not None and end is not None:
+                    params.append(f"Window: {start:.1f}-{end:.1f} sec")
+        
+        elif step_name == "step_run_ica":
+            # ICA parameters
+            if isinstance(step_data, dict) and "ica" in step_data:
+                ica_data = step_data["ica"]
+                if "ica_components" in ica_data and ica_data["ica_components"] is not None:
+                    params.append(f"Components: {ica_data['ica_components']}")
+                if "ica_method" in ica_data and ica_data["ica_method"] is not None:
+                    params.append(f"Method: {ica_data['ica_method']}")
+        
+        elif step_name == "step_apply_ica_component_rejection":
+            # ICA rejection parameters
+            if isinstance(step_data, dict) and "ica" in step_data:
+                ica_data = step_data["ica"]
+                if "final_excluded_indices" in ica_data and ica_data["final_excluded_indices"]:
+                    excluded = ica_data["final_excluded_indices"]
+                    if isinstance(excluded, list):
+                        params.append(f"Removed: {len(excluded)} components")
+        
+        elif step_name == "step_clean_bad_channels":
+            # Bad channels cleaning parameters
+            if "bads" in step_data and step_data["bads"]:
+                bads = step_data["bads"]
+                if isinstance(bads, list):
+                    params.append(f"Removed {len(bads)} channels")
+        
+        return "; ".join(params) if params else "Default parameters"
+
     try:
-        # Fall back to metadata for steps
+        # Process metadata for steps with parameters
         for step_name, step_data in run_record["metadata"].items():
             if step_name.startswith("step_") and step_name not in [
                 "step_prepare_directories",
             ]:
                 # Format step name for display
                 display_name = step_name.replace("step_", "").replace("_", " ").title()
-                steps_data.append([display_name])
+                # Get formatted parameters
+                parameters = format_parameters(step_name, step_data)
+                steps_data.append([display_name, parameters])
     except Exception as e:  # pylint: disable=broad-except
         message("warning", f"Error processing steps data: {str(e)}")
-        steps_data = [["Error processing steps"]]
+        steps_data = [["Error processing steps", "N/A"]]
 
     if not steps_data:
-        steps_data = [["No processing steps data available"]]
+        steps_data = [["No processing steps data available", "N/A"]]
 
-    # Create steps table with background styling
+    # Create steps table with parameters column
     steps_table = ReportLabTable(
-        [[Paragraph("Processing Step", heading_style)]] + steps_data,
-        colWidths=[6 * inch],
+        [[Paragraph("Processing Step", heading_style), Paragraph("Parameters", heading_style)]] + steps_data,
+        colWidths=[2.5 * inch, 3.5 * inch],
     )
     steps_table.setStyle(
         TableStyle(
