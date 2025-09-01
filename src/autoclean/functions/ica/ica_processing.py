@@ -12,6 +12,7 @@ import mne
 import mne_icalabel
 import pandas as pd
 from mne.preprocessing import ICA, read_ica
+from autoclean.utils.bids import step_sanitize_id
 from autoclean.io.export import save_raw_to_set
 
 # Optional import for ICVision
@@ -450,8 +451,21 @@ def _discover_pre_ica_path(
     filename pattern '<basename>_pre_ica_raw.set'. Returns None if not found.
     """
     try:
+        # 1) Prefer subject-level derivatives (per-subject organization)
+        metadata_dir = Path(autoclean_dict.get("metadata_dir", ""))
+        if metadata_dir:
+            pipeline_deriv_root = metadata_dir.parent
+            subject_id = step_sanitize_id(f"{basename}")
+            subj_eeg = pipeline_deriv_root / f"sub-{subject_id}" / "eeg"
+            candidate_fif = subj_eeg / f"{basename}_pre_ica_raw.fif"
+            if candidate_fif.exists():
+                return candidate_fif
+            candidate_set = subj_eeg / f"{basename}_pre_ica_raw.set"
+            if candidate_set.exists():
+                return candidate_set
+
+        # 2) Fallback to stage directory discovery (intermediate NN_pre_ica)
         stage_dir = Path(autoclean_dict.get("stage_dir") or Path(autoclean_dict["derivatives_dir"]) / "intermediate")
-        # Prefer FIF to avoid EEGLAB event parsing issues
         fif_candidates = sorted(
             stage_dir.glob(f"**/*_pre_ica/{basename}_pre_ica_raw.fif"),
             key=lambda p: p.stat().st_mtime,
@@ -568,7 +582,9 @@ def update_ica_control_sheet(
         )
 
     # Always update paths and timestamp
-    df.loc[idx, "ica_fif"] = str(ica_fif)
+    # Preserve existing ica_fif if already set to a non-empty value
+    if str(df.loc[idx, "ica_fif"]).strip() == "":
+        df.loc[idx, "ica_fif"] = str(ica_fif)
     df.loc[idx, "last_run_iso"] = now_iso
 
     df.to_csv(sheet_path, index=False)
@@ -615,11 +631,32 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
     derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
     stage_dir = Path(autoclean_dict.get("stage_dir", derivatives_dir / "intermediate"))
     basename = Path(original_file).stem
-    ica_fif = derivatives_dir / f"{basename}-ica.fif"
 
-    # Load pre-ICA data
+    # Read control sheet row for this file
     df = pd.read_csv(sheet_path, dtype=str, keep_default_na=False)
     idx = df.index[df["original_file"] == original_file][0]
+
+    # Determine ICA FIF path: prefer recorded sheet value
+    ica_fif_str = df.loc[idx, "ica_fif"] if "ica_fif" in df.columns else ""
+    ica_fif = Path(ica_fif_str) if ica_fif_str else None
+    if not ica_fif or not ica_fif.exists():
+        # Recompute subject-specific derivatives path and try again
+        # bids_root = <...>/bids (three levels up from metadata_dir)
+        subject_id = step_sanitize_id(original_file)
+        # Use pipeline derivatives root from metadata_dir's parent
+        pipeline_deriv_root = Path(metadata_dir).parent
+        candidate = pipeline_deriv_root / f"sub-{subject_id}" / "eeg" / f"{basename}-ica.fif"
+        if candidate.exists():
+            ica_fif = candidate
+        else:
+            # Last fallback: original (possibly incorrect) path
+            ica_fif = Path(autoclean_dict.get("derivatives_dir", metadata_dir)) / f"{basename}-ica.fif"
+    # If still missing, raise a helpful error
+    if not ica_fif.exists():
+        raise FileNotFoundError(
+            f"ICA FIF not found for {original_file}. Expected at: {ica_fif}. "
+            "Run the ICA step first to create and save the decomposition."
+        )
     pre_path_str = df.loc[idx, "pre_ica_path"] if "pre_ica_path" in df.columns else ""
     pre_ica_path = Path(pre_path_str) if pre_path_str else _discover_pre_ica_path(autoclean_dict, basename)
     if not pre_ica_path or not Path(pre_ica_path).exists():
