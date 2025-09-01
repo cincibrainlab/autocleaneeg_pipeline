@@ -1731,6 +1731,7 @@ def cmd_process_ica(args) -> int:
         autoclean_dict = {
             "metadata_dir": metadata_dir,
             "derivatives_dir": derivatives_root,
+            "stage_dir": derivatives_root / "intermediate",
             "unprocessed_file": target_file,
         }
 
