@@ -13,6 +13,7 @@ from autoclean.functions.ica import (
     classify_ica_components,
     fit_ica,
 )
+from autoclean.functions.ica.ica_processing import update_ica_control_sheet
 
 
 @pytest.fixture
@@ -349,3 +350,40 @@ class TestIntegration:
         assert "annotator" in result.columns
         assert "ic_type" in result.columns
         assert "confidence" in result.columns
+
+
+class TestIcaControlSheet:
+    """Tests for the ICA control sheet workflow."""
+
+    def test_control_sheet_roundtrip(self, tmp_path):
+        """Ensure manual edits are applied and persisted in the control sheet."""
+        config = {
+            "metadata_dir": tmp_path,
+            "derivatives_dir": tmp_path,
+            "unprocessed_file": tmp_path / "subject_raw.fif",
+        }
+
+        auto = [0, 3, 7]
+        # Initial creation
+        result = update_ica_control_sheet(config, auto)
+        assert result == auto
+
+        sheet = tmp_path / "ica_control_sheet.csv"
+        assert sheet.exists()
+        df = pd.read_csv(sheet, dtype=str, keep_default_na=False)
+        assert df.loc[0, "auto_initial"] == "0,3,7"
+        assert df.loc[0, "final_removed"] == "0,3,7"
+        assert df.loc[0, "status"] == "auto"
+
+        # Simulate manual edit
+        df.loc[0, "manual_add"] = "2"
+        df.loc[0, "status"] = "pending"
+        df.to_csv(sheet, index=False)
+
+        result2 = update_ica_control_sheet(config, auto)
+        assert result2 == [0, 2, 3, 7]
+        df2 = pd.read_csv(sheet, dtype=str, keep_default_na=False)
+        assert df2.loc[0, "manual_add"] == ""
+        assert df2.loc[0, "manual_drop"] == ""
+        assert df2.loc[0, "status"] == "applied"
+        assert df2.loc[0, "final_removed"] == "0,2,3,7"
