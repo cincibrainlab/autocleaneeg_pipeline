@@ -12,6 +12,7 @@ import mne
 import mne_icalabel
 import pandas as pd
 from mne.preprocessing import ICA, read_ica
+from autoclean.io.export import save_raw_to_set
 
 # Optional import for ICVision
 try:
@@ -439,6 +440,27 @@ def _format_component_list(values: List[int]) -> str:
     return ",".join(str(v) for v in values)
 
 
+def _discover_pre_ica_path(
+    autoclean_dict: Dict[str, Union[str, Path]], basename: str
+) -> Optional[Path]:
+    """Discover the pre-ICA stage file path from the stage directory structure.
+
+    Looks under the pipeline's intermediate stage directory for a folder
+    matching the pre-ICA stage (e.g., 'NN_pre_ica') and returns the expected
+    filename pattern '<basename>_pre_ica_raw.set'. Returns None if not found.
+    """
+    try:
+        stage_dir = Path(autoclean_dict.get("stage_dir") or Path(autoclean_dict["derivatives_dir"]) / "intermediate")
+        candidates = sorted(
+            stage_dir.glob(f"**/*_pre_ica/{basename}_pre_ica_raw.set"),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        return candidates[0] if candidates else None
+    except Exception:  # best-effort discovery; ignore errors
+        return None
+
+
 def update_ica_control_sheet(
     autoclean_dict: Dict[str, Union[str, Path]], auto_exclude: List[int]
 ) -> List[int]:
@@ -472,6 +494,8 @@ def update_ica_control_sheet(
     columns = [
         "original_file",
         "ica_fif",
+        "pre_ica_path",
+        "post_ica_path",
         "auto_initial",
         "final_removed",
         "manual_add",
@@ -485,11 +509,19 @@ def update_ica_control_sheet(
     else:
         df = pd.DataFrame(columns=columns)
 
+    # Ensure new columns exist for backward compatibility
+    for new_col in ["pre_ica_path", "post_ica_path"]:
+        if new_col not in df.columns:
+            df[new_col] = ""
+
     if original_file not in df.get("original_file", []).tolist():
         # First run for this file: create new row with auto selections
+        discovered_pre_ica = _discover_pre_ica_path(autoclean_dict, Path(original_file).stem)
         new_row = {
             "original_file": original_file,
             "ica_fif": str(ica_fif),
+            "pre_ica_path": str(discovered_pre_ica) if discovered_pre_ica else "",
+            "post_ica_path": "",
             "auto_initial": auto_initial_str,
             "final_removed": auto_initial_str,
             "manual_add": "",
@@ -501,8 +533,14 @@ def update_ica_control_sheet(
         df.to_csv(sheet_path, index=False)
         return sorted(auto_exclude)
 
-    # Existing row: apply manual edits if present
+    # Existing row: ensure columns present and apply manual edits if any
     idx = df.index[df["original_file"] == original_file][0]
+
+    # Backfill pre_ica_path if empty
+    if not str(df.loc[idx, "pre_ica_path"]).strip():
+        discovered_pre_ica = _discover_pre_ica_path(autoclean_dict, Path(original_file).stem)
+        if discovered_pre_ica and discovered_pre_ica.exists():
+            df.loc[idx, "pre_ica_path"] = str(discovered_pre_ica)
 
     final_removed_set = _parse_component_str(df.loc[idx, "final_removed"])
     manual_add_set = _parse_component_str(df.loc[idx, "manual_add"])
@@ -567,18 +605,40 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
     final_exclude = update_ica_control_sheet(autoclean_dict, [])
 
     derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
-    ica_fif = derivatives_dir / f"{Path(original_file).stem}-ica.fif"
+    stage_dir = Path(autoclean_dict.get("stage_dir", derivatives_dir / "intermediate"))
+    basename = Path(original_file).stem
+    ica_fif = derivatives_dir / f"{basename}-ica.fif"
 
-    # Load pre-ICA data and ICA decomposition
-    raw = mne.io.read_raw(autoclean_dict["unprocessed_file"], preload=True)
+    # Load pre-ICA data
+    df = pd.read_csv(sheet_path, dtype=str, keep_default_na=False)
+    idx = df.index[df["original_file"] == original_file][0]
+    pre_path_str = df.loc[idx, "pre_ica_path"] if "pre_ica_path" in df.columns else ""
+    pre_ica_path = Path(pre_path_str) if pre_path_str else _discover_pre_ica_path(autoclean_dict, basename)
+    if not pre_ica_path or not Path(pre_ica_path).exists():
+        # Try discovery one more time
+        pre_ica_path = _discover_pre_ica_path(autoclean_dict, basename)
+    if not pre_ica_path or not Path(pre_ica_path).exists():
+        raise FileNotFoundError(
+            f"Could not find pre-ICA stage file for {original_file}. Run an ICA processing pass first."
+        )
+
+    # Read EEGLAB pre-ICA set
+    raw = mne.io.read_raw_eeglab(str(pre_ica_path), preload=True)
     ica = read_ica(ica_fif)
 
-    # Apply exclusions and save cleaned data
-    apply_ica_rejection(raw, ica, final_exclude, copy=False)
-    output_path = derivatives_dir / original_file
-    raw.save(output_path, overwrite=True)
+    # Apply exclusions and save cleaned data as a new stage
+    raw_clean, _ = apply_ica_rejection(raw, ica, final_exclude, copy=True)
+    autoclean_dict_with_stage = dict(autoclean_dict)
+    autoclean_dict_with_stage["stage_dir"] = stage_dir
+    post_path = save_raw_to_set(raw_clean, autoclean_dict_with_stage, stage="post_ica_manual")
 
-    # Update control sheet timestamp and ensure manual fields are cleared
-    update_ica_control_sheet(autoclean_dict, final_exclude)
+    # Update control sheet with timestamp, ensure manual fields are cleared, and set post_ica_path
+    final_exclude = update_ica_control_sheet(autoclean_dict, final_exclude)
+    df = pd.read_csv(sheet_path, dtype=str, keep_default_na=False)
+    idx = df.index[df["original_file"] == original_file][0]
+    if "post_ica_path" not in df.columns:
+        df["post_ica_path"] = ""
+    df.loc[idx, "post_ica_path"] = str(post_path)
+    df.to_csv(sheet_path, index=False)
 
     return None
