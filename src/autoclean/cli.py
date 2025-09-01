@@ -638,8 +638,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     process_parser.add_argument(
         "--format",
         type=str,
-        default="*.set",
-        help="File format glob pattern for directory processing (default: *.set). Examples: '*.raw', '*.edf', '*.set'. Note: '.raw' will be auto-corrected to '*.raw'",
+        default="*.{raw,set}",
+        help="File format glob pattern for directory processing (default: *.{raw,set}). Examples: '*.raw', '*.edf', '*.set'. Note: '.raw' will be auto-corrected to '*.raw'",
     )
     process_parser.add_argument(
         "--recursive",
@@ -1259,7 +1259,7 @@ def _show_process_guard(args) -> bool:
                 console.print("   Type: [accent]Directory[/accent]")
                 
                 # Count files based on format pattern
-                format_pattern = getattr(args, 'format', '*.set')
+                format_pattern = getattr(args, 'format', '*.{raw,set}')
                 try:
                     if getattr(args, 'recursive', False):
                         files = list(input_path.rglob(format_pattern))
@@ -1349,7 +1349,7 @@ def validate_args(args) -> bool:
                     "dir|--dir", "Directory of EEG files (use --format, --recursive)"
                 )
                 tbl.add_row(
-                    "--format", "Glob pattern (default: *.set; '*.raw', '*.edf', ...)"
+                    "--format", "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)"
                 )
                 tbl.add_row("--recursive", "Search subdirectories for matching files")
                 tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
@@ -1433,7 +1433,7 @@ def validate_args(args) -> bool:
                         )
                         tbl.add_row(
                             "--format",
-                            "Glob pattern (default: *.set; '*.raw', '*.edf', ...)",
+                            "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)",
                         )
                         tbl.add_row(
                             "--recursive", "Search subdirectories for matching files"
