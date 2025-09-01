@@ -638,8 +638,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     process_parser.add_argument(
         "--format",
         type=str,
-        default="*.set",
-        help="File format glob pattern for directory processing (default: *.set). Examples: '*.raw', '*.edf', '*.set'. Note: '.raw' will be auto-corrected to '*.raw'",
+        default="*.{raw,set}",
+        help="File format glob pattern for directory processing (default: *.{raw,set}). Examples: '*.raw', '*.edf', '*.set'. Note: '.raw' will be auto-corrected to '*.raw'",
     )
     process_parser.add_argument(
         "--recursive",
@@ -1259,19 +1259,43 @@ def _show_process_guard(args) -> bool:
                 console.print("   Type: [accent]Directory[/accent]")
                 
                 # Count files based on format pattern
-                format_pattern = getattr(args, 'format', '*.set')
+                format_pattern = getattr(args, 'format', '*.{raw,set}')
                 try:
+                    def _expand_brace_glob(pat: str) -> list[str]:
+                        if "{" not in pat or "}" not in pat:
+                            return [pat]
+                        start = pat.find("{")
+                        end = pat.find("}", start + 1)
+                        if start == -1 or end == -1 or end < start:
+                            return [pat]
+                        prefix = pat[:start]
+                        suffix = pat[end + 1 :]
+                        body = pat[start + 1 : end]
+                        options = [o.strip() for o in body.split(",") if o.strip()]
+                        return [f"{prefix}{o}{suffix}" for o in options] or [pat]
+
+                    patterns = _expand_brace_glob(format_pattern)
+                    files_set: set[Path] = set()
+                    files: list[Path] = []
                     if getattr(args, 'recursive', False):
-                        files = list(input_path.rglob(format_pattern))
+                        for p in patterns:
+                            for f in input_path.rglob(p):
+                                if f not in files_set:
+                                    files_set.add(f)
+                                    files.append(f)
                     else:
-                        files = list(input_path.glob(format_pattern))
+                        for p in patterns:
+                            for f in input_path.glob(p):
+                                if f not in files_set:
+                                    files_set.add(f)
+                                    files.append(f)
                     
                     file_count = len(files)
                     console.print(f"   Files to process: [accent]{file_count}[/accent] (pattern: {format_pattern})")
                     
                     if getattr(args, 'recursive', False):
                         console.print("   Recursive search: [accent]Enabled[/accent]")
-                    
+                
                 except Exception:
                     console.print("   Files: [muted]Unable to count[/muted]")
         else:
@@ -1349,7 +1373,7 @@ def validate_args(args) -> bool:
                     "dir|--dir", "Directory of EEG files (use --format, --recursive)"
                 )
                 tbl.add_row(
-                    "--format", "Glob pattern (default: *.set; '*.raw', '*.edf', ...)"
+                    "--format", "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)"
                 )
                 tbl.add_row("--recursive", "Search subdirectories for matching files")
                 tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
@@ -1433,7 +1457,7 @@ def validate_args(args) -> bool:
                         )
                         tbl.add_row(
                             "--format",
-                            "Glob pattern (default: *.set; '*.raw', '*.edf', ...)",
+                            "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)",
                         )
                         tbl.add_row(
                             "--recursive", "Search subdirectories for matching files"
