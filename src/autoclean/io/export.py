@@ -143,6 +143,8 @@ def save_raw_to_set(
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
 
+    flagged = flagged and autoclean_dict.get("move_flagged_files", True)
+
     # Save to BIDS-compliant intermediate directory structure
     if flagged:
         output_path = autoclean_dict["stage_dir"]
@@ -237,6 +239,8 @@ def save_epochs_to_set(
     suffix = f"_{stage.replace('post_', '')}"
     basename = Path(autoclean_dict["unprocessed_file"]).stem
     stage_num = _get_stage_number(stage, autoclean_dict)
+
+    flagged = flagged and autoclean_dict.get("move_flagged_files", True)
 
     # Determine output directory based on flagged status - BIDS-compliant structure
     if flagged:

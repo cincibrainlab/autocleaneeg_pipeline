@@ -31,6 +31,8 @@ config = {
     #   "input_path": "/path/to/my/data.raw",           # Single file
     #   "input_path": "/path/to/data/directory/",       # Directory
     "input_path": "/path/to/my/data/",  # Uncomment and modify for your data
+    # Optional: keep flagged files in standard output directories
+    # "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 250},  # Resample to 250 Hz
     "filtering": {
         "enabled": True,
