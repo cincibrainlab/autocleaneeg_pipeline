@@ -24,6 +24,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.gridspec import GridSpec
 from mne.preprocessing import ICA
+from mne.channels.layout import _find_topomap_coords
 
 from autoclean.utils.logging import message
 
@@ -194,10 +195,19 @@ class ICAReportingMixin:
         duration : Optional[int]
             Duration in seconds for plotting time series data
         """
+        # Pre-compute sensor positions once and reuse across reports to avoid
+        # repeatedly calculating topomap coordinates during plotting. This saves
+        # time especially when many components are present.
+        pos, _ = _find_topomap_coords(
+            self.final_ica.info, picks=range(len(self.final_ica.ch_names))
+        )
+        topomap_args = {"pos": pos}
+
         # Generate report for all components
         report_filename = self._plot_ica_components(
             duration=duration,
             components="all",
+            topomap_args=topomap_args,
         )
 
         metadata = {
@@ -213,6 +223,7 @@ class ICAReportingMixin:
         report_filename = self._plot_ica_components(
             duration=duration,
             components="rejected",
+            topomap_args=topomap_args,
         )
 
         metadata = {
@@ -228,6 +239,7 @@ class ICAReportingMixin:
         self,
         duration: int = 10,
         components: str = "all",
+        topomap_args: dict | None = None,
     ):
         """
         Plots ICA components with labels and saves reports.
@@ -238,6 +250,10 @@ class ICAReportingMixin:
             Duration in seconds to plot.
         components : str
             'all' to plot all components, 'rejected' to plot only rejected components.
+        topomap_args : dict | None
+            Optional arguments passed to ``plot_topomap``. Pre-computing and
+            reusing sensor positions via ``pos`` can substantially speed up
+            plotting by avoiding repeated coordinate generation.
         """
 
         # Get raw and ICA from pipeline
@@ -432,6 +448,7 @@ class ICAReportingMixin:
                     log_scale=False,
                     reject="auto",
                     show=False,
+                    topomap_args=topomap_args,
                 )
 
                 # Add time series plot
