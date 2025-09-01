@@ -4634,6 +4634,96 @@ def cmd_auth0_diagnostics(args) -> int:
 def main(argv: Optional[list] = None) -> int:
     """Main entry point for the AutoClean CLI."""
     parser = create_parser()
+
+    # --------------------------------------------------------------
+    # Intercept unknown top-level commands to show a rich error page
+    # with banner, workspace/task/input context, and available commands.
+    # --------------------------------------------------------------
+    try:
+        raw_argv = list(argv) if isinstance(argv, list) else sys.argv[1:]
+
+        # If help flags are present, defer to argparse's help handling
+        if any(t in ("-h", "--help") for t in raw_argv):
+            raise Exception("defer-parse")
+
+        # Extract first non-option token, accounting for options that expect values
+        first_non_option: Optional[str] = None
+        i = 0
+        while i < len(raw_argv):
+            tok = raw_argv[i]
+            if tok == "--":  # end of options
+                if i + 1 < len(raw_argv):
+                    first_non_option = raw_argv[i + 1]
+                break
+            if tok.startswith("-"):
+                # Skip option value for known global options
+                if tok == "--theme" and i + 1 < len(raw_argv):
+                    i += 2
+                    continue
+                # Other flags have no values at root level currently
+                i += 1
+                continue
+            first_non_option = tok
+            break
+
+        if first_non_option:
+            # Discover known top-level commands from the parser
+            sub_actions = [
+                a for a in parser._actions if isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]
+            ]
+            if sub_actions:
+                top_level = sub_actions[0].choices.keys()
+                if first_non_option not in top_level:
+                    # Build suggestions from second-level subparsers (e.g., task edit)
+                    suggestions: list[str] = []
+                    for parent_name, child_parser in sub_actions[0].choices.items():
+                        try:
+                            child_subs = [
+                                a
+                                for a in child_parser._actions
+                                if isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]
+                            ]
+                            if child_subs:
+                                child_choices = child_subs[0].choices.keys()
+                                if first_non_option in child_choices:
+                                    suggestions.append(f"{parent_name} {first_non_option}")
+                        except Exception:
+                            pass
+
+                    # Render elegant unknown command screen
+                    console = get_console(None)
+                    _simple_header(console)
+                    _print_startup_context(console)
+                    try:
+                        from rich.text import Text
+                        from rich.panel import Panel
+                        from rich.table import Table as _Table
+
+                        err = Text()
+                        err.append("Unknown command: ", style="error")
+                        err.append(first_non_option, style="accent")
+                        console.print(err)
+
+                        if suggestions:
+                            console.print()
+                            console.print("Did you mean:")
+                            tbl = _Table(show_header=False, box=None, padding=(0, 1))
+                            tbl.add_column("Suggestion", style="accent")
+                            for s in suggestions[:3]:
+                                tbl.add_row(s)
+                            console.print(tbl)
+
+                        console.print()
+                        _print_root_help(console)
+                    except Exception:
+                        # Minimal fallback without rich constructs
+                        print(f"Unknown command: {first_non_option}")
+                        print("Try one of: process, task, input, view, review, workspace, help")
+                    return 2
+    except Exception:
+        # Defer to argparse for normal parsing and help behavior
+        pass
+
     args = parser.parse_args(argv)
 
     # ------------------------------------------------------------------
