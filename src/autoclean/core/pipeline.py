@@ -919,9 +919,35 @@ class Pipeline:
         metadata_dir = derivatives_root / "metadata"
         final_files_dir = bids_root / "final_files"
 
+        # Determine parent/manual run for linkage and create a fresh tail run record
+        parent_run_id = str(run_id) if run_id else None
+        new_run_id = str(ULID())
+        try:
+            manage_database_conditionally(
+                operation="store",
+                run_record={
+                    "run_id": new_run_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "task": self._validate_task(task),
+                    "unprocessed_file": str(
+                        (Path(source_file) if source_file else post_ica_file).absolute()
+                    ),
+                    "status": "resume_tail started",
+                    "success": False,
+                    "metadata": {
+                        "manual_ica_tail": {
+                            "parent_run_id": parent_run_id or "",
+                            "post_ica_path": str(post_ica_file),
+                        }
+                    },
+                },
+            )
+        except Exception as e:
+            message("warning", f"Could not create tail run record: {e}")
+
         # Build minimal config for the tail execution
         cfg = {
-            "run_id": str(run_id) if run_id else str(ULID()),
+            "run_id": new_run_id,
             "unprocessed_file": Path(source_file) if source_file else post_ica_file,
             "task": self._validate_task(task),
             "output_dir": self.output_dir,
@@ -930,14 +956,71 @@ class Pipeline:
             "stage_dir": stage_dir,
             "derivatives_dir": derivatives_root,
             "final_files_dir": final_files_dir,
+            # Extras commonly expected by save/copy helpers
+            "logs_dir": derivatives_root / "logs",
+            "clean_dir": derivatives_root,
         }
 
-        # Instantiate the task object using the existing session registry
+        # Find the effective task class with workspace override priority
+        task_cls = None
+        task_source = "<unknown>"
         try:
-            task_object = self.session_task_registry[cfg["task"].lower()](cfg)
-        except KeyError:
-            message("error", f"Task '{task}' not found in task registry")
-            return
+            # Local import to avoid circular import during module initialization
+            from autoclean.utils.task_discovery import (
+                safe_discover_tasks as _safe_discover_tasks,
+            )  # type: ignore
+            discovered, _invalid, _skipped = _safe_discover_tasks()
+            for dt in discovered:
+                if dt.name.lower() == cfg["task"].lower() and dt.class_obj is not None:
+                    task_cls = dt.class_obj
+                    task_source = dt.source
+                    break
+        except Exception as e:
+            message("warning", f"Task discovery failed; falling back to built-in registry: {e}")
+
+        # Fall back to session registry if discovery did not find a class
+        if task_cls is None:
+            try:
+                task_cls = self.session_task_registry[cfg["task"].lower()]
+                task_source = inspect.getfile(task_cls)
+            except Exception:
+                message("error", f"Task '{task}' not found in registry or discovery")
+                return
+
+        message(
+            "info",
+            f"Resume tail using task '{cfg['task']}' from: {task_source}",
+        )
+
+        # Instantiate task object
+        task_object = task_cls(cfg)
+
+        # Ensure task settings are bound from module-level config on resume
+        try:
+            task_module = inspect.getmodule(task_cls)
+            if getattr(task_object, "settings", None) is None and hasattr(
+                task_module, "config"
+            ):
+                task_object.settings = task_module.config  # type: ignore[attr-defined]
+                message(
+                    "info", "Task settings bound from module.config (resume path)"
+                )
+            # Report epoch_settings gate status for clarity
+            try:
+                is_enabled, epoch_cfg = task_object._check_step_enabled(
+                    "epoch_settings"
+                )
+                message(
+                    "info",
+                    f"epoch_settings enabled: {bool(is_enabled)} value: {epoch_cfg if epoch_cfg else '(default)'}",
+                )
+            except Exception:
+                message("warning", "Could not evaluate epoch_settings on task during resume")
+        except Exception as _bind_err:
+            message(
+                "warning",
+                f"Could not bind task settings from module.config: {_bind_err}",
+            )
 
         # Load raw from the post_ica file
         suffix = post_ica_file.suffix.lower()
@@ -959,25 +1042,61 @@ class Pipeline:
         except Exception:
             pass
 
-        # Tail: try epoching if the task supports it
-        try:
-            if hasattr(task_object, "create_eventid_epochs") and callable(
-                task_object.create_eventid_epochs
-            ):
-                epochs = task_object.create_eventid_epochs()
-                if epochs is not None:
+        # If the active task defines its own resume hook, delegate to it
+        if hasattr(task_object, "resume_after_ica") and callable(
+            task_object.resume_after_ica
+        ):
+            message(
+                "info",
+                "Delegating tail resume to task.resume_after_ica() (active task controls steps)",
+            )
+            try:
+                task_object.resume_after_ica(raw=raw, post_ica_path=str(post_ica_file))
+            except TypeError:
+                # Backward-compat signature: resume_after_ica(raw)
+                task_object.resume_after_ica(raw)
+        else:
+            # Tail: select epoching method based on task capabilities
+            try:
+                used_method = None
+                # Prefer regular epochs if available (common for resting-state tasks)
+                if hasattr(task_object, "create_regular_epochs") and callable(
+                    task_object.create_regular_epochs
+                ):
+                    message("info", "Epoch method: regular epochs (task-defined)")
                     try:
-                        flagged, _ = task_object.get_flagged_status()
-                    except Exception:
-                        flagged = False
-                    save_epochs_to_set(
-                        epochs=epochs,
-                        autoclean_dict=cfg,
-                        stage="post_comp",
-                        flagged=flagged,
-                    )
-        except Exception as e:
-            message("warning", f"Epoching tail skipped due to error: {e}")
+                        task_object.create_regular_epochs(export=True)
+                        used_method = "regular"
+                    except Exception as e:
+                        message("warning", f"Regular epoching failed: {e}")
+
+                # Fallback to event-id epochs if available and not already used
+                if used_method is None and hasattr(task_object, "create_eventid_epochs") and callable(
+                    task_object.create_eventid_epochs
+                ):
+                    message("info", "Epoch method: event-id (fallback)")
+                    epochs = task_object.create_eventid_epochs()
+                    if epochs is not None:
+                        try:
+                            flagged, _ = task_object.get_flagged_status()
+                        except Exception:
+                            flagged = False
+                        save_epochs_to_set(
+                            epochs=epochs,
+                            autoclean_dict=cfg,
+                            stage="post_comp",
+                            flagged=flagged,
+                        )
+                        used_method = "eventid"
+                    else:
+                        message(
+                            "warning",
+                            "Event-id epoching returned no epochs (likely no event_id configured)",
+                        )
+                if used_method is None:
+                    message("warning", "No suitable epoching method found on task; skipping epoch stage")
+            except Exception as e:
+                message("warning", f"Epoching tail skipped due to error: {e}")
 
         # Reports if available
         try:
@@ -993,6 +1112,23 @@ class Pipeline:
             copy_final_files(cfg)
         except Exception as e:
             message("warning", f"Failed to copy final files: {e}")
+
+        # Finalize tail run in DB
+        try:
+            manage_database_conditionally(
+                operation="update",
+                update_record={
+                    "run_id": new_run_id,
+                    "metadata": {"manual_ica_tail": {"completed": True}},
+                    "success": True,
+                },
+            )
+            manage_database_conditionally(
+                operation="update_status",
+                update_record={"run_id": new_run_id, "status": "resume_tail completed"},
+            )
+        except Exception as e:
+            message("warning", f"Could not finalize tail run record: {e}")
 
         message("success", "✓ Resume from post-ICA completed")
 
