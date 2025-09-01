@@ -481,37 +481,94 @@ def create_run_report(
     story.append(frame)
     story.append(Spacer(1, 0.2 * inch))
 
-    # Processing Steps Section
-    story.append(Paragraph("Processing Steps", heading_style))
+    # Task Configuration Section - Complete parameter transparency
+    story.append(Paragraph("Task Configuration", heading_style))
 
-    # Get processing steps from metadata
-    steps_data = []
+    # Get complete task configuration
+    config_data = []
     try:
-        # Fall back to metadata for steps
-        for step_name, step_data in run_record["metadata"].items():
-            if step_name.startswith("step_") and step_name not in [
-                "step_prepare_directories",
-            ]:
-                # Format step name for display
-                display_name = step_name.replace("step_", "").replace("_", " ").title()
-                steps_data.append([display_name])
+        # Try to get task file info first (contains full configuration)
+        task_file_info = run_record.get("task_file_info")
+        if task_file_info:
+            # Parse JSON string if needed
+            if isinstance(task_file_info, str):
+                try:
+                    import json
+                    task_file_data = json.loads(task_file_info)
+                except json.JSONDecodeError:
+                    task_file_data = {"error": "Could not parse task file info"}
+            else:
+                task_file_data = task_file_info
+            
+            # Format configuration data hierarchically
+            def format_config_recursive(obj, prefix="", max_depth=3, current_depth=0):
+                """Recursively format configuration data for display"""
+                items = []
+                if current_depth >= max_depth:
+                    return [f"{prefix}[...] (truncated - too deep)"]
+                
+                if isinstance(obj, dict):
+                    for key, value in obj.items():
+                        full_key = f"{prefix}.{key}" if prefix else key
+                        if isinstance(value, dict) and value:
+                            items.append(f"{full_key}:")
+                            items.extend(format_config_recursive(value, f"  {full_key}", max_depth, current_depth + 1))
+                        elif isinstance(value, list) and value:
+                            if all(isinstance(item, (str, int, float, bool)) for item in value):
+                                # Simple list - show inline
+                                items.append(f"{full_key}: [{', '.join(str(v) for v in value)}]")
+                            else:
+                                # Complex list - show expanded
+                                items.append(f"{full_key}: [list with {len(value)} items]")
+                        else:
+                            # Simple value
+                            display_value = str(value) if value is not None else "None"
+                            if len(display_value) > 100:
+                                display_value = display_value[:97] + "..."
+                            items.append(f"{full_key}: {display_value}")
+                elif isinstance(obj, list):
+                    for i, item in enumerate(obj):
+                        items.extend(format_config_recursive(item, f"{prefix}[{i}]", max_depth, current_depth + 1))
+                else:
+                    items.append(f"{prefix}: {obj}")
+                return items
+            
+            # Format the task file data
+            formatted_config = format_config_recursive(task_file_data)
+            config_data = [[item] for item in formatted_config]
+        else:
+            # Fallback: Show processing steps with basic info
+            for step_name, step_data in run_record["metadata"].items():
+                if step_name.startswith("step_") and step_name not in ["step_prepare_directories"]:
+                    display_name = step_name.replace("step_", "").replace("_", " ").title()
+                    config_data.append([f"Processing Step: {display_name}"])
+                    
+                    # Add some key parameters if available
+                    if isinstance(step_data, dict):
+                        for key, value in step_data.items():
+                            if key not in ["timestamp", "duration"] and not key.startswith("_"):
+                                display_value = str(value) if value is not None else "None"
+                                if len(display_value) > 80:
+                                    display_value = display_value[:77] + "..."
+                                config_data.append([f"  {key}: {display_value}"])
+                        
     except Exception as e:  # pylint: disable=broad-except
-        message("warning", f"Error processing steps data: {str(e)}")
-        steps_data = [["Error processing steps"]]
+        message("warning", f"Error processing task configuration: {str(e)}")
+        config_data = [["Error processing task configuration", str(e)]]
 
-    if not steps_data:
-        steps_data = [["No processing steps data available"]]
+    if not config_data:
+        config_data = [["No task configuration available"]]
 
-    # Create steps table with background styling
-    steps_table = ReportLabTable(
-        [[Paragraph("Processing Step", heading_style)]] + steps_data,
+    # Create configuration table with background styling
+    config_table = ReportLabTable(
+        [[Paragraph("Configuration Parameter", heading_style)]] + config_data,
         colWidths=[6 * inch],
     )
-    steps_table.setStyle(
+    config_table.setStyle(
         TableStyle(
             [
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
-                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("FONTSIZE", (0, 0), (-1, -1), 6),  # Smaller font for more content
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
@@ -521,11 +578,12 @@ def create_run_report(
                 ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
                 ("LEFTPADDING", (0, 0), (-1, -1), 6),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),  # Top align for better readability
             ]
         )
     )
 
-    story.append(steps_table)
+    story.append(config_table)
     story.append(Spacer(1, 0.2 * inch))
 
     # Bad Channels Section
