@@ -1261,17 +1261,41 @@ def _show_process_guard(args) -> bool:
                 # Count files based on format pattern
                 format_pattern = getattr(args, 'format', '*.{raw,set}')
                 try:
+                    def _expand_brace_glob(pat: str) -> list[str]:
+                        if "{" not in pat or "}" not in pat:
+                            return [pat]
+                        start = pat.find("{")
+                        end = pat.find("}", start + 1)
+                        if start == -1 or end == -1 or end < start:
+                            return [pat]
+                        prefix = pat[:start]
+                        suffix = pat[end + 1 :]
+                        body = pat[start + 1 : end]
+                        options = [o.strip() for o in body.split(",") if o.strip()]
+                        return [f"{prefix}{o}{suffix}" for o in options] or [pat]
+
+                    patterns = _expand_brace_glob(format_pattern)
+                    files_set: set[Path] = set()
+                    files: list[Path] = []
                     if getattr(args, 'recursive', False):
-                        files = list(input_path.rglob(format_pattern))
+                        for p in patterns:
+                            for f in input_path.rglob(p):
+                                if f not in files_set:
+                                    files_set.add(f)
+                                    files.append(f)
                     else:
-                        files = list(input_path.glob(format_pattern))
+                        for p in patterns:
+                            for f in input_path.glob(p):
+                                if f not in files_set:
+                                    files_set.add(f)
+                                    files.append(f)
                     
                     file_count = len(files)
                     console.print(f"   Files to process: [accent]{file_count}[/accent] (pattern: {format_pattern})")
                     
                     if getattr(args, 'recursive', False):
                         console.print("   Recursive search: [accent]Enabled[/accent]")
-                    
+                
                 except Exception:
                     console.print("   Files: [muted]Unable to count[/muted]")
         else:
