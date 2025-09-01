@@ -525,9 +525,13 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
             fif_stage_dir.mkdir(parents=True, exist_ok=True)
         pre_ica_fif_path = fif_stage_dir / f"{basename}_pre_ica_raw.fif"
         pre_ica_raw.save(pre_ica_fif_path, overwrite=True)
+        # Save a subject-organized copy under derivatives/sub-<id>/eeg
+        pre_ica_fif_subject_path = derivatives_dir / f"{basename}_pre_ica_raw.fif"
+        pre_ica_raw.save(pre_ica_fif_subject_path, overwrite=True)
     except Exception as e:  # pylint: disable=broad-exception-caught
         message("warning", f"Failed to save pre-ICA FIF copy: {str(e)}")
         pre_ica_fif_path = None
+        pre_ica_fif_subject_path = None
     metadata = {
         "save_ica_to_fif": {
             "creationDateTime": datetime.now().isoformat(),
@@ -535,6 +539,7 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
         "ica_path": ica_path.name,
         "pre_ica_set_path": str(pre_ica_set_path),
         "pre_ica_fif_path": str(pre_ica_fif_path) if pre_ica_fif_path else "",
+        "pre_ica_fif_subject_path": str(pre_ica_fif_subject_path) if pre_ica_fif_subject_path else "",
         }
     }
     run_id = autoclean_dict["run_id"]
