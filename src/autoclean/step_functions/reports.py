@@ -23,6 +23,7 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
+import ast
 
 import matplotlib
 import pandas as pd
@@ -479,6 +480,66 @@ def create_run_report(
     frame = ReportLabTable(frame_data, colWidths=[6.5 * inch])
     frame.setStyle(frame_style)
     story.append(frame)
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Task Parameters Section
+    story.append(Paragraph("Task Parameters", heading_style))
+
+    task_params_data = []
+    try:
+        def _flatten_dict(d, parent_key=""):
+            items = []
+            for k, v in d.items():
+                new_key = f"{parent_key}.{k}" if parent_key else str(k)
+                if isinstance(v, dict):
+                    items.extend(_flatten_dict(v, new_key))
+                else:
+                    items.append((new_key, v))
+            return items
+
+        task_file_info = run_record.get("task_file_info", {})
+        file_content = task_file_info.get("file_content")
+        if file_content:
+            try:
+                module_ast = ast.parse(file_content)
+                for node in module_ast.body:
+                    if isinstance(node, ast.Assign):
+                        for target in node.targets:
+                            if isinstance(target, ast.Name) and target.id == "config":
+                                config_dict = ast.literal_eval(node.value)
+                                if isinstance(config_dict, dict):
+                                    for key, value in _flatten_dict(config_dict):
+                                        task_params_data.append([str(key), str(value)])
+                                break
+            except Exception as e:  # pylint: disable=broad-except
+                message("warning", f"Error extracting task parameters: {str(e)}")
+        if not task_params_data:
+            task_params_data = [["No task parameters available", ""]]
+    except Exception as e:  # pylint: disable=broad-except
+        message("warning", f"Error processing task parameters: {str(e)}")
+        task_params_data = [["Error processing task parameters", ""]]
+
+    task_params_table = ReportLabTable(
+        [[Paragraph("Parameter", heading_style), Paragraph("Value", heading_style)]] + task_params_data,
+        colWidths=[3 * inch, 3 * inch],
+    )
+    task_params_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    story.append(task_params_table)
     story.append(Spacer(1, 0.2 * inch))
 
     # Processing Steps Section
