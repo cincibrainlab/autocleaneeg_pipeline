@@ -655,7 +655,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--verbose",
         "-v",
         action="store_true",
-        help="Enable verbose/debug output",
+        default=True,
+        help="Enable verbose/debug output (default: on)",
     )
     process_parser.add_argument(
         "--parallel",
@@ -670,7 +671,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(list_tasks_parser)
     list_tasks_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show detailed information"
+        "--verbose",
+        "-v",
+        action="store_true",
+        default=True,
+        help="Show detailed information (default: on)",
     )
     list_tasks_parser.add_argument(
         "--overrides",
@@ -739,7 +744,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(list_all_parser)
     list_all_parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show detailed information"
+        "--verbose",
+        "-v",
+        action="store_true",
+        default=True,
+        help="Show detailed information (default: on)",
     )
     list_all_parser.add_argument(
         "--overrides",
@@ -1073,7 +1082,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--verbose",
         "-v",
         action="store_true",
-        help="Show detailed diagnostic information",
+        default=True,
+        help="Show detailed diagnostic information (default: on)",
     )
 
     # Clean task command
