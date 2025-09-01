@@ -14,6 +14,9 @@ import pandas as pd
 from mne.preprocessing import ICA, read_ica
 from autoclean.utils.bids import step_sanitize_id
 from autoclean.io.export import save_raw_to_set
+from autoclean.utils.database import manage_database_conditionally
+from ulid import ULID
+from autoclean.utils.logging import message
 
 # Optional import for ICVision
 try:
@@ -465,7 +468,10 @@ def _discover_pre_ica_path(
                 return candidate_set
 
         # 2) Fallback to stage directory discovery (intermediate NN_pre_ica)
-        stage_dir = Path(autoclean_dict.get("stage_dir") or Path(autoclean_dict["derivatives_dir"]) / "intermediate")
+        stage_dir = Path(
+            autoclean_dict.get("stage_dir")
+            or Path(autoclean_dict["derivatives_dir"]) / "intermediate"
+        )
         fif_candidates = sorted(
             stage_dir.glob(f"**/*_pre_ica/{basename}_pre_ica_raw.fif"),
             key=lambda p: p.stat().st_mtime,
@@ -480,6 +486,30 @@ def _discover_pre_ica_path(
         )
         return set_candidates[0] if set_candidates else None
     except Exception:  # best-effort discovery; ignore errors
+        return None
+
+
+def _find_run_id_for_file(unprocessed_file: Union[str, Path]) -> Optional[str]:
+    """Find the latest run_id in the database for the given unprocessed file.
+
+    Matches on absolute path equality, then falls back to basename match.
+    Returns the most recent record's run_id when multiple exist.
+    """
+    try:
+        records = manage_database_conditionally("get_collection") or []
+        upath = str(Path(unprocessed_file).absolute())
+        candidates = [r for r in records if str(r.get("unprocessed_file", "")) == upath]
+        if not candidates:
+            base = Path(unprocessed_file).name
+            candidates = [r for r in records if Path(str(r.get("unprocessed_file", ""))).name == base]
+        if not candidates:
+            return None
+        try:
+            candidates.sort(key=lambda r: r.get("created_at", ""), reverse=True)
+        except Exception:
+            pass
+        return candidates[0].get("run_id")
+    except Exception:
         return None
 
 
@@ -509,11 +539,14 @@ def update_ica_control_sheet(
 
     derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
     original_file = Path(autoclean_dict["unprocessed_file"]).name
-    ica_fif = derivatives_dir / f"{Path(original_file).stem}-ica.fif"
+    subject_id = step_sanitize_id(original_file)
+    subject_eeg_dir = derivatives_dir / f"sub-{subject_id}" / "eeg"
+    ica_fif = subject_eeg_dir / f"{Path(original_file).stem}-ica.fif"
     auto_initial_str = _format_component_list(sorted(auto_exclude))
     now_iso = datetime.now().isoformat()
 
     columns = [
+        "run_id",
         "original_file",
         "ica_fif",
         "pre_ica_path",
@@ -532,14 +565,17 @@ def update_ica_control_sheet(
         df = pd.DataFrame(columns=columns)
 
     # Ensure new columns exist for backward compatibility
-    for new_col in ["pre_ica_path", "post_ica_path"]:
+    for new_col in ["pre_ica_path", "post_ica_path", "run_id"]:
         if new_col not in df.columns:
             df[new_col] = ""
 
     if original_file not in df.get("original_file", []).tolist():
         # First run for this file: create new row with auto selections
-        discovered_pre_ica = _discover_pre_ica_path(autoclean_dict, Path(original_file).stem)
+        discovered_pre_ica = _discover_pre_ica_path(
+            autoclean_dict, Path(original_file).stem
+        )
         new_row = {
+            "run_id": str(autoclean_dict.get("run_id", "")),
             "original_file": original_file,
             "ica_fif": str(ica_fif),
             "pre_ica_path": str(discovered_pre_ica) if discovered_pre_ica else "",
@@ -560,9 +596,16 @@ def update_ica_control_sheet(
 
     # Backfill pre_ica_path if empty
     if not str(df.loc[idx, "pre_ica_path"]).strip():
-        discovered_pre_ica = _discover_pre_ica_path(autoclean_dict, Path(original_file).stem)
+        discovered_pre_ica = _discover_pre_ica_path(
+            autoclean_dict, Path(original_file).stem
+        )
         if discovered_pre_ica and discovered_pre_ica.exists():
             df.loc[idx, "pre_ica_path"] = str(discovered_pre_ica)
+    # Backfill run_id if empty
+    if not str(df.loc[idx, "run_id"]).strip():
+        found = _find_run_id_for_file(autoclean_dict["unprocessed_file"])
+        if found:
+            df.loc[idx, "run_id"] = found
 
     final_removed_set = _parse_component_str(df.loc[idx, "final_removed"])
     manual_add_set = _parse_component_str(df.loc[idx, "manual_add"])
@@ -570,9 +613,7 @@ def update_ica_control_sheet(
 
     if manual_add_set or manual_drop_set:
         final_removed_set = (final_removed_set | manual_add_set) - manual_drop_set
-        df.loc[idx, "final_removed"] = _format_component_list(
-            sorted(final_removed_set)
-        )
+        df.loc[idx, "final_removed"] = _format_component_list(sorted(final_removed_set))
         df.loc[idx, "manual_add"] = ""
         df.loc[idx, "manual_drop"] = ""
         df.loc[idx, "status"] = (
@@ -620,10 +661,40 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
 
     if not sheet_path.exists():
         raise FileNotFoundError(f"ICA control sheet not found: {sheet_path}")
+    # Inform path being used and warn if a legacy sheet exists elsewhere
+    try:
+        message("info", f"Using ICA control sheet: {sheet_path}")
+        try:
+            from autoclean.utils import user_config as _uc
+            legacy_sheet = _uc.config_dir / "metadata" / "ica_control_sheet.csv"
+            if legacy_sheet.exists() and legacy_sheet.resolve() != sheet_path.resolve():
+                message(
+                    "warning",
+                    f"Another control sheet exists at: {legacy_sheet} (not used).",
+                )
+        except Exception:
+            pass
+    except Exception:
+        pass
 
     df = pd.read_csv(sheet_path, dtype=str, keep_default_na=False)
     if original_file not in df.get("original_file", []).tolist():
         raise ValueError(f"{original_file} not found in ICA control sheet")
+
+    # Identify the current row for this file
+    idx = df.index[df["original_file"] == original_file][0]
+
+    # Capture current control sheet state for verbose reporting
+    auto_initial_str = df.loc[idx, "auto_initial"] if "auto_initial" in df.columns else ""
+    prev_final_str = df.loc[idx, "final_removed"] if "final_removed" in df.columns else ""
+    manual_add_str = df.loc[idx, "manual_add"] if "manual_add" in df.columns else ""
+    manual_drop_str = df.loc[idx, "manual_drop"] if "manual_drop" in df.columns else ""
+    status_before = df.loc[idx, "status"] if "status" in df.columns else ""
+
+    auto_initial_set = _parse_component_str(auto_initial_str)
+    prev_final_set = _parse_component_str(prev_final_str)
+    manual_add_set = _parse_component_str(manual_add_str)
+    manual_drop_set = _parse_component_str(manual_drop_str)
 
     # Merge any manual edits and get final exclusion list
     final_exclude = update_ica_control_sheet(autoclean_dict, [])
@@ -645,20 +716,30 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
         subject_id = step_sanitize_id(original_file)
         # Use pipeline derivatives root from metadata_dir's parent
         pipeline_deriv_root = Path(metadata_dir).parent
-        candidate = pipeline_deriv_root / f"sub-{subject_id}" / "eeg" / f"{basename}-ica.fif"
+        candidate = (
+            pipeline_deriv_root / f"sub-{subject_id}" / "eeg" / f"{basename}-ica.fif"
+        )
         if candidate.exists():
             ica_fif = candidate
         else:
             # Last fallback: original (possibly incorrect) path
-            ica_fif = Path(autoclean_dict.get("derivatives_dir", metadata_dir)) / f"{basename}-ica.fif"
+            ica_fif = (
+                Path(autoclean_dict.get("derivatives_dir", metadata_dir))
+                / f"{basename}-ica.fif"
+            )
     # If still missing, raise a helpful error
     if not ica_fif.exists():
         raise FileNotFoundError(
             f"ICA FIF not found for {original_file}. Expected at: {ica_fif}. "
             "Run the ICA step first to create and save the decomposition."
         )
+    
     pre_path_str = df.loc[idx, "pre_ica_path"] if "pre_ica_path" in df.columns else ""
-    pre_ica_path = Path(pre_path_str) if pre_path_str else _discover_pre_ica_path(autoclean_dict, basename)
+    pre_ica_path = (
+        Path(pre_path_str)
+        if pre_path_str
+        else _discover_pre_ica_path(autoclean_dict, basename)
+    )
     if not pre_ica_path or not Path(pre_ica_path).exists():
         # Try discovery one more time
         pre_ica_path = _discover_pre_ica_path(autoclean_dict, basename)
@@ -666,6 +747,68 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
         raise FileNotFoundError(
             f"Could not find pre-ICA stage file for {original_file}. Run an ICA processing pass first."
         )
+
+    # Ensure we have a run_id in the processing context (for DB logging)
+    run_id_in_sheet = df.loc[idx, "run_id"] if "run_id" in df.columns else ""
+    if not autoclean_dict.get("run_id"):
+        if run_id_in_sheet:
+            autoclean_dict["run_id"] = run_id_in_sheet
+        else:
+            found_run_id = _find_run_id_for_file(autoclean_dict["unprocessed_file"])
+            if found_run_id:
+                autoclean_dict["run_id"] = found_run_id
+                # Persist to sheet for future runs
+                df.loc[idx, "run_id"] = found_run_id
+                df.to_csv(sheet_path, index=False)
+
+    # Establish a new manual-ICA run to preserve original immutable record
+    # Determine parent/original run_id from sheet or DB
+    run_id_in_sheet = df.loc[idx, "run_id"] if "run_id" in df.columns else ""
+    parent_run_id = run_id_in_sheet or _find_run_id_for_file(
+        autoclean_dict["unprocessed_file"]
+    )
+    # Derive task name from metadata path for context (best effort)
+    try:
+        task_name = metadata_dir.parents[3].name  # .../<Task>/bids/derivatives/.../metadata
+    except Exception:
+        task_name = None
+
+    new_run_id = str(ULID())
+    manual_meta = {
+        "parent_run_id": parent_run_id or "",
+        "ica_fif": str(ica_fif),
+        "pre_ica_path": str(pre_ica_path),
+        "final_removed": list(map(int, final_exclude)) if final_exclude else [],
+    }
+    try:
+        manage_database_conditionally(
+            operation="store",
+            run_record={
+                "run_id": new_run_id,
+                "timestamp": datetime.now().isoformat(),
+                "task": task_name,
+                "unprocessed_file": str(Path(autoclean_dict["unprocessed_file"]).absolute()),
+                "status": "manual_ica_apply started",
+                "success": False,
+                "metadata": {"manual_ica_apply": manual_meta},
+            },
+        )
+        # Switch context so subsequent saves/updates log to the new run
+        autoclean_dict["run_id"] = new_run_id
+    except Exception:
+        # If DB unavailable, continue without run logging
+        pass
+
+    # Verbose pre-apply summary reflecting CSV
+    verbose = bool(autoclean_dict.get("verbose", True))
+    if verbose:
+        message("info", "ICA Control Sheet (before apply):")
+        message("info", f" - auto_initial: {auto_initial_str or '(none)'}")
+        message("info", f" - final_removed (prev): {prev_final_str or '(none)'}")
+        message("info", f" - manual_add: {manual_add_str or '(none)'}")
+        message("info", f" - manual_drop: {manual_drop_str or '(none)'}")
+        if ica_fif:
+            message("info", f" - ica_fif: {ica_fif}")
 
     # Read pre-ICA data (prefer FIF if provided)
     if str(pre_ica_path).lower().endswith(".fif"):
@@ -675,10 +818,12 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
     ica = read_ica(ica_fif)
 
     # Apply exclusions and save cleaned data as a new stage
-    raw_clean, _ = apply_ica_rejection(raw, ica, final_exclude, copy=True)
+    raw_clean = apply_ica_rejection(raw, ica, final_exclude, copy=True)
     autoclean_dict_with_stage = dict(autoclean_dict)
     autoclean_dict_with_stage["stage_dir"] = stage_dir
-    post_path = save_raw_to_set(raw_clean, autoclean_dict_with_stage, stage="post_ica_manual")
+    post_path = save_raw_to_set(
+        raw_clean, autoclean_dict_with_stage, stage="post_ica_manual"
+    )
 
     # Update control sheet with timestamp, ensure manual fields are cleared, and set post_ica_path
     final_exclude = update_ica_control_sheet(autoclean_dict, final_exclude)
@@ -688,5 +833,49 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
         df["post_ica_path"] = ""
     df.loc[idx, "post_ica_path"] = str(post_path)
     df.to_csv(sheet_path, index=False)
+
+    # Compute changes and always print a compact summary
+    final_after_str = df.loc[idx, "final_removed"] if "final_removed" in df.columns else ""
+    after_set = _parse_component_str(final_after_str)
+    added = sorted(list(after_set - prev_final_set))
+    removed = sorted(list(prev_final_set - after_set))
+    change_add = _format_component_list(added) if added else ""
+    change_drop = _format_component_list(removed) if removed else ""
+    message("info", f"ICA changes: +{change_add or '∅'}  -{change_drop or '∅'}  final={final_after_str or '(none)'}")
+
+    # Verbose post-apply details
+    if verbose:
+        status_after = df.loc[idx, "status"] if "status" in df.columns else ""
+        pre_ica_csv = df.loc[idx, "pre_ica_path"] if "pre_ica_path" in df.columns else ""
+        ica_fif_csv = df.loc[idx, "ica_fif"] if "ica_fif" in df.columns else ""
+        last_run_iso = df.loc[idx, "last_run_iso"] if "last_run_iso" in df.columns else ""
+        message("info", f" - status: {status_after or '(n/a)'}  last_run_iso: {last_run_iso or '(n/a)'}")
+        if pre_ica_csv:
+            message("info", f" - pre_ica_path: {pre_ica_csv}")
+        if post_path:
+            message("info", f" - post_ica_path: {post_path}")
+        if ica_fif_csv:
+            message("info", f" - ica_fif: {ica_fif_csv}")
+
+    # Finalize new manual run record, if created
+    try:
+        if autoclean_dict.get("run_id") == new_run_id:
+            manage_database_conditionally(
+                operation="update",
+                update_record={
+                    "run_id": new_run_id,
+                    "metadata": {"manual_ica_apply": {"post_ica_path": str(post_path)}},
+                    "success": True,
+                },
+            )
+            manage_database_conditionally(
+                operation="update_status",
+                update_record={
+                    "run_id": new_run_id,
+                    "status": "post_ica_manual completed",
+                },
+            )
+    except Exception:
+        pass
 
     return None
