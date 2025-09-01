@@ -6,6 +6,7 @@ from autoclean.functions.ica.ica_processing import (
     apply_ica_component_rejection,
     classify_ica_components,
     fit_ica,
+    update_ica_control_sheet,
 )
 from autoclean.io.export import save_ica_to_fif
 from autoclean.utils.logging import message
@@ -400,9 +401,10 @@ class IcaMixin:
         )
         message("debug", f"Applying ICA to {data_source_name}")
 
-        # Call standalone function for component rejection
+        # Run automatic rejection on a copy to get suggested components
+        temp_raw = target_data.copy()
         _, rejected_ic_indices_this_step = apply_ica_component_rejection(
-            raw=target_data,
+            raw=temp_raw,
             ica=self.final_ica,
             labels_df=self.ica_flags,
             ic_flags_to_reject=flags_to_reject,
@@ -410,6 +412,8 @@ class IcaMixin:
             ic_rejection_overrides=threshold_overrides,
             verbose=True,
         )
+
+        auto_exclude = sorted(self.final_ica.exclude)
 
         if not rejected_ic_indices_this_step:
             message("info", "No new components met rejection criteria in this step.")
@@ -420,10 +424,17 @@ class IcaMixin:
                 f"{rejected_ic_indices_this_step}",
             )
 
-        message(
-            "info",
-            f"Total components now marked for exclusion: {self.final_ica.exclude}",
-        )
+        # Use control sheet to finalize exclusions
+        final_exclude = update_ica_control_sheet(self.config, auto_exclude)
+        self.final_ica.exclude = final_exclude
+
+        if not final_exclude:
+            message(
+                "info", "No ICA components marked for exclusion after control sheet processing."
+            )
+        else:
+            self.final_ica.apply(target_data)
+            message("info", f"Applied ICA, removing components: {final_exclude}")
 
         # Update metadata
         metadata = {
@@ -432,7 +443,8 @@ class IcaMixin:
                 "configured_rejection_threshold": rejection_threshold,
                 "configured_threshold_overrides": threshold_overrides,
                 "rejected_indices_this_step": rejected_ic_indices_this_step,
-                "final_excluded_indices": self.final_ica.exclude,
+                "auto_excluded_indices": auto_exclude,
+                "final_excluded_indices": final_exclude,
             }
         }
         # Assuming _update_metadata is available in the class using this mixin
