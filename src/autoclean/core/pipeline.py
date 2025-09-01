@@ -621,7 +621,7 @@ class Pipeline:
         self,
         directory: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.set",
+        pattern: str = "*.{raw,set}",
         recursive: bool = False,
     ) -> None:
         """Processes all files matching a pattern within a directory sequentially.
@@ -634,7 +634,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.set`.
+            Glob pattern to match files within the directory, default is `*.{raw,set}`.
         recursive : bool, optional
             If True, searches subdirectories recursively, by default False.
 
@@ -653,11 +653,11 @@ class Pipeline:
         >>> pipeline.process_directory(
         ...     directory='data/rest_state/',
         ...     task='rest_eyesopen',
-        ...     pattern='*.raw',
+        ...     pattern='*.{raw,set}',
         ...     recursive=True
         ... )
         >>> # Or use input_path from task config
-        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.raw')
+        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.{raw,set}')
         """
         # Use input_path from task config if directory not provided
         if directory is None:
@@ -724,7 +724,7 @@ class Pipeline:
         self,
         directory_path: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.raw",
+        pattern: str = "*.{raw,set}",
         sub_directories: bool = False,
         max_concurrent: int = 3,
     ) -> None:
@@ -738,7 +738,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.raw`.
+            Glob pattern to match files within the directory, default is `*.{raw,set}`.
         sub_directories : bool, optional
             If True, searches subdirectories recursively, by default False.
         max_concurrent : int, optional

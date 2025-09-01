@@ -69,9 +69,9 @@ Use the Task class name shown in `task list` (for the example above it’s likel
 autocleaneeg-pipeline process RestingState /path/to/data.raw
 ```
 
-- Directory of files (example pattern for EEGLAB `.set`):
+- Directory of files (default pattern matches `.raw` and `.set`):
 ```bash
-autocleaneeg-pipeline process RestingState /path/to/dir --format "*.set" --recursive
+autocleaneeg-pipeline process RestingState /path/to/dir --recursive
 ```
 
 - Start the review GUI for your workspace output:
@@ -86,7 +86,7 @@ from autoclean.core.pipeline import Pipeline
 pipeline = Pipeline(output_dir=None)  # default to workspace/output
 pipeline.process_file("/path/to/data.raw", task="RestingState")
 # Or for a directory
-# pipeline.process_directory(directory="/path/to/dir", task="RestingState", pattern="*.set", recursive=True)
+# pipeline.process_directory(directory="/path/to/dir", task="RestingState", pattern="*.{raw,set}", recursive=True)
 ```
 
 ## Helpful Workspace Shortcuts
