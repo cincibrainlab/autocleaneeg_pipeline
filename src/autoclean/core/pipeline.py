@@ -406,7 +406,7 @@ class Pipeline:
                     )
 
                 # Copy final files to the dedicated final_files directory
-                if not flagged:  # Only copy if processing was successful
+                if not flagged or not run_dict.get("move_flagged_files", True):
                     copy_final_files(run_dict)
 
             except Exception as e:  # pylint: disable=broad-except
