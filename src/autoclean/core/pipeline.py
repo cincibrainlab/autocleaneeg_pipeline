@@ -109,6 +109,29 @@ except ImportError:
 matplotlib.use("Agg")
 
 
+def _expand_brace_glob(pattern: str) -> list[str]:
+    """Expand simple brace globs like '*.{raw,set}' into ['*.raw', '*.set'].
+
+    This supports a single pair of braces with comma-separated options.
+    If no braces are present, returns the pattern as a single-item list.
+    """
+    if "{" not in pattern or "}" not in pattern:
+        return [pattern]
+
+    start = pattern.find("{")
+    end = pattern.find("}", start + 1)
+    if start == -1 or end == -1 or end < start:
+        return [pattern]
+
+    prefix = pattern[:start]
+    suffix = pattern[end + 1 :]
+    body = pattern[start + 1 : end]
+    options = [opt.strip() for opt in body.split(",") if opt.strip()]
+    if not options:
+        return [pattern]
+    return [f"{prefix}{opt}{suffix}" for opt in options]
+
+
 class Pipeline:
     """Pipeline class for EEG processing.
 
@@ -697,7 +720,14 @@ class Pipeline:
             f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
         )
 
-        files = list(directory.glob(search_pattern))
+        # Support brace expansion patterns like '*.{raw,set}'
+        files: list[Path] = []
+        seen: set[Path] = set()
+        for pat in _expand_brace_glob(search_pattern):
+            for f in directory.glob(pat):
+                if f not in seen:
+                    seen.add(f)
+                    files.append(f)
         message("debug", f"Files matching pattern: {[f.name for f in files]}")
 
         if not files:
@@ -793,7 +823,14 @@ class Pipeline:
             f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
         )
 
-        files = list(directory_path.glob(search_pattern))
+        # Support brace expansion patterns like '*.{raw,set}'
+        files: list[Path] = []
+        seen: set[Path] = set()
+        for pat in _expand_brace_glob(search_pattern):
+            for f in directory_path.glob(pat):
+                if f not in seen:
+                    seen.add(f)
+                    files.append(f)
         message("debug", f"Files matching pattern: {[f.name for f in files]}")
 
         if not files:
