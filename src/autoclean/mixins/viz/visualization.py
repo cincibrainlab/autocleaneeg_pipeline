@@ -829,30 +829,67 @@ class VisualizationMixin:
         fmax = 80
         n_fft = int(raw_original.info["sfreq"] * 2)  # Window length of 2 seconds
 
-        # Compute PSD for original and cleaned data
-        psd_original = raw_original.compute_psd(
-            method="welch",
-            fmin=fmin,
-            fmax=fmax,
-            n_fft=n_fft,
-            average="mean",
-            verbose=False,
+        sfreq = raw_cleaned.info["sfreq"]  # ~250 Hz in your printout
+        epoch_len = 2.0  # try 2.0 s; use 1.0 s if you still get warnings
+        overlap = 0.5
+
+        epochs_clean = mne.make_fixed_length_epochs(
+            raw_cleaned,
+            duration=epoch_len,
+            overlap=epoch_len * overlap,
+            reject_by_annotation=True,  # exclude any BAD-touching chunks
+            preload=True,
         )
-        psd_cleaned = raw_cleaned.compute_psd(
+
+        # Ensure both raws have identical timing/sfreq. If you resampled the cleaned data, resample the original the same way.
+        if raw_original.info["sfreq"] != sfreq:
+            raw_original = raw_original.copy().resample(sfreq)
+
+        epochs_orig = mne.Epochs(
+            raw_original,
+            events=epochs_clean.events,
+            tmin=epochs_clean.tmin,
+            tmax=epochs_clean.tmax,
+            baseline=None,
+            preload=True,
+            reject_by_annotation=False,  # we already curated the windows via epochs_clean
+        )
+
+        nps = int(epoch_len * sfreq)
+        noverlap = int(nps * overlap)
+
+        psd_orig = epochs_orig.compute_psd(
             method="welch",
             fmin=fmin,
             fmax=fmax,
-            n_fft=n_fft,
+            n_per_seg=nps,
+            n_fft=nps,
+            n_overlap=noverlap,
             average="mean",
             verbose=False,
         )
 
-        freqs = psd_original.freqs
+        psd_clean = epochs_clean.compute_psd(
+            method="welch",
+            fmin=fmin,
+            fmax=fmax,
+            n_per_seg=nps,
+            n_fft=nps,
+            n_overlap=noverlap,
+            average="mean",
+            verbose=False,
+        )
+
+        # Collapse epochs -> Spectrum (like the Raw output)
+        psd_orig_avg = psd_orig.average()  # EpochsSpectrum -> Spectrum
+        psd_clean_avg = psd_clean.average()  # EpochsSpectrum -> Spectrum
+
+        freqs = psd_clean_avg.freqs
         df = freqs[1] - freqs[0]  # Frequency resolution
 
         # Convert PSDs to mV^2/Hz
-        psd_original_mV2 = psd_original.get_data() * 1e6
-        psd_cleaned_mV2 = psd_cleaned.get_data() * 1e6
+        psd_original_mV2 = psd_orig_avg.get_data() * 1e6
+        psd_cleaned_mV2 = psd_clean_avg.get_data() * 1e6
 
         # Compute mean PSDs
         psd_original_mean_mV2 = np.mean(psd_original_mV2, axis=0)
@@ -874,10 +911,12 @@ class VisualizationMixin:
         for band_name, l_freq, h_freq in bands:
             # Get band powers
             band_power_orig = (
-                psd_original.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1) * df * 1e6
+                psd_orig_avg.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1) * df * 1e6
             )
             band_power_clean = (
-                psd_cleaned.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1) * df * 1e6
+                psd_clean_avg.get_data(fmin=l_freq, fmax=h_freq).mean(axis=-1)
+                * df
+                * 1e6
             )
 
             band_powers_orig.append(band_power_orig)
