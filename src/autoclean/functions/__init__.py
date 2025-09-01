@@ -60,6 +60,7 @@ from .ica import (
     apply_ica_rejection,
     classify_ica_components,
     fit_ica,
+    process_ica_control_sheet,
 )
 
 # Preprocessing functions
@@ -121,6 +122,7 @@ __all__ = [
     "classify_ica_components",
     "apply_ica_component_rejection",
     "apply_ica_rejection",
+    "process_ica_control_sheet",
     "apply_iclabel_rejection",
     # Visualization functions
     "plot_raw_comparison",

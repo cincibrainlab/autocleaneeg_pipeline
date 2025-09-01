@@ -9,6 +9,7 @@ from .ica_processing import (
     apply_ica_rejection,
     classify_ica_components,
     fit_ica,
+    process_ica_control_sheet,
 )
 
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "classify_ica_components",
     "apply_ica_rejection",
     "apply_ica_component_rejection",
+    "process_ica_control_sheet",
 ]

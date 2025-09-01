@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Union
 import mne
 import mne_icalabel
 import pandas as pd
-from mne.preprocessing import ICA
+from mne.preprocessing import ICA, read_ica
 
 # Optional import for ICVision
 try:
@@ -270,8 +270,11 @@ def apply_ica_rejection(
         ica_copy = ica.copy()
         ica_copy.exclude = components_to_reject
 
-        # Apply ICA
-        raw_cleaned = ica_copy.apply(raw, copy=copy, verbose=verbose)
+        # Apply ICA, falling back if copy parameter is unsupported
+        try:
+            raw_cleaned = ica_copy.apply(raw, copy=copy, verbose=verbose)
+        except TypeError:
+            raw_cleaned = ica_copy.apply(raw, verbose=verbose)
 
         return raw_cleaned
 
@@ -280,35 +283,38 @@ def apply_ica_rejection(
 
 
 def _icalabel_to_dataframe(ica: ICA) -> pd.DataFrame:
-    """Convert ICLabel results to a pandas DataFrame.
+    """Convert ICLabel results to a pandas DataFrame."""
 
-    Helper function to extract ICLabel classification results from an ICA object
-    and format them into a convenient DataFrame structure.
+    labels_attr = getattr(ica, "labels_", {}) or {}
+    n_components = ica.n_components_
 
-    This matches the format used in the original AutoClean ICA mixin.
-    """
-    # Initialize ic_type array with empty strings
-    ic_type = [""] * ica.n_components_
+    ic_type = [""] * n_components
+    confidence = [0.0] * n_components
 
-    # Fill in the component types based on labels
-    for label, comps in ica.labels_.items():
-        for comp in comps:
-            ic_type[comp] = label
+    if "iclabel" in labels_attr and isinstance(labels_attr["iclabel"], dict):
+        proba = labels_attr["iclabel"].get("y_pred_proba")
+        if proba is not None and len(proba) == n_components:
+            confidence = proba.max(axis=1).tolist()
+    else:
+        for label, comps in labels_attr.items():
+            if isinstance(comps, (list, tuple, set)):
+                for comp in comps:
+                    ic_type[comp] = label
+        confidence = (
+            ica.labels_scores_.max(1).tolist()
+            if hasattr(ica, "labels_scores_")
+            else [1.0] * n_components
+        )
 
-    # Create DataFrame matching the original format with component index as DataFrame index
     results = pd.DataFrame(
         {
-            "component": getattr(ica, "_ica_names", list(range(ica.n_components_))),
-            "annotator": ["ic_label"] * ica.n_components_,
+            "component": getattr(ica, "_ica_names", list(range(n_components))),
+            "annotator": ["ic_label"] * n_components,
             "ic_type": ic_type,
-            "confidence": (
-                ica.labels_scores_.max(1)
-                if hasattr(ica, "labels_scores_")
-                else [1.0] * ica.n_components_
-            ),
+            "confidence": confidence,
         },
-        index=range(ica.n_components_),
-    )  # Ensure index is component indices
+        index=range(n_components),
+    )
 
     return results
 
@@ -522,3 +528,57 @@ def update_ica_control_sheet(
     df.to_csv(sheet_path, index=False)
 
     return sorted(final_removed_set)
+
+
+def process_ica_control_sheet(autoclean_dict: dict) -> None:
+    """Apply manual ICA edits from the control sheet and update artifacts.
+
+    This function reloads the original data and previously computed ICA
+    decomposition, applies any manual inclusion or exclusion edits recorded
+    in the ``ica_control_sheet.csv`` file, and saves the cleaned data back to
+    the derivatives directory. The control sheet is updated to record the
+    applied changes and clear any manual edit fields.
+
+    Parameters
+    ----------
+    autoclean_dict : dict
+        Configuration dictionary containing ``metadata_dir``,
+        ``derivatives_dir`` and ``unprocessed_file`` keys.
+
+    Returns
+    -------
+    None
+        The function has side effects of updating the control sheet and
+        overwriting the cleaned data file in the derivatives directory.
+    """
+
+    metadata_dir = Path(autoclean_dict["metadata_dir"])
+    sheet_path = metadata_dir / "ica_control_sheet.csv"
+    original_file = Path(autoclean_dict["unprocessed_file"]).name
+
+    if not sheet_path.exists():
+        raise FileNotFoundError(f"ICA control sheet not found: {sheet_path}")
+
+    df = pd.read_csv(sheet_path, dtype=str, keep_default_na=False)
+    if original_file not in df.get("original_file", []).tolist():
+        raise ValueError(f"{original_file} not found in ICA control sheet")
+
+    # Merge any manual edits and get final exclusion list
+    final_exclude = update_ica_control_sheet(autoclean_dict, [])
+
+    derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
+    ica_fif = derivatives_dir / f"{Path(original_file).stem}-ica.fif"
+
+    # Load pre-ICA data and ICA decomposition
+    raw = mne.io.read_raw(autoclean_dict["unprocessed_file"], preload=True)
+    ica = read_ica(ica_fif)
+
+    # Apply exclusions and save cleaned data
+    apply_ica_rejection(raw, ica, final_exclude, copy=False)
+    output_path = derivatives_dir / original_file
+    raw.save(output_path, overwrite=True)
+
+    # Update control sheet timestamp and ensure manual fields are cleared
+    update_ica_control_sheet(autoclean_dict, final_exclude)
+
+    return None
