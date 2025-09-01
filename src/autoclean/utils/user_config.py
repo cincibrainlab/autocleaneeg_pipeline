@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import platformdirs
+from autoclean.utils.process_log import log_cli_action
 
 try:
     import psutil
@@ -194,14 +195,17 @@ class UserConfigManager:
         # Update active task
         if task_name is None:
             config.pop("active_task", None)
+            action = "Cleared active task"
         else:
             config["active_task"] = task_name
-        
+            action = f"Set active task: {task_name}"
+
         # Save config
         global_config.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(global_config, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
+            log_cli_action(action)
             return True
         except Exception as e:
             print(f"Warning: Could not save active task config: {e}")
@@ -229,14 +233,17 @@ class UserConfigManager:
         # Update active source
         if source_path is None:
             config.pop("active_source", None)
+            action = "Cleared active input"
         else:
             config["active_source"] = str(source_path)
-        
+            action = f"Set active input: {source_path}"
+
         # Save config
         global_config.parent.mkdir(parents=True, exist_ok=True)
         try:
             with open(global_config, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
+            log_cli_action(action)
             return True
         except Exception as e:
             print(f"Warning: Could not save active source config: {e}")

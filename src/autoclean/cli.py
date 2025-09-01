@@ -37,6 +37,7 @@ from autoclean.utils.config import (
 )
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.logging import message
+from autoclean.utils.process_log import log_cli_action
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
     get_task_by_name,
@@ -50,9 +51,6 @@ from autoclean.utils.console import get_console
 # ------------------------------------------------------------
 # CLI Process Logging
 # ------------------------------------------------------------
-
-# Maximum log file size (5MB)
-MAX_LOG_SIZE = 5 * 1024 * 1024
 
 def _strip_wrapping_quotes(text: Optional[str]) -> Optional[str]:
     """Remove a single or nested pair of matching wrapping quotes from text.
@@ -107,79 +105,26 @@ def _sanitize_arguments(args: List[str]) -> List[str]:
     
     return sanitized
 
-def _rotate_log(log_path: Path) -> None:
-    """Rotate log file when it gets too large."""
-    try:
-        # Keep last 5 rotated logs
-        for i in range(4, 0, -1):
-            old_path = log_path.with_suffix(f'.{i}.txt')
-            new_path = log_path.with_suffix(f'.{i+1}.txt')
-            if old_path.exists():
-                old_path.rename(new_path)
-        
-        # Move current log to .1
-        if log_path.exists():
-            rotated_path = log_path.with_suffix('.1.txt')
-            log_path.rename(rotated_path)
-    except Exception:
-        # If rotation fails, truncate the log
-        try:
-            with log_path.open('w', encoding='utf-8') as f:
-                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Log rotated due to size limit\n")
-        except Exception:
-            pass
-
 def _log_cli_execution(args: argparse.Namespace) -> None:
     """Log CLI execution to workspace process log with security and error handling."""
     try:
         # Only log if workspace exists to avoid setup errors
-        workspace_dir = user_config.config_dir
-        if not workspace_dir.exists():
+        if not user_config.config_dir.exists():
             return
-        
-        log_path = workspace_dir / "process_log.txt"
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
         # Get original command arguments, excluding the script name
         original_args = sys.argv[1:] if hasattr(sys, 'argv') and len(sys.argv) > 1 else []
-        
+
         # Skip logging if no meaningful command (just bare invocation)
         if not original_args or not args.command:
             return
-            
+
         # Sanitize arguments for security
         safe_args = _sanitize_arguments(original_args)
         command_str = f"autocleaneeg-pipeline {' '.join(safe_args)}"
-        
-        # Check file size and rotate if necessary
-        if log_path.exists() and log_path.stat().st_size > MAX_LOG_SIZE:
-            _rotate_log(log_path)
-        
-        # Atomic write to prevent corruption
-        log_entry = f"[{timestamp}] {command_str}\n"
-        
-        # Write to temporary file first, then move
-        temp_path = log_path.with_suffix('.tmp')
-        try:
-            # Read existing content if file exists
-            existing_content = ""
-            if log_path.exists():
-                with log_path.open('r', encoding='utf-8') as f:
-                    existing_content = f.read()
-            
-            # Write to temp file
-            with temp_path.open('w', encoding='utf-8') as f:
-                f.write(existing_content + log_entry)
-            
-            # Atomic move
-            temp_path.replace(log_path)
-            
-        except Exception:
-            # Clean up temp file if it exists
-            if temp_path.exists():
-                temp_path.unlink()
-            raise
-            
+
+        log_cli_action(command_str)
+
     except Exception as e:
         # Log to stderr but don't break CLI functionality
         print(f"Warning: Failed to log command execution: {e}", file=sys.stderr)
@@ -1988,6 +1933,7 @@ def cmd_workspace_set(args) -> int:
                 chosen = user_config.setup_workspace(show_branding=False)
             message("success", "✓ Workspace updated")
             message("info", str(chosen))
+            log_cli_action(f"Workspace set to: {chosen}")
             return 0
 
         new_path = args.path.expanduser().resolve()
@@ -2000,6 +1946,7 @@ def cmd_workspace_set(args) -> int:
         user_config.tasks_dir = new_path / "tasks"
         message("success", "✓ Workspace updated")
         message("info", str(new_path))
+        log_cli_action(f"Workspace set to: {new_path}")
         return 0
     except Exception as e:
         message("error", f"Failed to set workspace: {e}")
@@ -2019,6 +1966,7 @@ def cmd_workspace_unset(_args) -> int:
             message("success", "✓ Workspace unassigned (config cleared)")
         else:
             message("info", "No saved workspace configuration found")
+        log_cli_action("Workspace unassigned")
         # Reset in-memory paths to default suggestion
         user_config.config_dir = user_config._get_workspace_path()
         user_config.tasks_dir = user_config.config_dir / "tasks"
@@ -2046,6 +1994,7 @@ def cmd_workspace_default(_args) -> int:
 
         message("success", "✓ Workspace set to default location")
         message("info", str(default_path))
+        log_cli_action(f"Workspace set to: {default_path}")
         return 0
     except Exception as e:
         message("error", f"Failed to set default workspace: {e}")
@@ -2813,6 +2762,7 @@ def cmd_task_add(args) -> int:
         print(f"📁 Copied to: {dest_file}")
         print("\nUse your custom task with:")
         print(f"  autocleaneeg-pipeline process {task_name} <data_file>")
+        log_cli_action(f"Task added: {dest_file.name}")
 
         return 0
 
@@ -2844,6 +2794,7 @@ def cmd_task_remove(args) -> int:
         # Remove the file
         task_file.unlink()
         message("info", f"Task '{args.task_name}' removed from workspace!")
+        log_cli_action(f"Task removed: {args.task_name}")
         return 0
 
     except Exception as e:
@@ -3173,6 +3124,7 @@ def cmd_task_import(args) -> int:
         try:
             shutil.copy2(src, dest)
             message("success", f"✓ Imported task to workspace: {dest.name}")
+            log_cli_action(f"Task imported: {dest.name}")
         except Exception as e:
             message("error", f"Failed to copy file: {e}")
             return 1
@@ -3266,6 +3218,7 @@ def cmd_task_delete(args) -> int:
         try:
             f.unlink()
             message("success", f"✓ Deleted: {f.name}")
+            log_cli_action(f"Task deleted: {f.name}")
             return 0
         except Exception as e:
             message("error", f"Failed to delete file: {e}")
@@ -3367,6 +3320,7 @@ def cmd_task_copy(args) -> int:
         try:
             shutil.copy2(src_path, dest)
             message("success", f"✓ Copied to: {dest.name}")
+            log_cli_action(f"Task copied: {src_path.name} -> {dest.name}")
         except Exception as e:
             message("error", f"Failed to copy file: {e}")
             return 1
