@@ -886,6 +886,116 @@ class Pipeline:
         message("info", f"Total files processed: {len(files)}")
         message("info", "Check individual file logs for detailed status")
 
+    @require_authentication
+    def resume_from_post_ica(
+        self,
+        post_ica_file: Path,
+        task: str,
+        run_id: Optional[str] = None,
+        source_file: Optional[Path] = None,
+    ) -> None:
+        """Resume the active task from a post-ICA manual file and complete the tail.
+
+        Parameters
+        ----------
+        post_ica_file : Path
+            The path to the manually re-applied ICA stage file (e.g., *_ica_manual_raw.set or .fif).
+        task : str
+            The active task name to resume.
+        run_id : str, optional
+            The run identifier to attach DB updates to. If None, a new one is generated.
+        source_file : Path, optional
+            The original unprocessed file path for traceability; if None, uses post_ica_file.
+        """
+        post_ica_file = Path(post_ica_file)
+        if not post_ica_file.exists():
+            message("error", f"post_ICA file not found: {post_ica_file}")
+            return
+
+        # Derive directory structure from the post_ica file location
+        stage_dir = post_ica_file.parent.parent  # .../intermediate/<NN_stage>
+        derivatives_root = stage_dir.parent  # .../bids/derivatives/autoclean-vX.Y
+        bids_root = derivatives_root.parent.parent  # .../bids
+        metadata_dir = derivatives_root / "metadata"
+        final_files_dir = bids_root / "final_files"
+
+        # Build minimal config for the tail execution
+        cfg = {
+            "run_id": str(run_id) if run_id else str(ULID()),
+            "unprocessed_file": Path(source_file) if source_file else post_ica_file,
+            "task": self._validate_task(task),
+            "output_dir": self.output_dir,
+            "bids_dir": bids_root,
+            "metadata_dir": metadata_dir,
+            "stage_dir": stage_dir,
+            "derivatives_dir": derivatives_root,
+            "final_files_dir": final_files_dir,
+        }
+
+        # Instantiate the task object using the existing session registry
+        try:
+            task_object = self.session_task_registry[cfg["task"].lower()](cfg)
+        except KeyError:
+            message("error", f"Task '{task}' not found in task registry")
+            return
+
+        # Load raw from the post_ica file
+        suffix = post_ica_file.suffix.lower()
+        if suffix == ".set":
+            raw = mne.io.read_raw_eeglab(str(post_ica_file), preload=True)
+        elif suffix == ".fif":
+            raw = mne.io.read_raw_fif(str(post_ica_file), preload=True, verbose=False)
+        else:
+            message(
+                "error",
+                f"Unsupported post-ICA file type: {post_ica_file.suffix}. Expected .set or .fif",
+            )
+            return
+
+        # Attach to task and run tail operations
+        task_object.raw = raw
+        try:
+            task_object.original_raw = raw.copy()
+        except Exception:
+            pass
+
+        # Tail: try epoching if the task supports it
+        try:
+            if hasattr(task_object, "create_eventid_epochs") and callable(
+                task_object.create_eventid_epochs
+            ):
+                epochs = task_object.create_eventid_epochs()
+                if epochs is not None:
+                    try:
+                        flagged, _ = task_object.get_flagged_status()
+                    except Exception:
+                        flagged = False
+                    save_epochs_to_set(
+                        epochs=epochs,
+                        autoclean_dict=cfg,
+                        stage="post_comp",
+                        flagged=flagged,
+                    )
+        except Exception as e:
+            message("warning", f"Epoching tail skipped due to error: {e}")
+
+        # Reports if available
+        try:
+            if hasattr(task_object, "generate_reports") and callable(
+                task_object.generate_reports
+            ):
+                task_object.generate_reports()
+        except Exception as e:
+            message("warning", f"Report generation skipped due to error: {e}")
+
+        # Copy final files for convenience
+        try:
+            copy_final_files(cfg)
+        except Exception as e:
+            message("warning", f"Failed to copy final files: {e}")
+
+        message("success", "✓ Resume from post-ICA completed")
+
     def list_tasks(self) -> list[str]:
         """Get a list of available processing tasks.
 

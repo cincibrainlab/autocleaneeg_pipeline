@@ -692,6 +692,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         default=True,
         help="Enable verbose output (default: on)",
     )
+    ica_parser.add_argument(
+        "--no-continue",
+        action="store_true",
+        help="Do not auto-run remaining task stages after applying ICA edits",
+    )
     # List tasks command (alias for 'task list')
     list_tasks_parser = subparsers.add_parser(
         "list-tasks", help="List all available tasks", add_help=False
@@ -1753,6 +1758,28 @@ def cmd_process_ica(args) -> int:
         process_ica_control_sheet(autoclean_dict=autoclean_dict)
         message("success", f"Applied ICA edits for: {target_file.name}")
         updated = [str(target_file)]
+
+        # Auto-continue pipeline tail unless explicitly disabled
+        try:
+            import csv as _csv
+            with control_sheet.open("r", newline="", encoding="utf-8") as _f:
+                _reader = _csv.DictReader(_f)
+                _row = None
+                for r in _reader:
+                    if (r.get("original_file") or "").strip() == target_file.name:
+                        _row = r
+                        break
+            if _row:
+                post_ica_path = (_row.get("post_ica_path") or "").strip()
+                run_id = (_row.get("run_id") or "").strip()
+                if post_ica_path and not getattr(args, "no_continue", False):
+                    message("info", f"Resuming task from post-ICA: {post_ica_path}")
+                    pipeline = Pipeline(output_dir=output_dir)
+                    pipeline.resume_from_post_ica(
+                        Path(post_ica_path), task_name, run_id=run_id or None, source_file=target_file
+                    )
+        except Exception as _resume_err:
+            message("warning", f"Auto-continue skipped due to error: {_resume_err}")
 
         if updated:
             message("info", f"Updated {len(updated)} file(s) with ICA edits:")
