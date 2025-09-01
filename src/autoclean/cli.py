@@ -689,7 +689,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--verbose",
         "-v",
         action="store_true",
-        help="Enable verbose output",
+        default=True,
+        help="Enable verbose output (default: on)",
     )
     # List tasks command (alias for 'task list')
     list_tasks_parser = subparsers.add_parser(
@@ -1692,10 +1693,16 @@ def cmd_process_ica(args) -> int:
         from autoclean.functions.ica.ica_processing import (
             process_ica_control_sheet,
         )
+        from autoclean.utils.database import set_database_path
         from autoclean import __version__ as _AC_VERSION
 
         # Resolve workspace-bound output dir and active task
         output_dir = getattr(args, "output", None) or user_config.get_default_output_dir()
+        # Ensure database points to this output directory for lookups/updates
+        try:
+            set_database_path(Path(output_dir))
+        except Exception:
+            pass
         task_name = user_config.get_active_task()
         if not task_name:
             message("error", "Active task not set (run 'autocleaneeg-pipeline task set')")
@@ -1733,6 +1740,7 @@ def cmd_process_ica(args) -> int:
             "derivatives_dir": derivatives_root,
             "stage_dir": derivatives_root / "intermediate",
             "unprocessed_file": target_file,
+            "verbose": bool(getattr(args, "verbose", True)),
         }
 
         if args.dry_run:

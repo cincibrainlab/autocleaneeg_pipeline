@@ -11,6 +11,7 @@ import scipy.io as sio
 from eeglabio.epochs import export_set
 
 from autoclean.utils.database import manage_database_conditionally
+from autoclean.utils.bids import step_sanitize_id
 from autoclean.utils.logging import message
 
 __all__ = [
@@ -505,8 +506,17 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
 
     components = []
 
+    # Compute subject-specific derivatives/eeg directory (BIDS per-subject organization)
+    try:
+        subject_id = step_sanitize_id(Path(autoclean_dict["unprocessed_file"]).name)
+        subject_eeg_dir = derivatives_dir / f"sub-{subject_id}" / "eeg"
+        subject_eeg_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        message("warning", f"Failed to prepare subject EEG derivatives dir: {str(e)}")
+        subject_eeg_dir = derivatives_dir
+
     if ica is not None:
-        ica_path = derivatives_dir / f"{basename}-ica.fif"
+        ica_path = subject_eeg_dir / f"{basename}-ica.fif"
         ica.save(ica_path, overwrite=True)
         components.append(ch for ch in ica.exclude)
 
@@ -526,7 +536,7 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
         pre_ica_fif_path = fif_stage_dir / f"{basename}_pre_ica_raw.fif"
         pre_ica_raw.save(pre_ica_fif_path, overwrite=True)
         # Save a subject-organized copy under derivatives/sub-<id>/eeg
-        pre_ica_fif_subject_path = derivatives_dir / f"{basename}_pre_ica_raw.fif"
+        pre_ica_fif_subject_path = subject_eeg_dir / f"{basename}_pre_ica_raw.fif"
         pre_ica_raw.save(pre_ica_fif_subject_path, overwrite=True)
     except Exception as e:  # pylint: disable=broad-exception-caught
         message("warning", f"Failed to save pre-ICA FIF copy: {str(e)}")
