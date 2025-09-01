@@ -107,6 +107,10 @@ That's it! AutoClean will automatically find and use your custom task.
 
 Your task configuration controls every aspect of processing. Here are the key sections:
 
+.. note::
+
+   To keep flagged runs in the standard output folders, add ``config['move_flagged_files'] = False`` to your task file. By default, flagged outputs are moved to ``FLAGGED_*`` directories.
+
 **Basic Preprocessing:**
 
 .. code-block:: python
