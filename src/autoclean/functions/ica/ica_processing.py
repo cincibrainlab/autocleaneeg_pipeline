@@ -4,6 +4,8 @@ This module provides standalone functions for Independent Component Analysis (IC
 including component fitting, classification, and artifact rejection.
 """
 
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import mne
@@ -417,3 +419,106 @@ def apply_ica_component_rejection(
                 )
 
     return raw, rejected_components
+
+
+def _parse_component_str(value: str) -> set[int]:
+    """Parse a comma-separated component string into a set of ints."""
+    if value is None or str(value).strip() == "" or pd.isna(value):
+        return set()
+    return {int(item) for item in str(value).split(",") if item.strip().isdigit()}
+
+
+def _format_component_list(values: List[int]) -> str:
+    """Format a list of component integers as a comma-separated string."""
+    return ",".join(str(v) for v in values)
+
+
+def update_ica_control_sheet(
+    autoclean_dict: Dict[str, Union[str, Path]], auto_exclude: List[int]
+) -> List[int]:
+    """Update the ICA control sheet and return the final exclusion list.
+
+    Parameters
+    ----------
+    autoclean_dict : dict
+        Configuration dictionary containing at minimum ``metadata_dir``,
+        ``derivatives_dir`` and ``unprocessed_file`` keys.
+    auto_exclude : list of int
+        Components automatically selected for exclusion in the current run.
+
+    Returns
+    -------
+    list of int
+        Final list of components to exclude after applying manual edits from
+        the control sheet.
+    """
+
+    metadata_dir = Path(autoclean_dict["metadata_dir"])
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+    sheet_path = metadata_dir / "ica_control_sheet.csv"
+
+    derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
+    original_file = Path(autoclean_dict["unprocessed_file"]).name
+    ica_fif = derivatives_dir / f"{Path(original_file).stem}-ica.fif"
+    auto_initial_str = _format_component_list(sorted(auto_exclude))
+    now_iso = datetime.now().isoformat()
+
+    columns = [
+        "original_file",
+        "ica_fif",
+        "auto_initial",
+        "final_removed",
+        "manual_add",
+        "manual_drop",
+        "status",
+        "last_run_iso",
+    ]
+
+    if sheet_path.exists():
+        df = pd.read_csv(sheet_path, dtype=str, keep_default_na=False)
+    else:
+        df = pd.DataFrame(columns=columns)
+
+    if original_file not in df.get("original_file", []).tolist():
+        # First run for this file: create new row with auto selections
+        new_row = {
+            "original_file": original_file,
+            "ica_fif": str(ica_fif),
+            "auto_initial": auto_initial_str,
+            "final_removed": auto_initial_str,
+            "manual_add": "",
+            "manual_drop": "",
+            "status": "auto",
+            "last_run_iso": now_iso,
+        }
+        df = pd.concat([df, pd.DataFrame([new_row])], ignore_index=True)
+        df.to_csv(sheet_path, index=False)
+        return sorted(auto_exclude)
+
+    # Existing row: apply manual edits if present
+    idx = df.index[df["original_file"] == original_file][0]
+
+    final_removed_set = _parse_component_str(df.loc[idx, "final_removed"])
+    manual_add_set = _parse_component_str(df.loc[idx, "manual_add"])
+    manual_drop_set = _parse_component_str(df.loc[idx, "manual_drop"])
+
+    if manual_add_set or manual_drop_set:
+        final_removed_set = (final_removed_set | manual_add_set) - manual_drop_set
+        df.loc[idx, "final_removed"] = _format_component_list(
+            sorted(final_removed_set)
+        )
+        df.loc[idx, "manual_add"] = ""
+        df.loc[idx, "manual_drop"] = ""
+        df.loc[idx, "status"] = (
+            "auto"
+            if df.loc[idx, "auto_initial"] == df.loc[idx, "final_removed"]
+            else "applied"
+        )
+
+    # Always update paths and timestamp
+    df.loc[idx, "ica_fif"] = str(ica_fif)
+    df.loc[idx, "last_run_iso"] = now_iso
+
+    df.to_csv(sheet_path, index=False)
+
+    return sorted(final_removed_set)
