@@ -102,6 +102,12 @@ class Task(ABC, *DISCOVERED_MIXINS):
         # Extract EEG system from task settings before validation
         config["eeg_system"] = self._extract_eeg_system()
 
+        # Propagate task-level move_flagged_files setting (default True)
+        if self.settings and "move_flagged_files" in self.settings:
+            config.setdefault("move_flagged_files", self.settings["move_flagged_files"])
+        else:
+            config.setdefault("move_flagged_files", True)
+
         # Configuration must be validated first as other initializations depend on it
         self.config = self.validate_config(config)
 
