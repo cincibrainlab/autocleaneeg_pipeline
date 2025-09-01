@@ -109,6 +109,29 @@ except ImportError:
 matplotlib.use("Agg")
 
 
+def _expand_brace_glob(pattern: str) -> list[str]:
+    """Expand simple brace globs like '*.{raw,set}' into ['*.raw', '*.set'].
+
+    This supports a single pair of braces with comma-separated options.
+    If no braces are present, returns the pattern as a single-item list.
+    """
+    if "{" not in pattern or "}" not in pattern:
+        return [pattern]
+
+    start = pattern.find("{")
+    end = pattern.find("}", start + 1)
+    if start == -1 or end == -1 or end < start:
+        return [pattern]
+
+    prefix = pattern[:start]
+    suffix = pattern[end + 1 :]
+    body = pattern[start + 1 : end]
+    options = [opt.strip() for opt in body.split(",") if opt.strip()]
+    if not options:
+        return [pattern]
+    return [f"{prefix}{opt}{suffix}" for opt in options]
+
+
 class Pipeline:
     """Pipeline class for EEG processing.
 
@@ -621,7 +644,7 @@ class Pipeline:
         self,
         directory: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.set",
+        pattern: str = "*.{raw,set}",
         recursive: bool = False,
     ) -> None:
         """Processes all files matching a pattern within a directory sequentially.
@@ -634,7 +657,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.set`.
+            Glob pattern to match files within the directory, default is `*.{raw,set}`.
         recursive : bool, optional
             If True, searches subdirectories recursively, by default False.
 
@@ -653,11 +676,11 @@ class Pipeline:
         >>> pipeline.process_directory(
         ...     directory='data/rest_state/',
         ...     task='rest_eyesopen',
-        ...     pattern='*.raw',
+        ...     pattern='*.{raw,set}',
         ...     recursive=True
         ... )
         >>> # Or use input_path from task config
-        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.raw')
+        >>> pipeline.process_directory(task='rest_eyesopen', pattern='*.{raw,set}')
         """
         # Use input_path from task config if directory not provided
         if directory is None:
@@ -697,7 +720,14 @@ class Pipeline:
             f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
         )
 
-        files = list(directory.glob(search_pattern))
+        # Support brace expansion patterns like '*.{raw,set}'
+        files: list[Path] = []
+        seen: set[Path] = set()
+        for pat in _expand_brace_glob(search_pattern):
+            for f in directory.glob(pat):
+                if f not in seen:
+                    seen.add(f)
+                    files.append(f)
         message("debug", f"Files matching pattern: {[f.name for f in files]}")
 
         if not files:
@@ -724,7 +754,7 @@ class Pipeline:
         self,
         directory_path: Optional[str | Path] = None,
         task: str = "",
-        pattern: str = "*.raw",
+        pattern: str = "*.{raw,set}",
         sub_directories: bool = False,
         max_concurrent: int = 3,
     ) -> None:
@@ -738,7 +768,7 @@ class Pipeline:
         task : str
             The name of the task to perform (e.g., 'RestingEyesOpen').
         pattern : str, optional
-            Glob pattern to match files within the directory, default is `*.raw`.
+            Glob pattern to match files within the directory, default is `*.{raw,set}`.
         sub_directories : bool, optional
             If True, searches subdirectories recursively, by default False.
         max_concurrent : int, optional
@@ -793,7 +823,14 @@ class Pipeline:
             f"All files in directory ({len(all_files)}): {[f.name for f in all_files if f.is_file()]}",
         )
 
-        files = list(directory_path.glob(search_pattern))
+        # Support brace expansion patterns like '*.{raw,set}'
+        files: list[Path] = []
+        seen: set[Path] = set()
+        for pat in _expand_brace_glob(search_pattern):
+            for f in directory_path.glob(pat):
+                if f not in seen:
+                    seen.add(f)
+                    files.append(f)
         message("debug", f"Files matching pattern: {[f.name for f in files]}")
 
         if not files:
