@@ -564,6 +564,7 @@ def create_parser() -> argparse.ArgumentParser:
 Basic Usage:
   autocleaneeg-pipeline workspace                      # First time setup
   autocleaneeg-pipeline process RestingEyesOpen data.raw   # Process single file
+  autocleaneeg-pipeline process ica                     # Apply ICA control sheet edits
   autocleaneeg-pipeline task list                      # Show available tasks
   autocleaneeg-pipeline review                         # Start review GUI
 
@@ -664,6 +665,31 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         type=int,
         metavar="N",
         help="Process files in parallel (default: 3 concurrent files, max: 8)",
+    )
+
+    process_subparsers = process_parser.add_subparsers(
+        dest="process_action", help="Process subcommands"
+    )
+    ica_parser = process_subparsers.add_parser(
+        "ica", help="Apply ICA control sheet edits", add_help=False
+    )
+    attach_rich_help(ica_parser)
+    ica_parser.add_argument(
+        "--metadata-dir",
+        type=Path,
+        default=None,
+        help="Directory containing metadata (default: workspace/metadata)",
+    )
+    ica_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show actions without modifying files",
+    )
+    ica_parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose output",
     )
     # List tasks command (alias for 'task list')
     list_tasks_parser = subparsers.add_parser(
@@ -1337,6 +1363,8 @@ def _show_process_guard(args) -> bool:
 
 def validate_args(args) -> bool:
     """Validate command line arguments."""
+    if args.command == "process" and getattr(args, "process_action", None) == "ica":
+        return True
     if args.command == "process":
         # Normalize positional vs named arguments
         task_name = args.task_name or args.task
@@ -1654,6 +1682,63 @@ def cmd_process(args) -> int:
 
     except Exception as e:
         message("error", f"Processing failed: {str(e)}")
+        return 1
+
+
+def cmd_process_ica(args) -> int:
+    """Process ICA control sheet updates."""
+    try:
+        from autoclean.tools.ica import process_ica_control_sheet
+
+        metadata_dir = (
+            Path(args.metadata_dir)
+            if args.metadata_dir
+            else user_config.config_dir / "metadata"
+        )
+        control_sheet = metadata_dir / "ica_control_sheet.csv"
+        if not control_sheet.exists():
+            message("error", f"ICA control sheet not found: {control_sheet}")
+            return 1
+
+        updated = []
+        with control_sheet.open("r", newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                manual_add = row.get("manual_add", "").strip()
+                manual_drop = row.get("manual_drop", "").strip()
+                status = row.get("status", "").strip().lower()
+                if manual_add or manual_drop or status == "pending":
+                    raw_path = Path(row.get("raw_path") or row.get("raw_file") or "")
+                    ica_fif = Path(row.get("ica_fif") or row.get("ica_file") or "")
+                    derivatives_dir = Path(row.get("derivatives_dir") or "")
+                    unprocessed_file = Path(row.get("unprocessed_file") or "")
+                    autoclean_dict = {
+                        "metadata_dir": metadata_dir,
+                        "derivatives_dir": derivatives_dir,
+                        "unprocessed_file": unprocessed_file,
+                    }
+                    process_ica_control_sheet(
+                        raw_path=raw_path,
+                        ica_fif=ica_fif,
+                        autoclean_dict=autoclean_dict,
+                        dry_run=args.dry_run,
+                        verbose=args.verbose,
+                    )
+                    updated.append(str(raw_path))
+
+        if updated:
+            message("info", f"Updated {len(updated)} file(s) with ICA edits:")
+            for item in updated:
+                message("info", f" - {item}")
+        else:
+            message("info", "No ICA updates needed.")
+        return 0
+
+    except ImportError as e:
+        message("error", f"ICA tooling not available: {e}")
+        return 1
+    except Exception as e:
+        message("error", f"ICA processing failed: {e}")
         return 1
 
 
@@ -5030,6 +5115,8 @@ def main(argv: Optional[list] = None) -> int:
 
     # Execute command
     if args.command == "process":
+        if getattr(args, "process_action", None) == "ica":
+            return cmd_process_ica(args)
         return cmd_process(args)
     elif args.command == "list-tasks":
         return cmd_list_tasks(args)
