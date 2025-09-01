@@ -1688,43 +1688,62 @@ def cmd_process(args) -> int:
 def cmd_process_ica(args) -> int:
     """Process ICA control sheet updates."""
     try:
-        from autoclean.tools.ica import process_ica_control_sheet
-
-        metadata_dir = (
-            Path(args.metadata_dir)
-            if args.metadata_dir
-            else user_config.config_dir / "metadata"
+        # Updated import path after refactor moving ICA tooling
+        from autoclean.functions.ica.ica_processing import (
+            process_ica_control_sheet,
         )
+        from autoclean import __version__ as _AC_VERSION
+
+        # Resolve workspace-bound output dir and active task
+        output_dir = getattr(args, "output", None) or user_config.get_default_output_dir()
+        task_name = user_config.get_active_task()
+        if not task_name:
+            message("error", "Active task not set (run 'autocleaneeg-pipeline task set')")
+            return 1
+
+        # Compute derivatives root according to pipeline layout
+        bids_root = Path(output_dir) / task_name / "bids"
+        derivatives_root = bids_root / "derivatives" / f"autoclean-v{_AC_VERSION}"
+        default_metadata_dir = derivatives_root / "metadata"
+
+        # Allow explicit override, else use computed default
+        metadata_dir = Path(args.metadata_dir) if getattr(args, "metadata_dir", None) else default_metadata_dir
+
         control_sheet = metadata_dir / "ica_control_sheet.csv"
         if not control_sheet.exists():
             message("error", f"ICA control sheet not found: {control_sheet}")
+            message("info", "Run a processing pass first to generate the control sheet.")
             return 1
 
-        updated = []
-        with control_sheet.open("r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                manual_add = row.get("manual_add", "").strip()
-                manual_drop = row.get("manual_drop", "").strip()
-                status = row.get("status", "").strip().lower()
-                if manual_add or manual_drop or status == "pending":
-                    raw_path = Path(row.get("raw_path") or row.get("raw_file") or "")
-                    ica_fif = Path(row.get("ica_fif") or row.get("ica_file") or "")
-                    derivatives_dir = Path(row.get("derivatives_dir") or "")
-                    unprocessed_file = Path(row.get("unprocessed_file") or "")
-                    autoclean_dict = {
-                        "metadata_dir": metadata_dir,
-                        "derivatives_dir": derivatives_dir,
-                        "unprocessed_file": unprocessed_file,
-                    }
-                    process_ica_control_sheet(
-                        raw_path=raw_path,
-                        ica_fif=ica_fif,
-                        autoclean_dict=autoclean_dict,
-                        dry_run=args.dry_run,
-                        verbose=args.verbose,
-                    )
-                    updated.append(str(raw_path))
+        # Determine target file: prefer --file, else active input from workspace
+        target_file = getattr(args, "file", None) or user_config.get_active_source()
+        if not target_file or str(target_file).upper() == "NONE":
+            message(
+                "error",
+                "No input file specified for ICA update (set active input or pass --file)",
+            )
+            return 1
+        target_file = Path(target_file)
+        if not target_file.exists():
+            message("error", f"Input file not found: {target_file}")
+            return 1
+
+        autoclean_dict = {
+            "metadata_dir": metadata_dir,
+            "derivatives_dir": derivatives_root,
+            "unprocessed_file": target_file,
+        }
+
+        if args.dry_run:
+            message("info", f"[dry-run] Would apply ICA edits for: {target_file.name}")
+            message("info", f"Metadata: {metadata_dir}")
+            message("info", f"Derivatives: {derivatives_root}")
+            return 0
+
+        # Apply manual edits for the specific file
+        process_ica_control_sheet(autoclean_dict=autoclean_dict)
+        message("success", f"Applied ICA edits for: {target_file.name}")
+        updated = [str(target_file)]
 
         if updated:
             message("info", f"Updated {len(updated)} file(s) with ICA edits:")
