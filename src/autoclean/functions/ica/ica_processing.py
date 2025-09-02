@@ -447,27 +447,14 @@ def _format_component_list(values: List[int]) -> str:
 def _discover_pre_ica_path(
     autoclean_dict: Dict[str, Union[str, Path]], basename: str
 ) -> Optional[Path]:
-    """Discover the pre-ICA stage file path from the stage directory structure.
+    """Discover the pre-ICA file, preferring the intermediate stage folder.
 
-    Looks under the pipeline's intermediate stage directory for a folder
-    matching the pre-ICA stage (e.g., 'NN_pre_ica') and returns the expected
-    filename pattern '<basename>_pre_ica_raw.set'. Returns None if not found.
+    Preference order:
+    1) Intermediate stage (…/intermediate/*_pre_ica/<basename>_pre_ica_raw.fif then .set)
+    2) Subject-level derivatives (…/sub-<id>/eeg/<basename>_pre_ica_raw.fif then .set)
     """
     try:
-        # 1) Prefer subject-level derivatives (per-subject organization)
-        metadata_dir = Path(autoclean_dict.get("metadata_dir", ""))
-        if metadata_dir:
-            pipeline_deriv_root = metadata_dir.parent
-            subject_id = step_sanitize_id(f"{basename}")
-            subj_eeg = pipeline_deriv_root / f"sub-{subject_id}" / "eeg"
-            candidate_fif = subj_eeg / f"{basename}_pre_ica_raw.fif"
-            if candidate_fif.exists():
-                return candidate_fif
-            candidate_set = subj_eeg / f"{basename}_pre_ica_raw.set"
-            if candidate_set.exists():
-                return candidate_set
-
-        # 2) Fallback to stage directory discovery (intermediate NN_pre_ica)
+        # 1) Intermediate stage discovery (NN_pre_ica)
         stage_dir = Path(
             autoclean_dict.get("stage_dir")
             or Path(autoclean_dict["derivatives_dir"]) / "intermediate"
@@ -484,7 +471,22 @@ def _discover_pre_ica_path(
             key=lambda p: p.stat().st_mtime,
             reverse=True,
         )
-        return set_candidates[0] if set_candidates else None
+        if set_candidates:
+            return set_candidates[0]
+
+        # 2) Subject-level derivatives (per-subject organization)
+        metadata_dir = Path(autoclean_dict.get("metadata_dir", ""))
+        if metadata_dir:
+            pipeline_deriv_root = metadata_dir.parent
+            subject_id = step_sanitize_id(f"{basename}")
+            subj_eeg = pipeline_deriv_root / f"sub-{subject_id}" / "eeg"
+            candidate_fif = subj_eeg / f"{basename}_pre_ica_raw.fif"
+            if candidate_fif.exists():
+                return candidate_fif
+            candidate_set = subj_eeg / f"{basename}_pre_ica_raw.set"
+            if candidate_set.exists():
+                return candidate_set
+        return None
     except Exception:  # best-effort discovery; ignore errors
         return None
 
