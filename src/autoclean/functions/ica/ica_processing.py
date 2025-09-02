@@ -6,7 +6,9 @@ including component fitting, classification, and artifact rejection.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union, Tuple
+import csv
+import json
 
 import mne
 import mne_icalabel
@@ -17,6 +19,7 @@ from autoclean.io.export import save_raw_to_set
 from autoclean.utils.database import manage_database_conditionally
 from ulid import ULID
 from autoclean.utils.logging import message
+from dataclasses import dataclass, asdict
 
 # Optional import for ICVision
 try:
@@ -442,6 +445,50 @@ def _parse_component_str(value: str) -> set[int]:
 def _format_component_list(values: List[int]) -> str:
     """Format a list of component integers as a comma-separated string."""
     return ",".join(str(v) for v in values)
+
+
+def _compute_proposed_components(
+    final_prev: set[int], manual_add: set[int], manual_drop: set[int]
+) -> set[int]:
+    """Compute proposed final_removed given previous and manual edits (pure)."""
+    return (final_prev | manual_add) - manual_drop
+
+
+def _row_would_change(row: Dict[str, str]) -> Tuple[bool, List[int], List[int], str]:
+    """Determine if a control-sheet row would change after applying manual edits.
+
+    Returns: (would_change, added, removed, final_after_str)
+    """
+    try:
+        prev = _parse_component_str(row.get("final_removed", ""))
+        add = _parse_component_str(row.get("manual_add", ""))
+        drop = _parse_component_str(row.get("manual_drop", ""))
+        proposed = _compute_proposed_components(prev, add, drop)
+        added = sorted(list(proposed - prev))
+        removed = sorted(list(prev - proposed))
+        return (len(added) > 0 or len(removed) > 0, added, removed, _format_component_list(sorted(list(proposed))))
+    except Exception:
+        # Treat un-parseable rows as no-change; upstream logic will warn separately if needed
+        return (False, [], [], row.get("final_removed", ""))
+
+
+@dataclass
+class IcaChange:
+    original_file: str
+    final_removed_before: str
+    final_removed_after: str
+    delta_added: List[int]
+    delta_removed: List[int]
+    manual_add: str
+    manual_drop: str
+    status_before: str
+    status_after: str
+    last_run_iso_before: str
+    last_run_iso_after: str
+    pre_ica_path: str
+    post_ica_path_after: str
+    parent_run_id: str = ""
+    tail_run_id: str = ""
 
 
 def _discover_pre_ica_path(
@@ -881,3 +928,194 @@ def process_ica_control_sheet(autoclean_dict: dict) -> None:
         pass
 
     return None
+
+
+def _read_control_sheet(sheet_path: Path) -> List[Dict[str, str]]:
+    with sheet_path.open("r", newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        return [row for row in reader]
+
+
+def _write_report_artifacts(out_base: Path, changes: List[IcaChange]) -> None:
+    # JSON
+    out_json = out_base.with_suffix(".json")
+    with out_json.open("w", encoding="utf-8") as f:
+        json.dump([asdict(c) for c in changes], f, indent=2)
+    # CSV
+    out_csv = out_base.with_suffix(".csv")
+    fieldnames = list(asdict(changes[0]).keys()) if changes else [
+        "original_file",
+        "final_removed_before",
+        "final_removed_after",
+        "delta_added",
+        "delta_removed",
+        "manual_add",
+        "manual_drop",
+        "status_before",
+        "status_after",
+        "last_run_iso_before",
+        "last_run_iso_after",
+        "pre_ica_path",
+        "post_ica_path_after",
+        "parent_run_id",
+        "tail_run_id",
+    ]
+    with out_csv.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        for c in changes:
+            writer.writerow(asdict(c))
+    # TXT (compact)
+    out_txt = out_base.with_suffix(".txt")
+    with out_txt.open("w", encoding="utf-8") as f:
+        print("ICA Changes Summary", file=f)
+        for c in changes:
+            print(
+                f"- {c.original_file}: +{','.join(map(str,c.delta_added)) or '∅'} -{','.join(map(str,c.delta_removed)) or '∅'} -> {c.final_removed_after}",
+                file=f,
+            )
+
+
+def generate_ica_change_report(control_sheet: Path, out_base: Path, dry_run: bool = True) -> None:
+    """Generate consolidated report from control sheet without processing.
+
+    Uses pure pre-check to compute would-change deltas and writes report artifacts.
+    """
+    rows = _read_control_sheet(control_sheet)
+    changes: List[IcaChange] = []
+    for row in rows:
+        would_change, added, removed, final_after = _row_would_change(row)
+        change = IcaChange(
+            original_file=row.get("original_file", ""),
+            final_removed_before=row.get("final_removed", ""),
+            final_removed_after=final_after if would_change else row.get("final_removed", ""),
+            delta_added=added,
+            delta_removed=removed,
+            manual_add=row.get("manual_add", ""),
+            manual_drop=row.get("manual_drop", ""),
+            status_before=row.get("status", ""),
+            status_after=row.get("status", ""),
+            last_run_iso_before=row.get("last_run_iso", ""),
+            last_run_iso_after=row.get("last_run_iso", ""),
+            pre_ica_path=row.get("pre_ica_path", ""),
+            post_ica_path_after=row.get("post_ica_path", ""),
+            parent_run_id=row.get("run_id", ""),
+            tail_run_id="",
+        )
+        changes.append(change)
+    _write_report_artifacts(out_base, changes)
+
+
+def run_ica_batch_changed(
+    control_sheet: Path,
+    metadata_dir: Path,
+    derivatives_root: Path,
+    output_dir: Path,
+    task_name: str,
+    dry_run: bool,
+    report_out: Path,
+    report_after: bool,
+    verbose: bool,
+) -> Dict[str, int]:
+    """Apply ICA only to rows that would change; optionally resume tails and write reports."""
+    rows = _read_control_sheet(control_sheet)
+    changed_rows = []
+    for row in rows:
+        would_change, added, removed, final_after = _row_would_change(row)
+        if would_change:
+            changed_rows.append((row, added, removed, final_after))
+
+    # Dry-run → write report and return
+    if dry_run:
+        # Report: use proposed finals
+        changes: List[IcaChange] = []
+        for row, added, removed, final_after in changed_rows:
+            changes.append(
+                IcaChange(
+                    original_file=row.get("original_file", ""),
+                    final_removed_before=row.get("final_removed", ""),
+                    final_removed_after=final_after,
+                    delta_added=added,
+                    delta_removed=removed,
+                    manual_add=row.get("manual_add", ""),
+                    manual_drop=row.get("manual_drop", ""),
+                    status_before=row.get("status", ""),
+                    status_after=row.get("status", ""),
+                    last_run_iso_before=row.get("last_run_iso", ""),
+                    last_run_iso_after=row.get("last_run_iso", ""),
+                    pre_ica_path=row.get("pre_ica_path", ""),
+                    post_ica_path_after=row.get("post_ica_path", ""),
+                    parent_run_id=row.get("run_id", ""),
+                    tail_run_id="",
+                )
+            )
+        _write_report_artifacts(report_out, changes)
+        return {"processed": 0, "skipped": len(rows) - len(changed_rows), "failed": 0}
+
+    # Process changed rows
+    processed = 0
+    skipped = len(rows) - len(changed_rows)
+    failed = 0
+    # Lazy import Pipeline to avoid circulars
+    from autoclean.core.pipeline import Pipeline
+
+    pipeline = Pipeline(output_dir=output_dir)
+    stage_dir = derivatives_root / "intermediate"
+
+    accumulated_changes: List[IcaChange] = []
+
+    for row, added, removed, final_after in changed_rows:
+        try:
+            # Build autoclean_dict for this row
+            autoclean_dict = {
+                "metadata_dir": metadata_dir,
+                "derivatives_dir": derivatives_root,
+                "stage_dir": stage_dir,
+                # Use basename only; downstream code derives subject_id/basename
+                "unprocessed_file": row.get("original_file", ""),
+                "verbose": verbose,
+            }
+            # Apply ICA re-apply + control sheet update
+            process_ica_control_sheet(autoclean_dict)
+            # Re-read row to get post_ica_path & updated fields
+            new_rows = _read_control_sheet(control_sheet)
+            updated = next((r for r in new_rows if r.get("original_file", "") == row.get("original_file", "")), None)
+            post_ica_path = updated.get("post_ica_path", "") if updated else ""
+            # Resume tail for this file
+            try:
+                if post_ica_path:
+                    pipeline.resume_from_post_ica(Path(post_ica_path), task_name, run_id=updated.get("run_id") or None, source_file=Path(row.get("original_file", "")))
+            except Exception as tail_err:  # pylint: disable=broad-except
+                message("warning", f"Tail resume failed for {row.get('original_file')}: {tail_err}")
+            processed += 1
+            accumulated_changes.append(
+                IcaChange(
+                    original_file=row.get("original_file", ""),
+                    final_removed_before=row.get("final_removed", ""),
+                    final_removed_after=final_after,
+                    delta_added=added,
+                    delta_removed=removed,
+                    manual_add=row.get("manual_add", ""),
+                    manual_drop=row.get("manual_drop", ""),
+                    status_before=row.get("status", ""),
+                    status_after=updated.get("status", "") if updated else row.get("status", ""),
+                    last_run_iso_before=row.get("last_run_iso", ""),
+                    last_run_iso_after=updated.get("last_run_iso", "") if updated else row.get("last_run_iso", ""),
+                    pre_ica_path=updated.get("pre_ica_path", "") if updated else row.get("pre_ica_path", ""),
+                    post_ica_path_after=post_ica_path,
+                    parent_run_id=updated.get("run_id", "") if updated else row.get("run_id", ""),
+                    tail_run_id="",
+                )
+            )
+        except Exception as e:  # pylint: disable=broad-except
+            failed += 1
+            message("error", f"Failed processing {row.get('original_file')}: {e}")
+
+    # Reporting (post-batch)
+    if report_after:
+        try:
+            _write_report_artifacts(report_out, accumulated_changes)
+        except Exception as rep_err:  # pylint: disable=broad-except
+            message("warning", f"Failed writing consolidated report: {rep_err}")
+
+    return {"processed": processed, "skipped": skipped, "failed": failed}
