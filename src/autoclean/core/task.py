@@ -91,14 +91,31 @@ class Task(ABC, *DISCOVERED_MIXINS):
         ...         # Processing steps here
         """
         # Auto-detect module-level config for Python tasks
-        # Ensure binding occurs even if a placeholder attribute exists but is None
-        if not hasattr(self, "settings") or getattr(self, "settings", None) is None:
-            # Get the module where this class was defined
-            module = inspect.getmodule(self.__class__)
-            if module and hasattr(module, "config"):
-                self.settings = module.config
+        if not hasattr(self, "settings"):
+            # First try to restore from database (for resume operations)
+            if "run_id" in config:
+                try:
+                    from autoclean.utils.database import get_run_record
+                    run_record = get_run_record(config["run_id"])
+                    if run_record and "task_config" in run_record.get("metadata", {}):
+                        task_config = run_record["metadata"]["task_config"]
+                        self.settings = task_config.get("settings")
+                        message("info", f"Restored task configuration from database for run {config['run_id']}")
+                    else:
+                        self.settings = None
+                except Exception as e:
+                    message("warning", f"Could not restore task config from database: {e}")
+                    self.settings = None
             else:
                 self.settings = None
+
+            # If still no settings, try module-level config
+            if self.settings is None:
+                module = inspect.getmodule(self.__class__)
+                if module and hasattr(module, "config"):
+                    self.settings = module.config
+                else:
+                    self.settings = None
 
         # Extract EEG system from task settings before validation
         config["eeg_system"] = self._extract_eeg_system()
@@ -139,18 +156,67 @@ class Task(ABC, *DISCOVERED_MIXINS):
             return self.settings["montage"]["value"]
         return "auto"
 
+    def _check_manual_ica_resume(self) -> Optional[Path]:
+        """Check for manual ICA files to resume from.
+
+        Looks for files in the manual_ica folder that match the current run_id.
+        This allows users to manually correct ICA classifications and resume
+        processing from that point.
+
+        Returns
+        -------
+        Optional[Path]
+            Path to manual ICA file if found, None otherwise
+        """
+        if not hasattr(self, 'config') or not self.config:
+            return None
+
+        run_id = self.config.get("run_id")
+        if not run_id:
+            return None
+
+        # Check for manual_ica folder in output directory
+        output_dir = Path(self.config.get("output_dir", ""))
+        manual_ica_dir = output_dir / "manual_ica"
+
+        if not manual_ica_dir.exists():
+            return None
+
+        # Look for files matching the run_id pattern
+        run_pattern = f"*{run_id}*"
+        matching_files = list(manual_ica_dir.glob(run_pattern))
+
+        if matching_files:
+            # Return the most recently modified file
+            latest_file = max(matching_files, key=lambda f: f.stat().st_mtime)
+            return latest_file
+
+        return None
+
     def import_raw(self) -> None:
-        """Import the raw EEG data from file.
+        """Import the raw EEG data from file or resume from manual ICA.
 
         Notes
         -----
         Imports data using the configured import function and flags files with
-        duration less than 60 seconds. Saves the imported data as a post-import
-        stage file.
+        duration less than 60 seconds. For resume operations, checks for manual
+        ICA files in the manual_ica folder and loads those instead.
+        Saves the imported data as a post-import stage file.
 
         """
 
-        self.raw = import_eeg(self.config)
+        # Check for manual ICA resume file
+        manual_file = self._check_manual_ica_resume()
+        if manual_file:
+            message("info", f"Resuming from manual ICA file: {manual_file}")
+            # Load the manual ICA file directly
+            import mne
+            self.raw = mne.io.read_raw(str(manual_file), preload=True)
+            self._resume_mode = True
+            self._resume_stage = "post_basic_steps"  # Skip import + basic steps
+        else:
+            # Normal import workflow
+            self.raw = import_eeg(self.config)
         if self.raw.duration < 60:
             self.flagged = True
             self.flagged_reasons = [
