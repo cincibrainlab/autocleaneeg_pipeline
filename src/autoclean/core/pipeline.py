@@ -406,10 +406,14 @@ class Pipeline:
                 "stored_at": datetime.now().isoformat(),
             }
 
-            # Store task configuration in database for resume operations
+            # Store task configuration in database metadata for resume operations
+            # (no dedicated column; merge into metadata JSON)
             manage_database_conditionally(
                 operation="update",
-                update_record={"run_id": run_id, "task_config": task_config},
+                update_record={
+                    "run_id": run_id,
+                    "metadata": {"task_config": task_config},
+                },
             )
 
             # Capture task file information for compliance tracking
