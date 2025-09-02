@@ -31,6 +31,7 @@ from matplotlib.gridspec import GridSpec
 from matplotlib.lines import Line2D
 
 from autoclean.utils.logging import message
+from autoclean.utils.logging import configure_logger
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
@@ -81,6 +82,8 @@ class VisualizationMixin:
             - Metadata about the plot is stored in the processing database
             - Original data is plotted in red, cleaned data in black.
         """
+        configure_logger(verbose="info")
+        message("info", "Plotting raw vs cleaned overlay")
         # Handle channel mismatches gracefully
         if raw_original.ch_names != raw_cleaned.ch_names:
             message(
@@ -275,6 +278,7 @@ class VisualizationMixin:
             - If no bad channels are found, the method returns without creating a plot
             - The resulting plot is saved to the derivatives directory
         """
+        configure_logger(verbose="info")
         # Check if this step is enabled in the configuration
         if not self._check_step_enabled("bad_channel_report_step"):
             message("info", "✗ Bad channel visualization step disabled in config")
@@ -629,6 +633,8 @@ class VisualizationMixin:
         ax : matplotlib.axes.Axes
             Axes to plot on.
         """
+        configure_logger(verbose="info")
+
         # Create data array for topography where bad channels have value 1, good channels 0
         ch_names = raw.ch_names
         data = np.zeros(len(ch_names))
@@ -685,6 +691,9 @@ class VisualizationMixin:
         title_suffix : str, optional
             Suffix to add to the plot title.
         """
+
+        configure_logger(verbose="info")
+
         # Get channel data
         sfreq = raw_original.info["sfreq"]
         ch_idx = raw_original.ch_names.index(channel)
@@ -752,6 +761,7 @@ class VisualizationMixin:
         image_path : str
             Path to the saved combined figure.
         """
+        configure_logger(verbose="info")
 
         # Define default frequency bands if none provided
         if bands is None:
@@ -1036,6 +1046,8 @@ class VisualizationMixin:
         num_bands : int
             Number of frequency bands for subplot width
         """
+        configure_logger(verbose="info")
+
         # Plot Absolute PSD
         ax1 = fig.add_subplot(gs[0, : num_bands // 2])
         ax1.semilogy(freqs, psd_original_mean_mV2, color="red", label="Original")
