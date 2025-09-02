@@ -10,6 +10,7 @@ import argparse
 import csv
 import json
 import os
+from datetime import datetime
 import re
 import shutil
 import sqlite3
@@ -684,6 +685,27 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--dry-run",
         action="store_true",
         help="Show actions without modifying files",
+    )
+    ica_parser.add_argument(
+        "--changed",
+        action="store_true",
+        help="Process all rows in the control sheet that would change after applying manual edits",
+    )
+    ica_parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Do not process; generate consolidated change report from the control sheet",
+    )
+    ica_parser.add_argument(
+        "--report-after",
+        action="store_true",
+        help="Generate consolidated change report after processing",
+    )
+    ica_parser.add_argument(
+        "--report-out",
+        type=Path,
+        default=None,
+        help="Output base path for consolidated report (JSON/CSV/TXT)",
     )
     ica_parser.add_argument(
         "--verbose",
@@ -1727,7 +1749,44 @@ def cmd_process_ica(args) -> int:
             message("info", "Run a processing pass first to generate the control sheet.")
             return 1
 
-        # Determine target file: prefer --file, else active input from workspace
+        # If batch/report flags are used, route to batch/report handlers
+        if getattr(args, "report_only", False):
+            try:
+                from autoclean.functions.ica.ica_processing import generate_ica_change_report
+                out_base = args.report_out or (metadata_dir / f"ica_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                # Batch report-only covers entire sheet
+                generate_ica_change_report(control_sheet, out_base, dry_run=True)
+                message("success", f"Consolidated report written to: {out_base}.[json|csv|txt]")
+                return 0
+            except Exception as rep_err:  # pylint: disable=broad-except
+                message("error", f"Report-only failed: {rep_err}")
+                return 1
+
+        if getattr(args, "changed", False):
+            try:
+                from autoclean.functions.ica.ica_processing import run_ica_batch_changed
+                out_base = args.report_out or (metadata_dir / f"ica_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                batch_result = run_ica_batch_changed(
+                    control_sheet=control_sheet,
+                    metadata_dir=metadata_dir,
+                    derivatives_root=derivatives_root,
+                    output_dir=output_dir,
+                    task_name=task_name,
+                    dry_run=args.dry_run,
+                    report_out=out_base,
+                    report_after=getattr(args, "report_after", False),
+                    verbose=getattr(args, "verbose", True),
+                )
+                processed = batch_result.get("processed", 0)
+                skipped = batch_result.get("skipped", 0)
+                failed = batch_result.get("failed", 0)
+                message("success", f"Batch complete: processed={processed} skipped={skipped} failed={failed}")
+                return 0 if failed == 0 else 1
+            except Exception as batch_err:  # pylint: disable=broad-except
+                message("error", f"Batch --changed failed: {batch_err}")
+                return 1
+
+        # Determine target file: prefer --file, else active input from workspace (single-file mode)
         target_file = getattr(args, "file", None) or user_config.get_active_source()
         if not target_file or str(target_file).upper() == "NONE":
             message(
