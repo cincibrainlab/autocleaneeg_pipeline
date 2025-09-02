@@ -386,9 +386,6 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
-            ("📁 input set [path]", "Set active input path (interactive if omitted)"),
-            ("🧹 input unset", "Clear the active input path"),
-            ("👁️  input show", "Show the current active input path"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
