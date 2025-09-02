@@ -214,11 +214,22 @@ class VisualizationMixin:
 
         plt.tight_layout()
 
-        # Create Artifact Report
+        # Create Artifact Report (subject-level path)
+        from autoclean.utils.bids import step_sanitize_id
         derivatives_dir = self.config["derivatives_dir"]
         basename = self.config["unprocessed_file"].stem
         basename = f"{basename}_raw_vs_cleaned_overlay"
-        target_figure = derivatives_dir / f"{basename}.png"
+        try:
+            subject_id = step_sanitize_id(self.config["unprocessed_file"].name)
+            expected_suffix = Path(f"sub-{subject_id}") / "eeg"
+            if str(derivatives_dir).endswith(str(expected_suffix)):
+                subject_eeg_dir = derivatives_dir
+            else:
+                subject_eeg_dir = derivatives_dir / expected_suffix
+            subject_eeg_dir.mkdir(parents=True, exist_ok=True)
+            target_figure = subject_eeg_dir / f"{basename}.png"
+        except Exception:
+            target_figure = derivatives_dir / f"{basename}.png"
 
         # Save as PNG with high DPI for quality
         fig.savefig(target_figure, dpi=150, bbox_inches="tight")
@@ -778,7 +789,17 @@ class VisualizationMixin:
         derivatives_dir = self.config["derivatives_dir"]
         basename = self.config["unprocessed_file"].stem
         basename = f"{basename}_psd_topo_figure"
-        target_figure = derivatives_dir / f"{basename}.png"
+        try:
+            subject_id = step_sanitize_id(self.config["unprocessed_file"].name)
+            expected_suffix = Path(f"sub-{subject_id}") / "eeg"
+            if str(derivatives_dir).endswith(str(expected_suffix)):
+                subject_eeg_dir = derivatives_dir
+            else:
+                subject_eeg_dir = derivatives_dir / expected_suffix
+            subject_eeg_dir.mkdir(parents=True, exist_ok=True)
+            target_figure = subject_eeg_dir / f"{basename}.png"
+        except Exception:
+            target_figure = derivatives_dir / f"{basename}.png"
 
         # Count number of EEG channels
         channel_types = raw_original.get_channel_types()
