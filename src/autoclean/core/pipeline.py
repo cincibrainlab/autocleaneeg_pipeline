@@ -398,6 +398,20 @@ class Pipeline:
                 )
                 raise
 
+            # Store task configuration for resume operations
+            task_config = {
+                "module_name": task_object.__class__.__module__,
+                "settings": task_object.settings,
+                "task_file_path": getattr(task_object.__class__, '__file__', None),
+                "stored_at": datetime.now().isoformat(),
+            }
+
+            # Store task configuration in database for resume operations
+            manage_database_conditionally(
+                operation="update",
+                update_record={"run_id": run_id, "task_config": task_config},
+            )
+
             # Capture task file information for compliance tracking
             task_file_info = get_task_file_info(task, task_object)
 
@@ -996,15 +1010,39 @@ class Pipeline:
         task_object = task_cls(cfg)
 
         # Ensure task settings are bound from module-level config on resume
+        # More robust than inspect.getmodule for dynamically loaded modules
         try:
-            task_module = inspect.getmodule(task_cls)
-            if getattr(task_object, "settings", None) is None and hasattr(
-                task_module, "config"
-            ):
-                task_object.settings = task_module.config  # type: ignore[attr-defined]
-                message(
-                    "info", "Task settings bound from module.config (resume path)"
-                )
+            task_settings = None
+            mod_name = getattr(task_cls, "__module__", None)
+            task_mod = sys.modules.get(mod_name) if mod_name else None
+            if task_mod is not None and hasattr(task_mod, "config"):
+                task_settings = getattr(task_mod, "config")
+            elif task_source and Path(task_source).exists():
+                try:
+                    _spec = importlib.util.spec_from_file_location(
+                        f"task_cfg_{Path(task_source).stem}", task_source
+                    )
+                    if _spec and _spec.loader:
+                        _mod = importlib.util.module_from_spec(_spec)
+                        _spec.loader.exec_module(_mod)
+                        if hasattr(_mod, "config"):
+                            task_settings = getattr(_mod, "config")
+                except Exception:
+                    pass
+
+            # Bind to instance and also inject YAML fallback so _check_step_enabled works either way
+            if getattr(task_object, "settings", None) is None and task_settings is not None:
+                task_object.settings = task_settings
+                message("info", "Task settings bound from module.config (resume path)")
+            if task_settings is not None:
+                try:
+                    # Inject fallback structure expected by _check_step_enabled
+                    cfg.setdefault("tasks", {}).setdefault(cfg["task"], {})[
+                        "settings"
+                    ] = task_settings
+                except Exception:
+                    pass
+
             # Report epoch_settings gate status for clarity
             try:
                 is_enabled, epoch_cfg = task_object._check_step_enabled(
