@@ -1860,9 +1860,18 @@ def cmd_list_tasks(args) -> int:
             )
             return 0
 
-        valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
+        # Minimal header
+        from rich.text import Text as _Text
+        from rich.align import Align as _Align
 
-        console.print("\n[title]Available Processing Tasks[/title]\n")
+        console.print()
+        head = _Text()
+        head.append("Tasks", style="title")
+        console.print(_Align.center(head))
+        console.print(_Align.center(_Text("Available processing tasks", style="subtitle")))
+        console.print()
+
+        valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
         # --- Built-in Tasks ---
         built_in_tasks = [
@@ -1984,12 +1993,23 @@ def cmd_list_tasks(args) -> int:
             )
             console.print(invalid_panel)
 
-        # Summary statistics
-        console.print(
-            f"\n[muted]Found {len(valid_tasks)} valid tasks "
-            f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom), "
-            f"{len(skipped_files)} skipped files, and {len(invalid_files)} invalid files[/muted]"
+        # Summary line (centered, minimal)
+        summary = _Text()
+        summary.append("Found ", style="muted")
+        summary.append(str(len(valid_tasks)), style="accent")
+        summary.append(" tasks ", style="muted")
+        summary.append(
+            f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom)",
+            style="muted",
         )
+        if skipped_files or invalid_files:
+            summary.append("  •  ", style="muted")
+            summary.append(
+                f"{len(skipped_files)} skipped, {len(invalid_files)} invalid",
+                style="muted",
+            )
+        console.print(_Align.center(summary))
+        console.print()
 
         return 0
 
