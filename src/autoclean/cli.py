@@ -859,7 +859,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     # Copy task (name or path)
     copy_parser = task_subparsers.add_parser(
         "copy",
-        help="Copy a task to a new workspace file (omit source to use active task)",
+        help="Copy a task into workspace (omit source to pick from list)",
         add_help=False,
     )
     attach_rich_help(copy_parser)
@@ -3563,34 +3563,97 @@ def cmd_task_copy(args) -> int:
             args.source if hasattr(args, "source") else getattr(args, "target", None)
         )
         if not source:
+            # Interactive selection across built-in and custom tasks
             try:
-                from rich.prompt import Confirm as _Confirm
+                from autoclean.utils.task_discovery import safe_discover_tasks
 
-                active = user_config.get_active_task()
-                if active:
-                    if not _Confirm.ask(f"Use active task '{active}'?", default=True):
+                tasks, _, _ = safe_discover_tasks()
+                if not tasks:
+                    message("error", "No tasks available to copy")
+                    return 1
+
+                # Build choices with type label
+                choices = []
+                for t in sorted(tasks, key=lambda x: x.name.lower()):
+                    is_builtin = "autoclean/tasks" in t.source
+                    kind = "built-in" if is_builtin else "custom"
+                    choices.append((t.name, t.source, kind))
+
+                # Prefer inquirer if available
+                if INQUIRER_AVAILABLE:
+                    import inquirer as _inq
+
+                    prompt_q = [
+                        _inq.List(
+                            "task",
+                            message="Select a task to copy",
+                            choices=[
+                                (f"{name}  [{kind}]", i)
+                                for i, (name, _src, kind) in enumerate(choices)
+                            ],
+                        )
+                    ]
+                    ans = _inq.prompt(prompt_q)
+                    if not ans:
                         message("info", "Canceled")
                         return 0
-                    source = active
+                    idx = ans["task"]
                 else:
-                    message(
-                        "error",
-                        "No source provided and no active task is set.",
-                    )
-                    message(
-                        "info",
-                        "Set one with: autocleaneeg-pipeline task set or pass a task name/path",
-                    )
-                    return 1
-            except Exception:
-                message(
-                    "error",
-                    "Interactive prompt unavailable and no source provided. Re-run with a task name/path.",
-                )
+                    # Rich-based listing with numeric input
+                    try:
+                        from rich.table import Table as _Table
+                        from rich.prompt import Prompt as _Prompt
+                        from rich.console import Console as _Console
+                        from pathlib import Path as _P
+
+                        _c = _Console()
+                        _c.print()
+                        tbl = _Table(
+                            show_header=True, header_style="header", box=None, padding=(0, 1)
+                        )
+                        tbl.add_column("#", style="muted", width=4)
+                        tbl.add_column("Task", style="accent", no_wrap=True)
+                        tbl.add_column("Type", style="muted", width=9)
+                        tbl.add_column("Source", style="muted")
+                        for i, (name, src, kind) in enumerate(choices, 1):
+                            tbl.add_row(str(i), name, kind, _P(src).name)
+                        _c.print(tbl)
+                        choice = _Prompt.ask(
+                            "Select a task number (or Enter to cancel)",
+                            default="",
+                            show_default=False,
+                        )
+                        if not choice.strip():
+                            message("info", "Canceled")
+                            return 0
+                        idx = int(choice) - 1
+                        if idx < 0 or idx >= len(choices):
+                            message("error", "Invalid selection")
+                            return 1
+                    except Exception:
+                        # Basic fallback
+                        print("Available tasks:")
+                        for i, (name, _src, kind) in enumerate(choices, 1):
+                            print(f"  {i}. {name} [{kind}]")
+                        choice = input("Select a task number (or Enter to cancel): ").strip()
+                        if not choice:
+                            print("Canceled")
+                            return 0
+                        idx = int(choice) - 1
+                        if idx < 0 or idx >= len(choices):
+                            message("error", "Invalid selection")
+                            return 1
+
+                # Resolve chosen source (use name for resolution first)
+                chosen_name, chosen_src, _k = choices[idx]
+                source = chosen_name
+                src_path = Path(chosen_src)
+            except Exception as e:
+                message("error", f"Failed to list tasks for selection: {e}")
                 return 1
 
         # Resolve source: path or discovered name
-        src_path = _resolve_task_file(source)
+        src_path = _resolve_task_file(source) if isinstance(source, str) else src_path
         if not src_path:
             try:
                 from autoclean.utils.task_discovery import safe_discover_tasks
