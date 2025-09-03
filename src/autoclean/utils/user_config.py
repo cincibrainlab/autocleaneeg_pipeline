@@ -63,10 +63,10 @@ class UserConfigManager:
         self.config_dir = self._get_workspace_path()
         self.tasks_dir = self.config_dir / "tasks"
 
-        # Only create directories if workspace is valid
-        if self._is_workspace_valid():
-            self.config_dir.mkdir(parents=True, exist_ok=True)
-            self.tasks_dir.mkdir(parents=True, exist_ok=True)
+        # Always create basic directory structure to avoid confusion
+        # This eliminates "workspace not configured" messages on fresh installs
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+        self.tasks_dir.mkdir(parents=True, exist_ok=True)
 
     def _get_workspace_path(self) -> Path:
         """Get configured workspace path or default."""
@@ -90,8 +90,19 @@ class UserConfigManager:
         return base_path
 
     def _is_workspace_valid(self) -> bool:
-        """Check if workspace exists and has expected structure."""
-        return self.config_dir.exists() and (self.config_dir / "tasks").exists()
+        """Check if workspace is properly configured.
+        
+        Returns True if the workspace has been set up through the configuration wizard
+        (indicated by setup.json existing) and has the expected directory structure.
+        """
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+        return (
+            global_config.exists() and
+            self.config_dir.exists() and 
+            (self.config_dir / "tasks").exists()
+        )
 
     def get_default_output_dir(self) -> Path:
         """Get default output directory."""
