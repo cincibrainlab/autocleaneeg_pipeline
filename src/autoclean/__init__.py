@@ -7,7 +7,7 @@ The package provides both a complete pipeline system (Pipeline) and
 standalone signal processing functions that can be used independently.
 """
 
-__version__ = "2.2.0"
+__version__ = "2.2.1"
 
 
 def __getattr__(name):
