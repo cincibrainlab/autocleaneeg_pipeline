@@ -3670,13 +3670,95 @@ def cmd_task_copy(args) -> int:
             message("error", f"Task not found: {source}")
             return 1
 
-        # Prepare destination
+        # Prepare destination with optional interactive rename and class rename
         dest_dir = user_config.tasks_dir
         dest_dir.mkdir(parents=True, exist_ok=True)
-        base_name = args.name or src_path.stem
-        dest = dest_dir / (
-            base_name if str(base_name).endswith(".py") else f"{base_name}.py"
-        )
+
+        # Extract original class name for renaming
+        orig_class = None
+        try:
+            orig_class, _desc = user_config._extract_task_info(src_path)
+        except Exception:
+            pass
+
+        # Filename suggestion
+        def _ts():
+            from datetime import datetime as _dt
+
+            return _dt.now().strftime("%Y%m%d_%H%M%S")
+
+        suggested_base = (args.name or src_path.stem + "_copy")
+        # If exists, append timestamp suffix
+        def _unique_dest(base: str) -> Path:
+            p = dest_dir / (base if base.endswith(".py") else f"{base}.py")
+            return p if not p.exists() else dest_dir / (f"{base}_{_ts()}.py")
+
+        # Interactive rename of filename (if no --name provided)
+        if not getattr(args, "name", None):
+            try:
+                from rich.prompt import Prompt as _Prompt
+
+                entered = _Prompt.ask(
+                    "Save as filename (without .py)",
+                    default=suggested_base,
+                )
+                suggested_base = entered.strip().removesuffix(".py") or suggested_base
+            except Exception:
+                pass
+
+        dest = _unique_dest(suggested_base)
+
+        # Suggest new class name and optionally prompt
+        def _to_camel(s: str) -> str:
+            import re as _re
+
+            parts = _re.split(r"[^0-9A-Za-z]+", s)
+            camel = "".join(p[:1].upper() + p[1:] for p in parts if p)
+            # Ensure starts with letter
+            if camel and camel[0].isdigit():
+                camel = "T" + camel
+            return camel or "TaskCopy"
+
+        def _is_valid_class_name(name: str) -> bool:
+            try:
+                return bool(name) and name.isidentifier() and not name[0].isdigit()
+            except Exception:
+                return False
+
+        # Existing class names to avoid duplicates
+        existing = set(user_config.list_custom_tasks().keys())
+        suggested_class = None
+        if orig_class:
+            suggested_class = f"{orig_class}Copy"
+        else:
+            suggested_class = _to_camel(suggested_base)
+
+        if suggested_class in existing:
+            suggested_class = f"{suggested_class}_{_ts()}"
+
+        new_class = suggested_class
+        # Prompt for class rename when we know original
+        if orig_class:
+            try:
+                from rich.prompt import Prompt as _Prompt
+
+                entered = _Prompt.ask(
+                    "New class name", default=new_class
+                )
+                entered = entered.strip()
+                if _is_valid_class_name(entered):
+                    new_class = entered
+                else:
+                    message(
+                        "warning",
+                        "Invalid class name entered; using suggested safe name.",
+                    )
+            except Exception:
+                pass
+
+        # If class collides, add timestamp suffix
+        if new_class in existing:
+            new_class = f"{new_class}_{_ts()}"
 
         # Conflict handling
         if dest.exists() and not getattr(args, "force", False):
@@ -3705,9 +3787,25 @@ def cmd_task_copy(args) -> int:
                 )
                 return 1
 
-        # Execute copy
+        # Execute copy with class rename if we detected the original class
         try:
-            shutil.copy2(src_path, dest)
+            if orig_class and new_class and new_class != orig_class:
+                import re as _re
+
+                text = src_path.read_text(encoding="utf-8")
+                # Replace class definition line safely (single occurrence)
+                pattern = rf"(^\s*class\s+){orig_class}(\s*\()"
+                new_text, n = _re.subn(pattern, rf"\1{new_class}\2", text, flags=_re.M)
+                if n == 0:
+                    message(
+                        "warning",
+                        "Could not locate class definition for rename; copying as-is.",
+                    )
+                    shutil.copy2(src_path, dest)
+                else:
+                    dest.write_text(new_text, encoding="utf-8")
+            else:
+                shutil.copy2(src_path, dest)
             message("success", f"✓ Copied to: {dest.name}")
         except Exception as e:
             message("error", f"Failed to copy file: {e}")
@@ -3716,11 +3814,21 @@ def cmd_task_copy(args) -> int:
         # Provide usage
         try:
             class_name, _ = user_config._extract_task_info(dest)
+            # Basic guard: verify the class matches user's chosen name when applicable
+            if orig_class:
+                if class_name != new_class:
+                    message(
+                        "warning",
+                        f"Detected class '{class_name}' differs from requested '{new_class}'.",
+                    )
             message("info", f"Detected task class: {class_name}")
             print("\nUse with:")
             print(f"  autocleaneeg-pipeline process {class_name} <data_file>")
-        except Exception:
-            pass
+        except Exception as e:
+            message(
+                "warning",
+                f"Could not verify Task class after copy: {e}",
+            )
 
         return 0
     except Exception as e:
