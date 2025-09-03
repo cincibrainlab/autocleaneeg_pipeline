@@ -54,6 +54,7 @@ from autoclean.utils.console import get_console
 # Maximum log file size (5MB)
 MAX_LOG_SIZE = 5 * 1024 * 1024
 
+
 def _strip_wrapping_quotes(text: Optional[str]) -> Optional[str]:
     """Remove a single or nested pair of matching wrapping quotes from text.
 
@@ -71,63 +72,70 @@ def _strip_wrapping_quotes(text: Optional[str]) -> Optional[str]:
             break
     return s
 
+
 def _sanitize_arguments(args: List[str]) -> List[str]:
     """Sanitize command-line arguments to remove sensitive information."""
     sanitized = []
-    
+
     # Patterns for sensitive information
     sensitive_patterns = [
         # File paths with potentially sensitive directory names
-        r'(/[Uu]sers?/[^/]+/[Dd]esktop|/[Uu]sers?/[^/]+/[Dd]ocuments)',
-        r'(/home/[^/]+/[Dd]esktop|/home/[^/]+/[Dd]ocuments)',
+        r"(/[Uu]sers?/[^/]+/[Dd]esktop|/[Uu]sers?/[^/]+/[Dd]ocuments)",
+        r"(/home/[^/]+/[Dd]esktop|/home/[^/]+/[Dd]ocuments)",
         # API tokens and keys
-        r'(--?(?:token|key|password|pass|secret)(?:=|\s+)\S+)',
+        r"(--?(?:token|key|password|pass|secret)(?:=|\s+)\S+)",
         # Email addresses
-        r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b',
+        r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b",
     ]
-    
+
     for arg in args:
         sanitized_arg = arg
         for pattern in sensitive_patterns:
             if re.search(pattern, arg, re.IGNORECASE):
                 # Replace file paths with just the filename
-                if '/' in arg or '\\' in arg:
+                if "/" in arg or "\\" in arg:
                     path_obj = Path(arg)
-                    sanitized_arg = f"[REDACTED]/{path_obj.name}" if path_obj.name else "[REDACTED]"
+                    sanitized_arg = (
+                        f"[REDACTED]/{path_obj.name}" if path_obj.name else "[REDACTED]"
+                    )
                 else:
                     # For tokens/keys, show only the parameter name
-                    if '=' in arg:
-                        param_name = arg.split('=')[0]
+                    if "=" in arg:
+                        param_name = arg.split("=")[0]
                         sanitized_arg = f"{param_name}=[REDACTED]"
                     else:
                         sanitized_arg = "[REDACTED]"
                 break
-        
+
         sanitized.append(sanitized_arg)
-    
+
     return sanitized
+
 
 def _rotate_log(log_path: Path) -> None:
     """Rotate log file when it gets too large."""
     try:
         # Keep last 5 rotated logs
         for i in range(4, 0, -1):
-            old_path = log_path.with_suffix(f'.{i}.txt')
-            new_path = log_path.with_suffix(f'.{i+1}.txt')
+            old_path = log_path.with_suffix(f".{i}.txt")
+            new_path = log_path.with_suffix(f".{i + 1}.txt")
             if old_path.exists():
                 old_path.rename(new_path)
-        
+
         # Move current log to .1
         if log_path.exists():
-            rotated_path = log_path.with_suffix('.1.txt')
+            rotated_path = log_path.with_suffix(".1.txt")
             log_path.rename(rotated_path)
     except Exception:
         # If rotation fails, truncate the log
         try:
-            with log_path.open('w', encoding='utf-8') as f:
-                f.write(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Log rotated due to size limit\n")
+            with log_path.open("w", encoding="utf-8") as f:
+                f.write(
+                    f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] Log rotated due to size limit\n"
+                )
         except Exception:
             pass
+
 
 def _log_cli_execution(args: argparse.Namespace) -> None:
     """Log CLI execution to workspace process log with security and error handling."""
@@ -136,50 +144,52 @@ def _log_cli_execution(args: argparse.Namespace) -> None:
         workspace_dir = user_config.config_dir
         if not workspace_dir.exists():
             return
-        
+
         log_path = workspace_dir / "process_log.txt"
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
         # Get original command arguments, excluding the script name
-        original_args = sys.argv[1:] if hasattr(sys, 'argv') and len(sys.argv) > 1 else []
-        
+        original_args = (
+            sys.argv[1:] if hasattr(sys, "argv") and len(sys.argv) > 1 else []
+        )
+
         # Skip logging if no meaningful command (just bare invocation)
         if not original_args or not args.command:
             return
-            
+
         # Sanitize arguments for security
         safe_args = _sanitize_arguments(original_args)
         command_str = f"autocleaneeg-pipeline {' '.join(safe_args)}"
-        
+
         # Check file size and rotate if necessary
         if log_path.exists() and log_path.stat().st_size > MAX_LOG_SIZE:
             _rotate_log(log_path)
-        
+
         # Atomic write to prevent corruption
         log_entry = f"[{timestamp}] {command_str}\n"
-        
+
         # Write to temporary file first, then move
-        temp_path = log_path.with_suffix('.tmp')
+        temp_path = log_path.with_suffix(".tmp")
         try:
             # Read existing content if file exists
             existing_content = ""
             if log_path.exists():
-                with log_path.open('r', encoding='utf-8') as f:
+                with log_path.open("r", encoding="utf-8") as f:
                     existing_content = f.read()
-            
+
             # Write to temp file
-            with temp_path.open('w', encoding='utf-8') as f:
+            with temp_path.open("w", encoding="utf-8") as f:
                 f.write(existing_content + log_entry)
-            
+
             # Atomic move
             temp_path.replace(log_path)
-            
+
         except Exception:
             # Clean up temp file if it exists
             if temp_path.exists():
                 temp_path.unlink()
             raise
-            
+
     except Exception as e:
         # Log to stderr but don't break CLI functionality
         print(f"Warning: Failed to log command execution: {e}", file=sys.stderr)
@@ -219,7 +229,12 @@ def _print_startup_context(console) -> None:
         from rich.align import Align as _Align
 
         workspace_dir = user_config.config_dir
-        valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+        try:
+            # Prefer strict validity check (requires saved setup + structure)
+            valid_ws = user_config._is_workspace_valid()  # type: ignore[attr-defined]
+        except Exception:
+            # Fallback to basic existence check
+            valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
         home = str(Path.home())
         display_path = str(workspace_dir)
         if display_path.startswith(home):
@@ -403,7 +418,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         rows = [
-            ("📁 input set [path]", "Set active input path (file or directory; interactive if omitted)"),
+            (
+                "📁 input set [path]",
+                "Set active input path (file or directory; interactive if omitted)",
+            ),
             ("🧹 input unset", "Clear the active input path"),
             ("👁️  input show", "Show the current active input path"),
         ]
@@ -418,7 +436,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         return
 
     if topic in {"source", "sources"}:
-        console.print("[header]Source Commands[/header] [warning](deprecated — use 'input')[/warning]")
+        console.print(
+            "[header]Source Commands[/header] [warning](deprecated — use 'input')[/warning]"
+        )
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
@@ -444,6 +464,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         tbl.add_column("Description", style="muted")
         rows = [
             ("🗂  workspace", "Configure workspace folder (wizard)"),
+            ("👀 workspace show", "Show current workspace path/status"),
             ("📂 workspace explore", "Open the workspace folder"),
             ("📏 workspace size", "Show total workspace size"),
             ("📌 workspace set <path>", "Change the workspace folder"),
@@ -751,11 +772,16 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Delete task (alias with path/name support)
     delete_task_parser = task_subparsers.add_parser(
-        "delete", help="Delete a workspace task file (omit target to use active task)", add_help=False
+        "delete",
+        help="Delete a workspace task file (omit target to use active task)",
+        add_help=False,
     )
     attach_rich_help(delete_task_parser)
     delete_task_parser.add_argument(
-        "target", type=str, nargs="?", help="Task name (workspace) or path to task file (omit to use active task)"
+        "target",
+        type=str,
+        nargs="?",
+        help="Task name (workspace) or path to task file (omit to use active task)",
     )
     delete_task_parser.add_argument(
         "--force", action="store_true", help="Skip confirmation"
@@ -787,7 +813,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Edit task (open in shell editor)
     edit_parser = task_subparsers.add_parser(
-        "edit", help="Edit a task in your editor (omit target to use active task)", add_help=False
+        "edit",
+        help="Edit a task in your editor (omit target to use active task)",
+        add_help=False,
     )
     attach_rich_help(edit_parser)
     edit_parser.add_argument(
@@ -830,7 +858,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Copy task (name or path)
     copy_parser = task_subparsers.add_parser(
-        "copy", help="Copy a task to a new workspace file (omit source to use active task)", add_help=False
+        "copy",
+        help="Copy a task to a new workspace file (omit source to use active task)",
+        add_help=False,
     )
     attach_rich_help(copy_parser)
     copy_parser.add_argument(
@@ -852,7 +882,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Set active task
     set_task_parser = task_subparsers.add_parser(
-        "set", help="Set the active task (used when no task specified in process)", add_help=False
+        "set",
+        help="Set the active task (used when no task specified in process)",
+        add_help=False,
     )
     attach_rich_help(set_task_parser)
     set_task_parser.add_argument(
@@ -876,7 +908,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(
-        "source", help="[deprecated] Manage active input path (use 'input')", add_help=False
+        "source",
+        help="[deprecated] Manage active input path (use 'input')",
+        add_help=False,
     )
     attach_rich_help(source_parser)
     source_subparsers = source_parser.add_subparsers(
@@ -885,7 +919,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Set active source
     set_source_parser = source_subparsers.add_parser(
-        "set", help="[deprecated] Set the active input path (use 'input set')", add_help=False
+        "set",
+        help="[deprecated] Set the active input path (use 'input set')",
+        add_help=False,
     )
     attach_rich_help(set_source_parser)
     set_source_parser.add_argument(
@@ -896,13 +932,17 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Unset active source
     unset_source_parser = source_subparsers.add_parser(
-        "unset", help="[deprecated] Clear the active input path (use 'input unset')", add_help=False
+        "unset",
+        help="[deprecated] Clear the active input path (use 'input unset')",
+        add_help=False,
     )
     attach_rich_help(unset_source_parser)
 
     # Show active source
     show_source_parser = source_subparsers.add_parser(
-        "show", help="[deprecated] Show the current active input path (use 'input show')", add_help=False
+        "show",
+        help="[deprecated] Show the current active input path (use 'input show')",
+        add_help=False,
     )
     attach_rich_help(show_source_parser)
 
@@ -917,7 +957,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Set active input
     set_input_parser = input_subparsers.add_parser(
-        "set", help="Set the active input path (used when no input specified in process)", add_help=False
+        "set",
+        help="Set the active input path (used when no input specified in process)",
+        add_help=False,
     )
     attach_rich_help(set_input_parser)
     set_input_parser.add_argument(
@@ -998,6 +1040,12 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "explore", help="Open the workspace folder in Finder/Explorer", add_help=False
     )
     attach_rich_help(ws_explore)
+
+    # Show current workspace path
+    ws_show = workspace_subparsers.add_parser(
+        "show", help="Show current workspace path/status", add_help=False
+    )
+    attach_rich_help(ws_show)
 
     ws_size = workspace_subparsers.add_parser(
         "size", help="Show total workspace size", add_help=False
@@ -1207,38 +1255,38 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
 def _show_process_guard(args) -> bool:
     """Show interactive guard with key information before processing.
-    
+
     Returns True if user confirms to proceed, False to cancel.
     """
     console = get_console(args)
-    
+
     # Get current values
     task_name = args.task_name or args.task
     input_path = args.input_path or args.file or args.directory
-    
+
     # If no task, try to get active task
     if not task_name and not args.task_file:
         active_task = user_config.get_active_task()
         if active_task:
             task_name = active_task
-    
+
     # If no input, try to get active source
     if not input_path:
         active_source = user_config.get_active_source()
         if active_source and active_source != "NONE":
             input_path = Path(active_source)
-    
+
     # Header
     console.print()
     console.print("📋 [bold cyan]Process Command Guard[/bold cyan]")
     console.print("═" * 50)
-    
+
     # Workspace Information
     console.print()
     console.print("🏠 [bold]Workspace Information[/bold]")
     workspace_dir = user_config.config_dir
     console.print(f"   Directory: [accent]{workspace_dir}[/accent]")
-    
+
     # Free space calculation
     try:
         usage_path = workspace_dir if workspace_dir.exists() else workspace_dir.parent
@@ -1247,13 +1295,13 @@ def _show_process_guard(args) -> bool:
         console.print(f"   Free Space: [accent]{free_gb:.1f} GB[/accent]")
     except Exception:
         console.print("   Free Space: [muted]Unable to determine[/muted]")
-    
+
     # Task Information
     console.print()
     console.print("🎯 [bold]Task Information[/bold]")
     if task_name:
         console.print(f"   Task: [accent]{task_name}[/accent]")
-        
+
         # Try to extract montage information
         try:
             montage_info = extract_config_from_task(task_name, "montage")
@@ -1267,18 +1315,18 @@ def _show_process_guard(args) -> bool:
                 console.print("   Montage: [muted]Not specified in task[/muted]")
         except Exception:
             console.print("   Montage: [muted]Unable to extract[/muted]")
-        
+
     elif args.task_file:
         console.print(f"   Task File: [accent]{args.task_file}[/accent]")
     else:
         console.print("   Task: [red]Not specified[/red]")
-    
+
     # Input Information
     console.print()
     console.print("📁 [bold]Input Information[/bold]")
     if input_path:
         console.print(f"   Path: [accent]{input_path}[/accent]")
-        
+
         if input_path.exists():
             if input_path.is_file():
                 console.print("   Type: [accent]Single File[/accent]")
@@ -1290,10 +1338,11 @@ def _show_process_guard(args) -> bool:
                     console.print("   Size: [muted]Unable to determine[/muted]")
             elif input_path.is_dir():
                 console.print("   Type: [accent]Directory[/accent]")
-                
+
                 # Count files based on format pattern
-                format_pattern = getattr(args, 'format', '*.{raw,set}')
+                format_pattern = getattr(args, "format", "*.{raw,set}")
                 try:
+
                     def _expand_brace_glob(pat: str) -> list[str]:
                         if "{" not in pat or "}" not in pat:
                             return [pat]
@@ -1310,7 +1359,7 @@ def _show_process_guard(args) -> bool:
                     patterns = _expand_brace_glob(format_pattern)
                     files_set: set[Path] = set()
                     files: list[Path] = []
-                    if getattr(args, 'recursive', False):
+                    if getattr(args, "recursive", False):
                         for p in patterns:
                             for f in input_path.rglob(p):
                                 if f not in files_set:
@@ -1322,38 +1371,43 @@ def _show_process_guard(args) -> bool:
                                 if f not in files_set:
                                     files_set.add(f)
                                     files.append(f)
-                    
+
                     file_count = len(files)
-                    console.print(f"   Files to process: [accent]{file_count}[/accent] (pattern: {format_pattern})")
-                    
-                    if getattr(args, 'recursive', False):
+                    console.print(
+                        f"   Files to process: [accent]{file_count}[/accent] (pattern: {format_pattern})"
+                    )
+
+                    if getattr(args, "recursive", False):
                         console.print("   Recursive search: [accent]Enabled[/accent]")
-                
+
                 except Exception:
                     console.print("   Files: [muted]Unable to count[/muted]")
         else:
             console.print("   Status: [red]Path does not exist[/red]")
     else:
         console.print("   Path: [red]Not specified[/red]")
-    
+
     # Additional Processing Options
-    if hasattr(args, 'parallel') and args.parallel:
+    if hasattr(args, "parallel") and args.parallel:
         console.print()
         console.print("⚙️  [bold]Processing Options[/bold]")
-        console.print(f"   Parallel processing: [accent]{args.parallel} concurrent files[/accent]")
-    
+        console.print(
+            f"   Parallel processing: [accent]{args.parallel} concurrent files[/accent]"
+        )
+
     # Confirmation prompt
     console.print()
     console.print("═" * 50)
-    
+
     try:
         from rich.prompt import Confirm
+
         return Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
     except ImportError:
         # Fallback for systems without rich Confirm
         try:
             response = input("🚀 Proceed with processing? (y/N): ").lower().strip()
-            return response in ['y', 'yes']
+            return response in ["y", "yes"]
         except (EOFError, KeyboardInterrupt):
             return False
 
@@ -1378,9 +1432,15 @@ def validate_args(args) -> bool:
                     task_name = active_task
                     message("info", f"Using active task: {active_task}")
                 else:
-                    message("warning", f"Active task '{active_task}' no longer exists in workspace")
-                    message("info", "Please set a new active task with: autocleaneeg-pipeline task set")
-            
+                    message(
+                        "warning",
+                        f"Active task '{active_task}' no longer exists in workspace",
+                    )
+                    message(
+                        "info",
+                        "Please set a new active task with: autocleaneeg-pipeline task set",
+                    )
+
             # If still no task, show help
         if not task_name and not args.task_file:
             console = get_console(args)
@@ -1408,7 +1468,8 @@ def validate_args(args) -> bool:
                     "dir|--dir", "Directory of EEG files (use --format, --recursive)"
                 )
                 tbl.add_row(
-                    "--format", "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)"
+                    "--format",
+                    "Glob pattern (default: *.{raw,set}; '*.raw', '*.edf', ...)",
                 )
                 tbl.add_row("--recursive", "Search subdirectories for matching files")
                 tbl.add_row("-p N", "Process N files in parallel (default 3, max 8)")
@@ -1422,7 +1483,9 @@ def validate_args(args) -> bool:
                 console.print(
                     "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
                 )
-                console.print("Note: Task is optional if you have set an active task with 'task set'")
+                console.print(
+                    "Note: Task is optional if you have set an active task with 'task set'"
+                )
             return False
 
         if task_name and args.task_file:
@@ -1458,7 +1521,10 @@ def validate_args(args) -> bool:
                             "error",
                             f"Active input path no longer exists: {input_path}",
                         )
-                        message("info", "Please set a new active input with: autocleaneeg-pipeline input set")
+                        message(
+                            "info",
+                            "Please set a new active input with: autocleaneeg-pipeline input set",
+                        )
                         return False
                     message("info", f"Using active input: {input_path}")
                 else:
@@ -1500,7 +1566,9 @@ def validate_args(args) -> bool:
                         tbl.add_row(
                             "-p N", "Process N files in parallel (default 3, max 8)"
                         )
-                        tbl.add_row("--dry-run", "Show what would run without processing")
+                        tbl.add_row(
+                            "--dry-run", "Show what would run without processing"
+                        )
                         console.print(tbl)
                         console.print(
                             "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
@@ -1510,7 +1578,9 @@ def validate_args(args) -> bool:
                         console.print(
                             "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
                         )
-                        console.print("Note: Task is optional if you have set an active task with 'task set'")
+                        console.print(
+                            "Note: Task is optional if you have set an active task with 'task set'"
+                        )
                     return False
 
         # Store normalized values back to args
@@ -1526,7 +1596,7 @@ def validate_args(args) -> bool:
         # This triggers when the user ran "autocleaneeg-pipeline process" without arguments
         # and we resolved task/input from active settings, or when only partial arguments were given
         show_guard = False
-        
+
         # Check if this was a minimal command invocation
         if not (args.task_name or args.task or args.task_file):
             # No task specified on command line - using active task
@@ -1534,11 +1604,11 @@ def validate_args(args) -> bool:
         elif not (args.input_path or args.file or args.directory):
             # No input specified on command line - using active input
             show_guard = True
-        
+
         # Don't show guard for dry run (already shows what would be processed)
-        if hasattr(args, 'dry_run') and args.dry_run:
+        if hasattr(args, "dry_run") and args.dry_run:
             show_guard = False
-        
+
         # Show the guard if needed
         if show_guard:
             if not _show_process_guard(args):
@@ -1964,6 +2034,8 @@ def cmd_workspace(args) -> int:
     action = args.workspace_action
     if action == "explore":
         return cmd_workspace_explore(args)
+    if action == "show":
+        return cmd_workspace_show(args)
     if action == "size":
         return cmd_workspace_size(args)
     if action == "set":
@@ -1999,6 +2071,117 @@ def cmd_workspace_explore(_args) -> int:
         return 0
     except Exception as e:
         message("error", f"Failed to open workspace folder: {e}")
+        return 1
+
+
+def cmd_workspace_show(_args) -> int:
+    """Show the current workspace path and whether it's configured/valid."""
+    try:
+        from rich.text import Text as _Text
+        from rich.align import Align as _Align
+
+        console = get_console()
+
+        # Title (minimal, no product banner)
+        title = _Text()
+        console.print()
+        title.append("AutocleanEEG Pipeline Workspace", style="title")
+        console.print(_Align.center(title))
+        console.print(_Align.center(_Text("Current configuration", style="subtitle")))
+        console.print()
+
+        # Determine validity
+        ws = user_config.config_dir
+        try:
+            is_valid = user_config._is_workspace_valid()  # type: ignore[attr-defined]
+        except Exception:
+            is_valid = ws.exists() and (ws / "tasks").exists()
+
+        # Workspace line
+        home = str(Path.home())
+        display_ws = str(ws)
+        if display_ws.startswith(home):
+            display_ws = display_ws.replace(home, "~", 1)
+        ws_line = _Text()
+        if is_valid:
+            ws_line.append("✓ ", style="success")
+            ws_line.append("Workspace ", style="muted")
+            ws_line.append(display_ws, style="accent")
+        else:
+            ws_line.append("⚠ ", style="warning")
+            ws_line.append("Workspace not configured — ", style="muted")
+            ws_line.append(display_ws, style="accent")
+        console.print(_Align.center(ws_line))
+
+        # Active task (only if set)
+        try:
+            active_task = user_config.get_active_task()
+            if active_task:
+                at = _Text()
+                at.append("🎯 ", style="muted")
+                at.append("Active task: ", style="muted")
+                at.append(str(active_task), style="accent")
+                console.print(_Align.center(at))
+        except Exception:
+            pass
+
+        # Active input (only if set)
+        try:
+            active_source = user_config.get_active_source()
+            if active_source and active_source != "NONE":
+                sp = Path(active_source)
+                display_src = str(sp)
+                if display_src.startswith(home):
+                    display_src = display_src.replace(home, "~", 1)
+                src = _Text()
+                if sp.exists():
+                    if sp.is_file():
+                        src.append("📄 ", style="muted")
+                        src.append("Input file: ", style="muted")
+                    elif sp.is_dir():
+                        src.append("📂 ", style="muted")
+                        src.append("Input folder: ", style="muted")
+                    else:
+                        src.append("📁 ", style="muted")
+                        src.append("Input: ", style="muted")
+                else:
+                    src.append("⚠ ", style="warning")
+                    src.append("Input missing — ", style="muted")
+                src.append(display_src, style="accent")
+                console.print(_Align.center(src))
+        except Exception:
+            pass
+
+        # Free disk (helpful context, keep minimal)
+        try:
+            usage_path = (
+                ws
+                if ws.exists()
+                else (ws.parent if ws.parent.exists() else Path.home())
+            )
+            du = shutil.disk_usage(str(usage_path))
+            free_gb = du.free / (1024**3)
+            free_line = _Text()
+            free_line.append("💾 ", style="muted")
+            free_line.append("Free space ", style="muted")
+            free_line.append(f"{free_gb:.1f} GB", style="accent")
+            console.print(_Align.center(free_line))
+        except Exception:
+            pass
+
+        console.print()
+        # If invalid, provide a concise tip
+        if not is_valid:
+            tip = _Text()
+            tip.append("Run ", style="muted")
+            tip.append("autocleaneeg-pipeline workspace", style="accent")
+            tip.append(" to configure.", style="muted")
+            console.print(_Align.center(tip))
+            console.print()
+
+        return 0
+    except Exception as e:
+        message("error", f"Failed to show workspace: {e}")
         return 1
 
 
@@ -3023,9 +3206,7 @@ def cmd_task_edit(args) -> int:
 
                 active = user_config.get_active_task()
                 if active:
-                    if not _Confirm.ask(
-                        f"Open active task '{active}'?", default=True
-                    ):
+                    if not _Confirm.ask(f"Open active task '{active}'?", default=True):
                         message("info", "Canceled")
                         return 0
                     target = active
@@ -3288,9 +3469,7 @@ def cmd_task_delete(args) -> int:
 
                 active = user_config.get_active_task()
                 if active:
-                    if not _Confirm.ask(
-                        f"Use active task '{active}'?", default=True
-                    ):
+                    if not _Confirm.ask(f"Use active task '{active}'?", default=True):
                         message("info", "Canceled")
                         return 0
                     target = active
@@ -3369,9 +3548,7 @@ def cmd_task_copy(args) -> int:
 
                 active = user_config.get_active_task()
                 if active:
-                    if not _Confirm.ask(
-                        f"Use active task '{active}'?", default=True
-                    ):
+                    if not _Confirm.ask(f"Use active task '{active}'?", default=True):
                         message("info", "Canceled")
                         return 0
                     source = active
@@ -3472,9 +3649,9 @@ def cmd_task_set(args) -> int:
     """Set the active task."""
     try:
         # If task name provided, use it directly
-        if hasattr(args, 'task_name') and args.task_name:
+        if hasattr(args, "task_name") and args.task_name:
             task_name = args.task_name
-            
+
             # Validate task exists in custom tasks
             custom_tasks = user_config.list_custom_tasks()
             if task_name not in custom_tasks:
@@ -3489,7 +3666,7 @@ def cmd_task_set(args) -> int:
             if task_name is None:
                 message("info", "No task selected.")
                 return 0
-        
+
         # Set the active task
         if user_config.set_active_task(task_name):
             message("success", f"✓ Active task set to: {task_name}")
@@ -3498,7 +3675,7 @@ def cmd_task_set(args) -> int:
         else:
             message("error", "Failed to save active task configuration.")
             return 1
-            
+
     except Exception as e:
         message("error", f"Failed to set active task: {e}")
         return 1
@@ -3511,14 +3688,14 @@ def cmd_task_unset(_args) -> int:
         if current_task is None:
             message("info", "No active task is currently set.")
             return 0
-        
+
         if user_config.set_active_task(None):
             message("success", f"✓ Active task cleared (was: {current_task})")
             return 0
         else:
             message("error", "Failed to clear active task configuration.")
             return 1
-            
+
     except Exception as e:
         message("error", f"Failed to unset active task: {e}")
         return 1
@@ -3528,25 +3705,34 @@ def cmd_task_show(_args) -> int:
     """Show the current active task."""
     try:
         active_task = user_config.get_active_task()
-        
+
         if active_task is None:
             message("info", "No active task is currently set.")
             message("info", "Set one with: autocleaneeg-pipeline task set")
         else:
             message("info", f"Active task: {active_task}")
-            
+
             # Verify the task still exists
             custom_tasks = user_config.list_custom_tasks()
             if active_task in custom_tasks:
                 task_info = custom_tasks[active_task]
-                message("info", f"Description: {task_info.get('description', 'No description')}")
+                message(
+                    "info",
+                    f"Description: {task_info.get('description', 'No description')}",
+                )
                 message("info", f"File: {task_info['file_path']}")
             else:
-                message("warning", f"Active task '{active_task}' no longer exists in workspace")
-                message("info", "Consider setting a different active task or adding the missing task file.")
-        
+                message(
+                    "warning",
+                    f"Active task '{active_task}' no longer exists in workspace",
+                )
+                message(
+                    "info",
+                    "Consider setting a different active task or adding the missing task file.",
+                )
+
         return 0
-        
+
     except Exception as e:
         message("error", f"Failed to show active task: {e}")
         return 1
@@ -3603,21 +3789,21 @@ def cmd_source_set(args) -> int:
     try:
         source_path = getattr(args, "source_path", None)
         source_path = _strip_wrapping_quotes(source_path)
-        
+
         # If path provided directly, use it
         if source_path:
             path = Path(source_path).expanduser().resolve()
             if not path.exists():
                 message("error", f"Input path does not exist: {path}")
                 return 1
-            
+
             if user_config.set_active_source(str(path)):
                 message("success", f"Active input set to: {path}")
                 return 0
             else:
                 message("error", "Failed to save active input configuration")
                 return 1
-        
+
         # Otherwise, use interactive selection
         selected_source = user_config.select_active_source_interactive()
         selected_source = _strip_wrapping_quotes(selected_source)
@@ -3627,7 +3813,9 @@ def cmd_source_set(args) -> int:
         elif selected_source == "NONE":
             # User chose to have no default
             if user_config.set_active_source(None):
-                message("success", "Active input cleared - will prompt for input each time")
+                message(
+                    "success", "Active input cleared - will prompt for input each time"
+                )
                 return 0
             else:
                 message("error", "Failed to clear active input")
@@ -3640,7 +3828,7 @@ def cmd_source_set(args) -> int:
             else:
                 message("error", "Failed to save active input configuration")
                 return 1
-                
+
     except Exception as e:
         message("error", f"Failed to set active input: {e}")
         return 1
@@ -3655,7 +3843,7 @@ def cmd_source_unset(_args) -> int:
         else:
             message("error", "Failed to clear active input")
             return 1
-            
+
     except Exception as e:
         message("error", f"Failed to unset active input: {e}")
         return 1
@@ -3665,7 +3853,7 @@ def cmd_source_show(_args) -> int:
     """Show the current active input path."""
     try:
         active_source = user_config.get_active_source()
-        
+
         if active_source is None:
             message("info", "No active input path is currently set.")
             message("info", "Set one with: autocleaneeg-pipeline input set")
@@ -3679,11 +3867,13 @@ def cmd_source_show(_args) -> int:
                 else:
                     message("info", f"Active input: {active_source}")
             else:
-                message("warning", f"Active input path no longer exists: {active_source}")
+                message(
+                    "warning", f"Active input path no longer exists: {active_source}"
+                )
                 message("info", "Consider setting a new active input.")
-        
+
         return 0
-        
+
     except Exception as e:
         message("error", f"Failed to show active input: {e}")
         return 1
@@ -4785,7 +4975,9 @@ def main(argv: Optional[list] = None) -> int:
         if first_non_option:
             # Discover known top-level commands from the parser
             sub_actions = [
-                a for a in parser._actions if isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]
+                a
+                for a in parser._actions
+                if isinstance(a, argparse._SubParsersAction)  # type: ignore[attr-defined]
             ]
             if sub_actions:
                 top_level = sub_actions[0].choices.keys()
@@ -4802,7 +4994,9 @@ def main(argv: Optional[list] = None) -> int:
                             if child_subs:
                                 child_choices = child_subs[0].choices.keys()
                                 if first_non_option in child_choices:
-                                    suggestions.append(f"{parent_name} {first_non_option}")
+                                    suggestions.append(
+                                        f"{parent_name} {first_non_option}"
+                                    )
                         except Exception:
                             pass
 
@@ -4834,7 +5028,9 @@ def main(argv: Optional[list] = None) -> int:
                     except Exception:
                         # Minimal fallback without rich constructs
                         print(f"Unknown command: {first_non_option}")
-                        print("Try one of: process, task, input, view, review, workspace, help")
+                        print(
+                            "Try one of: process, task, input, view, review, workspace, help"
+                        )
                     return 2
     except Exception:
         # Defer to argparse for normal parsing and help behavior
@@ -4888,11 +5084,17 @@ def main(argv: Optional[list] = None) -> int:
                 p = Path(active_src)
                 if p.exists():
                     if p.is_file():
-                        console.print(f"[info]Input file:[/info] [accent]{active_src}[/accent]")
+                        console.print(
+                            f"[info]Input file:[/info] [accent]{active_src}[/accent]"
+                        )
                     elif p.is_dir():
-                        console.print(f"[info]Input folder:[/info] [accent]{active_src}[/accent]")
+                        console.print(
+                            f"[info]Input folder:[/info] [accent]{active_src}[/accent]"
+                        )
                     else:
-                        console.print(f"[info]Input:[/info] [accent]{active_src}[/accent]")
+                        console.print(
+                            f"[info]Input:[/info] [accent]{active_src}[/accent]"
+                        )
                 else:
                     console.print(
                         f"[warning]Input missing[/warning] [muted]—[/muted] [accent]{active_src}[/accent]"
@@ -4981,6 +5183,7 @@ def main(argv: Optional[list] = None) -> int:
             try:
                 from rich.text import Text as _SrcText
                 from rich.align import Align as _SrcAlign
+
                 active_src = user_config.get_active_source()
                 src_line = _SrcText()
                 if active_src:
@@ -5043,7 +5246,15 @@ def main(argv: Optional[list] = None) -> int:
             from rich.text import Text as _KText
             from rich.align import Align as _KAlign
 
-            key_cmds = ["help", "workspace", "view", "task", "input", "process", "review"]
+            key_cmds = [
+                "help",
+                "workspace",
+                "view",
+                "task",
+                "input",
+                "process",
+                "review",
+            ]
             belt = _KText()
             for i, cmd in enumerate(key_cmds):
                 if i > 0:
