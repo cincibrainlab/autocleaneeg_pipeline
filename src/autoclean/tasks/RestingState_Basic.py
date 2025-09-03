@@ -19,7 +19,7 @@ config = {
         "enabled": True,
         "value": {
             "l_freq": 1,
-            "h_freq": 80,
+            "h_freq": 100,
             "notch_freqs": [60, 120],
             "notch_widths": 5,
         },
@@ -30,7 +30,7 @@ config = {
         "value": [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128],
     },
     "trim_step": {"enabled": True, "value": 4},
-    "crop_step": {"enabled": True, "value": {"start": 0, "end": 60}},
+    "crop_step": {"enabled": False, "value": {"start": 0, "end": 60}},
     "reference_step": {"enabled": True, "value": "average"},
     "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
     "ICA": {
@@ -65,8 +65,6 @@ class RestingState_Basic(Task):
     def run(self) -> None:
         # Import raw EEG data
         self.import_raw()
-
-        breakpoint()
 
         # Basic preprocessing steps
         self.resample_data()
