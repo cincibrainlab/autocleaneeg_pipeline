@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autocleaneeg-pipeline"
-version = "2.2.1"
+version = "2.2.2"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -73,7 +73,7 @@ dependencies = [
     # GUI dependencies
     "PyQt5>=5.15.0",
     "mne-qt-browser>=0.3.0",
-    "PySide6>=6.5.0",
+    # "PySide6>=6.5.0",
     "pymupdf>=1.0.0",
     "pyjsonviewer>=0.1.0",
     "textual>=0.11.0",
