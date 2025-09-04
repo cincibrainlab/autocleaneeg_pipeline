@@ -9,6 +9,8 @@ visually appealing user interactions.
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from autoclean.utils.icons import pick_icon
+
 try:
     from rich.align import Align
     from rich.console import Console
@@ -48,13 +50,13 @@ class CLIDisplay:
         except Exception:
             self.console = console or Console()
 
-        # Status indicators
-        self.SUCCESS = "[success]✓[/success]"
-        self.WARNING = "[warning]⚠[/warning]"
-        self.ERROR = "[error]❌[/error]"
-        self.INFO = "[info]ℹ[/info]"
-        self.WORKING = "[accent]🔧[/accent]"
-        self.ARROW = "[muted]→[/muted]"
+        # Status indicators with ASCII fallbacks
+        self.SUCCESS = f"[success]{pick_icon('ok')}[/success]"
+        self.WARNING = f"[warning]{pick_icon('warn')}[/warning]"
+        self.ERROR = f"[error]{pick_icon('err')}[/error]"
+        self.INFO = f"[info]{pick_icon('info')}[/info]"
+        self.WORKING = f"[accent]{pick_icon('work')}[/accent]"
+        self.ARROW = f"[muted]{pick_icon('arrow')}[/muted]"
 
         # Spacing constants
         self.SECTION_SPACING = "\n"
