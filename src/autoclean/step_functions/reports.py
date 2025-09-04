@@ -1026,12 +1026,26 @@ def update_task_processing_log(
             except Exception:  # pylint: disable=broad-except
                 return 0  # Default to 0 if calculation fails
 
-        # Calculate percentages safely
+        # Calculate percentages safely with fixed precision
         def safe_percentage(numerator, denominator, default=""):
             try:
                 num = float(numerator)
                 denom = float(denominator)
-                return str(num / denom) if denom != 0 else default
+                return f"{num / denom:.3f}" if denom != 0 else default
+            except (ValueError, TypeError):
+                return default
+
+        # Format integers safely
+        def safe_int(value, default=""):
+            try:
+                return str(int(round(float(value))))
+            except (ValueError, TypeError):
+                return default
+
+        # Format floats safely with configurable precision
+        def safe_float(value, decimals=1, default=""):
+            try:
+                return f"{float(value):.{decimals}f}"
             except (ValueError, TypeError):
                 return default
 
@@ -1069,16 +1083,16 @@ def update_task_processing_log(
             "proc_filt_notch_width": str(
                 safe_get(summary_dict, "processing_details", "notch_widths", default="")
             ),
-            "proc_sRate_raw": str(
+            "proc_sRate_raw": safe_int(
                 safe_get(summary_dict, "import_details", "sample_rate", default="")
             ),
             "proc_sRate1": str(
                 safe_get(summary_dict, "export_details", "srate_post", default="")
             ),
-            "proc_xmax_raw": str(
+            "proc_xmax_raw": safe_float(
                 safe_get(summary_dict, "import_details", "duration", default="")
             ),
-            "proc_xmax_post": str(
+            "proc_xmax_post": safe_float(
                 safe_get(summary_dict, "export_details", "final_duration", default="")
             ),
         }
