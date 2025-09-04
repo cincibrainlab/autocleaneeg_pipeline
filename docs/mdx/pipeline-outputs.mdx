@@ -1,0 +1,54 @@
+---
+title: Pipeline Outputs
+description: Subject- and group-level outputs produced by an AutoClean run.
+---
+
+# Pipeline Outputs
+
+Each AutoClean run creates a structured folder containing everything needed to reproduce and review your results.
+
+<Note>
+The folder name uses the task you executed, allowing multiple tasks to share the same project without overwriting previous runs.
+</Note>
+
+## Subject-level artifacts
+
+### `bids/` – cleaned EEG
+- Cleaned continuous and epoched data in BIDS format
+- Channel metadata and events files
+
+### `derivatives/` – reports and visualizations
+- HTML/PDF processing reports
+- ICA plots, power spectra, and before/after comparisons
+
+### `logs/` – processing logs
+- Step-by-step log of every operation
+- Helpful for debugging failed runs
+
+### `metadata/` – run metadata
+- JSON files describing parameters and quality metrics
+- Links back to the database run record
+
+### `stage_files/` – intermediate exports
+- Optional exports from custom steps
+- Files are numbered in run order (01_, 02_, …)
+
+### `flagged/` – runs requiring review
+- Outputs moved here when quality thresholds are not met
+
+## Group-level artifacts
+
+When multiple subjects are processed, AutoClean can generate group-level summaries:
+
+- **Exported metrics** inside `exported_data/` for downstream analysis
+- **Group analysis** results produced by tools such as `assr_viz.py` that aggregate heatmap data into `group_analysis/`
+- **Combined reports** that collate per-subject quality metrics
+
+<Tip>
+Group folders are safe to delete and regenerate because underlying subject results remain intact.
+</Tip>
+
+## Run record
+
+Every run also writes a JSON run record to the internal database capturing the information above and listing output file names. The run ID connects the filesystem results with tools like the review interface.
+

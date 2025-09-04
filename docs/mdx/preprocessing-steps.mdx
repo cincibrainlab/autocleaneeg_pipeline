@@ -1,0 +1,91 @@
+---
+title: Preprocessing Steps
+description: Functions that prepare EEG recordings before artifact detection.
+---
+
+# Preprocessing Steps
+
+Each task file calls a series of preprocessing functions that prepare the raw EEG signal for later artifact detection and epoching.
+
+## Import raw
+Loads the unprocessed recording from disk.
+
+**Technical details:** Wrapper around MNE's readers via `import_raw`, supporting FIF, EDF and other common formats.
+
+## Resample data
+Adjusts the sampling rate for faster processing or to match analysis requirements.
+
+**Technical details:** `resample_data` wraps `autoclean.functions.preprocessing.resample_data`, which calls `mne.io.Raw.resample` and records metadata.
+
+**Parameters**
+- `target_sfreq` – desired sampling frequency in Hz.
+- `npad`, `window`, `n_jobs`, `pad`, `verbose` – optional resampling controls.
+
+## Filter data
+Applies band-pass and notch filters to isolate frequencies of interest and remove line noise.
+
+**Technical details:** `filter_data` uses AutoClean's wrapper around `mne.filter.filter_data` to log filter settings.
+
+**Parameters**
+- `l_freq`, `h_freq` – high- and low-cutoff frequencies in Hz.
+- `notch_freqs`, `notch_widths` – notch filter settings.
+
+## Drop outer layer
+Removes peripheral electrodes that are prone to noise.
+
+**Technical details:** `drop_outer_layer` is a thin wrapper over `raw.drop_channels` and saves the result.
+
+**Parameters**
+- `value` – list of channel names to drop.
+
+## Assign EOG channels
+Marks specific channels as electrooculogram (EOG) sensors so downstream tools treat them separately.
+
+**Technical details:** `assign_eog_channels` sets channel types using `raw.set_channel_types`.
+
+**Parameters**
+- `value` – channel indices or names corresponding to EOG sensors.
+
+## Trim edges
+Removes a fixed duration from the start and end of the recording.
+
+**Technical details:** `trim_edges` calls `raw.crop` with symmetric time offsets.
+
+**Parameters**
+- `value` – seconds to trim from each edge.
+
+## Crop duration
+Keeps only a specified time window from the recording.
+
+**Technical details:** `crop_duration` uses `raw.crop` with explicit `start` and `end` times.
+
+**Parameters**
+- `start`, `end` – window boundaries in seconds.
+
+## Clean bad channels
+Identifies noisy electrodes and interpolates or drops them.
+
+**Technical details:** `clean_bad_channels` relies on the PyPREP `NoisyChannels` routines via `detect_bad_channels`.
+
+**Parameters**
+- `correlation_thresh`, `deviation_thresh` – statistical thresholds.
+- `ransac_sample_prop`, `ransac_corr_thresh`, `ransac_frac_bad`, `ransac_channel_wise` – RANSAC settings.
+- `cleaning_method` – `'interpolate'`, `'drop'`, or `None`.
+- `reset_bads` – whether to clear the bad list after cleaning.
+
+## Re-reference data
+Recomputes the reference for all channels.
+
+**Technical details:** `rereference_data` wraps `mne.set_eeg_reference` for Raw or Epochs objects.
+
+**Parameters**
+- `value` – reference type or list of channels.
+
+## Montage
+Applies a sensor layout so spatial operations know channel positions.
+
+**Technical details:** wrapper around `raw.set_montage` using MNE's built-in montages.
+
+**Parameters**
+- `value` – name of an MNE montage (e.g., `"GSN-HydroCel-129"`).
+
