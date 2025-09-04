@@ -1,0 +1,38 @@
+---
+title: Reviewing Outputs
+description: Interfaces for exploring AutoClean results.
+---
+
+# Reviewing Outputs
+
+AutoClean supplies multiple interfaces to inspect what the pipeline produced.
+
+## File explorer
+
+The simplest way to browse results. Each run lives in its own task-named folder. Use your operating system's file explorer or the **Select Directory** button in the review tool to navigate through runs and open reports.
+
+## Qt browser – AutoClean view
+
+MNE's Qt browser displays cleaned data with bad segments highlighted.
+
+```python
+import mne
+mne.viz.set_browser_backend("qt")
+raw.plot()
+```
+
+Load continuous or epoched files from the `bids/` folder to scroll through recordings with all AutoClean annotations applied.
+
+## AutoClean review
+
+A dedicated GUI (`autoclean_review`) combines browsing, visualization, and run metadata.
+
+- Tree-based file navigator
+- Report and metadata preview
+- Buttons to open raw or epochs in the Qt browser
+- Optional export to EEGLAB `.set` format
+
+<Tip>
+Install GUI extras with `pip install autocleaneeg-pipeline[gui]` to enable the review interface.
+</Tip>
+
