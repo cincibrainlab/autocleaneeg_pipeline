@@ -39,6 +39,7 @@ config = {
             "method": "infomax",
             "n_components": None,
             "fit_params": {"extended": True},
+            "temp_highpass_for_ica": 1.0,
         },
     },
     "component_rejection": {
