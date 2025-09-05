@@ -292,6 +292,9 @@ def classify_ica_components(
 
             # Extract combined results as DataFrame
             component_labels = _icalabel_to_dataframe(ica)
+            # Mark which components were reclassified by ICVision for downstream reporting
+            if component_indices:
+                component_labels.loc[component_indices, "annotator"] = "ic_vision"
 
         return component_labels
 
