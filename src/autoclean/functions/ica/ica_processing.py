@@ -138,12 +138,14 @@ def classify_ica_components(
     ica : mne.preprocessing.ICA
         The fitted ICA object to classify.
     method : str, default "iclabel"
-        Classification method to use. Options: "iclabel", "icvision".
+        Classification method to use. Options: "iclabel", "icvision", "hybrid".
     verbose : bool or None, default None
         Control verbosity of output.
     **kwargs
         Additional keyword arguments passed to the classification method.
-        For icvision method, supports 'psd_fmax' to limit PSD plot frequency range.
+        For icvision-related methods, supports 'psd_fmax' to limit PSD plot
+        frequency range. For the ``hybrid`` method, ``icvision_n_components``
+        controls how many leading components are reclassified with ICVision.
 
     Returns
     -------
@@ -158,6 +160,7 @@ def classify_ica_components(
     --------
     >>> labels = classify_ica_components(raw, ica, method="iclabel")
     >>> labels = classify_ica_components(raw, ica, method="icvision")
+    >>> labels = classify_ica_components(raw, ica, method="hybrid", icvision_n_components=15)
     >>> artifacts = labels[(labels["ic_type"] == "eye") & (labels["confidence"] > 0.8)]
 
     See Also
@@ -173,13 +176,17 @@ def classify_ica_components(
     if not isinstance(ica, ICA):
         raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
 
-    if method not in ["iclabel", "icvision"]:
-        raise ValueError(f"method must be 'iclabel' or 'icvision', got '{method}'")
+    if method not in ["iclabel", "icvision", "hybrid"]:
+        raise ValueError(
+            f"method must be 'iclabel', 'icvision', or 'hybrid', got '{method}'"
+        )
 
     try:
         if method == "iclabel":
             # Run ICLabel classification
-            mne_icalabel.label_components(raw, ica, method=method)
+            mne_icalabel.label_components(
+                raw, ica, method="iclabel", verbose=verbose
+            )
             # Extract results into a DataFrame
             component_labels = _icalabel_to_dataframe(ica)
 
@@ -194,6 +201,29 @@ def classify_ica_components(
             # Use ICVision as drop-in replacement, passing through any extra kwargs
             label_components(raw, ica, **kwargs)
             # Extract results into a DataFrame using the same format
+            component_labels = _icalabel_to_dataframe(ica)
+
+        elif method == "hybrid":
+            # First run ICLabel on all components
+            mne_icalabel.label_components(
+                raw, ica, method="iclabel", verbose=verbose
+            )
+
+            if not ICVISION_AVAILABLE:
+                raise ImportError(
+                    "autoclean-icvision package is required for hybrid method. "
+                    "Install it with: pip install autoclean-icvision"
+                )
+
+            icvision_n_components = kwargs.pop("icvision_n_components", 20)
+            component_indices = list(range(min(icvision_n_components, ica.n_components_)))
+
+            # Reclassify the specified subset with ICVision
+            label_components(
+                raw, ica, component_indices=component_indices, **kwargs
+            )
+
+            # Extract combined results
             component_labels = _icalabel_to_dataframe(ica)
 
         return component_labels

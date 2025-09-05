@@ -117,6 +117,14 @@ class TestClassifyIcaComponents:
     @patch("autoclean.functions.ica.ica_processing.mne_icalabel.label_components")
     def test_basic_functionality(self, mock_label_components, mock_raw, mock_ica):
         """Test basic component classification."""
+
+        def side_effect(raw, ica, method="iclabel", verbose=None):
+            ica.labels_ = {"brain": list(range(ica.n_components_))}
+            ica.labels_scores_ = MagicMock()
+            ica.labels_scores_.max.return_value = np.ones(ica.n_components_)
+
+        mock_label_components.side_effect = side_effect
+
         result = classify_ica_components(mock_raw, mock_ica)
 
         # Should call ICLabel
@@ -168,7 +176,28 @@ class TestClassifyIcaComponents:
         }
         mock_ica.labels_scores_ = MagicMock()
         mock_ica.labels_scores_.max.return_value = np.array(
-            [0.8, 0.9, 0.7, 0.85, 0.95, 0.75, 0.6, 0.65, 0.7, 0.8]
+            [
+                0.8,
+                0.9,
+                0.7,
+                0.85,
+                0.95,
+                0.75,
+                0.6,
+                0.65,
+                0.7,
+                0.8,
+                0.8,
+                0.9,
+                0.7,
+                0.85,
+                0.95,
+                0.75,
+                0.6,
+                0.65,
+                0.7,
+                0.8,
+            ]
         )
 
         with patch(
@@ -187,6 +216,38 @@ class TestClassifyIcaComponents:
             assert result.loc[0, "ic_type"] == "brain"
             assert result.loc[1, "ic_type"] == "eog"
             assert result.loc[3, "ic_type"] == "muscle"
+
+    @patch("autoclean.functions.ica.ica_processing.label_components")
+    @patch("autoclean.functions.ica.ica_processing.mne_icalabel.label_components")
+    def test_hybrid_classification(
+        self, mock_iclabel, mock_icvision, mock_raw, mock_ica
+    ):
+        """ICLabel then ICVision on subset of components."""
+
+        def iclabel_side_effect(raw, ica, method="iclabel", verbose=None):
+            ica.labels_ = {"brain": list(range(ica.n_components_))}
+            ica.labels_scores_ = MagicMock()
+            ica.labels_scores_.max.return_value = np.ones(ica.n_components_)
+
+        def icvision_side_effect(
+            raw, ica, component_indices=None, **kwargs
+        ):
+            ica.labels_ = {"brain": list(range(1, ica.n_components_)), "eog": [0]}
+
+        mock_iclabel.side_effect = iclabel_side_effect
+        mock_icvision.side_effect = icvision_side_effect
+
+        result = classify_ica_components(
+            mock_raw, mock_ica, method="hybrid", icvision_n_components=1
+        )
+
+        mock_iclabel.assert_called_once_with(
+            mock_raw, mock_ica, method="iclabel", verbose=None
+        )
+        mock_icvision.assert_called_once_with(
+            mock_raw, mock_ica, component_indices=[0]
+        )
+        assert result.loc[0, "ic_type"] == "eog"
 
 
 class TestApplyIcaRejection:
