@@ -192,8 +192,8 @@ def classify_ica_components(
             # Run ICVision classification
             if not ICVISION_AVAILABLE:
                 raise ImportError(
-                    "autoclean-icvision package is required for icvision method. "
-                    "Install it with: pip install autoclean-icvision"
+                    "autocleaneeg-icvision package is required for icvision method. "
+                    "Install it with: pip install autocleaneeg-icvision"
                 )
 
             # Use ICVision as drop-in replacement, passing through any extra kwargs
@@ -207,8 +207,8 @@ def classify_ica_components(
 
             if not ICVISION_AVAILABLE:
                 raise ImportError(
-                    "autoclean-icvision package is required for hybrid method. "
-                    "Install it with: pip install autoclean-icvision"
+                    "autocleaneeg-icvision package is required for hybrid method. "
+                    "Install it with: pip install autocleaneeg-icvision"
                 )
 
             # Preserve ICLabel results so we can merge with ICVision outputs

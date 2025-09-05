@@ -8,6 +8,7 @@ import pytest
 
 from autoclean.core.pipeline import Pipeline
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 # Optional imports for conditional functionality
 try:
@@ -47,8 +48,10 @@ class TestPythonTaskFiles:
         task_content = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {'enabled': True, 'value': 250},
     'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40}}
 }
@@ -57,7 +60,7 @@ class TestTask(Task):
     def __init__(self, config: Dict[str, Any]):
         self.settings = globals()['config']
         super().__init__(config)
-    
+
     def run(self):
         pass
 """
@@ -90,7 +93,10 @@ class TestTask(Task):
         # Create a mock task with settings
         class MockTask(Task):
             def __init__(self, config):
-                self.settings = {"resample_step": {"enabled": True, "value": 500}}
+                self.settings = {
+                    "version": CONFIG_VERSION,
+                    "resample_step": {"enabled": True, "value": 500},
+                }
                 super().__init__(config)
 
             def run(self):
@@ -145,7 +151,10 @@ class TestTask(Task):
 
         class MockTaskWithMixin(Task, BaseMixin):  # Fixed MRO by putting Task first
             def __init__(self, config):
-                self.settings = {"resample_step": {"enabled": True, "value": 250}}
+                self.settings = {
+                    "version": CONFIG_VERSION,
+                    "resample_step": {"enabled": True, "value": 250},
+                }
                 super().__init__(config)
                 self.raw = Mock()
                 self.config = config
@@ -184,8 +193,10 @@ class TestTask(Task):
             # Add a Python task
             python_task_content = """
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {'enabled': True, 'value': 250}
 }
 
@@ -193,7 +204,7 @@ class PythonTask(Task):
     def __init__(self, config):
         self.settings = globals()['config']
         super().__init__(config)
-    
+
     def run(self):
         pass
 """

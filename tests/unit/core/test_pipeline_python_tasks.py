@@ -8,6 +8,7 @@ import pytest
 try:
     from autoclean.core.pipeline import Pipeline
     from autoclean.core.task import Task
+    from autoclean.task_config_schema import CONFIG_VERSION
 
     PIPELINE_AVAILABLE = True
 except ImportError:
@@ -51,8 +52,10 @@ class TestPipelinePythonTasks:
             task_content = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {'enabled': True, 'value': 250}
 }
 
@@ -60,7 +63,7 @@ class MockTestTask(Task):
     def __init__(self, config: Dict[str, Any]):
         self.settings = globals()['config']
         super().__init__(config)
-    
+
     def run(self):
         pass
 """
@@ -348,8 +351,10 @@ class TestPipelineUtilities:
             task_with_settings = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 config = {
+    'version': CONFIG_VERSION,
     'montage': {'enabled': True, 'value': 'GSN-HydroCel-129'},
     'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40}}
 }
@@ -358,7 +363,7 @@ class SettingsTask(Task):
     def __init__(self, config: Dict[str, Any]):
         self.settings = globals()['config']
         super().__init__(config)
-    
+
     def run(self):
         pass
 """

@@ -43,6 +43,7 @@ except ImportError as e:
     DISCOVERED_MIXINS = (_ImportErrorMixinFallback,)
 
 from autoclean.utils.auth import require_authentication
+from autoclean.task_config_schema import validate_task_config
 
 
 class Task(ABC, *DISCOVERED_MIXINS):
@@ -98,6 +99,10 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 self.settings = module.config
             else:
                 self.settings = None
+
+        if self.settings is not None:
+            # Validate task-level configuration using shared schema
+            self.settings = validate_task_config(self.settings)
 
         # Extract EEG system from task settings before validation
         config["eeg_system"] = self._extract_eeg_system()

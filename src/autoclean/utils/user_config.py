@@ -1106,6 +1106,7 @@ if __name__ == "__main__":
     def _create_fallback_template(self, dest_file: Path) -> None:
         """Create fallback template task file."""
         content = '''from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 # =============================================================================
 #                     CUSTOM EEG PREPROCESSING TASK TEMPLATE
@@ -1127,6 +1128,7 @@ if __name__ == "__main__":
 # =============================================================================
 
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {
         'enabled': True,
         'value': 250  # Resample to 250 Hz
@@ -1170,9 +1172,10 @@ config = {
     'ICA': {
         'enabled': True,
         'value': {
-            'method': 'fastica',
+            'method': 'infomax',
             'n_components': None,
-            'fit_params': {}
+            'fit_params': {'extended': True},
+            'temp_highpass_for_ica': None
         }
     },
     'component_rejection': {
