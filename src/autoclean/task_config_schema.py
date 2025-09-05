@@ -60,9 +60,14 @@ TASK_CONFIG_SCHEMA = Schema(
         Optional("component_rejection"): {
             "enabled": bool,
             Optional("method"): Or(str, None),
+            # Optional parameters accepted either at this level or within 'value'
+            Optional("psd_fmax"): Or(int, float, None),
+            Optional("icvision_n_components"): Or(int, None),
             "value": {
                 Optional("ic_flags_to_reject"): Or(list, None),
                 Optional("ic_rejection_threshold"): Or(int, float, None),
+                Optional("psd_fmax"): Or(int, float, None),
+                Optional("icvision_n_components"): Or(int, None),
             },
         },
         Optional("epoch_settings"): {
