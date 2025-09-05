@@ -12,6 +12,7 @@ from typing import Optional, Union
 from loguru import logger
 
 from autoclean import __version__
+from autoclean.utils.user_config import UserConfigManager
 
 # Remove default handler
 logger.remove()
@@ -207,7 +208,8 @@ def configure_logger(
         Name of the current task (legacy parameter, used for fallback directory structure)
     logs_dir : str or Path, optional
         Exact path to the logs directory. If provided, this takes precedence over
-        output_dir and task parameters.
+        output_dir and task parameters. If not specified, logs are written to the
+        AutoClean workspace (e.g., ``~/Documents/Autoclean-EEG/logs``).
 
     Returns
     -------
@@ -245,8 +247,8 @@ def configure_logger(
             / "logs"
         )
     else:
-        # Fallback to current working directory if no task-specific path
-        log_dir = Path(os.getcwd()) / "logs"
+        # Default to the AutoClean workspace if no task-specific path is provided
+        log_dir = UserConfigManager().config_dir / "logs"
 
     # Create logs directory
     log_dir.mkdir(parents=True, exist_ok=True)
