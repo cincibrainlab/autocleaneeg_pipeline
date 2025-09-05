@@ -64,8 +64,6 @@ class RestingState_Basic(Task):
         # Import raw EEG data
         self.import_raw()
 
-        breakpoint()
-
         # Basic preprocessing steps
         self.resample_data()
 
