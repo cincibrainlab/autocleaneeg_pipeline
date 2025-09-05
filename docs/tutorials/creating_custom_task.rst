@@ -155,7 +155,7 @@ Your task configuration controls every aspect of processing. Here are the key se
                    'ortho': False,        # Orthogonality constraint
                    'extended': True       # Extended ICA for mixed distributions
                },
-                'temp_highpass_for_ica': 1.0
+               'temp_highpass_for_ica': 1.0,  # Temporary 1 Hz high-pass for ICA only
            }
        },
        
@@ -174,6 +174,8 @@ Your task configuration controls every aspect of processing. Here are the key se
            }
        }
    }
+
+The ``temp_highpass_for_ica`` option applies a temporary high-pass filter during ICA fitting to reduce low-frequency drifts without permanently modifying the data.
 
 **Epoching and Analysis Preparation:**
 
