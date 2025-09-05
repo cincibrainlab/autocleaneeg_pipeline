@@ -88,6 +88,8 @@ autocleaneeg-pipeline task show
 autocleaneeg-pipeline task unset
 ```
 
+Prefer a web wizard? TaskWizard: https://taskwizard.autocleaneeg.org/
+
 ## Theme and Color
 
 AutoClean’s CLI uses Rich with semantic styles and adaptive themes for readable output across light/dark terminals, limited color depth, and colorless logs.

@@ -407,8 +407,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             tbl.add_row(c, d)
         console.print(tbl)
         console.print()
+        console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
         console.print(
-            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+            "[muted]TaskWizard:[/muted] [accent]https://taskwizard.autocleaneeg.org/[/accent]"
         )
         console.print()
         return
