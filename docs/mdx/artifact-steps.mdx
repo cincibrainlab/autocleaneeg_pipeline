@@ -49,7 +49,7 @@ Decomposes the signal into independent components for later artifact rejection.
 
 **Parameters**
 - `method`, `n_components`, `fit_params` – passed to MNE's ICA.
-- `temp_highpass_for_ica` – optional high-pass filter applied only for decomposition.
+- `temp_highpass_for_ica` – optional high-pass filter frequency (Hz) applied only during ICA decomposition.
 
 ## Classify and reject components
 Labels ICA components as brain or artifact and optionally removes the bad ones.
