@@ -1,0 +1,28 @@
+---
+title: Run Records and Database
+description: How AutoClean tracks every pipeline execution.
+---
+
+# Run Records and Database
+
+AutoClean keeps a lightweight SQLite database inside your output directory. Each pipeline execution is assigned a ULID-based `run_id` and a run record that describes the processed file, the task used, and where outputs were written.
+
+```json
+{
+  "run_id": "01HF...",
+  "timestamp": "2025-04-02 10:15:00",
+  "task": "RestingEyesOpen",
+  "unprocessed_file": "/data/sub-01/eeg/rest.fif",
+  "status": "completed",
+  "success": true,
+  "json_file": "sub-01_autoclean_metadata.json",
+  "report_file": "sub-01_autoclean_report.pdf"
+}
+```
+
+<Note>
+Only metadata is stored in the database; the EEG data remains on disk in the run folder.
+</Note>
+
+The pipeline creates the record before processing and updates it as steps finish. Viewer tools query this database to list available runs, open associated files, and display quality metrics.
+
