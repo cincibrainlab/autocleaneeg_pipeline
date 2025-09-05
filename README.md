@@ -15,7 +15,7 @@ A modular framework for automated EEG data processing, built on MNE-Python.
 - BIDS-compatible data organization and comprehensive quality control
 - Extensible plugin system for file formats, montages, and event processing
 - Research-focused workflow: single file testing → parameter tuning → batch processing
-- Detailed output: logs, stage files, metadata, and quality control visualizations
+- Detailed output: logs (stored in your AutoClean workspace), stage files, metadata, and quality control visualizations
 
 ## Installation (uv)
 
