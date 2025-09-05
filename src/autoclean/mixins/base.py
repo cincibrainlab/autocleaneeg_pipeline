@@ -20,6 +20,7 @@ import mne
 from matplotlib import pyplot as plt
 
 from autoclean.io import save_epochs_to_set, save_raw_to_set
+from autoclean.utils.bids import step_sanitize_id
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
@@ -409,7 +410,20 @@ class BaseMixin:
         """
         try:
             derivatives_path = self._get_derivatives_path()
-            figure_path = derivatives_path / f"{filename}.png"
+            # Prefer subject-level derivatives/eeg path for figures
+            try:
+                subject_id = step_sanitize_id(Path(self.config["unprocessed_file"]).name)
+                expected_suffix = Path(f"sub-{subject_id}") / "eeg"
+                if str(derivatives_path).endswith(str(expected_suffix)):
+                    subject_eeg_dir = derivatives_path
+                else:
+                    subject_eeg_dir = derivatives_path / expected_suffix
+                subject_eeg_dir.mkdir(parents=True, exist_ok=True)
+                target_dir = subject_eeg_dir
+            except Exception:
+                target_dir = derivatives_path
+
+            figure_path = target_dir / f"{filename}.png"
 
             # Save figure
             fig.savefig(figure_path, dpi=dpi, bbox_inches="tight")
