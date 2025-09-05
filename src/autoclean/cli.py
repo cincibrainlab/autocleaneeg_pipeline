@@ -55,6 +55,21 @@ from autoclean.utils.console import get_console
 MAX_LOG_SIZE = 5 * 1024 * 1024
 
 
+class ParserError(Exception):
+    """Raised when argument parsing fails for a friendlier error flow."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+        self.message = message
+
+
+class RichArgumentParser(argparse.ArgumentParser):
+    """ArgumentParser that raises ``ParserError`` instead of exiting."""
+
+    def error(self, message: str) -> None:  # type: ignore[override]
+        raise ParserError(message)
+
+
 def _strip_wrapping_quotes(text: Optional[str]) -> Optional[str]:
     """Remove a single or nested pair of matching wrapping quotes from text.
 
@@ -575,7 +590,7 @@ except ImportError:
 
 def create_parser() -> argparse.ArgumentParser:
     """Create the main argument parser for AutoClean CLI."""
-    parser = argparse.ArgumentParser(
+    parser = RichArgumentParser(
         formatter_class=argparse.RawDescriptionHelpFormatter,
         add_help=False,
         epilog="""
@@ -608,7 +623,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="CLI color theme (default: auto). Use 'mono' for no hues, 'hc' for high contrast.",
     )
 
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    subparsers = parser.add_subparsers(
+        dest="command", help="Available commands", parser_class=RichArgumentParser
+    )
     # Attach rich help to root
     attach_rich_help(parser, root=True)
 
@@ -686,7 +703,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     process_subparsers = process_parser.add_subparsers(
-        dest="process_action", help="Process subcommands"
+        dest="process_action", help="Process subcommands", parser_class=RichArgumentParser
     )
     ica_parser = process_subparsers.add_parser(
         "ica", help="Apply ICA control sheet edits", add_help=False
@@ -745,7 +762,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(task_parser)
     task_subparsers = task_parser.add_subparsers(
-        dest="task_action", help="Task actions"
+        dest="task_action", help="Task actions", parser_class=RichArgumentParser
     )
 
     # Add task
@@ -914,7 +931,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(source_parser)
     source_subparsers = source_parser.add_subparsers(
-        dest="source_action", help="Source actions"
+        dest="source_action", help="Source actions", parser_class=RichArgumentParser
     )
 
     # Set active source
@@ -952,7 +969,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(input_parser)
     input_subparsers = input_parser.add_subparsers(
-        dest="input_action", help="Input actions"
+        dest="input_action", help="Input actions", parser_class=RichArgumentParser
     )
 
     # Set active input
@@ -986,7 +1003,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(config_parser)
     config_subparsers = config_parser.add_subparsers(
-        dest="config_action", help="Config actions"
+        dest="config_action", help="Config actions", parser_class=RichArgumentParser
     )
 
     # Show config location
@@ -1033,7 +1050,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(workspace_parser)
     workspace_subparsers = workspace_parser.add_subparsers(
-        dest="workspace_action", help="Workspace actions"
+        dest="workspace_action", help="Workspace actions", parser_class=RichArgumentParser
     )
 
     ws_explore = workspace_subparsers.add_parser(
@@ -1212,7 +1229,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(auth_parser)
     auth_subparsers = auth_parser.add_subparsers(
-        dest="auth_action", help="Auth actions"
+        dest="auth_action", help="Auth actions", parser_class=RichArgumentParser
     )
 
     auth_login = auth_subparsers.add_parser(
@@ -5240,7 +5257,26 @@ def main(argv: Optional[list] = None) -> int:
         # Defer to argparse for normal parsing and help behavior
         pass
 
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except ParserError as e:
+        console = get_console(None)
+        _simple_header(console)
+        _print_startup_context(console)
+        try:
+            from rich.text import Text
+
+            msg = e.message
+            if msg.startswith("unrecognized arguments:"):
+                unknown = msg.split(":", 1)[1].strip()
+                msg = f"Unknown argument(s): {unknown}"
+            err = Text(msg, style="error")
+            console.print(err)
+            console.print()
+            _print_root_help(console)
+        except Exception:
+            print(e.message)
+        return 2
 
     # ------------------------------------------------------------------
     # Log CLI execution for process tracking
