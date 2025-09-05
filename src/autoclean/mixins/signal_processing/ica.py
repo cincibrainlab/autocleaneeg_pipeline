@@ -101,7 +101,7 @@ class IcaMixin:
                     l_freq=temp_highpass_for_ica, h_freq=None, verbose=False
                 )
 
-            message("debug", f"Fitting ICA with {ica_kwargs}")
+            message("info", f"Fitting ICA with {ica_kwargs}")
 
             # Call standalone function for ICA fitting on (potentially filtered) data
             self.final_ica = fit_ica(raw=data_for_ica, **ica_kwargs)
@@ -188,12 +188,14 @@ class IcaMixin:
         This method will modify the self.final_ica attribute in place by adding labels.
         If reject=True, it will also apply component rejection.
         """
+
         # Auto-detect method from config if not specified
         if method is None:
             is_enabled, step_config = self._check_step_enabled("component_rejection")
             if is_enabled:
-                config_value = step_config.get("value", {})
-                method = config_value.get("method", "iclabel")
+                method = step_config.get(
+                    "method", "iclabel"
+                )  # Check 'method' directly in step_config
                 message(
                     "info",
                     f"Auto-detected method from component_rejection config: {method}",
@@ -204,7 +206,6 @@ class IcaMixin:
                     "info",
                     f"No component rejection config found, defaulting to: {method}",
                 )
-
         message("header", f"Running ICA component classification with {method}")
 
         if not hasattr(self, "final_ica") or self.final_ica is None:
@@ -430,7 +431,8 @@ class IcaMixin:
 
         if not final_exclude:
             message(
-                "info", "No ICA components marked for exclusion after control sheet processing."
+                "info",
+                "No ICA components marked for exclusion after control sheet processing.",
             )
         else:
             self.final_ica.apply(target_data)

@@ -504,9 +504,7 @@ def update_ica_control_sheet(
 
     if manual_add_set or manual_drop_set:
         final_removed_set = (final_removed_set | manual_add_set) - manual_drop_set
-        df.loc[idx, "final_removed"] = _format_component_list(
-            sorted(final_removed_set)
-        )
+        df.loc[idx, "final_removed"] = _format_component_list(sorted(final_removed_set))
         df.loc[idx, "manual_add"] = ""
         df.loc[idx, "manual_drop"] = ""
         df.loc[idx, "status"] = (
