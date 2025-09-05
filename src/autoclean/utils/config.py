@@ -2,6 +2,7 @@
 """
 This module contains functions for loading and validating the autoclean configuration file.
 """
+
 # pylint: disable=line-too-long
 import base64
 import hashlib
@@ -81,6 +82,7 @@ def load_config(config_file: Path = None) -> dict:
                                 Optional("max_iter"): Or(int, str, None),
                                 Optional("allow_ref_meg"): Or(bool, None),
                                 Optional("decim"): Or(int, None),
+                                Optional("temp_highpass_for_ica"): Or(float, None),
                             },
                         },
                         "ICLabel": {
