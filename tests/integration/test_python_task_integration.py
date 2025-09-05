@@ -19,6 +19,7 @@ pytest.importorskip("autoclean.core.pipeline")
 try:
     from autoclean.core.pipeline import Pipeline
     from autoclean.core.task import Task
+    from autoclean.task_config_schema import CONFIG_VERSION
 
     IMPORT_AVAILABLE = True
 except ImportError:
@@ -64,9 +65,11 @@ class TestPythonTaskIntegration:
         task_content = '''
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 # Simple configuration for testing
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {'enabled': True, 'value': 250},
     'filtering': {'enabled': True, 'value': {'l_freq': 1, 'h_freq': 40}},
     'montage': {'enabled': False, 'value': 'standard_1020'},
@@ -154,8 +157,10 @@ class SimpleIntegrationTask(Task):
         task_content = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {'enabled': True, 'value': 123},  # Unique value for testing
     'filtering': {'enabled': False, 'value': {}}
 }
@@ -202,9 +207,11 @@ class SettingsPriorityTask(Task):
         task_content = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 from unittest.mock import Mock
 
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {'enabled': True, 'value': 250}
 }
 
@@ -289,8 +296,10 @@ class NotATask:
         task_content = """
 from typing import Any, Dict
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 config = {
+    'version': CONFIG_VERSION,
     'resample_step': {'enabled': True, 'value': 250}
 }
 
