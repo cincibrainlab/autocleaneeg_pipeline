@@ -79,3 +79,5 @@ scripts/
 examples/single_file.py
 /autoclean_icvision_results
 src/.DS_Store
+.# coverage artifacts
+.coverage*

@@ -129,9 +129,15 @@ class ICAReportingMixin:
         yticks = [idx * spacing for idx in range(n_components)]
         yticklabels = []
         for idx in range(n_components):
+            annotator = (
+                ic_labels["annotator"][idx]
+                if hasattr(ic_labels, "columns") and "annotator" in ic_labels.columns
+                else "ic_label"
+            )
+            source_tag = " [Vision]" if str(annotator).lower() in {"ic_vision", "vision"} else ""
             label_text = (
                 f"IC{idx + 1}: {ic_labels['ic_type'][idx]} "
-                f"({ic_labels['confidence'][idx]:.2f})"
+                f"({ic_labels['confidence'][idx]:.2f}){source_tag}"
             )
             yticklabels.append(label_text)
 
@@ -300,10 +306,13 @@ class ICAReportingMixin:
                 colors = []
                 for idx in page_components:
                     comp_info = ic_labels.iloc[idx]
+                    annot = str(comp_info.get("annotator", "ic_label")).lower()
+                    src_suffix = " [Vision]" if annot in {"ic_vision", "vision"} else ""
+                    type_with_src = f"{comp_info['ic_type']}{src_suffix}"
                     table_data.append(
                         [
                             f"IC{idx + 1}",
-                            comp_info["ic_type"],
+                            type_with_src,
                             f"{comp_info['confidence']:.2f}",
                             "Yes" if idx in ica.exclude else "No",
                         ]
@@ -330,7 +339,7 @@ class ICAReportingMixin:
                     loc="center",
                     cellLoc="center",
                     cellColours=colors,
-                    colWidths=[0.2, 0.3, 0.25, 0.25],
+                    colWidths=[0.2, 0.4, 0.2, 0.2],
                 )
 
                 # Customize table appearance
