@@ -69,9 +69,10 @@ config = {
     "ICA": {
         "enabled": True,
         "value": {
-            "method": "fastica",  # ICA method
+            "method": "infomax",  # ICA method
             "n_components": None,  # Number of components (None = auto)
-            "fit_params": {},  # Additional ICA parameters
+            "fit_params": {"extended": True},  # Additional ICA parameters
+            "temp_highpass_for_ica": None,  # Optional temp high-pass for ICA only
         },
     },
     "component_rejection": {

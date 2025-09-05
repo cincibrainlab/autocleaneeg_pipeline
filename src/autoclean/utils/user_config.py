@@ -1172,9 +1172,10 @@ config = {
     'ICA': {
         'enabled': True,
         'value': {
-            'method': 'fastica',
+            'method': 'infomax',
             'n_components': None,
-            'fit_params': {}
+            'fit_params': {'extended': True},
+            'temp_highpass_for_ica': None
         }
     },
     'component_rejection': {
