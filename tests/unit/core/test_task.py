@@ -12,6 +12,7 @@ from tests.fixtures.synthetic_data import create_synthetic_raw
 try:
     from autoclean.core.task import Task
     from autoclean.mixins import DISCOVERED_MIXINS
+    from autoclean.task_config_schema import CONFIG_VERSION
 
     TASK_AVAILABLE = True
 except ImportError:
@@ -122,6 +123,7 @@ class TestTaskInitialization:
             def __init__(self, config):
                 # Embedded settings (Python task style)
                 self.settings = {
+                    "version": CONFIG_VERSION,
                     "resample_step": {"enabled": True, "value": 250},
                     "filtering": {
                         "enabled": True,

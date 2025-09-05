@@ -1,4 +1,5 @@
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 # =============================================================================
 #                     CUSTOM EEG PREPROCESSING TASK TEMPLATE
@@ -20,17 +21,18 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
+    "version": CONFIG_VERSION,
     # Optional: Specify a dataset name for organized output directories
     # Examples:
     #   With dataset_name: "Experiment1_07-03-2025"
     #   Without dataset_name: "CustomTask"
-    "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
+    # "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
     # Optional: Specify default input file or directory for this task
     # This will be used when no input is provided via CLI or API
     # Examples:
     #   "input_path": "/path/to/my/data.raw",           # Single file
     #   "input_path": "/path/to/data/directory/",       # Directory
-    "input_path": "/path/to/my/data/",  # Uncomment and modify for your data
+    # "input_path": "/path/to/my/data/",  # Uncomment and modify for your data
     # Optional: keep flagged files in standard output directories
     # "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 250},  # Resample to 250 Hz
@@ -77,11 +79,7 @@ config = {
         "method": "iclabel",  # Classification method: 'iclabel' or 'icvision'
         "value": {
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
-            "ic_rejection_threshold": 0.3,  # Threshold for automatic rejection
-            "ic_rejection_overrides": {        # Optional per-type overrides
-            "muscle": 0.99                # Very conservative (only 99% confidence)
-            },
-            "psd_fmax": 40.0  # NEW: Limit PSD plots to 40 Hz
+            "ic_rejection_threshold": 0.3  # Threshold for automatic rejection
         },
     },
     "epoch_settings": {

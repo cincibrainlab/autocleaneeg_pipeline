@@ -856,6 +856,14 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Overwrite existing file without prompting",
     )
 
+    # Create task template
+    template_parser = task_subparsers.add_parser(
+        "template",
+        help="Generate a new task template in your workspace",
+        add_help=False,
+    )
+    attach_rich_help(template_parser)
+
     # Copy task (name or path)
     copy_parser = task_subparsers.add_parser(
         "copy",
@@ -3043,6 +3051,8 @@ def cmd_task(args) -> int:
         return cmd_task_edit(args)
     elif args.task_action == "import":
         return cmd_task_import(args)
+    elif args.task_action == "template":
+        return cmd_task_template(args)
     elif args.task_action == "delete":
         return cmd_task_delete(args)
     elif args.task_action == "copy":
@@ -3846,6 +3856,60 @@ def cmd_task_copy(args) -> int:
         return 0
     except Exception as e:
         message("error", f"Copy failed: {e}")
+        return 1
+
+
+def cmd_task_template(_args) -> int:
+    """Generate a new task template in the workspace tasks directory."""
+    try:
+        from importlib import resources
+        import ast
+
+        from autoclean.task_config_schema import CONFIG_VERSION, validate_task_config
+
+        tasks_dir = user_config.tasks_dir
+        tasks_dir.mkdir(parents=True, exist_ok=True)
+
+        # Determine unique filename
+        existing = {p.stem for p in tasks_dir.glob("*.py")}
+        base = "custom_task"
+        name = base
+        index = 0
+        while name in existing:
+            index += 1
+            name = f"{base}_{index}"
+        filename = f"{name}.py"
+        class_name = "".join(part.capitalize() for part in name.split("_"))
+
+        # Load and customize template
+        template = resources.read_text("autoclean.templates", "custom_task_template.py")
+        template = template.replace("CustomTask", class_name)
+
+        # Validate configuration in template
+        module_ast = ast.parse(template)
+        config_dict = None
+        for node in module_ast.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == "config":
+                        config_dict = eval(
+                            compile(ast.Expression(node.value), "<config>", "eval"),
+                            {"CONFIG_VERSION": CONFIG_VERSION},
+                        )
+                        break
+            if config_dict is not None:
+                break
+        if config_dict is None:
+            message("error", "Template missing config definition")
+            return 1
+        validate_task_config(config_dict)
+
+        dest = tasks_dir / filename
+        dest.write_text(template, encoding="utf-8")
+        message("success", f"\u2713 Created task template: {dest.name}")
+        return 0
+    except Exception as e:  # pragma: no cover - unexpected runtime errors
+        message("error", f"Failed to create task template: {e}")
         return 1
 
 

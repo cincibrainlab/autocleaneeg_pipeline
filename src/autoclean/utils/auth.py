@@ -869,16 +869,11 @@ def get_current_user_for_audit() -> Dict[str, Any]:
 
 
 def require_authentication(func):
-    """
-    Decorator to require authentication for compliance mode operations.
+    """Decorator to require authentication for compliance mode operations."""
 
-    Usage:
-        @require_authentication
-        def protected_function():
-            # This function requires authentication in compliance mode
-            pass
-    """
+    from functools import wraps
 
+    @wraps(func)
     def wrapper(*args, **kwargs):
         if is_compliance_mode_enabled():
             auth_manager = get_auth0_manager()
