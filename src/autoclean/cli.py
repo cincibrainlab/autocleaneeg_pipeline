@@ -396,6 +396,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("📂 task explore", "Open the workspace tasks folder"),
             ("✏️  task edit [name|path]", "Edit task (omit uses active)"),
             ("📥 task import <path>", "Copy a task file into workspace"),
+            ("🧩 task template", "Generate a new task template in your workspace"),
             ("📄 task copy [name|path]", "Copy task (omit uses active)"),
             ("🗑  task delete [name|path]", "Delete task (omit uses active)"),
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
