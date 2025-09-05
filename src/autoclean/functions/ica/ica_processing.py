@@ -184,9 +184,7 @@ def classify_ica_components(
     try:
         if method == "iclabel":
             # Run ICLabel classification
-            mne_icalabel.label_components(
-                raw, ica, method="iclabel", verbose=verbose
-            )
+            mne_icalabel.label_components(raw, ica, method="iclabel")
             # Extract results into a DataFrame
             component_labels = _icalabel_to_dataframe(ica)
 
@@ -205,9 +203,7 @@ def classify_ica_components(
 
         elif method == "hybrid":
             # First run ICLabel on all components
-            mne_icalabel.label_components(
-                raw, ica, method="iclabel", verbose=verbose
-            )
+            mne_icalabel.label_components(raw, ica, method="iclabel")
 
             if not ICVISION_AVAILABLE:
                 raise ImportError(
@@ -216,12 +212,12 @@ def classify_ica_components(
                 )
 
             icvision_n_components = kwargs.pop("icvision_n_components", 20)
-            component_indices = list(range(min(icvision_n_components, ica.n_components_)))
+            component_indices = list(
+                range(min(icvision_n_components, ica.n_components_))
+            )
 
             # Reclassify the specified subset with ICVision
-            label_components(
-                raw, ica, component_indices=component_indices, **kwargs
-            )
+            label_components(raw, ica, component_indices=component_indices, **kwargs)
 
             # Extract combined results
             component_labels = _icalabel_to_dataframe(ica)
