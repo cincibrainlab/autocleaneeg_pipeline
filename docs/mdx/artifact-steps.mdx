@@ -54,13 +54,14 @@ Decomposes the signal into independent components for later artifact rejection.
 ## Classify and reject components
 Labels ICA components as brain or artifact and optionally removes the bad ones.
 
-**Technical details:** `classify_ica_components` calls AutoClean's classifier wrappers (ICLabel or ICVision). `apply_ica_component_rejection` then drops components exceeding an optional probability threshold.
+**Technical details:** `classify_ica_components` calls AutoClean's classifier wrappers (ICLabel, ICVision, or a hybrid of both). `apply_ica_component_rejection` then drops components exceeding an optional probability threshold.
 
 **Parameters**
-- `method` – `'iclabel'` (machine learning) or `'icvision'` (custom template matching).
+- `method` – `'iclabel'` (machine learning), `'icvision'` (custom template matching), or `'hybrid'` (ICLabel followed by ICVision on a subset).
 - `ic_flags_to_reject` – component labels considered artifacts.
 - `ic_rejection_threshold` – minimum probability for rejection.
 - `psd_fmax` – max frequency in power spectrum plots (ICVision only).
+- `icvision_n_components` – number of leading components to inspect with ICVision when using the hybrid method.
 
 ## Create regular epochs
 Splits continuous data into fixed-length segments for analysis.

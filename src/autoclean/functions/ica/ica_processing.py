@@ -138,12 +138,14 @@ def classify_ica_components(
     ica : mne.preprocessing.ICA
         The fitted ICA object to classify.
     method : str, default "iclabel"
-        Classification method to use. Options: "iclabel", "icvision".
+        Classification method to use. Options: "iclabel", "icvision", "hybrid".
     verbose : bool or None, default None
         Control verbosity of output.
     **kwargs
         Additional keyword arguments passed to the classification method.
-        For icvision method, supports 'psd_fmax' to limit PSD plot frequency range.
+        For icvision-related methods, supports 'psd_fmax' to limit PSD plot
+        frequency range. For the ``hybrid`` method, ``icvision_n_components``
+        controls how many leading components are reclassified with ICVision.
 
     Returns
     -------
@@ -158,6 +160,7 @@ def classify_ica_components(
     --------
     >>> labels = classify_ica_components(raw, ica, method="iclabel")
     >>> labels = classify_ica_components(raw, ica, method="icvision")
+    >>> labels = classify_ica_components(raw, ica, method="hybrid", icvision_n_components=15)
     >>> artifacts = labels[(labels["ic_type"] == "eye") & (labels["confidence"] > 0.8)]
 
     See Also
@@ -173,13 +176,15 @@ def classify_ica_components(
     if not isinstance(ica, ICA):
         raise TypeError(f"ICA must be an MNE ICA object, got {type(ica).__name__}")
 
-    if method not in ["iclabel", "icvision"]:
-        raise ValueError(f"method must be 'iclabel' or 'icvision', got '{method}'")
+    if method not in ["iclabel", "icvision", "hybrid"]:
+        raise ValueError(
+            f"method must be 'iclabel', 'icvision', or 'hybrid', got '{method}'"
+        )
 
     try:
         if method == "iclabel":
             # Run ICLabel classification
-            mne_icalabel.label_components(raw, ica, method=method)
+            mne_icalabel.label_components(raw, ica, method="iclabel")
             # Extract results into a DataFrame
             component_labels = _icalabel_to_dataframe(ica)
 
@@ -195,6 +200,101 @@ def classify_ica_components(
             label_components(raw, ica, **kwargs)
             # Extract results into a DataFrame using the same format
             component_labels = _icalabel_to_dataframe(ica)
+
+        elif method == "hybrid":
+            # First run ICLabel on all components (produces full-size labels/scores)
+            mne_icalabel.label_components(raw, ica, method="iclabel")
+
+            if not ICVISION_AVAILABLE:
+                raise ImportError(
+                    "autoclean-icvision package is required for hybrid method. "
+                    "Install it with: pip install autoclean-icvision"
+                )
+
+            # Preserve ICLabel results so we can merge with ICVision outputs
+            try:
+                import numpy as _np  # local import to avoid hard dep at module import
+            except Exception:  # pragma: no cover - numpy is a strong dep in env
+                raise RuntimeError(
+                    "NumPy is required for hybrid ICA classification merge logic"
+                )
+
+            n_comp = ica.n_components_
+            # Copy ICLabel per-class probabilities and label mapping
+            iclabel_scores = (
+                _np.array(ica.labels_scores_, copy=True)
+                if hasattr(ica, "labels_scores_")
+                else None
+            )
+            iclabel_labels_dict = {k: list(v) for k, v in getattr(ica, "labels_", {}).items()}
+
+            # Determine which leading components to reclassify with ICVision
+            icvision_n_components = kwargs.pop("icvision_n_components", 20)
+            component_indices = list(range(min(icvision_n_components, n_comp)))
+
+            # Run ICVision on the subset; this may overwrite ica.labels_/labels_scores_
+            label_components(raw, ica, component_indices=component_indices, **kwargs)
+
+            # Build merged per-component label list starting from ICLabel then overlay ICVision
+            merged_ic_type = [""] * n_comp
+            # Fill from ICLabel first
+            for lbl, comps in iclabel_labels_dict.items():
+                for ci in comps:
+                    if 0 <= ci < n_comp:
+                        merged_ic_type[ci] = lbl
+            # Overlay ICVision labels for the processed subset (as provided by icvision)
+            icvision_labels_dict = {k: list(v) for k, v in getattr(ica, "labels_", {}).items()}
+            for lbl, comps in icvision_labels_dict.items():
+                for ci in comps:
+                    if 0 <= ci < n_comp:
+                        merged_ic_type[ci] = lbl
+
+            # Build merged confidence matrix: start from ICLabel scores, then replace subset rows with ICVision
+            # If ICLabel didn't provide scores, initialize to ones
+            if iclabel_scores is None or (
+                hasattr(iclabel_scores, "shape") and iclabel_scores.shape[0] != n_comp
+            ):
+                # Initialize with 1.0 confidence for lack of better info
+                merged_scores = _np.ones((n_comp, 7), dtype=float)
+            else:
+                merged_scores = iclabel_scores.copy()
+
+            # If ICVision provided per-class scores for the subset, overlay them
+            icvision_scores = getattr(ica, "labels_scores_", None)
+            if icvision_scores is not None:
+                icvision_scores = _np.array(icvision_scores, copy=False)
+                # If sizes match the subset length, assume row order corresponds to component_indices
+                if icvision_scores.ndim == 2 and icvision_scores.shape[0] == len(component_indices):
+                    for row_idx, comp_idx in enumerate(component_indices):
+                        if 0 <= comp_idx < n_comp:
+                            # Ensure number of classes aligns; if not, take max prob only
+                            if icvision_scores.shape[1] == merged_scores.shape[1]:
+                                merged_scores[comp_idx, :] = icvision_scores[row_idx, :]
+                            else:
+                                # Fallback: keep existing distribution but update max/confidence
+                                max_prob = float(icvision_scores[row_idx].max())
+                                # Scale existing row to have this max (best-effort), or set uniform
+                                merged_scores[comp_idx, :] = max_prob
+                else:
+                    # If shape is unexpected, at least try to update confidence for the subset
+                    if icvision_scores.ndim == 2:
+                        max_probs = icvision_scores.max(axis=1)
+                        for row_idx, comp_idx in enumerate(component_indices[: len(max_probs)]):
+                            merged_scores[comp_idx, :] = max_probs[row_idx]
+
+            # Update the ICA object with merged labels and scores so downstream code sees full arrays
+            # Rebuild labels_ dict from merged_ic_type
+            merged_labels_dict: Dict[str, List[int]] = {}
+            for ci, lbl in enumerate(merged_ic_type):
+                merged_labels_dict.setdefault(lbl, []).append(ci)
+            ica.labels_ = merged_labels_dict
+            ica.labels_scores_ = merged_scores
+
+            # Extract combined results as DataFrame
+            component_labels = _icalabel_to_dataframe(ica)
+            # Mark which components were reclassified by ICVision for downstream reporting
+            if component_indices:
+                component_labels.loc[component_indices, "annotator"] = "ic_vision"
 
         return component_labels
 
