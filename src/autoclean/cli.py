@@ -5548,6 +5548,12 @@ def main(argv: Optional[list] = None) -> int:
             docs_line.append("https://docs.autocleaneeg.org", style="accent")
             console.print(_LAlign.center(docs_line))
 
+            # TaskWizard link (minimal, between docs and GitHub)
+            tw_line = _LText()
+            tw_line.append("🧩 TaskWizard ", style="muted")
+            tw_line.append("https://taskwizard.autocleaneeg.org/", style="accent")
+            console.print(_LAlign.center(tw_line))
+
             # GitHub link line
             gh_line = _LText()
             gh_line.append("GitHub ", style="muted")
