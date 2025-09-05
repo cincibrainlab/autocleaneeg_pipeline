@@ -42,6 +42,7 @@ Advanced customization and development:
    :caption: Technical Guides:
 
    creating_custom_task
+   user_defined_variables
    creating_a_custom_mixin
    python_integration
    jupyter_notebooks
