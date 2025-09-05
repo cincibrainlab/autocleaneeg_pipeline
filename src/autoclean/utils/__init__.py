@@ -11,6 +11,11 @@ from .database import get_run_record, manage_database
 from .file_system import step_prepare_directories
 from .logging import configure_logger, message
 from .montage import VALID_MONTAGES
+from .ica_control_sheet import (
+    load_control_sheet,
+    save_control_sheet,
+    update_pending_rows,
+)
 
 __all__ = [
     "step_convert_to_bids",
@@ -25,4 +30,7 @@ __all__ = [
     "message",
     "configure_logger",
     "VALID_MONTAGES",
+    "load_control_sheet",
+    "save_control_sheet",
+    "update_pending_rows",
 ]
