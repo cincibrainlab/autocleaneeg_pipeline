@@ -1,5 +1,7 @@
 """ICA mixin for autoclean tasks."""
 
+from typing import Dict
+
 from mne.preprocessing import ICA
 
 from autoclean.functions.ica.ica_processing import (
@@ -141,25 +143,31 @@ class IcaMixin:
         method: str | None = None,
         reject: bool = True,
         psd_fmax: float | None = None,
+        icvision_n_components: int | None = None,
         stage_name: str = "post_ica",
         export: bool = False,
     ):
         """Classify ICA components and optionally reject artifact components.
 
-        This method classifies ICA components using either ICLabel or ICVision methods
-        and can automatically reject components identified as artifacts.
+        This method classifies ICA components using ICLabel, ICVision, or a
+        hybrid of both, and can automatically reject components identified as
+        artifacts.
 
         Parameters
         ----------
         method : str or None, optional
-            Classification method to use. Options: "iclabel", "icvision".
-            If None, will try to read method from component_rejection config,
-            falling back to "iclabel" if not found.
+            Classification method to use. Options: "iclabel", "icvision",
+            "hybrid". If None, will try to read method from
+            component_rejection config, falling back to "iclabel" if not
+            found.
         reject : bool, default True
             If True, automatically reject components identified as artifacts.
         psd_fmax : float or None, optional
             Upper frequency limit (Hz) for PSD plots when using icvision method.
             If None, uses default (80 Hz or Nyquist frequency).
+        icvision_n_components : int or None, optional
+            Number of leading components to reclassify with ICVision when using
+            the "hybrid" method. If None, uses config value or defaults to 20.
         stage_name : str, optional
             Name of the processing stage for export. Default is "post_component_removal".
         export : bool, optional
@@ -179,6 +187,8 @@ class IcaMixin:
         >>> self.classify_ica_components(method="icvision", reject=False)
         >>> # Classify with ICVision and limit PSD plots to 40 Hz
         >>> self.classify_ica_components(method="icvision", reject=True, psd_fmax=40.0)
+        >>> # Hybrid: ICLabel followed by ICVision on first 10 components
+        >>> self.classify_ica_components(method="hybrid", icvision_n_components=10)
         >>> # Read psd_fmax from config
         >>> psd_fmax = self.config.get("ICLabel", {}).get("psd_fmax")
         >>> self.classify_ica_components(method="icvision", reject=True, psd_fmax=psd_fmax)
@@ -216,8 +226,8 @@ class IcaMixin:
             return None
 
         # Call standalone function for ICA component classification
-        # If psd_fmax not explicitly provided, try to get it from config
-        if psd_fmax is None:
+        # If psd_fmax or icvision_n_components not explicitly provided, try to get them from config
+        if psd_fmax is None or icvision_n_components is None:
             is_enabled, step_config_main_dict = self._check_step_enabled(
                 "component_rejection"
             )
@@ -225,21 +235,39 @@ class IcaMixin:
             if is_enabled and step_config_main_dict:
                 # Check nested value dict first (common pattern)
                 config_params_nested = step_config_main_dict.get("value", {})
-                psd_fmax = config_params_nested.get("psd_fmax")
 
-                # If not found in nested, check main dict
-                if psd_fmax is None and "psd_fmax" in step_config_main_dict:
-                    psd_fmax = step_config_main_dict.get("psd_fmax")
+                if psd_fmax is None:
+                    psd_fmax = config_params_nested.get("psd_fmax")
+                    if psd_fmax is None and "psd_fmax" in step_config_main_dict:
+                        psd_fmax = step_config_main_dict.get("psd_fmax")
+                    if psd_fmax is not None:
+                        message("info", f"Using psd_fmax={psd_fmax} Hz from config")
 
-                if psd_fmax is not None:
-                    message("info", f"Using psd_fmax={psd_fmax} Hz from config")
+                if icvision_n_components is None:
+                    icvision_n_components = config_params_nested.get(
+                        "icvision_n_components"
+                    )
+                    if (
+                        icvision_n_components is None
+                        and "icvision_n_components" in step_config_main_dict
+                    ):
+                        icvision_n_components = step_config_main_dict.get(
+                            "icvision_n_components"
+                        )
+                    if icvision_n_components is not None:
+                        message(
+                            "info",
+                            f"Using icvision_n_components={icvision_n_components} from config",
+                        )
 
-        # Build kwargs dict, only including psd_fmax if provided
-        extra_kwargs = {}
+        # Build kwargs dict, including optional parameters if provided
+        extra_kwargs: Dict[str, object] = {}
         if psd_fmax is not None:
             extra_kwargs["psd_fmax"] = psd_fmax
+        if icvision_n_components is not None:
+            extra_kwargs["icvision_n_components"] = icvision_n_components
 
-        if method == "icvision":
+        if method in {"icvision", "hybrid"}:
             extra_kwargs["generate_report"] = True
             extra_kwargs["output_dir"] = self.config.get("derivatives_dir", {})
 
@@ -259,7 +287,7 @@ class IcaMixin:
         message("success", f"ICA component classification with {method} complete")
 
         # --- NEW: automatically generate a PDF report when using ICLabel ---
-        if method == "iclabel":
+        if method in {"iclabel", "hybrid"}:
             try:
                 # Provided by ICAReportingMixin
                 if hasattr(self, "generate_ica_reports"):
