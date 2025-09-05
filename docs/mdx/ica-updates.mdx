@@ -1,0 +1,26 @@
+---
+title: ICA & Classification Updates
+description: Friendly summary of the latest ICA processing and labeling improvements.
+---
+
+# ICA & Classification Updates
+
+<Note>
+These enhancements arrived after version 2.1.1 and will ship in the next release.
+</Note>
+
+## Smarter hybrid labeling
+- Runs **ICLabel** on all components then reclassifies a subset with **ICVision**.
+- Merges labels and per-class probabilities to keep a full `n_components × 7` confidence matrix.
+- Components reprocessed by ICVision are flagged with `annotator="ic_vision"` in the results.
+
+## Clearer reports
+- ICVision-reviewed components show a **[Vision]** tag in PDF summaries.
+- Column widths in ICA tables were adjusted for better readability.
+
+## API compatibility
+- Calls to `mne_icalabel.label_components` no longer use the deprecated `verbose` argument.
+
+<Tip>
+Control how many components are rechecked with ICVision by passing `icvision_n_components` to `classify_ica_components`.
+</Tip>

@@ -54,7 +54,7 @@ Decomposes the signal into independent components for later artifact rejection.
 ## Classify and reject components
 Labels ICA components as brain or artifact and optionally removes the bad ones.
 
-**Technical details:** `classify_ica_components` calls AutoClean's classifier wrappers (ICLabel, ICVision, or a hybrid of both). `apply_ica_component_rejection` then drops components exceeding an optional probability threshold.
+**Technical details:** `classify_ica_components` calls AutoClean's classifier wrappers (ICLabel, ICVision, or a hybrid of both). In hybrid mode AutoClean runs ICLabel across all components then rechecks leading components with ICVision. Components revisited by ICVision are marked with `annotator="ic_vision"` and appear as `[Vision]` in reports. `apply_ica_component_rejection` then drops components exceeding an optional probability threshold.
 
 **Parameters**
 - `method` – `'iclabel'` (machine learning), `'icvision'` (custom template matching), or `'hybrid'` (ICLabel followed by ICVision on a subset).
