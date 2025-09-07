@@ -327,3 +327,69 @@ def _append_trace(
 
 def _hash_prompt(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
+def run_context_from_dict(data: Dict[str, Any]) -> RunContext:
+    """Coerce a plain dict (e.g., loaded from JSON) into a RunContext.
+
+    Ensures nested fields are proper dataclass instances and fills sensible
+    defaults for optional collections.
+    """
+
+    def _filter_params(fp: Any) -> FilterParams:
+        if isinstance(fp, FilterParams):
+            return fp
+        fp = fp or {}
+        return FilterParams(
+            l_freq=fp.get("l_freq"),
+            h_freq=fp.get("h_freq"),
+            notch_freqs=list(fp.get("notch_freqs") or []),
+            notch_widths=fp.get("notch_widths"),
+        )
+
+    def _ica(ica: Any) -> Optional[ICAStats]:
+        if ica is None:
+            return None
+        if isinstance(ica, ICAStats):
+            return ica
+        return ICAStats(
+            method=str(ica.get("method", "unspecified")),
+            n_components=ica.get("n_components"),
+            removed_indices=list(ica.get("removed_indices") or []),
+            labels_histogram=dict(ica.get("labels_histogram") or {}),
+            classifier=ica.get("classifier"),
+        )
+
+    def _epochs(e: Any) -> Optional[EpochStats]:
+        if e is None:
+            return None
+        if isinstance(e, EpochStats):
+            return e
+        return EpochStats(
+            tmin=e.get("tmin"),
+            tmax=e.get("tmax"),
+            baseline=tuple(e.get("baseline")) if e.get("baseline") is not None else None,
+            total_epochs=e.get("total_epochs"),
+            kept_epochs=e.get("kept_epochs"),
+            rejected_epochs=e.get("rejected_epochs"),
+            rejection_rules=dict(e.get("rejection_rules") or {}),
+        )
+
+    return RunContext(
+        run_id=str(data.get("run_id", "")),
+        dataset_name=data.get("dataset_name"),
+        input_file=str(data.get("input_file", "")),
+        montage=data.get("montage"),
+        resample_hz=data.get("resample_hz"),
+        reference=data.get("reference"),
+        filter_params=_filter_params(data.get("filter_params")),
+        ica=_ica(data.get("ica")),
+        epochs=_epochs(data.get("epochs")),
+        durations_s=data.get("durations_s"),
+        n_channels=data.get("n_channels"),
+        bids_root=data.get("bids_root"),
+        bids_subject_id=data.get("bids_subject_id"),
+        pipeline_version=str(data.get("pipeline_version", "")),
+        mne_version=data.get("mne_version"),
+        compliance_user=data.get("compliance_user"),
+        notes=list(data.get("notes") or []),
+        figures=dict(data.get("figures") or {}),
+    )

@@ -4354,10 +4354,21 @@ def cmd_report_create(args) -> int:
     import json
     from pathlib import Path
 
-    from autoclean.reporting.llm_reporting import RunContext, create_reports
+    from autoclean.reporting.llm_reporting import (
+        RunContext,
+        create_reports,
+        run_context_from_dict,
+    )
 
     data = json.loads(Path(args.context_json).read_text())
-    ctx = RunContext(**data)
+    ctx = run_context_from_dict(data)
+    # If a run_id is provided on CLI and differs, override to maintain traceability
+    if getattr(args, "run_id", None):
+        try:
+            object.__setattr__(ctx, "run_id", args.run_id)
+        except Exception:
+            # Dataclass is mutable by default; fallback assignment
+            ctx.run_id = args.run_id
     out_dir = Path(args.out_dir)
     create_reports(ctx, out_dir)
     message("success", f"Wrote reports under {out_dir}")
