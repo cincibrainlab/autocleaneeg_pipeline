@@ -4410,7 +4410,13 @@ def cmd_report_chat(args) -> int:
             return None
 
         # Prefer previously generated LLM context
-        llm_ctx = metadata_dir / "llm_reports" / "context.json"
+        try:
+            from autoclean.utils.path_resolution import resolve_moved_path
+            metadata_dir_resolved = resolve_moved_path(metadata_dir)
+        except Exception:
+            metadata_dir_resolved = metadata_dir
+
+        llm_ctx = metadata_dir_resolved / "llm_reports" / "context.json"
         if llm_ctx.exists():
             try:
                 return llm_ctx.read_text(encoding="utf-8")
@@ -4423,10 +4429,14 @@ def cmd_report_chat(args) -> int:
 
             input_file = rec.get("unprocessed_file") or ""
             basename = Path(input_file).stem
-            derivatives_root = metadata_dir.parent
+            derivatives_root = metadata_dir_resolved.parent
             per_file_csv = derivatives_root / f"{basename}_processing_log.csv"
             if not per_file_csv.exists() and bids_dir:
-                alt = Path(bids_dir) / "final_files" / f"{basename}_processing_log.csv"
+                try:
+                    bids_dir_resolved = resolve_moved_path(bids_dir)
+                except Exception:
+                    bids_dir_resolved = Path(bids_dir)
+                alt = Path(bids_dir_resolved) / "final_files" / f"{basename}_processing_log.csv"
                 if alt.exists():
                     per_file_csv = alt
             if not per_file_csv.exists():
@@ -4439,7 +4449,7 @@ def cmd_report_chat(args) -> int:
             if not row:
                 return None
 
-            pdf_path = metadata_dir / (rec.get("report_file") or f"{basename}_autoclean_report.pdf")
+            pdf_path = metadata_dir_resolved / (rec.get("report_file") or f"{basename}_autoclean_report.pdf")
 
             def _to_float(x):
                 try:
