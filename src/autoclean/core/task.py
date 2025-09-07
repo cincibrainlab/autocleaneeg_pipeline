@@ -301,6 +301,15 @@ class Task(ABC, *DISCOVERED_MIXINS):
 
         Returns the reports directory path on success, otherwise None.
         """
+        # Respect task configuration flag; default is OFF
+        try:
+            if not (hasattr(self, "settings") and isinstance(self.settings, dict)):
+                return None
+            if not self.settings.get("ai_reporting", False):
+                return None
+        except Exception:
+            return None
+
         try:
             from autoclean.reporting.llm_reporting import (
                 FilterParams,
