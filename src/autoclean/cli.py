@@ -1212,8 +1212,8 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     report_chat_parser.add_argument(
         "--context-json",
         type=Path,
-        required=True,
-        help="Path to a saved run context JSON.",
+        required=False,
+        help="Path to a saved run context JSON. If omitted, uses the latest run's LLM context if available, else reconstructs from processing_log + PDF.",
     )
 
     # View command
@@ -4382,7 +4382,174 @@ def cmd_report_chat(args) -> int:
 
     from autoclean.reporting.llm_reporting import LLMClient
 
-    ctx = Path(args.context_json).read_text()
+    def _load_latest_context_json() -> str | None:
+        try:
+            from autoclean import __version__ as ac_version
+            from autoclean.reporting.llm_reporting import RunContext
+            from autoclean.utils.database import manage_database_conditionally
+        except Exception:
+            return None
+
+        try:
+            records = manage_database_conditionally("get_collection") or []
+        except Exception:
+            records = []
+        if not records:
+            return None
+
+        # Pick most recent by created_at (ISO) or id as fallback
+        def _key(r):
+            return (r.get("created_at") or "", r.get("id") or 0)
+
+        rec = sorted(records, key=_key)[-1]
+        meta = rec.get("metadata") or {}
+        spd = (meta.get("step_prepare_directories") or {})
+        metadata_dir = Path(spd.get("metadata", ""))
+        bids_dir = Path(spd.get("bids", "")) if spd.get("bids") else None
+        if not metadata_dir.exists():
+            return None
+
+        # Prefer previously generated LLM context
+        llm_ctx = metadata_dir / "llm_reports" / "context.json"
+        if llm_ctx.exists():
+            try:
+                return llm_ctx.read_text(encoding="utf-8")
+            except Exception:
+                pass
+
+        # Reconstruct context from per-file processing log + PDF
+        try:
+            import csv, ast
+
+            input_file = rec.get("unprocessed_file") or ""
+            basename = Path(input_file).stem
+            derivatives_root = metadata_dir.parent
+            per_file_csv = derivatives_root / f"{basename}_processing_log.csv"
+            if not per_file_csv.exists() and bids_dir:
+                alt = Path(bids_dir) / "final_files" / f"{basename}_processing_log.csv"
+                if alt.exists():
+                    per_file_csv = alt
+            if not per_file_csv.exists():
+                return None
+
+            row = None
+            with per_file_csv.open("r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                row = next(reader, None)
+            if not row:
+                return None
+
+            pdf_path = metadata_dir / (rec.get("report_file") or f"{basename}_autoclean_report.pdf")
+
+            def _to_float(x):
+                try:
+                    return float(x)
+                except Exception:
+                    return None
+
+            def _to_int(x):
+                try:
+                    return int(float(x))
+                except Exception:
+                    return None
+
+            def _to_list_of_floats(x):
+                if x is None or x == "":
+                    return []
+                try:
+                    v = ast.literal_eval(x)
+                    if isinstance(v, (list, tuple)):
+                        return [float(y) for y in v]
+                    return [float(v)]
+                except Exception:
+                    parts = [p for p in str(x).replace("[", "").replace("]", "").split(",") if p.strip()]
+                    out = []
+                    for p in parts:
+                        try:
+                            out.append(float(p))
+                        except Exception:
+                            pass
+                    return out
+
+            def _to_list_of_ints(x):
+                try:
+                    v = ast.literal_eval(x)
+                    if isinstance(v, (list, tuple)):
+                        return [int(float(y)) for y in v]
+                    return []
+                except Exception:
+                    return []
+
+            # Minimal context dict compatible with RunContext shape
+            data = {
+                "run_id": rec.get("run_id") or "",
+                "dataset_name": None,
+                "input_file": input_file,
+                "montage": None,
+                "resample_hz": _to_float(row.get("proc_sRate1")),
+                "reference": None,
+                "filter_params": {
+                    "l_freq": _to_float(row.get("proc_filt_lowcutoff")),
+                    "h_freq": _to_float(row.get("proc_filt_highcutoff")),
+                    "notch_freqs": _to_list_of_floats(row.get("proc_filt_notch")),
+                    "notch_widths": _to_float(row.get("proc_filt_notch_width")),
+                },
+                "ica": None,
+                "epochs": None,
+                "durations_s": _to_float(row.get("proc_xmax_post")),
+                "n_channels": _to_int(row.get("net_nbchan_post")),
+                "bids_root": str(bids_dir) if bids_dir else None,
+                "bids_subject_id": None,
+                "pipeline_version": ac_version,
+                "mne_version": None,
+                "compliance_user": None,
+                "notes": ([f"flags: {row['flags']}"] if row.get("flags") else []),
+                "figures": {"autoclean_report_pdf": str(pdf_path)} if pdf_path.exists() else {},
+            }
+
+            # Epochs
+            try:
+                v = ast.literal_eval(row.get("epoch_limits", ""))
+                if isinstance(v, (list, tuple)) and len(v) == 2:
+                    data["epochs"] = {
+                        "tmin": float(v[0]) if v[0] is not None else None,
+                        "tmax": float(v[1]) if v[1] is not None else None,
+                        "baseline": None,
+                        "total_epochs": None,
+                        "kept_epochs": _to_int(row.get("epoch_trials")),
+                        "rejected_epochs": _to_int(row.get("epoch_badtrials")),
+                        "rejection_rules": {},
+                    }
+                    k = data["epochs"]["kept_epochs"]
+                    rj = data["epochs"]["rejected_epochs"]
+                    if k is not None and rj is not None:
+                        data["epochs"]["total_epochs"] = k + rj
+            except Exception:
+                pass
+
+            # ICA
+            ncomp = _to_int(row.get("proc_nComps"))
+            removed = _to_list_of_ints(row.get("proc_removeComps"))
+            if ncomp is not None or removed:
+                data["ica"] = {
+                    "method": row.get("ica_method") or "unspecified",
+                    "n_components": ncomp,
+                    "removed_indices": removed,
+                    "labels_histogram": {},
+                    "classifier": row.get("classification_method") or None,
+                }
+
+            return json.dumps(data, indent=2)
+        except Exception:
+            return None
+
+    if getattr(args, "context_json", None):
+        ctx = Path(args.context_json).read_text()
+    else:
+        ctx = _load_latest_context_json()
+        if not ctx:
+            message("error", "Could not locate latest run context or reconstruct from outputs. Provide --context-json explicitly.")
+            return 1
     llm = LLMClient()
     print("Type a question about this run (Ctrl-C to exit).")
     try:
