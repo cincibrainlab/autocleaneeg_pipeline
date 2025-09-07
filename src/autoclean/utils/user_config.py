@@ -1127,6 +1127,10 @@ if __name__ == "__main__":
 # =============================================================================
 
 config = {
+    # Optional: AI-powered textual reporting (default OFF)
+    # Set to True to generate LLM-backed summaries after the run,
+    # using the processing log CSV and the PDF report as inputs.
+    'ai_reporting': False,
     'resample_step': {
         'enabled': True,
         'value': 250  # Resample to 250 Hz
