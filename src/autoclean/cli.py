@@ -17,7 +17,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, List
+from typing import List, Optional
 
 import requests
 from rich.console import Console
@@ -27,7 +27,6 @@ from rich.table import Table
 from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
-
 from autoclean.utils.config import (
     disable_compliance_mode,
     enable_compliance_mode,
@@ -35,6 +34,7 @@ from autoclean.utils.config import (
     load_user_config,
     save_user_config,
 )
+from autoclean.utils.console import get_console
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.logging import message
 from autoclean.utils.task_discovery import (
@@ -44,8 +44,6 @@ from autoclean.utils.task_discovery import (
     safe_discover_tasks,
 )
 from autoclean.utils.user_config import user_config
-from autoclean.utils.console import get_console
-
 
 # ------------------------------------------------------------
 # CLI Process Logging
@@ -201,9 +199,10 @@ def _log_cli_execution(args: argparse.Namespace) -> None:
 def _print_startup_context(console) -> None:
     """Print system info, workspace path, and free disk space (shared for header/help)."""
     try:
-        from rich.text import Text
-        from rich.align import Align
         import platform as _platform
+
+        from rich.align import Align
+        from rich.text import Text
 
         py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
         os_name = _platform.system() or "UnknownOS"
@@ -225,8 +224,8 @@ def _print_startup_context(console) -> None:
 
     # Workspace + disk
     try:
-        from rich.text import Text as _Text
         from rich.align import Align as _Align
+        from rich.text import Text as _Text
 
         workspace_dir = user_config.config_dir
         try:
@@ -1179,6 +1178,44 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Show what would be deleted without actually deleting",
     )
 
+    # Report command group
+    report_parser = subparsers.add_parser(
+        "report", help="Generate LLM-backed textual reports", add_help=False
+    )
+    attach_rich_help(report_parser)
+    report_subparsers = report_parser.add_subparsers(
+        dest="report_action", help="Report actions"
+    )
+
+    report_create_parser = report_subparsers.add_parser(
+        "create", help="Create textual reports from a run context", add_help=False
+    )
+    attach_rich_help(report_create_parser)
+    report_create_parser.add_argument("--run-id", required=True)
+    report_create_parser.add_argument(
+        "--context-json",
+        type=Path,
+        required=True,
+        help="Path to a saved run context JSON.",
+    )
+    report_create_parser.add_argument(
+        "--out-dir",
+        type=Path,
+        required=True,
+        help="Output directory for reports.",
+    )
+
+    report_chat_parser = report_subparsers.add_parser(
+        "chat", help="Interactive Q&A about a run", add_help=False
+    )
+    attach_rich_help(report_chat_parser)
+    report_chat_parser.add_argument(
+        "--context-json",
+        type=Path,
+        required=True,
+        help="Path to a saved run context JSON.",
+    )
+
     # View command
     view_parser = subparsers.add_parser(
         "view", help="View EEG files using MNE-QT Browser", add_help=False
@@ -1622,9 +1659,9 @@ def validate_args(args) -> bool:
             _simple_header(console)
             _print_startup_context(console)
             try:
-                from rich.text import Text as _Text
                 from rich.align import Align as _Align
                 from rich.table import Table as _Table
+                from rich.text import Text as _Text
 
                 console.print("[header]View EEG[/header]")
                 console.print(
@@ -1861,14 +1898,16 @@ def cmd_list_tasks(args) -> int:
             return 0
 
         # Minimal header
-        from rich.text import Text as _Text
         from rich.align import Align as _Align
+        from rich.text import Text as _Text
 
         console.print()
         head = _Text()
         head.append("Tasks", style="title")
         console.print(_Align.center(head))
-        console.print(_Align.center(_Text("Available processing tasks", style="subtitle")))
+        console.print(
+            _Align.center(_Text("Available processing tasks", style="subtitle"))
+        )
         console.print()
 
         valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
@@ -2097,8 +2136,8 @@ def cmd_workspace_explore(_args) -> int:
 def cmd_workspace_show(_args) -> int:
     """Show the current workspace path and whether it's configured/valid."""
     try:
-        from rich.text import Text as _Text
         from rich.align import Align as _Align
+        from rich.text import Text as _Text
 
         console = get_console()
 
@@ -2238,8 +2277,8 @@ def cmd_workspace_size(_args) -> int:
         ws = user_config.config_dir
         size_b = _dir_size_bytes(ws) if ws.exists() else 0
         console = get_console()
-        from rich.text import Text as _Text
         from rich.align import Align as _Align
+        from rich.text import Text as _Text
 
         line = _Text()
         line.append("📂 ", style="muted")
@@ -2471,8 +2510,8 @@ def _run_interactive_setup() -> int:
 
         # Show current workspace path directly beneath the banner (centered)
         try:
-            from rich.text import Text as _SText
             from rich.align import Align as _SAlign
+            from rich.text import Text as _SText
 
             workspace_dir = user_config.config_dir
             home = str(Path.home())
@@ -2657,8 +2696,8 @@ def _setup_compliance_mode() -> int:
         )
         # Show workspace location beneath header (centered, minimalist)
         try:
-            from rich.text import Text as _XText
             from rich.align import Align as _XAlign
+            from rich.text import Text as _XText
 
             ws_line = _XText()
             home = str(Path.home())
@@ -2743,9 +2782,9 @@ def _setup_compliance_mode() -> int:
         user_config_data["compliance"]["require_electronic_signatures"] = (
             signature_answer["require_signatures"]
         )
-        user_config_data["workspace"]["auto_backup"] = (
-            True  # Always enabled for compliance
-        )
+        user_config_data["workspace"][
+            "auto_backup"
+        ] = True  # Always enabled for compliance
 
         save_user_config(user_config_data)
 
@@ -3252,8 +3291,10 @@ def cmd_task_edit(args) -> int:
         if not f:
             # Try to resolve by discovered task name (built-in or workspace)
             try:
+                from rich.prompt import Confirm as _Confirm
+                from rich.prompt import Prompt as _Prompt
+
                 from autoclean.utils.task_discovery import safe_discover_tasks
-                from rich.prompt import Confirm as _Confirm, Prompt as _Prompt
 
                 tasks, _, _ = safe_discover_tasks()
                 match = None
@@ -3601,15 +3642,19 @@ def cmd_task_copy(args) -> int:
                 else:
                     # Rich-based listing with numeric input
                     try:
-                        from rich.table import Table as _Table
-                        from rich.prompt import Prompt as _Prompt
-                        from rich.console import Console as _Console
                         from pathlib import Path as _P
+
+                        from rich.console import Console as _Console
+                        from rich.prompt import Prompt as _Prompt
+                        from rich.table import Table as _Table
 
                         _c = _Console()
                         _c.print()
                         tbl = _Table(
-                            show_header=True, header_style="header", box=None, padding=(0, 1)
+                            show_header=True,
+                            header_style="header",
+                            box=None,
+                            padding=(0, 1),
                         )
                         tbl.add_column("#", style="muted", width=4)
                         tbl.add_column("Task", style="accent", no_wrap=True)
@@ -3635,7 +3680,9 @@ def cmd_task_copy(args) -> int:
                         print("Available tasks:")
                         for i, (name, _src, kind) in enumerate(choices, 1):
                             print(f"  {i}. {name} [{kind}]")
-                        choice = input("Select a task number (or Enter to cancel): ").strip()
+                        choice = input(
+                            "Select a task number (or Enter to cancel): "
+                        ).strip()
                         if not choice:
                             print("Canceled")
                             return 0
@@ -3684,10 +3731,12 @@ def cmd_task_copy(args) -> int:
         # Utilities
         def _ts():
             from datetime import datetime as _dt
+
             return _dt.now().strftime("%Y%m%d_%H%M%S")
 
         def _to_camel(s: str) -> str:
             import re as _re
+
             parts = _re.split(r"[^0-9A-Za-z]+", s)
             camel = "".join(p[:1].upper() + p[1:] for p in parts if p)
             if camel and camel[0].isdigit():
@@ -3696,6 +3745,7 @@ def cmd_task_copy(args) -> int:
 
         def _to_snake(s: str) -> str:
             import re as _re
+
             # Lowercase, replace non-alnum with underscores, collapse repeats
             s = s.strip().lower()
             s = _re.sub(r"[^0-9a-z]+", "_", s)
@@ -3718,10 +3768,10 @@ def cmd_task_copy(args) -> int:
         if not raw_name:
             # Provide elegant, minimal instructions
             try:
-                from rich.console import Console as _Console
-                from rich.text import Text as _Text
                 from rich.align import Align as _Align
+                from rich.console import Console as _Console
                 from rich.prompt import Prompt as _Prompt
+                from rich.text import Text as _Text
 
                 _c = _Console()
                 _c.print()
@@ -3742,15 +3792,15 @@ def cmd_task_copy(args) -> int:
                 _c.print(_Align.center(ex))
                 _c.print()
                 raw_name = _Prompt.ask(
-                    "Enter task name (or Enter to cancel)", default="", show_default=False
+                    "Enter task name (or Enter to cancel)",
+                    default="",
+                    show_default=False,
                 ).strip()
                 if not raw_name:
                     message("info", "Canceled")
                     return 0
             except Exception:
-                raw_name = input(
-                    "Enter task name (or press Enter to cancel): "
-                ).strip()
+                raw_name = input("Enter task name (or press Enter to cancel): ").strip()
                 if not raw_name:
                     print("Canceled")
                     return 0
@@ -3821,21 +3871,29 @@ def cmd_task_copy(args) -> int:
         try:
             class_name, _ = user_config._extract_task_info(dest)
             # Summary
+            from rich.align import Align as _Align
             from rich.console import Console as _Console
             from rich.text import Text as _Text
-            from rich.align import Align as _Align
 
             _c = _Console()
             _c.print()
             t = _Text()
             t.append("Task copied", style="success")
             _c.print(_Align.center(t))
-            fline = _Text(); fline.append("File: ", style="muted"); fline.append(dest.name, style="accent")
-            cline = _Text(); cline.append("Class: ", style="muted"); cline.append(class_name, style="accent")
+            fline = _Text()
+            fline.append("File: ", style="muted")
+            fline.append(dest.name, style="accent")
+            cline = _Text()
+            cline.append("Class: ", style="muted")
+            cline.append(class_name, style="accent")
             _c.print(_Align.center(fline))
             _c.print(_Align.center(cline))
             if class_name != new_class:
-                note = _Text(); note.append("Note: ", style="muted"); note.append("class detected differs from requested rename", style="warning")
+                note = _Text()
+                note.append("Note: ", style="muted")
+                note.append(
+                    "class detected differs from requested rename", style="warning"
+                )
                 _c.print(_Align.center(note))
             _c.print()
             print("Use with:")
@@ -4278,6 +4336,63 @@ def cmd_clean_task(args) -> int:
     except Exception as e:
         console.print(f"\n[error]Error during cleanup: {e}[/error]")
         return 1
+
+
+def cmd_report(args) -> int:
+    """Dispatch for 'report' subcommands."""
+    action = getattr(args, "report_action", None)
+    if action == "create":
+        return cmd_report_create(args)
+    if action == "chat":
+        return cmd_report_chat(args)
+    message("error", "No report action specified")
+    return 1
+
+
+def cmd_report_create(args) -> int:
+    """Generate textual reports from a run context."""
+    import json
+    from pathlib import Path
+
+    from autoclean.reporting.llm_reporting import RunContext, create_reports
+
+    data = json.loads(Path(args.context_json).read_text())
+    ctx = RunContext(**data)
+    out_dir = Path(args.out_dir)
+    create_reports(ctx, out_dir)
+    message("success", f"Wrote reports under {out_dir}")
+    return 0
+
+
+def cmd_report_chat(args) -> int:
+    """Interactive chat about a run context."""
+    import json
+    from pathlib import Path
+
+    from autoclean.reporting.llm_reporting import LLMClient
+
+    ctx = Path(args.context_json).read_text()
+    llm = LLMClient()
+    print("Type a question about this run (Ctrl-C to exit).")
+    try:
+        while True:
+            q = input("> ")
+            if not q.strip():
+                continue
+            system = "You answer questions strictly using the JSON context."
+            user = f"Context:\n{ctx}\n\nQuestion:\n{q}\n\nAnswer briefly."
+            schema = json.dumps(
+                {
+                    "type": "object",
+                    "properties": {"answer": {"type": "string"}},
+                    "required": ["answer"],
+                }
+            )
+            ans = llm.generate_json(system, user, schema)
+            print(ans.get("answer", ""))
+    except KeyboardInterrupt:
+        print()
+    return 0
 
 
 def cmd_view(args) -> int:
@@ -5209,9 +5324,9 @@ def main(argv: Optional[list] = None) -> int:
                     _simple_header(console)
                     _print_startup_context(console)
                     try:
-                        from rich.text import Text
                         from rich.panel import Panel
                         from rich.table import Table as _Table
+                        from rich.text import Text
 
                         err = Text()
                         err.append("Unknown command: ", style="error")
@@ -5317,9 +5432,10 @@ def main(argv: Optional[list] = None) -> int:
 
         # Centered system info: Python, OS, Date/Time
         try:
-            from rich.text import Text
-            from rich.align import Align
             import platform as _platform
+
+            from rich.align import Align
+            from rich.text import Text
 
             py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
             os_name = _platform.system() or "UnknownOS"
@@ -5343,8 +5459,8 @@ def main(argv: Optional[list] = None) -> int:
 
         # Show workspace info elegantly beneath the banner (centered)
         try:
-            from rich.text import Text
             from rich.align import Align
+            from rich.text import Text
 
             valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
             home = str(Path.home())
@@ -5385,8 +5501,8 @@ def main(argv: Optional[list] = None) -> int:
 
             # Show active input (file vs folder) beneath task
             try:
-                from rich.text import Text as _SrcText
                 from rich.align import Align as _SrcAlign
+                from rich.text import Text as _SrcText
 
                 active_src = user_config.get_active_source()
                 src_line = _SrcText()
@@ -5423,8 +5539,8 @@ def main(argv: Optional[list] = None) -> int:
 
         # Disk free space for workspace volume (guarded)
         try:
-            from rich.text import Text as _Text
             from rich.align import Align as _Align
+            from rich.text import Text as _Text
 
             usage_path = (
                 workspace_dir
@@ -5447,8 +5563,8 @@ def main(argv: Optional[list] = None) -> int:
 
         # Minimal centered key commands belt (for quick discovery)
         try:
-            from rich.text import Text as _KText
             from rich.align import Align as _KAlign
+            from rich.text import Text as _KText
 
             key_cmds = [
                 "help",
@@ -5473,8 +5589,8 @@ def main(argv: Optional[list] = None) -> int:
 
         # Centered docs and GitHub links (minimalist, wrapped to avoid wide lines)
         try:
-            from rich.text import Text as _LText
             from rich.align import Align as _LAlign
+            from rich.text import Text as _LText
 
             # Docs line
             docs_line = _LText()
@@ -5504,8 +5620,8 @@ def main(argv: Optional[list] = None) -> int:
 
         # Centered attribution
         try:
-            from rich.text import Text as _AText
             from rich.align import Align as _AAlign
+            from rich.text import Text as _AText
 
             lab = _AText()
             lab.append(
@@ -5560,6 +5676,8 @@ def main(argv: Optional[list] = None) -> int:
         return cmd_clean_task(args)
     elif args.command == "view":
         return cmd_view(args)
+    elif args.command == "report":
+        return cmd_report(args)
     elif args.command == "version":
         return cmd_version(args)
     elif args.command == "help":
