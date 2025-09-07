@@ -65,7 +65,7 @@ class RestingState_Basic(Task):
     def run(self) -> None:
         # Import raw EEG data
         self.import_raw()
-
+        
         # Basic preprocessing steps
         self.resample_data()
 
