@@ -1,4 +1,5 @@
 from autoclean.core.task import Task
+from autoclean.task_config_schema import CONFIG_VERSION
 
 # =============================================================================
 #  Resting state EEG recording EEG PREPROCESSING CONFIGURATION
@@ -13,6 +14,7 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
+    "version": CONFIG_VERSION,
     "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 250},
     "filtering": {
@@ -63,7 +65,7 @@ class RestingState_Basic(Task):
     def run(self) -> None:
         # Import raw EEG data
         self.import_raw()
-
+        
         # Basic preprocessing steps
         self.resample_data()
 

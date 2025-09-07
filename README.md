@@ -61,6 +61,35 @@ List tasks and show overrides:
 autocleaneeg-pipeline list-tasks --overrides
 ```
 
+### Task Commands
+
+Common task management commands:
+
+```bash
+# List available tasks (built-in and workspace)
+autocleaneeg-pipeline task list
+
+# Generate a new task template in your workspace
+autocleaneeg-pipeline task template
+
+# Open tasks folder
+autocleaneeg-pipeline task explore
+
+# Edit a task by name or path
+autocleaneeg-pipeline task edit <name|path>
+
+# Import or copy tasks into the workspace
+autocleaneeg-pipeline task import <path>
+autocleaneeg-pipeline task copy <name|path>
+
+# Manage active task
+autocleaneeg-pipeline task set <name>
+autocleaneeg-pipeline task show
+autocleaneeg-pipeline task unset
+```
+
+Prefer a web wizard? TaskWizard: https://taskwizard.autocleaneeg.org/
+
 ## Theme and Color
 
 AutoClean’s CLI uses Rich with semantic styles and adaptive themes for readable output across light/dark terminals, limited color depth, and colorless logs.
