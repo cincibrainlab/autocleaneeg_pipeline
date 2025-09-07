@@ -288,3 +288,201 @@ class Task(ABC, *DISCOVERED_MIXINS):
         if self.epochs is None:
             raise ValueError("Epochs are not available.")
         return self.epochs
+
+    # -------------------------
+    # LLM Reporting Integration
+    # -------------------------
+    def emit_llm_reports(self, out_dir: Optional[Path] = None) -> Optional[Path]:
+        """Create LLM-backed textual reports using always-present outputs.
+
+        Uses the per-file processing log CSV and the generated PDF report
+        to build a minimal RunContext and write deterministic methods text
+        plus optional LLM summaries.
+
+        Returns the reports directory path on success, otherwise None.
+        """
+        try:
+            from autoclean.reporting.llm_reporting import (
+                FilterParams,
+                ICAStats,
+                EpochStats,
+                RunContext,
+                create_reports,
+            )
+            from autoclean import __version__ as ac_version
+        except Exception:
+            # Reporting module not available; skip silently
+            return None
+
+        cfg = self.config
+        try:
+            metadata_dir: Path = cfg["metadata_dir"]
+            input_file: Path = cfg["unprocessed_file"]
+            run_id: str = cfg["run_id"]
+        except Exception:
+            return None
+
+        # Derive paths
+        derivatives_root = metadata_dir.parent
+        subj_basename = Path(input_file).stem
+        per_file_csv = derivatives_root / f"{subj_basename}_processing_log.csv"
+        report_pdf = metadata_dir / f"{subj_basename}_autoclean_report.pdf"
+
+        if not per_file_csv.exists():
+            # Also check final_files copy as fallback
+            final_files_dir = Path(cfg.get("final_files_dir", metadata_dir))
+            alt_csv = final_files_dir / per_file_csv.name
+            if alt_csv.exists():
+                per_file_csv = alt_csv
+            else:
+                return None
+
+        # Parse one-row CSV into dict
+        row: Dict[str, Any]
+        try:
+            import csv
+
+            with per_file_csv.open("r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                row = next(reader)
+        except Exception:
+            return None
+
+        # Helpers to parse values robustly
+        def _to_float(x):
+            try:
+                return float(x)
+            except Exception:
+                return None
+
+        def _to_int(x):
+            try:
+                return int(float(x))
+            except Exception:
+                return None
+
+        def _to_list_of_floats(x):
+            if x is None or x == "":
+                return []
+            try:
+                import ast
+
+                v = ast.literal_eval(x)
+                if isinstance(v, (list, tuple)):
+                    return [float(y) for y in v]
+                return [float(v)]
+            except Exception:
+                # Fallback: comma/space separated
+                parts = [p for p in str(x).replace("[", "").replace("]", "").split(",") if p.strip()]
+                out = []
+                for p in parts:
+                    try:
+                        out.append(float(p))
+                    except Exception:
+                        pass
+                return out
+
+        def _to_list_of_ints(x):
+            try:
+                import ast
+
+                v = ast.literal_eval(x)
+                if isinstance(v, (list, tuple)):
+                    return [int(float(y)) for y in v]
+                return []
+            except Exception:
+                return []
+
+        # Build dataclasses from CSV
+        fp = FilterParams(
+            l_freq=_to_float(row.get("proc_filt_lowcutoff")),
+            h_freq=_to_float(row.get("proc_filt_highcutoff")),
+            notch_freqs=_to_list_of_floats(row.get("proc_filt_notch")),
+            notch_widths=_to_float(row.get("proc_filt_notch_width")),
+        )
+
+        # ICA details are limited in CSV; provide best-effort mapping
+        ica_removed = _to_list_of_ints(row.get("proc_removeComps"))
+        ica_stats = (
+            ICAStats(
+                method=str(row.get("ica_method") or "unspecified"),
+                n_components=_to_int(row.get("proc_nComps")),
+                removed_indices=ica_removed,
+                labels_histogram={},
+                classifier=str(row.get("classification_method") or None),
+            )
+            if (row.get("proc_nComps") or row.get("proc_removeComps"))
+            else None
+        )
+
+        # Epoch stats
+        epoch_limits = None
+        try:
+            import ast
+
+            v = ast.literal_eval(row.get("epoch_limits", ""))
+            if isinstance(v, (list, tuple)) and len(v) == 2:
+                epoch_limits = (
+                    float(v[0]) if v[0] is not None else None,
+                    float(v[1]) if v[1] is not None else None,
+                )
+        except Exception:
+            epoch_limits = None
+
+        kept = _to_int(row.get("epoch_trials"))
+        rejected = _to_int(row.get("epoch_badtrials"))
+        total = None
+        if kept is not None and rejected is not None:
+            total = kept + rejected
+
+        epochs = EpochStats(
+            tmin=epoch_limits[0] if epoch_limits else None,
+            tmax=epoch_limits[1] if epoch_limits else None,
+            baseline=None,
+            total_epochs=total,
+            kept_epochs=kept,
+            rejected_epochs=rejected,
+            rejection_rules={},
+        )
+
+        # Assemble context
+        try:
+            import mne as _mne
+
+            mne_version = getattr(_mne, "__version__", None)
+        except Exception:
+            mne_version = None
+
+        notes = []
+        if row.get("flags"):
+            notes.append(f"flags: {row['flags']}")
+
+        figures = {}
+        if report_pdf.exists():
+            figures["autoclean_report_pdf"] = str(report_pdf)
+
+        context = RunContext(
+            run_id=str(run_id),
+            dataset_name=None,
+            input_file=str(input_file),
+            montage=None,
+            resample_hz=_to_float(row.get("proc_sRate1")),
+            reference=None,
+            filter_params=fp,
+            ica=ica_stats,
+            epochs=epochs,
+            durations_s=_to_float(row.get("proc_xmax_post")),
+            n_channels=_to_int(row.get("net_nbchan_post")),
+            bids_root=str(cfg.get("bids_dir")) if cfg.get("bids_dir") else None,
+            bids_subject_id=None,
+            pipeline_version=str(ac_version),
+            mne_version=mne_version,
+            compliance_user=None,
+            notes=notes,
+            figures=figures,
+        )
+
+        # Determine output directory for reports
+        reports_dir = out_dir or (metadata_dir / "llm_reports")
+        create_reports(context, reports_dir)
+        return reports_dir

@@ -473,6 +473,12 @@ class Pipeline:
                 create_run_report(run_id, run_dict, json_summary)
             except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
+            else:
+                # Attempt LLM-backed textual reports using processing log + PDF
+                try:
+                    task_object.emit_llm_reports()
+                except Exception as llm_err:  # pylint: disable=broad-except
+                    message("warning", f"LLM reporting skipped: {llm_err}")
 
             # Create electronic signature for compliance mode
             signature_id = create_electronic_signature(
