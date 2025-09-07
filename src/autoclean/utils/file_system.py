@@ -20,7 +20,7 @@ _CACHE_LOCK = threading.Lock()
 
 def step_prepare_directories(
     task: str, autoclean_dir_str: Path, dataset_name: str = None
-) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path]:
+) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path | None]:
     """Set up and validate BIDS-compliant directory structure for processing pipeline.
 
     Parameters
@@ -72,6 +72,7 @@ def step_prepare_directories(
 
     # Perform backup only the first time we encounter this directory in
     # the current process.
+    backup_info = None
     if first_time and task_root.exists():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"{dir_name}_backup_{timestamp}"
@@ -82,6 +83,14 @@ def step_prepare_directories(
         )
         shutil.move(str(task_root), str(backup_path))
         message("info", "Backup complete, creating fresh directory")
+        backup_info = {
+            "moved_from": str(task_root),
+            "moved_to": str(backup_path),
+            "effective_at": datetime.now().isoformat(),
+            "initiated_by_run_id": None,  # Filled by caller with actual run_id
+            "scope": {"task_root": str(task_root)},
+            "reason": "existing directory found; moved to backup",
+        }
 
     # Use version for derivatives directory naming
     derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
@@ -122,4 +131,5 @@ def step_prepare_directories(
         dirs["stage"],
         dirs["logs"],
         dirs["final_files"],
+        backup_info,
     )
