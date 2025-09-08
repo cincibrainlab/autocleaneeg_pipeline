@@ -4403,6 +4403,14 @@ def cmd_report_chat(args) -> int:
 
         rec = sorted(records, key=_key)[-1]
         meta = rec.get("metadata") or {}
+        # Parse metadata JSON if returned as a string from get_collection
+        if isinstance(meta, str):
+            try:
+                import json as _json
+
+                meta = _json.loads(meta)
+            except Exception:
+                meta = {}
         spd = (meta.get("step_prepare_directories") or {})
         metadata_dir = Path(spd.get("metadata", ""))
         bids_dir = Path(spd.get("bids", "")) if spd.get("bids") else None
