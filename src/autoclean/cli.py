@@ -4394,9 +4394,9 @@ def cmd_report_chat(args) -> int:
 
     def _select_run_interactively(records: list[dict]) -> dict | None:
         try:
-            from rich.console import Console as _Console
             from rich.table import Table as _Table
             from rich.prompt import Prompt as _Prompt
+            from autoclean.utils.console import get_console as _get_console
         except Exception:
             return None
 
@@ -4438,7 +4438,7 @@ def cmd_report_chat(args) -> int:
                 }
             )
 
-        c = _Console()
+        c = _get_console()
         c.print()
         tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
         tbl.add_column("#", style="muted", width=4)
@@ -4484,8 +4484,8 @@ def cmd_report_chat(args) -> int:
             from autoclean.reporting.llm_reporting import RunContext
             from autoclean.utils.database import manage_database_conditionally
             from rich.prompt import Confirm as _Confirm
-            from rich.console import Console as _Console
             from rich.text import Text as _Text
+            from autoclean.utils.console import get_console as _get_console
         except Exception:
             return None
 
@@ -4504,7 +4504,7 @@ def cmd_report_chat(args) -> int:
         # Ask consent to use latest; else show interactive selector
         use_latest = True
         try:
-            _c = _Console()
+            _c = _get_console()
             t = _Text()
             t.append("Use latest run? ", style="title")
             _c.print(t)
@@ -4516,7 +4516,8 @@ def cmd_report_chat(args) -> int:
             use_latest = True
         rec = latest if use_latest else _select_run_interactively(records)
         if not rec:
-            return None
+            # User canceled selection
+            return "__CANCELLED__"
         meta = rec.get("metadata") or {}
         # Parse metadata JSON if returned as a string from get_collection
         if isinstance(meta, str):
@@ -4680,6 +4681,9 @@ def cmd_report_chat(args) -> int:
         ctx = Path(args.context_json).read_text()
     else:
         ctx = _load_latest_context_json()
+        if ctx == "__CANCELLED__":
+            message("info", "Canceled")
+            return 0
         if not ctx:
             message("error", "Could not locate latest run context or reconstruct from outputs. Provide --context-json explicitly.")
             return 1
