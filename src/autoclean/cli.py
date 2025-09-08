@@ -4381,6 +4381,16 @@ def cmd_report_chat(args) -> int:
     from pathlib import Path
 
     from autoclean.reporting.llm_reporting import LLMClient
+    # Ensure database path is set so we can read the latest run
+    try:
+        from autoclean.utils.database import set_database_path
+        from autoclean.utils.user_config import user_config as _ucfg
+
+        out_dir = _ucfg.get_default_output_dir()
+        out_dir.mkdir(parents=True, exist_ok=True)
+        set_database_path(out_dir)
+    except Exception:
+        pass
 
     def _load_latest_context_json() -> str | None:
         try:
