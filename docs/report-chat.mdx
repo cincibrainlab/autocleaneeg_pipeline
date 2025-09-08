@@ -19,6 +19,8 @@ The experience is optimized for discoverability:
 
 > Note: Report Chat uses an LLM to answer questions about your run context. You need a valid `OPENAI_API_KEY` (or compatible) to chat. The “create” reporting command can still generate deterministic methods text without an API key.
 
+If `OPENAI_API_KEY` is not set, Report Chat exits gracefully with a helpful message and suggestions to set the key. No errors or stack traces are shown.
+
 ---
 
 ## Quick Start
@@ -47,6 +49,7 @@ If you answer “No” to using the latest run, you’ll get an interactive run 
   - Per-file processing log CSV (saved under `.../bids/derivatives/autoclean-v<version>/` and also in `bids/final_files/`)
   - PDF report under `.../bids/derivatives/autoclean-v<version>/metadata/`
 - For LLM chat: `OPENAI_API_KEY` (and optionally `OPENAI_BASE_URL` for compatible providers)
+  - If the key is missing, the command will print a friendly warning and exit cleanly.
 
 > You do NOT need to have enabled `ai_reporting`; chat reconstructs context from always-present outputs when a saved LLM context is missing.
 
@@ -258,4 +261,3 @@ Not via CLI flags yet. You can set `OPENAI_BASE_URL` and rely on the default `gp
 
 - `autocleaneeg-pipeline report create` — Generate methods + executive summary + QC narrative (writes trace, requires API key for LLM parts)
 - `docs/directory-backup-resolution.md` — How path resolution works with auto-backups (Phase 1/2 plan)
-
