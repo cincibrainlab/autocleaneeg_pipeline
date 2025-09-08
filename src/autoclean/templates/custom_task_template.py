@@ -20,6 +20,10 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
+    # Optional: AI-powered textual reporting (default OFF)
+    # Set to True to generate LLM-backed summaries after the run,
+    # using the processing log CSV and the PDF report as inputs.
+    "ai_reporting": False,
     # Optional: Specify a dataset name for organized output directories
     # Examples:
     #   With dataset_name: "Experiment1_07-03-2025"

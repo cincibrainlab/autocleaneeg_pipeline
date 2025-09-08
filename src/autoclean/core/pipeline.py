@@ -331,7 +331,35 @@ class Pipeline:
                 stage_dir,  # Intermediate processing stages
                 logs_dir,  # Debug information and logs
                 final_files_dir,  # Final processed files directory
+                backup_info,  # Optional backup move details
             ) = step_prepare_directories(task, self.output_dir, dataset_name)
+
+            # If an auto-backup occurred, persist minimal info in current run metadata
+            if backup_info:
+                backup_info["initiated_by_run_id"] = run_id
+                try:
+                    manage_database_conditionally(
+                        operation="update",
+                        update_record={
+                            "run_id": run_id,
+                            "metadata": {"directory_backup": backup_info},
+                        },
+                    )
+                except Exception as e:  # pylint: disable=broad-except
+                    message("warning", f"Failed to write backup info to DB metadata: {e}")
+                # Also add an audit/access log entry
+                try:
+                    manage_database_conditionally(
+                        operation="add_access_log",
+                        run_record={
+                            "timestamp": datetime.now().isoformat(),
+                            "operation": "directory_backup",
+                            "user_context": get_current_user_for_audit(),
+                            "details": backup_info,
+                        },
+                    )
+                except Exception as e:  # pylint: disable=broad-except
+                    message("warning", f"Failed to add audit log for backup: {e}")
 
             # Update database with directory structure using audit protection
             manage_database_conditionally(
@@ -473,6 +501,12 @@ class Pipeline:
                 create_run_report(run_id, run_dict, json_summary)
             except Exception as report_error:  # pylint: disable=broad-except
                 message("error", f"Failed to generate report: {str(report_error)}")
+            else:
+                # Attempt LLM-backed textual reports using processing log + PDF
+                try:
+                    task_object.emit_llm_reports()
+                except Exception as llm_err:  # pylint: disable=broad-except
+                    message("warning", f"LLM reporting skipped: {llm_err}")
 
             # Create electronic signature for compliance mode
             signature_id = create_electronic_signature(
