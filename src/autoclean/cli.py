@@ -4392,11 +4392,100 @@ def cmd_report_chat(args) -> int:
     except Exception:
         pass
 
+    def _select_run_interactively(records: list[dict]) -> dict | None:
+        try:
+            from rich.console import Console as _Console
+            from rich.table import Table as _Table
+            from rich.prompt import Prompt as _Prompt
+        except Exception:
+            return None
+
+        if not records:
+            return None
+
+        def _key(r):
+            return (r.get("created_at") or "", r.get("id") or 0)
+
+        recs = sorted(records, key=_key, reverse=True)
+
+        # Build rows
+        rows = []
+        for r in recs:
+            meta = r.get("metadata") or {}
+            if isinstance(meta, str):
+                try:
+                    import json as _json
+
+                    meta = _json.loads(meta)
+                except Exception:
+                    meta = {}
+            backup = bool(meta.get("directory_backup"))
+            json_sum = meta.get("json_summary") or {}
+            outputs = json_sum.get("outputs") or {}
+            outputs_count = len(outputs) if isinstance(outputs, dict) else (len(outputs) if hasattr(outputs, "__len__") else 0)
+            basename = Path(r.get("unprocessed_file") or "").name
+            rows.append(
+                {
+                    "rec": r,
+                    "rid": r.get("run_id") or "",
+                    "created": r.get("created_at") or "",
+                    "task": r.get("task") or "",
+                    "file": basename,
+                    "status": r.get("status") or "",
+                    "success": "Yes" if r.get("success") else "No",
+                    "backup": "Yes" if backup else "No",
+                    "artifacts": str(outputs_count or 0),
+                }
+            )
+
+        c = _Console()
+        c.print()
+        tbl = _Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+        tbl.add_column("#", style="muted", width=4)
+        tbl.add_column("Run ID", style="accent")
+        tbl.add_column("Created", style="muted")
+        tbl.add_column("Task")
+        tbl.add_column("File")
+        tbl.add_column("Status")
+        tbl.add_column("Success")
+        tbl.add_column("Backup")
+        tbl.add_column("Artifacts")
+        max_rows = min(20, len(rows))
+        for i, r in enumerate(rows[:max_rows], 1):
+            rid_short = r["rid"][:8] + ("…" if len(r["rid"]) > 8 else "")
+            tbl.add_row(
+                str(i),
+                rid_short,
+                r["created"],
+                r["task"],
+                r["file"],
+                r["status"],
+                r["success"],
+                r["backup"],
+                r["artifacts"],
+            )
+        c.print(tbl)
+        c.print()
+        ans = _Prompt.ask("Select a run number (Enter to cancel)", default="")
+        ans = (ans or "").strip()
+        if not ans:
+            return None
+        try:
+            idx = int(ans)
+        except Exception:
+            return None
+        if idx < 1 or idx > max_rows:
+            return None
+        return recs[idx - 1]
+
     def _load_latest_context_json() -> str | None:
         try:
             from autoclean import __version__ as ac_version
             from autoclean.reporting.llm_reporting import RunContext
             from autoclean.utils.database import manage_database_conditionally
+            from rich.prompt import Confirm as _Confirm
+            from rich.console import Console as _Console
+            from rich.text import Text as _Text
         except Exception:
             return None
 
@@ -4411,7 +4500,23 @@ def cmd_report_chat(args) -> int:
         def _key(r):
             return (r.get("created_at") or "", r.get("id") or 0)
 
-        rec = sorted(records, key=_key)[-1]
+        latest = sorted(records, key=_key)[-1]
+        # Ask consent to use latest; else show interactive selector
+        use_latest = True
+        try:
+            _c = _Console()
+            t = _Text()
+            t.append("Use latest run? ", style="title")
+            _c.print(t)
+            use_latest = _Confirm.ask(
+                f"Run {latest.get('run_id','')} on {latest.get('created_at','')} (task: {latest.get('task','')})?",
+                default=True,
+            )
+        except Exception:
+            use_latest = True
+        rec = latest if use_latest else _select_run_interactively(records)
+        if not rec:
+            return None
         meta = rec.get("metadata") or {}
         # Parse metadata JSON if returned as a string from get_collection
         if isinstance(meta, str):
