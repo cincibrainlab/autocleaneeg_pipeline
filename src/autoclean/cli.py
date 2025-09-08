@@ -4687,6 +4687,17 @@ def cmd_report_chat(args) -> int:
         if not ctx:
             message("error", "Could not locate latest run context or reconstruct from outputs. Provide --context-json explicitly.")
             return 1
+    # Graceful guard: require API key for chat
+    try:
+        import os as _os
+        api_key = _os.getenv("OPENAI_API_KEY")
+    except Exception:
+        api_key = None
+    if not api_key:
+        message("warning", "OPENAI_API_KEY not set. Chat requires an API key for the LLM.")
+        message("info", "Set the key in your environment, then rerun: export OPENAI_API_KEY=sk-...")
+        return 0
+
     llm = LLMClient()
     print("Type a question about this run (Ctrl-C to exit).")
     try:
