@@ -1,0 +1,263 @@
+---
+title: Report Chat — Interactive Q&A on Your Last Run
+description: Ask natural-language questions about your most recent AutoClean EEG run. Defaults to the latest run and gracefully handles backups, or lets you select another run interactively.
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Report Chat — Interactive Q&A on Your Last Run
+
+Report Chat lets you ask concise, natural-language questions about a processing run. It works out-of-the-box with your latest run and can reconstruct a minimal context even if no LLM context was saved, using the per-file processing log CSV and the generated PDF report.
+
+The experience is optimized for discoverability:
+
+- Defaults to your latest run via the database (no paths required)
+- If you decline using the latest, it presents a styled, readable table of recent runs and lets you pick one by number
+- Robust to auto-backups and renames; paths are resolved automatically
+- Clear, friendly messages and clean cancel behavior
+
+> Note: Report Chat uses an LLM to answer questions about your run context. You need a valid `OPENAI_API_KEY` (or compatible) to chat. The “create” reporting command can still generate deterministic methods text without an API key.
+
+If `OPENAI_API_KEY` is not set, Report Chat exits gracefully with a helpful message and suggestions to set the key. No errors or stack traces are shown.
+
+---
+
+## Quick Start
+
+```bash
+autocleaneeg-pipeline report chat
+```
+
+What happens:
+
+1) The CLI finds your latest run in the database
+2) It resolves any backup move recorded for that run
+3) It tries to load `llm_reports/context.json`; if not found, it reconstructs a minimal context from:
+   - `*_processing_log.csv` (per-file log) and
+   - `*_autoclean_report.pdf` (standard report)
+4) It starts an interactive prompt for your Q&A
+
+If you answer “No” to using the latest run, you’ll get an interactive run selector (details below).
+
+---
+
+## Prerequisites
+
+- A completed (or failed) run stored in the database
+- Standard outputs on disk for that run:
+  - Per-file processing log CSV (saved under `.../bids/derivatives/autoclean-v<version>/` and also in `bids/final_files/`)
+  - PDF report under `.../bids/derivatives/autoclean-v<version>/metadata/`
+- For LLM chat: `OPENAI_API_KEY` (and optionally `OPENAI_BASE_URL` for compatible providers)
+  - If the key is missing, the command will print a friendly warning and exit cleanly.
+
+> You do NOT need to have enabled `ai_reporting`; chat reconstructs context from always-present outputs when a saved LLM context is missing.
+
+---
+
+## Default Behavior (Latest Run)
+
+When you run `report chat` with no flags:
+
+1. The CLI initializes the database path to your workspace output directory.
+2. It queries the latest run (by `created_at` / id) from the `pipeline_runs` table.
+3. If a directory backup was recorded for that run, it applies the backup-aware resolver to locate moved folders.
+4. It prompts: “Use latest run?” with a summary of run id, time, and task.
+   - Yes/Enter → chat starts on that run.
+   - No → you’re shown a rich, interactive table of recent runs.
+
+If no runs are found, you’ll be prompted to provide a context JSON via `--context-json` (see below).
+
+---
+
+## Interactive Run Selector
+
+If you decline using the latest run, a readable table is presented (newest first):
+
+- Columns:
+  - `#`: index to select
+  - `Run ID`: short form of the unique id
+  - `Created`: timestamp
+  - `Task`: task/class name
+  - `File`: original input file name
+  - `Status`: e.g., `completed`, `failed`
+  - `Success`: `Yes` or `No`
+  - `Backup`: `Yes` if a directory backup was recorded for this run
+  - `Artifacts`: count of output artifacts (from json_summary when present)
+
+Pick a run by number, or press Enter to cancel gracefully (no errors).
+
+---
+
+## How Context Is Built
+
+Report Chat answers strictly from a JSON context. It obtains that context in one of two ways:
+
+1) Preferred: Use `llm_reports/context.json` if it exists (created by `report create` or during automatic LLM reporting if enabled)
+
+2) Fallback reconstruction: A minimal, but sufficient context is built from:
+   - Per-file `*_processing_log.csv` (always written after runs)
+   - `*_autoclean_report.pdf` path for reference
+   - The run record (for `run_id`, `task`, `input_file`)
+
+The reconstructed context includes:
+
+- `filter_params`: high/low-pass, notch freqs/widths
+- `epochs`: epoch limits and totals (kept + rejected when available)
+- `ica` (best-effort): total components and removed indices
+- `resample_hz`, `durations_s`, `n_channels`
+- `figures.autoclean_report_pdf`: the PDF path if present
+- `notes`: includes flags when present in the CSV
+
+> The reconstruction is designed to be robust, using only always-present outputs. If `llm_reports/context.json` exists, it is used as-is.
+
+---
+
+## Backup-Aware Path Resolution
+
+If AutoClean detected an existing directory and created a timestamped backup before your latest run, that move is recorded in the database under the current run’s metadata:
+
+```json
+{
+  "directory_backup": {
+    "moved_from": "/.../RestingStateTutorial",
+    "moved_to": "/.../RestingStateTutorial_backup_YYYYMMDD_HHMMSS",
+    "effective_at": "ISO timestamp",
+    "initiated_by_run_id": "<this run>",
+    "scope": { "task_root": "/.../RestingStateTutorial" },
+    "reason": "existing directory found; moved to backup"
+  }
+}
+```
+
+Report Chat uses these records to resolve and find the right paths even if your folders were moved. This keeps you productive without having to hunt for “where did my outputs go?”
+
+For the full design, see: `docs/directory-backup-resolution.md`.
+
+---
+
+## Manual Context Mode (Optional)
+
+If you want to chat about a specific context JSON you saved elsewhere:
+
+```bash
+autocleaneeg-pipeline report chat --context-json /path/to/context.json
+```
+
+The JSON should follow the `RunContext` schema (nested dicts are accepted; they will be coerced automatically). This bypasses the database and filesystem discovery.
+
+---
+
+## Environment & Security
+
+- `OPENAI_API_KEY` — required to chat (OpenAI-compatible provider)
+- `OPENAI_BASE_URL` — optional; set for compatible self-hosted endpoints
+
+Privacy:
+
+- Report Chat does not persist your chat content. It submits a short prompt to the LLM with the context, and displays the LLM’s JSON answer.
+- The separate “report create” command writes an `llm_trace.jsonl` (with hashed user content) for transparency. Chat does not append to this trace.
+
+Compliance:
+
+- Chat is not gated by the compliance authentication decorator. If your deployment requires extra gating, please coordinate with admins.
+
+---
+
+## Examples
+
+<Tabs>
+  <TabItem value="default" label="Default (Latest Run)">
+
+```bash
+# Uses latest run via DB, resolves backups, and starts Q&A
+autocleaneeg-pipeline report chat
+```
+
+Sample flow:
+
+```
+Use latest run?
+Run 01K4K993… on 2025-09-07 19:48:14 (task: RestingStateTutorial)? [y/n] (y): y
+> How many components were removed?
+…
+```
+
+  </TabItem>
+  <TabItem value="select" label="Pick Another Run">
+
+```bash
+autocleaneeg-pipeline report chat
+```
+
+When prompted, answer `n` and pick from the interactive table:
+
+```
+#  Run ID   Created                 Task                  File             Status     Success  Backup  Artifacts
+1  01K4K…  2025-09-07 19:48:14     RestingStateTutorial  128_…raw         completed  Yes      Yes     7
+2  01K4K…  2025-09-07 17:31:03     RestingStateTutorial  128_…raw         completed  Yes      No      7
+…
+Select a run number (Enter to cancel): 1
+```
+
+  </TabItem>
+  <TabItem value="manual" label="Manual Context JSON">
+
+```bash
+autocleaneeg-pipeline report chat \
+  --context-json /path/to/context.json
+```
+
+  </TabItem>
+</Tabs>
+
+---
+
+## Troubleshooting
+
+Common issues and remedies:
+
+- “Could not locate latest run context or reconstruct from outputs.”
+  - Ensure there is at least one run in the DB (process a file via the pipeline)
+  - Ensure your per-file processing log CSV and PDF are present for that run
+  - If using manual JSON mode, verify the path and format
+
+- Missing API key
+  - Set `OPENAI_API_KEY` in your shell: `export OPENAI_API_KEY=sk-...`
+
+- Interactive table “style” errors
+  - Chat now uses AutoClean’s themed console; styles like `title`/`header` are defined. If you see style errors, update the CLI to the latest build.
+
+- Graceful cancel
+  - Press Enter at the selection prompt to cancel without error (exit code 0).
+
+---
+
+## FAQ
+
+**Does chat require `ai_reporting` to be enabled?**
+
+No. Chat reconstructs context from the per-file log and PDF if no LLM context exists. The `ai_reporting` flag controls whether LLM-backed summaries are written automatically at the end of a run; chat is independent.
+
+**Where do answers come from?**
+
+The LLM answers using only the JSON context (either `llm_reports/context.json` or the reconstructed context). The prompt instructs the model to not speculate beyond the context.
+
+**Is chat content stored?**
+
+No. The CLI does not persist chat content. If you need auditability, use `report create`, which writes `llm_trace.jsonl` with hashed prompts and model metadata.
+
+**What if the run’s folders were auto-backed up?**
+
+The system records the backup in the DB and resolves moved paths automatically when locating artifacts. See Backup-Aware Path Resolution above.
+
+**Can I change the model or temperature?**
+
+Not via CLI flags yet. You can set `OPENAI_BASE_URL` and rely on the default `gpt-4o-mini`/temperature=0.0. If you’d like model/temperature flags, open an issue.
+
+---
+
+## See Also
+
+- `autocleaneeg-pipeline report create` — Generate methods + executive summary + QC narrative (writes trace, requires API key for LLM parts)
+- `docs/directory-backup-resolution.md` — How path resolution works with auto-backups (Phase 1/2 plan)
