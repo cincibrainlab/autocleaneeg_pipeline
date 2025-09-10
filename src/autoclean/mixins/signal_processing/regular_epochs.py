@@ -77,6 +77,7 @@ class RegularEpochsMixin:
         --------
         create_eventid_epochs : For creating epochs based on specific event markers.
         """
+
         # Check if this step is enabled in the configuration
         is_enabled, config_value = self._check_step_enabled("epoch_settings")
 

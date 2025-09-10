@@ -4,6 +4,7 @@
 import logging
 import os
 import sys
+import threading
 import warnings
 from enum import Enum
 from pathlib import Path
@@ -14,8 +15,13 @@ from loguru import logger
 from autoclean import __version__
 from autoclean.utils.user_config import UserConfigManager
 
-# Remove default handler
-logger.remove()
+# Track logger configuration state to prevent conflicts during resume
+_logger_configured = False
+_logger_handlers_backup = []
+
+# Remove default handler (only once)
+if not _logger_configured:
+    logger.remove()
 
 # Define custom levels with specific order
 # Standard levels are already defined:
@@ -216,7 +222,23 @@ def configure_logger(
     str
         Appropriate MNE verbosity level ('DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL')
     """
-    logger.remove()
+    # Check if logger is already configured to avoid breaking existing handlers
+    logger_already_configured = (
+        hasattr(logger, '_autoclean_configured') and
+        logger._handlers and
+        len(logger._handlers) > 0
+    )
+
+    # Only remove handlers if not already configured or if forced reconfiguration
+    if not logger_already_configured:
+        logger.remove()
+    else:
+        # If already configured, just update the level on existing handlers
+        for handler in logger._handlers:
+            handler.setLevel(level)
+        # Mark as configured and return early to avoid duplicate handlers
+        logger._autoclean_configured = True
+        return mne_level_map[level]
 
     # Convert input to LogLevel using our new conversion method
     level = LogLevel.from_value(verbose)
@@ -250,23 +272,52 @@ def configure_logger(
         # Default to the AutoClean workspace if no task-specific path is provided
         log_dir = UserConfigManager().config_dir / "logs"
 
-    # Create logs directory
-    log_dir.mkdir(parents=True, exist_ok=True)
+    # Create logs directory with error handling
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        # Verify directory is writable
+        if not os.access(log_dir, os.W_OK):
+            raise PermissionError(f"No write permission for log directory: {log_dir}")
+    except Exception as e:
+        # If directory creation fails, fall back to console-only logging
+        print(f"Warning: Could not create log directory {log_dir}: {e}")
+        print("Falling back to console-only logging")
+
+        # Add console handler only if not already present
+        console_handlers = [h for h in logger._handlers if hasattr(h, 'stream') and h.stream == sys.stderr]
+        if not console_handlers:
+            logger.add(
+                sys.stderr,
+                level=level,
+                format="<green>{time:HH:mm:ss}</green> | <level>{level: <8}</level> | <level>{message}</level>",
+                colorize=True,
+                backtrace=True,
+                diagnose=True,
+                catch=True,
+            )
+
+        # Mark as configured and return
+        logger._autoclean_configured = True
+        return mne_level_map[level]
 
     # File handler with rotation and retention
-    logger.add(
-        str(log_dir / "autoclean_{time}.log"),
-        rotation="1 day",  # Rotate daily
-        retention="1 week",  # Keep logs for 1 week
-        compression="zip",  # Compress rotated logs
-        level=level,
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
-        backtrace=True,  # Better exception logging
-        diagnose=True,  # Show variable values in tracebacks
-        enqueue=True,  # Thread-safe logging
-        colorize=True,  # No colors in file
-        catch=True,  # Catch errors within handlers
-    )
+    try:
+        logger.add(
+            str(log_dir / "autoclean_{time}.log"),
+            rotation="1 day",  # Rotate daily
+            retention="1 week",  # Keep logs for 1 week
+            compression="zip",  # Compress rotated logs
+            level=level,
+            format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
+            backtrace=True,  # Better exception logging
+            diagnose=True,  # Show variable values in tracebacks
+            enqueue=True,  # Thread-safe logging
+            colorize=True,  # No colors in file
+            catch=True,  # Catch errors within handlers
+        )
+    except Exception as e:
+        print(f"Warning: Could not create file handler: {e}")
+        print("Continuing with console-only logging")
 
     # Console handler with colors and context
     logger.add(

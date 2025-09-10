@@ -11,6 +11,7 @@ import scipy.io as sio
 from eeglabio.epochs import export_set
 
 from autoclean.utils.database import manage_database_conditionally
+from autoclean.utils.bids import step_sanitize_id
 from autoclean.utils.logging import message
 
 __all__ = [
@@ -505,19 +506,50 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
 
     components = []
 
+    # Compute subject-specific derivatives/eeg directory (BIDS per-subject organization)
+    try:
+        subject_id = step_sanitize_id(Path(autoclean_dict["unprocessed_file"]).name)
+        expected_suffix = Path(f"sub-{subject_id}") / "eeg"
+        # Avoid duplicating sub-<id>/eeg if derivatives_dir is already subject-scoped
+        if str(derivatives_dir).endswith(str(expected_suffix)):
+            subject_eeg_dir = derivatives_dir
+        else:
+            subject_eeg_dir = derivatives_dir / expected_suffix
+        subject_eeg_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        message("warning", f"Failed to prepare subject EEG derivatives dir: {str(e)}")
+        subject_eeg_dir = derivatives_dir
+
     if ica is not None:
-        ica_path = derivatives_dir / f"{basename}-ica.fif"
+        ica_path = subject_eeg_dir / f"{basename}-ica.fif"
         ica.save(ica_path, overwrite=True)
         components.append(ch for ch in ica.exclude)
 
-    # Use standard pipeline saving for pre_ica data
-    pre_ica_path = save_raw_to_set(pre_ica_raw, autoclean_dict, stage="pre_ica")
+    # Use standard pipeline saving for pre_ica data (.set)
+    pre_ica_set_path = save_raw_to_set(pre_ica_raw, autoclean_dict, stage="pre_ica")
+
+    # Also save a FIF copy of pre-ICA data to avoid EEGLAB event parsing issues
+    try:
+        stage_dir = Path(autoclean_dict.get("stage_dir", derivatives_dir / "intermediate"))
+        # Derive the stage folder matching the .set output
+        # If save_raw_to_set created NN_pre_ica under stage_dir, reuse it; else create a pre_ica folder
+        if pre_ica_set_path.parent.name.endswith("_pre_ica"):
+            fif_stage_dir = pre_ica_set_path.parent
+        else:
+            fif_stage_dir = stage_dir / "00_pre_ica"
+            fif_stage_dir.mkdir(parents=True, exist_ok=True)
+        pre_ica_fif_path = fif_stage_dir / f"{basename}_pre_ica_raw.fif"
+        pre_ica_raw.save(pre_ica_fif_path, overwrite=True)
+    except Exception as e:  # pylint: disable=broad-exception-caught
+        message("warning", f"Failed to save pre-ICA FIF copy: {str(e)}")
+        pre_ica_fif_path = None
     metadata = {
         "save_ica_to_fif": {
             "creationDateTime": datetime.now().isoformat(),
-            "components": components,
-            "ica_path": ica_path.name,
-            "pre_ica_path": str(pre_ica_path),
+        "components": components,
+        "ica_path": ica_path.name,
+        "pre_ica_set_path": str(pre_ica_set_path),
+        "pre_ica_fif_path": str(pre_ica_fif_path) if pre_ica_fif_path else "",
         }
     }
     run_id = autoclean_dict["run_id"]

@@ -10,6 +10,7 @@ import argparse
 import csv
 import json
 import os
+from datetime import datetime
 import re
 import shutil
 import sqlite3
@@ -702,10 +703,37 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Show actions without modifying files",
     )
     ica_parser.add_argument(
+        "--changed",
+        action="store_true",
+        help="Process all rows in the control sheet that would change after applying manual edits",
+    )
+    ica_parser.add_argument(
+        "--report-only",
+        action="store_true",
+        help="Do not process; generate consolidated change report from the control sheet",
+    )
+    ica_parser.add_argument(
+        "--report-after",
+        action="store_true",
+        help="Generate consolidated change report after processing",
+    )
+    ica_parser.add_argument(
+        "--report-out",
+        type=Path,
+        default=None,
+        help="Output base path for consolidated report (JSON/CSV/TXT)",
+    )
+    ica_parser.add_argument(
         "--verbose",
         "-v",
         action="store_true",
-        help="Enable verbose output",
+        default=True,
+        help="Enable verbose output (default: on)",
+    )
+    ica_parser.add_argument(
+        "--no-continue",
+        action="store_true",
+        help="Do not auto-run remaining task stages after applying ICA edits",
     )
     # List tasks command (alias for 'task list')
     list_tasks_parser = subparsers.add_parser(
@@ -1789,43 +1817,129 @@ def cmd_process(args) -> int:
 def cmd_process_ica(args) -> int:
     """Process ICA control sheet updates."""
     try:
-        from autoclean.tools.ica import process_ica_control_sheet
-
-        metadata_dir = (
-            Path(args.metadata_dir)
-            if args.metadata_dir
-            else user_config.config_dir / "metadata"
+        # Updated import path after refactor moving ICA tooling
+        from autoclean.functions.ica.ica_processing import (
+            process_ica_control_sheet,
         )
+        from autoclean.utils.database import set_database_path
+        from autoclean import __version__ as _AC_VERSION
+
+        # Resolve workspace-bound output dir and active task
+        output_dir = getattr(args, "output", None) or user_config.get_default_output_dir()
+        # Ensure database points to this output directory for lookups/updates
+        try:
+            set_database_path(Path(output_dir))
+        except Exception:
+            pass
+        task_name = user_config.get_active_task()
+        if not task_name:
+            message("error", "Active task not set (run 'autocleaneeg-pipeline task set')")
+            return 1
+
+        # Compute derivatives root according to pipeline layout
+        bids_root = Path(output_dir) / task_name / "bids"
+        derivatives_root = bids_root / "derivatives" / f"autoclean-v{_AC_VERSION}"
+        default_metadata_dir = derivatives_root / "metadata"
+
+        # Allow explicit override, else use computed default
+        metadata_dir = Path(args.metadata_dir) if getattr(args, "metadata_dir", None) else default_metadata_dir
+
         control_sheet = metadata_dir / "ica_control_sheet.csv"
         if not control_sheet.exists():
             message("error", f"ICA control sheet not found: {control_sheet}")
+            message("info", "Run a processing pass first to generate the control sheet.")
             return 1
 
-        updated = []
-        with control_sheet.open("r", newline="", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
-                manual_add = row.get("manual_add", "").strip()
-                manual_drop = row.get("manual_drop", "").strip()
-                status = row.get("status", "").strip().lower()
-                if manual_add or manual_drop or status == "pending":
-                    raw_path = Path(row.get("raw_path") or row.get("raw_file") or "")
-                    ica_fif = Path(row.get("ica_fif") or row.get("ica_file") or "")
-                    derivatives_dir = Path(row.get("derivatives_dir") or "")
-                    unprocessed_file = Path(row.get("unprocessed_file") or "")
-                    autoclean_dict = {
-                        "metadata_dir": metadata_dir,
-                        "derivatives_dir": derivatives_dir,
-                        "unprocessed_file": unprocessed_file,
-                    }
-                    process_ica_control_sheet(
-                        raw_path=raw_path,
-                        ica_fif=ica_fif,
-                        autoclean_dict=autoclean_dict,
-                        dry_run=args.dry_run,
-                        verbose=args.verbose,
+        # If batch/report flags are used, route to batch/report handlers
+        if getattr(args, "report_only", False):
+            try:
+                from autoclean.functions.ica.ica_processing import generate_ica_change_report
+                out_base = args.report_out or (metadata_dir / f"ica_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                # Batch report-only covers entire sheet
+                generate_ica_change_report(control_sheet, out_base, dry_run=True)
+                message("success", f"Consolidated report written to: {out_base}.[json|csv|txt]")
+                return 0
+            except Exception as rep_err:  # pylint: disable=broad-except
+                message("error", f"Report-only failed: {rep_err}")
+                return 1
+
+        if getattr(args, "changed", False):
+            try:
+                from autoclean.functions.ica.ica_processing import run_ica_batch_changed
+                out_base = args.report_out or (metadata_dir / f"ica_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+                batch_result = run_ica_batch_changed(
+                    control_sheet=control_sheet,
+                    metadata_dir=metadata_dir,
+                    derivatives_root=derivatives_root,
+                    output_dir=output_dir,
+                    task_name=task_name,
+                    dry_run=args.dry_run,
+                    report_out=out_base,
+                    report_after=getattr(args, "report_after", False),
+                    verbose=getattr(args, "verbose", True),
+                )
+                processed = batch_result.get("processed", 0)
+                skipped = batch_result.get("skipped", 0)
+                failed = batch_result.get("failed", 0)
+                message("success", f"Batch complete: processed={processed} skipped={skipped} failed={failed}")
+                return 0 if failed == 0 else 1
+            except Exception as batch_err:  # pylint: disable=broad-except
+                message("error", f"Batch --changed failed: {batch_err}")
+                return 1
+
+        # Determine target file: prefer --file, else active input from workspace (single-file mode)
+        target_file = getattr(args, "file", None) or user_config.get_active_source()
+        if not target_file or str(target_file).upper() == "NONE":
+            message(
+                "error",
+                "No input file specified for ICA update (set active input or pass --file)",
+            )
+            return 1
+        target_file = Path(target_file)
+        if not target_file.exists():
+            message("error", f"Input file not found: {target_file}")
+            return 1
+
+        autoclean_dict = {
+            "metadata_dir": metadata_dir,
+            "derivatives_dir": derivatives_root,
+            "stage_dir": derivatives_root / "intermediate",
+            "unprocessed_file": target_file,
+            "verbose": bool(getattr(args, "verbose", True)),
+        }
+
+        if args.dry_run:
+            message("info", f"[dry-run] Would apply ICA edits for: {target_file.name}")
+            message("info", f"Metadata: {metadata_dir}")
+            message("info", f"Derivatives: {derivatives_root}")
+            return 0
+
+        # Apply manual edits for the specific file
+        process_ica_control_sheet(autoclean_dict=autoclean_dict)
+        message("success", f"Applied ICA edits for: {target_file.name}")
+        updated = [str(target_file)]
+
+        # Auto-continue pipeline tail unless explicitly disabled
+        try:
+            import csv as _csv
+            with control_sheet.open("r", newline="", encoding="utf-8") as _f:
+                _reader = _csv.DictReader(_f)
+                _row = None
+                for r in _reader:
+                    if (r.get("original_file") or "").strip() == target_file.name:
+                        _row = r
+                        break
+            if _row:
+                post_ica_path = (_row.get("post_ica_path") or "").strip()
+                run_id = (_row.get("run_id") or "").strip()
+                if post_ica_path and not getattr(args, "no_continue", False):
+                    message("info", f"Resuming task from post-ICA: {post_ica_path}")
+                    pipeline = Pipeline(output_dir=output_dir)
+                    pipeline.resume_from_post_ica(
+                        Path(post_ica_path), task_name, run_id=run_id or None, source_file=target_file
                     )
-                    updated.append(str(raw_path))
+        except Exception as _resume_err:
+            message("warning", f"Auto-continue skipped due to error: {_resume_err}")
 
         if updated:
             message("info", f"Updated {len(updated)} file(s) with ICA edits:")
