@@ -1,11 +1,12 @@
 """Mixin for BIDS functions."""
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import mne
 
-from autoclean.utils.bids import step_convert_to_bids
+from autoclean.utils.bids import prepare_existing_bids, step_convert_to_bids
 from autoclean.utils.logging import message
 
 
@@ -61,6 +62,12 @@ class BIDSMixin:
             data = self._get_data_object(self.raw, use_epochs=False)
 
         try:
+            # If the input is already BIDS-formatted, reuse it directly
+            bids_path, derivatives_dir = prepare_existing_bids(
+                Path(unprocessed_file), bids_dir
+            )
+            message("info", "Detected existing BIDS data - skipping conversion")
+        except Exception:
             bids_path, derivatives_dir = step_convert_to_bids(
                 data,
                 output_dir=str(bids_dir),
