@@ -76,10 +76,36 @@ def get_user_context() -> Dict[str, Any]:
     }
 
 
+def _hash_file(file_path: Path, chunk_size: int = 8192) -> str:
+    """Return SHA256 hash of a file without loading it entirely into memory.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the file that should be hashed.
+    chunk_size : int, optional
+        Size of the chunks read from the file, by default 8192 bytes.
+
+    Returns
+    -------
+    str
+        Hex digest of the file's SHA256 hash.
+    """
+
+    hasher = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(chunk_size), b""):
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
 def verify_database_file_integrity(
     db_path: Path, expected_operation: str = None
 ) -> Tuple[bool, str]:
     """Verify database file hasn't been tampered with.
+
+    Uses chunked hashing to avoid loading the entire database file
+    into memory, which helps when working with large datasets.
 
     Parameters
     ----------
@@ -100,10 +126,9 @@ def verify_database_file_integrity(
     if not db_path.exists():
         return False, f"Database file not found: {db_path}"
 
-    # Calculate current database file hash
+    # Calculate current database file hash without loading entire file
     try:
-        with open(db_path, "rb") as f:
-            current_hash = hashlib.sha256(f.read()).hexdigest()
+        current_hash = _hash_file(db_path)
     except Exception as e:
         return False, f"Failed to read database file: {e}"
 
@@ -165,8 +190,7 @@ def update_database_integrity_baseline(db_path: Path) -> bool:
         True if baseline was updated successfully
     """
     try:
-        with open(db_path, "rb") as f:
-            new_hash = hashlib.sha256(f.read()).hexdigest()
+        new_hash = _hash_file(db_path)
 
         integrity_file = db_path.parent / ".db_integrity"
         with open(integrity_file, "w") as f:
