@@ -71,7 +71,7 @@ dependencies = [
     "autoclean-icvision>=0.1.0",
     "autoclean-eeg2source>=0.1.0",
     # GUI dependencies
-    "PyQt5>=5.15.0",
+    "PyQt5>=5.15.11",
     "mne-qt-browser>=0.3.0",
     # "PySide6>=6.5.0",
     "pymupdf>=1.0.0",
