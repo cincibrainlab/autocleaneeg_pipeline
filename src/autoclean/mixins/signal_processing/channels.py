@@ -24,6 +24,7 @@ class ChannelsMixin:
         cleaning_method: Union[str, None] = "interpolate",
         reset_bads: bool = True,
         stage_name: str = "post_bad_channels",
+        export: bool = True,
     ) -> mne.io.Raw:
         """Detect and mark bad channels using various methods.
 
@@ -201,7 +202,8 @@ class ChannelsMixin:
             self._update_metadata("step_clean_bad_channels", metadata)
 
             # Save the result
-            self._save_raw_result(result_raw, stage_name)
+            if export:
+                self._save_raw_result(result_raw, stage_name)
 
             # Update self.raw if we're using it
             self._update_instance_data(data, result_raw)

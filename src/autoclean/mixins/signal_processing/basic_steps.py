@@ -104,6 +104,7 @@ class BasicStepsMixin:
         notch_widths: Optional[Union[float, List[float]]] = None,
         method: Optional[str] = None,
         phase: Optional[str] = None,
+        export: bool = True,
         fir_window: Optional[str] = None,
         verbose: Optional[bool] = None,
     ) -> Union[mne.io.Raw, mne.Epochs]:
@@ -206,7 +207,9 @@ class BasicStepsMixin:
 
         # Pipeline integration with result-based metadata
         self._update_instance_data(data, filtered_data, use_epochs)
-        self._save_raw_result(filtered_data, "post_filter")
+
+        if export:
+            self._save_raw_result(filtered_data, "post_filter")
 
         # Use actual results in metadata
         metadata = {
@@ -232,6 +235,7 @@ class BasicStepsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         target_sfreq: Optional[float] = None,
+        export: bool = True,
         stage_name: str = "post_resample",
         use_epochs: bool = False,
         npad: Optional[str] = None,
@@ -344,7 +348,8 @@ class BasicStepsMixin:
 
         # Pipeline integration with result-based metadata
         self._update_instance_data(data, resampled_data, use_epochs)
-        self._save_raw_result(resampled_data, stage_name)
+        if export:
+            self._save_raw_result(resampled_data, stage_name)
 
         # Use actual results in metadata
         metadata = {
@@ -377,6 +382,7 @@ class BasicStepsMixin:
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         ref_type: str = None,
         use_epochs: bool = False,
+        export: bool = True,
         stage_name: str = "post_rereference",
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Rereference raw or epoched data based on configuration settings.
@@ -446,7 +452,8 @@ class BasicStepsMixin:
 
         # Pipeline integration
         self._update_instance_data(data, rereferenced_data, use_epochs)
-        self._save_raw_result(rereferenced_data, stage_name)
+        if export:
+            self._save_raw_result(rereferenced_data, stage_name)
 
         metadata = {
             "new_ref_type": ref_type,
@@ -459,6 +466,7 @@ class BasicStepsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         stage_name: str = "post_outerlayer",
+        export: bool = True,
         use_epochs: bool = False,
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Drop outer layer channels based on configuration settings.
@@ -509,7 +517,7 @@ class BasicStepsMixin:
         processed_data = data.copy().drop_channels(channels_to_drop)
         message("info", f"Channels dropped: {', '.join(channels_to_drop)}")
 
-        if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
+        if export:
             self._save_raw_result(processed_data, stage_name)
 
         metadata = {
