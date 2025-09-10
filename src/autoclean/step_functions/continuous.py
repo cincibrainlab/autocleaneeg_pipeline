@@ -3,11 +3,12 @@
 # pylint: disable=not-callable
 # pylint: disable=isinstance-second-argument-not-valid-type
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import mne
 
-from autoclean.utils.bids import step_convert_to_bids
+from autoclean.utils.bids import prepare_existing_bids, step_convert_to_bids
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
@@ -43,6 +44,11 @@ def step_create_bids_path(
         line_freq = 60.0  # Default line frequency
 
     try:
+        bids_path, derivatives_dir = prepare_existing_bids(
+            Path(unprocessed_file), bids_dir
+        )
+        message("info", "Detected existing BIDS data - skipping conversion")
+    except Exception:
         bids_path, derivatives_dir = step_convert_to_bids(
             raw,
             output_dir=str(bids_dir),
