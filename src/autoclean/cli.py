@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
 
-import requests
+# import requests - moved to function level (0.347s import overhead)
 from rich.panel import Panel
 from rich.table import Table
 
@@ -34,15 +34,21 @@ from autoclean.utils.config import (
     save_user_config,
 )
 from autoclean.utils.console import get_console
-from autoclean.utils.database import DB_PATH
 from autoclean.utils.logging import message
-from autoclean.utils.task_discovery import (
-    extract_config_from_task,
-    get_task_by_name,
-    get_task_overrides,
-    safe_discover_tasks,
+
+# Import lazy task discovery functions for better performance
+from autoclean.utils.lazy_task_discovery import (
+    extract_config_from_task_lazy as extract_config_from_task,
+    get_task_by_name_lazy as get_task_by_name,
+    safe_discover_tasks_lazy as safe_discover_tasks,
 )
-from autoclean.utils.user_config import user_config
+from autoclean.utils.task_discovery import (
+    get_task_overrides,
+)
+
+# Heavy imports moved to function-level for better startup performance
+# This avoids loading heavy modules until actually needed
+# from autoclean.utils.user_config import user_config - moved to conditional import in main()
 
 # ------------------------------------------------------------
 # CLI Process Logging
@@ -138,6 +144,7 @@ def _log_cli_execution(args: argparse.Namespace) -> None:
     """Log CLI execution to workspace process log with security and error handling."""
     try:
         # Only log if workspace exists to avoid setup errors
+        from autoclean.utils.user_config import user_config
         workspace_dir = user_config.config_dir
         if not workspace_dir.exists():
             return
@@ -195,31 +202,37 @@ def _log_cli_execution(args: argparse.Namespace) -> None:
 # ------------------------------------------------------------
 # Rich help integration
 # ------------------------------------------------------------
-def _print_startup_context(console) -> None:
-    """Print system info, workspace path, and free disk space (shared for header/help)."""
-    try:
-        import platform as _platform
+def _print_startup_context(console, show_system_info: bool = True) -> None:
+    """Print system info, workspace path, and free disk space (shared for header/help).
+    
+    Args:
+        console: Rich console instance
+        show_system_info: If False, skips expensive system info gathering for faster startup
+    """
+    if show_system_info:
+        try:
+            import platform as _platform
 
-        from rich.align import Align
-        from rich.text import Text
+            from rich.align import Align
+            from rich.text import Text
 
-        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        os_name = _platform.system() or "UnknownOS"
-        os_rel = _platform.release() or ""
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+            py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            os_name = _platform.system() or "UnknownOS"
+            os_rel = _platform.release() or ""
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
-        info = Text()
-        info.append("🐍 Python ", style="muted")
-        info.append(py_ver, style="accent")
-        info.append("  •  ", style="muted")
-        info.append("🖥 ", style="muted")
-        info.append(f"{os_name} {os_rel}".strip(), style="accent")
-        info.append("  •  ", style="muted")
-        info.append("🕒 ", style="muted")
-        info.append(now_str, style="accent")
-        console.print(Align.center(info))
-    except Exception:
-        pass
+            info = Text()
+            info.append("🐍 Python ", style="muted")
+            info.append(py_ver, style="accent")
+            info.append("  •  ", style="muted")
+            info.append("🖥 ", style="muted")
+            info.append(f"{os_name} {os_rel}".strip(), style="accent")
+            info.append("  •  ", style="muted")
+            info.append("🕒 ", style="muted")
+            info.append(now_str, style="accent")
+            console.print(Align.center(info))
+        except Exception:
+            pass
 
     # Workspace + disk
     try:
@@ -302,21 +315,23 @@ def _print_startup_context(console) -> None:
         except Exception:
             pass
 
-        # Disk free
-        usage_path = (
-            workspace_dir
-            if workspace_dir.exists()
-            else (
-                workspace_dir.parent if workspace_dir.parent.exists() else Path.home()
+        # Disk free (only if system info is requested)
+        if show_system_info:
+            usage_path = (
+                workspace_dir
+                if workspace_dir.exists()
+                else (
+                    workspace_dir.parent if workspace_dir.parent.exists() else Path.home()
+                )
             )
-        )
-        du = shutil.disk_usage(str(usage_path))
-        free_gb = du.free / (1024**3)
-        free_line = _Text()
-        free_line.append("💾 ", style="muted")
-        free_line.append("Free space ", style="muted")
-        free_line.append(f"{free_gb:.1f} GB", style="accent")
-        console.print(_Align.center(free_line))
+            du = shutil.disk_usage(str(usage_path))
+            free_gb = du.free / (1024**3)
+            free_line = _Text()
+            free_line.append("💾 ", style="muted")
+            free_line.append("Free space ", style="muted")
+            free_line.append(f"{free_gb:.1f} GB", style="accent")
+            console.print(_Align.center(free_line))
+        
         console.print()
     except Exception:
         pass
@@ -1340,7 +1355,8 @@ def _show_process_guard(args) -> bool:
 
         # Try to extract montage information
         try:
-            montage_info = extract_config_from_task(task_name, "montage")
+            from autoclean.utils.lazy_task_discovery import extract_config_from_task_lazy
+            montage_info = extract_config_from_task_lazy(task_name, "montage")
             if montage_info:
                 if isinstance(montage_info, dict) and "value" in montage_info:
                     montage_value = montage_info["value"]
@@ -1536,7 +1552,8 @@ def validate_args(args) -> bool:
             # Try to get input_path from task config as fallback
             task_input_path = None
             if task_name:
-                task_input_path = extract_config_from_task(task_name, "input_path")
+                from autoclean.utils.lazy_task_discovery import extract_config_from_task_lazy
+                task_input_path = extract_config_from_task_lazy(task_name, "input_path")
 
             if task_input_path:
                 input_path = Path(task_input_path)
@@ -1719,7 +1736,8 @@ def cmd_process(args) -> int:
             task_name = args.final_task
 
             # Check if this is a custom task using the new discovery system
-            task_class = get_task_by_name(task_name)
+            from autoclean.utils.lazy_task_discovery import get_task_by_name_lazy
+            task_class = get_task_by_name_lazy(task_name)
             if task_class:
                 # Task found via discovery system
                 message("info", f"Loaded task: {task_name}")
@@ -1850,6 +1868,7 @@ def cmd_list_tasks(args) -> int:
 
         # If --overrides flag is specified, show override information
         if hasattr(args, "overrides") and args.overrides:
+            from autoclean.utils.task_discovery import get_task_overrides
             overrides = get_task_overrides()
 
             if not overrides:
@@ -1907,7 +1926,8 @@ def cmd_list_tasks(args) -> int:
         )
         console.print()
 
-        valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
+        from autoclean.utils.lazy_task_discovery import safe_discover_tasks_lazy
+        valid_tasks, invalid_files, skipped_files = safe_discover_tasks_lazy()
 
         # --- Built-in Tasks ---
         built_in_tasks = [
@@ -3290,9 +3310,9 @@ def cmd_task_edit(args) -> int:
                 from rich.prompt import Confirm as _Confirm
                 from rich.prompt import Prompt as _Prompt
 
-                from autoclean.utils.task_discovery import safe_discover_tasks
+                from autoclean.utils.lazy_task_discovery import safe_discover_tasks_lazy
 
-                tasks, _, _ = safe_discover_tasks()
+                tasks, _, _ = safe_discover_tasks_lazy()
                 match = None
                 for t in tasks:
                     if t.name.lower() == target.lower():
@@ -3602,9 +3622,9 @@ def cmd_task_copy(args) -> int:
         if not source:
             # Interactive selection across built-in and custom tasks
             try:
-                from autoclean.utils.task_discovery import safe_discover_tasks
+                from autoclean.utils.lazy_task_discovery import safe_discover_tasks_lazy
 
-                tasks, _, _ = safe_discover_tasks()
+                tasks, _, _ = safe_discover_tasks_lazy()
                 if not tasks:
                     message("error", "No tasks available to copy")
                     return 1
@@ -3699,9 +3719,9 @@ def cmd_task_copy(args) -> int:
         src_path = _resolve_task_file(source) if isinstance(source, str) else src_path
         if not src_path:
             try:
-                from autoclean.utils.task_discovery import safe_discover_tasks
+                from autoclean.utils.lazy_task_discovery import safe_discover_tasks_lazy
 
-                tasks, _, _ = safe_discover_tasks()
+                tasks, _, _ = safe_discover_tasks_lazy()
                 for t in tasks:
                     if t.name.lower() == str(source).lower():
                         src_path = Path(t.source)
@@ -5727,19 +5747,49 @@ def main(argv: Optional[list] = None) -> int:
     args = parser.parse_args(argv)
 
     # ------------------------------------------------------------------
-    # Log CLI execution for process tracking
+    # Log CLI execution for process tracking (skip for lightweight commands)
     # ------------------------------------------------------------------
-    _log_cli_execution(args)
+    # Only log commands that actually need workspace tracking
+    if not hasattr(args, 'command') or args.command not in {"help", "version"}:
+        _log_cli_execution(args)
 
     # ------------------------------------------------------------------
-    # Always inform the user where the AutoClean workspace is (or will be)
-    # so they can easily locate their configuration and results.  This runs
-    # for *every* CLI invocation, including the bare `autocleaneeg-pipeline` call.
+    # Only import user_config for commands that actually need workspace info
+    # This avoids heavy imports for simple commands like help, version, etc.
     # ------------------------------------------------------------------
-    workspace_dir = user_config.config_dir
+    
+    # Commands categorized by their import requirements
+    
+    # Lightweight commands: No workspace, minimal imports
+    lightweight_commands = {
+        "help", "version", "auth", "login", "logout", "whoami", "auth0-diagnostics"
+    }
+    
+    # Workspace commands: Need config but no task discovery  
+    workspace_commands = {
+        "workspace", "config", "input", "source"
+    }
+    
+    # Processing commands: Need full imports and task discovery
+    processing_commands = {
+        "process", "task", "list-tasks", "review", "view", "clean-task"
+    }
+    
+    if args.command in lightweight_commands:
+        # Skip workspace initialization for lightweight commands
+        workspace_dir = None
+        user_config = None
+    elif args.command in workspace_commands or args.command in processing_commands:
+        # Import user_config for workspace and processing commands
+        from autoclean.utils.user_config import user_config
+        workspace_dir = user_config.config_dir
+    else:
+        # Default case: import user_config for unknown commands
+        from autoclean.utils.user_config import user_config
+        workspace_dir = user_config.config_dir
 
     # For real sub-commands, log the workspace path via the existing logger.
-    if args.command and args.command != "workspace":
+    if args.command and args.command != "workspace" and workspace_dir is not None:
         # Compact branding header for consistency across all commands (except workspace which has its own branding)
         console = get_console(args)
 
@@ -5754,45 +5804,46 @@ def main(argv: Optional[list] = None) -> int:
             )
 
         # Always show active task status for real sub-commands
-        try:
-            current = user_config.get_active_task()
-            if current:
-                console.print(f"[info]Active task:[/info] [accent]{current}[/accent]")
-            else:
-                console.print(
-                    "[warning]Active task not set[/warning] [muted](run 'autocleaneeg-pipeline task set')[/muted]"
-                )
-        except Exception:
-            pass
+        if user_config is not None:
+            try:
+                current = user_config.get_active_task()
+                if current:
+                    console.print(f"[info]Active task:[/info] [accent]{current}[/accent]")
+                else:
+                    console.print(
+                        "[warning]Active task not set[/warning] [muted](run 'autocleaneeg-pipeline task set')[/muted]"
+                    )
+            except Exception:
+                pass
 
-        # Show active input (file vs folder) for real sub-commands
-        try:
-            active_src = user_config.get_active_source()
-            if active_src:
-                p = Path(active_src)
-                if p.exists():
-                    if p.is_file():
-                        console.print(
-                            f"[info]Input file:[/info] [accent]{active_src}[/accent]"
-                        )
-                    elif p.is_dir():
-                        console.print(
-                            f"[info]Input folder:[/info] [accent]{active_src}[/accent]"
-                        )
+            # Show active input (file vs folder) for real sub-commands
+            try:
+                active_src = user_config.get_active_source()
+                if active_src:
+                    p = Path(active_src)
+                    if p.exists():
+                        if p.is_file():
+                            console.print(
+                                f"[info]Input file:[/info] [accent]{active_src}[/accent]"
+                            )
+                        elif p.is_dir():
+                            console.print(
+                                f"[info]Input folder:[/info] [accent]{active_src}[/accent]"
+                            )
+                        else:
+                            console.print(
+                                f"[info]Input:[/info] [accent]{active_src}[/accent]"
+                            )
                     else:
                         console.print(
-                            f"[info]Input:[/info] [accent]{active_src}[/accent]"
+                            f"[warning]Input missing[/warning] [muted]—[/muted] [accent]{active_src}[/accent]"
                         )
                 else:
                     console.print(
-                        f"[warning]Input missing[/warning] [muted]—[/muted] [accent]{active_src}[/accent]"
+                        "[warning]Active input not set[/warning] [muted](run 'autocleaneeg-pipeline input set')[/muted]"
                     )
-            else:
-                console.print(
-                    "[warning]Active input not set[/warning] [muted](run 'autocleaneeg-pipeline input set')[/muted]"
-                )
-        except Exception:
-            pass
+            except Exception:
+                pass
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help

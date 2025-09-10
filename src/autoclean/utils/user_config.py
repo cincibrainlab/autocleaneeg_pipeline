@@ -24,12 +24,9 @@ try:
 except ImportError:
     PSUTIL_AVAILABLE = False
 
-try:
-    import torch
-
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+# PyTorch removed - was importing 1GB+ library just for GPU detection
+# Basic GPU detection via nvidia-smi and system_profiler is sufficient
+TORCH_AVAILABLE = False
 
 try:
     from rich.console import Console
@@ -39,13 +36,38 @@ try:
 except ImportError:
     RICH_AVAILABLE = False
 
-try:
-    import autoclean
-    from autoclean import __version__
+# Autoclean package import removed to break circular dependency
+# Version detection moved to lightweight method to avoid importing entire package
+AUTOCLEAN_AVAILABLE = True  # Assume available since we're inside the package
 
-    AUTOCLEAN_AVAILABLE = True
-except ImportError:
-    AUTOCLEAN_AVAILABLE = False
+def _get_autoclean_version() -> str:
+    """Get AutoClean version without importing the entire package."""
+    try:
+        # Method 1: Try importlib.metadata (Python 3.8+)
+        from importlib.metadata import version
+        return version("autoclean")
+    except ImportError:
+        try:
+            # Method 2: Try pkg_resources (fallback)
+            import pkg_resources
+            return pkg_resources.get_distribution("autoclean").version
+        except Exception:
+            pass
+    except Exception:
+        pass
+    
+    try:
+        # Method 3: Read from __init__.py directly (last resort)
+        import os
+        init_file = os.path.join(os.path.dirname(__file__), "..", "__init__.py")
+        with open(init_file, "r") as f:
+            for line in f:
+                if line.startswith("__version__"):
+                    return line.split("=")[1].strip().strip('"\'')
+    except Exception:
+        pass
+    
+    return "unknown"
 
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
@@ -527,10 +549,7 @@ class UserConfigManager:
             return
 
         # Get AutoClean version
-        if AUTOCLEAN_AVAILABLE:
-            version = __version__
-        else:
-            version = "unknown"
+        version = _get_autoclean_version()
 
         # Create system info table
         info_table = Table(show_header=False, box=None, padding=(0, 2))
@@ -626,29 +645,15 @@ class UserConfigManager:
         ):
             pass
 
-        try:
-            # Try PyTorch GPU detection as fallback
-            if TORCH_AVAILABLE and torch.cuda.is_available():
-                gpu_count = torch.cuda.device_count()
-                if gpu_count == 1:
-                    gpu_name = torch.cuda.get_device_name(0)
-                    return f"✓ CUDA {gpu_name}"
-                else:
-                    return f"✓ {gpu_count}× CUDA GPUs"
-            elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                return "✓ Apple Metal GPU"
-        except ImportError:
-            pass
+        # PyTorch GPU detection removed to eliminate 1GB+ import overhead
+        # nvidia-smi and system_profiler detection above should be sufficient for most use cases
 
         return "None detected"
 
     def _get_system_info_dict(self) -> Dict[str, str]:
         """Get system information as dictionary for table display."""
         # Get AutoClean version
-        if AUTOCLEAN_AVAILABLE:
-            version = __version__
-        else:
-            version = "unknown"
+        version = _get_autoclean_version()
 
         info = {
             "Version": f"AutoClean EEG v{version}",
@@ -916,7 +921,8 @@ class UserConfigManager:
             # Get built-in tasks directory from autoclean package
             if AUTOCLEAN_AVAILABLE:
                 try:
-                    package_dir = Path(autoclean.__file__).parent
+                    # Get package directory without importing autoclean
+                    package_dir = Path(__file__).parent.parent
                     builtin_tasks_dir = package_dir / "tasks"
 
                     if not builtin_tasks_dir.exists():
@@ -1048,7 +1054,8 @@ class UserConfigManager:
             # Try to copy from package
             if AUTOCLEAN_AVAILABLE:
                 try:
-                    package_dir = Path(autoclean.__file__).parent.parent.parent
+                    # Get package directory without importing autoclean
+                    package_dir = Path(__file__).parent.parent.parent.parent
                     source_file = package_dir / "examples" / "basic_usage.py"
 
                     if source_file.exists():
@@ -1105,7 +1112,8 @@ if __name__ == "__main__":
             # Try to copy from package templates
             if AUTOCLEAN_AVAILABLE:
                 try:
-                    package_dir = Path(autoclean.__file__).parent
+                    # Get package directory without importing autoclean
+                    package_dir = Path(__file__).parent.parent
                     source_file = package_dir / "templates" / "custom_task_template.py"
 
                     if source_file.exists():

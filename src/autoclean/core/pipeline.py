@@ -318,9 +318,9 @@ class Pipeline:
             self._validate_file(unprocessed_file)
 
             # Extract dataset_name from task configuration if available
-            from autoclean.utils.task_discovery import extract_config_from_task
+            from autoclean.utils.lazy_task_discovery import extract_config_from_task_lazy
 
-            dataset_name = extract_config_from_task(task, "dataset_name")
+            dataset_name = extract_config_from_task_lazy(task, "dataset_name")
 
             # Prepare directory structure for processing outputs
             (
@@ -660,9 +660,9 @@ class Pipeline:
         """
         # Use input_path from task config if file_path not provided
         if file_path is None:
-            from autoclean.utils.task_discovery import extract_config_from_task
+            from autoclean.utils.lazy_task_discovery import extract_config_from_task_lazy
 
-            task_input_path = extract_config_from_task(task, "input_path")
+            task_input_path = extract_config_from_task_lazy(task, "input_path")
             if task_input_path:
                 file_path = Path(task_input_path)
                 message("info", f"Using input path from task config: {file_path}")
@@ -718,9 +718,9 @@ class Pipeline:
         """
         # Use input_path from task config if directory not provided
         if directory is None:
-            from autoclean.utils.task_discovery import extract_config_from_task
+            from autoclean.utils.lazy_task_discovery import extract_config_from_task_lazy
 
-            task_input_path = extract_config_from_task(task, "input_path")
+            task_input_path = extract_config_from_task_lazy(task, "input_path")
             if task_input_path:
                 directory = Path(task_input_path)
                 message("info", f"Using input path from task config: {directory}")
@@ -821,9 +821,9 @@ class Pipeline:
         """
         # Use input_path from task config if directory_path not provided
         if directory_path is None:
-            from autoclean.utils.task_discovery import extract_config_from_task
+            from autoclean.utils.lazy_task_discovery import extract_config_from_task_lazy
 
-            task_input_path = extract_config_from_task(task, "input_path")
+            task_input_path = extract_config_from_task_lazy(task, "input_path")
             if task_input_path:
                 directory_path = Path(task_input_path)
                 message("info", f"Using input path from task config: {directory_path}")
