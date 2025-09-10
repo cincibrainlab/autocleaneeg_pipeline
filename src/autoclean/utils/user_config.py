@@ -91,7 +91,7 @@ class UserConfigManager:
 
     def _is_workspace_valid(self) -> bool:
         """Check if workspace is properly configured.
-        
+
         Returns True if the workspace has been set up through the configuration wizard
         (indicated by setup.json existing) and has the expected directory structure.
         """
@@ -99,9 +99,9 @@ class UserConfigManager:
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
         return (
-            global_config.exists() and
-            self.config_dir.exists() and 
-            (self.config_dir / "tasks").exists()
+            global_config.exists()
+            and self.config_dir.exists()
+            and (self.config_dir / "tasks").exists()
         )
 
     def get_default_output_dir(self) -> Path:
@@ -156,10 +156,10 @@ class UserConfigManager:
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
-        
+
         if not global_config.exists():
             return None
-            
+
         try:
             with open(global_config, "r", encoding="utf-8") as f:
                 config = json.load(f)
@@ -172,10 +172,10 @@ class UserConfigManager:
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
-        
+
         if not global_config.exists():
             return None
-            
+
         try:
             with open(global_config, "r", encoding="utf-8") as f:
                 config = json.load(f)
@@ -188,26 +188,26 @@ class UserConfigManager:
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
-        
+
         # Load existing config or create new one
         config = {
             "version": "1.0",
             "setup_date": self._current_timestamp(),
         }
-        
+
         if global_config.exists():
             try:
                 with open(global_config, "r", encoding="utf-8") as f:
                     config.update(json.load(f))
             except (json.JSONDecodeError, FileNotFoundError):
                 pass
-        
+
         # Update active task
         if task_name is None:
             config.pop("active_task", None)
         else:
             config["active_task"] = task_name
-        
+
         # Save config
         global_config.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -223,26 +223,26 @@ class UserConfigManager:
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
-        
+
         # Load existing config or create new one
         config = {
             "version": "1.0",
             "setup_date": self._current_timestamp(),
         }
-        
+
         if global_config.exists():
             try:
                 with open(global_config, "r", encoding="utf-8") as f:
                     config.update(json.load(f))
             except (json.JSONDecodeError, FileNotFoundError):
                 pass
-        
+
         # Update active source
         if source_path is None:
             config.pop("active_source", None)
         else:
             config["active_source"] = str(source_path)
-        
+
         # Save config
         global_config.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -256,61 +256,66 @@ class UserConfigManager:
     def select_active_task_interactive(self) -> Optional[str]:
         """Interactive selection of active task from available custom tasks."""
         custom_tasks = self.list_custom_tasks()
-        
+
         if not custom_tasks:
             print("No custom tasks found in workspace.")
-            print("Add tasks to your workspace with: autocleaneeg-pipeline task add <file>")
+            print(
+                "Add tasks to your workspace with: autocleaneeg-pipeline task add <file>"
+            )
             return None
-        
+
         # Try to use rich for better display, fallback to basic if not available
         if RICH_AVAILABLE:
             return self._select_task_rich(custom_tasks)
         else:
             return self._select_task_basic(custom_tasks)
-    
-    def _select_task_rich(self, custom_tasks: Dict[str, Dict[str, Any]]) -> Optional[str]:
+
+    def _select_task_rich(
+        self, custom_tasks: Dict[str, Dict[str, Any]]
+    ) -> Optional[str]:
         """Rich-based interactive task selection."""
-        from rich.console import Console
         from rich.prompt import Prompt
-        from rich.table import Table
-        
+
         console = Console()
-        
+
         console.print("\n[bold]Available Custom Tasks:[/bold]")
-        
+
         # Create table of tasks
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("#", style="dim", width=3)
         table.add_column("Task Name", style="cyan")
         table.add_column("Description", style="green")
         table.add_column("Modified", style="dim")
-        
+
         task_list = list(custom_tasks.items())
         for i, (task_name, task_info) in enumerate(task_list, 1):
             description = task_info.get("description", "No description")
             # Format modified time
             try:
                 from datetime import datetime
+
                 mod_time = datetime.fromtimestamp(task_info["modified_time"])
                 mod_str = mod_time.strftime("%Y-%m-%d %H:%M")
             except (KeyError, ValueError, OSError):
                 mod_str = "Unknown"
-            
+
             table.add_row(str(i), task_name, description, mod_str)
-        
+
         console.print(table)
-        
+
         # Get current active task to show in prompt
         current_active = self.get_active_task()
         current_msg = f" (current: {current_active})" if current_active else ""
-        
-        console.print(f"\nSelect a task by number{current_msg}, or press Enter to cancel:")
-        
+
+        console.print(
+            f"\nSelect a task by number{current_msg}, or press Enter to cancel:"
+        )
+
         try:
             choice = Prompt.ask("Choice", default="", show_default=False)
             if not choice.strip():
                 return None
-                
+
             choice_num = int(choice)
             if 1 <= choice_num <= len(task_list):
                 selected_task = task_list[choice_num - 1][0]
@@ -320,24 +325,28 @@ class UserConfigManager:
                 return None
         except (ValueError, KeyboardInterrupt):
             return None
-    
-    def _select_task_basic(self, custom_tasks: Dict[str, Dict[str, Any]]) -> Optional[str]:
+
+    def _select_task_basic(
+        self, custom_tasks: Dict[str, Dict[str, Any]]
+    ) -> Optional[str]:
         """Basic console-based interactive task selection."""
         print("\nAvailable Custom Tasks:")
-        
+
         task_list = list(custom_tasks.items())
         for i, (task_name, task_info) in enumerate(task_list, 1):
             description = task_info.get("description", "No description")
             print(f"  {i}. {task_name} - {description}")
-        
+
         current_active = self.get_active_task()
         current_msg = f" (current: {current_active})" if current_active else ""
-        
+
         try:
-            choice = input(f"\nSelect a task by number{current_msg}, or press Enter to cancel: ").strip()
+            choice = input(
+                f"\nSelect a task by number{current_msg}, or press Enter to cancel: "
+            ).strip()
             if not choice:
                 return None
-                
+
             choice_num = int(choice)
             if 1 <= choice_num <= len(task_list):
                 selected_task = task_list[choice_num - 1][0]
@@ -378,128 +387,139 @@ class UserConfigManager:
         from rich.console import Console
         from rich.prompt import Prompt
         from rich.table import Table
-        
+
         console = Console()
-        
+
         console.print("\n[bold]Select Active Source:[/bold]")
-        console.print("[muted]Choose how to handle input files for processing[/muted]\n")
-        
+        console.print(
+            "[muted]Choose how to handle input files for processing[/muted]\n"
+        )
+
         # Create options table
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("#", style="dim", width=3)
         table.add_column("Option", style="cyan")
         table.add_column("Description", style="green")
-        
+
         table.add_row("1", "Select File", "Choose a specific EEG file")
-        table.add_row("2", "Select Directory", "Choose a directory containing EEG files")
+        table.add_row(
+            "2", "Select Directory", "Choose a directory containing EEG files"
+        )
         table.add_row("3", "No Default", "Always prompt for input (current behavior)")
-        
+
         current_source = self.get_active_source()
         if current_source:
             table.add_row("4", "Keep Current", f"Keep: {current_source}")
-        
-        console.print(table)
-        
-        try:
-            max_choice = 4 if current_source else 3
-            choice = Prompt.ask("Choice", default="", show_default=False)
-            if not choice.strip():
-                return None
-                
-            choice_num = int(choice)
-            
-            if choice_num == 1:
-                # File selection
-                from rich.prompt import Prompt
-                file_path = Prompt.ask("Enter file path (quotes OK)")
-                file_path = self._strip_wrapping_quotes(file_path)
-                if file_path and Path(file_path).exists():
-                    return str(Path(file_path).resolve())
-                else:
-                    console.print("[red]File not found[/red]")
+
+        while True:
+            console.print(table)
+
+            try:
+                choice = Prompt.ask("Choice", default="", show_default=False)
+                if not choice.strip():
                     return None
-                    
-            elif choice_num == 2:
-                # Directory selection
-                from rich.prompt import Prompt
-                dir_path = Prompt.ask("Enter directory path (quotes OK)") 
-                dir_path = self._strip_wrapping_quotes(dir_path)
-                if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
-                    return str(Path(dir_path).resolve())
+
+                choice_num = int(choice)
+
+                if choice_num == 1:
+                    # File selection
+                    from rich.prompt import Prompt
+
+                    file_path = Prompt.ask("Enter file path (quotes OK)")
+                    file_path = self._strip_wrapping_quotes(file_path)
+                    if file_path and Path(file_path).exists():
+                        return str(Path(file_path).resolve())
+                    else:
+                        console.print("[red]File not found[/red]")
+                        continue
+
+                elif choice_num == 2:
+                    # Directory selection
+                    from rich.prompt import Prompt
+
+                    dir_path = Prompt.ask("Enter directory path (quotes OK)")
+                    dir_path = self._strip_wrapping_quotes(dir_path)
+                    if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
+                        return str(Path(dir_path).resolve())
+                    else:
+                        console.print("[red]Directory not found[/red]")
+                        continue
+
+                elif choice_num == 3:
+                    # No default
+                    return "NONE"
+
+                elif choice_num == 4 and current_source:
+                    # Keep current
+                    return current_source
+
                 else:
-                    console.print("[red]Directory not found[/red]")
-                    return None
-                    
-            elif choice_num == 3:
-                # No default
-                return "NONE"
-                
-            elif choice_num == 4 and current_source:
-                # Keep current
-                return current_source
-                
-            else:
-                console.print("[red]Invalid selection.[/red]")
+                    console.print("[red]Invalid selection.[/red]")
+                    continue
+
+            except (ValueError, KeyboardInterrupt):
                 return None
-                
-        except (ValueError, KeyboardInterrupt):
-            return None
-    
+
     def _select_source_basic(self) -> Optional[str]:
         """Basic console-based interactive source selection."""
-        print("\nSelect Active Source:")
-        print("Choose how to handle input files for processing\n")
-        
-        print("  1. Select File - Choose a specific EEG file")
-        print("  2. Select Directory - Choose a directory containing EEG files") 
-        print("  3. No Default - Always prompt for input (current behavior)")
-        
-        current_source = self.get_active_source()
-        if current_source:
-            print(f"  4. Keep Current - Keep: {current_source}")
-        
-        try:
-            max_choice = 4 if current_source else 3
-            choice = input("\nSelect option (1-{}), or press Enter to cancel: ".format(max_choice)).strip()
-            if not choice:
-                return None
-                
-            choice_num = int(choice)
-            
-            if choice_num == 1:
-                # File selection
-                file_path = input("Enter file path (quotes OK): ").strip()
-                file_path = self._strip_wrapping_quotes(file_path)
-                if file_path and Path(file_path).exists():
-                    return str(Path(file_path).resolve())
-                else:
-                    print("File not found")
+        while True:
+            print("\nSelect Active Source:")
+            print("Choose how to handle input files for processing\n")
+
+            print("  1. Select File - Choose a specific EEG file")
+            print("  2. Select Directory - Choose a directory containing EEG files")
+            print("  3. No Default - Always prompt for input (current behavior)")
+
+            current_source = self.get_active_source()
+            if current_source:
+                print(f"  4. Keep Current - Keep: {current_source}")
+
+            try:
+                max_choice = 4 if current_source else 3
+                choice = input(
+                    "\nSelect option (1-{}), or press Enter to cancel: ".format(
+                        max_choice
+                    )
+                ).strip()
+                if not choice:
                     return None
-                    
-            elif choice_num == 2:
-                # Directory selection
-                dir_path = input("Enter directory path (quotes OK): ").strip()
-                dir_path = self._strip_wrapping_quotes(dir_path)
-                if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
-                    return str(Path(dir_path).resolve())
+
+                choice_num = int(choice)
+
+                if choice_num == 1:
+                    # File selection
+                    file_path = input("Enter file path (quotes OK): ").strip()
+                    file_path = self._strip_wrapping_quotes(file_path)
+                    if file_path and Path(file_path).exists():
+                        return str(Path(file_path).resolve())
+                    else:
+                        print("File not found")
+                        continue
+
+                elif choice_num == 2:
+                    # Directory selection
+                    dir_path = input("Enter directory path (quotes OK): ").strip()
+                    dir_path = self._strip_wrapping_quotes(dir_path)
+                    if dir_path and Path(dir_path).exists() and Path(dir_path).is_dir():
+                        return str(Path(dir_path).resolve())
+                    else:
+                        print("Directory not found")
+                        continue
+
+                elif choice_num == 3:
+                    # No default
+                    return "NONE"
+
+                elif choice_num == 4 and current_source:
+                    # Keep current
+                    return current_source
+
                 else:
-                    print("Directory not found")
-                    return None
-                    
-            elif choice_num == 3:
-                # No default
-                return "NONE"
-                
-            elif choice_num == 4 and current_source:
-                # Keep current  
-                return current_source
-                
-            else:
-                print("Invalid selection.")
+                    print("Invalid selection.")
+                    continue
+
+            except (ValueError, KeyboardInterrupt):
                 return None
-                
-        except (ValueError, KeyboardInterrupt):
-            return None
 
     def _display_system_info(self, console) -> None:
         """Display system information and status."""
@@ -646,9 +666,9 @@ class UserConfigManager:
 
                 memory_gb = memory.total / (1024**3)
                 memory_available_gb = memory.available / (1024**3)
-                info["Memory"] = (
-                    f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available"
-                )
+                info[
+                    "Memory"
+                ] = f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available"
 
                 if cpu_physical and cpu_physical != cpu_count:
                     info["CPU"] = f"{cpu_physical} cores ({cpu_count} threads)"
@@ -771,7 +791,9 @@ class UserConfigManager:
 
         # Get workspace location
         default_dir = Path(platformdirs.user_documents_dir()) / "Autoclean-EEG"
-        chosen_dir = setup_display.workspace_location_prompt(default_dir, current_dir=self.config_dir)
+        chosen_dir = setup_display.workspace_location_prompt(
+            default_dir, current_dir=self.config_dir
+        )
 
         # Save config and create workspace
         self._save_global_config(chosen_dir)
@@ -808,7 +830,7 @@ class UserConfigManager:
             "setup_date": self._current_timestamp(),
             "version": "1.0",
         }
-        
+
         # Preserve active_task if it exists
         if "active_task" in existing_config:
             config["active_task"] = existing_config["active_task"]
@@ -962,7 +984,7 @@ class UserConfigManager:
 #                          BUILT-IN TASK: {source_file.name}
 # =============================================================================
 # This is a built-in task from the AutoClean package.
-# 
+#
 # ✨ CUSTOMIZE THIS FILE:
 # - Copy this file to the parent tasks/ directory to customize it
 # - Rename the file and class to match your experiment
@@ -1057,10 +1079,10 @@ from autoclean import Pipeline
 def main():
     # Create pipeline (uses your workspace output by default)
     pipeline = Pipeline()
-    
+
     # Process a single file
     pipeline.process_file("path/to/your/data.raw", "RestingEyesOpen")
-    
+
     # Process multiple files
     asyncio.run(pipeline.process_directory_async(
         directory_path="path/to/your/data/",
@@ -1112,7 +1134,7 @@ if __name__ == "__main__":
 # =============================================================================
 # This is a template for creating custom EEG preprocessing tasks.
 # Customize the configuration below to match your specific EEG paradigm.
-# 
+#
 # Instructions:
 # 1. Rename this file to match your task (e.g., my_experiment.py)
 # 2. Update the class name below (e.g., MyExperiment)
@@ -1211,7 +1233,7 @@ config = {
 class CustomTask(Task):
     """
     Custom EEG preprocessing task template.
-    
+
     Modify this class to create your own EEG preprocessing pipeline.
     """
 
@@ -1230,31 +1252,31 @@ class CustomTask(Task):
 
         # Store original data for comparison
         self.original_raw = self.raw.copy()
-        
+
         # Create BIDS-compliant paths and filenames
         self.create_bids_path()
-        
+
         # Channel cleaning
         self.clean_bad_channels()
-        
+
         # Re-referencing
         self.rereference_data()
-        
+
         # Artifact detection
         self.annotate_noisy_epochs()
         self.annotate_uncorrelated_epochs()
         self.detect_dense_oscillatory_artifacts()
-        
+
         # ICA processing
         self.run_ica()
         self.classify_ica_components()
-        
+
         # Epoching
         self.create_regular_epochs()
-        
+
         # Outlier detection
         self.detect_outlier_epochs()
-        
+
         # Clean epochs
         self.gfp_clean_epochs()
 
@@ -1265,10 +1287,10 @@ class CustomTask(Task):
         """Generate quality control visualizations and reports."""
         if self.raw is None or self.original_raw is None:
             return
-            
+
         # Plot raw vs cleaned overlay
         self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
-        
+
         # Plot power spectral density topography
         self.step_psd_topo_figure(self.original_raw, self.raw)
 '''
