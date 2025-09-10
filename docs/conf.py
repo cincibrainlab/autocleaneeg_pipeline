@@ -189,7 +189,7 @@ autodoc_mock_imports = [
     "unqlite",
     "loguru",
     "reportlab",
-    "pyqt5",
+    "PySide6",
     "pyvistaqt",
     "tqdm",
     "yaml",

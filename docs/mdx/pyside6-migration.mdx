@@ -1,0 +1,40 @@
+import { Steps, Callout } from 'nextra/components';
+
+# Migrating to PySide6 for Cross-Platform Stability
+
+<Steps>
+
+### 1. Swap GUI Dependency
+
+Replaced the PyQt5 requirement with **PySide6** in `pyproject.toml` so Linux builds no longer compile Qt from source.
+
+### 2. Update Application Imports
+
+`autoclean_review.py` now imports widgets from `PySide6` instead of `PyQt5`, removing the `pyqtRemoveInputHook` call.
+
+### 3. Adjust Documentation Config
+
+Reconfigured `docs/conf.py` to mock `PySide6` during doc builds.
+
+### 4. Test the Installation
+
+```bash
+pip install .[gui]
+pytest
+```
+
+</Steps>
+
+```mermaid
+graph LR
+    A[Previous PyQt5 builds] --> B[Linux wheel missing]
+    B --> C[Build hangs]
+    C --> D[Switch to PySide6]
+    D --> E[Pre-built wheels]
+    E --> F[Smoother cross-platform installs]
+```
+
+<Callout type="info">
+If tests fail because optional dependencies are missing, install them individually before rerunning `pytest`.
+</Callout>
+
