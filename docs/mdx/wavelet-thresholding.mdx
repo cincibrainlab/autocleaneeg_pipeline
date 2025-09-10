@@ -1,0 +1,40 @@
+---
+title: Wavelet Thresholding
+description: Remove transient noise using wavelet-based denoising.
+---
+
+# Wavelet Thresholding
+
+Wavelet thresholding attenuates short, high-amplitude artifacts by decomposing each EEG channel into wavelet coefficients and shrinking the noisy components. This mirrors the approach used in the HAPPE MATLAB pipeline.
+
+<Steps>
+<Step title="Run the function">
+```python
+from autoclean import wavelet_threshold
+cleaned = wavelet_threshold(raw)
+```
+</Step>
+<Step title="Verify the effect">
+1. Plot a channel before and after to see artifact reduction.
+2. Inspect summary statistics like peak-to-peak amplitude.
+</Step>
+<Step title="Concern: Over-smoothing">
+<Note>
+Excessive thresholding can remove neural signal. Adjust the `level` or `wavelet` if you notice over-smoothing.
+</Note>
+</Step>
+</Steps>
+
+## Testing
+
+To test the implementation yourself:
+
+```bash
+pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_basic
+```
+
+This unit test injects a large transient into synthetic data and confirms the function reduces its amplitude.
+
+<Diagram name="Thresholding flow">
+raw signal -> wavelet transform -> soft thresholding -> reconstructed signal
+</Diagram>
