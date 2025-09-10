@@ -1,0 +1,38 @@
+import { Steps, Callout, Mermaid } from 'nextra/components';
+
+# Migrating from PyQt5 to PySide6
+
+<Steps>
+
+### 1. Replace the Qt binding
+
+The `pyproject.toml` dependency list now requires **PySide6** instead of PyQt5 to ensure wheels are available on Linux.
+
+### 2. Update GUI imports
+
+All GUI code under `src/autoclean/tools` imports classes from `PySide6` modules, removing `PyQt5` specific helpers.
+
+### 3. Adjust documentation build
+
+Sphinx mocks `PySide6` during documentation builds to avoid importing GUI libraries on headless systems.
+
+### 4. Verify the upgrade
+
+```bash
+pip install .[gui]
+pytest tests/unit -q
+```
+
+</Steps>
+
+<Mermaid>
+graph TD
+    A[PyQt5] -->|migrate| B[PySide6]
+    B --> C{Cross-platform build}
+    C --> D[Linux]
+    C --> E[macOS]
+</Mermaid>
+
+<Callout>
+PySide6 provides official Qt6 bindings maintained by The Qt Company, reducing build issues on modern Linux distributions.
+</Callout>
