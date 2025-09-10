@@ -20,7 +20,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import requests
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
@@ -1659,9 +1658,7 @@ def validate_args(args) -> bool:
             _simple_header(console)
             _print_startup_context(console)
             try:
-                from rich.align import Align as _Align
                 from rich.table import Table as _Table
-                from rich.text import Text as _Text
 
                 console.print("[header]View EEG[/header]")
                 console.print(
@@ -2479,7 +2476,6 @@ def _simple_header(
 ):
     """Simple, consistent header for setup."""
     from rich.align import Align
-    from rich.panel import Panel
     from rich.text import Text
 
     console.print()
@@ -3289,30 +3285,69 @@ def cmd_task_edit(args) -> int:
         # Resolve task target
         f = _resolve_task_file(target)
         if not f:
-            # Try to resolve by discovered task name (built-in or workspace)
             try:
                 from rich.prompt import Confirm as _Confirm
                 from rich.prompt import Prompt as _Prompt
 
-                from autoclean.utils.task_discovery import safe_discover_tasks
+                from autoclean.utils.task_discovery import _discover_builtin_tasks
 
-                tasks, _, _ = safe_discover_tasks()
-                match = None
-                for t in tasks:
-                    if t.name.lower() == target.lower():
-                        match = t
+                custom_match = None
+                for name, info in user_config.list_custom_tasks().items():
+                    if name.lower() == target.lower():
+                        custom_match = Path(info["file_path"])
                         break
-                if match:
-                    src = Path(match.source)
-                    # If built-in (not in workspace), offer to copy into workspace first
+
+                builtin_match = None
+                builtin_name = None
+                builtin_tasks, _ = _discover_builtin_tasks()
+                for t in builtin_tasks:
+                    if t.name.lower() == target.lower():
+                        builtin_match = Path(t.source)
+                        builtin_name = t.name
+                        break
+
+                src = None
+                match_name = None
+                if custom_match and builtin_match:
+                    try:
+                        choice = _Prompt.ask(
+                            "Custom and built-in tasks found. Choose",
+                            choices=["custom", "builtin"],
+                            default="custom",
+                        )
+                    except Exception:
+                        resp = (
+                            input(
+                                "Custom and built-in tasks found. Open custom or builtin? [c/b] "
+                            )
+                            .strip()
+                            .lower()
+                        )
+                        choice = "builtin" if resp and resp[0] == "b" else "custom"
+                    if choice == "custom":
+                        f = custom_match
+                    else:
+                        src = builtin_match
+                        match_name = builtin_name
+                elif custom_match:
+                    f = custom_match
+                elif builtin_match:
+                    src = builtin_match
+                    match_name = builtin_name
+                else:
+                    message(
+                        "error",
+                        f"Task not found: {target}. Use 'autocleaneeg-pipeline task list' or provide a path.",
+                    )
+                    return 1
+
+                if src:
                     if user_config.tasks_dir not in src.parents:
-                        # Determine destination filename
                         suggested_name = args.name or src.stem
                         if not args.force:
-                            # Ask to confirm copy and allow rename
                             console = get_console()
                             console.print(
-                                f"[muted]Built-in task detected:[/muted] [accent]{match.name}[/accent]"
+                                f"[muted]Built-in task detected:[/muted] [accent]{match_name}[/accent]"
                             )
                             if not _Confirm.ask(
                                 "Copy to your workspace to edit?", default=True
@@ -3339,7 +3374,6 @@ def cmd_task_edit(args) -> int:
                                     message("error", f"Failed to overwrite: {e}")
                                     return 1
                             else:
-                                # Offer choices: open existing, overwrite, rename, cancel
                                 choice = _Prompt.ask(
                                     "File exists. Choose",
                                     choices=["open", "overwrite", "rename", "cancel"],
@@ -3374,7 +3408,7 @@ def cmd_task_edit(args) -> int:
                                             f"Failed to copy as '{dest.name}': {e}",
                                         )
                                         return 1
-                                else:  # cancel
+                                else:
                                     message("info", "Canceled")
                                     return 0
                         else:
@@ -3390,12 +3424,6 @@ def cmd_task_edit(args) -> int:
                                 return 1
                     else:
                         f = src
-                else:
-                    message(
-                        "error",
-                        f"Task not found: {target}. Use 'autocleaneeg-pipeline task list' or provide a path.",
-                    )
-                    return 1
             except ImportError:
                 message(
                     "error",
@@ -3932,7 +3960,7 @@ def cmd_task_set(args) -> int:
         # Set the active task
         if user_config.set_active_task(task_name):
             message("success", f"✓ Active task set to: {task_name}")
-            message("info", f"Now you can use: autocleaneeg-pipeline process <file>")
+            message("info", "Now you can use: autocleaneeg-pipeline process <file>")
             return 0
         else:
             message("error", "Failed to save active task configuration.")
@@ -4355,7 +4383,6 @@ def cmd_report_create(args) -> int:
     from pathlib import Path
 
     from autoclean.reporting.llm_reporting import (
-        RunContext,
         create_reports,
         run_context_from_dict,
     )
@@ -4381,6 +4408,7 @@ def cmd_report_chat(args) -> int:
     from pathlib import Path
 
     from autoclean.reporting.llm_reporting import LLMClient
+
     # Ensure database path is set so we can read the latest run
     try:
         from autoclean.utils.database import set_database_path
@@ -4394,8 +4422,9 @@ def cmd_report_chat(args) -> int:
 
     def _select_run_interactively(records: list[dict]) -> dict | None:
         try:
-            from rich.table import Table as _Table
             from rich.prompt import Prompt as _Prompt
+            from rich.table import Table as _Table
+
             from autoclean.utils.console import get_console as _get_console
         except Exception:
             return None
@@ -4422,7 +4451,11 @@ def cmd_report_chat(args) -> int:
             backup = bool(meta.get("directory_backup"))
             json_sum = meta.get("json_summary") or {}
             outputs = json_sum.get("outputs") or {}
-            outputs_count = len(outputs) if isinstance(outputs, dict) else (len(outputs) if hasattr(outputs, "__len__") else 0)
+            outputs_count = (
+                len(outputs)
+                if isinstance(outputs, dict)
+                else (len(outputs) if hasattr(outputs, "__len__") else 0)
+            )
             basename = Path(r.get("unprocessed_file") or "").name
             rows.append(
                 {
@@ -4480,12 +4513,12 @@ def cmd_report_chat(args) -> int:
 
     def _load_latest_context_json() -> str | None:
         try:
-            from autoclean import __version__ as ac_version
-            from autoclean.reporting.llm_reporting import RunContext
-            from autoclean.utils.database import manage_database_conditionally
             from rich.prompt import Confirm as _Confirm
             from rich.text import Text as _Text
+
+            from autoclean import __version__ as ac_version
             from autoclean.utils.console import get_console as _get_console
+            from autoclean.utils.database import manage_database_conditionally
         except Exception:
             return None
 
@@ -4527,7 +4560,7 @@ def cmd_report_chat(args) -> int:
                 meta = _json.loads(meta)
             except Exception:
                 meta = {}
-        spd = (meta.get("step_prepare_directories") or {})
+        spd = meta.get("step_prepare_directories") or {}
         metadata_dir = Path(spd.get("metadata", ""))
         bids_dir = Path(spd.get("bids", "")) if spd.get("bids") else None
         if not metadata_dir.exists():
@@ -4536,6 +4569,7 @@ def cmd_report_chat(args) -> int:
         # Prefer previously generated LLM context
         try:
             from autoclean.utils.path_resolution import resolve_moved_path
+
             metadata_dir_resolved = resolve_moved_path(metadata_dir)
         except Exception:
             metadata_dir_resolved = metadata_dir
@@ -4549,7 +4583,8 @@ def cmd_report_chat(args) -> int:
 
         # Reconstruct context from per-file processing log + PDF
         try:
-            import csv, ast
+            import ast
+            import csv
 
             input_file = rec.get("unprocessed_file") or ""
             basename = Path(input_file).stem
@@ -4560,7 +4595,11 @@ def cmd_report_chat(args) -> int:
                     bids_dir_resolved = resolve_moved_path(bids_dir)
                 except Exception:
                     bids_dir_resolved = Path(bids_dir)
-                alt = Path(bids_dir_resolved) / "final_files" / f"{basename}_processing_log.csv"
+                alt = (
+                    Path(bids_dir_resolved)
+                    / "final_files"
+                    / f"{basename}_processing_log.csv"
+                )
                 if alt.exists():
                     per_file_csv = alt
             if not per_file_csv.exists():
@@ -4573,7 +4612,9 @@ def cmd_report_chat(args) -> int:
             if not row:
                 return None
 
-            pdf_path = metadata_dir_resolved / (rec.get("report_file") or f"{basename}_autoclean_report.pdf")
+            pdf_path = metadata_dir_resolved / (
+                rec.get("report_file") or f"{basename}_autoclean_report.pdf"
+            )
 
             def _to_float(x):
                 try:
@@ -4596,7 +4637,11 @@ def cmd_report_chat(args) -> int:
                         return [float(y) for y in v]
                     return [float(v)]
                 except Exception:
-                    parts = [p for p in str(x).replace("[", "").replace("]", "").split(",") if p.strip()]
+                    parts = [
+                        p
+                        for p in str(x).replace("[", "").replace("]", "").split(",")
+                        if p.strip()
+                    ]
                     out = []
                     for p in parts:
                         try:
@@ -4638,7 +4683,9 @@ def cmd_report_chat(args) -> int:
                 "mne_version": None,
                 "compliance_user": None,
                 "notes": ([f"flags: {row['flags']}"] if row.get("flags") else []),
-                "figures": {"autoclean_report_pdf": str(pdf_path)} if pdf_path.exists() else {},
+                "figures": (
+                    {"autoclean_report_pdf": str(pdf_path)} if pdf_path.exists() else {}
+                ),
             }
 
             # Epochs
@@ -4685,17 +4732,26 @@ def cmd_report_chat(args) -> int:
             message("info", "Canceled")
             return 0
         if not ctx:
-            message("error", "Could not locate latest run context or reconstruct from outputs. Provide --context-json explicitly.")
+            message(
+                "error",
+                "Could not locate latest run context or reconstruct from outputs. Provide --context-json explicitly.",
+            )
             return 1
     # Graceful guard: require API key for chat
     try:
         import os as _os
+
         api_key = _os.getenv("OPENAI_API_KEY")
     except Exception:
         api_key = None
     if not api_key:
-        message("warning", "OPENAI_API_KEY not set. Chat requires an API key for the LLM.")
-        message("info", "Set the key in your environment, then rerun: export OPENAI_API_KEY=sk-...")
+        message(
+            "warning", "OPENAI_API_KEY not set. Chat requires an API key for the LLM."
+        )
+        message(
+            "info",
+            "Set the key in your environment, then rerun: export OPENAI_API_KEY=sk-...",
+        )
         return 0
 
     llm = LLMClient()
@@ -5650,7 +5706,6 @@ def main(argv: Optional[list] = None) -> int:
                     _simple_header(console)
                     _print_startup_context(console)
                     try:
-                        from rich.panel import Panel
                         from rich.table import Table as _Table
                         from rich.text import Text
 
