@@ -59,6 +59,7 @@ class TestConfigLoading(BaseTestCase):
                                 "method": "infomax",
                                 "n_components": 15,
                                 "random_state": 42,
+                                "temp_highpass_for_ica": 1.0,
                             },
                         },
                         "ICLabel": {
@@ -164,7 +165,7 @@ class TestConfigLoading(BaseTestCase):
                         },
                         "reference_step": {"enabled": False, "value": None},
                         "montage": {"enabled": False, "value": None},
-                        "ICA": {"enabled": False, "value": {"method": "infomax"}},
+                        "ICA": {"enabled": False, "value": {"method": "infomax", "temp_highpass_for_ica": None}},
                         "ICLabel": {
                             "enabled": False,
                             "value": {
