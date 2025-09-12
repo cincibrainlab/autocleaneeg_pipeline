@@ -345,7 +345,7 @@ class RichHelpAction(argparse.Action):
             namespace if isinstance(namespace, argparse.Namespace) else None
         )
         _simple_header(console)
-        _print_startup_context(console)
+        _print_startup_context(console, show_system_info=False)
         console.print(parser.format_help())
         sys.exit(0)
 
@@ -358,7 +358,7 @@ class RootRichHelpAction(argparse.Action):
             namespace if isinstance(namespace, argparse.Namespace) else None
         )
         _simple_header(console)
-        _print_startup_context(console)
+        _print_startup_context(console, show_system_info=False)
 
         topic = (values or "").strip().lower() if isinstance(values, str) else None
         _print_root_help(console, topic)
@@ -1497,7 +1497,7 @@ def validate_args(args) -> bool:
         if not task_name and not args.task_file:
             console = get_console(args)
             _simple_header(console)
-            _print_startup_context(console)
+            _print_startup_context(console, show_system_info=False)
             try:
                 from rich.table import Table as _Table
 
@@ -1584,7 +1584,7 @@ def validate_args(args) -> bool:
                     # No fallback available, show help
                     console = get_console(args)
                     _simple_header(console)
-                    _print_startup_context(console)
+                    _print_startup_context(console, show_system_info=False)
                     try:
                         from rich.table import Table as _Table
 
@@ -1673,7 +1673,7 @@ def validate_args(args) -> bool:
         if not getattr(args, "file", None):
             console = get_console(args)
             _simple_header(console)
-            _print_startup_context(console)
+            _print_startup_context(console, show_system_info=False)
             try:
                 from rich.table import Table as _Table
 
@@ -2103,7 +2103,7 @@ def cmd_workspace(args) -> int:
     if not getattr(args, "workspace_action", None):
         console = get_console(args)
         _simple_header(console)
-        _print_startup_context(console)
+        _print_startup_context(console, show_system_info=False)
         _print_root_help(console, "workspace")
         return 0
 
@@ -3083,7 +3083,7 @@ def cmd_task(args) -> int:
         # Show elegant task help (like '-h task') when no subcommand provided
         console = get_console(args)
         _simple_header(console)
-        _print_startup_context(console)
+        _print_startup_context(console, show_system_info=False)
         _print_root_help(console, "task")
         return 0
     if args.task_action == "add":
@@ -4048,7 +4048,7 @@ def cmd_source(args) -> int:
     if not getattr(args, "source_action", None):
         console = get_console(args)
         _simple_header(console)
-        _print_startup_context(console)
+        _print_startup_context(console, show_system_info=False)
         _print_root_help(console, "source")
         return 0
 
@@ -4069,7 +4069,7 @@ def cmd_input(args) -> int:
     if not getattr(args, "input_action", None):
         console = get_console(args)
         _simple_header(console)
-        _print_startup_context(console)
+        _print_startup_context(console, show_system_info=False)
         _print_root_help(console, "input")
         return 0
 
@@ -5712,7 +5712,7 @@ def main(argv: Optional[list] = None) -> int:
                     # Render elegant unknown command screen
                     console = get_console(None)
                     _simple_header(console)
-                    _print_startup_context(console)
+                    _print_startup_context(console, show_system_info=False)
                     try:
                         from rich.table import Table as _Table
                         from rich.text import Text

@@ -1,0 +1,12 @@
+AutoClean CLI Benchmark Results
+Timestamp: 2025-09-12 09:23:09
+
+Main dashboard (no args): 3.962s
+Root help: 3.718s
+Task command (no subcommand): 3.735s
+Task help: 3.711s
+Workspace command (no subcommand): 3.781s
+Workspace help: 3.760s
+Input command (no subcommand): 3.741s
+Input help: 3.655s
+Unknown command: 3.809s
