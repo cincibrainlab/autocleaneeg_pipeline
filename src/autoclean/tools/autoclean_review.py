@@ -383,15 +383,13 @@ class FileSelector(QWidget):
             item_path = os.path.join(path, item)
             if os.path.isdir(item_path):
                 folder = QTreeWidgetItem(parent, [item])
-                folder.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
+                folder.setIcon(0, self.style().standardIcon(QStyle.SP_DirIcon))
                 self.populateTree(folder, item_path)
         # Files
         for item in os.listdir(path):
             if item.endswith(".set"):
                 file_item = QTreeWidgetItem(parent, [item])
-                file_item.setIcon(
-                    0, self.style().standardIcon(self.style().SP_FileIcon)
-                )
+                file_item.setIcon(0, self.style().standardIcon(QStyle.SP_FileIcon))
                 if item in self.modified_files:
                     file_item.setText(0, f"{item} *")
                     file_item.setForeground(0, Qt.red)

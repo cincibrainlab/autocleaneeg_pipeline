@@ -91,6 +91,7 @@ dependencies = [
     "mkdocstrings-python>=1.16.2",
     # AI dependencies
     "openai>=1.78.1",
+    "fitz>=0.0.1.dev2",
 ]
 
 [project.urls]
