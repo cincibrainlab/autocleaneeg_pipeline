@@ -96,3 +96,19 @@ class TestBasicOperations:
         """Placeholder test - will be implemented with basic ops functions."""
         # This will be replaced with actual tests when basic ops are implemented
         assert True
+
+
+class TestWaveletThreshold:
+    """Test wavelet thresholding function."""
+
+    def test_wavelet_threshold_basic(self):
+        """Wavelet thresholding should reduce artifact amplitude."""
+        from autoclean import wavelet_threshold
+
+        raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=1)
+        raw_artifact = raw.copy()
+        raw_artifact._data[0, 100] += 1.0  # inject transient artifact
+
+        cleaned = wavelet_threshold(raw_artifact)
+
+        assert abs(cleaned.get_data()[0, 100]) < abs(raw_artifact.get_data()[0, 100])
