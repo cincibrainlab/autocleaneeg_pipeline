@@ -14,10 +14,9 @@ import matplotlib.pyplot as plt
 import mne
 import scipy.io as sio
 from dotenv import load_dotenv
-from PyQt5.Qt import *  # noqa: F403
-from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import QAbstractItemModel, QModelIndex, Qt
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
@@ -45,9 +44,9 @@ def check_gui_dependencies():
     """Check if all required GUI dependencies are installed."""
     missing = []
     try:
-        import PyQt5  # noqa: F401
+        import PySide6  # noqa: F401
     except ImportError:
-        missing.append("PyQt5")
+        missing.append("PySide6")
     try:
         import fitz  # noqa: F401
     except ImportError:
@@ -70,7 +69,6 @@ if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
 
 
-pyqtRemoveInputHook()
 
 
 plt.style.use("default")
@@ -385,15 +383,13 @@ class FileSelector(QWidget):
             item_path = os.path.join(path, item)
             if os.path.isdir(item_path):
                 folder = QTreeWidgetItem(parent, [item])
-                folder.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
+                folder.setIcon(0, self.style().standardIcon(QStyle.SP_DirIcon))
                 self.populateTree(folder, item_path)
         # Files
         for item in os.listdir(path):
             if item.endswith(".set"):
                 file_item = QTreeWidgetItem(parent, [item])
-                file_item.setIcon(
-                    0, self.style().standardIcon(self.style().SP_FileIcon)
-                )
+                file_item.setIcon(0, self.style().standardIcon(QStyle.SP_FileIcon))
                 if item in self.modified_files:
                     file_item.setText(0, f"{item} *")
                     file_item.setForeground(0, Qt.red)
