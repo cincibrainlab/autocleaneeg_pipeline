@@ -14,10 +14,9 @@ import matplotlib.pyplot as plt
 import mne
 import scipy.io as sio
 from dotenv import load_dotenv
-from PyQt5.Qt import *  # noqa: F403
-from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
-from PyQt5.QtGui import QImage, QPixmap
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import QAbstractItemModel, QModelIndex, Qt
+from PySide6.QtGui import QImage, QPixmap
+from PySide6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
@@ -45,9 +44,9 @@ def check_gui_dependencies():
     """Check if all required GUI dependencies are installed."""
     missing = []
     try:
-        import PyQt5  # noqa: F401
+        import PySide6  # noqa: F401
     except ImportError:
-        missing.append("PyQt5")
+        missing.append("PySide6")
     try:
         import fitz  # noqa: F401
     except ImportError:
@@ -68,9 +67,6 @@ check_gui_dependencies()
 src_path = Path(__file__).resolve().parent.parent.parent / "src"
 if str(src_path) not in sys.path:
     sys.path.insert(0, str(src_path))
-
-
-pyqtRemoveInputHook()
 
 
 plt.style.use("default")
