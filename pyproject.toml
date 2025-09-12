@@ -68,8 +68,9 @@ dependencies = [
     "requests>=2.25.0",
     "cryptography>=3.4.8",
     "inquirer>=3.1.0",
-    "autoclean-icvision>=0.1.0",
+    "autocleaneeg-icvision>=0.1.0",
     "autoclean-eeg2source>=0.1.0",
+    "autocleaneeg-view",
     # GUI dependencies
     "PyQt5>=5.15.11",
     "mne-qt-browser>=0.3.0",

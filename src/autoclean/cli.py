@@ -2775,12 +2775,12 @@ def _setup_compliance_mode() -> int:
         user_config_data["compliance"]["enabled"] = True
         user_config_data["compliance"]["permanent"] = True  # Cannot be disabled
         user_config_data["compliance"]["auth_provider"] = "auth0"
-        user_config_data["compliance"][
-            "require_electronic_signatures"
-        ] = signature_answer["require_signatures"]
-        user_config_data["workspace"][
-            "auto_backup"
-        ] = True  # Always enabled for compliance
+        user_config_data["compliance"]["require_electronic_signatures"] = (
+            signature_answer["require_signatures"]
+        )
+        user_config_data["workspace"]["auto_backup"] = (
+            True  # Always enabled for compliance
+        )
 
         save_user_config(user_config_data)
 
@@ -4530,7 +4530,7 @@ def cmd_report_chat(args) -> int:
             t.append("Use latest run? ", style="title")
             _c.print(t)
             use_latest = _Confirm.ask(
-                f"Run {latest.get('run_id','')} on {latest.get('created_at','')} (task: {latest.get('task','')})?",
+                f"Run {latest.get('run_id', '')} on {latest.get('created_at', '')} (task: {latest.get('task', '')})?",
                 default=True,
             )
         except Exception:
@@ -4774,6 +4774,7 @@ def cmd_view(args) -> int:
 
     # Build command
     cmd = ["autoclean-view", str(args.file)]
+
     if args.no_view:
         cmd.append("--no-view")
 
@@ -4792,7 +4793,8 @@ def cmd_view(args) -> int:
             return 1
     except FileNotFoundError:
         message(
-            "error", "autoclean-view not installed. Run: pip install autoclean-view"
+            "error",
+            "autocleaneeg-view not installed. Run: uv tool install autocleaneeg-view",
         )
         return 1
     except Exception as e:
