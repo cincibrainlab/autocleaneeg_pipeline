@@ -8,6 +8,7 @@ valid_montages:
   standard_primed: "10-20 with primes"
   biosemi16: "BioSemi 16"
   biosemi32: "BioSemi 32"
+  biosemi32_infant: "BioSemi 32 (Infant)"
   biosemi64: "BioSemi 64"
   biosemi128: "BioSemi 128"
   biosemi160: "BioSemi 160"
