@@ -4598,20 +4598,26 @@ def cmd_report_chat(args) -> int:
             if not basename:
                 basename = Path(input_file).stem
             derivatives_root = metadata_dir_resolved.parent
-            per_file_csv = derivatives_root / f"{basename}_processing_log.csv"
-            if not per_file_csv.exists() and bids_dir:
+            per_file_candidates = []
+            if reports_dir_resolved:
+                per_file_candidates.append(
+                    reports_dir_resolved / "run_reports" / f"{basename}_processing_log.csv"
+                )
+            per_file_candidates.append(derivatives_root / f"{basename}_processing_log.csv")
+
+            if bids_dir:
                 try:
                     bids_dir_resolved = resolve_moved_path(bids_dir)
                 except Exception:
                     bids_dir_resolved = Path(bids_dir)
-                alt = (
+                per_file_candidates.append(
                     Path(bids_dir_resolved)
                     / "final_files"
                     / f"{basename}_processing_log.csv"
                 )
-                if alt.exists():
-                    per_file_csv = alt
-            if not per_file_csv.exists():
+
+            per_file_csv = next((p for p in per_file_candidates if p.exists()), None)
+            if per_file_csv is None:
                 return None
 
             row = None

@@ -44,7 +44,9 @@ def step_prepare_directories(
         stage_dir,
         reports_dir,
         logs_dir,
+        ica_dir,
         final_files_dir,
+        backup_info,
     )
 
     """
@@ -111,6 +113,7 @@ def step_prepare_directories(
         "logs": derivatives_root / "logs",
         "stage": derivatives_root / "intermediate",
         "reports": derivatives_root / "reports",
+        "ica_fif": derivatives_root / "ica_fif",
         "final_files": bids_root / "final_files",  # New dedicated final files directory
     }
 
@@ -141,6 +144,7 @@ def step_prepare_directories(
         dirs["stage"],
         dirs["reports"],
         dirs["logs"],
+        dirs["ica_fif"],
         dirs["final_files"],
         backup_info,
     )
