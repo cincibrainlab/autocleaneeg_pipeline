@@ -4,11 +4,31 @@ This module tests all preprocessing functions including filtering, resampling,
 referencing, and basic channel operations.
 """
 
+import importlib.util
+from pathlib import Path
+
 import numpy as np
 import pytest
+import pywt
 
 # Import test utilities
 from tests.fixtures.synthetic_data import create_synthetic_raw
+
+# Load wavelet module directly to avoid package side effects during testing
+_MODULE_PATH = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "autoclean"
+    / "functions"
+    / "preprocessing"
+    / "wavelet_thresholding.py"
+)
+_SPEC = importlib.util.spec_from_file_location("wavelet_thresholding", _MODULE_PATH)
+wavelet_module = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(wavelet_module)
+
+wavelet_threshold = wavelet_module.wavelet_threshold
+_resolve_decomposition_level = wavelet_module._resolve_decomposition_level
 
 
 class TestFiltering:
@@ -103,7 +123,6 @@ class TestWaveletThreshold:
 
     def test_wavelet_threshold_basic(self):
         """Wavelet thresholding should reduce artifact amplitude."""
-        from autoclean import wavelet_threshold
 
         raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=1)
         raw_artifact = raw.copy()
@@ -112,3 +131,33 @@ class TestWaveletThreshold:
         cleaned = wavelet_threshold(raw_artifact)
 
         assert abs(cleaned.get_data()[0, 100]) < abs(raw_artifact.get_data()[0, 100])
+
+    def test_wavelet_threshold_clamps_level_for_short_segments(self):
+        """Short recordings should clamp the decomposition level safely."""
+
+        raw = create_synthetic_raw(n_channels=2, sfreq=250, duration=0.2)
+        cleaned = wavelet_threshold(raw, level=10)
+
+        assert cleaned.get_data().shape == raw.get_data().shape
+
+        max_level = _resolve_decomposition_level(raw.n_times, "sym4", 10)
+        assert max_level <= 10
+        if max_level == 0:
+            assert np.allclose(cleaned.get_data(), raw.get_data())
+
+    def test_resolve_decomposition_level_matches_pywt(self):
+        """Helper should agree with PyWavelets max level calculation."""
+
+        wavelet = "sym4"
+        wavelet_obj = pywt.Wavelet(wavelet)
+
+        data_len = 100
+        requested = 8
+        expected_max = pywt.dwt_max_level(data_len, wavelet_obj.dec_len)
+        resolved = _resolve_decomposition_level(data_len, wavelet, requested)
+
+        assert resolved == min(requested, expected_max)
+        assert resolved <= requested
+
+        very_short = 5
+        assert _resolve_decomposition_level(very_short, wavelet, 5) == 0
