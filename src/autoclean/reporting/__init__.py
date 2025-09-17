@@ -10,7 +10,10 @@ from .llm_reporting import (
     create_reports,
     render_methods,
 )
-from .wavelet_report import WaveletReportResult, generate_wavelet_report
+from autoclean.functions.preprocessing.wavelet_thresholding import (
+    WaveletReportResult,
+    generate_wavelet_report,
+)
 
 __all__ = [
     "ICAStats",
