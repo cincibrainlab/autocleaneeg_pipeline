@@ -212,10 +212,11 @@ class VisualizationMixin:
         plt.tight_layout()
 
         # Create Artifact Report
-        derivatives_dir = self.config["derivatives_dir"]
         basename = self.config["unprocessed_file"].stem
         basename = f"{basename}_raw_vs_cleaned_overlay"
-        target_figure = derivatives_dir / f"{basename}.png"
+        target_figure = self._resolve_report_path(
+            "raw_vs_cleaned_overlay", f"{basename}.png"
+        )
 
         # Save as PNG with high DPI for quality
         fig.savefig(target_figure, dpi=150, bbox_inches="tight")
@@ -225,10 +226,11 @@ class VisualizationMixin:
             "info", f"Raw channels overlay full duration plot saved to {target_figure}"
         )
 
+        artifact_relpath = self._report_relative_path(Path(target_figure))
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
-                "plot_raw_vs_cleaned_overlay": Path(target_figure).name,
+                "plot_raw_vs_cleaned_overlay": str(artifact_relpath),
             }
         }
 
@@ -535,13 +537,18 @@ class VisualizationMixin:
 
         # Create Artifact Report
         derivatives_path = pipeline.get_derivative_path(self.config["bids_path"])
-
-        # Target file path
-        target_figure = str(
-            derivatives_path.copy().update(
-                suffix="step_bad_channels_topo", extension=".png", datatype="eeg"
+        bids_target = Path(
+            str(
+                derivatives_path.copy().update(
+                    suffix="step_bad_channels_topo",
+                    extension=".png",
+                    datatype="eeg",
+                )
             )
         )
+
+        # Target file path within the reports tree
+        target_figure = self._resolve_report_path("bad_channels", bids_target.name)
 
         # Create a figure to visualize bad channels
         n_bad_channels = len(bad_channels)
@@ -605,10 +612,11 @@ class VisualizationMixin:
 
         message("info", f"Bad channels visualization saved to {target_figure}")
 
+        artifact_relpath = self._report_relative_path(Path(target_figure))
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
-                "bad_channels_visualization": Path(target_figure).name,
+                "bad_channels_visualization": str(artifact_relpath),
                 "bad_channels": bad_channels,
             }
         }
@@ -765,10 +773,9 @@ class VisualizationMixin:
             ]
 
         # Create Artifact Report
-        derivatives_dir = self.config["derivatives_dir"]
         basename = self.config["unprocessed_file"].stem
         basename = f"{basename}_psd_topo_figure"
-        target_figure = derivatives_dir / f"{basename}.png"
+        target_figure = self._resolve_report_path("psd_topo", f"{basename}.png")
 
         # Count number of EEG channels
         channel_types = raw_original.get_channel_types()
@@ -993,10 +1000,11 @@ class VisualizationMixin:
             f"Combined PSD and topographical map figure saved to {target_figure}",
         )
 
+        artifact_relpath = self._report_relative_path(Path(target_figure))
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
-                "plot_psd_topo_figure": Path(target_figure).name,
+                "plot_psd_topo_figure": str(artifact_relpath),
             }
         }
 

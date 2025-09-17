@@ -9,6 +9,7 @@ import json
 import os
 import secrets
 import time
+from functools import wraps
 import webbrowser
 from datetime import datetime, timedelta
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -879,6 +880,7 @@ def require_authentication(func):
             pass
     """
 
+    @wraps(func)
     def wrapper(*args, **kwargs):
         if is_compliance_mode_enabled():
             auth_manager = get_auth0_manager()

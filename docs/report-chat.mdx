@@ -33,7 +33,7 @@ What happens:
 
 1) The CLI finds your latest run in the database
 2) It resolves any backup move recorded for that run
-3) It tries to load `llm_reports/context.json`; if not found, it reconstructs a minimal context from:
+3) It tries to load `reports/llm/<subject>/context.json` (falling back to legacy `metadata/llm_reports/context.json` if needed); if not found, it reconstructs a minimal context from:
    - `*_processing_log.csv` (per-file log) and
    - `*_autoclean_report.pdf` (standard report)
 4) It starts an interactive prompt for your Q&A
@@ -47,7 +47,7 @@ If you answer “No” to using the latest run, you’ll get an interactive run 
 - A completed (or failed) run stored in the database
 - Standard outputs on disk for that run:
   - Per-file processing log CSV (saved under `.../bids/derivatives/autoclean-v<version>/` and also in `bids/final_files/`)
-  - PDF report under `.../bids/derivatives/autoclean-v<version>/metadata/`
+- PDF report under `.../bids/derivatives/autoclean-v<version>/reports/run_reports/`
 - For LLM chat: `OPENAI_API_KEY` (and optionally `OPENAI_BASE_URL` for compatible providers)
   - If the key is missing, the command will print a friendly warning and exit cleanly.
 
@@ -93,7 +93,7 @@ Pick a run by number, or press Enter to cancel gracefully (no errors).
 
 Report Chat answers strictly from a JSON context. It obtains that context in one of two ways:
 
-1) Preferred: Use `llm_reports/context.json` if it exists (created by `report create` or during automatic LLM reporting if enabled)
+1) Preferred: Use `reports/llm/<subject>/context.json` if it exists (created by `report create` or during automatic LLM reporting if enabled)
 
 2) Fallback reconstruction: A minimal, but sufficient context is built from:
    - Per-file `*_processing_log.csv` (always written after runs)

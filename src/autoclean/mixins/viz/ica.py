@@ -170,18 +170,18 @@ class ICAReportingMixin:
         # Adjust layout
         plt.tight_layout()
 
-        derivatives_dir = Path(self.config["derivatives_dir"])
         basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", "_ica_components_full_duration")
-        target_figure = derivatives_dir / basename
+        target_figure = self._resolve_report_path("ica_components", basename)
 
         # Save figure with higher DPI for better resolution of wider plot
         fig.savefig(target_figure, dpi=300, bbox_inches="tight")
 
+        artifact_relpath = self._report_relative_path(Path(target_figure))
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
-                "ica_components_full_duration": Path(target_figure).name,
+                "ica_components_full_duration": str(artifact_relpath),
             }
         }
 
@@ -275,11 +275,9 @@ class ICAReportingMixin:
         n_samples = int(duration * sfreq)
         times = raw.times[:n_samples]
 
-        # Create output path for the PDF report
-        derivatives_dir = Path(self.config["derivatives_dir"])
         basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", report_name)
-        pdf_path = derivatives_dir / basename
+        pdf_path = self._resolve_report_path("ica_components", basename)
         pdf_path = pdf_path.with_suffix(".pdf")
 
         # Remove existing file
@@ -477,7 +475,7 @@ class ICAReportingMixin:
                 plt.close(fig)
 
             print(f"Report saved to {pdf_path}")
-            return Path(pdf_path).name
+            return str(self._report_relative_path(Path(pdf_path)))
 
     def verify_topography_plot(self) -> bool:
         """Use ica topograph to verify MEA channel placement.
@@ -485,8 +483,6 @@ class ICAReportingMixin:
         It is used on mouse files to verify channel placement.
 
         """
-        derivatives_dir = Path(self.config["derivatives_dir"])
-
         ica = ICA(  # pylint: disable=not-callable
             n_components=len(self.raw.ch_names) - len(self.raw.info["bads"]),
             method="fastica",
@@ -498,7 +494,8 @@ class ICAReportingMixin:
             picks=range(len(self.raw.ch_names) - len(self.raw.info["bads"])), show=False
         )
 
-        fig.savefig(derivatives_dir / "ica_topography.png")
+        target_path = self._resolve_report_path("ica_components", "ica_topography.png")
+        fig.savefig(target_path)
 
     def compare_vision_iclabel_classifications(self):
         """Compare ICLabel and Vision API classifications for ICA components.
@@ -688,19 +685,18 @@ class ICAReportingMixin:
         plt.tight_layout()
         fig.subplots_adjust(hspace=0.3)
 
-        # Save the figure
-        derivatives_dir = Path(self.config["derivatives_dir"])
         basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", "_ica_classification_comparison")
-        target_figure = derivatives_dir / basename
+        target_figure = self._resolve_report_path("ica_components", basename)
 
         # Save figure with higher DPI
         fig.savefig(target_figure, dpi=300, bbox_inches="tight")
 
+        artifact_relpath = self._report_relative_path(Path(target_figure))
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
-                "ica_classification_comparison": Path(target_figure).name,
+                "ica_classification_comparison": str(artifact_relpath),
             }
         }
 

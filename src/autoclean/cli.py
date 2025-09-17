@@ -4551,6 +4551,7 @@ def cmd_report_chat(args) -> int:
         spd = meta.get("step_prepare_directories") or {}
         metadata_dir = Path(spd.get("metadata", ""))
         bids_dir = Path(spd.get("bids", "")) if spd.get("bids") else None
+        reports_dir = Path(spd.get("reports", "")) if spd.get("reports") else None
         if not metadata_dir.exists():
             return None
 
@@ -4561,13 +4562,28 @@ def cmd_report_chat(args) -> int:
             metadata_dir_resolved = resolve_moved_path(metadata_dir)
         except Exception:
             metadata_dir_resolved = metadata_dir
+        try:
+            reports_dir_resolved = (
+                resolve_moved_path(reports_dir) if reports_dir else None
+            )
+        except Exception:
+            reports_dir_resolved = reports_dir
 
-        llm_ctx = metadata_dir_resolved / "llm_reports" / "context.json"
-        if llm_ctx.exists():
-            try:
-                return llm_ctx.read_text(encoding="utf-8")
-            except Exception:
-                pass
+        llm_candidates = []
+        basename = Path(rec.get("unprocessed_file") or "").stem
+        if reports_dir_resolved:
+            llm_candidates.append(
+                reports_dir_resolved / "llm" / basename / "context.json"
+            )
+            llm_candidates.append(reports_dir_resolved / "llm" / "context.json")
+        llm_candidates.append(metadata_dir_resolved / "llm_reports" / "context.json")
+
+        for llm_ctx in llm_candidates:
+            if llm_ctx and llm_ctx.exists():
+                try:
+                    return llm_ctx.read_text(encoding="utf-8")
+                except Exception:
+                    continue
 
         # Reconstruct context from per-file processing log + PDF
         try:
@@ -4575,7 +4591,8 @@ def cmd_report_chat(args) -> int:
             import csv
 
             input_file = rec.get("unprocessed_file") or ""
-            basename = Path(input_file).stem
+            if not basename:
+                basename = Path(input_file).stem
             derivatives_root = metadata_dir_resolved.parent
             per_file_csv = derivatives_root / f"{basename}_processing_log.csv"
             if not per_file_csv.exists() and bids_dir:
@@ -4600,9 +4617,16 @@ def cmd_report_chat(args) -> int:
             if not row:
                 return None
 
-            pdf_path = metadata_dir_resolved / (
-                rec.get("report_file") or f"{basename}_autoclean_report.pdf"
-            )
+            pdf_name = rec.get("report_file") or f"{basename}_autoclean_report.pdf"
+            pdf_candidates = []
+            if reports_dir_resolved:
+                pdf_candidates.append(
+                    reports_dir_resolved / "run_reports" / pdf_name
+                )
+                pdf_candidates.append(reports_dir_resolved / pdf_name)
+            pdf_candidates.append(metadata_dir_resolved / pdf_name)
+
+            pdf_path = next((p for p in pdf_candidates if p.exists()), pdf_candidates[-1])
 
             def _to_float(x):
                 try:

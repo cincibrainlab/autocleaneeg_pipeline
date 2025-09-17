@@ -19,6 +19,16 @@ _task_modules = {
     if not name.startswith("_")  # Skip private modules
 }
 
+_pending_dir = _current_dir / "pending_approval"
+if _pending_dir.exists():
+    for finder, name, ispkg in pkgutil.iter_modules([str(_pending_dir)]):
+        if name.startswith("_"):
+            continue
+        module = importlib.import_module(
+            f"{__package__}.pending_approval.{name}"
+        )
+        _task_modules[f"pending_approval.{name}"] = module
+
 # Initialize collections
 __all__: List[str] = []
 task_registry: Dict[str, Type[Task]] = {}

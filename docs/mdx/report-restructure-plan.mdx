@@ -1,0 +1,94 @@
+import { Steps, Callout } from 'nextra/components';
+
+# Report Directory Reorganization Plan
+
+<Callout>
+We will consolidate every visual or textual report produced during a run under a shared `reports/` root inside the AutoClean derivatives directory so reviewers can inspect results without guessing where each file landed.
+</Callout>
+
+## Why this change matters
+
+- **Current scatter:** Quality-control images (for example, PSD topographies) are written directly into the subject-specific derivatives folder referenced by `self.config["derivatives_dir"]`, so the directory fills up with `.png` and `.pdf` artifacts mixed with cleaned EEG derivatives.【F:src/autoclean/mixins/viz/visualization.py†L215-L235】【F:src/autoclean/mixins/viz/ica.py†L173-L188】【F:src/autoclean/mixins/viz/ica.py†L279-L289】
+- **Metadata overload:** Textual reports such as LLM summaries are tucked under `metadata/llm_reports`, which makes the metadata directory do double duty as both configuration storage and report sink.【F:src/autoclean/core/task.py†L326-L497】
+- **No canonical hub:** Directory preparation only provisions `metadata/`, `logs/`, `intermediate/`, and other roots—there is no dedicated place that groups report artifacts the way stage exports live under `intermediate/`.【F:src/autoclean/utils/file_system.py†L95-L135】
+
+## Proposed layout
+
+```text
+bids/
+  derivatives/
+    autoclean-v<ver>/
+      reports/
+        raw_vs_cleaned_overlay/
+          sub-<id>_task-<task>_run-<run>_raw_vs_cleaned_overlay.png
+        psd_topo/
+          sub-<id>_..._psd_topo_figure.png
+        ica_components/
+          sub-<id>_..._ica_components_all.pdf
+        llm/
+          sub-<id>_.../
+            summary.md
+            context.json
+      intermediate/
+        ... (unchanged stage exports)
+      metadata/
+        ... (JSON metadata, control sheets)
+      logs/
+      final_files/
+```
+
+- The `reports/` directory is sibling to `intermediate/` and `metadata/` so the pipeline remains BIDS-derivative compliant.
+- Subfolders are keyed by report type, making it easy to clear or archive a specific visualization family without touching others.
+- Subject basenames remain part of filenames (or nested directories) to avoid collisions when multiple runs generate the same report type.
+
+## Implementation plan
+
+<Steps>
+
+### 1. Provision a reports root during directory setup
+
+Extend `step_prepare_directories` so it creates a `reports` directory next to `metadata` and `intermediate`, and propagate this new path through the pipeline configuration (`run_dict`) and task objects. Update every call site that currently unpacks the directory tuple to handle the additional return value.
+
+### 2. Introduce helper utilities for report paths
+
+Add a mixin or utility function (for example, `_get_report_path(report_key, filename)`) that resolves `reports/<report_key>/` inside the derivatives tree, ensures the subfolder exists, and returns the final path. Centralizing this logic prevents duplicated `Path` arithmetic and eases future reorganizations.
+
+### 3. Migrate visualization outputs
+
+Refactor all report/figure writers that save straight into `self.config["derivatives_dir"]` to instead call the helper with meaningful report keys:
+- `plot_raw_vs_cleaned_overlay` → `reports/raw_vs_cleaned_overlay/`
+- `plot_bad_channels_with_topography` → `reports/bad_channels/`
+- `step_psd_topo_figure` → `reports/psd_topo/`
+- ICA mixin outputs (`plot_ica_components_full_duration`, `_plot_ica_components`) → `reports/ica_components/`
+Ensure metadata updates still record the new relative filenames so downstream consumers remain informed.
+
+### 4. Relocate textual/LLM reports
+
+Change `Task.emit_llm_reports` so the optional `llm_reports` bundle lands in `reports/llm/<subject_basename>/`. Update any consumers that assume the reports live under `metadata/llm_reports`, and keep backward-compatible fallbacks during the transition so existing runs can still be opened.
+
+### 5. Adjust tooling and documentation
+
+Update `autoclean_review` and any other viewers to scan the new `reports/` hierarchy first when listing PNG/PDF artifacts, while preserving legacy discovery for historical runs. Refresh docs (e.g., pipeline output descriptions) so users know where to look, and migrate or augment automated tests that validate report creation paths.
+
+</Steps>
+
+## Verification checklist
+
+1. Run visualization-heavy integration tests (for example, `tests/integration/test_quality_control.py`) and confirm each expected report appears under the new subfolders.
+2. Execute CLI workflows that trigger LLM summaries, ensuring textual reports land under `reports/llm/` and metadata JSON remains unaffected.
+3. Launch `autoclean_review` to verify it discovers figures without manual browsing.
+4. Inspect database metadata entries to ensure recorded filenames match the relocated paths.
+
+## Concerns and mitigations
+
+- **Legacy run compatibility:** Older directories will not have a `reports/` root. To avoid breaking review tools, maintain fallback search paths (existing derivatives directory and `metadata/llm_reports`) until migration scripts can backfill the structure.
+- **Filename collisions:** If two report generators currently share identical basenames, the new layout must either namespace by report key (as proposed) or add subject-level subfolders for safety. Auditing existing filenames before implementation will highlight any hotspots.
+- **Test coverage:** Some tests may assert specific paths; audit and update them alongside the code changes to prevent false negatives.
+
+## Next steps for implementation
+
+- Inventory every `derivatives_dir` write to confirm the list of report generators is complete before coding.
+- Prototype the helper function and update one report writer to validate the approach, then roll out to the remaining generators.
+- Plan a follow-up migration script (optional) to move historical report files into the new layout so review tooling can operate consistently across old runs.
+
+</Steps>

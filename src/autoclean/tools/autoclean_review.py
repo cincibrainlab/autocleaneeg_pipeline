@@ -39,6 +39,7 @@ from PyQt5.QtWidgets import (
 from autoclean.io.export import save_epochs_to_set
 from autoclean.utils.database import get_run_record
 from autoclean.utils.logging import message
+from autoclean.utils.path_resolution import resolve_moved_path
 
 
 def check_gui_dependencies():
@@ -552,8 +553,36 @@ class FileSelector(QWidget):
                     derivatives_dir = original_derivatives_dir
                     print(f"Falling back to original path: {derivatives_dir}")
 
+                reports_dir = None
+                spd_meta = (
+                    self.current_run_record.get("metadata", {}).get(
+                        "step_prepare_directories", {}
+                    )
+                )
+                if isinstance(spd_meta, dict):
+                    reports_candidate = spd_meta.get("reports")
+                    if reports_candidate:
+                        try:
+                            reports_dir = resolve_moved_path(Path(reports_candidate))
+                        except Exception:
+                            reports_dir = Path(reports_candidate)
+                    if (not reports_dir or not reports_dir.exists()) and spd_meta.get(
+                        "metadata"
+                    ):
+                        try:
+                            metadata_candidate = resolve_moved_path(
+                                Path(spd_meta["metadata"])
+                            )
+                        except Exception:
+                            metadata_candidate = Path(spd_meta["metadata"])
+                        fallback_reports = metadata_candidate.parent / "reports"
+                        if fallback_reports.exists():
+                            reports_dir = fallback_reports
+                    if reports_dir and not reports_dir.exists():
+                        reports_dir = None
+
                 def open_derivatives_folder():
-                    folder_path = str(derivatives_dir)
+                    folder_path = str(reports_dir or derivatives_dir)
                     print(f"Attempting to open folder: {folder_path}")
                     if sys.platform == "darwin":  # macOS
                         subprocess.run(["open", folder_path])
@@ -564,20 +593,31 @@ class FileSelector(QWidget):
 
                 open_folder_btn.clicked.connect(open_derivatives_folder)
 
-                # Get all PNG and PDF files in derivatives directory
-                print(f"Searching for image files in: {derivatives_dir}")
+                # Get all PNG and PDF files, preferring the reports directory when available
                 image_files = []
-                if derivatives_dir.exists():
-                    image_files = list(derivatives_dir.glob("*.png")) + list(
-                        derivatives_dir.glob("*.pdf")
+                if reports_dir and reports_dir.exists():
+                    print(
+                        f"Searching for image files in reports directory: {reports_dir}"
+                    )
+                    image_files = sorted(
+                        list(reports_dir.rglob("*.png"))
+                        + list(reports_dir.rglob("*.pdf"))
                     )
                     print(f"Found {len(image_files)} image files")
-                else:
-                    print(
-                        f"Warning: Derivatives directory does not exist: {derivatives_dir}"
-                    )
 
-                # If no image files found in the derivatives directory, try alternative locations
+                if not image_files:
+                    print(f"Searching for image files in: {derivatives_dir}")
+                    if derivatives_dir.exists():
+                        image_files = list(derivatives_dir.glob("*.png")) + list(
+                            derivatives_dir.glob("*.pdf")
+                        )
+                        print(f"Found {len(image_files)} image files")
+                    else:
+                        print(
+                            f"Warning: Derivatives directory does not exist: {derivatives_dir}"
+                        )
+
+                # If no image files found, try alternative locations
                 if not image_files:
                     print(
                         "No image files found in derivatives directory, searching alternative locations..."
