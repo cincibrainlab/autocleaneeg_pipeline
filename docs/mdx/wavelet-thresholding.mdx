@@ -37,6 +37,8 @@ This unit test injects a large transient into synthetic data and confirms the fu
 
 ## PDF Reporting
 
+`wavelet_threshold` and `generate_wavelet_report` now live in the same module. You can drop `src/autoclean/functions/preprocessing/wavelet_thresholding.py` into a lightweight environment and retain both cleaning and reporting.
+
 Use the helper script to create a PDF comparison of pre/post wavelet cleaning:
 
 ```bash
@@ -45,7 +47,13 @@ python scripts/wavelet_report.py /path/to/TD1v2_ica_raw.set \
   --metrics-csv reports/TD1v2_wavelet_metrics.csv
 ```
 
-The report includes summary statistics, a top-channel waveform overlay, and a leaderboard of channels ranked by peak-to-peak reduction. Adjust `--wavelet`, `--level`, or `--picks all` to explore different configurations. The PDF now also charts the average power spectral density pre/post cleaning; pass `--psd-csv` to export band power reductions (delta–gamma) as a CSV.
+The report includes summary statistics, a top-channel waveform overlay, and a leaderboard of channels ranked by peak-to-peak reduction. Adjust `--wavelet`, `--level`, or `--picks all` to explore different configurations. The PDF now also charts the average power spectral density pre/post cleaning; pass `--psd-csv` to export band power reductions (delta–gamma) as a CSV. To call the API directly, import from the unified module:
+
+```python
+from autoclean.functions.preprocessing.wavelet_thresholding import generate_wavelet_report
+
+report = generate_wavelet_report(raw, "reports/example_wavelet.pdf")
+```
 
 <Diagram name="Thresholding flow">
 raw signal -> wavelet transform -> soft thresholding -> reconstructed signal
