@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import io
 from pathlib import Path
-from typing import Dict, Iterable, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, Mapping, Optional, Sequence, Tuple, Union
 
 import matplotlib
 
@@ -82,10 +82,20 @@ def _resolve_decomposition_level(
     return min(level, max_level)
 
 
+def _normalize_threshold_mode(threshold_mode: str) -> str:
+    """Validate and normalise the requested thresholding mode."""
+
+    mode = threshold_mode.lower()
+    if mode not in {"soft", "hard"}:
+        raise ValueError("threshold_mode must be either 'soft' or 'hard'")
+    return mode
+
+
 def _denoise_signal(
     signal: np.ndarray,
     wavelet: str,
     level: int,
+    threshold_mode: str = "soft",
 ) -> np.ndarray:
     """Denoise a 1D signal using wavelet thresholding."""
 
@@ -94,12 +104,16 @@ def _denoise_signal(
     if effective_level == 0:
         return signal_array.copy()
 
+    mode = _normalize_threshold_mode(threshold_mode)
     coeffs = pywt.wavedec(signal_array, wavelet, level=effective_level)
     sigma = np.median(np.abs(coeffs[-1])) / 0.6745 if coeffs[-1].size else 0.0
     uthresh = sigma * np.sqrt(2 * np.log(signal_array.size)) if sigma else 0.0
     coeffs_thresh = [coeffs[0]]
-    for coeff in coeffs[1:]:
-        coeffs_thresh.append(pywt.threshold(coeff, uthresh, mode="soft"))
+    if uthresh == 0.0:
+        coeffs_thresh.extend(coeffs[1:])
+    else:
+        for coeff in coeffs[1:]:
+            coeffs_thresh.append(pywt.threshold(coeff, uthresh, mode=mode))
     denoised = pywt.waverec(coeffs_thresh, wavelet)
     if denoised.shape[0] != signal_array.shape[0]:
         denoised = denoised[: signal_array.shape[0]]
@@ -110,20 +124,85 @@ def wavelet_threshold(
     data: Union[mne.io.BaseRaw, mne.Epochs],
     wavelet: str = "sym4",
     level: int = 5,
+    threshold_mode: str = "soft",
+    is_erp: bool = False,
+    bandpass: Optional[Tuple[float, float]] = (1.0, 30.0),
+    filter_kwargs: Optional[Mapping[str, Any]] = None,
 ) -> Union[mne.io.BaseRaw, mne.Epochs]:
-    """Apply wavelet thresholding to EEG data."""
+    """Apply wavelet thresholding to EEG data.
 
+    Parameters
+    ----------
+    data
+        The MNE Raw or Epochs object to denoise.
+    wavelet
+        Wavelet family passed to :func:`pywt.wavedec`/``waverec``.
+    level
+        Maximum decomposition level. Automatically clamped to a safe value for
+        short recordings.
+    threshold_mode
+        ``"soft"`` (default) shrinks coefficients toward zero. ``"hard"``
+        performs binary keep/discard and mirrors HAPPE's high-artifact mode.
+    is_erp
+        Enable ERP-preserving filtering that matches the MATLAB HAPPE2 logic.
+        When ``True`` the function filters the signal once, estimates
+        artifacts in the filtered space, subtracts them from the unfiltered
+        signal, and finally applies the band-pass filter.
+    bandpass
+        Two-element ``(low, high)`` tuple specifying the ERP band-pass. Ignored
+        when ``is_erp`` is ``False``.
+    filter_kwargs
+        Optional extra keyword arguments forwarded to ``mne``'s ``filter``
+        method during ERP processing.
+    """
+
+    if is_erp:
+        if bandpass is None or len(bandpass) != 2:
+            raise ValueError("ERP mode requires a (low, high) bandpass tuple")
+        l_freq, h_freq = bandpass
+        if l_freq is None or h_freq is None or l_freq >= h_freq:
+            raise ValueError(
+                "Invalid bandpass for ERP mode; provide valid (low, high) frequencies."
+            )
+
+        filter_params = dict(filter_kwargs or {})
+        filtered = data.copy()
+        filtered.filter(l_freq=l_freq, h_freq=h_freq, verbose=False, **filter_params)
+
+        denoised_filtered = wavelet_threshold(
+            filtered,
+            wavelet=wavelet,
+            level=level,
+            threshold_mode=threshold_mode,
+            is_erp=False,
+            bandpass=None,
+        )
+
+        artifact_data = filtered.get_data() - denoised_filtered.get_data()
+
+        cleaned = data.copy()
+        baseline = cleaned.get_data()
+        cleaned._data = baseline - artifact_data
+        cleaned.filter(l_freq=l_freq, h_freq=h_freq, verbose=False, **filter_params)
+        return cleaned
+
+    mode = _normalize_threshold_mode(threshold_mode)
     cleaned = data.copy()
     if isinstance(cleaned, mne.io.BaseRaw):
         arr = cleaned.get_data()
         for idx in range(arr.shape[0]):
-            arr[idx] = _denoise_signal(arr[idx], wavelet, level)
+            arr[idx] = _denoise_signal(arr[idx], wavelet, level, threshold_mode=mode)
         cleaned._data = arr
     elif isinstance(cleaned, mne.Epochs):
         arr = cleaned.get_data()
         for epoch in range(arr.shape[0]):
             for channel in range(arr.shape[1]):
-                arr[epoch, channel] = _denoise_signal(arr[epoch, channel], wavelet, level)
+                arr[epoch, channel] = _denoise_signal(
+                    arr[epoch, channel],
+                    wavelet,
+                    level,
+                    threshold_mode=mode,
+                )
         cleaned._data = arr
     else:
         raise TypeError("data must be mne.io.BaseRaw or mne.Epochs")
@@ -573,6 +652,10 @@ def generate_wavelet_report(
     picks: Union[str, Iterable[str]] = "eeg",
     snippet_duration: float = 5.0,
     top_n_channels: int = 10,
+    threshold_mode: str = "soft",
+    is_erp: bool = False,
+    bandpass: Optional[Tuple[float, float]] = (1.0, 30.0),
+    filter_kwargs: Optional[Mapping[str, Any]] = None,
 ) -> WaveletReportResult:
     """Generate a PDF report comparing pre/post wavelet thresholding."""
 
@@ -586,7 +669,15 @@ def generate_wavelet_report(
         raw_subset.pick(picks)
 
     baseline = raw_subset.get_data()
-    cleaned = wavelet_threshold(raw_subset, wavelet=wavelet, level=level).get_data()
+    cleaned = wavelet_threshold(
+        raw_subset,
+        wavelet=wavelet,
+        level=level,
+        threshold_mode=threshold_mode,
+        is_erp=is_erp,
+        bandpass=bandpass,
+        filter_kwargs=filter_kwargs,
+    ).get_data()
 
     metrics = _compute_channel_metrics(baseline, cleaned, raw_subset.ch_names)
     psd_metrics, freqs, psd_before, psd_after = _compute_psd_metrics(
@@ -611,6 +702,8 @@ def generate_wavelet_report(
         "duration_sec": duration,
         "effective_level": effective_level,
         "requested_level": level,
+        "threshold_mode": threshold_mode.lower(),
+        "erp_mode": bool(is_erp),
         "ptp_mean": float(metrics["ptp_reduction_pct"].mean()),
         "ptp_median": float(metrics["ptp_reduction_pct"].median()),
         "ptp_max": float(metrics["ptp_reduction_pct"].max()),
