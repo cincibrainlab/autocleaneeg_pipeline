@@ -10,6 +10,7 @@ from .llm_reporting import (
     create_reports,
     render_methods,
 )
+from .wavelet_report import WaveletReportResult, generate_wavelet_report
 
 __all__ = [
     "ICAStats",
@@ -20,4 +21,6 @@ __all__ = [
     "LLMClient",
     "render_methods",
     "create_reports",
+    "WaveletReportResult",
+    "generate_wavelet_report",
 ]
