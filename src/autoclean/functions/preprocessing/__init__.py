@@ -20,6 +20,7 @@ from .basic_ops import assign_channel_types, crop_data, drop_channels, trim_edge
 from .filtering import filter_data
 from .referencing import rereference_data
 from .resampling import resample_data
+from .wavelet_thresholding import wavelet_threshold
 
 __all__ = [
     "filter_data",
@@ -29,4 +30,5 @@ __all__ = [
     "crop_data",
     "trim_edges",
     "assign_channel_types",
+    "wavelet_threshold",
 ]
