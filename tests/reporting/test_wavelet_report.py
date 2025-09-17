@@ -2,38 +2,15 @@
 
 from __future__ import annotations
 
-import importlib.util
-import sys
-from pathlib import Path
-
 import numpy as np
-import pytest
 
+from autoclean.functions.preprocessing.wavelet_thresholding import (
+    generate_wavelet_report,
+)
 from tests.fixtures.synthetic_data import create_synthetic_raw
 
 
-@pytest.fixture(scope="module")
-def wavelet_report_module():
-    """Load the wavelet report module without importing autoclean package."""
-
-    module_path = (
-        Path(__file__).resolve().parents[2]
-        / "src"
-        / "autoclean"
-        / "reporting"
-        / "wavelet_report.py"
-    )
-    spec = importlib.util.spec_from_file_location(
-        "autoclean.reporting.wavelet_report_test", module_path
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    assert spec.loader is not None
-    spec.loader.exec_module(module)
-    return module
-
-
-def test_generate_wavelet_report_from_raw(tmp_path, monkeypatch, wavelet_report_module):
+def test_generate_wavelet_report_from_raw(tmp_path, monkeypatch):
     """Generating a report from Raw data produces a PDF and metrics."""
 
     home_dir = tmp_path / "home"
@@ -49,7 +26,7 @@ def test_generate_wavelet_report_from_raw(tmp_path, monkeypatch, wavelet_report_
     raw = create_synthetic_raw(n_channels=4, sfreq=200, duration=2)
 
     output_pdf = tmp_path / "wavelet_report.pdf"
-    result = wavelet_report_module.generate_wavelet_report(
+    result = generate_wavelet_report(
         raw,
         output_pdf,
         snippet_duration=0.5,
