@@ -11,16 +11,31 @@ Wavelet thresholding attenuates short, high-amplitude artifacts by decomposing e
 <Step title="Run the function">
 ```python
 from autoclean import wavelet_threshold
-cleaned = wavelet_threshold(raw)
+cleaned = wavelet_threshold(raw, threshold_mode="soft")
+```
+</Step>
+<Step title="Switch to hard mode">
+<Note>
+`threshold_mode="hard"` mirrors the high-artifact option in HAPPE2. Coefficients above the universal threshold are left untouched so more ERP amplitude is preserved.
+</Note>
+</Step>
+<Step title="Enable ERP-preserving logic">
+```python
+erp_cleaned = wavelet_threshold(
+    raw,
+    is_erp=True,
+    bandpass=(1.0, 30.0),
+)
 ```
 </Step>
 <Step title="Verify the effect">
 1. Plot a channel before and after to see artifact reduction.
 2. Inspect summary statistics like peak-to-peak amplitude.
+3. Compare the ERP waveform amplitude to ensure it has not been double-filtered.
 </Step>
 <Step title="Concern: Over-smoothing">
 <Note>
-Excessive thresholding can remove neural signal. Adjust the `level` or `wavelet` if you notice over-smoothing.
+Excessive thresholding can remove neural signal. Adjust the `level`, `wavelet`, or switch between `soft`/`hard` to balance denoising versus signal preservation.
 </Note>
 </Step>
 </Steps>
@@ -30,10 +45,11 @@ Excessive thresholding can remove neural signal. Adjust the `level` or `wavelet`
 To test the implementation yourself:
 
 ```bash
-pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_basic
+pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_supports_hard_mode
+pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_erp_mode_matches_single_filter_when_clean
 ```
 
-This unit test injects a large transient into synthetic data and confirms the function reduces its amplitude.
+These unit tests exercise the new hard-thresholding branch and the ERP-aware filtering/subtraction workflow.
 
 ## PDF Reporting
 
