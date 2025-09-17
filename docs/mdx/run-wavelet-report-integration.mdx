@@ -1,0 +1,53 @@
+---
+title: Wavelet Report Integration Run Log
+description: How we merged PDF reporting helpers into the wavelet threshold module and verified the behavior end-to-end.
+---
+
+# Wavelet Report Integration Run Log
+
+This run folds the PDF reporting utilities into the same file that implements wavelet thresholding so the tooling can be copied as a single standalone module.
+
+<Steps>
+  <Step title="Why the change?">
+    Keeping `generate_wavelet_report` beside `wavelet_threshold` allows labs to reuse the entire workflow by copying `wavelet_thresholding.py` without hunting down hidden dependencies. It also removes the indirection layer that previously re-imported the preprocessing module at runtime.
+  </Step>
+  <Step title="What changed?">
+    <ul>
+      <li>Merged the report helpers, dataclass container, and constants into <code>src/autoclean/functions/preprocessing/wavelet_thresholding.py</code>.</li>
+      <li>Deleted the legacy <code>autoclean.reporting.wavelet_report</code> module and re-exported the reporting API from <code>autoclean.reporting.__init__</code>.</li>
+      <li>Updated the CLI helper, the unit test fixture, and the MDX guide so they reference the unified module path.</li>
+    </ul>
+  </Step>
+  <Step title="How to verify?">
+    <ol>
+      <li>Run <code>pytest tests/reporting/test_wavelet_report.py</code> to confirm the PDF generator still works on synthetic data.</li>
+      <li>Optionally execute <code>python scripts/wavelet_report.py &lt;input&gt;</code> on a sample dataset; the script now loads the preprocessing module directly.</li>
+      <li>Open <code>docs/mdx/wavelet-thresholding.mdx</code> to see the updated guidance for the unified module.</li>
+    </ol>
+  </Step>
+</Steps>
+
+## File-Level View
+
+<Diagram name="Module relationships after the run">
+wavelet_threshold(raw/epochs)
+  -> uses _denoise_signal() and _resolve_decomposition_level()
+  -> reused by generate_wavelet_report() for before/after comparisons
+scripts/wavelet_report.py -> loads functions/preprocessing/wavelet_thresholding.py
+unit tests -> import the same file to validate PDF output
+</Diagram>
+
+## Concerns & Mitigations
+
+<Note>
+Bringing reporting dependencies (matplotlib, pandas, reportlab) into the preprocessing module means they are imported whenever the module loads. These packages are already declared in <code>pyproject.toml</code>, but if you ship the standalone file you still need them available in that environment.
+</Note>
+
+## Re-run Checklist for New Contributors
+
+1. Check out the repo and ensure dependencies are installed (the reporting stack requires matplotlib, pandas, and reportlab).
+2. Inspect <code>src/autoclean/functions/preprocessing/wavelet_thresholding.py</code> to confirm both the cleaner and report helpers are present.
+3. Execute <code>pytest tests/reporting/test_wavelet_report.py</code> and review the generated PDF under <code>tmp_path</code> if you want to inspect it manually.
+4. (Optional) Generate a real PDF report using the CLI helper and confirm the summary tables render correctly.
+
+By following these steps a novice contributor can replicate this run and gain confidence that the integrated module behaves exactly like the prior split implementation.
