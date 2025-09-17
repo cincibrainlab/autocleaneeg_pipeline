@@ -5,6 +5,7 @@ This module contains functions for converting EEG data to BIDS format.
 """
 import hashlib
 import json
+import shutil
 import traceback
 from contextlib import contextmanager  # Imported for dummy lock
 from pathlib import Path
@@ -12,7 +13,12 @@ from typing import Optional
 
 import pandas as pd
 from mne.io.constants import FIFF
-from mne_bids import BIDSPath, update_sidecar_json, write_raw_bids
+from mne_bids import (
+    BIDSPath,
+    get_entities_from_fname,
+    update_sidecar_json,
+    write_raw_bids,
+)
 
 from autoclean.utils.logging import message
 
@@ -24,6 +30,58 @@ try:
 except ImportError:
     VERSION_AVAILABLE = False
     __version__ = "unknown"
+
+
+def _find_bids_root(file_path: Path) -> Optional[Path]:
+    """Find the BIDS root directory containing ``file_path``."""
+    for parent in file_path.parents:
+        if (parent / "dataset_description.json").exists():
+            return parent
+    return None
+
+
+def prepare_existing_bids(file_path: Path, output_dir: Path) -> tuple[BIDSPath, Path]:
+    """Prepare paths for data already organized in BIDS format.
+
+    Parameters
+    ----------
+    file_path : Path
+        Path to the existing BIDS data file.
+    output_dir : Path
+        Target directory where BIDS data should be copied.
+
+    Returns
+    -------
+    bids_path : BIDSPath
+        BIDS path pointing to the copied file within ``output_dir``.
+    derivatives_dir : Path
+        Path to the derivatives directory inside ``output_dir``.
+    """
+
+    bids_root = _find_bids_root(file_path)
+    if bids_root is None:
+        raise FileNotFoundError("Could not locate BIDS root for existing file")
+
+    relative_parent = file_path.parent.relative_to(bids_root)
+    target_dir = Path(output_dir) / relative_parent
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    for src in file_path.parent.glob(f"{file_path.stem}*"):
+        if src.is_file():
+            shutil.copy2(src, target_dir / src.name)
+
+    entities = get_entities_from_fname(file_path.name)
+    bids_path = BIDSPath(
+        root=Path(output_dir),
+        datatype="eeg",
+        suffix="eeg",
+        extension=file_path.suffix,
+        **entities,
+    )
+
+    derivatives_dir = Path(output_dir) / "derivatives" / f"autoclean-v{__version__}"
+    derivatives_dir.mkdir(parents=True, exist_ok=True)
+    return bids_path, derivatives_dir
 
 
 def step_convert_to_bids(
