@@ -1,0 +1,75 @@
+import { Callout, Steps, Cards } from 'nextra/components';
+
+# Report Output Reorganization — Implementation Notes
+
+<Callout>
+We centralized every generated report under a predictable `reports/` tree, updated helpers so tasks resolve the right paths, and refreshed downstream tools to understand the new layout.
+</Callout>
+
+## What changed
+
+<Cards>
+  <Cards.Card title="Dedicated reports root" icon="📁">
+    `step_prepare_directories` now provisions a sibling `reports/` folder and returns it alongside existing paths so callers can persist the location in metadata and configs.【F:src/autoclean/utils/file_system.py†L21-L146】【F:src/autoclean/core/pipeline.py†L325-L415】
+  </Cards.Card>
+  <Cards.Card title="Mixin helpers" icon="🧰">
+    Base mixins gained `_get_reports_root`, `_resolve_report_path`, and `_report_relative_path` helpers, ensuring every visualization writes into the shared hierarchy and records relative paths for metadata consumers.【F:src/autoclean/mixins/base.py†L380-L438】
+  </Cards.Card>
+  <Cards.Card title="Tooling awareness" icon="🛠️">
+    CLI commands, the review GUI, and run reporting now prefer the new folders but gracefully fall back to legacy locations when working with older runs.【F:src/autoclean/cli.py†L4551-L4629】【F:src/autoclean/tools/autoclean_review.py†L520-L620】【F:src/autoclean/step_functions/reports.py†L120-L200】
+  </Cards.Card>
+</Cards>
+
+## Implementation walkthrough
+
+<Steps>
+
+### 1. Surface the reports directory from setup
+We extended the directory preparation utility to create `derivatives/.../reports`, include it in the returned tuple, and persist the value in run metadata and runtime config. That lets every task know where report artifacts belong without re-computing the path.【F:src/autoclean/utils/file_system.py†L21-L146】【F:src/autoclean/core/pipeline.py†L325-L415】
+
+### 2. Give tasks report-aware helpers
+New helper methods on `BaseMixin` construct and memoize report paths, and calculate derivatives-relative paths for metadata logging. Visualization mixins now rely on these helpers so PNG/PDF names stay consistent while the storage location moves under `reports/<family>/...`.【F:src/autoclean/mixins/base.py†L380-L438】【F:src/autoclean/mixins/viz/visualization.py†L214-L234】【F:src/autoclean/mixins/viz/visualization.py†L540-L624】【F:src/autoclean/mixins/viz/visualization.py†L775-L1013】
+
+### 3. Consolidate ICA artefacts
+ICA reporting functions switched to the same helpers, store PDFs and overlays inside `reports/ica_components`, and emit relative metadata paths so downstream viewers know exactly where to look.【F:src/autoclean/mixins/viz/ica.py†L173-L231】【F:src/autoclean/mixins/viz/ica.py†L270-L418】
+
+### 4. Relocate textual reports and consumers
+`Task.emit_llm_reports` now saves into `reports/llm/<subject>/` and locates the PDF from the new run-report folder. The CLI’s report chat logic and the GUI browser search the `reports/` tree first while keeping backward-compatible fallbacks.【F:src/autoclean/core/task.py†L334-L515】【F:src/autoclean/cli.py†L4551-L4629】【F:src/autoclean/tools/autoclean_review.py†L556-L619】
+
+### 5. Move run PDFs out of metadata
+The run-summary generator writes into `reports/run_reports/`, keeping metadata JSON files separate from rendered reports, and still copies to legacy locations when needed.【F:src/autoclean/step_functions/reports.py†L122-L200】
+
+### 6. Ensure built-in tasks surface in tests
+`autoclean.tasks` now loads task modules from the `pending_approval/` folder so unit tests that look for canonical tasks (`assrdefault`, `chirpdefault`, `rawtoset`) continue to succeed under the reorganized registry.【F:src/autoclean/tasks/__init__.py†L1-L52】
+
+</Steps>
+
+## How to verify locally
+
+<Steps>
+
+### 1. Run unit smoke tests
+Execute the focused unit suites with coverage disabled (the project `pytest.ini` enforces coverage by default). These confirm the pipeline registry and task helpers behave as expected:
+
+```bash
+pytest --override-ini addopts="" tests/unit/core/test_pipeline.py -v
+pytest --override-ini addopts="" tests/unit/core/test_pipeline_python_tasks.py::TestPipelinePythonTasks::test_session_task_registry_initialization -v
+pytest --override-ini addopts="" tests/unit/core/test_task.py::TestTaskConceptual::test_task_design_patterns -v
+```
+All three commands pass after the changes, demonstrating the directory setup, task registry, and decorator fixes are working.【9e3e25†L1-L17】【aa7f02†L1-L5】【108f7a†L1-L4】
+
+### 2. Inspect a fresh run output
+Run a small pipeline invocation (for example on synthetic data) and confirm the output tree includes `reports/` with subfolders such as `llm/`, `psd_topo/`, and `ica_components/`. Figures and LLM context files should now live there instead of cluttering `metadata/` or subject derivative roots.【F:src/autoclean/utils/file_system.py†L107-L145】【F:src/autoclean/mixins/viz/visualization.py†L214-L234】【F:src/autoclean/core/task.py†L501-L514】
+
+### 3. Validate tooling discovery
+Launch `autoclean_review` or `autocleaneeg-pipeline report chat` against the same run. Both tools now search the `reports/` tree before falling back to legacy paths, so the GUI dropdowns and CLI summaries should list the newly relocated PNG/PDF assets automatically.【F:src/autoclean/tools/autoclean_review.py†L556-L619】【F:src/autoclean/cli.py†L4551-L4629】
+
+</Steps>
+
+## Considerations & next steps
+
+- Older runs will keep their historical layout. The CLI and review tool continue to scan the legacy directories to avoid breaking workflows, but you may want a one-time migration script if consistency across archives matters.【F:src/autoclean/cli.py†L4551-L4629】【F:src/autoclean/tools/autoclean_review.py†L556-L619】
+- Report metadata now stores derivatives-relative paths (`reports/...`). Any downstream analytics that assumed bare filenames should use the stored string as-is to build full paths.【F:src/autoclean/mixins/viz/visualization.py†L229-L234】【F:src/autoclean/mixins/viz/ica.py†L180-L185】
+- If you add new report types, extend the helper calls with a unique subfolder name so the hierarchy stays organized. The `BaseMixin` helpers take care of directory creation and metadata-friendly relative paths.【F:src/autoclean/mixins/base.py†L399-L438】
+
+</Steps>

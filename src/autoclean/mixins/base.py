@@ -396,6 +396,47 @@ class BaseMixin:
 
         raise ValueError("Could not determine derivatives path")
 
+    def _get_reports_root(self) -> Path:
+        """Return the root directory for report artifacts, creating it if needed."""
+
+        cfg = getattr(self, "config", {}) or {}
+        reports_dir = cfg.get("reports_dir")
+
+        if reports_dir:
+            root = Path(reports_dir)
+        else:
+            try:
+                root = self._get_derivatives_path() / "reports"
+            except ValueError:
+                metadata_dir = cfg.get("metadata_dir")
+                if metadata_dir:
+                    root = Path(metadata_dir).parent / "reports"
+                else:
+                    raise
+
+        root.mkdir(parents=True, exist_ok=True)
+        return root
+
+    def _resolve_report_path(self, report_key: str, filename: str | None = None) -> Path:
+        """Build an absolute path for a report artifact under the reports root."""
+
+        base_dir = self._get_reports_root()
+        target_dir = base_dir / report_key if report_key else base_dir
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        if filename:
+            return target_dir / filename
+        return target_dir
+
+    def _report_relative_path(self, absolute_path: Path) -> Path:
+        """Return the path to an artifact relative to the derivatives directory."""
+
+        try:
+            derivatives_root = self._get_derivatives_path()
+            return absolute_path.relative_to(derivatives_root)
+        except Exception:
+            return Path(absolute_path.name)
+
     def _save_figure(self, fig: plt.Figure, filename: str, dpi: int = 300) -> str:
         """Save a matplotlib figure to the derivatives directory.
 
