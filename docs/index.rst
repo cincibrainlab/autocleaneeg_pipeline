@@ -123,6 +123,12 @@ Quick Start Examples
 
    development
 
+.. toctree::
+   :maxdepth: 1
+   :caption: Mintlify / MDX
+
+   mintlify.mdx
+
 
 Indices and tables
 ==================

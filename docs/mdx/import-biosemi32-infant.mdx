@@ -1,0 +1,95 @@
+---
+title: BioSemi32 Infant Import (BDF)
+description: How the BioSemi 32‑channel Infant BDF import was added and how to use it.
+---
+
+# BioSemi32 Infant Import (BDF)
+
+This guide shows what changed to support BioSemi 32‑channel infant BDF recordings and how to use it in your tasks. The plugin remaps BioSemi `A1–A32` labels to standard BioSemi32 names, sets non‑EEG channel types (EOG/ECG/EMG/Resp), and applies the `biosemi32` montage.
+
+<Steps>
+  <Step title="Add the EEG plugin">
+    The new plugin lives at `src/autoclean/plugins/eeg_plugins/bdf_biosemi32_infant_plugin.py` and implements `BiosemiBDFInfantPlugin`.
+
+    What it does:
+    - Loads BDF via `mne.io.read_raw_bdf(...)`.
+    - Renames `A1–A32` → standard BioSemi32 names (e.g., `A1 → Fp1`, `A31 → Fz`, `A32 → Cz`).
+    - Sets auxiliary channels to the right types (e.g., `EXG1/EXG2` → `eog`, `EXG3` → `ecg`, `Resp` → `resp`).
+    - Applies the `biosemi32` montage with `raw.set_montage(..., match_case=False)`.
+
+    The plugin advertises support for the combination `(format: BIOSEMI_BDF, montage: biosemi32_infant)` so it’s auto‑registered during plugin discovery.
+  </Step>
+
+  <Step title="Expose the montage in discovery">
+    The import system now includes `biosemi32_infant` in its discovery set so compatible plugins are registered:
+
+    - File: `src/autoclean/io/import_.py`
+    - List: `test_montages = [ ..., "biosemi32_infant", ... ]`
+
+    This allows `get_plugin_for_combination(format_id, montage_name)` to select `BiosemiBDFInfantPlugin` when your config sets `eeg_system: biosemi32_infant` and the file extension is `.bdf`.
+  </Step>
+
+  <Step title="Add the montage to configuration">
+    Ensure your montage list includes an entry for validation:
+
+    - File: `configs/montages.yaml`
+    - Add: `biosemi32_infant: "BioSemi 32 (Infant)"` under `valid_montages:`
+
+    This keeps `validate_eeg_system(...)` happy when tasks reference `biosemi32_infant`.
+  </Step>
+
+  <Step title="Use it in a task (YAML)">
+    In YAML‑based tasks, set the montage value:
+
+    ```yaml
+    tasks:
+      my_infant_task:
+        settings:
+          montage:
+            enabled: true
+            value: biosemi32_infant
+    unprocessed_file: /path/to/recording.bdf
+    ```
+
+    The pipeline will discover `BIOSEMI_BDF` from the `.bdf` extension and select the infant plugin automatically.
+  </Step>
+
+  <Step title="Use it in a task (Python)">
+    For Python tasks, set `eeg_system` in the task config or return dict:
+
+    ```python
+    config = {
+        "unprocessed_file": "/path/to/recording.bdf",
+        "eeg_system": "biosemi32_infant",
+    }
+    ```
+
+    If you don’t run YAML validation, Python tasks can still work directly with the plugin.
+  </Step>
+
+  <Step title="Verify the import">
+    You should see logs like:
+
+    - `Using plugin: BiosemiBDFInfantPlugin`
+    - `Successfully loaded BDF file`
+    - `Electrodes were assigned to the biosemi32 montage`
+
+    In `raw.info`:
+    - EEG channels renamed to standard BioSemi32 names (e.g., `Fp1, AF3, ... Cz`).
+    - Non‑EEG channels have correct types (`eog`, `ecg`, `emg`, `resp`, `misc`).
+  </Step>
+</Steps>
+
+## Notes & Tips
+
+- Channel mapping is defined in `CHANNEL_MAPPING` inside the plugin; adjust if your BioSemi32 infant cap uses a custom layout.
+- Auxiliary channel typing is set via `NON_EEG_TYPES`; extend if your device exports additional channels.
+- The montage applied is `biosemi32` (electrode positions) while the user‑facing system string is `biosemi32_infant` (import behavior + mapping).
+- Troubleshooting: If validation fails, confirm `biosemi32_infant` exists in `configs/montages.yaml` and that your input file is `.bdf`.
+
+## Related Files
+
+- `src/autoclean/plugins/eeg_plugins/bdf_biosemi32_infant_plugin.py`
+- `src/autoclean/io/import_.py`
+- `configs/montages.yaml`
+

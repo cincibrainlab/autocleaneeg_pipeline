@@ -178,6 +178,8 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
             "GSN-HydroCel-124",
             "standard_1020",
             "biosemi64",
+            "biosemi32",
+            "biosemi32_infant",
             "MEA30",
             "BioSemi-256",
             "CustomCap-64",
