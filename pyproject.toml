@@ -87,14 +87,7 @@ dependencies = [
     "qtpy>=2.4.3",
     # OpenGL acceleration
     "PyOpenGL-accelerate",
-    "imageio>=2.34.0",
-    # Documentation dependencies
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocs-git-revision-date-localized-plugin",
-    "mkdocs-glightbox",
-    "mkdocstrings>=0.20.0",
-    "mkdocstrings-python>=1.16.2",
+    # Documentation handled externally; keep Python package lean
     # AI dependencies
     "openai>=1.78.1",
 ]
