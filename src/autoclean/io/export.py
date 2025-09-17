@@ -500,13 +500,19 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
     try:
         derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
+        ica_root = Path(
+            autoclean_dict.get("ica_dir") or derivatives_dir.parent / "ica_fif"
+        )
+        ica_root.mkdir(parents=True, exist_ok=True)
     except Exception as e:  # pylint: disable=broad-exception-caught
         message("error", f"Failed to save ICA to FIF files: {str(e)}")
+        return
 
     components = []
+    ica_path: Optional[Path] = None
 
     if ica is not None:
-        ica_path = derivatives_dir / f"{basename}-ica.fif"
+        ica_path = ica_root / f"{basename}-ica.fif"
         ica.save(ica_path, overwrite=True)
         components.append(ch for ch in ica.exclude)
 
@@ -516,7 +522,8 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
         "save_ica_to_fif": {
             "creationDateTime": datetime.now().isoformat(),
             "components": components,
-            "ica_path": ica_path.name,
+            "ica_directory": str(ica_root),
+            "ica_path": ica_path.name if ica_path else None,
             "pre_ica_path": str(pre_ica_path),
         }
     }

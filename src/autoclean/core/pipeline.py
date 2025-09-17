@@ -331,6 +331,7 @@ class Pipeline:
                 stage_dir,  # Intermediate processing stages
                 reports_dir,  # Centralized report artifacts
                 logs_dir,  # Debug information and logs
+                ica_dir,  # ICA FIF storage directory
                 final_files_dir,  # Final processed files directory
                 backup_info,  # Optional backup move details
             ) = step_prepare_directories(task, self.output_dir, dataset_name)
@@ -375,6 +376,7 @@ class Pipeline:
                             "logs": str(logs_dir),
                             "stage": str(stage_dir),
                             "reports": str(reports_dir),
+                            "ica_fif": str(ica_dir),
                             "final_files": str(final_files_dir),
                         }
                     },
@@ -400,6 +402,7 @@ class Pipeline:
                 "logs_dir": logs_dir,
                 "stage_dir": stage_dir,
                 "reports_dir": reports_dir,
+                "ica_dir": ica_dir,
                 "final_files_dir": final_files_dir,  # New final files directory
                 "config_hash": config_hash,
                 "config_b64": b64_config,
