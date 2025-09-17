@@ -1,0 +1,72 @@
+---
+title: 2025-09-17 – Removed Legacy MkDocs Site
+description: Step-by-step run log explaining how we excised the internal MkDocs site now that documentation is hosted externally.
+---
+
+# What changed?
+
+<Callout type="success" title="Mission">
+We removed the unused MkDocs documentation site so the repository only ships the assets it actually needs. Everything below walks you through the process as if you are seeing the codebase for the first time.
+</Callout>
+
+The repo previously bundled a Mintlify/MkDocs site under `docs/mdx` together with a chat report file. Because the project now publishes documentation elsewhere, these artefacts bloated the source tree and forced end users to install MkDocs-only dependencies. This run:
+
+- Deleted the entire `docs/mdx` directory and the `docs/report-chat.mdx` entry point.
+- Trimmed MkDocs-related packages from `pyproject.toml` so standard installations stay lightweight.
+- Captured everything in this MDX run log so you can audit and reproduce the work later.
+
+# How we did it
+
+<Steps>
+  <Step title="Inspect the repository">
+    Started in `/workspace/autocleaneeg_pipeline` and confirmed there were no scoped `AGENTS.md` guidelines. Listing `docs/` revealed an `mdx` folder and `report-chat.mdx`, signalling the legacy MkDocs site.
+  </Step>
+  <Step title="Remove MkDocs artefacts">
+    Ran `rm -rf docs/mdx docs/report-chat.mdx` to surgically excise the MkDocs content while leaving the Sphinx documentation untouched.
+  </Step>
+  <Step title="Update Python dependencies">
+    Edited `pyproject.toml` to drop the MkDocs packages (`mkdocs`, `mkdocs-material`, `mkdocs-git-revision-date-localized-plugin`, `mkdocs-glightbox`, `mkdocstrings`, `mkdocstrings-python`). Added a note explaining that documentation is now handled externally so newcomers know the change was intentional.
+  </Step>
+  <Step title="Document the run">
+    Created this Mintlify-style MDX file at `docs/maintenance_logs/2025-09-17-remove-mkdocs.mdx` so non-technical teammates can follow every action.
+  </Step>
+</Steps>
+
+# How to verify everything yourself
+
+<Checklist>
+  <ChecklistItem>
+    Run `ls docs` and confirm the `mdx/` directory and `report-chat.mdx` file are gone.
+  </ChecklistItem>
+  <ChecklistItem>
+    Open `pyproject.toml` and make sure the MkDocs dependencies no longer appear under the main dependency list.
+  </ChecklistItem>
+  <ChecklistItem>
+    Execute the automated tests below. At the moment the suite halts during collection with a missing `create_sl_epochs` import; if you observe a different failure, capture it before proceeding.
+  </ChecklistItem>
+</Checklist>
+
+## Test command
+
+```bash
+pytest
+```
+
+<Callout type="warning" title="Current test status">
+Running `pytest` stops during collection because `autoclean.functions.epoching` no longer exposes `create_sl_epochs`. This pre-existing issue is unrelated to the MkDocs removal, but we document it here so you know what to expect. If the failure changes, investigate before shipping.
+</Callout>
+
+# Concerns, observations, and follow-up ideas
+
+<Accordion>
+  <AccordionItem title="Why not keep the MkDocs packages as optional extras?">
+  The new documentation lives entirely outside this repository, so carrying MkDocs dependencies only slows down standard installs. If we ever ship a local doc preview again we can reintroduce them as an optional extra set rather than core requirements.
+  </AccordionItem>
+  <AccordionItem title="Will Sphinx builds break?">
+  No. The Sphinx configuration relies on `.rst` sources inside `docs/` and does not reference the removed `.mdx` files. A future clean-up could add explicit Sphinx dependencies to a docs extras section for clarity.
+  </AccordionItem>
+</Accordion>
+
+<Note>
+All shell commands above were executed from the repository root. When you repeat this run, make sure your working directory matches or adjust relative paths accordingly.
+</Note>
