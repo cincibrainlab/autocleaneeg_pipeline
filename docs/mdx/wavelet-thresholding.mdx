@@ -35,6 +35,18 @@ pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet
 
 This unit test injects a large transient into synthetic data and confirms the function reduces its amplitude.
 
+## PDF Reporting
+
+Use the helper script to create a PDF comparison of pre/post wavelet cleaning:
+
+```bash
+python scripts/wavelet_report.py /path/to/TD1v2_ica_raw.set \
+  --output reports/TD1v2_wavelet_report.pdf \
+  --metrics-csv reports/TD1v2_wavelet_metrics.csv
+```
+
+The report includes summary statistics, a top-channel waveform overlay, and a leaderboard of channels ranked by peak-to-peak reduction. Adjust `--wavelet`, `--level`, or `--picks all` to explore different configurations.
+
 <Diagram name="Thresholding flow">
 raw signal -> wavelet transform -> soft thresholding -> reconstructed signal
 </Diagram>
