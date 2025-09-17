@@ -240,7 +240,7 @@ class Pipeline:
 
         # Initialize SQLite collection for run tracking with audit protection
         # This creates tables if they don't exist and establishes security triggers
-        manage_database_conditionally(operation="create_collection")
+        manage_database(operation="create_collection")
 
         # Pre-initialize plugins to avoid race conditions in async processing
         message("debug", "Pre-initializing plugins for thread safety...")
@@ -298,7 +298,7 @@ class Pipeline:
             }
 
             # Store initial run record and get database ID with audit protection
-            run_record["record_id"] = manage_database_conditionally(
+            run_record["record_id"] = manage_database(
                 operation="store", run_record=run_record
             )
 
@@ -329,6 +329,7 @@ class Pipeline:
                 metadata_dir,  # Processing metadata storage
                 clean_dir,  # Cleaned data output (legacy)
                 stage_dir,  # Intermediate processing stages
+                reports_dir,  # Centralized report artifacts
                 logs_dir,  # Debug information and logs
                 final_files_dir,  # Final processed files directory
                 backup_info,  # Optional backup move details
@@ -338,7 +339,7 @@ class Pipeline:
             if backup_info:
                 backup_info["initiated_by_run_id"] = run_id
                 try:
-                    manage_database_conditionally(
+                    manage_database(
                         operation="update",
                         update_record={
                             "run_id": run_id,
@@ -349,7 +350,7 @@ class Pipeline:
                     message("warning", f"Failed to write backup info to DB metadata: {e}")
                 # Also add an audit/access log entry
                 try:
-                    manage_database_conditionally(
+                    manage_database(
                         operation="add_access_log",
                         run_record={
                             "timestamp": datetime.now().isoformat(),
@@ -362,7 +363,7 @@ class Pipeline:
                     message("warning", f"Failed to add audit log for backup: {e}")
 
             # Update database with directory structure using audit protection
-            manage_database_conditionally(
+            manage_database(
                 operation="update",
                 update_record={
                     "run_id": run_id,
@@ -373,6 +374,7 @@ class Pipeline:
                             "clean": str(clean_dir),
                             "logs": str(logs_dir),
                             "stage": str(stage_dir),
+                            "reports": str(reports_dir),
                             "final_files": str(final_files_dir),
                         }
                     },
@@ -397,6 +399,7 @@ class Pipeline:
                 "clean_dir": clean_dir,  # Legacy compatibility
                 "logs_dir": logs_dir,
                 "stage_dir": stage_dir,
+                "reports_dir": reports_dir,
                 "final_files_dir": final_files_dir,  # New final files directory
                 "config_hash": config_hash,
                 "config_b64": b64_config,
@@ -406,7 +409,7 @@ class Pipeline:
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
             # Record full run configuration using audit protection
-            manage_database_conditionally(
+            manage_database(
                 operation="update",
                 update_record={"run_id": run_id, "metadata": {"entrypoint": run_dict}},
             )
@@ -430,7 +433,7 @@ class Pipeline:
             task_file_info = get_task_file_info(task, task_object)
 
             # Store task file information in database
-            manage_database_conditionally(
+            manage_database(
                 operation="update",
                 update_record={"run_id": run_id, "task_file_info": task_file_info},
             )
@@ -466,7 +469,7 @@ class Pipeline:
             message("success", f"✓ Task {task} completed successfully")
 
             # Set success status FIRST so JSON summary can detect success correctly
-            manage_database_conditionally(
+            manage_database(
                 operation="update",
                 update_record={
                     "run_id": run_record["run_id"],
@@ -524,7 +527,7 @@ class Pipeline:
             if json_summary:
                 update_record["metadata"] = {"json_summary": json_summary}
 
-            manage_database_conditionally(
+            manage_database(
                 operation="update",
                 update_record=update_record,
             )
@@ -558,7 +561,7 @@ class Pipeline:
             if json_summary:
                 update_record["metadata"] = {"json_summary": json_summary}
 
-            manage_database_conditionally(
+            manage_database(
                 operation="update",
                 update_record=update_record,
             )
@@ -1162,3 +1165,5 @@ class Pipeline:
 
         message("success", f"✓ File '{file_path}' found")
         return path
+# Backward compatibility: expose manage_database for test patches
+manage_database = manage_database_conditionally

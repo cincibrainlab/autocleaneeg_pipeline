@@ -335,7 +335,14 @@ class Task(ABC, *DISCOVERED_MIXINS):
         derivatives_root = metadata_dir.parent
         subj_basename = Path(input_file).stem
         per_file_csv = derivatives_root / f"{subj_basename}_processing_log.csv"
-        report_pdf = metadata_dir / f"{subj_basename}_autoclean_report.pdf"
+        reports_root = Path(cfg.get("reports_dir") or (metadata_dir.parent / "reports"))
+        pdf_name = f"{subj_basename}_autoclean_report.pdf"
+        pdf_candidates = [
+            reports_root / "run_reports" / pdf_name,
+            reports_root / pdf_name,
+            metadata_dir / pdf_name,
+        ]
+        report_pdf = next((p for p in pdf_candidates if p.exists()), pdf_candidates[0])
 
         if not per_file_csv.exists():
             # Also check final_files copy as fallback
@@ -492,6 +499,17 @@ class Task(ABC, *DISCOVERED_MIXINS):
         )
 
         # Determine output directory for reports
-        reports_dir = out_dir or (metadata_dir / "llm_reports")
+        if out_dir:
+            reports_dir = Path(out_dir)
+        else:
+            reports_root = cfg.get("reports_dir")
+            if reports_root:
+                reports_root = Path(reports_root)
+            else:
+                reports_root = metadata_dir.parent / "reports"
+            reports_dir = reports_root / "llm" / subj_basename
+
+        reports_dir.mkdir(parents=True, exist_ok=True)
+
         create_reports(context, reports_dir)
         return reports_dir

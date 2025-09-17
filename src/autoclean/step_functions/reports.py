@@ -124,8 +124,11 @@ def create_run_report(
     if not metadata_dir.exists():
         metadata_dir.mkdir(parents=True, exist_ok=True)
 
+    reports_dir = metadata_dir.parent / "reports" / "run_reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
     # Create PDF filename
-    pdf_path = metadata_dir / f"{run_record['report_file']}"
+    pdf_path = reports_dir / f"{run_record['report_file']}"
 
     # Initialize the PDF document
     doc = SimpleDocTemplate(

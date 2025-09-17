@@ -20,7 +20,7 @@ _CACHE_LOCK = threading.Lock()
 
 def step_prepare_directories(
     task: str, autoclean_dir_str: Path, dataset_name: str = None
-) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path | None]:
+) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path, Path | None]:
     """Set up and validate BIDS-compliant directory structure for processing pipeline.
 
     Parameters
@@ -36,7 +36,16 @@ def step_prepare_directories(
     Returns
     -------
     Tuple of Path objects for key directories:
-    (autoclean_dir, bids_dir, metadata_dir, clean_dir, stage_dir, logs_dir, final_files_dir)
+    (
+        autoclean_dir,
+        bids_dir,
+        metadata_dir,
+        clean_dir,
+        stage_dir,
+        reports_dir,
+        logs_dir,
+        final_files_dir,
+    )
 
     """
     # Generate directory name - use dataset_name if provided, otherwise task name
@@ -101,6 +110,7 @@ def step_prepare_directories(
         "clean": derivatives_root,  # Legacy compatibility
         "logs": derivatives_root / "logs",
         "stage": derivatives_root / "intermediate",
+        "reports": derivatives_root / "reports",
         "final_files": bids_root / "final_files",  # New dedicated final files directory
     }
 
@@ -129,6 +139,7 @@ def step_prepare_directories(
         dirs["metadata"],
         dirs["clean"],
         dirs["stage"],
+        dirs["reports"],
         dirs["logs"],
         dirs["final_files"],
         backup_info,
