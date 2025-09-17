@@ -1564,6 +1564,10 @@ def validate_args(args) -> bool:
                         return False
                     message("info", f"Using active input: {input_path}")
                 else:
+                    message(
+                        "error",
+                        "No input file or directory provided. Use --file/--dir or set an active input with 'autocleaneeg-pipeline input set'.",
+                    )
                     # No fallback available, show help
                     console = get_console(args)
                     _simple_header(console)
