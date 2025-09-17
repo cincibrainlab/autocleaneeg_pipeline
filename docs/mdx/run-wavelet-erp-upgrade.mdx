@@ -1,0 +1,44 @@
+---
+title: Wavelet Threshold ERP Upgrade Run
+description: Summary of the hard-threshold and ERP-preserving enhancements.
+---
+
+# Wavelet Threshold ERP Upgrade
+
+<Diagram name="Processing flow">
+raw data -> optional ERP band-pass -> wavelet denoise -> artifact estimate -> subtract from original -> final ERP band-pass
+</Diagram>
+
+<Steps>
+<Step title="What changed">
+1. Added `threshold_mode` so you can switch between the classic soft shrinkage and a MATLAB-style hard threshold.
+2. Introduced `is_erp` and `bandpass` controls that mirror HAPPE2's filter → denoise → subtract → refilter loop.
+3. Expanded the PDF report helper so it tracks the threshold mode and whether ERP logic was enabled.
+</Step>
+<Step title="How we implemented it">
+1. Normalised the threshold mode and forwarded it into `pywt.threshold` for every detail coefficient.
+2. Wrapped the ERP branch in a recursive call: filter a copy, denoise the filtered data, compute artifacts as the difference, subtract from the unfiltered copy, then run a single final filter pass.
+3. Reused the same hooks in `generate_wavelet_report`, ensuring the summary now records the mode (`soft` or `hard`) and ERP flag.
+</Step>
+<Step title="How to verify it yourself">
+<Note>
+All commands run from the project root.
+</Note>
+```bash
+pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_supports_hard_mode
+pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_erp_mode_matches_single_filter_when_clean
+```
+</Step>
+<Step title="What to watch for next">
+<Note>
+If you pass a malformed band-pass tuple while `is_erp=True`, the function raises `ValueError`. This mirrors HAPPE2's expectations and prevents silent misconfigurations.
+</Note>
+</Step>
+</Steps>
+
+<Checklist>
+<li>Soft vs hard modes validated through unit tests.</li>
+<li>ERP mode gracefully handles clean data by collapsing to a single filter pass.</li>
+<li>Documentation updated with new usage patterns.</li>
+</Checklist>
+

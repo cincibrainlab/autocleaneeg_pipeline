@@ -7,7 +7,7 @@ visually appealing user interactions.
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from autoclean.utils.icons import pick_icon
 
@@ -373,23 +373,40 @@ class SetupDisplay(CLIDisplay):
         except Exception:
             pass
 
-        # Build choices
-        choices = []
+        # Build choices with numeric shortcuts
         default_choice = "current" if current_dir is not None else "default"
+        choice_entries: List[Tuple[str, str]] = []
+        idx = 1
         if current_dir is not None:
-            choices.append("current")
-        choices.append("default")
-        choices.append("custom")
+            choice_entries.append(("current", str(idx)))
+            idx += 1
+        choice_entries.append(("default", str(idx)))
+        idx += 1
+        choice_entries.append(("custom", str(idx)))
+
+        choice_aliases: Dict[str, str] = {}
+        prompt_choices: List[str] = []
+        for name, number in choice_entries:
+            prompt_choices.extend([name, number])
+            choice_aliases[name] = name
+            choice_aliases[name.lower()] = name
+            choice_aliases[number] = name
+
+        self.console.print("[muted]Enter the number or name of an option.[/muted]")
 
         # Ask for choice
         try:
-            choice = self.prompt_choice(
+            raw_choice = self.prompt_choice(
                 "Select an option",
-                choices=choices,
+                choices=prompt_choices,
                 default=default_choice,
             )
         except (EOFError, KeyboardInterrupt):
-            choice = default_choice
+            raw_choice = default_choice
+
+        choice = choice_aliases.get(
+            raw_choice.lower(), choice_aliases.get(raw_choice, default_choice)
+        )
 
         if choice == "current" and current_dir is not None:
             chosen_dir = current_dir

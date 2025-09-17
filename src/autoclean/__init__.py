@@ -47,6 +47,10 @@ def __getattr__(name):
         from .functions.preprocessing import assign_channel_types
 
         return assign_channel_types
+    elif name == "wavelet_threshold":
+        from .functions.preprocessing import wavelet_threshold
+
+        return wavelet_threshold
 
     # Epoching functions
     elif name == "create_regular_epochs":
@@ -138,6 +142,7 @@ __all__ = [
     "crop_data",
     "trim_edges",
     "assign_channel_types",
+    "wavelet_threshold",
     # Epoching functions
     "create_regular_epochs",
     "create_eventid_epochs",

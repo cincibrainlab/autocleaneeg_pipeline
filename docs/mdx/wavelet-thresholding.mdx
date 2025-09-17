@@ -1,0 +1,76 @@
+---
+title: Wavelet Thresholding
+description: Remove transient noise using wavelet-based denoising.
+---
+
+# Wavelet Thresholding
+
+Wavelet thresholding attenuates short, high-amplitude artifacts by decomposing each EEG channel into wavelet coefficients and shrinking the noisy components. This mirrors the approach used in the HAPPE MATLAB pipeline.
+
+<Steps>
+<Step title="Run the function">
+```python
+from autoclean import wavelet_threshold
+cleaned = wavelet_threshold(raw, threshold_mode="soft")
+```
+</Step>
+<Step title="Switch to hard mode">
+<Note>
+`threshold_mode="hard"` mirrors the high-artifact option in HAPPE2. Coefficients above the universal threshold are left untouched so more ERP amplitude is preserved.
+</Note>
+</Step>
+<Step title="Enable ERP-preserving logic">
+```python
+erp_cleaned = wavelet_threshold(
+    raw,
+    is_erp=True,
+    bandpass=(1.0, 30.0),
+)
+```
+</Step>
+<Step title="Verify the effect">
+1. Plot a channel before and after to see artifact reduction.
+2. Inspect summary statistics like peak-to-peak amplitude.
+3. Compare the ERP waveform amplitude to ensure it has not been double-filtered.
+</Step>
+<Step title="Concern: Over-smoothing">
+<Note>
+Excessive thresholding can remove neural signal. Adjust the `level`, `wavelet`, or switch between `soft`/`hard` to balance denoising versus signal preservation.
+</Note>
+</Step>
+</Steps>
+
+## Testing
+
+To test the implementation yourself:
+
+```bash
+pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_supports_hard_mode
+pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_erp_mode_matches_single_filter_when_clean
+```
+
+These unit tests exercise the new hard-thresholding branch and the ERP-aware filtering/subtraction workflow.
+
+## PDF Reporting
+
+`wavelet_threshold` and `generate_wavelet_report` now live in the same module. You can drop `src/autoclean/functions/preprocessing/wavelet_thresholding.py` into a lightweight environment and retain both cleaning and reporting.
+
+Use the helper script to create a PDF comparison of pre/post wavelet cleaning:
+
+```bash
+python scripts/wavelet_report.py /path/to/TD1v2_ica_raw.set \
+  --output reports/TD1v2_wavelet_report.pdf \
+  --metrics-csv reports/TD1v2_wavelet_metrics.csv
+```
+
+The report includes summary statistics, a top-channel waveform overlay, and a leaderboard of channels ranked by peak-to-peak reduction. Adjust `--wavelet`, `--level`, or `--picks all` to explore different configurations. The PDF now also charts the average power spectral density pre/post cleaning; pass `--psd-csv` to export band power reductions (delta–gamma) as a CSV. To call the API directly, import from the unified module:
+
+```python
+from autoclean.functions.preprocessing.wavelet_thresholding import generate_wavelet_report
+
+report = generate_wavelet_report(raw, "reports/example_wavelet.pdf")
+```
+
+<Diagram name="Thresholding flow">
+raw signal -> wavelet transform -> soft thresholding -> reconstructed signal
+</Diagram>
