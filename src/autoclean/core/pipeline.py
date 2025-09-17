@@ -426,6 +426,24 @@ class Pipeline:
                 )
                 raise
 
+            # Store task configuration for resume operations
+            task_config = {
+                "module_name": task_object.__class__.__module__,
+                "settings": task_object.settings,
+                "task_file_path": getattr(task_object.__class__, '__file__', None),
+                "stored_at": datetime.now().isoformat(),
+            }
+
+            # Store task configuration in database metadata for resume operations
+            # (no dedicated column; merge into metadata JSON)
+            manage_database_conditionally(
+                operation="update",
+                update_record={
+                    "run_id": run_id,
+                    "metadata": {"task_config": task_config},
+                },
+            )
+
             # Capture task file information for compliance tracking
             task_file_info = get_task_file_info(task, task_object)
 
@@ -919,6 +937,276 @@ class Pipeline:
         message("info", "\nProcessing Summary:")
         message("info", f"Total files processed: {len(files)}")
         message("info", "Check individual file logs for detailed status")
+
+    @require_authentication
+    def resume_from_post_ica(
+        self,
+        post_ica_file: Path,
+        task: str,
+        run_id: Optional[str] = None,
+        source_file: Optional[Path] = None,
+    ) -> None:
+        """Resume the active task from a post-ICA manual file and complete the tail.
+
+        Parameters
+        ----------
+        post_ica_file : Path
+            The path to the manually re-applied ICA stage file (e.g., *_ica_manual_raw.set or .fif).
+        task : str
+            The active task name to resume.
+        run_id : str, optional
+            The run identifier to attach DB updates to. If None, a new one is generated.
+        source_file : Path, optional
+            The original unprocessed file path for traceability; if None, uses post_ica_file.
+        """
+        post_ica_file = Path(post_ica_file)
+        if not post_ica_file.exists():
+            message("error", f"post_ICA file not found: {post_ica_file}")
+            return
+
+        # Derive directory structure from the post_ica file location
+        stage_dir = post_ica_file.parent.parent  # .../intermediate/<NN_stage>
+        derivatives_root = stage_dir.parent  # .../bids/derivatives/autoclean-vX.Y
+        bids_root = derivatives_root.parent.parent  # .../bids
+        metadata_dir = derivatives_root / "metadata"
+        final_files_dir = bids_root / "final_files"
+
+        # Determine parent/manual run for linkage and create a fresh tail run record
+        parent_run_id = str(run_id) if run_id else None
+        new_run_id = str(ULID())
+        try:
+            manage_database_conditionally(
+                operation="store",
+                run_record={
+                    "run_id": new_run_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "task": self._validate_task(task),
+                    "unprocessed_file": str(
+                        (Path(source_file) if source_file else post_ica_file).absolute()
+                    ),
+                    "status": "resume_tail started",
+                    "success": False,
+                    "metadata": {
+                        "manual_ica_tail": {
+                            "parent_run_id": parent_run_id or "",
+                            "post_ica_path": str(post_ica_file),
+                        }
+                    },
+                },
+            )
+        except Exception as e:
+            message("warning", f"Could not create tail run record: {e}")
+
+        # Build minimal config for the tail execution
+        cfg = {
+            "run_id": new_run_id,
+            "unprocessed_file": Path(source_file) if source_file else post_ica_file,
+            "task": self._validate_task(task),
+            "output_dir": self.output_dir,
+            "bids_dir": bids_root,
+            "metadata_dir": metadata_dir,
+            "stage_dir": stage_dir,
+            "derivatives_dir": derivatives_root,
+            "final_files_dir": final_files_dir,
+            # Extras commonly expected by save/copy helpers
+            "logs_dir": derivatives_root / "logs",
+            "clean_dir": derivatives_root,
+        }
+
+        # Find the effective task class with workspace override priority
+        task_cls = None
+        task_source = "<unknown>"
+        try:
+            # Local import to avoid circular import during module initialization
+            from autoclean.utils.task_discovery import (
+                safe_discover_tasks as _safe_discover_tasks,
+            )  # type: ignore
+            discovered, _invalid, _skipped = _safe_discover_tasks()
+            for dt in discovered:
+                if dt.name.lower() == cfg["task"].lower() and dt.class_obj is not None:
+                    task_cls = dt.class_obj
+                    task_source = dt.source
+                    break
+        except Exception as e:
+            message("warning", f"Task discovery failed; falling back to built-in registry: {e}")
+
+        # Fall back to session registry if discovery did not find a class
+        if task_cls is None:
+            try:
+                task_cls = self.session_task_registry[cfg["task"].lower()]
+                task_source = inspect.getfile(task_cls)
+            except Exception:
+                message("error", f"Task '{task}' not found in registry or discovery")
+                return
+
+        message(
+            "info",
+            f"Resume tail using task '{cfg['task']}' from: {task_source}",
+        )
+
+        # Instantiate task object
+        task_object = task_cls(cfg)
+
+        # Ensure task settings are bound from module-level config on resume
+        # More robust than inspect.getmodule for dynamically loaded modules
+        try:
+            task_settings = None
+            mod_name = getattr(task_cls, "__module__", None)
+            task_mod = sys.modules.get(mod_name) if mod_name else None
+            if task_mod is not None and hasattr(task_mod, "config"):
+                task_settings = getattr(task_mod, "config")
+            elif task_source and Path(task_source).exists():
+                try:
+                    _spec = importlib.util.spec_from_file_location(
+                        f"task_cfg_{Path(task_source).stem}", task_source
+                    )
+                    if _spec and _spec.loader:
+                        _mod = importlib.util.module_from_spec(_spec)
+                        _spec.loader.exec_module(_mod)
+                        if hasattr(_mod, "config"):
+                            task_settings = getattr(_mod, "config")
+                except Exception:
+                    pass
+
+            # Bind to instance and also inject YAML fallback so _check_step_enabled works either way
+            if getattr(task_object, "settings", None) is None and task_settings is not None:
+                task_object.settings = task_settings
+                message("info", "Task settings bound from module.config (resume path)")
+            if task_settings is not None:
+                try:
+                    # Inject fallback structure expected by _check_step_enabled
+                    cfg.setdefault("tasks", {}).setdefault(cfg["task"], {})[
+                        "settings"
+                    ] = task_settings
+                except Exception:
+                    pass
+
+            # Report epoch_settings gate status for clarity
+            try:
+                is_enabled, epoch_cfg = task_object._check_step_enabled(
+                    "epoch_settings"
+                )
+                message(
+                    "info",
+                    f"epoch_settings enabled: {bool(is_enabled)} value: {epoch_cfg if epoch_cfg else '(default)'}",
+                )
+            except Exception:
+                message("warning", "Could not evaluate epoch_settings on task during resume")
+        except Exception as _bind_err:
+            message(
+                "warning",
+                f"Could not bind task settings from module.config: {_bind_err}",
+            )
+
+        # Load raw from the post_ica file
+        suffix = post_ica_file.suffix.lower()
+        if suffix == ".set":
+            raw = mne.io.read_raw_eeglab(str(post_ica_file), preload=True)
+        elif suffix == ".fif":
+            raw = mne.io.read_raw_fif(str(post_ica_file), preload=True, verbose=False)
+        else:
+            message(
+                "error",
+                f"Unsupported post-ICA file type: {post_ica_file.suffix}. Expected .set or .fif",
+            )
+            return
+
+        # Attach to task and run tail operations
+        task_object.raw = raw
+        try:
+            task_object.original_raw = raw.copy()
+        except Exception:
+            pass
+
+        # If the active task defines its own resume hook, delegate to it
+        if hasattr(task_object, "resume_after_ica") and callable(
+            task_object.resume_after_ica
+        ):
+            message(
+                "info",
+                "Delegating tail resume to task.resume_after_ica() (active task controls steps)",
+            )
+            try:
+                task_object.resume_after_ica(raw=raw, post_ica_path=str(post_ica_file))
+            except TypeError:
+                # Backward-compat signature: resume_after_ica(raw)
+                task_object.resume_after_ica(raw)
+        else:
+            # Tail: select epoching method based on task capabilities
+            try:
+                used_method = None
+                # Prefer regular epochs if available (common for resting-state tasks)
+                if hasattr(task_object, "create_regular_epochs") and callable(
+                    task_object.create_regular_epochs
+                ):
+                    message("info", "Epoch method: regular epochs (task-defined)")
+                    try:
+                        task_object.create_regular_epochs(export=True)
+                        used_method = "regular"
+                    except Exception as e:
+                        message("warning", f"Regular epoching failed: {e}")
+
+                # Fallback to event-id epochs if available and not already used
+                if used_method is None and hasattr(task_object, "create_eventid_epochs") and callable(
+                    task_object.create_eventid_epochs
+                ):
+                    message("info", "Epoch method: event-id (fallback)")
+                    epochs = task_object.create_eventid_epochs()
+                    if epochs is not None:
+                        try:
+                            flagged, _ = task_object.get_flagged_status()
+                        except Exception:
+                            flagged = False
+                        save_epochs_to_set(
+                            epochs=epochs,
+                            autoclean_dict=cfg,
+                            stage="post_comp",
+                            flagged=flagged,
+                        )
+                        used_method = "eventid"
+                    else:
+                        message(
+                            "warning",
+                            "Event-id epoching returned no epochs (likely no event_id configured)",
+                        )
+                if used_method is None:
+                    message("warning", "No suitable epoching method found on task; skipping epoch stage")
+            except Exception as e:
+                message("warning", f"Epoching tail skipped due to error: {e}")
+
+        # Reports if available
+        try:
+            if hasattr(task_object, "generate_reports") and callable(
+                task_object.generate_reports
+            ):
+                task_object.generate_reports()
+        except Exception as e:
+            message("warning", f"Report generation skipped due to error: {e}")
+
+        # Copy final files for convenience
+        try:
+            copy_final_files(cfg)
+        except Exception as e:
+            message("warning", f"Failed to copy final files: {e}")
+
+        # Finalize tail run in DB
+        try:
+            manage_database_conditionally(
+                operation="update",
+                update_record={
+                    "run_id": new_run_id,
+                    "metadata": {"manual_ica_tail": {"completed": True}},
+                    "success": True,
+                },
+            )
+            manage_database_conditionally(
+                operation="update_status",
+                update_record={"run_id": new_run_id, "status": "resume_tail completed"},
+            )
+        except Exception as e:
+            message("warning", f"Could not finalize tail run record: {e}")
+
+        message("success", "✓ Resume from post-ICA completed")
 
     def list_tasks(self) -> list[str]:
         """Get a list of available processing tasks.
