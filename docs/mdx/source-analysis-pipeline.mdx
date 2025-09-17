@@ -1,0 +1,138 @@
+import { Callout, Steps, Cards, Card } from 'nextra/components';
+
+---
+title: Source Analysis Pipeline Refactor
+description: Modular source analysis functions and a reusable pipeline helper for AutoClean EEG.
+---
+
+# Source Analysis Pipeline Refactor
+
+This update replaces the monolithic `autoclean/calc/source.py` file with a modular package that groups functionality by theme and exposes a lightweight pipeline runner. The goal is to make post-preprocessing analyses composable so you can point the tool at a directory of source estimates and orchestrate only the spectral or connectivity steps you need.
+
+<Steps>
+
+### 1. Extract legacy functions into focused modules
+
+- **`estimation.py`** now contains just the raw and epoch source localisation helpers.
+- **`psd.py`**, **`connectivity.py`**, **`pac.py`**, **`vertex.py`**, **`fooof.py`**, and **`conversion.py`** each house a coherent family of routines.
+- Optional dependencies such as FOOOF and NetworkX live behind `_compat.py`, keeping import errors isolated.
+
+### 2. Introduce a reusable pipeline runner
+
+- Added `pipeline.py` with `PipelineData`, `PipelineContext`, and `PipelineStep` classes to manage state.
+- Created convenience factories (`psd_step`, `connectivity_step`, `fooof_aperiodic_step`, etc.) so you can assemble a pipeline with a few lines of code.
+- Added `load_source_estimates_from_directory` to scan a folder of `*.stc.h5` or paired `*-lh.stc` / `*-rh.stc` files.
+
+### 3. Provide a curated public surface
+
+- The new `autoclean.calc.source` package re-exports all the original functions plus the pipeline helpers from a clean `__init__.py`.
+- Removing the original `source.py` forced us to drop the flake8 ignore in `pyproject.toml`—imports now live where they belong.
+
+</Steps>
+
+<Cards>
+  <Card title="Why modularise?" icon="⚙️">
+    Breaking the giant module into focused files keeps imports fast, clarifies dependencies, and makes it easier to test or replace individual stages without touching the rest of the stack.
+  </Card>
+  <Card title="Pipeline at a glance" icon="🪄">
+```python
+from pathlib import Path
+from autoclean.calc.source import (
+    SourceAnalysisPipeline,
+    load_source_estimates_from_directory,
+    psd_step,
+    connectivity_step,
+    fooof_aperiodic_step,
+)
+
+pipeline = SourceAnalysisPipeline(
+    loader=lambda path: load_source_estimates_from_directory(path),
+    steps=[
+        psd_step(segment_duration=120),
+        connectivity_step(n_epochs=20),
+        fooof_aperiodic_step(n_jobs=4),
+    ],
+)
+
+results = pipeline.run(
+    data_path=Path("/data/sub-01/source"),
+    subject_id="sub-01",
+    output_dir=Path("/outputs/sub-01"),
+)
+```
+  </Card>
+</Cards>
+
+## How to verify the refactor locally
+
+<Callout type="info">
+Run these commands from the project root after creating your virtual environment.
+</Callout>
+
+1. **Install dependencies (if you have not already).**
+   ```bash
+   uv pip install -e .
+   ```
+2. **Run the automated test suite.**
+   ```bash
+   pytest
+   ```
+3. **Spot-check the new pipeline in a REPL.**
+   ```python
+   >>> from autoclean.calc.source import load_source_estimates_from_directory, psd_step, SourceAnalysisPipeline
+   >>> data = load_source_estimates_from_directory("/path/to/stc_folder")
+   >>> pipeline = SourceAnalysisPipeline(lambda _: data, [psd_step(segment_duration=60)])
+   >>> pipeline.run("/path/to/stc_folder", "demo-subject", "./tmp-outputs")
+   ```
+
+## Key considerations
+
+- <Callout type="warning">Connectivity graph metrics still depend on optional packages (`bctpy`, `networkx`). If they are missing, the functions degrade gracefully.</Callout>
+- The new pipeline assumes that spectral steps operate on source estimates; if you only have raw data you must still run the source localisation stage first.
+- FOOOF helpers require a PSD source estimate (`vertex_psd_step`) before they can run; the pipeline factories check for this and raise a friendly error when missing.
+
+With these changes, downstream analyses can be scripted independently of the heavy preprocessing pipeline—perfect for re-running spectral metrics on archived runs or mixing and matching new research workflows.
+
+## Update: Raw vs Epoched Compatibility
+
+<Steps>
+
+### 1. Normalize every source-estimate input
+
+- Added `autoclean.calc.source._utils.ensure_stc_list` and `coerce_stc_to_single` to coerce any combination of `SourceEstimate` objects (single recordings or epoch sequences) into predictable containers.
+- The PSD, connectivity, PAC, vertex, and conversion helpers all call these utilities so they gracefully accept raw-derived STCs or lists created by `mne.minimum_norm.apply_inverse_epochs`.
+
+### 2. Simplify the pipeline entry points
+
+- `psd_step`, `connectivity_step`, `pac_step`, `vertex_power_step`, `vertex_psd_step`, and `conversion_step` now hand the entire `PipelineData.get_stcs()` result to their compute helpers—no more manual indexing.
+- Each compute helper internally decides whether to concatenate epochs or delegate to specialised list-aware logic (for example, PSD aggregation still uses the epoch-aware window management).
+
+### 3. Preserve temporal context when concatenating epochs
+
+- When we must combine epochs (PAC, vertex PSD, conversion to Raw) the new utilities call `mne.concatenate_stcs` and keep the sampling frequency metadata so downstream spectral calculations remain calibrated.
+- Every helper prints a short status line when concatenation happens so you know an epoched dataset was detected.
+
+</Steps>
+
+<Tabs items={['Raw input', 'Epoched input']}>
+  <Tabs.Tab>
+```python
+from autoclean.calc.source import calculate_source_psd
+psd_df, psd_file = calculate_source_psd(resting_state_stc, subject_id="sub-01")
+```
+  </Tabs.Tab>
+  <Tabs.Tab>
+```python
+from autoclean.calc.source import calculate_source_psd
+psd_df, psd_file = calculate_source_psd(epoch_stcs, subject_id="sub-01", segment_duration=120)
+```
+  </Tabs.Tab>
+</Tabs>
+
+<Callout type="success" icon="✅">
+To double-check the behaviour, run `pytest` and then try the two snippets above in a REPL—the same function call now handles both inputs without extra branching.
+</Callout>
+
+<Callout type="warning">
+Connectivity and PSD routines still expect consistent sampling rates across epochs. If you concatenate source estimates from different acquisition settings you will see a `ValueError` from MNE—this is intentional to avoid mixing incomparable data.
+</Callout>
