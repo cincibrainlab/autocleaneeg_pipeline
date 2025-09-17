@@ -146,4 +146,4 @@ exclude = [
 ]
 
 [tool.ruff.lint]
-per-file-ignores = { "autoclean/step_functions/__init__.py" = ["E402", "F403"], "autoclean/tools/autoclean_review.py" = ["E402"], "autoclean/calc/source.py" = ["F401"] }
+per-file-ignores = { "autoclean/step_functions/__init__.py" = ["E402", "F403"], "autoclean/tools/autoclean_review.py" = ["E402"] }
