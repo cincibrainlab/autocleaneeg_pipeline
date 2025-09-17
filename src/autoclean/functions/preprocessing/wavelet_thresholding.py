@@ -15,6 +15,25 @@ import numpy as np
 import pywt
 
 
+def _resolve_decomposition_level(
+    signal_length: int,
+    wavelet: str,
+    level: int,
+) -> int:
+    """Return a safe decomposition level for the requested wavelet.
+
+    PyWavelets raises an error when the requested level exceeds the
+    maximum supported for the given signal length and wavelet filter.
+    This helper determines the highest valid level and clamps the
+    requested value accordingly.
+    """
+    wavelet_obj = pywt.Wavelet(wavelet)
+    max_level = pywt.dwt_max_level(signal_length, wavelet_obj.dec_len)
+    if max_level <= 0:
+        return 0
+    return min(level, max_level)
+
+
 def _denoise_signal(
     signal: np.ndarray,
     wavelet: str,
@@ -36,14 +55,22 @@ def _denoise_signal(
     ndarray
         Denoised signal.
     """
-    coeffs = pywt.wavedec(signal, wavelet, level=level)
+    signal_array = np.asarray(signal)
+    effective_level = _resolve_decomposition_level(signal_array.size, wavelet, level)
+    if effective_level == 0:
+        return signal_array.copy()
+
+    coeffs = pywt.wavedec(signal_array, wavelet, level=effective_level)
     # Estimate noise sigma using median absolute deviation of detail coeffs at level 1
-    sigma = np.median(np.abs(coeffs[-1])) / 0.6745
-    uthresh = sigma * np.sqrt(2 * np.log(signal.size))
+    sigma = np.median(np.abs(coeffs[-1])) / 0.6745 if coeffs[-1].size else 0.0
+    uthresh = sigma * np.sqrt(2 * np.log(signal_array.size)) if sigma else 0.0
     coeffs_thresh = [coeffs[0]]
     for c in coeffs[1:]:
         coeffs_thresh.append(pywt.threshold(c, uthresh, mode="soft"))
-    return pywt.waverec(coeffs_thresh, wavelet)
+    denoised = pywt.waverec(coeffs_thresh, wavelet)
+    if denoised.shape[0] != signal_array.shape[0]:
+        denoised = denoised[: signal_array.shape[0]]
+    return denoised.astype(signal_array.dtype, copy=False)
 
 
 def wavelet_threshold(
@@ -60,7 +87,8 @@ def wavelet_threshold(
     wavelet : str, default 'sym4'
         Mother wavelet used for the discrete wavelet transform.
     level : int, default 5
-        Decomposition level.
+        Requested decomposition level. The actual level is clamped to the
+        maximum supported for each channel and wavelet.
 
     Returns
     -------
