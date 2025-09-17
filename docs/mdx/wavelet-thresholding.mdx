@@ -45,7 +45,7 @@ python scripts/wavelet_report.py /path/to/TD1v2_ica_raw.set \
   --metrics-csv reports/TD1v2_wavelet_metrics.csv
 ```
 
-The report includes summary statistics, a top-channel waveform overlay, and a leaderboard of channels ranked by peak-to-peak reduction. Adjust `--wavelet`, `--level`, or `--picks all` to explore different configurations.
+The report includes summary statistics, a top-channel waveform overlay, and a leaderboard of channels ranked by peak-to-peak reduction. Adjust `--wavelet`, `--level`, or `--picks all` to explore different configurations. The PDF now also charts the average power spectral density pre/post cleaning; pass `--psd-csv` to export band power reductions (delta–gamma) as a CSV.
 
 <Diagram name="Thresholding flow">
 raw signal -> wavelet transform -> soft thresholding -> reconstructed signal
