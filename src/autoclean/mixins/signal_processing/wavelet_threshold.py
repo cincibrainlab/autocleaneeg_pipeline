@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Mapping, Optional, Tuple
 
 import mne
 import numpy as np
 import pywt
 
-from autoclean.functions.preprocessing.wavelet_thresholding import wavelet_threshold
+from autoclean.functions.preprocessing.wavelet_thresholding import (
+    generate_wavelet_report,
+    wavelet_threshold,
+)
 from autoclean.utils.logging import message
 
 
@@ -112,6 +116,39 @@ class WaveletThresholdMixin:
         except Exception:
             effective_level = level
 
+        report_path: Optional[Path] = None
+        try:
+            derivatives_dir: Optional[Path] = None
+            if hasattr(self, "config"):
+                dir_value = self.config.get("derivatives_dir")
+                if dir_value:
+                    derivatives_dir = Path(dir_value)
+            if derivatives_dir is not None:
+                derivatives_dir.mkdir(parents=True, exist_ok=True)
+                bids_path = self.config.get("bids_path") if hasattr(self, "config") else None
+                if bids_path and hasattr(bids_path, "basename"):
+                    base_name = bids_path.basename.replace("_eeg", "_wavelet_threshold")
+                else:
+                    raw_source = "wavelet"
+                    if hasattr(self, "config"):
+                        raw_source = str(self.config.get("unprocessed_file", raw_source))
+                    source_name = Path(raw_source)
+                    base_name = f"{source_name.stem}_wavelet_threshold"
+                report_path = (derivatives_dir / base_name).with_suffix(".pdf")
+                generate_wavelet_report(
+                    source=inst.copy(),
+                    output_pdf=report_path,
+                    wavelet=wavelet_name,
+                    level=level,
+                    threshold_mode=threshold_mode,
+                    is_erp=is_erp,
+                    bandpass=bandpass_tuple,
+                    filter_kwargs=filter_kwargs,
+                )
+        except Exception as exc:
+            message("warning", f"Wavelet report generation skipped: {exc}")
+            report_path = None
+
         original_data = inst
         self._update_instance_data(original_data, cleaned)
         self._save_raw_result(cleaned, stage_name)
@@ -127,6 +164,7 @@ class WaveletThresholdMixin:
             "mean_abs_diff_uv": mean_abs_diff_uv,
             "mean_ptp_reduction_pct": ptp_mean_pct,
             "n_channels": int(cleaned_data.shape[0]),
+            "report_path": str(report_path) if report_path else None,
         }
         if filter_kwargs:
             metadata["filter_kwargs"] = filter_kwargs
