@@ -145,6 +145,54 @@ class TestWaveletThreshold:
         if max_level == 0:
             assert np.allclose(cleaned.get_data(), raw.get_data())
 
+    def test_wavelet_threshold_supports_hard_mode(self):
+        """Hard thresholding should preserve more of a large transient."""
+
+        raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=1)
+        raw_artifact = raw.copy()
+        spike_index = 125
+        raw_artifact._data[0, spike_index] += 2.5
+
+        cleaned_soft = wavelet_threshold(raw_artifact, threshold_mode="soft")
+        cleaned_hard = wavelet_threshold(raw_artifact, threshold_mode="hard")
+
+        assert not np.allclose(cleaned_soft.get_data(), cleaned_hard.get_data())
+        soft_value = np.abs(cleaned_soft.get_data()[0, spike_index])
+        hard_value = np.abs(cleaned_hard.get_data()[0, spike_index])
+        assert hard_value >= soft_value
+
+    def test_wavelet_threshold_invalid_mode_raises(self):
+        """Unsupported threshold modes should raise a helpful error."""
+
+        raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=1)
+
+        with pytest.raises(ValueError):
+            wavelet_threshold(raw, threshold_mode="invalid")
+
+    def test_wavelet_threshold_erp_mode_matches_single_filter_when_clean(self):
+        """ERP mode should reduce to a single filter when no artifact is present."""
+
+        raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=10)
+        raw._data[:] = 0.0
+
+        erp_cleaned = wavelet_threshold(
+            raw, is_erp=True, bandpass=(1.0, 30.0)
+        ).get_data()
+        expected = raw.copy().filter(l_freq=1.0, h_freq=30.0, verbose=False).get_data()
+
+        assert np.allclose(erp_cleaned, expected, atol=1e-12)
+
+    def test_wavelet_threshold_erp_mode_bandpass_validation(self):
+        """ERP mode should validate the supplied band-pass tuple."""
+
+        raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=1)
+
+        with pytest.raises(ValueError):
+            wavelet_threshold(raw, is_erp=True, bandpass=(30.0, 1.0))
+
+        with pytest.raises(ValueError):
+            wavelet_threshold(raw, is_erp=True, bandpass=None)
+
     def test_resolve_decomposition_level_matches_pywt(self):
         """Helper should agree with PyWavelets max level calculation."""
 
