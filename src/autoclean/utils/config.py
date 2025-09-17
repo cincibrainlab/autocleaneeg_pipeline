@@ -81,6 +81,7 @@ def load_config(config_file: Path = None) -> dict:
                                 Optional("fit_params"): Or(dict, None),
                                 Optional("max_iter"): Or(int, str, None),
                                 Optional("allow_ref_meg"): Or(bool, None),
+                                Optional("temp_highpass_for_ica"): Or(int, float, None),
                                 Optional("decim"): Or(int, None),
                                 Optional("temp_highpass_for_ica"): Or(float, None),
                             },
@@ -145,6 +146,10 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
 
     # Validate filtering settings
     filtering_settings = autoclean_dict["tasks"][task]["settings"]["filtering"]
+    resampling_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]
+    resampling_rate = (
+        resampling_settings["value"] if resampling_settings["enabled"] else None
+    )
     if filtering_settings["enabled"]:
         l_freq = filtering_settings["value"]["l_freq"]
         h_freq = filtering_settings["value"]["h_freq"]
@@ -159,25 +164,49 @@ def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
                     f"Invalid filtering settings: l_freq {l_freq} >= h_freq {h_freq}"
                 )
 
-        resampling_settings = autoclean_dict["tasks"][task]["settings"]["resample_step"]
-        if resampling_settings["enabled"]:
-            resampling_rate = resampling_settings["value"]
-            if resampling_rate is not None:
-                if resampling_rate <= 0:
+        if resampling_rate is not None:
+            if resampling_rate <= 0:
+                message(
+                    "error",
+                    f"Resampling rate {resampling_rate} Hz must be greater than 0",
+                )
+                raise ValueError(f"Invalid resampling rate: {resampling_rate} Hz")
+            if l_freq is not None and h_freq is not None:
+                if l_freq >= resampling_rate / 2 or h_freq >= resampling_rate / 2:
                     message(
                         "error",
-                        f"Resampling rate {resampling_rate} Hz must be greater than 0",
+                        f"Filter frequencies {l_freq} Hz and {h_freq} Hz must be below Nyquist frequency {resampling_rate / 2} Hz",
                     )
-                    raise ValueError(f"Invalid resampling rate: {resampling_rate} Hz")
-                if l_freq is not None and h_freq is not None:
-                    if l_freq >= resampling_rate / 2 or h_freq >= resampling_rate / 2:
-                        message(
-                            "error",
-                            f"Filter frequencies {l_freq} Hz and {h_freq} Hz must be below Nyquist frequency {resampling_rate / 2} Hz",
-                        )
-                        raise ValueError(
-                            f"Filter frequencies {l_freq} Hz and {h_freq} Hz must be below Nyquist frequency {resampling_rate / 2} Hz"
-                        )
+                    raise ValueError(
+                        f"Filter frequencies {l_freq} Hz and {h_freq} Hz must be below Nyquist frequency {resampling_rate / 2} Hz"
+                    )
+    elif resampling_rate is not None and resampling_rate <= 0:
+        message(
+            "error", f"Resampling rate {resampling_rate} Hz must be greater than 0"
+        )
+        raise ValueError(f"Invalid resampling rate: {resampling_rate} Hz")
+
+    # Validate ICA settings if enabled
+    ica_settings = autoclean_dict["tasks"][task]["settings"]["ICA"]
+    if ica_settings["enabled"]:
+        temp_highpass = ica_settings["value"].get("temp_highpass_for_ica")
+        if temp_highpass is not None:
+            if temp_highpass < 0:
+                message(
+                    "error",
+                    f"Temporary high-pass frequency {temp_highpass} Hz must be non-negative",
+                )
+                raise ValueError(
+                    f"Invalid ICA settings: temp_highpass_for_ica {temp_highpass} Hz"
+                )
+            if resampling_rate is not None and temp_highpass >= resampling_rate / 2:
+                message(
+                    "error",
+                    f"Temporary high-pass frequency {temp_highpass} Hz must be below Nyquist frequency {resampling_rate / 2} Hz",
+                )
+                raise ValueError(
+                    f"Invalid ICA settings: temp_highpass_for_ica {temp_highpass} Hz exceeds Nyquist {resampling_rate / 2} Hz"
+                )
 
     # Validate epoch settings if enabled
     epoch_settings = autoclean_dict["tasks"][task]["settings"]["epoch_settings"]
