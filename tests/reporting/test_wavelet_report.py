@@ -58,7 +58,9 @@ def test_generate_wavelet_report_from_raw(tmp_path, monkeypatch, wavelet_report_
 
     assert output_pdf.exists()
     assert result.metrics.shape[0] == len(raw.ch_names)
+    assert result.psd_metrics["band"].nunique() > 0
     assert np.isfinite(result.metrics["ptp_reduction_pct"]).all()
+    assert np.isfinite(result.psd_metrics["power_reduction_pct"]).all()
     expected_keys = {
         "channels",
         "sfreq",
@@ -69,5 +71,7 @@ def test_generate_wavelet_report_from_raw(tmp_path, monkeypatch, wavelet_report_
         "ptp_median",
         "ptp_max",
         "ptp_max_channel",
+        "band_reductions",
     }
     assert expected_keys.issubset(result.summary.keys())
+    assert "alpha" in result.summary["band_reductions"]

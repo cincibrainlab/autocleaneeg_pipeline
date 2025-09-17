@@ -97,6 +97,11 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         help="Optional path to export channel metrics as CSV.",
     )
+    parser.add_argument(
+        "--psd-csv",
+        type=Path,
+        help="Optional path to export band power metrics as CSV.",
+    )
     return parser
 
 
@@ -131,13 +136,22 @@ def main() -> None:
     if args.metrics_csv:
         args.metrics_csv.parent.mkdir(parents=True, exist_ok=True)
         result.metrics.to_csv(args.metrics_csv, index=False)
+    if args.psd_csv:
+        args.psd_csv.parent.mkdir(parents=True, exist_ok=True)
+        result.psd_metrics.to_csv(args.psd_csv, index=False)
+
+    band_reductions = result.summary.get("band_reductions", {})
+    alpha_change = band_reductions.get("alpha")
 
     print(f"Report written to: {result.pdf_path}")
-    print(
+    message = (
         f"Mean peak-to-peak reduction: {result.summary['ptp_mean']:.2f}%"
         f" | Max channel: {result.summary['ptp_max_channel']}"
         f" ({result.summary['ptp_max']:.2f}%)"
     )
+    if alpha_change is not None:
+        message += f" | Alpha band change: {alpha_change:.2f}%"
+    print(message)
 
 
 if __name__ == "__main__":

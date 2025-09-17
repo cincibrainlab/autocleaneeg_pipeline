@@ -18,6 +18,7 @@ import matplotlib
 # Use non-interactive backend for headless environments
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from mne.time_frequency import psd_array_welch
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -38,13 +39,23 @@ except (OSError, ValueError):  # Fallback if style is missing
     plt.style.use("ggplot")
 
 
+FREQUENCY_BANDS = {
+    "delta": (1.0, 4.0),
+    "theta": (4.0, 8.0),
+    "alpha": (8.0, 13.0),
+    "beta": (13.0, 30.0),
+    "gamma": (30.0, 45.0),
+}
+
+
 @dataclass
 class WaveletReportResult:
     """Container for generated wavelet report artifacts."""
 
     pdf_path: Path
     metrics: pd.DataFrame
-    summary: Dict[str, Union[str, float, int]]
+    psd_metrics: pd.DataFrame
+    summary: Dict[str, Union[str, float, int, Dict[str, float]]]
 
 
 @lru_cache(maxsize=1)
@@ -141,6 +152,52 @@ def _compute_channel_metrics(
     return metrics
 
 
+def _compute_psd_metrics(
+    baseline: np.ndarray,
+    cleaned: np.ndarray,
+    sfreq: float,
+    ch_names: Sequence[str],
+    bands: Dict[str, Tuple[float, float]] = FREQUENCY_BANDS,
+) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray]:
+    """Compute Welch PSDs and band power reductions."""
+
+    n_times = baseline.shape[1]
+    n_fft = min(1024, n_times)
+    n_overlap = max(n_fft // 2, 0)
+    psd_kwargs = dict(fmin=1.0, fmax=45.0, n_fft=n_fft, n_overlap=n_overlap, verbose=False)
+    psd_before, freqs = psd_array_welch(baseline, sfreq=sfreq, **psd_kwargs)
+    psd_after, _ = psd_array_welch(cleaned, sfreq=sfreq, **psd_kwargs)
+
+    records = []
+    for band, (fmin, fmax) in bands.items():
+        mask = (freqs >= fmin) & (freqs < fmax)
+        if not np.any(mask):
+            continue
+        band_power_before = psd_before[:, mask].mean(axis=1)
+        band_power_after = psd_after[:, mask].mean(axis=1)
+        reduction = np.zeros_like(band_power_before)
+        np.divide(
+            band_power_before - band_power_after,
+            band_power_before,
+            out=reduction,
+            where=band_power_before != 0,
+        )
+        reduction *= 100
+        for idx, channel in enumerate(ch_names):
+            records.append(
+                {
+                    "channel": channel,
+                    "band": band,
+                    "power_before": band_power_before[idx],
+                    "power_after": band_power_after[idx],
+                    "power_reduction_pct": reduction[idx],
+                }
+            )
+
+    psd_metrics = pd.DataFrame(records)
+    return psd_metrics, freqs, psd_before, psd_after
+
+
 def _build_overview_figure(
     baseline: np.ndarray,
     cleaned: np.ndarray,
@@ -211,7 +268,47 @@ def _build_overview_figure(
     return buffer
 
 
-def _create_summary_table(summary: Dict[str, Union[str, float, int]]) -> ReportTable:
+def _build_psd_figure(
+    freqs: np.ndarray,
+    psd_before: np.ndarray,
+    psd_after: np.ndarray,
+    psd_metrics: pd.DataFrame,
+) -> io.BytesIO:
+    """Visualize mean PSD and band reductions."""
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.5), constrained_layout=True)
+
+    mean_before = psd_before.mean(axis=0)
+    mean_after = psd_after.mean(axis=0)
+    axes[0].plot(freqs, mean_before, label="Original", color="#1f77b4", linewidth=1.2)
+    axes[0].plot(freqs, mean_after, label="Wavelet-cleaned", color="#d62728", linewidth=1.2)
+    axes[0].set_xlabel("Frequency (Hz)")
+    axes[0].set_ylabel("Power (V²/Hz)")
+    axes[0].set_title("Mean PSD across channels")
+    axes[0].set_yscale("log")
+    axes[0].legend(frameon=False)
+
+    band_summary = (
+        psd_metrics.groupby("band")["power_reduction_pct"].mean().reindex(FREQUENCY_BANDS.keys())
+    )
+    axes[1].bar(
+        band_summary.index,
+        band_summary.values,
+        color="#9467bd",
+        alpha=0.85,
+    )
+    axes[1].axhline(0, color="#444", linewidth=0.8)
+    axes[1].set_ylabel("Mean band power change (%)")
+    axes[1].set_title("Band power reductions")
+
+    buffer = io.BytesIO()
+    fig.savefig(buffer, format="png", dpi=160)
+    plt.close(fig)
+    buffer.seek(0)
+    return buffer
+
+
+def _create_summary_table(summary: Dict[str, Union[str, float, int, Dict[str, float]]]) -> ReportTable:
     """Create a styled summary table for the PDF report."""
 
     table_data = [
@@ -236,6 +333,16 @@ def _create_summary_table(summary: Dict[str, Union[str, float, int]]) -> ReportT
         ],
     ]
 
+    band_reductions = summary.get("band_reductions", {})
+    for band in FREQUENCY_BANDS.keys():
+        if band in band_reductions:
+            table_data.append(
+                [
+                    f"{band.title()} band change (%)",
+                    f"{band_reductions[band]:.2f}",
+                ]
+            )
+
     table = ReportTable(table_data, colWidths=[2.8 * inch, 3.6 * inch])
     table.setStyle(
         TableStyle(
@@ -251,6 +358,38 @@ def _create_summary_table(summary: Dict[str, Union[str, float, int]]) -> ReportT
             ]
         )
     )
+    return table
+
+
+def _create_psd_table(psd_metrics: pd.DataFrame) -> ReportTable:
+    """Create a table summarizing band power reductions."""
+
+    band_summary = (
+        psd_metrics.groupby(["band"])["power_reduction_pct"].mean().reindex(FREQUENCY_BANDS.keys())
+    )
+    table_data = [["Band", "Mean power change (%)"]]
+    for band, value in band_summary.items():
+        table_data.append([band.title(), f"{value:.2f}"])
+
+    table = ReportTable(table_data, colWidths=[2.2 * inch, 2.2 * inch])
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("ALIGN", (0, 0), (-1, 0), "CENTER"),
+                ("FONTSIZE", (0, 0), (-1, 0), 9),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#2C3E50")),
+                ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
+                ("FONTSIZE", (0, 1), (-1, -1), 9),
+                ("ALIGN", (0, 1), (-1, -1), "CENTER"),
+                ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#D5DBDB")),
+            ]
+        )
+    )
+
     return table
 
 
@@ -297,9 +436,11 @@ def _build_pdf_report(
     pdf_path: Path,
     source_name: str,
     figure_buffer: io.BytesIO,
+    psd_buffer: io.BytesIO,
     summary_table: ReportTable,
+    psd_table: ReportTable,
     channel_table: ReportTable,
-    summary: Dict[str, Union[str, float, int]],
+    summary: Dict[str, Union[str, float, int, Dict[str, float]]],
 ) -> None:
     """Assemble and write the PDF report."""
 
@@ -351,8 +492,16 @@ def _build_pdf_report(
     story.append(Paragraph("Overview", heading_style))
     story.append(Spacer(1, 0.1 * inch))
 
-    img = ReportImage(figure_buffer, width=6.5 * inch, height=4.0 * inch)
-    story.append(img)
+    overview_img = ReportImage(figure_buffer, width=6.5 * inch, height=4.0 * inch)
+    story.append(overview_img)
+    story.append(Spacer(1, 0.3 * inch))
+
+    story.append(Paragraph("Power spectral density", heading_style))
+    story.append(Spacer(1, 0.1 * inch))
+    psd_img = ReportImage(psd_buffer, width=6.5 * inch, height=4.0 * inch)
+    story.append(psd_img)
+    story.append(Spacer(1, 0.2 * inch))
+    story.append(psd_table)
     story.append(Spacer(1, 0.3 * inch))
 
     story.append(Paragraph("Top channels", heading_style))
@@ -414,12 +563,21 @@ def generate_wavelet_report(
     ).get_data()
 
     metrics = _compute_channel_metrics(baseline, cleaned, raw_subset.ch_names)
+    psd_metrics, freqs, psd_before, psd_after = _compute_psd_metrics(
+        baseline, cleaned, sfreq=float(raw_subset.info["sfreq"]), ch_names=raw_subset.ch_names
+    )
 
     effective_level = wavelet_module._resolve_decomposition_level(
         baseline.shape[1], wavelet, level
     )
     sfreq = float(raw_subset.info["sfreq"])
     duration = baseline.shape[1] / sfreq if sfreq else 0.0
+
+    band_reductions = (
+        psd_metrics.groupby("band")["power_reduction_pct"].mean().to_dict()
+        if not psd_metrics.empty
+        else {}
+    )
 
     summary = {
         "channels": int(len(raw_subset.ch_names)),
@@ -435,6 +593,7 @@ def generate_wavelet_report(
             if not metrics.empty
             else "N/A"
         ),
+        "band_reductions": {band: float(band_reductions.get(band, 0.0)) for band in FREQUENCY_BANDS.keys()},
     }
 
     figure_buffer = _build_overview_figure(
@@ -445,15 +604,19 @@ def generate_wavelet_report(
         snippet_duration,
         metrics,
     )
+    psd_buffer = _build_psd_figure(freqs, psd_before, psd_after, psd_metrics)
 
     summary_table = _create_summary_table(summary)
+    psd_table = _create_psd_table(psd_metrics)
     channel_table = _create_top_channel_table(metrics, top_n=top_n_channels)
 
     _build_pdf_report(
         output_pdf_path,
         source_name,
         figure_buffer,
+        psd_buffer,
         summary_table,
+        psd_table,
         channel_table,
         summary,
     )
@@ -461,5 +624,6 @@ def generate_wavelet_report(
     return WaveletReportResult(
         pdf_path=output_pdf_path,
         metrics=metrics,
+        psd_metrics=psd_metrics,
         summary=summary,
     )
