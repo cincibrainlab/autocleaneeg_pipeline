@@ -17,15 +17,16 @@ def _load_generate_wavelet_report():
         Path(__file__).resolve().parents[1]
         / "src"
         / "autoclean"
-        / "reporting"
-        / "wavelet_report.py"
+        / "functions"
+        / "preprocessing"
+        / "wavelet_thresholding.py"
     )
     spec = importlib.util.spec_from_file_location(
         "autoclean.reporting.wavelet_report_cli",
         module_path,
     )
     if spec is None or spec.loader is None:
-        raise ImportError("Unable to load wavelet_report module") from None
+        raise ImportError("Unable to load wavelet utilities module") from None
 
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
