@@ -24,6 +24,7 @@ import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.gridspec import GridSpec
 from mne.preprocessing import ICA
+from mne.channels.layout import _find_topomap_coords
 
 from autoclean.utils.logging import message
 
@@ -200,10 +201,25 @@ class ICAReportingMixin:
         duration : Optional[int]
             Duration in seconds for plotting time series data
         """
+        # Pre-compute sensor positions once and reuse across reports to avoid
+        # repeatedly calculating topomap coordinates during plotting. This saves
+        # time especially when many components are present.
+        #
+        # NOTE: _find_topomap_coords return signature differs across MNE versions.
+        # Older versions may return just `pos`, while newer ones can return
+        # (pos, outlines) or (pos, outlines, head_pos). We defensively extract
+        # the first element if a tuple is returned.
+        coords_result = _find_topomap_coords(
+            self.final_ica.info, picks=range(len(self.final_ica.ch_names))
+        )
+        pos = coords_result[0] if isinstance(coords_result, (tuple, list)) else coords_result
+        topomap_args = {"pos": pos}
+
         # Generate report for all components
         report_filename = self._plot_ica_components(
             duration=duration,
             components="all",
+            topomap_args=topomap_args,
         )
 
         metadata = {
@@ -219,6 +235,7 @@ class ICAReportingMixin:
         report_filename = self._plot_ica_components(
             duration=duration,
             components="rejected",
+            topomap_args=topomap_args,
         )
 
         metadata = {
@@ -234,6 +251,7 @@ class ICAReportingMixin:
         self,
         duration: int = 10,
         components: str = "all",
+        topomap_args: dict | None = None,
     ):
         """
         Plots ICA components with labels and saves reports.
@@ -244,6 +262,10 @@ class ICAReportingMixin:
             Duration in seconds to plot.
         components : str
             'all' to plot all components, 'rejected' to plot only rejected components.
+        topomap_args : dict | None
+            Optional arguments passed to ``plot_topomap``. Pre-computing and
+            reusing sensor positions via ``pos`` can substantially speed up
+            plotting by avoiding repeated coordinate generation.
         """
 
         # Get raw and ICA from pipeline
@@ -285,6 +307,9 @@ class ICAReportingMixin:
         # Remove existing file
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
+
+        # Ensure we have a concrete list of indices to avoid any iterator side-effects
+        component_indices = list(component_indices)
 
         with PdfPages(pdf_path) as pdf:
             # Calculate how many components to show per page
@@ -420,61 +445,51 @@ class ICAReportingMixin:
 
             # For each component, create detailed plots
             for idx in component_indices:
-                fig = plt.figure(constrained_layout=True, figsize=(12, 8))
-                gs = GridSpec(nrows=3, ncols=3, figure=fig)
+                # 1) Always include MNE's properties figure(s) for this component
+                try:
+                    props_fig = ica.plot_properties(
+                        raw,
+                        picks=[idx],
+                        dB=True,
+                        plot_std=True,
+                        log_scale=False,
+                        reject="auto",
+                        show=False,
+                        topomap_args=topomap_args,
+                    )
+                    if isinstance(props_fig, list):
+                        for f in props_fig:
+                            pdf.savefig(f)
+                            plt.close(f)
+                    else:
+                        pdf.savefig(props_fig)
+                        plt.close(props_fig)
+                except Exception as e:
+                    message(
+                        "warning",
+                        f"Failed to render ICA properties for component {idx}: {e}"
+                    )
 
-                # Axes for ica.plot_properties
-                ax1 = fig.add_subplot(gs[0, 0])  # Data
-                ax2 = fig.add_subplot(gs[0, 1])  # Epochs image
-                ax3 = fig.add_subplot(gs[0, 2])  # ERP/ERF
-                ax4 = fig.add_subplot(gs[1, 0])  # Spectrum
-                ax5 = fig.add_subplot(gs[1, 1])  # Topomap
-                ax_props = [ax1, ax2, ax3, ax4, ax5]
-
-                # Plot properties
-                ica.plot_properties(
-                    raw,
-                    picks=[idx],
-                    axes=ax_props,
-                    dB=True,
-                    plot_std=True,
-                    log_scale=False,
-                    reject="auto",
-                    show=False,
-                )
-
-                # Add time series plot
-                ax_timeseries = fig.add_subplot(gs[2, :])  # Last row, all columns
-                ax_timeseries.plot(times, ica_data[idx, :n_samples], linewidth=0.5)
-                ax_timeseries.set_xlabel("Time (seconds)")
-                ax_timeseries.set_ylabel("Amplitude")
-                ax_timeseries.set_title(
-                    f"Component {idx + 1} Time Course ({duration}s)"
-                )
-
-                # Add labels
-                comp_info = ic_labels.iloc[idx]
-                label_text = (
-                    f"Component {comp_info['component']}\n"
-                    f"Type: {comp_info['ic_type']}\n"
-                    f"Confidence: {comp_info['confidence']:.2f}"
-                )
-
-                fig.suptitle(
-                    label_text,
-                    fontsize=14,
-                    fontweight="bold",
-                    color=(
-                        "red"
-                        if comp_info["ic_type"]
-                        in ["eog", "muscle", "ch_noise", "line_noise", "ecg"]
-                        else "black"
-                    ),
-                )
-
-                # Save the figure
-                pdf.savefig(fig)
-                plt.close(fig)
+                # 2) Add an additional compact time-series page for quick inspection
+                try:
+                    fig_ts = plt.figure(constrained_layout=True, figsize=(11, 3.5))
+                    gs = GridSpec(nrows=1, ncols=1, figure=fig_ts)
+                    ax_ts = fig_ts.add_subplot(gs[0, 0])
+                    ax_ts.plot(times, ica_data[idx, :n_samples], linewidth=0.5)
+                    ax_ts.set_xlabel("Time (seconds)")
+                    ax_ts.set_ylabel("Amplitude")
+                    comp_info = ic_labels.iloc[idx]
+                    ax_ts.set_title(
+                        f"IC{idx + 1} • {comp_info['ic_type']} ({comp_info['confidence']:.2f}) — {duration}s",
+                        fontsize=11,
+                    )
+                    pdf.savefig(fig_ts)
+                    plt.close(fig_ts)
+                except Exception as e:
+                    message(
+                        "warning",
+                        f"Failed to render time-series for component {idx}: {e}"
+                    )
 
             print(f"Report saved to {pdf_path}")
             return Path(pdf_path).name
