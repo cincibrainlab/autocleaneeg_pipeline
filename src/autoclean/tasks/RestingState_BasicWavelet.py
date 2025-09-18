@@ -135,3 +135,4 @@ class RestingState_BasicWavelet(Task):
 
         self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
         self.step_psd_topo_figure(self.original_raw, self.raw)
+        self.generate_fastplot_summary()

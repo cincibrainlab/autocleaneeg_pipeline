@@ -44,6 +44,7 @@ dependencies = [
     "eeglabio>=0.0.3",
     "pybv>=0.6.0",
     "fastparquet>=2024.11.0",
+    "fastplotlib>=0.3.0",
     # Connectivity analysis
     "mne-connectivity>=0.7.0",
     "networkx>=3.4.2",
@@ -61,6 +62,7 @@ dependencies = [
     "cython>=0.29.0",
     "loguru>=0.6.0",
     "pydantic>=2.0",
+    "Pillow>=9.0.0",
     "reportlab>=3.6.0",
     "nibabel>=5.3.2",
     "platformdirs>=3.0.0",
@@ -85,6 +87,7 @@ dependencies = [
     "qtpy>=2.4.3",
     # OpenGL acceleration
     "PyOpenGL-accelerate",
+    "imageio>=2.34.0",
     # Documentation dependencies
     "mkdocs",
     "mkdocs-material",
