@@ -17,6 +17,7 @@ decisions to ensure appropriate artifact removal.
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -258,6 +259,32 @@ class ICAReportingMixin:
         ica = self.final_ica
         ic_labels = getattr(self, "ica_flags", None)
 
+        classification_method = getattr(self, "ica_classification_method", None)
+        if not classification_method and ic_labels is not None:
+            annot_col = getattr(ic_labels, "columns", [])
+            if "annotator" in annot_col:
+                try:
+                    annotators = {
+                        str(value).lower()
+                        for value in ic_labels["annotator"].dropna().unique()
+                    }
+                except Exception:
+                    annotators = set()
+                if {"ic_label", "ic_vision"}.issubset(annotators):
+                    classification_method = "hybrid"
+                elif "ic_vision" in annotators:
+                    classification_method = "icvision"
+                elif "ic_label" in annotators:
+                    classification_method = "iclabel"
+
+        def _format_method(value: Optional[str]) -> Optional[str]:
+            if not value:
+                return None
+            mapping = {"iclabel": "ICLabel", "icvision": "ICVision", "hybrid": "Hybrid"}
+            return mapping.get(value.lower(), value)
+
+        formatted_method = _format_method(classification_method)
+
         if components == "all":
             total_components = ica.n_components_ or 0
             component_indices = list(range(total_components))
@@ -355,8 +382,10 @@ class ICAReportingMixin:
                     table.scale(1.2, 1.5)
 
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                method_tag = f" [{formatted_method}]" if formatted_method else ""
+                summary_title = f"ICA Components Summary{method_tag}"
                 fig_table.suptitle(
-                    f"ICA Components Summary - {self.config['bids_path'].basename}\n"
+                    f"{summary_title} - {self.config['bids_path'].basename}\n"
                     f"(Page {page + 1} of {num_pages})\n"
                     f"Generated: {timestamp}",
                     fontsize=12,
@@ -430,6 +459,7 @@ class ICAReportingMixin:
                     classification_label=classification_label,
                     classification_confidence=classification_confidence,
                     classification_reason=classification_reason,
+                    classification_method=classification_method,
                     source_filename=source_name,
                 )
 

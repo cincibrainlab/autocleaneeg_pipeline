@@ -66,6 +66,7 @@ def plot_component_for_classification(
     classification_label: Optional[str] = None,
     classification_confidence: Optional[float] = None,
     classification_reason: Optional[str] = None,
+    classification_method: Optional[str] = None,
     return_fig_object: bool = False,
     source_filename: Optional[str] = None,
     psd_fmax: Optional[float] = None,
@@ -91,6 +92,9 @@ def plot_component_for_classification(
         Optional confidence score paired with ``classification_label``.
     classification_reason
         Optional textual rationale to include in PDF reports.
+    classification_method
+        Optional classifier identifier (e.g., ``"iclabel"``, ``"icvision"``, ``"hybrid"``)
+        to embed in figure titles.
     return_fig_object
         When ``True`` the matplotlib :class:`~matplotlib.figure.Figure` is
         returned directly instead of saving to disk.
@@ -124,7 +128,16 @@ def plot_component_for_classification(
         gridspec_bottom = 0.18
 
     fig = plt.figure(figsize=(12, fig_height), dpi=120)
-    main_title = f"ICA Component IC{component_idx} Analysis"
+    method_display = None
+    if classification_method:
+        method_key = classification_method.lower()
+        method_display = {
+            "iclabel": "ICLabel",
+            "icvision": "ICVision",
+            "hybrid": "Hybrid",
+        }.get(method_key, classification_method)
+    method_suffix = f" [{method_display}]" if method_display else ""
+    main_title = f"ICA Component IC{component_idx} Analysis{method_suffix}"
     gridspec_top = 0.95
     suptitle_y_pos = 0.98
 
@@ -343,6 +356,11 @@ def plot_component_for_classification(
     if return_fig_object:
         if classification_label is not None and classification_confidence is not None:
             subtitle_color = CLASSIFICATION_COLOR_MAP.get(classification_label.lower(), "black")
+            label_prefix = (
+                f"{method_display} Classification"
+                if method_display
+                else "Classification"
+            )
             fig.text(
                 0.05,
                 suptitle_y_pos,
@@ -357,7 +375,7 @@ def plot_component_for_classification(
                 0.95,
                 suptitle_y_pos,
                 (
-                    f"Vision Classification: {classification_label.title()} "
+                    f"{label_prefix}: {classification_label.title()} "
                     f"(Confidence: {classification_confidence:.2f})"
                 ),
                 ha="right",
@@ -388,7 +406,7 @@ def plot_component_for_classification(
                 0.5,
                 0.01,
                 (
-                    "Autoclean ICVision | https://github.com/cincibrainlab "
+                    "AutocleanEEG Pipeline | https://github.com/cincibrainlab/autoclean_pipeline "
                     f"| Source: {source_filename}"
                 ),
                 ha="center",

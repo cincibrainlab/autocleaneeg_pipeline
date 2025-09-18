@@ -282,6 +282,7 @@ class IcaMixin:
             }
         }
 
+        self.ica_classification_method = method
         self._update_metadata("classify_ica_components", metadata)
 
         message("success", f"ICA component classification with {method} complete")
