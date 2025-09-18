@@ -460,6 +460,7 @@ class ICAReportingMixin:
                     classification_confidence=classification_confidence,
                     classification_reason=classification_reason,
                     classification_method=classification_method,
+                    raw_full=raw,
                     source_filename=source_name,
                 )
 

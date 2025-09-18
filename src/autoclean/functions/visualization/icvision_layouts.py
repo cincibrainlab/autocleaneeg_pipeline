@@ -67,6 +67,7 @@ def plot_component_for_classification(
     classification_confidence: Optional[float] = None,
     classification_reason: Optional[str] = None,
     classification_method: Optional[str] = None,
+    raw_full: Optional[mne.io.Raw] = None,
     return_fig_object: bool = False,
     source_filename: Optional[str] = None,
     psd_fmax: Optional[float] = None,
@@ -95,6 +96,9 @@ def plot_component_for_classification(
     classification_method
         Optional classifier identifier (e.g., ``"iclabel"``, ``"icvision"``, ``"hybrid"``)
         to embed in figure titles.
+    raw_full
+        Optional full-duration raw object used strictly for PSD estimation when
+        the visualized snippet (``raw_obj``) is cropped.
     return_fig_object
         When ``True`` the matplotlib :class:`~matplotlib.figure.Figure` is
         returned directly instead of saving to disk.
@@ -176,6 +180,27 @@ def plot_component_for_classification(
         logger.error("Failed to pull ICA sources for IC%s: %s", component_idx, exc)
         plt.close(fig)
         return None
+
+    psd_data = component_data_array
+    psd_sfreq = sfreq
+    if raw_full is not None:
+        try:
+            sources_full = ica_obj.get_sources(raw_full)
+            psd_sfreq = sources_full.info["sfreq"]
+            component_data_full = sources_full.get_data(picks=[component_idx])
+            component_data_full = np.asarray(component_data_full)
+            if component_data_full.size:
+                psd_data = component_data_full[0]
+            else:
+                psd_sfreq = sfreq
+        except Exception as exc:  # pragma: no cover - PSD fallback
+            logger.warning(
+                "Falling back to cropped data for IC%s PSD due to: %s",
+                component_idx,
+                exc,
+            )
+            psd_data = component_data_array
+            psd_sfreq = sfreq
 
     # --- Topography -----------------------------------------------------
     try:
@@ -307,18 +332,18 @@ def plot_component_for_classification(
     # --- Power spectral density ----------------------------------------
     try:
         fmin_psd = 1.0
-        nyquist = sfreq / 2.0
+        nyquist = psd_sfreq / 2.0
         if psd_fmax is not None:
             fmax_psd = min(psd_fmax, nyquist - 0.51)
         else:
             fmax_psd = min(80.0, nyquist - 0.51)
 
-        n_fft_psd = int(sfreq * 2.0)
-        n_fft_psd = min(n_fft_psd, len(component_data_array))
-        if len(component_data_array) >= 256:
+        n_fft_psd = int(psd_sfreq * 2.0)
+        n_fft_psd = min(n_fft_psd, len(psd_data))
+        if len(psd_data) >= 256:
             n_fft_psd = max(n_fft_psd, 256)
-        elif len(component_data_array) > 0:
-            n_fft_psd = max(n_fft_psd, len(component_data_array))
+        elif len(psd_data) > 0:
+            n_fft_psd = max(n_fft_psd, len(psd_data))
         else:
             n_fft_psd = 1
 
@@ -326,8 +351,8 @@ def plot_component_for_classification(
             raise ValueError("Invalid parameters for PSD computation")
 
         psds, freqs = psd_array_welch(
-            component_data_array,
-            sfreq=sfreq,
+            psd_data,
+            sfreq=psd_sfreq,
             fmin=fmin_psd,
             fmax=fmax_psd,
             n_fft=n_fft_psd,
