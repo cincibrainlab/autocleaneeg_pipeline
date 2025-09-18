@@ -22,9 +22,12 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.backends.backend_pdf import PdfPages
-from matplotlib.gridspec import GridSpec
 from mne.preprocessing import ICA
 
+from autoclean.functions.visualization.icvision_layouts import (
+    plot_component_for_classification,
+    plot_ica_topographies_overview,
+)
 from autoclean.utils.logging import message
 
 # Force matplotlib to use non-interactive backend for async operations
@@ -247,116 +250,110 @@ class ICAReportingMixin:
         components : str
             'all' to plot all components, 'rejected' to plot only rejected components.
         """
-        return (
-            None
-            if self.raw is None or self.final_ica is None
-            else self._internal_plot_ica_components(
-                duration=duration, components=components
-            )
-        )
-        # Get raw and ICA from pipeline
+        if self.raw is None or self.final_ica is None:
+            message("warning", "ICA plotting skipped because raw or ICA data is missing.")
+            return None
+
         raw = self.raw
         ica = self.final_ica
-        ic_labels = self.ica_flags
+        ic_labels = getattr(self, "ica_flags", None)
 
-        # Determine components to plot
         if components == "all":
-            component_indices = range(ica.n_components_)
+            total_components = ica.n_components_ or 0
+            component_indices = list(range(total_components))
             report_name = "ica_components_all"
         elif components == "rejected":
-            component_indices = ica.exclude
+            component_indices = list(ica.exclude)
             report_name = "ica_components_rejected"
             if not component_indices:
-                print(
-                    "No components were rejected. Skipping rejected components report."
-                )
-                return
+                message("info", "No rejected components. Skipping rejected components report.")
+                return None
         else:
             raise ValueError("components parameter must be 'all' or 'rejected'.")
 
-        # ---- FAST PATH: operate on a cropped Raw for everything below ----
+        if not component_indices:
+            message("info", "No ICA components available for plotting.")
+            return None
+
         sfreq = raw.info["sfreq"]
         n_samples = int(min(duration * sfreq, raw.n_times))
-        # Guard for very short files
         tmax = raw.times[n_samples - 1] if n_samples > 0 else 0.0
-        raw_fast = raw.copy().crop(tmin=0, tmax=tmax)  # small and reusable
-
-        # ICA sources only for the cropped window
-        ica_sources = ica.get_sources(raw_fast)
-        ica_data = ica_sources.get_data()  # already length n_samples
-        times = raw_fast.times
+        raw_fast = raw.copy().crop(tmin=0, tmax=tmax)
 
         basename = self.config["bids_path"].basename
         basename = basename.replace("_eeg", report_name)
-        pdf_path = self._resolve_report_path("ica_components", basename)
-        pdf_path = pdf_path.with_suffix(".pdf")
+        pdf_path = self._resolve_report_path("ica_components", basename).with_suffix(".pdf")
 
-        # Remove existing file
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
 
-        with PdfPages(pdf_path) as pdf:
-            # Calculate how many components to show per page
-            components_per_page = 20
-            num_pages = int(np.ceil(len(component_indices) / components_per_page))
+        color_map = {
+            "brain": "#d4edda",
+            "eog": "#f9e79f",
+            "muscle": "#f5b7b1",
+            "ecg": "#d7bde2",
+            "ch_noise": "#ffd700",
+            "line_noise": "#add8e6",
+            "other": "#f0f0f0",
+        }
+        excluded_set = set(ica.exclude)
 
-            # Create summary tables split across pages
+        with PdfPages(pdf_path) as pdf:
+            components_per_page = 20
+            component_count = len(component_indices)
+            num_pages = max(1, int(np.ceil(component_count / components_per_page)))
+
             for page in range(num_pages):
                 start_idx = page * components_per_page
-                end_idx = min((page + 1) * components_per_page, len(component_indices))
+                end_idx = min((page + 1) * components_per_page, component_count)
                 page_components = component_indices[start_idx:end_idx]
 
-                fig_table = plt.figure(figsize=(11, 8.5))
-                ax_table = fig_table.add_subplot(111)
+                fig_table, ax_table = plt.subplots(figsize=(11, 8.5))
                 ax_table.axis("off")
 
-                # Prepare table data for this page
                 table_data = []
                 colors = []
-                # Define colors for different IC types (compute once)
-                color_map = {
-                    "brain": "#d4edda",  # Light green
-                    "eog": "#f9e79f",  # Light yellow
-                    "muscle": "#f5b7b1",  # Light red
-                    "ecg": "#d7bde2",  # Light purple
-                    "ch_noise": "#ffd700",  # Light orange
-                    "line_noise": "#add8e6",  # Light blue
-                    "other": "#f0f0f0",  # Light grey
-                }
-                excluded_set = set(ica.exclude)
+
                 for idx in page_components:
-                    comp_info = ic_labels.iloc[idx]
-                    annot = str(comp_info.get("annotator", "ic_label")).lower()
-                    src_suffix = " [Vision]" if annot in {"ic_vision", "vision"} else ""
-                    type_with_src = f"{comp_info['ic_type']}{src_suffix}"
-                    table_data.append(
-                        [
-                            f"IC{idx + 1}",
-                            type_with_src,
-                            f"{comp_info['confidence']:.2f}",
-                            "Yes" if idx in excluded_set else "No",
-                        ]
+                    if ic_labels is not None and idx < len(ic_labels):
+                        comp_info = ic_labels.iloc[idx]
+                        annot = str(comp_info.get("annotator", "ic_label")).lower()
+                        src_suffix = " [Vision]" if annot in {"ic_vision", "vision"} else ""
+                        table_data.append(
+                            [
+                                f"IC{idx + 1}",
+                                f"{comp_info['ic_type']}{src_suffix}",
+                                f"{comp_info['confidence']:.2f}",
+                                "Yes" if idx in excluded_set else "No",
+                            ]
+                        )
+                        colors.append([
+                            color_map.get(comp_info["ic_type"].lower(), "white")
+                        ] * 4)
+                    else:
+                        table_data.append(
+                            [
+                                f"IC{idx + 1}",
+                                "N/A",
+                                "N/A",
+                                "Yes" if idx in excluded_set else "No",
+                            ]
+                        )
+                        colors.append(["white"] * 4)
+
+                if table_data:
+                    table = ax_table.table(
+                        cellText=table_data,
+                        colLabels=["Component", "Type", "Confidence", "Rejected"],
+                        loc="center",
+                        cellLoc="center",
+                        cellColours=colors,
+                        colWidths=[0.2, 0.4, 0.2, 0.2],
                     )
-                    colors.append(
-                        [color_map.get(comp_info["ic_type"].lower(), "white")] * 4
-                    )
+                    table.auto_set_font_size(False)
+                    table.set_fontsize(9)
+                    table.scale(1.2, 1.5)
 
-                # Create and customize table
-                table = ax_table.table(
-                    cellText=table_data,
-                    colLabels=["Component", "Type", "Confidence", "Rejected"],
-                    loc="center",
-                    cellLoc="center",
-                    cellColours=colors,
-                    colWidths=[0.2, 0.4, 0.2, 0.2],
-                )
-
-                # Customize table appearance
-                table.auto_set_font_size(False)
-                table.set_fontsize(9)
-                table.scale(1.2, 1.5)  # Reduced vertical scaling
-
-                # Add title with page information, filename and timestamp
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 fig_table.suptitle(
                     f"ICA Components Summary - {self.config['bids_path'].basename}\n"
@@ -365,7 +362,7 @@ class ICAReportingMixin:
                     fontsize=12,
                     y=0.95,
                 )
-                # Add legend for colors
+
                 legend_elements = [
                     plt.Rectangle((0, 0), 1, 1, facecolor=color, edgecolor="none")
                     for color in color_map.values()
@@ -377,37 +374,24 @@ class ICAReportingMixin:
                     title="Component Types",
                 )
 
-                # Add margins
                 plt.subplots_adjust(top=0.85, bottom=0.15)
 
                 pdf.savefig(fig_table)
                 plt.close(fig_table)
 
-            # First page: Component topographies overview
-            fig_topo = ica.plot_components(picks=component_indices, show=False)
-            if isinstance(fig_topo, list):
-                for f in fig_topo:
-                    pdf.savefig(f)
-                    plt.close(f)
-            else:
-                pdf.savefig(fig_topo)
-                plt.close(fig_topo)
+            for topo_fig in plot_ica_topographies_overview(ica, component_indices):
+                pdf.savefig(topo_fig)
+                plt.close(topo_fig)
 
-            # If rejected components, add overlay plot
             if components == "rejected":
-                fig_overlay = plt.figure()
-                # Overlay only over the short window we use elsewhere
                 end_time = min(float(duration), raw_fast.times[-1])
-                # Use cropped Raw; keep only ICA channels to avoid mismatches
                 raw_copy = raw_fast.copy()
                 ica_ch_names = self.final_ica.ch_names
                 if len(ica_ch_names) != len(raw_copy.ch_names):
                     message(
                         "warning",
-                        f"Channel count mismatch: ICA has {len(ica_ch_names)} channels, "
-                        f"raw has {len(raw_copy.ch_names)}. Using only ICA channels for plotting.",
+                        "Channel count mismatch between ICA and raw. Using ICA channels only for overlay.",
                     )
-                    # Keep only the channels that were used in ICA
                     raw_copy.pick_channels(ica_ch_names)
 
                 fig_overlay = self.final_ica.plot_overlay(
@@ -417,73 +401,46 @@ class ICAReportingMixin:
                     exclude=component_indices,
                     show=False,
                 )
-                fig_overlay.set_size_inches(15, 10)  # Set size after creating figure
-
+                fig_overlay.set_size_inches(15, 10)
                 pdf.savefig(fig_overlay)
                 plt.close(fig_overlay)
 
-            # For each component, create detailed plots
+            source_name = self.config["bids_path"].basename
             for idx in component_indices:
-                fig = plt.figure(figsize=(12, 8))
-                gs = GridSpec(nrows=3, ncols=3, figure=fig)
+                classification_label = None
+                classification_confidence = None
+                classification_reason = None
 
-                # Axes for ica.plot_properties
-                ax1 = fig.add_subplot(gs[0, 0])  # Data
-                ax2 = fig.add_subplot(gs[0, 1])  # Epochs image
-                ax3 = fig.add_subplot(gs[0, 2])  # ERP/ERF
-                ax4 = fig.add_subplot(gs[1, 0])  # Spectrum
-                ax5 = fig.add_subplot(gs[1, 1])  # Topomap
-                ax_props = [ax1, ax2, ax3, ax4, ax5]
+                if ic_labels is not None and idx < len(ic_labels):
+                    comp_info = ic_labels.iloc[idx]
+                    classification_label = comp_info.get("ic_type")
+                    classification_confidence = comp_info.get("confidence")
+                    classification_reason = (
+                        comp_info.get("vision_reason")
+                        or comp_info.get("reason")
+                        or comp_info.get("notes")
+                    )
 
-                # Plot properties
-                ica.plot_properties(
+                fig = plot_component_for_classification(
+                    ica,
                     raw_fast,
-                    picks=[idx],
-                    axes=ax_props,
-                    dB=True,
-                    plot_std=True,  # faster, reduces extra compute
-                    log_scale=False,
-                    reject=None,  # avoid slow auto-reject
-                    psd_args={"fmax": 50},  # limit PSD bandwidth/work
-                    show=False,
+                    idx,
+                    output_dir=pdf_path.parent,
+                    return_fig_object=True,
+                    classification_label=classification_label,
+                    classification_confidence=classification_confidence,
+                    classification_reason=classification_reason,
+                    source_filename=source_name,
                 )
 
-                # Add time series plot
-                ax_timeseries = fig.add_subplot(gs[2, :])  # Last row, all columns
-                ax_timeseries.plot(times, ica_data[idx, :], linewidth=0.5)
-                ax_timeseries.set_xlabel("Time (seconds)")
-                ax_timeseries.set_ylabel("Amplitude")
-                ax_timeseries.set_title(
-                    f"Component {idx + 1} Time Course ({duration}s)"
-                )
+                if isinstance(fig, plt.Figure):
+                    pdf.savefig(fig)
+                    plt.close(fig)
+                else:
+                    plt.close("all")
 
-                # Add labels
-                comp_info = ic_labels.iloc[idx]
-                label_text = (
-                    f"Component {comp_info['component']}\n"
-                    f"Type: {comp_info['ic_type']}\n"
-                    f"Confidence: {comp_info['confidence']:.2f}"
-                )
-
-                fig.suptitle(
-                    label_text,
-                    fontsize=14,
-                    fontweight="bold",
-                    color=(
-                        "red"
-                        if comp_info["ic_type"]
-                        in ["eog", "muscle", "ch_noise", "line_noise", "ecg"]
-                        else "black"
-                    ),
-                )
-
-                # Save the figure
-                fig.tight_layout()
-                pdf.savefig(fig)
-                plt.close(fig)
-
-            print(f"Report saved to {pdf_path}")
-            return str(self._report_relative_path(Path(pdf_path)))
+        message("success", f"ICA report saved to {pdf_path}")
+        return str(self._report_relative_path(Path(pdf_path)))
 
     def verify_topography_plot(self) -> bool:
         """Use ica topograph to verify MEA channel placement.

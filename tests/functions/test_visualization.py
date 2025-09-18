@@ -35,7 +35,27 @@ def mock_ica():
     """Create a mock ICA object for testing."""
     ica = MagicMock(spec=ICA)
     ica.n_components_ = 10
-    ica.plot_components.return_value = plt.figure()
+    ica.exclude = []
+    ica.ch_names = [f"IC{i}" for i in range(10)]
+
+    # Mock sources returned by ICA.get_sources
+    sources = MagicMock()
+    sources.info = {"sfreq": 500.0}
+    data = np.random.randn(ica.n_components_, 500)
+
+    def _get_data(picks=None):
+        if picks is None:
+            return data
+        picks = np.atleast_1d(picks)
+        return data[picks]
+
+    sources.get_data.side_effect = _get_data
+    ica.get_sources.return_value = sources
+
+    def _plot_components(*args, **kwargs):  # noqa: D401 - simple passthrough
+        return None
+
+    ica.plot_components.side_effect = _plot_components
     return ica
 
 
@@ -92,12 +112,16 @@ class TestPlotRawComparison:
 class TestPlotIcaComponents:
     """Test ICA component plotting."""
 
-    def test_basic_functionality(self, mock_ica):
+    def test_basic_functionality(self, mock_ica, mock_raw):
         """Test basic ICA component plotting."""
-        fig = plot_ica_components(mock_ica)
+        with patch(
+            "autoclean.functions.visualization.icvision_layouts.psd_array_welch",
+            return_value=(np.ones(32), np.linspace(1, 32, 32)),
+        ):
+            fig = plot_ica_components(mock_ica, mock_raw)
 
         assert isinstance(fig, plt.Figure)
-        mock_ica.plot_components.assert_called_once()
+        mock_ica.plot_components.assert_called()
         plt.close(fig)
 
     def test_input_validation(self):
@@ -109,18 +133,17 @@ class TestPlotIcaComponents:
 class TestPlotPsdTopography:
     """Test PSD topography plotting."""
 
-    @patch("mne.io.BaseRaw.compute_psd")
-    def test_basic_functionality(self, mock_compute_psd, mock_raw):
+    def test_basic_functionality(self, mock_raw):
         """Test basic PSD topography plotting."""
         # Mock spectrum object
         mock_spectrum = MagicMock()
-        mock_spectrum.plot_topomap.return_value = plt.figure()
-        mock_compute_psd.return_value = mock_spectrum
+        mock_raw.compute_psd.return_value = mock_spectrum
+        mock_raw.compute_psd.return_value.plot_topomap.return_value = plt.figure()
 
         fig = plot_psd_topography(mock_raw)
 
         assert isinstance(fig, plt.Figure)
-        mock_compute_psd.assert_called_once()
+        mock_raw.compute_psd.assert_called_once()
         mock_spectrum.plot_topomap.assert_called_once()
         plt.close(fig)
 

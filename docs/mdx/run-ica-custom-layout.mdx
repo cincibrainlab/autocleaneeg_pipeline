@@ -1,0 +1,71 @@
+---
+title: ICA Custom Layout Run Log
+description: Step-by-step walkthrough of the faster ICA plotting layout and PDF integration update.
+---
+
+# ICA Custom Layout Run Log
+
+This note captures how we replaced the slow, legacy ICA component plotting path with the new custom layout, wired it into the
+report generator, and refreshed our safety nets. It is written for newcomers, so every action is spelled out with verification
+tips you can replay on your own machine.
+
+<Diagram name="Component figure anatomy">
+Topography ➜ 2.5 s time trace ➜ ERP-style segment heatmap ➜ Power spectrum ➜ (optional) classification badges
+</Diagram>
+
+<Steps>
+<Step title="What we set out to do">
+1. Ship a single plotting helper that matches the ICVision layout without calling `ICA.plot_properties` (the slow bit).
+2. Make every code path that used the old helper (API snapshots, PDF export, CLI preview) point at the new layout.
+3. Document how to rerun the exact verification so future contributors can sanity-check the visuals quickly.
+</Step>
+
+<Step title="Implementation highlights">
+1. Added `src/autoclean/functions/visualization/icvision_layouts.py` with helpers for individual components, batch rendering,
+   FIF persistence, and grid overviews. Each helper enforces an Agg backend, handles empty data defensively, and applies the
+   shared GridSpec layout so every subplot lands in the same spot every time.
+2. Updated `plot_ica_components` to become a thin wrapper that resolves the requested component index and delegates to the
+   custom helper, including handling optional classification badges for PDF workflows.
+3. Refactored the ICA reporting mixin so PDF generation now pulls figures from the shared helper, drops duplicated GridSpec
+   logic, and feeds classification metadata straight into the figure footer.
+4. Hardened the visualization tests so they patch PSD generation (for deterministic CI) and confirm we always get a
+   `matplotlib.figure.Figure` back—even when MNE returns axes-only objects.
+</Step>
+
+<Step title="How to reproduce the checks">
+<Note>
+Commands run from the repository root (`/workspace/autocleaneeg_pipeline`).
+</Note>
+1. Install dev requirements if you have a fresh environment:
+   ```bash
+   pip install -e .[dev]
+   ```
+2. Relax the repo-wide coverage gate (the full suite still sits below 80%):
+   ```bash
+   export PYTEST_ADDOPTS="--cov-fail-under=0"
+   ```
+3. Execute the visualization tests that cover the new helpers:
+   ```bash
+   pytest tests/functions/test_visualization.py -k "plot_ica_components or plot_psd_topography"
+   ```
+4. Optional sanity check: open any `.webp` the helper emits (e.g., from a pipeline run) and confirm it matches the layout diagram
+   above—topography on the left, spectra on the lower right, and badges in the header when classification data exists.
+</Step>
+
+<Step title="Concerns and follow-ups">
+1. `plot_components_batch` and `save_ica_data` do not yet have unit coverage. Future work: add focused tests that exercise the
+   happy path and error handling for both helpers.
+2. PDF generation now looks for reasoning text in `vision_reason`, `reason`, or `notes`. We should add regression tests that
+   cover the absence of each column so the layout remains resilient to partial metadata.
+3. Performance profiling is still anecdotal. Capture before/after timings on a medium-sized run to quantify the speedup and
+   inform future optimizations.
+</Step>
+</Steps>
+
+<Checklist>
+<li>Custom ICA plotting helper in place and reused everywhere.</li>
+<li>PDF reports emit figures via the shared layout with optional classification badges.</li>
+<li>Visualization tests patched to respect the new helper behavior.</li>
+<li>Next steps logged for coverage gaps and profiling.</li>
+</Checklist>
+
