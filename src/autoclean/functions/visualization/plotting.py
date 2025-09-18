@@ -5,7 +5,7 @@ of EEG data processing results.
 """
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import List, Optional, Sequence, Union
 
 import matplotlib
 import matplotlib.pyplot as plt
@@ -15,6 +15,8 @@ from matplotlib.lines import Line2D
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
+
+from .icvision_layouts import plot_component_for_classification
 
 
 def plot_raw_comparison(
@@ -219,75 +221,97 @@ def plot_raw_comparison(
 def plot_ica_components(
     ica: mne.preprocessing.ICA,
     raw: Optional[mne.io.Raw] = None,
-    picks: Optional[list] = None,
+    picks: Optional[Union[int, Sequence[int]]] = None,
     output_path: Optional[Union[str, Path]] = None,
-    title: str = "ICA Components",
+    title: str = "ICA Component Analysis",
     verbose: Optional[bool] = None,
+    *,
+    classification_label: Optional[str] = None,
+    classification_confidence: Optional[float] = None,
+    classification_reason: Optional[str] = None,
+    psd_fmax: Optional[float] = None,
+    source_filename: Optional[str] = None,
 ) -> plt.Figure:
-    """Plot ICA component topographies and properties.
-
-    This function creates a comprehensive visualization of ICA components
-    including topographical maps, time series, and power spectra.
+    """Render the fast ICA component layout for a single component.
 
     Parameters
     ----------
     ica : mne.preprocessing.ICA
         Fitted ICA object to visualize.
     raw : mne.io.Raw or None, default None
-        Raw data used for ICA fitting. Required for time series and spectra.
-    picks : list or None, default None
-        Component indices to plot. If None, plots all components.
+        Raw data used for ICA fitting. Required for the custom layout.
+    picks : int, sequence of int, or None, default None
+        Component index (or sequence where the first index will be used) to
+        visualize.
     output_path : str, Path, or None, default None
-        Path to save the plot. If None, plot is not saved.
-    title : str, default "ICA Components"
-        Title for the plot.
+        Path to save the generated figure. If None the figure is returned only.
+    title : str, default "ICA Component Analysis"
+        Retained for backwards compatibility; the custom layout defines its own
+        descriptive title.
     verbose : bool or None, default None
-        Control verbosity of output.
+        Control verbosity of output messages.
+    classification_label, classification_confidence, classification_reason : optional
+        Classification metadata displayed in PDF-oriented usage. When provided
+        the layout mirrors the reporting view used by the ICA mixin.
+    psd_fmax : float or None, default None
+        Upper frequency limit for the power spectral density subplot.
+    source_filename : str or None, default None
+        Optional footer text identifying the originating file.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         The created figure object.
-
-    Examples
-    --------
-    >>> fig = plot_ica_components(ica, raw)
-    >>> fig = plot_ica_components(ica, raw, picks=[0, 1, 2, 3])
-
-    See Also
-    --------
-    plot_raw_comparison : Plot before/after data comparison
-    mne.preprocessing.ICA.plot_components : MNE ICA component plotting
     """
-    # Input validation
+
     if not isinstance(ica, mne.preprocessing.ICA):
         raise TypeError(f"ica must be an MNE ICA object, got {type(ica).__name__}")
 
-    try:
-        # Use MNE's built-in plotting with custom parameters
-        if picks is None:
-            picks = list(
-                range(min(ica.n_components_, 25))
-            )  # Limit to first 25 components
+    if raw is None:
+        raise ValueError("raw must be provided to render ICA component layouts")
 
-        # Create the plot using MNE's function
-        fig = ica.plot_components(picks=picks, show=False)
+    if picks is None:
+        component_idx = 0
+    elif isinstance(picks, (list, tuple, np.ndarray, Sequence)) and not isinstance(picks, (str, bytes)):
+        picks_list: List[int] = list(picks)  # type: ignore[arg-type]
+        if not picks_list:
+            raise ValueError("picks must contain at least one component index")
+        component_idx = int(picks_list[0])
+        if verbose:
+            print(
+                "plot_ica_components only renders one component per figure; "
+                f"using index {component_idx} from provided picks."
+            )
+    else:
+        component_idx = int(picks)  # type: ignore[arg-type]
 
-        # Customize title
-        fig.suptitle(title, fontsize=14)
+    if component_idx < 0:
+        raise ValueError("Component index must be non-negative")
 
-        # Save if requested
-        if output_path is not None:
-            output_path = Path(output_path)
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            fig.savefig(output_path, dpi=150, bbox_inches="tight")
-            if verbose:
-                print(f"ICA components plot saved to: {output_path}")
+    fig = plot_component_for_classification(
+        ica,
+        raw,
+        component_idx,
+        output_dir=Path(output_path).parent if output_path is not None else Path("."),
+        return_fig_object=True,
+        classification_label=classification_label,
+        classification_confidence=classification_confidence,
+        classification_reason=classification_reason,
+        source_filename=source_filename,
+        psd_fmax=psd_fmax,
+    )
 
-        return fig
+    if not isinstance(fig, plt.Figure):
+        raise RuntimeError("Failed to generate ICA component figure")
 
-    except Exception as e:
-        raise RuntimeError(f"Failed to create ICA components plot: {str(e)}") from e
+    if output_path is not None:
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(output_path, dpi=150, bbox_inches="tight")
+        if verbose:
+            print(f"ICA component plot saved to: {output_path}")
+
+    return fig
 
 
 def plot_psd_topography(
@@ -351,6 +375,8 @@ def plot_psd_topography(
 
         # Create the plot using MNE's function
         fig = spectrum.plot_topomap(bands=freq_bands, show=False)
+        if not isinstance(fig, plt.Figure):
+            fig = plt.gcf()
 
         # Customize title
         fig.suptitle(title, fontsize=14)
