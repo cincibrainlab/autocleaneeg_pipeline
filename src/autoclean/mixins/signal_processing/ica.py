@@ -275,6 +275,17 @@ class IcaMixin:
             self.raw, self.final_ica, method=method, **extra_kwargs
         )
 
+        vision_attr = None
+        if hasattr(self.ica_flags, "attrs"):
+            vision_attr = self.ica_flags.attrs.get("icvision_df")
+
+        if vision_attr is not None:
+            self.ica_vision_flags = vision_attr.copy()
+        elif method == "icvision":
+            self.ica_vision_flags = self.ica_flags.copy()
+        else:
+            self.ica_vision_flags = None
+
         metadata = {
             "ica": {
                 "classification_method": method,

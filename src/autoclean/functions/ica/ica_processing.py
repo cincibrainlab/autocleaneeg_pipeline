@@ -187,6 +187,11 @@ def classify_ica_components(
             mne_icalabel.label_components(raw, ica, method="iclabel")
             # Extract results into a DataFrame
             component_labels = _icalabel_to_dataframe(ica)
+            component_labels = _attach_source_metadata(
+                component_labels,
+                iclabel_df=component_labels.copy(),
+                icvision_df=None,
+            )
 
         elif method == "icvision":
             # Run ICVision classification
@@ -198,8 +203,14 @@ def classify_ica_components(
 
             # Use ICVision as drop-in replacement, passing through any extra kwargs
             label_components(raw, ica, **kwargs)
-            # Extract results into a DataFrame using the same format
+            # Extract and tag results as ICVision outputs
             component_labels = _icalabel_to_dataframe(ica)
+            component_labels["annotator"] = "ic_vision"
+            component_labels = _attach_source_metadata(
+                component_labels,
+                iclabel_df=None,
+                icvision_df=component_labels.copy(),
+            )
 
         elif method == "hybrid":
             # First run ICLabel on all components (produces full-size labels/scores)
@@ -219,6 +230,8 @@ def classify_ica_components(
                     "NumPy is required for hybrid ICA classification merge logic"
                 )
 
+            iclabel_df = _icalabel_to_dataframe(ica).copy()
+
             n_comp = ica.n_components_
             # Copy ICLabel per-class probabilities and label mapping
             iclabel_scores = (
@@ -235,6 +248,10 @@ def classify_ica_components(
             # Run ICVision on the subset; this may overwrite ica.labels_/labels_scores_
             label_components(raw, ica, component_indices=component_indices, **kwargs)
 
+            # Prepare containers for vision-only metadata
+            vision_ic_type = [None] * n_comp
+            vision_confidence = [_np.nan] * n_comp
+
             # Build merged per-component label list starting from ICLabel then overlay ICVision
             merged_ic_type = [""] * n_comp
             # Fill from ICLabel first
@@ -248,6 +265,7 @@ def classify_ica_components(
                 for ci in comps:
                     if 0 <= ci < n_comp:
                         merged_ic_type[ci] = lbl
+                        vision_ic_type[ci] = lbl
 
             # Build merged confidence matrix: start from ICLabel scores, then replace subset rows with ICVision
             # If ICLabel didn't provide scores, initialize to ones
@@ -267,20 +285,23 @@ def classify_ica_components(
                 if icvision_scores.ndim == 2 and icvision_scores.shape[0] == len(component_indices):
                     for row_idx, comp_idx in enumerate(component_indices):
                         if 0 <= comp_idx < n_comp:
+                            max_prob = float(icvision_scores[row_idx].max())
+                            vision_confidence[comp_idx] = max_prob
                             # Ensure number of classes aligns; if not, take max prob only
                             if icvision_scores.shape[1] == merged_scores.shape[1]:
                                 merged_scores[comp_idx, :] = icvision_scores[row_idx, :]
                             else:
                                 # Fallback: keep existing distribution but update max/confidence
-                                max_prob = float(icvision_scores[row_idx].max())
-                                # Scale existing row to have this max (best-effort), or set uniform
                                 merged_scores[comp_idx, :] = max_prob
                 else:
                     # If shape is unexpected, at least try to update confidence for the subset
                     if icvision_scores.ndim == 2:
                         max_probs = icvision_scores.max(axis=1)
                         for row_idx, comp_idx in enumerate(component_indices[: len(max_probs)]):
-                            merged_scores[comp_idx, :] = max_probs[row_idx]
+                            if 0 <= comp_idx < n_comp:
+                                max_prob = float(max_probs[row_idx])
+                                vision_confidence[comp_idx] = max_prob
+                                merged_scores[comp_idx, :] = max_prob
 
             # Update the ICA object with merged labels and scores so downstream code sees full arrays
             # Rebuild labels_ dict from merged_ic_type
@@ -295,6 +316,22 @@ def classify_ica_components(
             # Mark which components were reclassified by ICVision for downstream reporting
             if component_indices:
                 component_labels.loc[component_indices, "annotator"] = "ic_vision"
+
+            vision_df = pd.DataFrame(
+                {
+                    "component": getattr(ica, "_ica_names", list(range(n_comp))),
+                    "annotator": ["ic_vision"] * n_comp,
+                    "ic_type": vision_ic_type,
+                    "confidence": vision_confidence,
+                },
+                index=range(n_comp),
+            )
+
+            component_labels = _attach_source_metadata(
+                component_labels,
+                iclabel_df=iclabel_df,
+                icvision_df=vision_df,
+            )
 
         return component_labels
 
@@ -411,6 +448,76 @@ def _icalabel_to_dataframe(ica: ICA) -> pd.DataFrame:
     )  # Ensure index is component indices
 
     return results
+
+
+def _series_from_df(
+    df: Optional[pd.DataFrame],
+    column: str,
+    index: pd.Index,
+    *,
+    fill_value: Optional[Union[float, str]] = None,
+    dtype: Optional[Union[str, type]] = None,
+) -> pd.Series:
+    """Helper to safely extract a column aligned to the provided index."""
+    if df is None or column not in df.columns:
+        values = [fill_value] * len(index)
+        return pd.Series(values, index=index, dtype=dtype)
+    series = df[column].reindex(index)
+    return series
+
+
+def _attach_source_metadata(
+    base_df: pd.DataFrame,
+    *,
+    iclabel_df: Optional[pd.DataFrame],
+    icvision_df: Optional[pd.DataFrame],
+) -> pd.DataFrame:
+    """Augment classification results with source-specific metadata."""
+    aligned_iclabel = iclabel_df.reindex(base_df.index).copy() if iclabel_df is not None else None
+    aligned_icvision = (
+        icvision_df.reindex(base_df.index).copy() if icvision_df is not None else None
+    )
+
+    if aligned_iclabel is not None and "annotator" not in aligned_iclabel.columns:
+        aligned_iclabel["annotator"] = "ic_label"
+
+    if aligned_icvision is not None:
+        if "annotator" not in aligned_icvision.columns:
+            aligned_icvision["annotator"] = "ic_vision"
+        if aligned_iclabel is not None:
+            missing_type = aligned_icvision["ic_type"].isna() | (aligned_icvision["ic_type"] == "")
+            aligned_icvision.loc[missing_type, "ic_type"] = aligned_iclabel.loc[
+                missing_type, "ic_type"
+            ]
+            if "confidence" in aligned_icvision.columns and "confidence" in aligned_iclabel.columns:
+                missing_conf = aligned_icvision["confidence"].isna()
+                aligned_icvision.loc[missing_conf, "confidence"] = aligned_iclabel.loc[
+                    missing_conf, "confidence"
+                ]
+
+    augmented = base_df.copy()
+    idx = augmented.index
+    augmented["iclabel_ic_type"] = _series_from_df(
+        aligned_iclabel, "ic_type", idx, fill_value=None, dtype=object
+    )
+    augmented["iclabel_confidence"] = _series_from_df(
+        aligned_iclabel, "confidence", idx, fill_value=float("nan"), dtype=float
+    )
+    augmented["icvision_ic_type"] = _series_from_df(
+        aligned_icvision, "ic_type", idx, fill_value=None, dtype=object
+    )
+    augmented["icvision_confidence"] = _series_from_df(
+        aligned_icvision, "confidence", idx, fill_value=float("nan"), dtype=float
+    )
+
+    attrs: Dict[str, pd.DataFrame] = {}
+    if aligned_iclabel is not None:
+        attrs["iclabel_df"] = aligned_iclabel
+    if aligned_icvision is not None:
+        attrs["icvision_df"] = aligned_icvision
+    augmented.attrs = attrs
+
+    return augmented
 
 
 def apply_ica_component_rejection(

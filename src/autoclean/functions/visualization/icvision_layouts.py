@@ -227,7 +227,9 @@ def plot_component_for_classification(
     # --- Short scrolling trace -----------------------------------------
     try:
         duration_segment_ts = 2.5
-        max_samples_ts = min(int(duration_segment_ts * sfreq), len(component_data_array))
+        max_samples_ts = min(
+            int(duration_segment_ts * sfreq), len(component_data_array)
+        )
         times_ts_ms = (np.arange(max_samples_ts) / sfreq) * 1000
 
         ax_ts_scroll.plot(
@@ -249,12 +251,15 @@ def plot_component_for_classification(
 
     # --- ERP-style image ------------------------------------------------
     try:
-        comp_data_centered = component_data_array - np.mean(component_data_array)
+        continuous_data_array = psd_data
+        continuous_sfreq = psd_sfreq
+        comp_data_centered = continuous_data_array - np.mean(continuous_data_array)
         target_segment_duration_s = 1.5
         target_max_segments = 200
-        segment_len_samples = int(target_segment_duration_s * sfreq) or 1
+        segment_len_samples = int(target_segment_duration_s * continuous_sfreq) or 1
 
         available_samples = comp_data_centered.shape[0]
+        segment_sfreq = continuous_sfreq
         max_total_samples = int(target_max_segments * segment_len_samples)
         samples_to_use = min(available_samples, max_total_samples)
 
@@ -267,14 +272,18 @@ def plot_component_for_classification(
         elif samples_to_use > 0:
             n_segments = 1
             segment_len_samples = samples_to_use
-            erp_image_data = comp_data_centered[:segment_len_samples].reshape(1, segment_len_samples)
+            erp_image_data = comp_data_centered[:segment_len_samples].reshape(
+                1, segment_len_samples
+            )
         else:
             n_segments = 0
             segment_len_samples = 1
             erp_image_data = np.zeros((1, 1))
 
         if n_segments >= 3 and erp_image_data.shape[0] >= 3:
-            erp_image_smoothed = uniform_filter1d(erp_image_data, size=3, axis=0, mode="nearest")
+            erp_image_smoothed = uniform_filter1d(
+                erp_image_data, size=3, axis=0, mode="nearest"
+            )
         else:
             erp_image_smoothed = erp_image_data
 
@@ -301,7 +310,7 @@ def plot_component_for_classification(
         if segment_len_samples > 1:
             num_xticks = min(4, segment_len_samples)
             xtick_positions = np.linspace(0, segment_len_samples - 1, num_xticks)
-            xtick_labels = (xtick_positions / sfreq * 1000).astype(int)
+            xtick_labels = (xtick_positions / segment_sfreq * 1000).astype(int)
             ax_cont_data.set_xticks(xtick_positions)
             ax_cont_data.set_xticklabels(xtick_labels)
         else:
@@ -322,12 +331,16 @@ def plot_component_for_classification(
         if n_segments > 0:
             ax_cont_data.invert_yaxis()
 
-        cbar = fig.colorbar(im, ax=ax_cont_data, orientation="vertical", fraction=0.046, pad=0.1)
+        cbar = fig.colorbar(
+            im, ax=ax_cont_data, orientation="vertical", fraction=0.046, pad=0.1
+        )
         cbar.set_label("Activation (a.u.)", fontsize=8)
         cbar.ax.tick_params(labelsize=7)
     except Exception as exc:  # pragma: no cover
         logger.error("Continuous data plotting failed for IC%s: %s", component_idx, exc)
-        ax_cont_data.text(0.5, 0.5, "Continuous data plot failed", ha="center", va="center")
+        ax_cont_data.text(
+            0.5, 0.5, "Continuous data plot failed", ha="center", va="center"
+        )
 
     # --- Power spectral density ----------------------------------------
     try:
@@ -380,7 +393,9 @@ def plot_component_for_classification(
 
     if return_fig_object:
         if classification_label is not None and classification_confidence is not None:
-            subtitle_color = CLASSIFICATION_COLOR_MAP.get(classification_label.lower(), "black")
+            subtitle_color = CLASSIFICATION_COLOR_MAP.get(
+                classification_label.lower(), "black"
+            )
             label_prefix = (
                 f"{method_display} Classification"
                 if method_display
@@ -423,7 +438,9 @@ def plot_component_for_classification(
                 fontsize=8,
                 wrap=True,
                 transform=fig.transFigure,
-                bbox=dict(boxstyle="round,pad=0.4", fc="aliceblue", alpha=0.75, ec="lightgrey"),
+                bbox=dict(
+                    boxstyle="round,pad=0.4", fc="aliceblue", alpha=0.75, ec="lightgrey"
+                ),
             )
 
         if source_filename:
@@ -451,7 +468,9 @@ def plot_component_for_classification(
     filename = f"component_IC{component_idx}_vision_analysis.webp"
     filepath = output_dir / filename
     try:
-        fig.subplots_adjust(left=0.05, right=0.95, bottom=0.05, top=0.93, hspace=0.7, wspace=0.35)
+        fig.subplots_adjust(
+            left=0.05, right=0.95, bottom=0.05, top=0.93, hspace=0.7, wspace=0.35
+        )
         plt.savefig(filepath, format="webp", bbox_inches="tight", pad_inches=0.1)
         logger.debug("Saved component plot for IC%s to %s", component_idx, filepath)
     except Exception as exc:  # pragma: no cover
@@ -621,4 +640,3 @@ def plot_ica_topographies_overview(
         figures.append(fig)
 
     return figures
-
