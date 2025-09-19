@@ -29,6 +29,12 @@ from autoclean.functions.visualization.icvision_layouts import (
     plot_component_for_classification,
     plot_ica_topographies_overview,
 )
+from autoclean.mixins.viz._ica_sources_cache import (
+    get_cached_ica_sources,
+    invalidate_ica_cache,
+    get_ica_cache_stats,
+    cache_aware_ica_method,
+)
 from autoclean.utils.logging import message
 
 # Force matplotlib to use non-interactive backend for async operations
@@ -87,8 +93,8 @@ class ICAReportingMixin:
         ica = self.final_ica
         ic_labels = self.ica_flags
 
-        # Get ICA activations and create time vector
-        ica_sources = ica.get_sources(raw)
+        # Get ICA activations using cache for better performance
+        ica_sources = get_cached_ica_sources(ica, raw)
         ica_data = ica_sources.get_data()
         times = raw.times
         n_components, _ = ica_data.shape
@@ -472,6 +478,32 @@ class ICAReportingMixin:
 
         message("success", f"ICA report saved to {pdf_path}")
         return str(self._report_relative_path(Path(pdf_path)))
+
+    def get_cache_info(self) -> dict:
+        """Get ICA sources cache statistics for monitoring.
+        
+        Returns
+        -------
+        dict
+            Cache statistics including size, entries, and utilization
+        """
+        return get_ica_cache_stats()
+
+    def clear_ica_sources_cache(self):
+        """Clear all cached ICA sources to free memory."""
+        invalidate_ica_cache(self.final_ica)
+        message("info", "ICA sources cache cleared")
+
+    def log_cache_performance(self):
+        """Log current cache performance statistics."""
+        stats = get_ica_cache_stats()
+        if stats['entries'] > 0:
+            message("info", 
+                f"ICA Cache: {stats['entries']} entries, "
+                f"{stats['total_size_mb']:.1f}MB used "
+                f"({stats['utilization_percent']:.1f}% of limit)")
+        else:
+            message("info", "ICA Cache: empty")
 
     def verify_topography_plot(self) -> bool:
         """Use ica topograph to verify MEA channel placement.
