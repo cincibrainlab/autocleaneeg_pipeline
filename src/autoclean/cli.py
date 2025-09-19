@@ -25,7 +25,6 @@ from rich.table import Table
 
 from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
-from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
 from autoclean.utils.config import (
     disable_compliance_mode,
     enable_compliance_mode,
@@ -36,19 +35,12 @@ from autoclean.utils.config import (
 from autoclean.utils.console import get_console
 from autoclean.utils.logging import message
 
-# Import lazy task discovery functions for better performance
-from autoclean.utils.lazy_task_discovery import (
-    extract_config_from_task_lazy as extract_config_from_task,
-    get_task_by_name_lazy as get_task_by_name,
-    safe_discover_tasks_lazy as safe_discover_tasks,
-)
-from autoclean.utils.task_discovery import (
-    get_task_overrides,
-)
-
-# Heavy imports moved to function-level for better startup performance
-# This avoids loading heavy modules until actually needed
-# from autoclean.utils.user_config import user_config - moved to conditional import in main()
+# Task discovery functions imported at function level for better performance
+# from autoclean.utils.lazy_task_discovery import (
+#     extract_config_from_task_lazy as extract_config_from_task,
+#     get_task_by_name_lazy as get_task_by_name,
+#     safe_discover_tasks_lazy as safe_discover_tasks,
+# )
 
 # ------------------------------------------------------------
 # CLI Process Logging
@@ -5152,6 +5144,7 @@ def cmd_export_access_log(args) -> int:
 def cmd_login(args) -> int:
     """Execute the login command."""
     try:
+        from autoclean.utils.auth import is_compliance_mode_enabled
         if not is_compliance_mode_enabled():
             message("error", "Compliance mode is not enabled.")
             message(
