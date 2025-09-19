@@ -25,6 +25,13 @@ from mne.preprocessing import ICA
 from mne.time_frequency import psd_array_welch
 from scipy.ndimage import uniform_filter1d
 
+# Import caching functions (optional to avoid circular imports)
+try:
+    from autoclean.mixins.viz._ica_sources_cache import get_cached_ica_sources
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+
 # Force non-interactive backend for batch environments
 matplotlib.use("Agg", force=True)
 
@@ -169,7 +176,12 @@ def plot_component_for_classification(
     ax_psd = fig.add_subplot(gs[2, 1])
 
     try:
-        sources = ica_obj.get_sources(raw_obj)
+        # Use cached sources for better performance
+        if CACHE_AVAILABLE:
+            sources = get_cached_ica_sources(ica_obj, raw_obj)
+        else:
+            sources = ica_obj.get_sources(raw_obj)
+            
         sfreq = sources.info["sfreq"]
         component_data = sources.get_data(picks=[component_idx])
         component_data = np.asarray(component_data)
@@ -185,7 +197,12 @@ def plot_component_for_classification(
     psd_sfreq = sfreq
     if raw_full is not None:
         try:
-            sources_full = ica_obj.get_sources(raw_full)
+            # Use cached sources for full-duration data as well
+            if CACHE_AVAILABLE:
+                sources_full = get_cached_ica_sources(ica_obj, raw_full)
+            else:
+                sources_full = ica_obj.get_sources(raw_full)
+                
             psd_sfreq = sources_full.info["sfreq"]
             component_data_full = sources_full.get_data(picks=[component_idx])
             component_data_full = np.asarray(component_data_full)
