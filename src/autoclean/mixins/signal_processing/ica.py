@@ -13,6 +13,13 @@ from autoclean.functions.ica.ica_processing import (
 from autoclean.io.export import save_ica_to_fif
 from autoclean.utils.logging import message
 
+# Import cache invalidation function if available
+try:
+    from autoclean.mixins.viz._ica_sources_cache import invalidate_ica_cache
+    CACHE_AVAILABLE = True
+except ImportError:
+    CACHE_AVAILABLE = False
+
 
 class IcaMixin:
     """Mixin for ICA processing."""
@@ -133,6 +140,10 @@ class IcaMixin:
         self._auto_export_if_enabled(self.raw, stage_name, True)
 
         save_ica_to_fif(self.final_ica, self.config, data)
+
+        # Invalidate any cached sources since ICA object has changed
+        if CACHE_AVAILABLE and hasattr(self, 'final_ica') and self.final_ica is not None:
+            invalidate_ica_cache(self.final_ica)
 
         message("success", "ICA step complete")
 
@@ -467,7 +478,13 @@ class IcaMixin:
 
         # Use control sheet to finalize exclusions
         final_exclude = update_ica_control_sheet(self.config, auto_exclude)
+        old_exclude = self.final_ica.exclude.copy() if self.final_ica.exclude else []
         self.final_ica.exclude = final_exclude
+
+        # Invalidate cache if exclude list changed
+        if CACHE_AVAILABLE and old_exclude != final_exclude:
+            invalidate_ica_cache(self.final_ica)
+            message("debug", "Cache invalidated due to ICA exclude list change")
 
         if not final_exclude:
             message(
