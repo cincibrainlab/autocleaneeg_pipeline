@@ -215,35 +215,51 @@ class ICAReportingMixin:
         duration : Optional[int]
             Duration in seconds for plotting time series data
         """
-        # Generate report for all components
-        report_filename = self._plot_ica_components(
-            duration=duration,
-            components="all",
-        )
+        try:
+            # Generate report for all components
+            message("info", "Generating ICA report for all components...")
+            report_filename = self._plot_ica_components(
+                duration=duration,
+                components="all",
+            )
 
-        metadata = {
-            "artifact_reports": {
-                "creationDateTime": datetime.now().isoformat(),
-                "ica_all_components": report_filename,
-            }
-        }
+            if report_filename is not None:
+                metadata = {
+                    "artifact_reports": {
+                        "creationDateTime": datetime.now().isoformat(),
+                        "ica_all_components": report_filename,
+                    }
+                }
+                self._update_metadata("generate_ica_reports", metadata)
+                message("success", "Successfully generated 'all components' ICA report")
+            else:
+                message("warning", "Failed to generate 'all components' ICA report")
 
-        self._update_metadata("generate_ica_reports", metadata)
+        except Exception as exc:
+            message("error", f"Critical error in 'all components' ICA report generation: {exc}")
 
-        # Generate report for rejected components
-        report_filename = self._plot_ica_components(
-            duration=duration,
-            components="rejected",
-        )
+        try:
+            # Generate report for rejected components
+            message("info", "Generating ICA report for rejected components...")
+            report_filename = self._plot_ica_components(
+                duration=duration,
+                components="rejected",
+            )
 
-        metadata = {
-            "artifact_reports": {
-                "creationDateTime": datetime.now().isoformat(),
-                "ica_rejected_components": report_filename,
-            }
-        }
+            if report_filename is not None:
+                metadata = {
+                    "artifact_reports": {
+                        "creationDateTime": datetime.now().isoformat(),
+                        "ica_rejected_components": report_filename,
+                    }
+                }
+                self._update_metadata("generate_ica_reports", metadata)
+                message("success", "Successfully generated 'rejected components' ICA report")
+            else:
+                message("info", "No rejected components report generated (may be no rejected components)")
 
-        self._update_metadata("generate_ica_reports", metadata)
+        except Exception as exc:
+            message("error", f"Critical error in 'rejected components' ICA report generation: {exc}")
 
     def _plot_ica_components(
         self,
@@ -260,8 +276,13 @@ class ICAReportingMixin:
         components : str
             'all' to plot all components, 'rejected' to plot only rejected components.
         """
+        # Safety guards - input validation
         if self.raw is None or self.final_ica is None:
             message("warning", "ICA plotting skipped because raw or ICA data is missing.")
+            return None
+        
+        if components not in ["all", "rejected"]:
+            message("error", f"Invalid components parameter: '{components}'. Must be 'all' or 'rejected'.")
             return None
 
         raw = self.raw
@@ -304,8 +325,7 @@ class ICAReportingMixin:
             if not component_indices:
                 message("info", "No rejected components. Skipping rejected components report.")
                 return None
-        else:
-            raise ValueError("components parameter must be 'all' or 'rejected'.")
+        # Invalid components parameter handled by safety guard above
 
         if not component_indices:
             message("info", "No ICA components available for plotting.")
