@@ -20,10 +20,11 @@ import matplotlib
 import matplotlib.pyplot as plt
 import mne
 import numpy as np
-from matplotlib.gridspec import GridSpec
 from mne.preprocessing import ICA
 from mne.time_frequency import psd_array_welch
 from scipy.ndimage import uniform_filter1d
+
+from ...sandbox import build_ic_classification_layout
 
 # Force non-interactive backend for batch environments
 matplotlib.use("Agg", force=True)
@@ -124,49 +125,23 @@ def plot_component_for_classification(
     # Always start from a clean canvas to keep batch jobs deterministic
     plt.close("all")
 
-    fig_height = 9.5
-    gridspec_bottom = 0.05
-
-    if return_fig_object and classification_reason:
-        fig_height = 11
-        gridspec_bottom = 0.18
-
-    fig = plt.figure(figsize=(12, fig_height), dpi=120)
-    method_display = None
-    if classification_method:
-        method_key = classification_method.lower()
-        method_display = {
-            "iclabel": "ICLabel",
-            "icvision": "ICVision",
-            "hybrid": "Hybrid",
-        }.get(method_key, classification_method)
-    method_suffix = f" [{method_display}]" if method_display else ""
-    main_title = f"ICA Component IC{component_idx} Analysis{method_suffix}"
-    gridspec_top = 0.95
-    suptitle_y_pos = 0.98
-
-    if return_fig_object and classification_label is not None:
-        gridspec_top = 0.90
-        suptitle_y_pos = 0.96
-
-    gs = GridSpec(
-        3,
-        2,
-        figure=fig,
-        height_ratios=[0.915, 0.572, 2.213],
-        width_ratios=[0.9, 1.0],
-        hspace=0.7,
-        wspace=0.35,
-        left=0.05,
-        right=0.95,
-        top=gridspec_top,
-        bottom=gridspec_bottom,
+    layout = build_ic_classification_layout(
+        component_idx,
+        classification_label=classification_label,
+        classification_reason=classification_reason,
+        classification_method=classification_method,
+        return_fig_object=return_fig_object,
     )
 
-    ax_topo = fig.add_subplot(gs[0:2, 0])
-    ax_cont_data = fig.add_subplot(gs[2, 0])
-    ax_ts_scroll = fig.add_subplot(gs[0, 1])
-    ax_psd = fig.add_subplot(gs[2, 1])
+    fig = layout.fig
+    ax_topo = layout.ax_topo
+    ax_cont_data = layout.ax_cont_data
+    ax_ts_scroll = layout.ax_ts_scroll
+    ax_psd = layout.ax_psd
+    method_display = layout.method_display
+    main_title = layout.main_title
+    gridspec_bottom = layout.gridspec_bottom
+    suptitle_y_pos = layout.suptitle_y_pos
 
     try:
         sources = ica_obj.get_sources(raw_obj)

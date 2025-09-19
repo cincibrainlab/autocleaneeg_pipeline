@@ -1,0 +1,54 @@
+---
+title: ICA Layout Sandbox Extraction
+description: Walkthrough of the sandbox helper that isolates the ICA component layout for future tuning.
+---
+
+# ICA Layout Sandbox Extraction
+
+This run peels the layout scaffolding out of the production plotting helper and drops it into a sandbox module. The goal is to
+give performance work a dedicated playground without forcing every experiment through the busy visualization package.
+
+<Diagram name="Layout responsibilities split">
+Existing plot helper ➜ Sandbox layout factory ➜ Plotting logic ➜ Reporting + batch jobs
+</Diagram>
+
+<Steps>
+<Step title="Objectives">
+1. Add a dedicated sandbox module that produces the Matplotlib layout for ICA components.
+2. Refactor the main `plot_component_for_classification` helper to consume the sandbox layout specification.
+3. Provide targeted unit tests and rerun the visualization suite so newcomers can validate the change locally.
+</Step>
+
+<Step title="Implementation"> 
+1. Created `src/autoclean/sandbox/ica_layout.py` with `build_ic_classification_layout`, which returns an `ICALayoutSpec` dataclass holding the figure, axes, and metadata needed by callers.
+2. Updated `icvision_layouts.py` to swap the inline GridSpec code for a call into the sandbox helper, keeping the rendering behaviour identical while decoupling the layout decisions.
+3. Added `tests/sandbox/test_ica_layout.py` to assert the sandbox helper generates consistent spacing in both in-memory and file-saving modes.
+</Step>
+
+<Step title="Verification">
+<Note>Run commands from the project root (`/workspace/autocleaneeg_pipeline`).</Note>
+1. Ensure development extras are available: `pip install -e .[dev]`
+2. Execute the new sandbox tests alongside the existing visualization coverage:
+   ```bash
+   pytest tests/sandbox/test_ica_layout.py tests/functions/test_visualization.py -k "plot_ica_components or test_build_layout"
+   ```
+3. Optional: open a REPL and call `build_ic_classification_layout(0, return_fig_object=True)` to inspect the returned figure and axes for hands-on experimentation.
+</Step>
+
+<Accordion title="Why the sandbox?">
+Carving out the layout logic lets us iterate on GridSpec tweaks (spacing, DPI, colorbars) without repeatedly touching the
+production plotting function—a hotspot shared by API users, PDF exports, and CLI tools. The sandbox helper can evolve quickly,
+and once a new layout proves itself we can promote it back into the main module.
+</Accordion>
+
+<Checklist>
+<li>Sandbox module returns a reusable layout specification.</li>
+<li>Visualization helper delegates layout creation to the sandbox.</li>
+<li>Unit tests cover both expanded and compact layout modes.</li>
+<li>Reproduction steps documented for fresh contributors.</li>
+</Checklist>
+
+<Callout type="warning" title="Future considerations">
+Profiling the sandbox helper against the production path will require representative ICA data. Capture timing metrics once the
+layout experiments begin so we can quantify improvements before merging them upstream.
+</Callout>
