@@ -15,6 +15,7 @@ decisions to ensure appropriate artifact removal.
 """
 
 import os
+import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -36,6 +37,8 @@ from autoclean.mixins.viz._ica_sources_cache import (
     cache_aware_ica_method,
 )
 from autoclean.utils.logging import message
+
+logger = logging.getLogger(__name__)
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
@@ -441,6 +444,25 @@ class ICAReportingMixin:
                 plt.close(fig_overlay)
 
             source_name = self.config["bids_path"].basename
+            
+            # Pre-compute batch data for better performance
+            from autoclean.mixins.viz._ica_topography_cache import get_cached_topographies
+            from autoclean.mixins.viz._ica_psd_cache import get_cached_component_psds
+            
+            try:
+                # Pre-compute all topographies for the components we'll plot
+                logger.debug(f"Pre-computing topographies for {len(component_indices)} components")
+                get_cached_topographies(ica, component_indices)
+                
+                # Pre-compute all PSDs for the components we'll plot
+                logger.debug(f"Pre-computing PSDs for {len(component_indices)} components")
+                get_cached_component_psds(ica, raw, component_indices)
+                get_cached_component_psds(ica, raw_fast, component_indices)
+                
+                message("info", f"Pre-computed batch data for {len(component_indices)} components")
+            except Exception as exc:
+                logger.warning(f"Batch pre-computation failed (will fallback): {exc}")
+            
             for idx in component_indices:
                 classification_label = None
                 classification_confidence = None

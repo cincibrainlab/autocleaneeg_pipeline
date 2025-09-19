@@ -28,9 +28,23 @@ from scipy.ndimage import uniform_filter1d
 # Import caching functions (optional to avoid circular imports)
 try:
     from autoclean.mixins.viz._ica_sources_cache import get_cached_ica_sources
-    CACHE_AVAILABLE = True
+    SOURCES_CACHE_AVAILABLE = True
 except ImportError:
-    CACHE_AVAILABLE = False
+    SOURCES_CACHE_AVAILABLE = False
+
+try:
+    from autoclean.mixins.viz._ica_topography_cache import (
+        get_cached_topographies, apply_cached_topography
+    )
+    TOPOGRAPHY_CACHE_AVAILABLE = True
+except ImportError:
+    TOPOGRAPHY_CACHE_AVAILABLE = False
+
+try:
+    from autoclean.mixins.viz._ica_psd_cache import get_cached_component_psds
+    PSD_CACHE_AVAILABLE = True
+except ImportError:
+    PSD_CACHE_AVAILABLE = False
 
 # Force non-interactive backend for batch environments
 matplotlib.use("Agg", force=True)
@@ -177,7 +191,7 @@ def plot_component_for_classification(
 
     try:
         # Use cached sources for better performance
-        if CACHE_AVAILABLE:
+        if SOURCES_CACHE_AVAILABLE:
             sources = get_cached_ica_sources(ica_obj, raw_obj)
         else:
             sources = ica_obj.get_sources(raw_obj)
@@ -198,7 +212,7 @@ def plot_component_for_classification(
     if raw_full is not None:
         try:
             # Use cached sources for full-duration data as well
-            if CACHE_AVAILABLE:
+            if SOURCES_CACHE_AVAILABLE:
                 sources_full = get_cached_ica_sources(ica_obj, raw_full)
             else:
                 sources_full = ica_obj.get_sources(raw_full)
@@ -221,22 +235,33 @@ def plot_component_for_classification(
 
     # --- Topography -----------------------------------------------------
     try:
-        ica_obj.plot_components(
-            picks=component_idx,
-            axes=ax_topo,
-            ch_type="eeg",
-            show=False,
-            colorbar=False,
-            cmap="jet",
-            outlines="head",
-            sensors=True,
-            contours=6,
-        )
-        ax_topo.set_title(f"IC{component_idx} Topography", fontsize=12)
-        ax_topo.set_xlabel("")
-        ax_topo.set_ylabel("")
-        ax_topo.set_xticks([])
-        ax_topo.set_yticks([])
+        if TOPOGRAPHY_CACHE_AVAILABLE:
+            # Use cached topography for better performance
+            topographies = get_cached_topographies(ica_obj, [component_idx])
+            if component_idx in topographies:
+                apply_cached_topography(
+                    ax_topo, topographies[component_idx], component_idx
+                )
+            else:
+                raise ValueError("Cached topography not available")
+        else:
+            # Fallback to original MNE plotting
+            ica_obj.plot_components(
+                picks=component_idx,
+                axes=ax_topo,
+                ch_type="eeg",
+                show=False,
+                colorbar=False,
+                cmap="jet",
+                outlines="head",
+                sensors=True,
+                contours=6,
+            )
+            ax_topo.set_title(f"IC{component_idx} Topography", fontsize=12)
+            ax_topo.set_xlabel("")
+            ax_topo.set_ylabel("")
+            ax_topo.set_xticks([])
+            ax_topo.set_yticks([])
     except Exception as exc:  # pragma: no cover - defensive path
         logger.error("Topography plotting failed for IC%s: %s", component_idx, exc)
         ax_topo.text(0.5, 0.5, "Topography plot failed", ha="center", va="center")
@@ -380,16 +405,40 @@ def plot_component_for_classification(
         if n_fft_psd <= 0 or fmax_psd <= fmin_psd:
             raise ValueError("Invalid parameters for PSD computation")
 
-        psds, freqs = psd_array_welch(
-            psd_data,
-            sfreq=psd_sfreq,
-            fmin=fmin_psd,
-            fmax=fmax_psd,
-            n_fft=n_fft_psd,
-            n_overlap=int(n_fft_psd * 0.5),
-            verbose=False,
-            average="mean",
-        )
+        if PSD_CACHE_AVAILABLE and raw_full is not None:
+            # Use cached batch PSD computation for better performance
+            try:
+                psd_data_cached, freqs = get_cached_component_psds(
+                    ica_obj, raw_full, [component_idx], 
+                    fmin=fmin_psd, fmax=fmax_psd, n_fft=n_fft_psd
+                )
+                psds = psd_data_cached[0]  # Get data for our component
+            except Exception as cache_exc:
+                logger.debug(f"PSD cache failed for IC{component_idx}, falling back: {cache_exc}")
+                # Fallback to individual computation
+                psds, freqs = psd_array_welch(
+                    psd_data,
+                    sfreq=psd_sfreq,
+                    fmin=fmin_psd,
+                    fmax=fmax_psd,
+                    n_fft=n_fft_psd,
+                    n_overlap=int(n_fft_psd * 0.5),
+                    verbose=False,
+                    average="mean",
+                )
+        else:
+            # Fallback to individual PSD computation
+            psds, freqs = psd_array_welch(
+                psd_data,
+                sfreq=psd_sfreq,
+                fmin=fmin_psd,
+                fmax=fmax_psd,
+                n_fft=n_fft_psd,
+                n_overlap=int(n_fft_psd * 0.5),
+                verbose=False,
+                average="mean",
+            )
+            
         if psds.size == 0:
             raise ValueError("PSD computation returned empty array")
 
@@ -623,21 +672,39 @@ def plot_ica_topographies_overview(
             fontsize=14,
         )
 
+        # Pre-compute all topographies for this batch for better performance
+        if TOPOGRAPHY_CACHE_AVAILABLE:
+            try:
+                batch_topographies = get_cached_topographies(ica_obj, batch)
+            except Exception as exc:
+                logger.warning(f"Batch topography caching failed: {exc}")
+                batch_topographies = {}
+        else:
+            batch_topographies = {}
+
         for ax_idx, comp_idx in enumerate(batch):
             row, col = divmod(ax_idx, ncols)
             ax = axes[row, col]
             try:
-                ica_obj.plot_components(
-                    picks=comp_idx,
-                    axes=ax,
-                    show=False,
-                    colorbar=False,
-                    cmap="jet",
-                    outlines="head",
-                    sensors=False,
-                    contours=4,
-                )
-                ax.set_title(f"IC{comp_idx}", fontsize=9)
+                if comp_idx in batch_topographies:
+                    # Use cached topography
+                    apply_cached_topography(
+                        ax, batch_topographies[comp_idx], comp_idx,
+                        title=f"IC{comp_idx}"
+                    )
+                else:
+                    # Fallback to original MNE plotting
+                    ica_obj.plot_components(
+                        picks=comp_idx,
+                        axes=ax,
+                        show=False,
+                        colorbar=False,
+                        cmap="jet",
+                        outlines="head",
+                        sensors=False,
+                        contours=4,
+                    )
+                    ax.set_title(f"IC{comp_idx}", fontsize=9)
             except Exception as exc:  # pragma: no cover
                 logger.warning("Failed to plot topography for IC%s: %s", comp_idx, exc)
                 ax.text(0.5, 0.5, "Error", ha="center", va="center")
