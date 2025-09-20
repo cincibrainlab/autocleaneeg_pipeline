@@ -54,7 +54,7 @@ autocleaneeg-pipeline process RestingEyesOpen /path/to/data.raw
 List tasks and show overrides:
 
 ```bash
-autocleaneeg-pipeline task list
+autocleaneeg-pipeline task listi
 ```
 
 

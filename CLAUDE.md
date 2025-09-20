@@ -327,3 +327,44 @@ pytest tests/unit/ -k "test_pipeline" -v
 # Run with debugging output
 pytest tests/unit/test_pipeline.py -v -s --tb=short
 ```
+
+## Dependency Management
+- **Production dependencies**: Specified in `pyproject.toml` dependencies section
+- **GUI dependencies**: PyQt5, mne-qt-browser, PyMuPDF, pyjsonviewer, textual
+- **Key dependencies**: MNE>=1.7.0, NumPy>=1.20.0, PyTorch>=1.9.0
+- **Python version**: 3.10 to 3.13 supported (requires-python = ">=3.10,<3.14")
+
+## Project Structure Overview
+```
+src/autoclean/
+├── core/              # Pipeline orchestrator + Task base class
+├── mixins/            # Dynamically combined processing components
+│   ├── signal_processing/  # Filtering, ICA, epoching, artifacts
+│   ├── visualization/      # Reports, plots, topography
+│   ├── utils/             # BIDS handling, file operations
+│   └── connectivity/      # Network analysis components
+├── plugins/           # Auto-registered extensions
+│   ├── eeg_plugins/       # Format + montage handlers
+│   ├── event_processors/  # Task-specific event handling
+│   └── formats/          # EEG file format support
+├── tasks/            # Built-in EEG processing tasks
+├── tools/            # GUI and CLI utilities
+├── calc/             # Calculation modules (source, connectivity)
+└── database/         # SQLite tracking with audit logging
+```
+
+## Common Git Operations
+```bash
+# Check current branch and status
+git status
+
+# View recent commits with diff from main branch
+git log --oneline -10
+git diff main...HEAD
+
+# Push to remote (creates PR-ready branch)
+git push -u origin feature/your-branch-name
+
+# Create PR using GitHub CLI
+gh pr create --title "Your PR title" --body "PR description"
+```
