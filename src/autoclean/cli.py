@@ -5812,6 +5812,8 @@ def main(argv: Optional[list] = None) -> int:
                 "Run 'autocleaneeg-pipeline workspace set' to initialize default tasks."
             )
 
+    post_command_reminder = reminder_text if args.command else None
+
     # For real sub-commands, log the workspace path via the existing logger.
     if args.command and args.command != "workspace":
         # Compact branding header for consistency across all commands (except workspace which has its own branding)
@@ -5867,9 +5869,6 @@ def main(argv: Optional[list] = None) -> int:
                 )
         except Exception:
             pass
-
-        if reminder_text:
-            _render_task_reminder(console, reminder_text)
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
@@ -6090,52 +6089,58 @@ def main(argv: Optional[list] = None) -> int:
     if not validate_args(args):
         return 1
 
+    def _finish(result: int) -> int:
+        if post_command_reminder:
+            console = get_console(args)
+            _render_task_reminder(console, post_command_reminder)
+        return result
+
     # Execute command
     if args.command == "process":
         if getattr(args, "process_action", None) == "ica":
-            return cmd_process_ica(args)
-        return cmd_process(args)
+            return _finish(cmd_process_ica(args))
+        return _finish(cmd_process(args))
     elif args.command == "list-tasks":
-        return cmd_list_tasks(args)
+        return _finish(cmd_list_tasks(args))
     elif args.command == "review":
-        return cmd_review(args)
+        return _finish(cmd_review(args))
     elif args.command == "task":
-        return cmd_task(args)
+        return _finish(cmd_task(args))
     elif args.command == "input":
-        return cmd_input(args)
+        return _finish(cmd_input(args))
     elif args.command == "source":
-        return cmd_source(args)
+        return _finish(cmd_source(args))
     elif args.command == "config":
-        return cmd_config(args)
+        return _finish(cmd_config(args))
     elif args.command == "workspace":
-        return cmd_workspace(args)
+        return _finish(cmd_workspace(args))
     elif args.command == "export-access-log":
-        return cmd_export_access_log(args)
+        return _finish(cmd_export_access_log(args))
     elif args.command == "login":
-        return cmd_login(args)
+        return _finish(cmd_login(args))
     elif args.command == "logout":
-        return cmd_logout(args)
+        return _finish(cmd_logout(args))
     elif args.command == "whoami":
-        return cmd_whoami(args)
+        return _finish(cmd_whoami(args))
     elif args.command == "auth0-diagnostics":
-        return cmd_auth0_diagnostics(args)
+        return _finish(cmd_auth0_diagnostics(args))
     elif args.command == "auth":
-        return cmd_auth(args)
+        return _finish(cmd_auth(args))
     elif args.command == "clean-task":
-        return cmd_clean_task(args)
+        return _finish(cmd_clean_task(args))
     elif args.command == "view":
-        return cmd_view(args)
+        return _finish(cmd_view(args))
     elif args.command == "report":
-        return cmd_report(args)
+        return _finish(cmd_report(args))
     elif args.command == "version":
-        return cmd_version(args)
+        return _finish(cmd_version(args))
     elif args.command == "help":
-        return cmd_help(args)
+        return _finish(cmd_help(args))
     elif args.command == "tutorial":
-        return cmd_tutorial(args)
+        return _finish(cmd_tutorial(args))
     else:
         parser.print_help()
-        return 1
+        return _finish(1)
 
 
 if __name__ == "__main__":
