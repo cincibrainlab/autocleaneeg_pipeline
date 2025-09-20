@@ -4800,39 +4800,56 @@ def cmd_report_chat(args) -> int:
 
 
 def cmd_view(args) -> int:
-    """View EEG files using autoclean-view."""
-    # Check if file exists
-    if not args.file.exists():
-        message("error", f"File not found: {args.file}")
+    """View EEG files using the autocleaneeg-view module."""
+    file_path = getattr(args, "file", None)
+    if file_path is None:
+        try:
+            active_source = user_config.get_active_source()
+        except Exception:
+            active_source = None
+        if active_source:
+            file_path = active_source
+        else:
+            message(
+                "error",
+                "No EEG file specified. Provide a path or set an active input before running 'view'.",
+            )
+            return 1
+
+    file_path = Path(file_path).expanduser()
+    if not file_path.exists():
+        message("error", f"File not found: {file_path}")
         return 1
-
-    # Build command
-    cmd = ["autoclean-view", str(args.file)]
-
-    if args.no_view:
-        cmd.append("--no-view")
-
-    # Launch viewer
-    message("info", f"Opening {args.file.name} in MNE-QT Browser...")
+    if file_path.is_dir():
+        message("error", f"Path points to a directory, not an EEG file: {file_path}")
+        return 1
 
     try:
-        process = subprocess.run(cmd, capture_output=True, text=True)
-        if process.returncode == 0:
-            message(
-                "success", "Viewer closed" if not args.no_view else "File validated"
-            )
-            return 0
-        else:
-            message("error", f"Error: {process.stderr}")
-            return 1
-    except FileNotFoundError:
+        from autocleaneeg_view.viewer import load_eeg_file, view_eeg
+    except ImportError as exc:
         message(
             "error",
-            "autocleaneeg-view not installed. Run: uv tool install autocleaneeg-view",
+            "autocleaneeg-view module not available. Install it with 'pip install autocleaneeg-view'.",
         )
+        message("debug", f"Import error: {exc}")
         return 1
-    except Exception as e:
-        message("error", f"Failed to launch viewer: {str(e)}")
+
+    message("info", f"Preparing {file_path.name} in autocleaneeg-view...")
+
+    try:
+        if args.no_view:
+            load_eeg_file(str(file_path))
+            message("success", f"Loaded {file_path.name} (viewer not opened)")
+        else:
+            raw = load_eeg_file(str(file_path))
+            view_eeg(raw)
+            message("success", "Viewer closed")
+        return 0
+    except FileNotFoundError as exc:
+        message("error", f"Failed to open {file_path.name}: {exc}")
+        return 1
+    except Exception as exc:  # Broad guard: renderer/backend issues, etc.
+        message("error", f"Failed to launch viewer: {exc}")
         return 1
 
 
