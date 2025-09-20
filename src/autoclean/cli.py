@@ -5772,7 +5772,45 @@ def main(argv: Optional[list] = None) -> int:
     # so they can easily locate their configuration and results.  This runs
     # for *every* CLI invocation, including the bare `autocleaneeg-pipeline` call.
     # ------------------------------------------------------------------
+    def _render_task_reminder(console_obj, text: str) -> None:
+        try:
+            from rich.align import Align as _WarnAlign
+            from rich.text import Text as _WarnText
+
+            warn_line = _WarnText()
+            warn_line.append("⚠ ", style="warning")
+            warn_line.append(text, style="warning")
+            console_obj.print(_WarnAlign.center(warn_line))
+        except Exception:
+            console_obj.print(f"[warning]{text}[/warning]")
+
     workspace_dir = user_config.config_dir
+    tasks_dir = workspace_dir / "tasks"
+
+    skip_task_reminder = (
+        args.command == "workspace"
+        and getattr(args, "workspace_action", None) == "set"
+    )
+    reminder_text: Optional[str] = None
+    if not skip_task_reminder:
+        try:
+            has_task_files = (
+                tasks_dir.exists()
+                and any(
+                    entry.is_file() and entry.suffix.lower() == ".py"
+                    for entry in tasks_dir.iterdir()
+                )
+            )
+            if not has_task_files:
+                reminder_text = (
+                    f"Workspace tasks folder has no task files at {tasks_dir}. "
+                    "Run 'autocleaneeg-pipeline workspace set' to initialize default tasks."
+                )
+        except OSError:
+            reminder_text = (
+                f"Workspace tasks folder could not be inspected at {tasks_dir}. "
+                "Run 'autocleaneeg-pipeline workspace set' to initialize default tasks."
+            )
 
     # For real sub-commands, log the workspace path via the existing logger.
     if args.command and args.command != "workspace":
@@ -5829,6 +5867,9 @@ def main(argv: Optional[list] = None) -> int:
                 )
         except Exception:
             pass
+
+        if reminder_text:
+            _render_task_reminder(console, reminder_text)
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
@@ -6037,6 +6078,9 @@ def main(argv: Optional[list] = None) -> int:
             console.print()
         except Exception:
             pass
+
+        if reminder_text:
+            _render_task_reminder(console, reminder_text)
 
         # (Quick Start section intentionally removed for a cleaner minimalist banner)
 
