@@ -1,0 +1,58 @@
+---
+title: Montage CLI Override Walkthrough
+description: Step-by-step guide showing how the `montage` command overrides task defaults and how to verify the behavior.
+---
+
+# Montage CLI Override Walkthrough
+This note documents how the new `montage` command fits into the CLI, how the override is persisted, and how a task respects the selection. It is written for newcomers who just want a reliable recipe.
+<Diagram name="Command flow">
+Task CLI ➜ User config (`setup.json`) ➜ Pipeline `process` command ➜ `Task` initialization ➜ EEG data import
+</Diagram>
+<Steps>
+<Step title="What changed">
+1. Added a top-level `montage` command with `list`, `set`, `show`, and `unset` actions so users can configure layouts without editing Python files.
+2. `UserConfigManager` stores the active montage in the workspace configuration, reuses the shared Rich prompts, and validates choices against `configs/montages.yaml`.
+3. The CLI threads `montage_override` into `Pipeline.process_file` / `process_directory`, which in turn passes the override to `Task`, ensuring the command wins over the task file.
+</Step>
+<Step title="How to use it">
+1. Check available montages:
+   ```bash
+   PYTHONPATH=$(pwd)/src python -m autoclean.cli montage list
+   ```
+2. Apply an override either by name or interactively:
+   ```bash
+   PYTHONPATH=$(pwd)/src python -m autoclean.cli montage set GSN-HydroCel-129
+   PYTHONPATH=$(pwd)/src python -m autoclean.cli montage show
+   ```
+3. Run the pipeline to confirm the override appears in the log:
+   ```bash
+   PYTHONPATH=$(pwd)/src python -m autoclean.cli process RestingState_Basic examples/data/resting_1020_raw.fif --dry-run
+   ```
+4. Reset the override if you need to fall back to the task defaults:
+   ```bash
+   PYTHONPATH=$(pwd)/src python -m autoclean.cli montage unset
+   ```
+</Step>
+<Step title="Verification commands">
+1. Unit test covering the precedence:
+   ```bash
+   PYTHONPATH=$(pwd)/src pytest tests/unit/core/test_task.py -k montage_override_precedence
+   ```
+2. Quick smoke to ensure the CLI still resolves the command:
+   ```bash
+   PYTHONPATH=$(pwd)/src python -m autoclean.cli montage --help
+   ```
+</Step>
+<Step title="Concerns & future ideas">
+1. The override applies globally to the workspace. Per-task overrides would require us to track more metadata.
+2. The catalog lives in `configs/montages.yaml`. If a site installs custom montages, we need a discovery hook or a local extension file.
+3. We rely on user config already existing; first-time users still need to run `autocleaneeg-pipeline workspace` before the override can be stored.
+</Step>
+</Steps>
+<Checklist>
+<li>`montage` command exposed as a first-class CLI verb.</li>
+<li>Workspace config now records the user-selected montage override.</li>
+<li>Pipeline + Task honor the override before reading task defaults.</li>
+<li>Regression test confirms override precedence.</li>
+</Checklist>
+

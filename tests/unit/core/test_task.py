@@ -207,6 +207,39 @@ class TestTaskInitialization:
         task = ConcreteTask(valid_config)
         assert task.config == valid_config
 
+    def test_montage_override_precedence(self, tmp_path):
+        """Montage override should win over task configuration defaults."""
+
+        class OverrideTask(Task):
+            settings = {
+                "montage": {"enabled": True, "value": "standard_1020"},
+            }
+
+            def run(self):
+                pass
+
+        raw_file = tmp_path / "example.fif"
+        raw_file.write_bytes(b"")
+
+        override_config = {
+            "run_id": "override",
+            "unprocessed_file": raw_file,
+            "task": "OverrideTask",
+            "override_montage": "GSN-HydroCel-129",
+        }
+
+        overridden = OverrideTask(dict(override_config))
+        assert overridden.config["eeg_system"] == "GSN-HydroCel-129"
+
+        default_config = {
+            "run_id": "default",
+            "unprocessed_file": raw_file,
+            "task": "OverrideTask",
+        }
+
+        default_task = OverrideTask(default_config)
+        assert default_task.config["eeg_system"] == "standard_1020"
+
 
 @pytest.mark.skipif(not TASK_AVAILABLE, reason="Task module not available for import")
 class TestTaskInterface:

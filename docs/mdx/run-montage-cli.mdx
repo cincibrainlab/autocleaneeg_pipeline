@@ -1,0 +1,79 @@
+---
+title: Montage Override CLI Run Log
+description: Added a dedicated montage management command and pipeline override flow so users can change electrode layouts without editing task files.
+---
+
+# Montage Override CLI Run Log
+
+This note walks through the new `montage` command, how the override ripples through the pipeline, and the checks you can replay to convince yourself everything works. The language is intentionally beginner-friendly—no AutoClean lore required.
+
+<Diagram name="Montage override flow">
+Task CLI ➜ workspace config (`setup.json`) ➜ Pipeline entrypoint ➜ Task initialization ➜ EEG import + processing
+</Diagram>
+
+<Steps>
+<Step title="Goals for this run">
+1. Let users pick a montage from the CLI without cracking open Python task files.
+2. Persist that choice in the same workspace config that already stores active tasks and inputs.
+3. Ensure the pipeline and individual tasks respect the override ahead of any processing.
+</Step>
+
+<Step title="Implementation highlights">
+1. **New CLI surface** – Added `autocleaneeg-pipeline montage` with `list`, `set`, `show`, and `unset` sub-commands. The Rich table mirrors the task selector so the UX feels familiar. (`src/autoclean/cli.py`)
+2. **Workspace persistence** – `UserConfigManager` now knows about montages: it loads the catalog from `configs/montages.yaml`, stores the active choice in `setup.json`, and offers an interactive selector for terminals with/without Rich. (`src/autoclean/utils/user_config.py`)
+3. **Pipeline plumbing** – The `Pipeline` accepts an optional `montage_override` that gets threaded into both synchronous and async entrypoints and recorded in the run dictionary. (`src/autoclean/core/pipeline.py`)
+4. **Task precedence** – `Task` picks up the override before it resolves its embedded settings, so a CLI choice reliably trumps the task’s default montage. A new unit test locks the behavior down. (`src/autoclean/core/task.py`, `tests/unit/core/test_task.py`)
+</Step>
+
+<Step title="How to try it yourself">
+<Note>
+All commands assume you are in `/workspace/autocleaneeg_pipeline` with the virtual environment active.
+</Note>
+1. Preview the available montages:
+   ```bash
+   autocleaneeg-pipeline montage list
+   ```
+   You should see the descriptions straight from `configs/montages.yaml`.
+2. Set an override (either by name or interactively):
+   ```bash
+   autocleaneeg-pipeline montage set GSN-HydroCel-129
+   autocleaneeg-pipeline montage show
+   ```
+   The second command confirms the stored value. The JSON entry lives in `~/.config/autoclean/autoclean/setup.json`.
+3. Run a dry pipeline pass to confirm the CLI surfaces the override it will apply:
+   ```bash
+   autocleaneeg-pipeline process RestingState_Basic examples/data/resting_1020_raw.fif --dry-run
+   ```
+   Look for the “Montage override” line in the output.
+4. Revert if needed:
+   ```bash
+   autocleaneeg-pipeline montage unset
+   ```
+   Subsequent runs fall back to each task’s built-in montage setting.
+</Step>
+
+<Step title="Verification commands">
+1. Unit tests covering the override handshake:
+   ```bash
+   pytest tests/unit/core/test_task.py -k montage_override_precedence
+   ```
+2. Optional smoke test that exercises the CLI helpers without running the full pipeline:
+   ```bash
+   python -m autoclean.cli montage list
+   ```
+   This proves the command parser recognizes the new verb.
+</Step>
+
+<Step title="Concerns and follow-ups">
+1. The override is applied uniformly to every file in a batch run. If you need per-file montages, we will need richer metadata (future enhancement).
+2. The CLI currently trusts the catalog from `montages.yaml`; we do not revalidate at run time. If custom montages become common we may need dynamic discovery.
+3. Workspace migrations copy the new `active_montage` flag, but existing installs will only see it after they touch the montage command once (expected behavior).
+</Step>
+</Steps>
+
+<Checklist>
+<li>`montage` CLI added with list/set/show/unset helpers.</li>
+<li>Workspace config persists the chosen montage override.</li>
+<li>Pipeline entrypoints pass the override to tasks and log the applied montage.</li>
+<li>Task unit test ensures overrides supersede task defaults.</li>
+</Checklist>

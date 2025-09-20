@@ -100,6 +100,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 self.settings = None
 
         # Extract EEG system from task settings before validation
+        self._override_montage = (
+            config.get("override_montage") if isinstance(config, dict) else None
+        )
         config["eeg_system"] = self._extract_eeg_system()
 
         # Propagate task-level move_flagged_files setting (default True)
@@ -130,6 +133,9 @@ class Task(ABC, *DISCOVERED_MIXINS):
         str
             The montage name from task config, or "auto" as fallback
         """
+        if getattr(self, "_override_montage", None):
+            return self._override_montage
+
         if (
             self.settings
             and "montage" in self.settings

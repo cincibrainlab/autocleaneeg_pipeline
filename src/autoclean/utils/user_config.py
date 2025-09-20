@@ -47,6 +47,15 @@ try:
 except ImportError:
     AUTOCLEAN_AVAILABLE = False
 
+try:
+    from autoclean.utils.montage import VALID_MONTAGES
+
+    MONTAGE_SUPPORT_AVAILABLE = True
+except Exception:  # pylint: disable=broad-except
+    # Import errors should not prevent workspace setup; treat as no montages
+    VALID_MONTAGES = {}
+    MONTAGE_SUPPORT_AVAILABLE = False
+
 # Simple branding constants
 PRODUCT_NAME = "AutoClean EEG"
 TAGLINE = "Professional EEG Processing & Analysis Platform"
@@ -252,6 +261,184 @@ class UserConfigManager:
         except Exception as e:
             print(f"Warning: Could not save active source config: {e}")
             return False
+
+    def list_available_montages(self) -> Dict[str, str]:
+        """Return the catalog of known EEG montages."""
+
+        if not MONTAGE_SUPPORT_AVAILABLE:
+            return {}
+
+        # Return a shallow copy to prevent accidental mutation of global constant
+        return dict(VALID_MONTAGES)
+
+    def get_active_montage(self) -> Optional[str]:
+        """Get the currently selected montage override, if any."""
+
+        if not MONTAGE_SUPPORT_AVAILABLE:
+            return None
+
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        if not global_config.exists():
+            return None
+
+        try:
+            with open(global_config, "r", encoding="utf-8") as f:
+                config = json.load(f)
+                montage_name = config.get("active_montage")
+        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+            return None
+
+        if montage_name and montage_name not in VALID_MONTAGES:
+            print(
+                f"Warning: Saved montage '{montage_name}' is not available. "
+                "Run 'autocleaneeg-pipeline montage set' to choose a valid montage."
+            )
+            return None
+
+        return montage_name
+
+    def set_active_montage(self, montage_name: Optional[str]) -> bool:
+        """Persist the active montage override. Use None to clear."""
+
+        if not MONTAGE_SUPPORT_AVAILABLE:
+            print("Montage configuration is unavailable on this installation.")
+            return False
+
+        if montage_name is not None and montage_name not in VALID_MONTAGES:
+            print(
+                f"Invalid montage '{montage_name}'. Use 'autocleaneeg-pipeline montage list' "
+                "to see supported options."
+            )
+            return False
+
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        config = {
+            "version": "1.0",
+            "setup_date": self._current_timestamp(),
+        }
+
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config.update(json.load(f))
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+
+        if montage_name is None:
+            config.pop("active_montage", None)
+        else:
+            config["active_montage"] = montage_name
+
+        global_config.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(global_config, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Warning: Could not save active montage config: {e}")
+            return False
+
+    def select_active_montage_interactive(self) -> Optional[str]:
+        """Prompt the user to choose a montage from the available catalog."""
+
+        montages = self.list_available_montages()
+        if not montages:
+            print(
+                "No montage catalog is available. Ensure configs/montages.yaml is present."
+            )
+            return None
+
+        if RICH_AVAILABLE:
+            return self._select_montage_rich(montages)
+
+        return self._select_montage_basic(montages)
+
+    def _select_montage_rich(self, montages: Dict[str, str]) -> Optional[str]:
+        """Rich-based interactive montage selection."""
+
+        from rich.prompt import Prompt
+
+        console = Console()
+
+        console.print("\n[bold]Available EEG Montages:[/bold]")
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Montage", style="cyan")
+        table.add_column("Description", style="green")
+
+        montage_items = list(montages.items())
+        for idx, (name, description) in enumerate(montage_items, start=1):
+            table.add_row(str(idx), name, description or "")
+
+        console.print(table)
+
+        current = self.get_active_montage()
+        current_msg = f" (current: {current})" if current else ""
+        console.print(
+            f"\nSelect a montage by number{current_msg}, or press Enter to cancel:"
+        )
+
+        try:
+            choice = Prompt.ask("Choice", default="", show_default=False)
+        except (EOFError, KeyboardInterrupt):
+            return None
+
+        if not choice.strip():
+            return None
+
+        try:
+            index = int(choice)
+        except ValueError:
+            console.print("[red]Invalid selection.[/red]")
+            return None
+
+        if 1 <= index <= len(montage_items):
+            return montage_items[index - 1][0]
+
+        console.print("[red]Invalid selection.[/red]")
+        return None
+
+    def _select_montage_basic(self, montages: Dict[str, str]) -> Optional[str]:
+        """Fallback console-based montage selection."""
+
+        print("\nAvailable EEG Montages:")
+        montage_items = list(montages.items())
+        for idx, (name, description) in enumerate(montage_items, start=1):
+            label = description or ""
+            print(f"  {idx}. {name} - {label}")
+
+        current = self.get_active_montage()
+        prompt = (
+            f"Select a montage by number (current: {current}) or press Enter to cancel: "
+            if current
+            else "Select a montage by number or press Enter to cancel: "
+        )
+
+        try:
+            choice = input(prompt)
+        except (EOFError, KeyboardInterrupt):
+            return None
+
+        if not choice.strip():
+            return None
+
+        try:
+            index = int(choice)
+        except ValueError:
+            print("Invalid selection.")
+            return None
+
+        if 1 <= index <= len(montage_items):
+            return montage_items[index - 1][0]
+
+        print("Invalid selection.")
+        return None
 
     def select_active_task_interactive(self) -> Optional[str]:
         """Interactive selection of active task from available custom tasks."""
@@ -831,9 +1018,10 @@ class UserConfigManager:
             "version": "1.0",
         }
 
-        # Preserve active_task if it exists
-        if "active_task" in existing_config:
-            config["active_task"] = existing_config["active_task"]
+        # Preserve existing selections (task, source, montage)
+        for key in ("active_task", "active_source", "active_montage"):
+            if key in existing_config:
+                config[key] = existing_config[key]
 
         try:
             with open(global_config, "w", encoding="utf-8") as f:

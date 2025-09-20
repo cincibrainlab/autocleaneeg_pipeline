@@ -253,7 +253,11 @@ class Pipeline:
         )
 
     def _entrypoint(
-        self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
+        self,
+        unprocessed_file: Path,
+        task: str,
+        run_id: Optional[str] = None,
+        montage_override: Optional[str] = None,
     ) -> None:
         """Main processing entrypoint that orchestrates the complete pipeline.
 
@@ -265,7 +269,9 @@ class Pipeline:
             Name of the processing task to run.
         run_id : str, optional
             Optional identifier for the processing run, by default None.
-            If not provided, a unique ID will be generated.
+        montage_override : str, optional
+            If provided, forces the task to use this montage instead of the
+            value defined in the task configuration.
 
         Returns
         -------
@@ -409,6 +415,9 @@ class Pipeline:
                 "task_hash": task_hash,
                 "task_b64": b64_task,
             }
+            if montage_override:
+                run_dict["override_montage"] = montage_override
+                message("info", f"Applying montage override: {montage_override}")
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
             # Record full run configuration using audit protection
@@ -604,7 +613,11 @@ class Pipeline:
         return run_record["run_id"]
 
     async def _entrypoint_async(
-        self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
+        self,
+        unprocessed_file: Path,
+        task: str,
+        run_id: Optional[str] = None,
+        montage_override: Optional[str] = None,
     ) -> None:
         """Async version of _entrypoint for concurrent processing.
 
@@ -625,7 +638,13 @@ class Pipeline:
         """
         try:
             # Run the processing in a thread to avoid blocking
-            await asyncio.to_thread(self._entrypoint, unprocessed_file, task, run_id)
+            await asyncio.to_thread(
+                self._entrypoint,
+                unprocessed_file,
+                task,
+                run_id,
+                montage_override,
+            )
         except Exception as e:
             message("error", f"Failed to process {unprocessed_file}: {str(e)}")
             raise
@@ -636,6 +655,7 @@ class Pipeline:
         file_path: Optional[str | Path] = None,
         task: str = "",
         run_id: Optional[str] = None,
+        montage_override: Optional[str] = None,
     ) -> None:
         """Process a single EEG data file.
 
@@ -649,6 +669,8 @@ class Pipeline:
         run_id : str, optional
             Optional identifier for the processing run, by default None.
             If not provided, a unique ID will be generated.
+        montage_override : str, optional
+            Overrides the montage specified by the task configuration.
 
         See Also
         --------
@@ -677,7 +699,7 @@ class Pipeline:
                     "file_path must be provided or task must have input_path in config"
                 )
 
-        self._entrypoint(Path(file_path), task, run_id)
+        self._entrypoint(Path(file_path), task, run_id, montage_override)
 
     @require_authentication
     def process_directory(
@@ -686,6 +708,7 @@ class Pipeline:
         task: str = "",
         pattern: str = "*.{raw,set}",
         recursive: bool = False,
+        montage_override: Optional[str] = None,
     ) -> None:
         """Processes all files matching a pattern within a directory sequentially.
 
@@ -700,6 +723,8 @@ class Pipeline:
             Glob pattern to match files within the directory, default is `*.{raw,set}`.
         recursive : bool, optional
             If True, searches subdirectories recursively, by default False.
+        montage_override : str, optional
+            Override montage configuration for all files processed in this batch.
 
         See Also
         --------
@@ -784,7 +809,7 @@ class Pipeline:
         # Process each file
         for file_path in files:
             try:
-                self._entrypoint(file_path, task)
+                self._entrypoint(file_path, task, montage_override=montage_override)
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
@@ -797,6 +822,7 @@ class Pipeline:
         pattern: str = "*.{raw,set}",
         sub_directories: bool = False,
         max_concurrent: int = 3,
+        montage_override: Optional[str] = None,
     ) -> None:
         """Processes all files matching a pattern within a directory asynchronously.
 
@@ -813,6 +839,8 @@ class Pipeline:
             If True, searches subdirectories recursively, by default False.
         max_concurrent : int, optional
             Maximum number of files to process concurrently, by default 3.
+        montage_override : str, optional
+            Override montage configuration for all files processed in this batch.
 
         See Also
         --------
@@ -901,7 +929,9 @@ class Pipeline:
                 try:
                     # Pass the acquired lock information (implicitly via self if needed later,
                     # but the lock is mainly for the bids step itself)
-                    await self._entrypoint_async(file_path, task)
+                    await self._entrypoint_async(
+                        file_path, task, montage_override=montage_override
+                    )
                     pbar.write(f"✓ Completed: {file_path.name}")
                 except Exception as e:  # pylint: disable=broad-except
                     pbar.write(f"✗ Failed: {file_path.name} - {str(e)}")

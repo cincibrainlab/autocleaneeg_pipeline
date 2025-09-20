@@ -904,6 +904,40 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     attach_rich_help(show_task_parser)
 
+    # Montage management commands
+    montage_parser = subparsers.add_parser(
+        "montage", help="Manage montage override", add_help=False
+    )
+    attach_rich_help(montage_parser)
+    montage_subparsers = montage_parser.add_subparsers(
+        dest="montage_action", help="Montage actions"
+    )
+
+    montage_list_parser = montage_subparsers.add_parser(
+        "list", help="List available montages", add_help=False
+    )
+    attach_rich_help(montage_list_parser)
+
+    montage_set_parser = montage_subparsers.add_parser(
+        "set", help="Select active montage override", add_help=False
+    )
+    attach_rich_help(montage_set_parser)
+    montage_set_parser.add_argument(
+        "montage_name",
+        nargs="?",
+        help="Montage name to activate (omit to choose interactively)",
+    )
+
+    montage_unset_parser = montage_subparsers.add_parser(
+        "unset", help="Clear the active montage override", add_help=False
+    )
+    attach_rich_help(montage_unset_parser)
+
+    montage_show_parser = montage_subparsers.add_parser(
+        "show", help="Show the active montage override", add_help=False
+    )
+    attach_rich_help(montage_show_parser)
+
     # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(
         "source",
@@ -1627,6 +1661,12 @@ def validate_args(args) -> bool:
         args.final_task = task_name
         args.final_input = input_path
 
+        # Apply montage override from user configuration if available
+        active_montage = user_config.get_active_montage()
+        args.final_montage = active_montage
+        if active_montage:
+            message("info", f"Using active montage override: {active_montage}")
+
         # Check task file exists if provided
         if args.task_file and not args.task_file.exists():
             message("error", f"Task file does not exist: {args.task_file}")
@@ -1715,6 +1755,8 @@ def cmd_process(args) -> int:
 
         pipeline = Pipeline(**pipeline_kwargs)
 
+        montage_override = getattr(args, "final_montage", None)
+
         # Add Python task file if provided
         if args.task_file:
             task_name = pipeline.add_task(args.task_file)
@@ -1742,6 +1784,8 @@ def cmd_process(args) -> int:
             message("info", f"Would process: {args.final_input}")
             message("info", f"Task: {task_name}")
             message("info", f"Output: {args.output}")
+            if montage_override:
+                message("info", f"Montage override: {montage_override}")
             if args.final_input.is_dir():
                 message("info", f"File format: {args.format}")
                 if args.recursive:
@@ -1751,7 +1795,11 @@ def cmd_process(args) -> int:
         # Process files
         if args.final_input.is_file():
             message("info", f"Processing single file: {args.final_input}")
-            pipeline.process_file(file_path=args.final_input, task=task_name)
+            pipeline.process_file(
+                file_path=args.final_input,
+                task=task_name,
+                montage_override=montage_override,
+            )
         else:
             message("info", f"Processing directory: {args.final_input}")
             message("info", f"Using file format: {args.format}")
@@ -1773,6 +1821,7 @@ def cmd_process(args) -> int:
                         pattern=args.format,
                         sub_directories=args.recursive,
                         max_concurrent=max_concurrent,
+                        montage_override=montage_override,
                     )
                 )
             else:
@@ -1781,6 +1830,7 @@ def cmd_process(args) -> int:
                     task=task_name,
                     pattern=args.format,
                     recursive=args.recursive,
+                    montage_override=montage_override,
                 )
         message("info", "Processing completed successfully!")
         return 0
@@ -4024,6 +4074,142 @@ def cmd_task_show(_args) -> int:
         return 1
 
 
+def cmd_montage(args) -> int:
+    """Execute montage management commands."""
+
+    if not getattr(args, "montage_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "montage")
+        return 0
+
+    if args.montage_action == "list":
+        return cmd_montage_list(args)
+    if args.montage_action == "set":
+        return cmd_montage_set(args)
+    if args.montage_action == "unset":
+        return cmd_montage_unset(args)
+    if args.montage_action == "show":
+        return cmd_montage_show(args)
+
+    message("error", "No montage action specified")
+    return 1
+
+
+def cmd_montage_list(args) -> int:
+    """List available EEG montages."""
+
+    try:
+        montages = user_config.list_available_montages()
+        if not montages:
+            message(
+                "warning",
+                "No montage catalog available. Ensure configs/montages.yaml is present.",
+            )
+            return 1
+
+        try:
+            from rich.table import Table
+
+            console = get_console(args)
+            _simple_header(console)
+            console.print("[header]Available EEG Montages[/header]")
+            table = Table(show_header=True, header_style="bold magenta")
+            table.add_column("Montage", style="accent")
+            table.add_column("Description", style="muted")
+            for name, description in montages.items():
+                table.add_row(name, description or "")
+            console.print(table)
+        except Exception:
+            print("Available EEG montages:")
+            for name, description in montages.items():
+                label = description or ""
+                print(f"  - {name}: {label}")
+
+        return 0
+    except Exception as e:
+        message("error", f"Failed to list montages: {e}")
+        return 1
+
+
+def cmd_montage_set(args) -> int:
+    """Set the active montage override."""
+
+    try:
+        available = user_config.list_available_montages()
+        if not available:
+            message(
+                "error",
+                "Montage catalog is unavailable. Check your installation or configs/montages.yaml.",
+            )
+            return 1
+
+        montage_name = getattr(args, "montage_name", None)
+        if montage_name:
+            if montage_name not in available:
+                message("error", f"Montage '{montage_name}' not found.")
+                message("info", "Use 'autocleaneeg-pipeline montage list' to view options.")
+                return 1
+        else:
+            montage_name = user_config.select_active_montage_interactive()
+            if montage_name is None:
+                message("info", "No montage selected.")
+                return 0
+
+        if user_config.set_active_montage(montage_name):
+            message("success", f"✓ Active montage set to: {montage_name}")
+            message(
+                "info",
+                "This montage will override task defaults when processing data.",
+            )
+            return 0
+
+        message("error", "Failed to save active montage configuration.")
+        return 1
+    except Exception as e:
+        message("error", f"Failed to set active montage: {e}")
+        return 1
+
+
+def cmd_montage_unset(_args) -> int:
+    """Clear the active montage override."""
+
+    try:
+        current_montage = user_config.get_active_montage()
+        if current_montage is None:
+            message("info", "No active montage override is currently set.")
+            return 0
+
+        if user_config.set_active_montage(None):
+            message("success", f"✓ Active montage override cleared (was: {current_montage})")
+            return 0
+
+        message("error", "Failed to clear active montage configuration.")
+        return 1
+    except Exception as e:
+        message("error", f"Failed to unset active montage: {e}")
+        return 1
+
+
+def cmd_montage_show(_args) -> int:
+    """Show the currently active montage override."""
+
+    try:
+        montage = user_config.get_active_montage()
+
+        if montage is None:
+            message("info", "No active montage override is currently set.")
+            message("info", "Set one with: autocleaneeg-pipeline montage set")
+        else:
+            message("info", f"Active montage override: {montage}")
+
+        return 0
+    except Exception as e:
+        message("error", f"Failed to show active montage: {e}")
+        return 1
+
+
 def cmd_source(args) -> int:
     """Deprecated: execute source management commands (alias of 'input')."""
     # Friendly deprecation hint
@@ -6106,6 +6292,8 @@ def main(argv: Optional[list] = None) -> int:
         return _finish(cmd_review(args))
     elif args.command == "task":
         return _finish(cmd_task(args))
+    elif args.command == "montage":
+        return _finish(cmd_montage(args))
     elif args.command == "input":
         return _finish(cmd_input(args))
     elif args.command == "source":
