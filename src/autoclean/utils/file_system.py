@@ -109,7 +109,8 @@ def step_prepare_directories(
 
     dirs = {
         "bids": bids_root,
-        "metadata": task_root / "metadata",
+        # Metadata directory removed; repurpose to reports root for compatibility
+        "metadata": task_root / "reports",
         "clean": derivatives_root,  # Legacy compatibility (BIDS derivatives root)
         "logs": task_root / "logs",
         # Write per-stage outputs directly under BIDS derivatives
