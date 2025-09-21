@@ -9,7 +9,7 @@ from .bids import (
 from .config import load_config, validate_eeg_system
 from .database import get_run_record, manage_database
 from .file_system import step_prepare_directories
-from .logging import configure_logger, message
+from .logging import configure_logger, has_logged_errors, message
 from .montage import VALID_MONTAGES
 
 __all__ = [
@@ -24,5 +24,6 @@ __all__ = [
     "step_prepare_directories",
     "message",
     "configure_logger",
+    "has_logged_errors",
     "VALID_MONTAGES",
 ]
