@@ -346,7 +346,7 @@ def safe_discover_tasks() -> (
                 override_info.append(
                     InvalidTaskFile(
                         source=override_source,
-                        error=f"Duplicate task name '{task.name}' (already defined in {existing_source})",
+                        error=f"Duplicate task definition detected. Update the class name in {override_source} to a unique value.",
                     )
                 )
 
