@@ -359,7 +359,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 break
 
         if per_file_csv is None:
-            # Also check final_files copy as fallback
+            # Also check exports copy as fallback
             final_files_dir = Path(cfg.get("final_files_dir", metadata_dir))
             alt_csv = final_files_dir / f"{subj_basename}_processing_log.csv"
             if alt_csv.exists():
