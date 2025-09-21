@@ -104,17 +104,17 @@ def step_prepare_directories(
             "reason": "existing directory found; moved to backup",
         }
 
-    # Use version for derivatives directory naming
-    derivatives_root = task_root / "derivatives" / f"autoclean-v{__version__}"
+    # Use version for derivatives directory naming (kept under bids)
+    derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
 
     dirs = {
         "bids": bids_root,
         "metadata": task_root / "metadata",
-        "clean": derivatives_root,  # Legacy compatibility
+        "clean": derivatives_root,  # Legacy compatibility (BIDS derivatives root)
         "logs": task_root / "logs",
-        "stage": derivatives_root / "intermediate",
+        "stage": derivatives_root / "intermediate",  # Only 'intermediate' remains under BIDS derivatives
         "reports": task_root / "reports",
-        "ica_fif": derivatives_root / "ica_fif",
+        "ica_fif": task_root / "ica_fif",
         "final_files": bids_root / "final_files",  # New dedicated final files directory
     }
 
