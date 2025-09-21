@@ -1824,7 +1824,7 @@ def cmd_process_ica(args) -> int:
                 status = row.get("status", "").strip().lower()
                 if manual_add or manual_drop or status == "pending":
                     raw_path = Path(row.get("raw_path") or row.get("raw_file") or "")
-                    ica_fif = Path(row.get("ica_fif") or row.get("ica_file") or "")
+                    ica_fif = Path(row.get("ica_file") or row.get("ica_fif") or "")
                     derivatives_dir = Path(row.get("derivatives_dir") or "")
                     unprocessed_file = Path(row.get("unprocessed_file") or "")
                     autoclean_dict = {
@@ -4618,17 +4618,12 @@ def cmd_report_chat(args) -> int:
             if logs_dir:
                 per_file_candidates.append(logs_dir / f"{basename}_processing_log.csv")
 
-            # Prefer final_exports (new) else final_files (legacy) from step_prepare_directories metadata
-            final_path_key = (
-                "exports"
-                if spd.get("exports")
-                else ("final_exports" if spd.get("final_exports") else ("final_files" if spd.get("final_files") else None))
-            )
-            if final_path_key:
+            # Use exports path from step_prepare_directories
+            if spd.get("exports"):
                 try:
-                    final_files_dir_resolved = resolve_moved_path(Path(spd[final_path_key]))
+                    final_files_dir_resolved = resolve_moved_path(Path(spd["exports"]))
                 except Exception:
-                    final_files_dir_resolved = Path(spd[final_path_key])  # best effort
+                    final_files_dir_resolved = Path(spd["exports"])  # best effort
                 per_file_candidates.append(
                     Path(final_files_dir_resolved) / f"{basename}_processing_log.csv"
                 )

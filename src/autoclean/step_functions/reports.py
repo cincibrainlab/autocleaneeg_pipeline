@@ -1244,9 +1244,7 @@ def update_task_processing_log(
                 pd.DataFrame([details], dtype=str).to_csv(final_file_csv, index=False)
                 message("success", f"Saved per-file processing log to {final_file_csv}")
             except Exception as ff_err:  # pylint: disable=broad-except
-                message(
-                    "error", f"Error saving CSV to final_files directory: {str(ff_err)}"
-                )
+                message("error", f"Error saving CSV to exports directory: {str(ff_err)}")
 
         except Exception as perfile_err:  # pylint: disable=broad-except
             message("error", f"Error saving per-file CSV: {str(perfile_err)}")
@@ -1304,16 +1302,11 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         prepare_dirs.get("reports") or (metadata_dir.parent / "reports")
     )
     ica_dir = Path(
-        prepare_dirs.get("ica")
-        or prepare_dirs.get("ica_fif")
-        or (metadata_dir.parent / "ica")
+        prepare_dirs.get("ica") or (metadata_dir.parent / "ica")
     )
-    # Prefer new 'exports' then 'final_exports' then legacy 'final_files'
+    # Task-root exports directory
     final_files_dir = Path(
-        prepare_dirs.get("exports")
-        or prepare_dirs.get("final_exports")
-        or prepare_dirs.get("final_files")
-        or (metadata_dir.parent / "exports")
+        prepare_dirs.get("exports") or (metadata_dir.parent / "exports")
     )
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
