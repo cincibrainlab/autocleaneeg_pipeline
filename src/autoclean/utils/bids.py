@@ -188,22 +188,15 @@ def step_convert_to_bids(
     }
 
     # Create BIDS-compliant derivatives directory structure (outside the lock).
-    derivatives_dir = (
-        bids_root
-        / "derivatives"
-        / f"autoclean-v{__version__}"
-        / f"sub-{subject_id}"
-        / "eeg"
-    )
+    pipeline_derivatives_root = bids_root / "derivatives"
+    derivatives_dir = pipeline_derivatives_root
     derivatives_dir.mkdir(parents=True, exist_ok=True)
     message(
-        "info", f"Created BIDS derivatives directory structure at {derivatives_dir}"
+        "info", f"Ensured BIDS derivatives root exists at {derivatives_dir}"
     )
 
-    # Also create the pipeline-level metadata directory
-    pipeline_derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
-    pipeline_metadata_dir = pipeline_derivatives_root / "metadata"
-    pipeline_metadata_dir.mkdir(parents=True, exist_ok=True)
+    # Pipeline-level derivatives root (for dataset_description), no versioned subfolder
+    pipeline_derivatives_root = bids_root / "derivatives"
 
     # Create dataset_description.json for the autoclean derivatives
     dataset_desc_file = pipeline_derivatives_root / "dataset_description.json"
