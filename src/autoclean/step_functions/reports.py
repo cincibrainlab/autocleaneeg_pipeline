@@ -1304,7 +1304,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     prepare_dirs = metadata.get("step_prepare_directories", {})
     bids_dir_str = prepare_dirs.get("bids", "")
     metadata_dir = Path(
-        prepare_dirs.get("metadata") or (Path(bids_dir_str).parent / "metadata")
+        prepare_dirs.get("metadata") or (Path(bids_dir_str).parent / "reports")
     )
     reports_dir = Path(
         prepare_dirs.get("reports") or (metadata_dir.parent / "reports")
