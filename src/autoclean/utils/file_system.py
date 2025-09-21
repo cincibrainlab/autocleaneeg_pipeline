@@ -112,7 +112,8 @@ def step_prepare_directories(
         "metadata": task_root / "metadata",
         "clean": derivatives_root,  # Legacy compatibility (BIDS derivatives root)
         "logs": task_root / "logs",
-        "stage": derivatives_root / "intermediate",  # Only 'intermediate' remains under BIDS derivatives
+        # Write per-stage outputs directly under BIDS derivatives
+        "stage": derivatives_root,
         "reports": task_root / "reports",
         "ica_fif": task_root / "ica_fif",
         "final_files": bids_root / "final_files",  # New dedicated final files directory
