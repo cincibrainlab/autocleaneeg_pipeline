@@ -292,19 +292,16 @@ def configure_logger(
     # Create logs directory
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # File handler with rotation and retention
+    # Single file handler (one log file per task)
     logger.add(
-        str(log_dir / "autoclean_{time}.log"),
-        rotation="1 day",  # Rotate daily
-        retention="1 week",  # Keep logs for 1 week
-        compression="zip",  # Compress rotated logs
+        str(log_dir / "pipeline.log"),
         level=level,
         format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {message}",
-        backtrace=True,  # Better exception logging
-        diagnose=True,  # Show variable values in tracebacks
-        enqueue=True,  # Thread-safe logging
-        colorize=True,  # No colors in file
-        catch=True,  # Catch errors within handlers
+        backtrace=True,
+        diagnose=True,
+        enqueue=True,
+        colorize=True,
+        catch=True,
     )
 
     # Console handler with colors and context
