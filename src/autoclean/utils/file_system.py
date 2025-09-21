@@ -66,20 +66,21 @@ def step_prepare_directories(
             f"Parent directory for AUTOCLEAN_DIR does not exist: {autoclean_dir.parent}"
         )
 
-    # BIDS-compliant directory structure - everything under derivatives
-    bids_root = autoclean_dir / dir_name / "bids"
+    # Task root directory that will contain BIDS data plus task-level artifacts
+    task_root = autoclean_dir / dir_name
+    bids_root = task_root / "bids"
 
     # ------------------------------------------------------------------
     # In-process cache: ensure the backup logic runs at most once per
     # directory within the lifetime of this Python process.  This guards
     # against creating a new backup for every file when batch-processing,
     # while remaining safe if the user interrupts the run with Ctrl-C.
-    task_root = (autoclean_dir / dir_name).resolve()
+    task_root_resolved = task_root.resolve()
 
     with _CACHE_LOCK:
-        first_time = task_root not in _PREPARED_TASK_ROOTS
+        first_time = task_root_resolved not in _PREPARED_TASK_ROOTS
         if first_time:
-            _PREPARED_TASK_ROOTS.add(task_root)
+            _PREPARED_TASK_ROOTS.add(task_root_resolved)
 
     # Perform backup only the first time we encounter this directory in
     # the current process.
@@ -87,15 +88,15 @@ def step_prepare_directories(
     if first_time and task_root.exists():
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_name = f"{dir_name}_backup_{timestamp}"
-        backup_path = autoclean_dir / backup_name
+        backup_path = (autoclean_dir / backup_name).resolve()
 
         message(
             "warning", f"Directory '{dir_name}' exists, backing up to: {backup_name}"
         )
-        shutil.move(str(task_root), str(backup_path))
+        shutil.move(str(task_root_resolved), str(backup_path))
         message("info", "Backup complete, creating fresh directory")
         backup_info = {
-            "moved_from": str(task_root),
+            "moved_from": str(task_root_resolved),
             "moved_to": str(backup_path),
             "effective_at": datetime.now().isoformat(),
             "initiated_by_run_id": None,  # Filled by caller with actual run_id
@@ -104,15 +105,15 @@ def step_prepare_directories(
         }
 
     # Use version for derivatives directory naming
-    derivatives_root = bids_root / "derivatives" / f"autoclean-v{__version__}"
+    derivatives_root = task_root / "derivatives" / f"autoclean-v{__version__}"
 
     dirs = {
         "bids": bids_root,
-        "metadata": derivatives_root / "metadata",
+        "metadata": task_root / "metadata",
         "clean": derivatives_root,  # Legacy compatibility
-        "logs": derivatives_root / "logs",
+        "logs": task_root / "logs",
         "stage": derivatives_root / "intermediate",
-        "reports": derivatives_root / "reports",
+        "reports": task_root / "reports",
         "ica_fif": derivatives_root / "ica_fif",
         "final_files": bids_root / "final_files",  # New dedicated final files directory
     }
