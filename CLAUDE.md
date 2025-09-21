@@ -4,6 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Commit Guidelines
 - DO NOT add anything about claude in git commit messages or descriptions
+- Use conventional commit format when possible (feat:, fix:, docs:, test:, refactor:)
 
 ## Project Overview
 AutoClean EEG is a modular framework for automated EEG data processing built on MNE-Python. It supports multiple EEG paradigms (ASSR, Chirp, MMN, Resting State) with BIDS-compatible data organization and database-backed processing tracking.
@@ -99,107 +100,54 @@ pipeline.process_file("/path/to/data.raw", task="MyTask")
 
 ## Development Commands
 
-### Tool Installation (uv tool - Recommended)
+### Code Quality & Testing
 ```bash
-# Install all development tools in isolated environments
-python scripts/install_dev_tools.py
+# Quick quality checks (recommended)
+make check                      # Run all checks (format, lint, type)
+make check-fix                  # Auto-fix formatting and linting issues
+make format                     # Format code (black + isort)
+make lint                       # Run linting (ruff + mypy)
 
-# Or install directly with uv
-python scripts/uv_tools.py install
+# Testing
+make test                       # Run unit tests
+make test-cov                   # Run tests with coverage
+make test-all                   # Run all tests (unit + integration)
+make ci-check                   # Run CI-equivalent checks locally
 
-# List installed tools
-python scripts/uv_tools.py list
-
-# Upgrade all tools
-python scripts/uv_tools.py upgrade
+# Single test execution
+pytest tests/unit/test_python_task_files.py -v              # Run specific file
+pytest tests/unit/test_synthetic_data.py::TestClass::test_method  # Run specific test
+pytest tests/unit/ -k "test_pattern" -v                     # Pattern matching
+pytest tests/unit/test_file.py -v -s --tb=short            # With debug output
 ```
 
-### Code Quality (uv tool)
+### Installation & Setup
 ```bash
-# Run all quality checks (uses uv tool automatically)
-python scripts/check_code_quality.py
-python scripts/check_code_quality.py --fix    # Auto-fix issues
+# Development setup (recommended)
+make dev-setup                  # Complete dev environment setup
+make install-dev                # Install development tools via uv
+pip install -e .                # Install package in editable mode
+pip install -e ".[gui]"         # Install with GUI dependencies
 
-# Individual tools via uv
-python scripts/uv_tools.py run black src/autoclean/
-python scripts/uv_tools.py run isort src/autoclean/
-python scripts/uv_tools.py run ruff check src/autoclean/
-python scripts/uv_tools.py run mypy src/autoclean/
-
-# Makefile commands (uses uv tool)
-make format                    # Auto-format code
-make lint                      # Run linting
-make check                     # Run all checks
+# Use as standalone CLI tool (via uv)
+uv tool install autocleaneeg-pipeline              # From PyPI
+uv tool run autocleaneeg-pipeline --help           # Run CLI
+make install-uv-tool                               # Install from source
+make uninstall-uv-tool                             # Uninstall tool
 ```
 
-### Code Quality (Fallback - Direct Commands)
+### CLI Usage
 ```bash
-# If uv is not available, use direct commands
-python scripts/check_code_quality.py --no-uv
+# Core commands
+autocleaneeg-pipeline process RestingEyesOpen /path/to/data.raw    # Process file
+autocleaneeg-pipeline list-tasks --overrides                       # Show tasks
+autocleaneeg-pipeline review --output results/                     # Review GUI
+autocleaneeg-pipeline export-access-log --output audit.jsonl       # Export audit log
 
-# Or direct tool usage
-black src/autoclean/
-isort src/autoclean/
-ruff check src/autoclean/
-mypy src/autoclean/
-```
-
-### Testing
-```bash
-# Testing with coverage
-pytest --cov=autoclean
-
-# Run specific test suites
-pytest tests/unit/                    # Unit tests only
-pytest tests/integration/            # Integration tests only  
-pytest tests/unit/ -k "test_pipeline" # Specific test patterns
-```
-
-### Build and Installation
-```bash
-# Development installation
-pip install -e .
-
-# With GUI dependencies
-pip install -e ".[gui]"
-
-# Build package
-python -m build
-```
-
-### Using AutoClean as a uv tool (Recommended for Users)
-```bash
-# Install AutoClean as a standalone uv tool
-uv tool install .                    # From source (development)
-uv tool install autocleaneeg-pipeline         # From PyPI (when published)
-
-# Use AutoClean CLI (isolated environment, no conflicts!)
-uv tool run autocleaneeg-pipeline --help
-uv tool run autocleaneeg-pipeline process --task RestingEyesOpen --file data.raw --output results/
-uv tool run autocleaneeg-pipeline list-tasks
-uv tool run autocleaneeg-pipeline review --output results/
-uv tool run autocleaneeg-pipeline export-access-log --output audit-log.jsonl
-
-# Manage AutoClean tool
-uv tool list                         # Show installed tools
-uv tool upgrade autocleaneeg-pipeline         # Upgrade AutoClean
-uv tool uninstall autocleaneeg-pipeline       # Remove AutoClean
-
-# Makefile shortcuts
-make install-uv-tool                 # Install AutoClean as uv tool
-make uninstall-uv-tool               # Uninstall AutoClean uv tool
-```
-
-### Docker Development
-```bash
-# Build and run pipeline
-docker-compose up autoclean
-
-# Run review GUI
-docker-compose up review
-
-# Shell access
-docker-compose run autoclean bash
+# Theme and color control
+autocleaneeg-pipeline --theme mono list-tasks                      # Monochrome output
+AUTOCLEAN_THEME=hc autocleaneeg-pipeline version                   # High contrast
+NO_COLOR=1 autocleaneeg-pipeline list-tasks                        # Disable colors
 ```
 
 ## Key File Locations
@@ -211,27 +159,14 @@ docker-compose run autoclean bash
 - **Configuration**: `configs/autoclean_config.yaml` (legacy YAML support)
 - **Deployment**: `docker-compose.yml`, `autoclean.sh` (Linux), `profile.ps1` (Windows)
 
-## CI/CD Pipeline
-- **Matrix testing**: Python 3.10-3.12 across Ubuntu/macOS/Windows
-- **Code quality**: black, isort, ruff, mypy 
-- **Security**: bandit, pip-audit
-- **Testing**: pytest with coverage reporting (85.8% pass rate achieved)
-- **Performance benchmarking**: `.github/workflows/benchmark.yml`
-- **Synthetic EEG data generation** for realistic testing
-- **Unicode compatibility**: ASCII-safe CI workflows for Windows compatibility
-- Fast CI execution targeting <15 minute runs
-
-## Development Notes (v2.0.0)
-- Python 3.10+ required, <3.13
+## Development Requirements
+- Python 3.10-3.13 compatible
 - MNE-Python ecosystem + scientific computing stack
 - Entry point: `autocleaneeg-pipeline` CLI command
-- **Breaking Changes**: v2.0.0 API migration required (`autoclean_dir` → `output_dir`)
-- **No YAML Required**: Built-in tasks work without configuration files
-- **Production Ready**: 85.8% test pass rate, full dependency locking
-- Extensive type hints required (mypy strict mode)
-- Black formatting with 88 character line length
-- pytest with coverage reporting
-- Use hatchling as build backend
+- Code style: Black (88 char), isort, ruff linting
+- Type hints required (mypy strict mode currently disabled)
+- Build backend: hatchling
+- Test coverage target: >85%
 
 ## API Migration (v1.x → v2.0.0)
 ```python
@@ -307,23 +242,8 @@ For enhanced reproducibility and compliance, the system captures:
 - **Audit Trail**: All changes logged with user context and timestamps
 
 ## Current Status
-- **Version**: 2.1.0 (Latest stable release)
-- **Production Ready**: Yes (85.8+ test coverage, dependency locked)
-- **PyPI Publishing**: Available as `autocleaneeg-pipeline`
-- **Documentation**: Updated for v2.x workflow
-- **CI/CD**: Cross-platform compatibility (Linux/macOS/Windows)
-
-## Single Test Execution
-```bash
-# Run specific test file
-pytest tests/unit/test_pipeline.py -v
-
-# Run specific test method
-pytest tests/unit/test_pipeline.py::TestPipeline::test_initialization -v
-
-# Run tests matching pattern
-pytest tests/unit/ -k "test_pipeline" -v
-
-# Run with debugging output
-pytest tests/unit/test_pipeline.py -v -s --tb=short
-```
+- **Version**: 2.2.6 (Latest release - see pyproject.toml)
+- **Production Ready**: Yes (85%+ test coverage)
+- **PyPI Package**: `autocleaneeg-pipeline`
+- **Python Support**: 3.10, 3.11, 3.12
+- **Documentation**: https://cincibrainlab.github.io/autoclean_pipeline/
