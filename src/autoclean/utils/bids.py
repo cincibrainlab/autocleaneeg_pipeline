@@ -245,6 +245,12 @@ def step_convert_to_bids(
             entries = {"Manufacturer": "Unknown", "PowerLineFrequency": line_freq}
             sidecar_path = bids_path.copy().update(extension=".json")
             update_sidecar_json(bids_path=sidecar_path, entries=entries)
+
+            # Post-process dataset_description.json to set dataset name and branding
+            try:
+                _update_dataset_description(bids_root, dataset_name=task)
+            except Exception as dse:  # pylint: disable=broad-except
+                message("warning", f"Could not update dataset_description.json: {dse}")
         except Exception as e:
             message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
             print(f"Detailed error: {str(e)}")
@@ -402,7 +408,8 @@ def step_convert_to_bids(
             # Create metadata JSON files if they don't exist.
             dataset_description_file = bids_root / "dataset_description.json"
             if not dataset_description_file.exists():
-                step_create_dataset_desc(bids_root, study_name=study_name)
+                # Prefer task name for dataset branding instead of study_name
+                step_create_dataset_desc(bids_root, study_name=task)
 
             participants_json_file = bids_root / "participants.json"
             if not participants_json_file.exists():
@@ -420,6 +427,62 @@ def step_convert_to_bids(
     message("debug", f"Released participants.tsv lock for {file_name}.")
 
     return bids_path, derivatives_dir
+
+
+def _update_dataset_description(bids_root: Path, dataset_name: str) -> None:
+    """Ensure dataset_description.json uses the task name and includes pipeline branding.
+
+    This amends the file MNE-BIDS creates by default so it reflects our
+    desired Name and contains an autocleaneeg-pipeline entry in GeneratedBy.
+    """
+    try:
+        path = Path(bids_root) / "dataset_description.json"
+        if not path.exists():
+            # Create with our helper if it's missing
+            step_create_dataset_desc(Path(bids_root), study_name=dataset_name)
+            return
+
+        with path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # Set Name to the provided dataset_name (task name)
+        if dataset_name:
+            data["Name"] = str(dataset_name)
+
+        # Ensure GeneratedBy contains our pipeline branding
+        gb = data.get("GeneratedBy")
+        if not isinstance(gb, list):
+            gb = [] if gb is None else [gb]
+
+        # Deduplicate by Name
+        names = {str(e.get("Name")) for e in gb if isinstance(e, dict)}
+        if "autocleaneeg-pipeline" not in names:
+            gb.append(
+                {
+                    "Name": "autocleaneeg-pipeline",
+                    "Version": __version__,
+                    "Description": "Automated EEG preprocessing pipeline",
+                }
+            )
+        data["GeneratedBy"] = gb
+
+        # Remove placeholder Authors if present (e.g., ["[Unspecified1]", "[Unspecified2]"])
+        authors = data.get("Authors")
+        if isinstance(authors, list) and authors:
+            def _is_placeholder(x: str) -> bool:
+                try:
+                    s = str(x).strip()
+                    return s.startswith("[Unspecified") or s == "[Unspecified]"
+                except Exception:
+                    return False
+            if all(_is_placeholder(a) for a in authors):
+                data.pop("Authors", None)
+
+        with path.open("w", encoding="utf-8") as f:
+            json.dump(data, f, indent=4)
+    except Exception as e:  # pylint: disable=broad-except
+        # Non-fatal; log and continue
+        message("warning", f"dataset_description update skipped: {e}")
 
 
 def step_sanitize_id(filename):
@@ -459,10 +522,18 @@ def step_create_dataset_desc(output_path, study_name):
     study_name : str
         The name of the study.
     """
+    # Use task name as dataset name and include pipeline branding
     dataset_description = {
         "Name": study_name,
         "BIDSVersion": "1.6.0",  # Specify BIDS version used.
         "DatasetType": "raw",
+        "GeneratedBy": [
+            {
+                "Name": "autocleaneeg-pipeline",
+                "Version": __version__,
+                "Description": "Automated EEG preprocessing pipeline",
+            }
+        ],
     }
     filepath = output_path / "dataset_description.json"
     try:
