@@ -660,18 +660,18 @@ def update_ica_control_sheet(
         the control sheet.
     """
 
-    metadata_dir = Path(autoclean_dict["metadata_dir"])
-    metadata_dir.mkdir(parents=True, exist_ok=True)
-    sheet_path = metadata_dir / "ica_control_sheet.csv"
-
-    derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
-    original_file = Path(autoclean_dict["unprocessed_file"]).name
-    # Prefer configured ICA directory (task-level), fallback to task root from metadata_dir
-    ica_root = Path(
-        autoclean_dict.get("ica_dir")
-        or (metadata_dir.parent / "ica_fif")
-    )
+    # Store control sheet in the ICA directory under task root
+    try:
+        ica_root = Path(
+            autoclean_dict.get("ica_dir")
+            or (Path(autoclean_dict.get("metadata_dir", ".")).parent / "ica_fif")
+        )
+    except Exception:
+        ica_root = Path("ica_fif")
     ica_root.mkdir(parents=True, exist_ok=True)
+    sheet_path = ica_root / "ica_control_sheet.csv"
+
+    original_file = Path(autoclean_dict["unprocessed_file"]).name
     ica_fif = ica_root / f"{Path(original_file).stem}-ica.fif"
     auto_initial_str = _format_component_list(sorted(auto_exclude))
     now_iso = datetime.now().isoformat()
