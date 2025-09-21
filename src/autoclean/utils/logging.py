@@ -7,6 +7,7 @@ import sys
 import warnings
 from enum import Enum
 from pathlib import Path
+from threading import Event
 from typing import Optional, Union
 
 from loguru import logger
@@ -16,6 +17,32 @@ from autoclean.utils.user_config import UserConfigManager
 
 # Remove default handler
 logger.remove()
+
+
+# ---------------------------------------------------------------------------
+# Logging state management
+# ---------------------------------------------------------------------------
+
+_error_event = Event()
+
+
+def _track_error_records(message) -> None:
+    """Loguru sink that marks the run as failed when errors are emitted."""
+
+    if message.record["level"].name in {LogLevel.ERROR.value, LogLevel.CRITICAL.value}:
+        _error_event.set()
+
+
+def has_logged_errors() -> bool:
+    """Return True if any error-level log entries have been emitted."""
+
+    return _error_event.is_set()
+
+
+def reset_log_state() -> None:
+    """Clear the tracked logging state for a fresh run."""
+
+    _error_event.clear()
 
 # Define custom levels with specific order
 # Standard levels are already defined:
@@ -176,6 +203,10 @@ def message(level: str, text: str, **kwargs) -> None:
     # Convert level to proper case
     level = level.upper()
 
+    # Track error level messages so the CLI can report accurate status
+    if level in {LogLevel.ERROR.value, LogLevel.CRITICAL.value}:
+        _error_event.set()
+
     # Handle expensive computations lazily
     if kwargs:
         logger.opt(lazy=True).log(level, text, **kwargs)
@@ -217,6 +248,17 @@ def configure_logger(
         Appropriate MNE verbosity level ('DEBUG', 'INFO', 'WARNING', 'ERROR', or 'CRITICAL')
     """
     logger.remove()
+
+    # Reset log state for each new configuration
+    reset_log_state()
+
+    # Monitor error records regardless of logging helper usage
+    logger.add(
+        _track_error_records,
+        level=LogLevel.ERROR.value,
+        backtrace=False,
+        diagnose=False,
+    )
 
     # Convert input to LogLevel using our new conversion method
     level = LogLevel.from_value(verbose)
