@@ -978,30 +978,32 @@ def update_task_processing_log(
                 message("error", f"Missing required key in summary_dict: {key}")
                 return
 
-        # Define CSV path (aggregate per-task log inside reports directory)
+        # Define CSV path (aggregate per-task log) at the task root
         base_name = Path(summary_dict.get("basename", summary_dict["run_id"])).stem
         reports_root = Path(
             summary_dict.get("reports_dir")
             or Path(summary_dict["output_dir"]) / "reports"
         )
         run_reports_dir = reports_root / "run_reports"
-        csv_path = reports_root / f"{summary_dict['task']}_processing_log.csv"
+        task_root = Path(summary_dict["output_dir"])  # task root
+        csv_path = task_root / f"{summary_dict['task']}_processing_log.csv"
 
-        legacy_csv_path = (
-            Path(summary_dict["output_dir"]) / f"{summary_dict['task']}_processing_log.csv"
+        # Migrate any older combined logs from reports folder to task root
+        legacy_reports_csv = (
+            reports_root / f"{summary_dict['task']}_processing_log.csv"
         )
-        if legacy_csv_path.exists() and not csv_path.exists():
+        if legacy_reports_csv.exists() and not csv_path.exists():
             try:
-                csv_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(legacy_csv_path), str(csv_path))
+                task_root.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(legacy_reports_csv), str(csv_path))
                 message(
                     "info",
-                    f"Moved legacy processing log to reports directory: {csv_path}",
+                    f"Moved combined processing log to task root: {csv_path}",
                 )
             except Exception as migrate_err:  # pylint: disable=broad-except
                 message(
                     "warning",
-                    f"Could not migrate legacy processing log: {migrate_err}",
+                    f"Could not migrate combined processing log: {migrate_err}",
                 )
 
         # Safe dictionary access function
