@@ -500,8 +500,10 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
     try:
         derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
+        # Prefer configured task-level ica_fif; fallback to task root derived from metadata_dir
         ica_root = Path(
-            autoclean_dict.get("ica_dir") or derivatives_dir.parent / "ica_fif"
+            autoclean_dict.get("ica_dir")
+            or (Path(autoclean_dict.get("metadata_dir", derivatives_dir)).parent / "ica_fif")
         )
         ica_root.mkdir(parents=True, exist_ok=True)
     except Exception as e:  # pylint: disable=broad-exception-caught

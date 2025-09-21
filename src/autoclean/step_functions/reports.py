@@ -1301,11 +1301,17 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         return {}
 
     prepare_dirs = metadata.get("step_prepare_directories", {})
-    metadata_dir = Path(prepare_dirs.get("metadata", derivatives_dir / "metadata"))
+    bids_dir_str = prepare_dirs.get("bids", "")
+    metadata_dir = Path(
+        prepare_dirs.get("metadata") or (Path(bids_dir_str).parent / "metadata")
+    )
     reports_dir = Path(
         prepare_dirs.get("reports") or (metadata_dir.parent / "reports")
     )
-    ica_dir = Path(prepare_dirs.get("ica_fif", derivatives_dir / "ica_fif"))
+    ica_dir = Path(
+        prepare_dirs.get("ica_fif")
+        or (metadata_dir.parent / "ica_fif")
+    )
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
 
