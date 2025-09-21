@@ -935,14 +935,6 @@ def create_run_report(
 
     message("success", f"Report saved to {pdf_path}")
 
-    # If derivatives path is available, also save there
-    if derivatives_path:
-        try:
-            shutil.copy(pdf_path, derivatives_path)
-            message("success", f"Report saved to {derivatives_path}")
-        except Exception as e:  # pylint: disable=broad-except
-            message("warning", f"Could not save to derivatives: {str(e)}")
-
     return pdf_path
 
 
