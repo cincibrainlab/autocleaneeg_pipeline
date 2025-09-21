@@ -60,6 +60,17 @@ config = {
         "enabled": False,
         "value": {"start": 0, "end": 60},  # Start time (seconds)  # End time (seconds)
     },
+    "wavelet_threshold": {
+        "enabled": False,
+        "value": {
+            "wavelet": "sym4",           # Mother wavelet name
+            "level": 5,                  # Decomposition levels (auto-clamped internally)
+            "threshold_mode": "soft",   # 'soft' or 'hard'
+            "is_erp": False,             # Enable ERP-preserving mode
+            "bandpass": [1.0, 30.0],     # Optional pre-filter band (set to None to skip)
+            "filter_kwargs": None        # Extra args forwarded to MNE filtering
+        },
+    },
     "reference_step": {
         "enabled": True,
         "value": "average",  # Reference type: 'average', specific channels, or None
@@ -138,6 +149,9 @@ class CustomTask(Task):
 
         # Store original data for comparison
         self.original_raw = self.raw.copy()
+
+        # Optional wavelet denoising prior to channel cleaning
+        self.apply_wavelet_threshold()
 
         # Create BIDS-compliant paths and filenames
         self.create_bids_path()
