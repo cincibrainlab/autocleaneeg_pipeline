@@ -116,7 +116,8 @@ def step_prepare_directories(
         "stage": derivatives_root,
         "reports": task_root / "reports",
         "ica_fif": task_root / "ica_fif",
-        "final_files": task_root / "final_files",  # Final files moved to task root
+        # Keep legacy key name but change folder to final_exports at task root
+        "final_files": task_root / "final_exports",
         "qa": task_root / "qa_review_plots",  # QA images at task root
     }
 

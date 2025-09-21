@@ -4612,12 +4612,13 @@ def cmd_report_chat(args) -> int:
             if logs_dir:
                 per_file_candidates.append(logs_dir / f"{basename}_processing_log.csv")
 
-            # Prefer final_files path from step_prepare_directories metadata
-            if spd.get("final_files"):
+            # Prefer final_exports (new) else final_files (legacy) from step_prepare_directories metadata
+            final_path_key = "final_exports" if spd.get("final_exports") else ("final_files" if spd.get("final_files") else None)
+            if final_path_key:
                 try:
-                    final_files_dir_resolved = resolve_moved_path(Path(spd["final_files"]))
+                    final_files_dir_resolved = resolve_moved_path(Path(spd[final_path_key]))
                 except Exception:
-                    final_files_dir_resolved = Path(spd["final_files"])  # best effort
+                    final_files_dir_resolved = Path(spd[final_path_key])  # best effort
                 per_file_candidates.append(
                     Path(final_files_dir_resolved) / f"{basename}_processing_log.csv"
                 )

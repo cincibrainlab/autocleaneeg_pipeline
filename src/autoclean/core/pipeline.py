@@ -377,7 +377,9 @@ class Pipeline:
                             "stage": str(stage_dir),
                             "reports": str(reports_dir),
                             "ica_fif": str(ica_dir),
+                            # Back-compat + new canonical key
                             "final_files": str(final_files_dir),
+                            "final_exports": str(final_files_dir),
                             "qa": str(metadata_dir.parent / "qa_review_plots"),
                         }
                     },
