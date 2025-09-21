@@ -666,7 +666,10 @@ def update_ica_control_sheet(
 
     derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
     original_file = Path(autoclean_dict["unprocessed_file"]).name
-    ica_fif = derivatives_dir / f"{Path(original_file).stem}-ica.fif"
+    # Prefer configured ICA directory (task-level), fallback near derivatives
+    ica_root = Path(autoclean_dict.get("ica_dir") or derivatives_dir.parent / "ica_fif")
+    ica_root.mkdir(parents=True, exist_ok=True)
+    ica_fif = ica_root / f"{Path(original_file).stem}-ica.fif"
     auto_initial_str = _format_component_list(sorted(auto_exclude))
     now_iso = datetime.now().isoformat()
 
