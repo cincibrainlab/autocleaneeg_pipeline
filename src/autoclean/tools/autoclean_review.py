@@ -605,6 +605,27 @@ class FileSelector(QWidget):
                     )
                     print(f"Found {len(image_files)} image files")
 
+                # Also check special QA folder under task root
+                if not image_files:
+                    qa_dir = None
+                    if spd_meta.get("qa"):
+                        try:
+                            qa_dir = resolve_moved_path(Path(spd_meta["qa"]))
+                        except Exception:
+                            qa_dir = Path(spd_meta["qa"])
+                    elif spd_meta.get("metadata"):
+                        try:
+                            qa_dir = resolve_moved_path(Path(spd_meta["metadata"]))
+                        except Exception:
+                            qa_dir = Path(spd_meta["metadata"]) if spd_meta.get("metadata") else None
+                        qa_dir = qa_dir.parent / "qa_review_plots" if qa_dir else None
+                    if qa_dir and qa_dir.exists():
+                        print(f"Searching for image files in QA directory: {qa_dir}")
+                        image_files = sorted(
+                            list(qa_dir.rglob("*.png")) + list(qa_dir.rglob("*.pdf"))
+                        )
+                        print(f"Found {len(image_files)} image files in QA directory")
+
                 if not image_files:
                     print(f"Searching for image files in: {derivatives_dir}")
                     if derivatives_dir.exists():

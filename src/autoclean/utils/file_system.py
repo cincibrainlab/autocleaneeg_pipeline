@@ -117,6 +117,7 @@ def step_prepare_directories(
         "reports": task_root / "reports",
         "ica_fif": task_root / "ica_fif",
         "final_files": task_root / "final_files",  # Final files moved to task root
+        "qa": task_root / "qa_review_plots",  # QA images at task root
     }
 
     # Create directories with error handling
