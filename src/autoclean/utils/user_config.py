@@ -1127,172 +1127,51 @@ if __name__ == "__main__":
 
     def _create_fallback_template(self, dest_file: Path) -> None:
         """Create fallback template task file."""
-        content = '''from autoclean.core.task import Task
+        content = '''"""
+AutoClean template placeholder
 
-# =============================================================================
-#                     CUSTOM EEG PREPROCESSING TASK TEMPLATE
-# =============================================================================
-# This is a template for creating custom EEG preprocessing tasks.
-# Customize the configuration below to match your specific EEG paradigm.
-#
-# Instructions:
-# 1. Rename this file to match your task (e.g., my_experiment.py)
-# 2. Update the class name below (e.g., MyExperiment)
-# 3. Modify the config dictionary to match your data requirements
-# 4. Customize the run() method to define your processing pipeline
-#
-# 🟢 enabled: True  = Apply this processing step
-# 🔴 enabled: False = Skip this processing step
-#
-# 💡 TIP: Use the AutoClean configuration wizard to generate settings
-#         automatically, or copy settings from existing tasks!
-# =============================================================================
+This file is a lightweight shim that defers to the canonical template
+shipped with the AutoClean package.
 
-config = {
-    # Optional: AI-powered textual reporting (default OFF)
-    # Set to True to generate LLM-backed summaries after the run,
-    # using the processing log CSV and the PDF report as inputs.
-    'ai_reporting': False,
-    'resample_step': {
-        'enabled': True,
-        'value': 250  # Resample to 250 Hz
-    },
-    'filtering': {
-        'enabled': True,
-        'value': {
-            'l_freq': 1,      # High-pass filter (Hz)
-            'h_freq': 100,    # Low-pass filter (Hz)
-            'notch_freqs': [60, 120],  # Notch filter frequencies
-            'notch_widths': 5          # Notch filter width
-        }
-    },
-    'drop_outerlayer': {
-        'enabled': False,
-        'value': []  # Channel indices to drop
-    },
-    'eog_step': {
-        'enabled': False,
-        'value': []  # EOG channel indices
-    },
-    'trim_step': {
-        'enabled': True,
-        'value': 4  # Trim seconds from start/end
-    },
-    'crop_step': {
-        'enabled': False,
-        'value': {
-            'start': 0,   # Start time (seconds)
-            'end': 60     # End time (seconds)
-        }
-    },
-    'reference_step': {
-        'enabled': True,
-        'value': 'average'  # Reference type
-    },
-    'montage': {
-        'enabled': True,
-        'value': 'GSN-HydroCel-129'  # EEG montage
-    },
-    'ICA': {
-        'enabled': True,
-        'value': {
-            'method': 'fastica',
-            'n_components': None,
-            'fit_params': {}
-        }
-    },
-    'component_rejection': {
-        'enabled': True,
-        'method': 'iclabel',
-        'value': {
-            'ic_flags_to_reject': ['muscle', 'heart', 'eog', 'ch_noise', 'line_noise'],
-            'ic_rejection_threshold': 0.3
-        }
-    },
-    'epoch_settings': {
-        'enabled': True,
-        'value': {
-            'tmin': -1,  # Epoch start (seconds)
-            'tmax': 1    # Epoch end (seconds)
+Single source of truth:
+- autoclean/templates/custom_task_template.py
+
+If AutoClean is installed, importing this file will expose the exact
+same config and CustomTask class as the canonical template.
+
+If AutoClean is not installed, this stub provides a minimal placeholder
+and a clear error when executed.
+"""
+
+try:
+    # Re-export canonical template (no duplication)
+    from autoclean.templates.custom_task_template import (  # type: ignore
+        config as config,
+        CustomTask as CustomTask,
+    )
+except Exception as exc:
+    from autoclean.core.task import Task  # type: ignore
+
+    # Minimal placeholder config to keep imports from breaking.
+    # Install AutoClean and re-run the setup wizard to regenerate the full template.
+    config = {
+        "resample_step": {"enabled": True, "value": 250},
+        "filtering": {
+            "enabled": True,
+            "value": {"l_freq": 1, "h_freq": 100, "notch_freqs": [60, 120], "notch_widths": 5},
         },
-        'event_id': None,
-        'remove_baseline': {
-            'enabled': False,
-            'window': [None, 0]
-        },
-        'threshold_rejection': {
-            'enabled': False,
-            'volt_threshold': {
-                'eeg': 0.000125
-            }
-        }
+        "reference_step": {"enabled": True, "value": "average"},
+        "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
+        "epoch_settings": {"enabled": True, "value": {"tmin": -1, "tmax": 1}},
     }
-}
 
-
-class CustomTask(Task):
-    """
-    Custom EEG preprocessing task template.
-
-    Modify this class to create your own EEG preprocessing pipeline.
-    """
-
-    def run(self) -> None:
-        """Define your custom EEG preprocessing pipeline."""
-        # Import raw EEG data
-        self.import_raw()
-
-        # Basic preprocessing steps
-        self.resample_data()
-        self.filter_data()
-        self.drop_outer_layer()
-        self.assign_eog_channels()
-        self.trim_edges()
-        self.crop_duration()
-
-        # Store original data for comparison
-        self.original_raw = self.raw.copy()
-
-        # Create BIDS-compliant paths and filenames
-        self.create_bids_path()
-
-        # Channel cleaning
-        self.clean_bad_channels()
-
-        # Re-referencing
-        self.rereference_data()
-
-        # Artifact detection
-        self.annotate_noisy_epochs()
-        self.annotate_uncorrelated_epochs()
-        self.detect_dense_oscillatory_artifacts()
-
-        # ICA processing
-        self.run_ica()
-        self.classify_ica_components()
-
-        # Epoching
-        self.create_regular_epochs()
-
-        # Outlier detection
-        self.detect_outlier_epochs()
-
-        # Clean epochs
-        self.gfp_clean_epochs()
-
-        # Generate reports
-        self.generate_reports()
-
-    def generate_reports(self) -> None:
-        """Generate quality control visualizations and reports."""
-        if self.raw is None or self.original_raw is None:
-            return
-
-        # Plot raw vs cleaned overlay
-        self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
-
-        # Plot power spectral density topography
-        self.step_psd_topo_figure(self.original_raw, self.raw)
+    class CustomTask(Task):
+        """Placeholder task. Install AutoClean to use the full template."""
+        def run(self) -> None:
+            raise RuntimeError(
+                "This is a placeholder template. Install AutoClean and copy "
+                "autoclean/templates/custom_task_template.py for the complete template."
+            )
 '''
 
         with open(dest_file, "w", encoding="utf-8") as f:
