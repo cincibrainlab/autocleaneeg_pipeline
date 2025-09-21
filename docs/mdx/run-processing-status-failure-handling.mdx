@@ -1,0 +1,63 @@
+---
+title: Processing Status Failure Handling Run Log
+description: Tracking error-level logs so the CLI surfaces a failure summary whenever any task raises an error.
+---
+
+# Processing Status Failure Handling Run Log
+
+This run teaches the CLI how to sense when anything went wrong so it never signs off with a success banner after errors were raised.
+
+<Steps>
+  <Step title="What triggered the run?">
+    A real-world pipeline run logged multiple `ERROR` entries (missing JSON summary, task parameter failure, downstream crash), yet the session still ended with <code>Processing completed successfully!</code>. The CLI never asked the logger whether errors occurred.
+  </Step>
+  <Step title="How did we fix it?">
+    <ul>
+      <li>Introduced a shared logging state using a thread-safe <code>Event</code> that flips on the first error-level message.</li>
+      <li>Registered a dedicated Loguru sink so even modules that call <code>logger.error</code> directly still trigger the failure flag.</li>
+      <li>Updated the CLI <code>process</code> command to check the flag before printing the final summary, returning a non-zero exit code when errors were seen.</li>
+    </ul>
+  </Step>
+  <Step title="What should a reviewer look at?">
+    <ol>
+      <li><code>src/autoclean/utils/logging.py</code> now exposes <code>has_logged_errors()</code> and automatically resets the flag every time <code>configure_logger()</code> runs.</li>
+      <li><code>src/autoclean/cli.py</code> emits <em>Processing failed with errors. See log for details.</em> whenever any error was logged.</li>
+      <li><code>src/autoclean/utils/__init__.py</code> re-exports the helper so other modules can consume it.</li>
+    </ol>
+  </Step>
+</Steps>
+
+## Flow at a Glance
+
+<Diagram name="How the CLI now decides between success and failure">
+Pipeline/Tasks -> log via message() or logger.error() -> Loguru sinks -> _error_event.set()
+CLI process command -> has_logged_errors()?
+  Yes -> print failure summary + exit 1
+  No  -> print success summary + exit 0
+</Diagram>
+
+## Hands-On Verification
+
+<Tip>
+Run these commands from the repository root; they validate the new behavior end-to-end.
+</Tip>
+
+<Steps>
+  <Step title="Unit confidence">
+    Execute <code>pytest tests/unit/core/test_pipeline.py</code> to make sure the pipeline bootstrap still wires the logger correctly.
+  </Step>
+  <Step title="Manual sanity check">
+    Trigger a dry failure by running <code>autocleaneeg-pipeline process --task bad_task</code> against a test file and confirm the CLI ends with <code>Processing failed with errors. See log for details.</code> and a non-zero exit code.
+  </Step>
+  <Step title="Success scenario">
+    Run the CLI on a known-good dataset; the summary should stay as <code>Processing completed successfully!</code> because no errors were logged.
+  </Step>
+</Steps>
+
+## Concerns & Safeguards
+
+<Note>
+The error flag is global to the Python process. <strong>Always</strong> call <code>configure_logger()</code> (which the pipeline does automatically) before starting a new run so the flag resets. The helper is thread-safe, so concurrent async workers cannot clobber each other's status.
+</Note>
+
+By following this playbook a novice contributor can replicate the run, understand the reasoning, and verify both failure and success paths.
