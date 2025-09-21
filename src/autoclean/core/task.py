@@ -43,6 +43,7 @@ except ImportError as e:
     DISCOVERED_MIXINS = (_ImportErrorMixinFallback,)
 
 from autoclean.utils.auth import require_authentication
+from autoclean.configkit.schema import validate_task_module_config
 
 
 class Task(ABC, *DISCOVERED_MIXINS):
@@ -96,6 +97,11 @@ class Task(ABC, *DISCOVERED_MIXINS):
             module = inspect.getmodule(self.__class__)
             if module and hasattr(module, "config"):
                 self.settings = module.config
+                # Validate python task module config (raises on mismatch)
+                try:
+                    self.settings = validate_task_module_config(self.settings)
+                except Exception as exc:
+                    raise ValueError(f"Task config validation failed: {exc}") from exc
             else:
                 self.settings = None
 
