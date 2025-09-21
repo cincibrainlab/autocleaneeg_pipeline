@@ -36,6 +36,7 @@ config = {
             "threshold_mode": "soft",
             "is_erp": False,
             "bandpass": [1.0, 30.0],
+            "filter_kwargs": None,
         },
     },
     "reference_step": {"enabled": True, "value": "average"},
@@ -55,6 +56,8 @@ config = {
         "value": {
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
             "ic_rejection_threshold": 0.3,
+            "psd_fmax": 40.0,
+            "ic_rejection_overrides": {},
         },
     },
     "epoch_settings": {
@@ -103,7 +106,8 @@ class RestingState_BasicWavelet(Task):
 
         # ICA processing with optional export
         self.run_ica()
-        self.classify_ica_components(method="iclabel")
+        # Let component_rejection.method in config choose the classifier
+        self.classify_ica_components()
 
         # Epoching with export
         self.create_regular_epochs(export=True)

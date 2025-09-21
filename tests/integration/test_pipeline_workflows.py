@@ -21,7 +21,6 @@ pytest.importorskip("autoclean.core.pipeline")
 
 try:
     from autoclean.core.pipeline import Pipeline
-    from autoclean.utils.config import load_config
     from autoclean.utils.logging import configure_logger
 
     IMPORT_AVAILABLE = True
