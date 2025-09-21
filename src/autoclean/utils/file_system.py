@@ -116,7 +116,7 @@ def step_prepare_directories(
         "stage": derivatives_root,
         "reports": task_root / "reports",
         "ica_fif": task_root / "ica_fif",
-        "final_files": bids_root / "final_files",  # New dedicated final files directory
+        "final_files": task_root / "final_files",  # Final files moved to task root
     }
 
     # Create directories with error handling
