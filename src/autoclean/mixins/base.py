@@ -429,13 +429,41 @@ class BaseMixin:
         return target_dir
 
     def _report_relative_path(self, absolute_path: Path) -> Path:
-        """Return the path to an artifact relative to the derivatives directory."""
+        """Return a relative artifact path preferring task-root anchors.
 
+        Preference order:
+        1) qa_dir (task_root/qa_review_plots) if configured
+        2) reports_dir if configured
+        3) derivatives root
+        4) filename only as a last resort
+        """
+        cfg = getattr(self, "config", {}) or {}
+
+        # 1) qa_dir
+        qa_dir = cfg.get("qa_dir")
+        if qa_dir:
+            try:
+                return Path(absolute_path).relative_to(Path(qa_dir))
+            except Exception:
+                pass
+
+        # 2) reports_dir
+        reports_dir = cfg.get("reports_dir")
+        if reports_dir:
+            try:
+                return Path(absolute_path).relative_to(Path(reports_dir))
+            except Exception:
+                pass
+
+        # 3) derivatives root
         try:
             derivatives_root = self._get_derivatives_path()
-            return absolute_path.relative_to(derivatives_root)
+            return Path(absolute_path).relative_to(derivatives_root)
         except Exception:
-            return Path(absolute_path.name)
+            pass
+
+        # 4) filename only
+        return Path(absolute_path.name)
 
     def _save_figure(self, fig: plt.Figure, filename: str, dpi: int = 300) -> str:
         """Save a matplotlib figure to the derivatives directory.
