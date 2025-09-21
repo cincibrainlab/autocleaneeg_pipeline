@@ -377,10 +377,12 @@ class Pipeline:
                             "stage": str(stage_dir),
                             "reports": str(reports_dir),
                             "ica_fif": str(ica_dir),
-                            # Back-compat + new canonical key
+                            "ica": str(ica_dir),
+                            # Back-compat + new canonical keys
                             "final_files": str(final_files_dir),
                             "final_exports": str(final_files_dir),
-                            "qa": str(metadata_dir.parent / "qa_review_plots"),
+                            "exports": str(final_files_dir),
+                            "qa": str(metadata_dir.parent / "qa"),
                         }
                     },
                 },
@@ -405,7 +407,7 @@ class Pipeline:
                 "logs_dir": logs_dir,
                 "stage_dir": stage_dir,
                 "reports_dir": reports_dir,
-                "qa_dir": metadata_dir.parent / "qa_review_plots",
+                "qa_dir": metadata_dir.parent / "qa",
                 "ica_dir": ica_dir,
                 "final_files_dir": final_files_dir,  # New final files directory
                 "config_hash": config_hash,

@@ -432,7 +432,7 @@ class BaseMixin:
         """Return a relative artifact path preferring task-root anchors.
 
         Preference order:
-        1) qa_dir (task_root/qa_review_plots) if configured
+        1) qa_dir (task_root/qa) if configured
         2) reports_dir if configured
         3) derivatives root
         4) filename only as a last resort

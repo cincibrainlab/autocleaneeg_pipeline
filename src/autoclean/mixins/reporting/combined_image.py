@@ -1026,9 +1026,9 @@ class FastPlotReportMixin:
             if cfg.get("qa_dir"):
                 qa_root = Path(cfg["qa_dir"])
             elif cfg.get("metadata_dir"):
-                qa_root = Path(cfg["metadata_dir"]).parent / "qa_review_plots"
+                qa_root = Path(cfg["metadata_dir"]).parent / "qa"
             else:
-                qa_root = Path.cwd() / "qa_review_plots"
+                qa_root = Path.cwd() / "qa"
             qa_root.mkdir(parents=True, exist_ok=True)
             output_path = qa_root / f"{basename}_fastplot_summary.tiff"
         except Exception as exc:  # pragma: no cover - missing directories
