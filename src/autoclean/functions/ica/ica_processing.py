@@ -664,10 +664,10 @@ def update_ica_control_sheet(
     try:
         ica_root = Path(
             autoclean_dict.get("ica_dir")
-            or (Path(autoclean_dict.get("metadata_dir", ".")).parent / "ica_fif")
+            or (Path(autoclean_dict.get("metadata_dir", ".")).parent / "ica")
         )
     except Exception:
-        ica_root = Path("ica_fif")
+        ica_root = Path("ica")
     ica_root.mkdir(parents=True, exist_ok=True)
     sheet_path = ica_root / "ica_control_sheet.csv"
 

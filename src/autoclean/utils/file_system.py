@@ -116,10 +116,10 @@ def step_prepare_directories(
         # Write per-stage outputs directly under BIDS derivatives
         "stage": derivatives_root,
         "reports": task_root / "reports",
-        "ica_fif": task_root / "ica_fif",
-        # Keep legacy key name but change folder to final_exports at task root
-        "final_files": task_root / "final_exports",
-        "qa": task_root / "qa_review_plots",  # QA images at task root
+        "ica_fif": task_root / "ica",  # new folder name 'ica' (legacy key kept)
+        # Keep legacy key name but use new folder 'exports' at task root
+        "final_files": task_root / "exports",
+        "qa": task_root / "qa",  # QA images at task root
     }
 
     # Create directories with error handling
