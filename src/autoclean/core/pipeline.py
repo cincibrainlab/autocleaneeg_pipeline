@@ -376,11 +376,7 @@ class Pipeline:
                             "logs": str(logs_dir),
                             "stage": str(stage_dir),
                             "reports": str(reports_dir),
-                            "ica_fif": str(ica_dir),
                             "ica": str(ica_dir),
-                            # Back-compat + new canonical keys
-                            "final_files": str(final_files_dir),
-                            "final_exports": str(final_files_dir),
                             "exports": str(final_files_dir),
                             "qa": str(metadata_dir.parent / "qa"),
                         }
@@ -468,7 +464,7 @@ class Pipeline:
                         flagged=flagged,
                     )
 
-                # Copy final files to the dedicated final_files directory
+                # Copy final files to the dedicated exports directory
                 if not flagged or not run_dict.get("move_flagged_files", True):
                     copy_final_files(run_dict)
 
