@@ -16,7 +16,7 @@ AutoClean EEG is a modular framework for automated EEG data processing built on 
 - **Dynamic Mixins**: Automatically discover and combine all "*Mixin" classes
 - **Plugin System**: Auto-registration for EEG formats, montages, and event processors
 - **Python Task Files**: Embedded configuration in Python files (v2.0.0)
-- **Simplified API**: Streamlined Pipeline initialization without YAML dependencies
+- **No YAML Pipeline Configs**: YAML-based pipeline configs are removed; use Python task modules
 
 ### Key Components
 1. **Pipeline** (`src/autoclean/core/pipeline.py`) - Main orchestrator handling configuration, file processing, and result management
@@ -82,7 +82,7 @@ pipeline.process_file("/path/to/data.raw", task="MyTask")
 ### Task Design Philosophy (v2.0.0)
 - **"Drop and Go" Approach**: Copy Python task files to workspace for instant availability
 - **Embedded Configuration**: Task settings included directly in Python files
-- **Simplified Workflow**: No separate YAML files to manage
+- **Simplified Workflow**: No separate YAML pipeline files to manage
 - **Export Counter System**: Automatic stage numbering (01_, 02_, 03_) replacing stage_files
 - **Easy Extension**: Custom mixins added by creating classes in mixins subfolders
 
@@ -156,7 +156,7 @@ NO_COLOR=1 autocleaneeg-pipeline list-tasks                        # Disable col
 - **Built-in Tasks**: `src/autoclean/tasks/`
 - **User Workspace**: `~/.autoclean/` or OS-specific user directory (v2.0.0)
 - **Custom Tasks**: `workspace/tasks/` (Python files with embedded config)
-- **Configuration**: `configs/autoclean_config.yaml` (legacy YAML support)
+- **Configuration**: Python task files with embedded `config` dicts (YAML pipeline configs removed)
 - **Deployment**: `docker-compose.yml`, `autoclean.sh` (Linux), `profile.ps1` (Windows)
 
 ## Development Requirements

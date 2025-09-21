@@ -93,18 +93,14 @@ class TestConfigLoading(BaseTestCase):
         with open(config_file, "w") as f:
             yaml.dump(valid_config, f)
 
-        result = load_config(config_file)
-
-        assert result == valid_config
-        assert "tasks" in result
-        assert "TestTask" in result["tasks"]
-        assert result["tasks"]["TestTask"]["mne_task"] == "rest"
+        with pytest.raises(RuntimeError):
+            load_config(config_file)
 
     def test_load_config_file_not_found(self):
         """Test error handling when config file doesn't exist."""
         non_existent_file = self.temp_dir / "non_existent.yaml"
 
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises(RuntimeError):
             load_config(non_existent_file)
 
     def test_load_config_invalid_yaml(self):
@@ -115,7 +111,7 @@ class TestConfigLoading(BaseTestCase):
         with open(config_file, "w") as f:
             f.write(invalid_yaml)
 
-        with pytest.raises(yaml.YAMLError):
+        with pytest.raises(RuntimeError):
             load_config(config_file)
 
     def test_load_config_schema_validation_failure(self):
@@ -134,7 +130,7 @@ class TestConfigLoading(BaseTestCase):
         with open(config_file, "w") as f:
             yaml.dump(invalid_config, f)
 
-        with pytest.raises(Exception):  # Could be SchemaError or similar
+        with pytest.raises(RuntimeError):
             load_config(config_file)
 
     def test_load_config_with_optional_fields(self):
@@ -197,15 +193,8 @@ class TestConfigLoading(BaseTestCase):
         with open(config_file, "w") as f:
             yaml.dump(config_with_optionals, f)
 
-        result = load_config(config_file)
-
-        assert result == config_with_optionals
-        assert (
-            result["tasks"]["TestTaskOptional"]["settings"]["filtering"]["value"][
-                "l_freq"
-            ]
-            is None
-        )
+        with pytest.raises(RuntimeError):
+            load_config(config_file)
 
 
 @pytest.mark.skipif(not CONFIG_AVAILABLE, reason="Config module not available")
@@ -348,10 +337,8 @@ class TestConfigMocked:
             "stage_files": {"post_import": {"enabled": True, "suffix": "_test"}},
         }
 
-        result = load_config(Path("fake_path.yaml"))
-
-        assert "tasks" in result
-        assert "TestTask" in result["tasks"]
+        with pytest.raises(RuntimeError):
+            load_config(Path("fake_path.yaml"))
 
     @patch("autoclean.utils.config.yaml.safe_dump")
     @patch("autoclean.utils.config.zlib.compress")
@@ -441,9 +428,8 @@ class TestConfigConceptual:
             config_file = Path(f.name)
 
         try:
-            result = load_config(config_file)
-            assert "tasks" in result
-            assert "stage_files" in result
+            with pytest.raises(RuntimeError):
+                load_config(config_file)
         finally:
             config_file.unlink()
 

@@ -11,120 +11,146 @@ from pathlib import Path
 
 import yaml
 from platformdirs import user_config_dir
-from schema import Optional, Or, Schema
+
 
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
 
 
+
 def load_config(config_file: Path = None) -> dict:
-    """Load and validate the autoclean configuration file.
+    """Deprecated: YAML pipeline configs are no longer supported.
 
-    Parameters
-    ----------
-    config_file : Path
-        The path to the autoclean configuration file.
-
-    Returns
-    -------
-    autoclean_dict : dict
-        The autoclean configuration dictionary.
+    Use Python task modules with embedded `config` dictionaries.
+    This function now raises at call sites to prevent silent fallback.
     """
+    raise RuntimeError(
+        "YAML-based pipeline configs are removed. Use Python task files with embedded "
+        "`config` dicts and validate via autoclean.configkit.schema."
+    )
 
-    message("info", f"Loading config: {config_file}")
-    config_schema = Schema(
+
+# DEPRECATED: Legacy schema helpers retained temporarily for reference only
+# These are superseded by autoclean.configkit.schema
+
+def _legacy_build_task_settings_schema():
+    """Schema for Python task module `config` dictionaries.
+
+    Mirrors the canonical template and supports new features (wavelet, component_rejection).
+    """
+    # Common step helpers
+    step_bool = {"enabled": bool}
+    step_value_num = {**step_bool, "value": Or(int, float, None)}
+    step_value_list = {**step_bool, "value": Or(list, None)}
+
+    return Schema(
         {
-            "tasks": {
-                str: {
-                    "mne_task": str,
-                    "description": str,
-                    "settings": {
-                        "filtering": {
-                            "enabled": bool,
-                            "value": {
-                                "l_freq": Or(int, float, None),
-                                "h_freq": Or(int, float, None),
-                                "notch_freqs": Or(
-                                    float, int, list[float], list[int], None
-                                ),
-                                "notch_widths": Or(
-                                    float, int, list[float], list[int], None
-                                ),
-                            },
-                        },
-                        "resample_step": {
-                            "enabled": bool,
-                            "value": Or(int, float, None),
-                        },
-                        "drop_outerlayer": {"enabled": bool, "value": Or(list, None)},
-                        "eog_step": {"enabled": bool, "value": Or(list, None)},
-                        "trim_step": {"enabled": bool, "value": Or(int, float)},
-                        "crop_step": {
-                            "enabled": bool,
-                            "value": {
-                                "start": Or(int, float),
-                                "end": Or(int, float, None),
-                            },
-                        },
-                        "reference_step": {
-                            "enabled": bool,
-                            "value": Or(str, list[str], None),
-                        },
-                        "montage": {"enabled": bool, "value": Or(str, None)},
-                        "ICA": {
-                            "enabled": bool,
-                            "value": {
-                                "method": str,  # Required parameter
-                                Optional("n_components"): Or(int, float, None),
-                                Optional("noise_cov"): Or(dict, None),
-                                Optional("random_state"): Or(int, None),
-                                Optional("fit_params"): Or(dict, None),
-                                Optional("max_iter"): Or(int, str, None),
-                                Optional("allow_ref_meg"): Or(bool, None),
-                                Optional("decim"): Or(int, None),
-                                Optional("temp_highpass_for_ica"): Or(float, None),
-                            },
-                        },
-                        "ICLabel": {
-                            "enabled": bool,
-                            "value": {
-                                "ic_flags_to_reject": list,
-                                "ic_rejection_threshold": float,
-                            },
-                        },
-                        "epoch_settings": {
-                            "enabled": bool,
-                            "value": {
-                                "tmin": Or(int, float, None),
-                                "tmax": Or(int, float, None),
-                            },
-                            "event_id": Or(dict, None),
-                            "remove_baseline": {
-                                "enabled": bool,
-                                "window": Or(list[float], None),
-                            },
-                            "threshold_rejection": {
-                                "enabled": bool,
-                                "volt_threshold": Or(dict, int, float),
-                            },
-                        },
-                    },
-                }
+            Optional("ai_reporting"): Or(bool, None),
+            # Basic preprocessing
+            "resample_step": step_value_num,
+            "filtering": {
+                "enabled": bool,
+                "value": {
+                    "l_freq": Or(int, float, None),
+                    "h_freq": Or(int, float, None),
+                    "notch_freqs": Or(float, int, list[float], list[int], None),
+                    "notch_widths": Or(float, int, list[float], list[int], None),
+                },
             },
-            "stage_files": {str: {"enabled": bool, "suffix": str}},
+            "drop_outerlayer": step_value_list,
+            "eog_step": step_value_list,
+            "trim_step": {**step_bool, "value": Or(int, float)},
+            "crop_step": {
+                "enabled": bool,
+                "value": {"start": Or(int, float), "end": Or(int, float, None)},
+            },
+            # Wavelet thresholding
+            Optional("wavelet_threshold"): {
+                "enabled": bool,
+                "value": {
+                    "wavelet": And(str, _is_valid_wavelet),
+                    "level": And(Or(int, float), lambda v: v >= 0),
+                    "threshold_mode": Or(*THRESHOLD_MODES),
+                    "is_erp": bool,
+                    Optional("bandpass"): Or(list, tuple, None),
+                    Optional("filter_kwargs"): Or(dict, None),
+                },
+            },
+            # Referencing and montage
+            "reference_step": {"enabled": bool, "value": Or(str, list[str], None)},
+            "montage": {"enabled": bool, "value": Or(And(str, _is_valid_montage), None)},
+            # ICA
+            "ICA": {
+                "enabled": bool,
+                "value": {
+                    "method": Or(*ICA_METHODS),
+                    Optional("n_components"): Or(int, float, None),
+                    Optional("noise_cov"): Or(dict, None),
+                    Optional("random_state"): Or(int, None),
+                    Optional("fit_params"): Or(dict, None),
+                    Optional("max_iter"): Or(int, str, None),
+                    Optional("allow_ref_meg"): Or(bool, None),
+                    Optional("decim"): Or(int, None),
+                    Optional("temp_highpass_for_ica"): Or(float, None),
+                },
+            },
+            # Unified component rejection
+            "component_rejection": {
+                "enabled": bool,
+                "method": Or(*COMP_REJ_METHODS),
+                "value": {
+                    "ic_flags_to_reject": And(list, _ic_flags_valid),
+                    "ic_rejection_threshold": Or(int, float),
+                    Optional("psd_fmax"): Or(int, float, None),
+                    Optional("ic_rejection_overrides"): Or(dict, None),
+                    Optional("icvision_n_components"): Or(int, None),
+                },
+            },
+            # Epochs
+            "epoch_settings": {
+                "enabled": bool,
+                "value": {"tmin": Or(int, float, None), "tmax": Or(int, float, None)},
+                "event_id": Or(dict, None),
+                "remove_baseline": {"enabled": bool, "window": Or(list[float], None)},
+                "threshold_rejection": {
+                    "enabled": bool,
+                    "volt_threshold": Or(dict, int, float),
+                },
+            },
         }
     )
 
-    with open(config_file, encoding="utf-8") as f:
-        config = yaml.safe_load(f)
 
-    autoclean_dict = config_schema.validate(config)
+def _legacy_migrate_legacy_task_config(task_config: dict) -> dict:
+    """Migrate legacy task config keys to the current schema in-place.
 
-    # Validate signal processing parameters for each task
-    for task in autoclean_dict["tasks"]:
-        validate_signal_processing_params(autoclean_dict, task)
+    - ICLabel block -> component_rejection with method="iclabel"
+    """
+    if "ICLabel" in task_config and "component_rejection" not in task_config:
+        iclabel = task_config.pop("ICLabel")
+        task_config["component_rejection"] = {
+            "enabled": iclabel.get("enabled", True),
+            "method": "iclabel",
+            "value": {
+                "ic_flags_to_reject": iclabel.get("value", {}).get(
+                    "ic_flags_to_reject", []
+                ),
+                "ic_rejection_threshold": iclabel.get("value", {}).get(
+                    "ic_rejection_threshold", 0.3
+                ),
+            },
+        }
+    return task_config
 
-    return autoclean_dict
+
+def _legacy_validate_task_module_config(task_config: dict) -> dict:
+    """Validate a Python task module `config` dict against the unified schema.
+
+    Returns the validated (possibly legacy-migrated) config or raises SchemaError.
+    """
+    migrated = migrate_legacy_task_config(dict(task_config))
+    schema = _build_task_settings_schema()
+    return schema.validate(migrated)
 
 
 def validate_signal_processing_params(autoclean_dict: dict, task: str) -> None:
