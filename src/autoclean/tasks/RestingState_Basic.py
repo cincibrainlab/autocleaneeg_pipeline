@@ -13,6 +13,7 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
+    "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
     "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 250},
     "filtering": {
@@ -32,7 +33,6 @@ config = {
     "trim_step": {"enabled": True, "value": 4},
     "crop_step": {"enabled": False, "value": {"start": 0, "end": 60}},
     "reference_step": {"enabled": True, "value": "average"},
-    "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
     "ICA": {
         "enabled": True,
         "value": {
@@ -57,6 +57,7 @@ config = {
         "remove_baseline": {"enabled": False, "window": [None, 0]},
         "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 0.000125}},
     },
+    "ai_reporting": False
 }
 
 
