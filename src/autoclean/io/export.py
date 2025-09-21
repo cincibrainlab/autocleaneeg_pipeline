@@ -563,7 +563,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
     This function finds all files in the highest numbered post_comp stage directory
     and copies them to the dedicated final_files directory for easy access. It also
     copies the most recent processing log for user convenience while keeping the
-    original log in the derivatives/logs directory.
+    original log in the task's dedicated logs directory.
 
     Parameters
     ----------

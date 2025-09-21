@@ -338,10 +338,11 @@ class Task(ABC, *DISCOVERED_MIXINS):
             return None
 
         # Derive paths
-        derivatives_root = metadata_dir.parent
+        derivatives_root = Path(cfg.get("derivatives_dir") or metadata_dir.parent)
         subj_basename = Path(input_file).stem
-        per_file_csv = derivatives_root / f"{subj_basename}_processing_log.csv"
+        logs_root = Path(cfg.get("logs_dir") or derivatives_root)
         reports_root = Path(cfg.get("reports_dir") or (metadata_dir.parent / "reports"))
+        run_reports_dir = reports_root / "run_reports"
         pdf_name = f"{subj_basename}_autoclean_report.pdf"
         pdf_candidates = [
             reports_root / "run_reports" / pdf_name,
@@ -350,10 +351,17 @@ class Task(ABC, *DISCOVERED_MIXINS):
         ]
         report_pdf = next((p for p in pdf_candidates if p.exists()), pdf_candidates[0])
 
-        if not per_file_csv.exists():
+        per_file_csv = None
+        for base_dir in [run_reports_dir, reports_root, derivatives_root, logs_root]:
+            candidate = base_dir / f"{subj_basename}_processing_log.csv"
+            if candidate.exists():
+                per_file_csv = candidate
+                break
+
+        if per_file_csv is None:
             # Also check final_files copy as fallback
             final_files_dir = Path(cfg.get("final_files_dir", metadata_dir))
-            alt_csv = final_files_dir / per_file_csv.name
+            alt_csv = final_files_dir / f"{subj_basename}_processing_log.csv"
             if alt_csv.exists():
                 per_file_csv = alt_csv
             else:
