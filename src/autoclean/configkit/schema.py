@@ -69,7 +69,9 @@ def _build_task_settings_schema() -> Schema:
 
     return Schema(
         {
+            "montage": {"enabled": bool, "value": Or(And(str, _is_valid_montage), None)},
             Optional("ai_reporting"): Or(bool, None),
+            Optional("move_flagged_files"): Or(bool, None),
             # Basic preprocessing
             "resample_step": step_value_num,
             "filtering": {
@@ -102,7 +104,6 @@ def _build_task_settings_schema() -> Schema:
             },
             # Referencing and montage
             "reference_step": {"enabled": bool, "value": Or(str, list[str], None)},
-            "montage": {"enabled": bool, "value": Or(And(str, _is_valid_montage), None)},
             # ICA
             "ICA": {
                 "enabled": bool,
