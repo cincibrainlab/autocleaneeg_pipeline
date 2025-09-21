@@ -542,8 +542,10 @@ class Pipeline:
             # Get final run record for JSON export
             run_record = get_run_record(run_id)
 
-            # Export run metadata to JSON file
-            json_file = metadata_dir / run_record["json_file"]
+            # Export run metadata JSON to reports/run_reports (metadata folder removed)
+            json_root = reports_dir / "run_reports"
+            json_root.mkdir(parents=True, exist_ok=True)
+            json_file = json_root / run_record["json_file"]
             with open(json_file, "w", encoding="utf8") as f:
                 json.dump(run_record, f, indent=4)
             message("success", f"✓ Run record exported to {json_file}")

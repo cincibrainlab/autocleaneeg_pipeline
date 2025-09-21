@@ -1799,12 +1799,18 @@ def cmd_process_ica(args) -> int:
     try:
         from autoclean.tools.ica import process_ica_control_sheet
 
-        metadata_dir = (
-            Path(args.metadata_dir)
-            if args.metadata_dir
-            else user_config.config_dir / "metadata"
-        )
-        control_sheet = metadata_dir / "ica_control_sheet.csv"
+        # Prefer ICA control sheet in the ICA directory under task root
+        if args.metadata_dir:
+            base_path = Path(args.metadata_dir)
+            ica_dir = base_path.parent / "ica_fif"
+        else:
+            ica_dir = user_config.config_dir / "ica_fif"
+        control_sheet = ica_dir / "ica_control_sheet.csv"
+        # Backwards compatibility: fall back to metadata_dir if provided and file not found
+        if args.metadata_dir and not control_sheet.exists():
+            legacy_control_sheet = Path(args.metadata_dir) / "ica_control_sheet.csv"
+            if legacy_control_sheet.exists():
+                control_sheet = legacy_control_sheet
         if not control_sheet.exists():
             message("error", f"ICA control sheet not found: {control_sheet}")
             return 1
@@ -1822,7 +1828,7 @@ def cmd_process_ica(args) -> int:
                     derivatives_dir = Path(row.get("derivatives_dir") or "")
                     unprocessed_file = Path(row.get("unprocessed_file") or "")
                     autoclean_dict = {
-                        "metadata_dir": metadata_dir,
+                        "ica_dir": ica_dir,
                         "derivatives_dir": derivatives_dir,
                         "unprocessed_file": unprocessed_file,
                     }
