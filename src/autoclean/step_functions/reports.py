@@ -1231,9 +1231,10 @@ def update_task_processing_log(
                         f"Could not remove legacy processing log at {legacy_csv}",
                     )
 
-            # Also drop a copy into the `final_files` folder for easy collation
-            final_files_dir = (
-                Path(summary_dict.get("output_dir", "")) / "bids" / "final_files"
+            # Also drop a copy into the `final_files` folder (task root)
+            final_files_dir = Path(
+                summary_dict.get("final_files_dir")
+                or (Path(summary_dict.get("reports_dir", "")).parent / "final_files")
             )
             try:
                 final_files_dir.mkdir(parents=True, exist_ok=True)
@@ -1303,6 +1304,9 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     ica_dir = Path(
         prepare_dirs.get("ica_fif")
         or (metadata_dir.parent / "ica_fif")
+    )
+    final_files_dir = Path(
+        prepare_dirs.get("final_files") or (metadata_dir.parent / "final_files")
     )
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
@@ -1660,6 +1664,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         "reports_dir": str(reports_dir),
         "ica_dir": str(ica_dir),
         "report_file": run_record.get("report_file"),
+        "final_files_dir": str(final_files_dir),
     }
 
     message("success", f"Created JSON summary for run {run_id}")
