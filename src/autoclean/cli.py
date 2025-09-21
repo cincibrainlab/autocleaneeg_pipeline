@@ -35,7 +35,7 @@ from autoclean.utils.config import (
 )
 from autoclean.utils.console import get_console
 from autoclean.utils.database import DB_PATH
-from autoclean.utils.logging import message
+from autoclean.utils.logging import has_logged_errors, message
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
     get_task_by_name,
@@ -1782,6 +1782,10 @@ def cmd_process(args) -> int:
                     pattern=args.format,
                     recursive=args.recursive,
                 )
+        if has_logged_errors():
+            message("info", "Processing failed with errors. See log for details.")
+            return 1
+
         message("info", "Processing completed successfully!")
         return 0
 
