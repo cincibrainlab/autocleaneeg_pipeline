@@ -986,7 +986,7 @@ def update_task_processing_log(
         )
         run_reports_dir = reports_root / "run_reports"
         task_root = Path(summary_dict["output_dir"])  # task root
-        csv_path = task_root / f"{summary_dict['task']}_processing_log.csv"
+        csv_path = task_root / "preprocessing_log.csv"
 
         # Migrate any older combined logs from reports folder to task root
         legacy_reports_csv = (
@@ -1005,6 +1005,14 @@ def update_task_processing_log(
                     "warning",
                     f"Could not migrate combined processing log: {migrate_err}",
                 )
+        # If an older task-root combined log exists with the task prefix, rename it
+        legacy_taskroot_csv = task_root / f"{summary_dict['task']}_processing_log.csv"
+        if legacy_taskroot_csv.exists() and not csv_path.exists():
+            try:
+                shutil.move(str(legacy_taskroot_csv), str(csv_path))
+                message("info", f"Renamed combined processing log to {csv_path.name}")
+            except Exception as migrate_err:
+                message("warning", f"Could not rename combined processing log: {migrate_err}")
 
         # Safe dictionary access function
         def safe_get(d, *keys, default=""):
