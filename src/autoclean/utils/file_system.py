@@ -126,11 +126,6 @@ def step_prepare_directories(
             dir_path.mkdir(parents=True, exist_ok=True)
             if not os.access(dir_path, os.W_OK):
                 raise PermissionError(f"No write permission for directory: {dir_path}")
-        # Write version marker in task root
-        try:
-            (task_root / "VERSION").write_text(str(__version__), encoding="utf-8")
-        except Exception:
-            pass
     except Exception as e:
         message("error", f"Failed to create/validate directory {dir_path}: {str(e)}")
         raise
