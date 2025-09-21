@@ -618,7 +618,7 @@ class FileSelector(QWidget):
                             qa_dir = resolve_moved_path(Path(spd_meta["metadata"]))
                         except Exception:
                             qa_dir = Path(spd_meta["metadata"]) if spd_meta.get("metadata") else None
-                        qa_dir = qa_dir.parent / "qa_review_plots" if qa_dir else None
+                        qa_dir = qa_dir.parent / "qa" if qa_dir else None
                     if qa_dir and qa_dir.exists():
                         print(f"Searching for image files in QA directory: {qa_dir}")
                         image_files = sorted(

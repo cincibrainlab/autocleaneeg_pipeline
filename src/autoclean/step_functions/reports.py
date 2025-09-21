@@ -1233,10 +1233,10 @@ def update_task_processing_log(
                         f"Could not remove legacy processing log at {legacy_csv}",
                     )
 
-            # Also drop a copy into the `final_exports` folder (task root)
+            # Also drop a copy into the `exports` folder (task root)
             final_files_dir = Path(
                 summary_dict.get("final_files_dir")
-                or (Path(summary_dict.get("reports_dir", "")).parent / "final_exports")
+                or (Path(summary_dict.get("reports_dir", "")).parent / "exports")
             )
             try:
                 final_files_dir.mkdir(parents=True, exist_ok=True)
@@ -1304,14 +1304,16 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         prepare_dirs.get("reports") or (metadata_dir.parent / "reports")
     )
     ica_dir = Path(
-        prepare_dirs.get("ica_fif")
-        or (metadata_dir.parent / "ica_fif")
+        prepare_dirs.get("ica")
+        or prepare_dirs.get("ica_fif")
+        or (metadata_dir.parent / "ica")
     )
-    # Prefer new 'final_exports' but accept legacy 'final_files'
+    # Prefer new 'exports' then 'final_exports' then legacy 'final_files'
     final_files_dir = Path(
-        prepare_dirs.get("final_exports")
+        prepare_dirs.get("exports")
+        or prepare_dirs.get("final_exports")
         or prepare_dirs.get("final_files")
-        or (metadata_dir.parent / "final_exports")
+        or (metadata_dir.parent / "exports")
     )
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]

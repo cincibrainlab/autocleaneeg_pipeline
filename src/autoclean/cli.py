@@ -1802,9 +1802,9 @@ def cmd_process_ica(args) -> int:
         # Prefer ICA control sheet in the ICA directory under task root
         if args.metadata_dir:
             base_path = Path(args.metadata_dir)
-            ica_dir = base_path.parent / "ica_fif"
+            ica_dir = base_path.parent / "ica"
         else:
-            ica_dir = user_config.config_dir / "ica_fif"
+            ica_dir = user_config.config_dir / "ica"
         control_sheet = ica_dir / "ica_control_sheet.csv"
         # Backwards compatibility: fall back to metadata_dir if provided and file not found
         if args.metadata_dir and not control_sheet.exists():
@@ -4619,7 +4619,11 @@ def cmd_report_chat(args) -> int:
                 per_file_candidates.append(logs_dir / f"{basename}_processing_log.csv")
 
             # Prefer final_exports (new) else final_files (legacy) from step_prepare_directories metadata
-            final_path_key = "final_exports" if spd.get("final_exports") else ("final_files" if spd.get("final_files") else None)
+            final_path_key = (
+                "exports"
+                if spd.get("exports")
+                else ("final_exports" if spd.get("final_exports") else ("final_files" if spd.get("final_files") else None))
+            )
             if final_path_key:
                 try:
                     final_files_dir_resolved = resolve_moved_path(Path(spd[final_path_key]))
