@@ -124,7 +124,9 @@ def create_run_report(
     if not metadata_dir.exists():
         metadata_dir.mkdir(parents=True, exist_ok=True)
 
-    reports_dir = metadata_dir.parent / "reports" / "run_reports"
+    prepare_dirs = run_record["metadata"]["step_prepare_directories"]
+    reports_root = Path(prepare_dirs.get("reports", metadata_dir.parent / "reports"))
+    reports_dir = reports_root / "run_reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     # Create PDF filename
@@ -1299,7 +1301,10 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         return {}
 
     prepare_dirs = metadata.get("step_prepare_directories", {})
-    reports_dir = Path(prepare_dirs.get("reports", derivatives_dir / "reports"))
+    metadata_dir = Path(prepare_dirs.get("metadata", derivatives_dir / "metadata"))
+    reports_dir = Path(
+        prepare_dirs.get("reports") or (metadata_dir.parent / "reports")
+    )
     ica_dir = Path(prepare_dirs.get("ica_fif", derivatives_dir / "ica_fif"))
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
@@ -1701,7 +1706,7 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
 
     reports_root = Path(
         summary_dict.get("reports_dir")
-        or Path(summary_dict["derivatives_dir"]) / "reports"
+        or Path(summary_dict.get("output_dir", "")) / "reports"
     )
     run_reports_dir = reports_root / "run_reports"
     run_reports_dir.mkdir(parents=True, exist_ok=True)

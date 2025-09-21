@@ -283,9 +283,6 @@ def configure_logger(
         log_dir = (
             Path(output_dir)
             / task
-            / "bids"
-            / "derivatives"
-            / f"autoclean-v{__version__}"
             / "logs"
         )
     else:

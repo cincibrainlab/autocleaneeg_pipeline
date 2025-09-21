@@ -4601,13 +4601,16 @@ def cmd_report_chat(args) -> int:
             input_file = rec.get("unprocessed_file") or ""
             if not basename:
                 basename = Path(input_file).stem
-            derivatives_root = metadata_dir_resolved.parent
+            derivatives_root = Path(spd.get("clean", metadata_dir_resolved.parent))
+            logs_dir = Path(spd.get("logs")) if spd.get("logs") else None
             per_file_candidates = []
             if reports_dir_resolved:
                 per_file_candidates.append(
                     reports_dir_resolved / "run_reports" / f"{basename}_processing_log.csv"
                 )
             per_file_candidates.append(derivatives_root / f"{basename}_processing_log.csv")
+            if logs_dir:
+                per_file_candidates.append(logs_dir / f"{basename}_processing_log.csv")
 
             if bids_dir:
                 try:
