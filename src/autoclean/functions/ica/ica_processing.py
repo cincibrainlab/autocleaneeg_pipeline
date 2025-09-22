@@ -660,14 +660,19 @@ def update_ica_control_sheet(
         the control sheet.
     """
 
-    # Store control sheet in the ICA directory under task root
-    try:
-        ica_root = Path(
-            autoclean_dict.get("ica_dir")
-            or (Path(autoclean_dict.get("metadata_dir", ".")).parent / "ica")
-        )
-    except Exception:
-        ica_root = Path("ica")
+    # Resolve ICA directory under task root
+    ica_dir_cfg = autoclean_dict.get("ica_dir")
+    if ica_dir_cfg:
+        ica_root = Path(ica_dir_cfg)
+    else:
+        reports_dir = autoclean_dict.get("reports_dir")
+        bids_dir = autoclean_dict.get("bids_dir")
+        if reports_dir:
+            ica_root = Path(reports_dir).parent / "ica"
+        elif bids_dir:
+            ica_root = Path(bids_dir).parent / "ica"
+        else:
+            raise ValueError("Cannot determine ICA directory: missing 'ica_dir', 'reports_dir', and 'bids_dir'")
     ica_root.mkdir(parents=True, exist_ok=True)
     sheet_path = ica_root / "ica_control_sheet.csv"
 
