@@ -27,7 +27,7 @@ author = "Gavin Gammoh, Ernest Pedapati"
 
 # The full version, including alpha/beta/rc tags
 # from autoclean import __version__ as version
-version = "2.1.0"  # Hardcoded to avoid import errors
+version = "2.2.7"  # Hardcoded to avoid import errors
 release = version
 
 # -- General configuration ---------------------------------------------------
