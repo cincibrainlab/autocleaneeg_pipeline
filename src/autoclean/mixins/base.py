@@ -429,38 +429,61 @@ class BaseMixin:
         return target_dir
 
     def _report_relative_path(self, absolute_path: Path) -> Path:
-        """Return a relative artifact path preferring task-root anchors.
+        """Return a portable, relative path for UI/DB references.
 
-        Preference order:
-        1) qa_dir (task_root/qa) if configured
-        2) reports_dir if configured
-        3) derivatives root
-        4) filename only as a last resort
+        Why this exists
+        ----------------
+        Artifacts (images/CSVs/PDFs) can live in multiple places depending on the
+        artifact type and user configuration. Storing absolute paths is brittle
+        (breaks when moving the task folder). Instead, we resolve a path that is
+        relative to a canonical task anchor so UIs (and humans) can locate files
+        after moves or zipping.
+
+        Resolution order and rationale
+        ------------------------------
+        1) qa_dir (task_root/qa):
+           - Fast QA images are anchored here by design; using this first keeps
+             short, readable paths (e.g., "subject_fastplot.png").
+        2) reports_dir (task_root/reports):
+           - Most report artifacts are under reports/run_reports; resolving
+             relative to reports keeps references local to the task root.
+        3) derivatives root (bids/derivatives):
+           - Stage outputs or legacy artifacts may live under derivatives; this
+             preserves relative references when 1) and 2) don’t apply.
+        4) filename only:
+           - Last-resort fallback that remains usable even if anchors are
+             unavailable; consumers then search known roots.
+
+        This keeps references short, portable, and robust across task moves.
         """
-        cfg = getattr(self, "config", {}) or {}
+        cfg: dict = getattr(self, "config", {}) or {}
+
+        def _rel_to(base: object) -> Path | None:
+            if not base:
+                return None
+            try:
+                return Path(absolute_path).relative_to(Path(base))
+            except Exception:
+                return None
 
         # 1) qa_dir
-        qa_dir = cfg.get("qa_dir")
-        if qa_dir:
-            try:
-                return Path(absolute_path).relative_to(Path(qa_dir))
-            except Exception:
-                pass
+        p = _rel_to(cfg.get("qa_dir"))
+        if p is not None:
+            return p
 
         # 2) reports_dir
-        reports_dir = cfg.get("reports_dir")
-        if reports_dir:
-            try:
-                return Path(absolute_path).relative_to(Path(reports_dir))
-            except Exception:
-                pass
+        p = _rel_to(cfg.get("reports_dir"))
+        if p is not None:
+            return p
 
         # 3) derivatives root
         try:
-            derivatives_root = self._get_derivatives_path()
-            return Path(absolute_path).relative_to(derivatives_root)
+            deriv = self._get_derivatives_path()
         except Exception:
-            pass
+            deriv = None
+        p = _rel_to(deriv)
+        if p is not None:
+            return p
 
         # 4) filename only
         return Path(absolute_path.name)
