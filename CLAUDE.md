@@ -242,11 +242,11 @@ For enhanced reproducibility and compliance, the system captures:
 - **Audit Trail**: All changes logged with user context and timestamps
 
 ## Current Status
-- **Version**: 2.1.0 (Latest stable release)
-- **Production Ready**: Yes (85.8+ test coverage, dependency locked)
-- **PyPI Publishing**: Available as `autocleaneeg-pipeline`
-- **Documentation**: Updated for v2.x workflow
-- **CI/CD**: Cross-platform compatibility (Linux/macOS/Windows)
+- **Version**: 2.2.6 (Latest release - see pyproject.toml)
+- **Production Ready**: Yes (85%+ test coverage, dependency locked)
+- **PyPI Package**: `autocleaneeg-pipeline`
+- **Python Support**: 3.10, 3.11, 3.12
+- **Documentation**: https://cincibrainlab.github.io/autoclean_pipeline/
 
 ## Single Test Execution
 ```bash
@@ -267,7 +267,7 @@ pytest tests/unit/test_pipeline.py -v -s --tb=short
 - **Production dependencies**: Specified in `pyproject.toml` dependencies section
 - **GUI dependencies**: PyQt5, mne-qt-browser, PyMuPDF, pyjsonviewer, textual
 - **Key dependencies**: MNE>=1.7.0, NumPy>=1.20.0, PyTorch>=1.9.0
-- **Python version**: 3.10 to 3.13 supported (requires-python = ">=3.10,<3.14")
+- **Python version**: 3.10 to 3.12 supported (requires-python = ">=3.10,<3.14")
 
 ## Project Structure Overview
 ```
