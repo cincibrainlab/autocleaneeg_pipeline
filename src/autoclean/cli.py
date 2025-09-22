@@ -4620,12 +4620,9 @@ def cmd_report_chat(args) -> int:
 
             # Use exports path from step_prepare_directories
             if spd.get("exports"):
-                try:
-                    final_files_dir_resolved = resolve_moved_path(Path(spd["exports"]))
-                except Exception:
-                    final_files_dir_resolved = Path(spd["exports"])  # best effort
+                final_files_dir_resolved = Path(spd["exports"])  # direct path
                 per_file_candidates.append(
-                    Path(final_files_dir_resolved) / f"{basename}_processing_log.csv"
+                    final_files_dir_resolved / f"{basename}_processing_log.csv"
                 )
 
             per_file_csv = next((p for p in per_file_candidates if p.exists()), None)
