@@ -501,10 +501,20 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
         derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
         # Prefer configured task-level ICA directory; fallback to task root derived from metadata_dir
-        ica_root = Path(
-            autoclean_dict.get("ica_dir")
-            or (Path(autoclean_dict.get("metadata_dir", derivatives_dir)).parent / "ica")
-        )
+        ica_dir_cfg = autoclean_dict.get("ica_dir")
+        if ica_dir_cfg:
+            ica_root = Path(ica_dir_cfg)
+        else:
+            reports_dir = autoclean_dict.get("reports_dir")
+            bids_dir = autoclean_dict.get("bids_dir")
+            if reports_dir:
+                ica_root = Path(reports_dir).parent / "ica"
+            elif bids_dir:
+                ica_root = Path(bids_dir).parent / "ica"
+            else:
+                raise ValueError(
+                    "Cannot determine ICA directory for FIF export: missing 'ica_dir', 'reports_dir', and 'bids_dir'"
+                )
         ica_root.mkdir(parents=True, exist_ok=True)
     except Exception as e:  # pylint: disable=broad-exception-caught
         message("error", f"Failed to save ICA to FIF files: {str(e)}")
