@@ -611,6 +611,8 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
     final_files_dir.mkdir(parents=True, exist_ok=True)
     files_copied = 0
 
+    copy_failures: list[str] = []
+
     for file_path in latest_post_comp.iterdir():
         if file_path.is_file():
             dest_path = final_files_dir / file_path.name
@@ -619,8 +621,9 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 files_copied += 1
                 message("debug", f"Copied {file_path.name} to exports")
             except Exception as e:
-                message("error", f"Failed to copy {file_path.name}: {str(e)}")
-                raise
+                error_msg = f"Failed to copy {file_path.name}: {str(e)}"
+                copy_failures.append(error_msg)
+                message("error", error_msg)
 
     # Copy the most recent processing log to exports for user convenience
     if logs_dir.exists():
@@ -640,12 +643,19 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 files_copied += 1
                 message("debug", "Copied processing log to exports")
             except Exception as e:
-                message("error", f"Failed to copy processing log: {str(e)}")
-                raise
+                error_msg = f"Failed to copy processing log: {str(e)}"
+                copy_failures.append(error_msg)
+                message("error", error_msg)
         else:
             message("warning", "No processing log files found to copy")
     else:
         message("warning", f"Logs directory not found: {logs_dir}")
+
+    if copy_failures:
+        message(
+            "warning",
+            "One or more exports failed:\n- " + "\n- ".join(copy_failures),
+        )
 
     if files_copied > 0:
         message(
