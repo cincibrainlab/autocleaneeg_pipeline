@@ -685,7 +685,7 @@ def _plot_to_tiff(
     _ = timeline
 
     plot_image: Optional[Image.Image] = None
-    temp_path = output_path.with_suffix(".temp.tiff")
+    temp_path = output_path.with_suffix(".temp.png")
 
     try:
         plot_image = _render_lines_fastplotlib(lines, canvas_size, title, temp_path)
@@ -695,13 +695,7 @@ def _plot_to_tiff(
             f"Fastplot summary: fastplotlib export unavailable ({exc}). Falling back to matplotlib.",
         )
     finally:
-        try:
-            temp_path.unlink(missing_ok=True)
-        except TypeError:
-            if temp_path.exists():
-                temp_path.unlink()
-        except Exception:  # pragma: no cover - defensive cleanup
-            pass
+        temp_path.unlink(missing_ok=True)
 
     if plot_image is None:
         try:
@@ -739,10 +733,7 @@ def _plot_to_tiff(
         y_offset += section_img.height
 
     combined = _trim_whitespace(combined, margin=5)
-    combined.save(output_path, format="TIFF")
-
-    png_path = output_path.with_suffix(".png")
-    combined.save(png_path, format="PNG")
+    combined.save(output_path.with_suffix(".png"), format="PNG")
 
 
 def _update_qa_manifest(qa_root: Path, image_path: Path, source_file: str) -> None:
