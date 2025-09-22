@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import ast
-from datetime import datetime
 import csv
+from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
 import numpy as np
+import mne
 
 from autoclean.utils.logging import message
 
@@ -1024,7 +1025,65 @@ class FastPlotReportMixin:
             else:
                 canvas = _DEFAULT_CANVAS_SIZE
 
-        epochs_obj = epochs if epochs is not None else getattr(self, "epochs", None)
+        cfg = getattr(self, "config", {}) or {}
+        source_name = Path(cfg.get("unprocessed_file") or "").name
+        epochs_obj = epochs
+
+        if epochs_obj is None:
+            exports_dir_str = cfg.get("final_files_dir") or cfg.get("exports_dir")
+            if not exports_dir_str:
+                message(
+                    "info",
+                    "Fastplot summary skipped: exports directory not configured.",
+                )
+                return None
+
+            exports_dir = Path(exports_dir_str)
+            if not exports_dir.exists():
+                message(
+                    "info",
+                    f"Fastplot summary skipped: exports directory missing ({exports_dir})",
+                )
+                return None
+
+            set_files = sorted(exports_dir.glob("*.set"))
+            if not set_files:
+                message(
+                    "info",
+                    f"Fastplot summary skipped: no .set files found in {exports_dir}",
+                )
+                return None
+
+            latest_set = max(set_files, key=lambda p: p.stat().st_mtime)
+            source_name = latest_set.name
+
+            epochs_obj = None
+            load_errors: list[str] = []
+
+            try:
+                epochs_obj = mne.io.read_epochs_eeglab(latest_set, verbose=False)
+                epochs_obj.load_data()
+            except Exception as exc:
+                load_errors.append(f"epochs: {exc}")
+                epochs_obj = None
+
+            if epochs_obj is None:
+                try:
+                    raw_obj = mne.io.read_raw_eeglab(latest_set, preload=True, verbose=False)
+                    total_duration = raw_obj.times[-1] if len(raw_obj.times) > 1 else 0.0
+                    duration = max(min(total_duration, 5.0), 1.0)
+                    epochs_obj = mne.make_fixed_length_epochs(
+                        raw_obj, duration=duration, preload=True, verbose=False
+                    )
+                except Exception as exc:
+                    load_errors.append(f"raw: {exc}")
+                    message(
+                        "error",
+                        "Fastplot summary: failed to load export "
+                        f"{latest_set.name}: {'; '.join(load_errors)}",
+                    )
+                    return None
+
         if epochs_obj is None:
             message("info", "Fastplot summary skipped: no epochs available.")
             return None
@@ -1054,7 +1113,6 @@ class FastPlotReportMixin:
             message("info", "Fastplot summary skipped: no samples after formatting.")
             return None
 
-        cfg = getattr(self, "config", {}) or {}
         unprocessed = cfg.get("unprocessed_file")
         unprocessed_path = Path(unprocessed) if unprocessed else None
         basename = unprocessed_path.stem if unprocessed_path else "fastplot"
@@ -1072,7 +1130,7 @@ class FastPlotReportMixin:
                 message("error", "Fastplot summary: cannot resolve QA directory (missing qa_dir/reports_dir/bids_dir)")
                 return None
             qa_root.mkdir(parents=True, exist_ok=True)
-            output_path = qa_root / f"{basename}_fastplot_summary.tiff"
+            output_path = qa_root / f"{basename}_fastplot_summary.png"
         except Exception as exc:  # pragma: no cover - missing directories
             message("error", f"Fastplot summary could not create QA directory: {exc}")
             return None
@@ -1141,16 +1199,15 @@ class FastPlotReportMixin:
             message("error", f"Fastplot summary failed during rendering: {exc}")
             return None
 
-        source_name = Path(cfg.get("unprocessed_file") or "").name
         try:
-            _update_qa_manifest(qa_root, output_path.with_suffix(".png"), source_name)
+            _update_qa_manifest(qa_root, output_path, source_name)
         except Exception as exc:  # pragma: no cover - defensive
             message(
                 "warning",
                 f"Fastplot summary: could not update QA manifest ({exc}).",
             )
 
-        rel_png = self._report_relative_path(output_path.with_suffix(".png"))
+        rel_png = self._report_relative_path(output_path)
         metadata = {
             "artifact_reports": {
                 "creationDateTime": datetime.now().isoformat(),
