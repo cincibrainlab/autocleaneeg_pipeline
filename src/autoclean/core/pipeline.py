@@ -493,8 +493,22 @@ class Pipeline:
                     )
 
                 # Copy final files to the dedicated exports directory
+                generated_exports = False
                 if not flagged or not run_dict.get("move_flagged_files", True):
                     copy_final_files(run_dict)
+                    generated_exports = True
+
+                # Generate fastplot summary from exported data when available
+                if generated_exports and hasattr(task_object, "generate_fastplot_summary"):
+                    try:
+                        fastplot_path = task_object.generate_fastplot_summary()
+                        if fastplot_path:
+                            message("info", f"Fastplot QA image created: {fastplot_path}")
+                    except Exception as fastplot_err:  # pragma: no cover - defensive
+                        message(
+                            "warning",
+                            f"Fastplot summary generation failed after exports: {fastplot_err}",
+                        )
 
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to save completion data: {str(e)}")
