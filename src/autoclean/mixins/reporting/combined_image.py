@@ -177,27 +177,26 @@ def _build_time_series(
 
     return lines[::-1], timeline
 
-def _compose_plot_image(plot_path: Path, title: str) -> Image.Image:
-    """Return a PIL image with the plot and title banner."""
+def _load_plot_image(plot_path: Path) -> Image.Image:
+    """Load a plot image from disk as RGB without additional decorations."""
     if Image is None:  # pragma: no cover - dependency optional at runtime
         raise RuntimeError("Pillow is required to compose fastplot summary images")
 
-    plot_img = Image.open(plot_path).convert("RGB")
-    return _compose_plot_banner(plot_img, title)
+    with Image.open(plot_path) as img:
+        plot_img = img.convert("RGB")
+    plot_img.load()
+    return plot_img
 
 
-def _compose_plot_banner(plot_img: Image.Image, title: str) -> Image.Image:
-    """Add a title banner to an existing plot image."""
+def _create_title_banner(width: int, title: str, height: int = 80) -> Image.Image:
+    """Create a title banner image with the specified width."""
     if Image is None:  # pragma: no cover - dependency optional at runtime
         raise RuntimeError("Pillow is required to compose fastplot summary images")
 
-    plot_width, plot_height = plot_img.size
-    title_height = 80
+    title_height = height
+    banner = Image.new("RGB", (width, title_height), "white")
 
-    final_img = Image.new("RGB", (plot_width, plot_height + title_height), "white")
-    final_img.paste(plot_img, (0, title_height))
-
-    draw = ImageDraw.Draw(final_img)
+    draw = ImageDraw.Draw(banner)
     font = None
     if ImageFont is not None:
         for font_path in (
@@ -221,12 +220,12 @@ def _compose_plot_banner(plot_img: Image.Image, title: str) -> Image.Image:
         text_width = len(title) * 6
         text_height = 10
 
-    x = (plot_width - text_width) // 2
+    x = (width - text_width) // 2
     y = (title_height - text_height) // 2
     shadow_offset = 1
     draw.text((x + shadow_offset, y + shadow_offset), title, fill="#666666", font=font)
     draw.text((x, y), title, fill="#222222", font=font)
-    return final_img
+    return banner
 
 def _create_processing_summary_image(
     csv_path: Optional[Path] = None,
@@ -504,7 +503,7 @@ def _create_pie_chart_image(
     good_color = "#1f77b4"
     bad_color = "#d62728"
 
-    fig, axes = plt.subplots(1, len(sections), figsize=(5 * len(sections), 4))
+    fig, axes = plt.subplots(1, len(sections), figsize=(5.5 * len(sections), 4.5))
     if len(sections) == 1:
         axes_iter = [axes]
     else:
@@ -530,7 +529,7 @@ def _create_pie_chart_image(
                 val_text = f"{val:.0f}"
             return f"{pct:.0f}%\n({val_text}{value_suffix})"
 
-        wedges, _texts, autotexts = ax.pie(
+        _wedges, text_labels, autotexts = ax.pie(
             values,
             labels=section["labels"],
             autopct=autopct_fmt,
@@ -539,19 +538,23 @@ def _create_pie_chart_image(
             pctdistance=0.65,
             labeldistance=1.1,
             wedgeprops=dict(linewidth=1.5, edgecolor="white"),
-            textprops=dict(color="black", fontsize=11),
+            textprops=dict(color="black", fontsize=14, fontweight="semibold"),
         )
+
+        for text in text_labels:
+            text.set_fontsize(14)
+            text.set_fontweight("semibold")
 
         for autotext in autotexts:
             autotext.set_color("black")
             autotext.set_fontweight("bold")
-            autotext.set_size(13)
+            autotext.set_size(16)
 
-        ax.set_title(section["title"])
+        ax.set_title(section["title"], fontsize=18, fontweight="bold")
         ax.axis("equal")
-        ax.text(0, -1.3, section["footer"], ha="center")
+        ax.text(0, -1.35, section["footer"], ha="center", fontsize=14)
 
-    plt.tight_layout()
+    plt.tight_layout(pad=2.0)
     buffer = BytesIO()
     fig.savefig(buffer, format="png", dpi=200)
     plt.close(fig)
@@ -620,7 +623,7 @@ def _render_lines_fastplotlib(
         except Exception:  # pragma: no cover - cleanup best effort
             pass
 
-    return _compose_plot_image(temp_path, title)
+    return _load_plot_image(temp_path)
 
 
 def _render_lines_matplotlib(
@@ -662,7 +665,7 @@ def _render_lines_matplotlib(
     plot_img.load()
     buffer.close()
 
-    return _compose_plot_banner(plot_img, title)
+    return plot_img
 
 
 def _plot_to_tiff(
@@ -709,7 +712,9 @@ def _plot_to_tiff(
         raise RuntimeError("Fastplot summary failed: no renderer available")
 
     plot_image = _trim_whitespace(plot_image, margin=10)
+    title_banner = _create_title_banner(plot_image.width, title)
 
+    sections: list[Image.Image] = []
     if summary_image is not None:
         summary = _trim_whitespace(summary_image.convert("RGB"), margin=5)
         if summary.width != plot_image.width:
@@ -719,15 +724,18 @@ def _plot_to_tiff(
                 summary = summary.resize((plot_image.width, new_height), _RESAMPLE_LANCZOS)
             else:
                 summary = summary.resize((plot_image.width, new_height))
-        combined = Image.new(
-            "RGB",
-            (plot_image.width, plot_image.height + summary.height),
-            "white",
-        )
-        combined.paste(plot_image, (0, 0))
-        combined.paste(summary, (0, plot_image.height))
-    else:
-        combined = plot_image
+        sections.append(summary)
+    sections.append(plot_image)
+
+    total_height = title_banner.height + sum(img.height for img in sections)
+    combined = Image.new("RGB", (plot_image.width, total_height), "white")
+
+    y_offset = 0
+    combined.paste(title_banner, (0, y_offset))
+    y_offset += title_banner.height
+    for section_img in sections:
+        combined.paste(section_img, (0, y_offset))
+        y_offset += section_img.height
 
     combined = _trim_whitespace(combined, margin=5)
     combined.save(output_path, format="TIFF")
@@ -995,9 +1003,13 @@ class FastPlotReportMixin:
             return None
 
         try:
-            data = epochs_obj.get_data()
-            times = np.asarray(epochs_obj.times, dtype=np.float32)
-            srate = float(epochs_obj.info.get("sfreq", 0.0))
+            eeg_epochs = epochs_obj.copy().pick(picks="eeg")
+            if len(eeg_epochs.ch_names) == 0:
+                message("info", "Fastplot summary skipped: no EEG channels available.")
+                return None
+            data = eeg_epochs.get_data()
+            times = np.asarray(eeg_epochs.times, dtype=np.float32)
+            srate = float(eeg_epochs.info.get("sfreq", 0.0))
         except Exception as exc:  # pragma: no cover - defensive
             message("error", f"Fastplot summary failed to access epoch data: {exc}")
             return None
