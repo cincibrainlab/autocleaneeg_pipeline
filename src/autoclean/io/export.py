@@ -500,9 +500,21 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
     try:
         derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
-        ica_root = Path(
-            autoclean_dict.get("ica_dir") or derivatives_dir.parent / "ica_fif"
-        )
+        # Prefer configured task-level ICA directory; fallback to task root derived from metadata_dir
+        ica_dir_cfg = autoclean_dict.get("ica_dir")
+        if ica_dir_cfg:
+            ica_root = Path(ica_dir_cfg)
+        else:
+            reports_dir = autoclean_dict.get("reports_dir")
+            bids_dir = autoclean_dict.get("bids_dir")
+            if reports_dir:
+                ica_root = Path(reports_dir).parent / "ica"
+            elif bids_dir:
+                ica_root = Path(bids_dir).parent / "ica"
+            else:
+                raise ValueError(
+                    "Cannot determine ICA directory for FIF export: missing 'ica_dir', 'reports_dir', and 'bids_dir'"
+                )
         ica_root.mkdir(parents=True, exist_ok=True)
     except Exception as e:  # pylint: disable=broad-exception-caught
         message("error", f"Failed to save ICA to FIF files: {str(e)}")
@@ -558,12 +570,12 @@ def _get_stage_number(stage: str, autoclean_dict: Dict[str, Any]) -> str:
 
 
 def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
-    """Copy final files from post_comp stage and processing log to the final_files directory.
+    """Copy final files from post_comp stage and processing log to the exports directory.
 
     This function finds all files in the highest numbered post_comp stage directory
-    and copies them to the dedicated final_files directory for easy access. It also
+    and copies them to the dedicated exports directory for easy access. It also
     copies the most recent processing log for user convenience while keeping the
-    original log in the derivatives/logs directory.
+    original log in the task's dedicated logs directory.
 
     Parameters
     ----------
@@ -593,14 +605,13 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
     post_comp_dirs.sort(key=lambda x: x.name)
     latest_post_comp = post_comp_dirs[-1]
 
-    message(
-        "info",
-        f"Copying final files from {latest_post_comp.name} to final_files directory",
-    )
+    message("info", f"Copying final files from {latest_post_comp.name} to exports")
 
-    # Copy all files from the post_comp directory to final_files
+    # Copy all files from the post_comp directory to exports
     final_files_dir.mkdir(parents=True, exist_ok=True)
     files_copied = 0
+
+    copy_failures: list[str] = []
 
     for file_path in latest_post_comp.iterdir():
         if file_path.is_file():
@@ -608,11 +619,13 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
             try:
                 shutil.copy2(file_path, dest_path)
                 files_copied += 1
-                message("debug", f"Copied {file_path.name} to final_files")
+                message("debug", f"Copied {file_path.name} to exports")
             except Exception as e:
-                message("error", f"Failed to copy {file_path.name}: {str(e)}")
+                error_msg = f"Failed to copy {file_path.name}: {str(e)}"
+                copy_failures.append(error_msg)
+                message("error", error_msg)
 
-    # Copy the most recent processing log to final_files for user convenience
+    # Copy the most recent processing log to exports for user convenience
     if logs_dir.exists():
         log_files = [
             f
@@ -628,13 +641,21 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
             try:
                 shutil.copy2(latest_log, log_dest)
                 files_copied += 1
-                message("debug", "Copied processing log to final_files")
+                message("debug", "Copied processing log to exports")
             except Exception as e:
-                message("error", f"Failed to copy processing log: {str(e)}")
+                error_msg = f"Failed to copy processing log: {str(e)}"
+                copy_failures.append(error_msg)
+                message("error", error_msg)
         else:
             message("warning", "No processing log files found to copy")
     else:
         message("warning", f"Logs directory not found: {logs_dir}")
+
+    if copy_failures:
+        message(
+            "warning",
+            "One or more exports failed:\n- " + "\n- ".join(copy_failures),
+        )
 
     if files_copied > 0:
         message(

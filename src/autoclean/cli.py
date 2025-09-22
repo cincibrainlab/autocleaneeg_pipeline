@@ -1799,12 +1799,18 @@ def cmd_process_ica(args) -> int:
     try:
         from autoclean.tools.ica import process_ica_control_sheet
 
-        metadata_dir = (
-            Path(args.metadata_dir)
-            if args.metadata_dir
-            else user_config.config_dir / "metadata"
-        )
-        control_sheet = metadata_dir / "ica_control_sheet.csv"
+        # Prefer ICA control sheet in the ICA directory under task root
+        if args.metadata_dir:
+            base_path = Path(args.metadata_dir)
+            ica_dir = base_path.parent / "ica"
+        else:
+            ica_dir = user_config.config_dir / "ica"
+        control_sheet = ica_dir / "ica_control_sheet.csv"
+        # Backwards compatibility: fall back to metadata_dir if provided and file not found
+        if args.metadata_dir and not control_sheet.exists():
+            legacy_control_sheet = Path(args.metadata_dir) / "ica_control_sheet.csv"
+            if legacy_control_sheet.exists():
+                control_sheet = legacy_control_sheet
         if not control_sheet.exists():
             message("error", f"ICA control sheet not found: {control_sheet}")
             return 1
@@ -1818,11 +1824,11 @@ def cmd_process_ica(args) -> int:
                 status = row.get("status", "").strip().lower()
                 if manual_add or manual_drop or status == "pending":
                     raw_path = Path(row.get("raw_path") or row.get("raw_file") or "")
-                    ica_fif = Path(row.get("ica_fif") or row.get("ica_file") or "")
+                    ica_fif = Path(row.get("ica_file") or row.get("ica_fif") or "")
                     derivatives_dir = Path(row.get("derivatives_dir") or "")
                     unprocessed_file = Path(row.get("unprocessed_file") or "")
                     autoclean_dict = {
-                        "metadata_dir": metadata_dir,
+                        "ica_dir": ica_dir,
                         "derivatives_dir": derivatives_dir,
                         "unprocessed_file": unprocessed_file,
                     }
@@ -4601,23 +4607,22 @@ def cmd_report_chat(args) -> int:
             input_file = rec.get("unprocessed_file") or ""
             if not basename:
                 basename = Path(input_file).stem
-            derivatives_root = metadata_dir_resolved.parent
+            derivatives_root = Path(spd.get("clean", metadata_dir_resolved.parent))
+            logs_dir = Path(spd.get("logs")) if spd.get("logs") else None
             per_file_candidates = []
             if reports_dir_resolved:
                 per_file_candidates.append(
                     reports_dir_resolved / "run_reports" / f"{basename}_processing_log.csv"
                 )
             per_file_candidates.append(derivatives_root / f"{basename}_processing_log.csv")
+            if logs_dir:
+                per_file_candidates.append(logs_dir / f"{basename}_processing_log.csv")
 
-            if bids_dir:
-                try:
-                    bids_dir_resolved = resolve_moved_path(bids_dir)
-                except Exception:
-                    bids_dir_resolved = Path(bids_dir)
+            # Use exports path from step_prepare_directories
+            if spd.get("exports"):
+                final_files_dir_resolved = Path(spd["exports"])  # direct path
                 per_file_candidates.append(
-                    Path(bids_dir_resolved)
-                    / "final_files"
-                    / f"{basename}_processing_log.csv"
+                    final_files_dir_resolved / f"{basename}_processing_log.csv"
                 )
 
             per_file_csv = next((p for p in per_file_candidates if p.exists()), None)

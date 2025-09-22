@@ -54,6 +54,7 @@ import inspect
 
 # Standard library imports
 import json
+import os
 import sys
 import threading  # Add threading import
 from datetime import datetime
@@ -363,6 +364,33 @@ class Pipeline:
                 except Exception as e:  # pylint: disable=broad-except
                     message("warning", f"Failed to add audit log for backup: {e}")
 
+            # Ensure key directories exist and are writable
+            def _ensure_dir(path: Path, name: str, errors: list[str]):
+                try:
+                    path.mkdir(parents=True, exist_ok=True)
+                except Exception as e:  # pylint: disable=broad-except
+                    errors.append(f"{name}: cannot create {path} ({e})")
+                    return
+                if not os.access(path, os.W_OK):
+                    errors.append(f"{name}: not writable {path}")
+
+            qa_dir = metadata_dir.parent / "qa"
+            _errors: list[str] = []
+            for _name, _path in (
+                ("reports", reports_dir),
+                ("exports", final_files_dir),
+                ("ica", ica_dir),
+                ("logs", logs_dir),
+                ("qa", qa_dir),
+            ):
+                _ensure_dir(_path, _name, _errors)
+            if _errors:
+                message(
+                    "error",
+                    "Directory setup failed:\n- " + "\n- ".join(_errors),
+                )
+                raise EnvironmentError("Task directory setup failed")
+
             # Update database with directory structure using audit protection
             manage_database(
                 operation="update",
@@ -376,8 +404,9 @@ class Pipeline:
                             "logs": str(logs_dir),
                             "stage": str(stage_dir),
                             "reports": str(reports_dir),
-                            "ica_fif": str(ica_dir),
-                            "final_files": str(final_files_dir),
+                            "ica": str(ica_dir),
+                            "exports": str(final_files_dir),
+                            "qa": str(metadata_dir.parent / "qa"),
                         }
                     },
                 },
@@ -402,6 +431,7 @@ class Pipeline:
                 "logs_dir": logs_dir,
                 "stage_dir": stage_dir,
                 "reports_dir": reports_dir,
+                "qa_dir": metadata_dir.parent / "qa",
                 "ica_dir": ica_dir,
                 "final_files_dir": final_files_dir,  # New final files directory
                 "config_hash": config_hash,
@@ -462,7 +492,7 @@ class Pipeline:
                         flagged=flagged,
                     )
 
-                # Copy final files to the dedicated final_files directory
+                # Copy final files to the dedicated exports directory
                 if not flagged or not run_dict.get("move_flagged_files", True):
                     copy_final_files(run_dict)
 
@@ -538,8 +568,10 @@ class Pipeline:
             # Get final run record for JSON export
             run_record = get_run_record(run_id)
 
-            # Export run metadata to JSON file
-            json_file = metadata_dir / run_record["json_file"]
+            # Export run metadata JSON to reports/run_reports (metadata folder removed)
+            json_root = reports_dir / "run_reports"
+            json_root.mkdir(parents=True, exist_ok=True)
+            json_file = json_root / run_record["json_file"]
             with open(json_file, "w", encoding="utf8") as f:
                 json.dump(run_record, f, indent=4)
             message("success", f"✓ Run record exported to {json_file}")
