@@ -155,7 +155,7 @@ def _build_time_series(
     gap_seconds: float,
     spacing: float,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Flatten epochs into a continuous stack suitable for fastplotlib."""
+    """Flatten epochs into a continuous stack suitable for visualization."""
     n_epochs, n_channels, n_times = data.shape
     epoch_times = times - times[0]
     sample_step = float(np.mean(np.diff(epoch_times))) if n_times > 1 else 0.0
@@ -568,66 +568,6 @@ def _create_pie_chart_image(
     return summary_img
 
 
-def _render_lines_fastplotlib(
-    lines: np.ndarray,
-    canvas_size: Tuple[int, int],
-    title: str,
-    temp_path: Path,
-) -> Image.Image:
-    """Render stacked traces using fastplotlib."""
-    try:
-        import imageio  # pylint: disable=import-outside-toplevel
-
-        _ = imageio.__version__  # Avoid unused import warnings
-    except Exception as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError(f"ImageIO unavailable ({exc})") from exc
-
-    try:
-        import fastplotlib as fpl  # pylint: disable=import-outside-toplevel
-    except Exception as exc:  # pragma: no cover - optional dependency
-        raise RuntimeError(f"fastplotlib unavailable ({exc})") from exc
-
-    fig = fpl.Figure(size=canvas_size, canvas="offscreen")
-
-    try:
-        subplot = fig[0, 0]
-        subplot.background_color = ("#ffffff", "#ffffff")
-        subplot.add_line_collection(data=lines, colors="#111111", thickness=0.6)
-
-        axes = subplot.axes
-        if axes is not None:
-            axes.visible = False
-            if getattr(axes, "x", None) is not None:
-                axes.x.label = ""
-                if getattr(axes.x, "ticks", None) is not None:
-                    axes.x.ticks.visible = False
-            if getattr(axes, "y", None) is not None:
-                axes.y.label = ""
-                if getattr(axes.y, "ticks", None) is not None:
-                    axes.y.ticks.visible = False
-
-        try:
-            subplot.auto_scale(maintain_aspect=False, zoom=1.05)
-        except Exception:  # pragma: no cover - defensive
-            pass
-
-        try:
-            fig._render(draw=False)  # pylint: disable=protected-access
-        except Exception:  # pragma: no cover - defensive
-            pass
-
-        fig.export(str(temp_path))
-    except Exception as exc:
-        raise RuntimeError(f"fastplotlib export failed ({exc})") from exc
-    finally:
-        try:
-            fig.close()
-        except Exception:  # pragma: no cover - cleanup best effort
-            pass
-
-    return _load_plot_image(temp_path)
-
-
 def _render_lines_matplotlib(
     lines: np.ndarray,
     canvas_size: Tuple[int, int],
@@ -670,42 +610,21 @@ def _render_lines_matplotlib(
     return plot_img
 
 
-def _plot_to_tiff(
+def _render_fastplot_image(
     lines: np.ndarray,
-    timeline: np.ndarray,
     output_path: Path,
     canvas_size: Tuple[int, int],
     title: str,
     summary_image: Optional[Image.Image],
 ) -> None:
-    """Render the stacked traces, append summary panel, and export as TIFF/PNG."""
+    """Render the stacked traces, append summary panel, and export as PNG."""
     if Image is None:  # pragma: no cover - dependency optional at runtime
         raise RuntimeError("Pillow is required to compose fastplot summary images")
 
-    # timeline is currently unused but kept for API compatibility
-    _ = timeline
-
-    plot_image: Optional[Image.Image] = None
-    temp_path = output_path.with_suffix(".temp.png")
-
     try:
-        plot_image = _render_lines_fastplotlib(lines, canvas_size, title, temp_path)
+        plot_image = _render_lines_matplotlib(lines, canvas_size, title)
     except RuntimeError as exc:
-        message(
-            "warning",
-            f"Fastplot summary: fastplotlib export unavailable ({exc}). Falling back to matplotlib.",
-        )
-    finally:
-        temp_path.unlink(missing_ok=True)
-
-    if plot_image is None:
-        try:
-            plot_image = _render_lines_matplotlib(lines, canvas_size, title)
-        except RuntimeError as exc:
-            raise RuntimeError(f"Fastplot summary fallback failed: {exc}") from exc
-
-    if plot_image is None:
-        raise RuntimeError("Fastplot summary failed: no renderer available")
+        raise RuntimeError(f"Fastplot summary rendering failed: {exc}") from exc
 
     plot_image = _trim_whitespace(plot_image, margin=10)
     title_banner = _create_title_banner(plot_image.width, title)
@@ -821,7 +740,7 @@ def _find_processing_log_csv(
     return None
 
 class FastPlotReportMixin:
-    """Provide fastplotlib-based combined EEG trace + summary visualization."""
+    """Provide combined EEG trace + summary visualization for QA."""
 
     FASTPLOT_STEP_KEY = "fastplot_summary"
 
@@ -975,7 +894,7 @@ class FastPlotReportMixin:
         target_hz
             Override target sampling rate after decimation.
         canvas_size
-            Override fastplotlib canvas size as ``(width, height)``.
+            Override output canvas size as ``(width, height)``.
         report_key
             Reports subdirectory key for storing the artifact.
 
@@ -1070,6 +989,13 @@ class FastPlotReportMixin:
             if epochs_obj is None:
                 try:
                     raw_obj = mne.io.read_raw_eeglab(latest_set, preload=True, verbose=False)
+                    raw_obj.pick_types(eeg=True, exclude=[])  # only EEG channels
+                    if len(raw_obj.ch_names) == 0:
+                        message(
+                            "info",
+                            "Fastplot summary skipped: no EEG channels available in exported raw.",
+                        )
+                        return None
                     total_duration = raw_obj.times[-1] if len(raw_obj.times) > 1 else 0.0
                     duration = max(min(total_duration, 5.0), 1.0)
                     epochs_obj = mne.make_fixed_length_epochs(
@@ -1083,13 +1009,13 @@ class FastPlotReportMixin:
                         f"{latest_set.name}: {'; '.join(load_errors)}",
                     )
                     return None
-
         if epochs_obj is None:
             message("info", "Fastplot summary skipped: no epochs available.")
             return None
 
         try:
-            eeg_epochs = epochs_obj.copy().pick(picks="eeg")
+            eeg_epochs = epochs_obj.copy()
+            eeg_epochs.pick_types(eeg=True, exclude=[])
             if len(eeg_epochs.ch_names) == 0:
                 message("info", "Fastplot summary skipped: no EEG channels available.")
                 return None
@@ -1191,7 +1117,7 @@ class FastPlotReportMixin:
                 message("info", "Fastplot summary metrics unavailable; pie charts skipped.")
 
         try:
-            _plot_to_tiff(lines, timeline, output_path, canvas, title, summary_image)
+            _render_fastplot_image(lines, output_path, canvas, title, summary_image)
         except RuntimeError as exc:  # pragma: no cover - optional dependency missing
             message("warning", f"Fastplot summary skipped: {exc}")
             return None
