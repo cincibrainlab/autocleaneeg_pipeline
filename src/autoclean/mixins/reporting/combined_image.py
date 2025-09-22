@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 from datetime import datetime
+import csv
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -743,6 +744,40 @@ def _plot_to_tiff(
     png_path = output_path.with_suffix(".png")
     combined.save(png_path, format="PNG")
 
+
+def _update_qa_manifest(qa_root: Path, image_path: Path) -> None:
+    """Add or update an entry in the QA manifest for generated images."""
+
+    manifest_path = qa_root / "qa_manifest.csv"
+    fieldnames = ["image", "qa_status", "timestamp"]
+    row = {
+        "image": image_path.name,
+        "qa_status": "unverified",
+        "timestamp": datetime.now().isoformat(),
+    }
+
+    entries: list[dict[str, str]] = []
+    if manifest_path.exists():
+        try:
+            with manifest_path.open("r", encoding="utf-8", newline="") as infile:
+                reader = csv.DictReader(infile)
+                for entry in reader:
+                    if entry.get("image") == row["image"]:
+                        continue
+                    entries.append(entry)
+        except Exception as exc:  # pragma: no cover - defensive
+            message(
+                "warning",
+                f"QA manifest could not be read, recreating from scratch ({exc}).",
+            )
+            entries = []
+
+    entries.append(row)
+
+    with manifest_path.open("w", encoding="utf-8", newline="") as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(entries)
 def _find_processing_log_csv(
     basename: str,
     reports_root: Optional[Path],
@@ -1113,6 +1148,14 @@ class FastPlotReportMixin:
         except Exception as exc:  # pragma: no cover - defensive
             message("error", f"Fastplot summary failed during rendering: {exc}")
             return None
+
+        try:
+            _update_qa_manifest(qa_root, output_path.with_suffix(".png"))
+        except Exception as exc:  # pragma: no cover - defensive
+            message(
+                "warning",
+                f"Fastplot summary: could not update QA manifest ({exc}).",
+            )
 
         rel_png = self._report_relative_path(output_path.with_suffix(".png"))
         metadata = {
