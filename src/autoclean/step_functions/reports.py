@@ -988,32 +988,6 @@ def update_task_processing_log(
         task_root = Path(summary_dict["output_dir"])  # task root
         csv_path = task_root / "preprocessing_log.csv"
 
-        # Migrate any older combined logs from reports folder to task root
-        legacy_reports_csv = (
-            reports_root / f"{summary_dict['task']}_processing_log.csv"
-        )
-        if legacy_reports_csv.exists() and not csv_path.exists():
-            try:
-                task_root.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(legacy_reports_csv), str(csv_path))
-                message(
-                    "info",
-                    f"Moved combined processing log to task root: {csv_path}",
-                )
-            except Exception as migrate_err:  # pylint: disable=broad-except
-                message(
-                    "warning",
-                    f"Could not migrate combined processing log: {migrate_err}",
-                )
-        # If an older task-root combined log exists with the task prefix, rename it
-        legacy_taskroot_csv = task_root / f"{summary_dict['task']}_processing_log.csv"
-        if legacy_taskroot_csv.exists() and not csv_path.exists():
-            try:
-                shutil.move(str(legacy_taskroot_csv), str(csv_path))
-                message("info", f"Renamed combined processing log to {csv_path.name}")
-            except Exception as migrate_err:
-                message("warning", f"Could not rename combined processing log: {migrate_err}")
-
         # Safe dictionary access function
         def safe_get(d, *keys, default=""):
             """Safely access nested dictionary keys"""
@@ -1218,7 +1192,7 @@ def update_task_processing_log(
             return
 
         # -------------------------------------------------------------
-        # NEW: Save a *per-file* one-row CSV into the derivatives folder
+        # Save a per-file one-row CSV into reports/run_reports and exports
         # -------------------------------------------------------------
         try:
             run_reports_dir.mkdir(parents=True, exist_ok=True)
@@ -1226,20 +1200,6 @@ def update_task_processing_log(
 
             pd.DataFrame([details], dtype=str).to_csv(per_file_csv, index=False)
             message("success", f"Saved per-file processing log to {per_file_csv}")
-
-            # Remove legacy per-file CSVs if present in the derivatives root
-            legacy_csv = (
-                Path(summary_dict.get("derivatives_dir", ""))
-                / f"{base_name}_processing_log.csv"
-            )
-            if legacy_csv.exists():
-                try:
-                    legacy_csv.unlink()
-                except Exception:  # pylint: disable=broad-except
-                    message(
-                        "warning",
-                        f"Could not remove legacy processing log at {legacy_csv}",
-                    )
 
             # Also drop a copy into the `exports` folder (task root)
             final_files_dir = Path(
@@ -1746,13 +1706,6 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
             f.write("Rank\t" + channel + "\n")
 
     summary_dict["flagged_channels_file"] = str(flagged_path)
-
-    legacy_flagged = Path(summary_dict["derivatives_dir"]) / "FlaggedChs.tsv"
-    if legacy_flagged.exists():
-        try:
-            legacy_flagged.unlink()
-        except Exception:  # pylint: disable=broad-except
-            message("warning", f"Could not remove legacy flagged TSV at {legacy_flagged}")
 
     message(
         "success",
