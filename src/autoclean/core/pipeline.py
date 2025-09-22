@@ -366,10 +366,8 @@ class Pipeline:
 
             # Sanity check key directories (create if missing, verify writable)
             def _assert_dir_writeable(path: Path, name: str, errors: list[str]):
-                try:
-                    path.mkdir(parents=True, exist_ok=True)
-                except Exception as e:  # pylint: disable=broad-except
-                    errors.append(f"{name}: cannot create {path} ({e})")
+                if not path.exists():
+                    errors.append(f"{name}: missing directory {path}")
                     return
                 if not os.access(path, os.W_OK):
                     errors.append(f"{name}: not writable {path}")
