@@ -660,13 +660,24 @@ def update_ica_control_sheet(
         the control sheet.
     """
 
-    metadata_dir = Path(autoclean_dict["metadata_dir"])
-    metadata_dir.mkdir(parents=True, exist_ok=True)
-    sheet_path = metadata_dir / "ica_control_sheet.csv"
+    # Resolve ICA directory under task root
+    ica_dir_cfg = autoclean_dict.get("ica_dir")
+    if ica_dir_cfg:
+        ica_root = Path(ica_dir_cfg)
+    else:
+        reports_dir = autoclean_dict.get("reports_dir")
+        bids_dir = autoclean_dict.get("bids_dir")
+        if reports_dir:
+            ica_root = Path(reports_dir).parent / "ica"
+        elif bids_dir:
+            ica_root = Path(bids_dir).parent / "ica"
+        else:
+            raise ValueError("Cannot determine ICA directory: missing 'ica_dir', 'reports_dir', and 'bids_dir'")
+    ica_root.mkdir(parents=True, exist_ok=True)
+    sheet_path = ica_root / "ica_control_sheet.csv"
 
-    derivatives_dir = Path(autoclean_dict.get("derivatives_dir", metadata_dir))
     original_file = Path(autoclean_dict["unprocessed_file"]).name
-    ica_fif = derivatives_dir / f"{Path(original_file).stem}-ica.fif"
+    ica_fif = ica_root / f"{Path(original_file).stem}-ica.fif"
     auto_initial_str = _format_component_list(sorted(auto_exclude))
     now_iso = datetime.now().isoformat()
 
