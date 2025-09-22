@@ -54,6 +54,7 @@ import inspect
 
 # Standard library imports
 import json
+import os
 import sys
 import threading  # Add threading import
 from datetime import datetime
@@ -362,6 +363,33 @@ class Pipeline:
                     )
                 except Exception as e:  # pylint: disable=broad-except
                     message("warning", f"Failed to add audit log for backup: {e}")
+
+            # Sanity check key directories (create if missing, verify writable)
+            def _assert_dir_writeable(path: Path, name: str, errors: list[str]):
+                try:
+                    path.mkdir(parents=True, exist_ok=True)
+                except Exception as e:  # pylint: disable=broad-except
+                    errors.append(f"{name}: cannot create {path} ({e})")
+                    return
+                if not os.access(path, os.W_OK):
+                    errors.append(f"{name}: not writable {path}")
+
+            qa_dir = metadata_dir.parent / "qa"
+            _errors: list[str] = []
+            for _name, _path in (
+                ("reports", reports_dir),
+                ("exports", final_files_dir),
+                ("ica", ica_dir),
+                ("logs", logs_dir),
+                ("qa", qa_dir),
+            ):
+                _assert_dir_writeable(_path, _name, _errors)
+            if _errors:
+                message(
+                    "error",
+                    "Directory sanity check failed:\n- " + "\n- ".join(_errors),
+                )
+                raise EnvironmentError("Task directory validation failed")
 
             # Update database with directory structure using audit protection
             manage_database(
