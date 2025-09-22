@@ -486,7 +486,13 @@ class BaseMixin:
             return p
 
         # 4) filename only
-        return Path(absolute_path.name)
+        fallback = Path(absolute_path.name)
+        message(
+            "debug",
+            "Artifact path unresolved for qa/reports/derivatives anchors; "
+            f"falling back to filename only: {absolute_path} -> {fallback}",
+        )
+        return fallback
 
     def _save_figure(self, fig: plt.Figure, filename: str, dpi: int = 300) -> str:
         """Save a matplotlib figure to the derivatives directory.
