@@ -124,7 +124,9 @@ def create_run_report(
     if not metadata_dir.exists():
         metadata_dir.mkdir(parents=True, exist_ok=True)
 
-    reports_dir = metadata_dir.parent / "reports" / "run_reports"
+    prepare_dirs = run_record["metadata"]["step_prepare_directories"]
+    reports_root = Path(prepare_dirs.get("reports", metadata_dir.parent / "reports"))
+    reports_dir = reports_root / "run_reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
 
     # Create PDF filename
@@ -933,14 +935,6 @@ def create_run_report(
 
     message("success", f"Report saved to {pdf_path}")
 
-    # If derivatives path is available, also save there
-    if derivatives_path:
-        try:
-            shutil.copy(pdf_path, derivatives_path)
-            message("success", f"Report saved to {derivatives_path}")
-        except Exception as e:  # pylint: disable=broad-except
-            message("warning", f"Could not save to derivatives: {str(e)}")
-
     return pdf_path
 
 
@@ -984,31 +978,15 @@ def update_task_processing_log(
                 message("error", f"Missing required key in summary_dict: {key}")
                 return
 
-        # Define CSV path (aggregate per-task log inside reports directory)
+        # Define CSV path (aggregate per-task log) at the task root
         base_name = Path(summary_dict.get("basename", summary_dict["run_id"])).stem
         reports_root = Path(
             summary_dict.get("reports_dir")
             or Path(summary_dict["output_dir"]) / "reports"
         )
         run_reports_dir = reports_root / "run_reports"
-        csv_path = reports_root / f"{summary_dict['task']}_processing_log.csv"
-
-        legacy_csv_path = (
-            Path(summary_dict["output_dir"]) / f"{summary_dict['task']}_processing_log.csv"
-        )
-        if legacy_csv_path.exists() and not csv_path.exists():
-            try:
-                csv_path.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(legacy_csv_path), str(csv_path))
-                message(
-                    "info",
-                    f"Moved legacy processing log to reports directory: {csv_path}",
-                )
-            except Exception as migrate_err:  # pylint: disable=broad-except
-                message(
-                    "warning",
-                    f"Could not migrate legacy processing log: {migrate_err}",
-                )
+        task_root = Path(summary_dict["output_dir"])  # task root
+        csv_path = task_root / "preprocessing_log.csv"
 
         # Safe dictionary access function
         def safe_get(d, *keys, default=""):
@@ -1214,7 +1192,7 @@ def update_task_processing_log(
             return
 
         # -------------------------------------------------------------
-        # NEW: Save a *per-file* one-row CSV into the derivatives folder
+        # Save a per-file one-row CSV into reports/run_reports and exports
         # -------------------------------------------------------------
         try:
             run_reports_dir.mkdir(parents=True, exist_ok=True)
@@ -1223,23 +1201,10 @@ def update_task_processing_log(
             pd.DataFrame([details], dtype=str).to_csv(per_file_csv, index=False)
             message("success", f"Saved per-file processing log to {per_file_csv}")
 
-            # Remove legacy per-file CSVs if present in the derivatives root
-            legacy_csv = (
-                Path(summary_dict.get("derivatives_dir", ""))
-                / f"{base_name}_processing_log.csv"
-            )
-            if legacy_csv.exists():
-                try:
-                    legacy_csv.unlink()
-                except Exception:  # pylint: disable=broad-except
-                    message(
-                        "warning",
-                        f"Could not remove legacy processing log at {legacy_csv}",
-                    )
-
-            # Also drop a copy into the `final_files` folder for easy collation
-            final_files_dir = (
-                Path(summary_dict.get("output_dir", "")) / "bids" / "final_files"
+            # Also drop a copy into the `exports` folder (task root)
+            final_files_dir = Path(
+                summary_dict.get("final_files_dir")
+                or (Path(summary_dict.get("reports_dir", "")).parent / "exports")
             )
             try:
                 final_files_dir.mkdir(parents=True, exist_ok=True)
@@ -1247,9 +1212,7 @@ def update_task_processing_log(
                 pd.DataFrame([details], dtype=str).to_csv(final_file_csv, index=False)
                 message("success", f"Saved per-file processing log to {final_file_csv}")
             except Exception as ff_err:  # pylint: disable=broad-except
-                message(
-                    "error", f"Error saving CSV to final_files directory: {str(ff_err)}"
-                )
+                message("error", f"Error saving CSV to exports directory: {str(ff_err)}")
 
         except Exception as perfile_err:  # pylint: disable=broad-except
             message("error", f"Error saving per-file CSV: {str(perfile_err)}")
@@ -1299,8 +1262,20 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         return {}
 
     prepare_dirs = metadata.get("step_prepare_directories", {})
-    reports_dir = Path(prepare_dirs.get("reports", derivatives_dir / "reports"))
-    ica_dir = Path(prepare_dirs.get("ica_fif", derivatives_dir / "ica_fif"))
+    bids_dir_str = prepare_dirs.get("bids", "")
+    metadata_dir = Path(
+        prepare_dirs.get("metadata") or (Path(bids_dir_str).parent / "reports")
+    )
+    reports_dir = Path(
+        prepare_dirs.get("reports") or (metadata_dir.parent / "reports")
+    )
+    ica_dir = Path(
+        prepare_dirs.get("ica") or (metadata_dir.parent / "ica")
+    )
+    # Task-root exports directory
+    final_files_dir = Path(
+        prepare_dirs.get("exports") or (metadata_dir.parent / "exports")
+    )
 
     outputs = [file.name for file in derivatives_dir.iterdir() if file.is_file()]
 
@@ -1657,6 +1632,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         "reports_dir": str(reports_dir),
         "ica_dir": str(ica_dir),
         "report_file": run_record.get("report_file"),
+        "final_files_dir": str(final_files_dir),
     }
 
     message("success", f"Created JSON summary for run {run_id}")
@@ -1701,7 +1677,7 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
 
     reports_root = Path(
         summary_dict.get("reports_dir")
-        or Path(summary_dict["derivatives_dir"]) / "reports"
+        or Path(summary_dict.get("output_dir", "")) / "reports"
     )
     run_reports_dir = reports_root / "run_reports"
     run_reports_dir.mkdir(parents=True, exist_ok=True)
@@ -1730,13 +1706,6 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
             f.write("Rank\t" + channel + "\n")
 
     summary_dict["flagged_channels_file"] = str(flagged_path)
-
-    legacy_flagged = Path(summary_dict["derivatives_dir"]) / "FlaggedChs.tsv"
-    if legacy_flagged.exists():
-        try:
-            legacy_flagged.unlink()
-        except Exception:  # pylint: disable=broad-except
-            message("warning", f"Could not remove legacy flagged TSV at {legacy_flagged}")
 
     message(
         "success",

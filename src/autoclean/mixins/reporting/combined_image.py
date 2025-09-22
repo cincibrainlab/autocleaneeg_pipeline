@@ -1021,13 +1021,21 @@ class FastPlotReportMixin:
         basename = unprocessed_path.stem if unprocessed_path else "fastplot"
         title = unprocessed_path.name if unprocessed_path else "Fastplot Summary"
 
+        # Special case: save Fastplot summary under task-root QA folder
         try:
-            output_path = self._resolve_report_path(
-                report_key,
-                f"{basename}_fastplot_summary.tiff",
-            )
+            if cfg.get("qa_dir"):
+                qa_root = Path(cfg["qa_dir"])
+            elif cfg.get("reports_dir"):
+                qa_root = Path(cfg["reports_dir"]).parent / "qa"
+            elif cfg.get("bids_dir"):
+                qa_root = Path(cfg["bids_dir"]).parent / "qa"
+            else:
+                message("error", "Fastplot summary: cannot resolve QA directory (missing qa_dir/reports_dir/bids_dir)")
+                return None
+            qa_root.mkdir(parents=True, exist_ok=True)
+            output_path = qa_root / f"{basename}_fastplot_summary.tiff"
         except Exception as exc:  # pragma: no cover - missing directories
-            message("error", f"Fastplot summary could not resolve report path: {exc}")
+            message("error", f"Fastplot summary could not create QA directory: {exc}")
             return None
 
         reports_root = None

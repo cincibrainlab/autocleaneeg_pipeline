@@ -429,13 +429,70 @@ class BaseMixin:
         return target_dir
 
     def _report_relative_path(self, absolute_path: Path) -> Path:
-        """Return the path to an artifact relative to the derivatives directory."""
+        """Return a portable, relative path for UI/DB references.
 
+        Why this exists
+        ----------------
+        Artifacts (images/CSVs/PDFs) can live in multiple places depending on the
+        artifact type and user configuration. Storing absolute paths is brittle
+        (breaks when moving the task folder). Instead, we resolve a path that is
+        relative to a canonical task anchor so UIs (and humans) can locate files
+        after moves or zipping.
+
+        Resolution order and rationale
+        ------------------------------
+        1) qa_dir (task_root/qa):
+           - Fast QA images are anchored here by design; using this first keeps
+             short, readable paths (e.g., "subject_fastplot.png").
+        2) reports_dir (task_root/reports):
+           - Most report artifacts are under reports/run_reports; resolving
+             relative to reports keeps references local to the task root.
+        3) derivatives root (bids/derivatives):
+           - Stage outputs or legacy artifacts may live under derivatives; this
+             preserves relative references when 1) and 2) don’t apply.
+        4) filename only:
+           - Last-resort fallback that remains usable even if anchors are
+             unavailable; consumers then search known roots.
+
+        This keeps references short, portable, and robust across task moves.
+        """
+        cfg: dict = getattr(self, "config", {}) or {}
+
+        def _rel_to(base: object) -> Path | None:
+            if not base:
+                return None
+            try:
+                return Path(absolute_path).relative_to(Path(base))
+            except Exception:
+                return None
+
+        # 1) qa_dir
+        p = _rel_to(cfg.get("qa_dir"))
+        if p is not None:
+            return p
+
+        # 2) reports_dir
+        p = _rel_to(cfg.get("reports_dir"))
+        if p is not None:
+            return p
+
+        # 3) derivatives root
         try:
-            derivatives_root = self._get_derivatives_path()
-            return absolute_path.relative_to(derivatives_root)
+            deriv = self._get_derivatives_path()
         except Exception:
-            return Path(absolute_path.name)
+            deriv = None
+        p = _rel_to(deriv)
+        if p is not None:
+            return p
+
+        # 4) filename only
+        fallback = Path(absolute_path.name)
+        message(
+            "debug",
+            "Artifact path unresolved for qa/reports/derivatives anchors; "
+            f"falling back to filename only: {absolute_path} -> {fallback}",
+        )
+        return fallback
 
     def _save_figure(self, fig: plt.Figure, filename: str, dpi: int = 300) -> str:
         """Save a matplotlib figure to the derivatives directory.
