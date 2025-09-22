@@ -745,13 +745,14 @@ def _plot_to_tiff(
     combined.save(png_path, format="PNG")
 
 
-def _update_qa_manifest(qa_root: Path, image_path: Path) -> None:
+def _update_qa_manifest(qa_root: Path, image_path: Path, source_file: str) -> None:
     """Add or update an entry in the QA manifest for generated images."""
 
     manifest_path = qa_root / "qa_manifest.csv"
-    fieldnames = ["image", "qa_status", "timestamp"]
+    fieldnames = ["image", "source_file", "qa_status", "timestamp"]
     row = {
         "image": image_path.name,
+        "source_file": source_file,
         "qa_status": "unverified",
         "timestamp": datetime.now().isoformat(),
     }
@@ -1149,8 +1150,9 @@ class FastPlotReportMixin:
             message("error", f"Fastplot summary failed during rendering: {exc}")
             return None
 
+        source_name = Path(cfg.get("unprocessed_file") or "").name
         try:
-            _update_qa_manifest(qa_root, output_path.with_suffix(".png"))
+            _update_qa_manifest(qa_root, output_path.with_suffix(".png"), source_name)
         except Exception as exc:  # pragma: no cover - defensive
             message(
                 "warning",
