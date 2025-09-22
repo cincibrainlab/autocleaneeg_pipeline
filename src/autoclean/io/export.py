@@ -614,16 +614,71 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
     copy_failures: list[str] = []
 
     for file_path in latest_post_comp.iterdir():
-        if file_path.is_file():
-            dest_path = final_files_dir / file_path.name
+        if not file_path.is_file():
+            continue
+
+        dest_path = final_files_dir / file_path.name
+
+        if file_path.suffix.lower() == ".set":
             try:
-                shutil.copy2(file_path, dest_path)
+                eeg_epochs = None
+                try:
+                    eeg_epochs = mne.io.read_epochs_eeglab(file_path, verbose=False)
+                    eeg_epochs.load_data()
+                    eeg_epochs.pick_types(eeg=True, exclude=[])
+                except Exception as exc:
+                    eeg_epochs = None
+                    load_error_epochs = exc
+                else:
+                    load_error_epochs = None
+
+                if eeg_epochs is None:
+                    try:
+                        raw = mne.io.read_raw_eeglab(file_path, preload=True, verbose=False)
+                        raw.pick_types(eeg=True, exclude=[])
+                    except Exception as raw_exc:
+                        raise RuntimeError(
+                            f"Could not load exported set as epochs ({load_error_epochs}) or raw ({raw_exc})"
+                        ) from raw_exc
+
+                    if len(raw.ch_names) == 0:
+                        message(
+                            "warning",
+                            f"Skipping export for {file_path.name}: no EEG channels present.",
+                        )
+                        continue
+
+                    total_duration = raw.times[-1] if len(raw.times) > 1 else 0.0
+                    duration = max(min(total_duration, 5.0), 1.0)
+                    eeg_epochs = mne.make_fixed_length_epochs(
+                        raw, duration=duration, preload=True, verbose=False
+                    )
+
+                if len(eeg_epochs.ch_names) == 0:
+                    message(
+                        "warning",
+                        f"Skipping export for {file_path.name}: no EEG channels after selection.",
+                    )
+                    continue
+
+                eeg_epochs.info["description"] = autoclean_dict["run_id"]
+                eeg_epochs.export(dest_path, fmt="eeglab", overwrite=True)
                 files_copied += 1
-                message("debug", f"Copied {file_path.name} to exports")
+                message("debug", f"Exported EEG-only set to {dest_path}")
             except Exception as e:
-                error_msg = f"Failed to copy {file_path.name}: {str(e)}"
+                error_msg = f"Failed to export EEG-only set for {file_path.name}: {str(e)}"
                 copy_failures.append(error_msg)
                 message("error", error_msg)
+            continue
+
+        try:
+            shutil.copy2(file_path, dest_path)
+            files_copied += 1
+            message("debug", f"Copied {file_path.name} to exports")
+        except Exception as e:
+            error_msg = f"Failed to copy {file_path.name}: {str(e)}"
+            copy_failures.append(error_msg)
+            message("error", error_msg)
 
     # Copy the most recent processing log to exports for user convenience
     if logs_dir.exists():
