@@ -364,10 +364,12 @@ class Pipeline:
                 except Exception as e:  # pylint: disable=broad-except
                     message("warning", f"Failed to add audit log for backup: {e}")
 
-            # Sanity check key directories (create if missing, verify writable)
-            def _assert_dir_writeable(path: Path, name: str, errors: list[str]):
-                if not path.exists():
-                    errors.append(f"{name}: missing directory {path}")
+            # Ensure key directories exist and are writable
+            def _ensure_dir(path: Path, name: str, errors: list[str]):
+                try:
+                    path.mkdir(parents=True, exist_ok=True)
+                except Exception as e:  # pylint: disable=broad-except
+                    errors.append(f"{name}: cannot create {path} ({e})")
                     return
                 if not os.access(path, os.W_OK):
                     errors.append(f"{name}: not writable {path}")
@@ -381,13 +383,13 @@ class Pipeline:
                 ("logs", logs_dir),
                 ("qa", qa_dir),
             ):
-                _assert_dir_writeable(_path, _name, _errors)
+                _ensure_dir(_path, _name, _errors)
             if _errors:
                 message(
                     "error",
-                    "Directory sanity check failed:\n- " + "\n- ".join(_errors),
+                    "Directory setup failed:\n- " + "\n- ".join(_errors),
                 )
-                raise EnvironmentError("Task directory validation failed")
+                raise EnvironmentError("Task directory setup failed")
 
             # Update database with directory structure using audit protection
             manage_database(
