@@ -247,10 +247,7 @@ def step_convert_to_bids(
             update_sidecar_json(bids_path=sidecar_path, entries=entries)
 
             # Post-process dataset_description.json to set dataset name and branding
-            try:
-                _update_dataset_description(bids_root, dataset_name=task)
-            except Exception as dse:  # pylint: disable=broad-except
-                message("warning", f"Could not update dataset_description.json: {dse}")
+            _update_dataset_description(bids_root, dataset_name=task)
         except Exception as e:
             message("error", f"Failed to write BIDS for {fif_file.name}: {e}")
             print(f"Detailed error: {str(e)}")
@@ -481,8 +478,8 @@ def _update_dataset_description(bids_root: Path, dataset_name: str) -> None:
         with path.open("w", encoding="utf-8") as f:
             json.dump(data, f, indent=4)
     except Exception as e:  # pylint: disable=broad-except
-        # Non-fatal; log and continue
-        message("warning", f"dataset_description update skipped: {e}")
+        message("error", f"dataset_description update failed: {e}")
+        raise
 
 
 def step_sanitize_id(filename):

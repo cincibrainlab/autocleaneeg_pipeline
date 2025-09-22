@@ -620,6 +620,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 message("debug", f"Copied {file_path.name} to exports")
             except Exception as e:
                 message("error", f"Failed to copy {file_path.name}: {str(e)}")
+                raise
 
     # Copy the most recent processing log to exports for user convenience
     if logs_dir.exists():
@@ -640,6 +641,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 message("debug", "Copied processing log to exports")
             except Exception as e:
                 message("error", f"Failed to copy processing log: {str(e)}")
+                raise
         else:
             message("warning", "No processing log files found to copy")
     else:
