@@ -84,7 +84,13 @@ def _build_task_settings_schema() -> Schema:
                 },
             },
             "drop_outerlayer": step_value_list,
-            "eog_step": step_value_list,
+            "eog_step": {
+                "enabled": bool,
+                "value": {
+                    "eog_indices": Or(list[int], None),
+                    "eog_drop": Or(bool, None),
+                },
+            },
             "trim_step": {**step_bool, "value": Or(int, float)},
             "crop_step": {
                 "enabled": bool,

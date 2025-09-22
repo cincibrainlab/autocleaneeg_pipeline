@@ -553,7 +553,7 @@ class BasicStepsMixin:
             message("info", "EOG Assignment step is disabled in configuration")
             return data
 
-        eog_channel_indices = config_value.get("value", [])
+        eog_channel_indices = config_value.get("value", {}).get("eog_indices", [])
         if not eog_channel_indices:
             message("warning", "EOG channel indices not specified, skipping step")
             return data
@@ -601,6 +601,10 @@ class BasicStepsMixin:
         # Even though set_channel_types modifies inplace on the copy,
         # we still call update_instance_data to potentially update self.raw/self.epochs
         self._update_instance_data(data, processed_data, use_epochs)
+
+        # Drop EOG channels if specified
+        if config_value.get("value", {}).get("eog_drop", False):
+            processed_data = self.drop_eog_channels(data=processed_data)
 
         return processed_data
 
