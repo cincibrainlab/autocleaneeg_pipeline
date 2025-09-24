@@ -1,49 +1,54 @@
 ---
-title: AutoClean Exclusion Tool Run Log
-description: Duplicated the legacy Qt review helper into a standalone inclusion/exclusion GUI with a dedicated CLI entry point.
+title: AutoClean Inclusion/Exclusion Review Run Log
+description: Reused the legacy autoclean_review waveform browser while layering pass/fail/review tracking, notes, and autosave summaries into a single helper script and CLI entry.
 ---
 
-# AutoClean Exclusion Tool Run Log
+# AutoClean Inclusion/Exclusion Review Run Log
 
 <Steps>
-  <Step title="Locate the baseline helper">
-    The existing <code>autoclean_review</code> Qt script lives in <code>src/autoclean/tools</code>. I reviewed its directory handling and dependency guards to understand how the original GUI bootstraps PyQt, fetches workspace paths, and renders long-running trees.
+  <Step title="Anchor the experience to autoclean_review">
+    I loaded the existing <code>autoclean_review</code> Qt widget and extended it instead of rewriting the interface. This keeps the wide MNE browser, manual epoch rejection controls, and run-record viewer exactly as users remember them while letting the new helper inherit file-tree wiring, status bar updates, and dependency guards.
   </Step>
-  <Step title="Build a dedicated inclusion/exclusion GUI">
-    I composed a fresh single-file Qt application called <code>autoclean_exclude.py</code>. It scans an exports directory, groups files by basename, pulls nearby reports, and lets reviewers classify each trace as <em>Pass</em>, <em>Fail</em>, or <em>Needs Review</em>. Keyboard shortcuts (P/F/R, Alt+←/→, Ctrl+S) keep navigation quick, while auto-save writes both JSON and CSV summaries.
+  <Step title="Layer decision tracking on top of the familiar UI">
+    After the base widget bootstraps, I inject a decision panel (Pass/Fail/Review buttons with keyboard shortcuts), a live summary table, and a detail pane that holds reviewer notes plus clickable related exports/reports. Every selection updates a JSON-backed record keyed by the relative file path so autosaves can recover prior work.
   </Step>
-  <Step title="Expose an easy CLI entry point">
-    A new console script <code>autocleaneeg-exclude</code> launches the GUI. It auto-discovers the current workspace exports directory (falling back to the active task or most recent run) but also accepts an explicit path. The tool shares the same optional <code>[gui]</code> extra dependencies as the legacy review window.
+  <Step title="Provide a lightweight CLI and sensible defaults">
+    The <code>autocleaneeg-exclude</code> entry now resolves <code>./exports</code> when available, or falls back to the working directory. Optional flags allow pointing at a specific exports directory or task root so the related-files browser can surface figures from <code>reports/</code>. Launching the script opens the maximized review window immediately.
   </Step>
 </Steps>
 
-## Interface at a Glance
+## Interface Highlights
 
-<Diagram name="High-level flow when the GUI launches">
-discover_default_exports_dir() -> heuristics using UserConfigManager
-  -> InclusionExclusionWindow(exports_dir, task_root)
-      -> scans exports & reports folders
-      -> groups files by basename
-      -> populates Qt table + detail panel
-      -> auto-saves JSON/CSV decisions on change
-CLI autocleaneeg-exclude -> main() -> run_autoclean_exclusion_tool()
+<Diagram name="How the exclusion helper builds on the review tool">
+autoclean_exclude.main()
+  -> determine_paths(args)
+  -> run_autoclean_exclusion_tool(exports, task_root)
+      -> ExclusionFileSelector(__init__)
+          -> super().__init__(exports)  # original autoclean_review layout + MNE browser
+          -> _extend_ui()  # decision buttons, summary table, notes pane, related files list
+          -> _load_decisions()  # JSON/CSV autosave hydrated into the tree
+          -> loadFiles()  # tree items recolored based on Pass/Fail/Review state
 </Diagram>
 
-## How to Reproduce the Run Locally
+<Callout type="tip" title="Keyboard flow">
+  Press <strong>P</strong>, <strong>F</strong>, or <strong>R</strong> to set the decision for the active <code>.set</code>. The tool writes <code>autoclean_exclusion_decisions.json</code> and <code>autoclean_exclusion_decisions.csv</code> after every change, so you can quit and resume later without manual saves.
+</Callout>
+
+## How to Reproduce the Run
 
 <Steps>
-  <Step title="Install GUI extras (first run only)">
+  <Step title="Install GUI extras (first time only)">
     <code>pip install autocleaneeg-pipeline[gui]</code>
   </Step>
-  <Step title="Launch the tool">
+  <Step title="Launch the helper">
     <code>autocleaneeg-exclude</code><br />
-    The window auto-loads the newest exports directory. Use the folder picker if you want to point at a different task or dataset.
+    The script picks <code>./exports</code> if present; otherwise it opens the current directory. Use <code>--exports</code> or the folder picker to change roots.
   </Step>
-  <Step title="Classify recordings">
-    Select a row, hit <code>P</code>/<code>F</code>/<code>R</code> (or click the buttons), and jot notes if needed. Double-click any export or report file to open it in your OS viewer.
+  <Step title="Review each export">
+    Click a <code>.set</code> file, hit “Review Selected File” to open the full-screen timeseries browser, and decide with <code>P</code>/<code>F</code>/<code>R</code>. Add free-form notes in the right-hand pane, and double-click any related export/report to open it externally.
   </Step>
-  <Step title="Review saved outputs">
-    The tool writes <code>autocleaneeg_exclusion_decisions.json</code> and <code>autocleaneeg_exclusion_summary.csv</code> beside the exports. Share those summaries with collaborators or rerun the tool to pick up where you left off.
+  <Step title="Inspect persisted decisions">
+    Look beside the exports directory for <code>autoclean_exclusion_decisions.json</code> and <code>autoclean_exclusion_decisions.csv</code>. Each row records the relative path, decision, notes, and last-updated timestamp so collaborators can audit the review.
   </Step>
 </Steps>
 
@@ -51,23 +56,22 @@ CLI autocleaneeg-exclude -> main() -> run_autoclean_exclusion_tool()
 
 <Accordion>
   <AccordionItem title="Smoke-test the CLI">
-    From a terminal, run <code>autocleaneeg-exclude --help</code> to confirm the entry point is installed. Launching the GUI without arguments should resolve your workspace automatically.
+    Run <code>autocleaneeg-exclude --help</code> to confirm the new arguments are registered. Launch the GUI without flags and verify it resolves the expected exports folder.
   </AccordionItem>
-  <AccordionItem title="Point to a custom folder">
-    <code>autocleaneeg-exclude /path/to/task/root</code> or <code>autocleaneeg-exclude /path/to/task/exports</code> will preload that directory. Verify the status badges and counts update as you change classifications.
+  <AccordionItem title="Exercise decision tracking">
+    Mark a few files as Pass/Fail/Review, close the window, and relaunch. The tree should retain colored badges, the summary counts should match your selections, and the notes pane should repopulate from the JSON file.
   </AccordionItem>
-  <AccordionItem title="Inspect saved summaries">
-    After toggling a few statuses, ensure the JSON and CSV files appear in the exports directory with timestamps and per-record metadata.
+  <AccordionItem title="Cross-check related resources">
+    With a task root that contains <code>reports/</code>, ensure the related-files pane surfaces matching PNG/PDF artifacts and opens them via your OS when activated.
   </AccordionItem>
 </Accordion>
 
-## Notes & Considerations
-
-<Callout>
-  Auto-discovery leans on <code>UserConfigManager</code> heuristics: if a dataset used a custom <code>dataset_name</code> instead of the task name, the tool picks the most recently modified directory under the workspace output. Users can always override it via the folder picker or CLI argument.
-</Callout>
+## Notes & Concerns
 
 <Note>
-  The GUI avoids embedding heavy waveform viewers to keep the script portable; it shells out to the OS for opening exports or PDFs. Labs that need inline previews can extend the single file by borrowing snippets from <code>autoclean_review.py</code>.
+  Deep directory scans for related reports are limited to <code>reports/</code> under the provided task root to keep lookups responsive. If your lab stores figures elsewhere, adjust the helper or supply a different root path.
 </Note>
 
+<Callout type="warning" title="Manual epoch edits still apply">
+  Because the helper subclasses <code>autoclean_review</code>, “Save Edits” continues to write post-edit <code>.set</code> files. Make sure to finish any manual epoch rejection before flipping to the next export so the decisions and saved data stay synchronized.
+</Callout>
