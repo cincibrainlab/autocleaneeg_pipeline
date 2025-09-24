@@ -230,23 +230,33 @@ class FileSelector(QWidget):
         self.plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.plot_btn)
 
-        # Close Plot button
-        self.close_plot_btn = QPushButton("Close Review Plot")
+        action_bar = QWidget()
+        action_bar.setObjectName("actionBar")
+        action_layout = QHBoxLayout()
+        action_layout.setContentsMargins(0, 8, 0, 0)
+        action_layout.setSpacing(10)
+        action_bar.setLayout(action_layout)
+
+        self.close_plot_btn = QPushButton("Close Plot")
         self.close_plot_btn.setProperty("variant", "ghost")
         self.close_plot_btn.clicked.connect(self.closePlot)
         self.close_plot_btn.setEnabled(False)
-        self.left_layout.addWidget(self.close_plot_btn)
+        action_layout.addWidget(self.close_plot_btn)
 
-        self.view_record_btn = QPushButton("View Run Record")
+        self.view_record_btn = QPushButton("Run Record")
         self.view_record_btn.setProperty("variant", "ghost")
         self.view_record_btn.clicked.connect(self.viewRunRecord)
         self.view_record_btn.setEnabled(False)
-        self.left_layout.addWidget(self.view_record_btn)
+        action_layout.addWidget(self.view_record_btn)
+
+        action_layout.addStretch(1)
 
         self.exit_btn = QPushButton("Exit")
         self.exit_btn.setProperty("variant", "destructive")
         self.exit_btn.clicked.connect(self.close)
-        self.left_layout.addWidget(self.exit_btn)
+        action_layout.addWidget(self.exit_btn)
+
+        self.left_layout.addWidget(action_bar)
 
         # Right container (for the plot widget)
         self.right_container = QWidget()
@@ -353,41 +363,11 @@ class FileSelector(QWidget):
 
     def _apply_global_theme(self) -> None:
         palette_css = """
-        QWidget {
-            background-color: #f3f6fb;
-            color: #1f2933;
-            font-family: 'Helvetica Neue', Arial, sans-serif;
-            font-size: 13px;
-        }
-        QWidget#navigationPanel {
+        #navigationPanel {
             background-color: #eef2f8;
             border-right: 1px solid #d7e0ed;
         }
-        QWidget#contentPanel {
-            background-color: #ffffff;
-        }
-        QWidget#instructionPanel {
-            background-color: #ffffff;
-            border: 1px solid #d9e2ec;
-            border-radius: 12px;
-        }
-        QLabel {
-            color: #1f2933;
-        }
-        QTreeWidget {
-            background-color: #ffffff;
-            border: 1px solid #d7e0ed;
-            border-radius: 10px;
-            padding: 6px;
-        }
-        QTreeWidget::item:selected {
-            background-color: #e3ecff;
-            color: #0b3d91;
-        }
-        QTreeWidget::item:hover {
-            background-color: #f0f4ff;
-        }
-        QPushButton {
+        #navigationPanel QPushButton {
             border-radius: 8px;
             border: 1px solid transparent;
             padding: 8px 16px;
@@ -395,107 +375,90 @@ class FileSelector(QWidget):
             background-color: #ffffff;
             color: #1f2933;
         }
-        QPushButton:hover {
+        #navigationPanel QPushButton:hover {
             border-color: #4f83ff;
             color: #1a56db;
         }
-        QPushButton[variant="nav"] {
+        #navigationPanel QPushButton[variant="nav"] {
             background-color: #ffffff;
             border-color: #d7e0ed;
         }
-        QPushButton[variant="nav"]:hover {
+        #navigationPanel QPushButton[variant="nav"]:hover {
             background-color: #e9efff;
             border-color: #4f83ff;
         }
-        QPushButton[variant="primary"] {
+        #navigationPanel QPushButton[variant="primary"] {
             background-color: #1a56db;
             border-color: #1a56db;
             color: #ffffff;
         }
-        QPushButton[variant="primary"]:hover {
+        #navigationPanel QPushButton[variant="primary"]:hover {
             background-color: #184bcc;
             border-color: #184bcc;
         }
-        QPushButton[variant="primary"]:disabled {
+        #navigationPanel QPushButton[variant="primary"]:disabled {
             background-color: #b4c6ff;
             border-color: #b4c6ff;
             color: #f5f7ff;
         }
-        QPushButton[variant="ghost"] {
+        #navigationPanel QPushButton[variant="ghost"] {
             background-color: transparent;
             border-color: #d7e0ed;
             color: #52606d;
         }
-        QPushButton[variant="ghost"]:hover {
+        #navigationPanel QPushButton[variant="ghost"]:hover {
             background-color: #f0f4ff;
             color: #1f2933;
         }
-        QPushButton[variant="destructive"] {
+        #navigationPanel QPushButton[variant="destructive"] {
             background-color: #fbeaea;
             border-color: #f5c2c0;
             color: #b42318;
         }
-        QPushButton[variant="destructive"]:hover {
+        #navigationPanel QPushButton[variant="destructive"]:hover {
             background-color: #f8d7d5;
             border-color: #f19b96;
         }
-        QStatusBar {
-            background-color: #ffffff;
-            border-top: 1px solid #d7e0ed;
-        }
-        QTextEdit {
+        #navigationPanel QTreeWidget {
             background-color: #ffffff;
             border: 1px solid #d7e0ed;
             border-radius: 10px;
-            padding: 10px;
-        }
-        QListWidget {
-            background-color: #ffffff;
-            border: 1px solid #d7e0ed;
-            border-radius: 10px;
-        }
-        QGroupBox {
-            border: 1px solid #d7e0ed;
-            border-radius: 12px;
-            margin-top: 12px;
-            background-color: #ffffff;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            subcontrol-position: top left;
-            padding: 6px 12px;
-            font-size: 12px;
-            font-weight: 700;
-            color: #51606f;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-        }
-        QTableWidget {
-            border: 1px solid #d7e0ed;
-            border-radius: 10px;
-            gridline-color: #eef2f8;
-        }
-        QHeaderView::section {
-            background-color: #eef2f8;
             padding: 6px;
-            border: none;
-            font-weight: 600;
         }
-        QSplitter::handle {
-            background-color: #d7e0ed;
-            width: 4px;
+        #navigationPanel QTreeWidget::item:selected {
+            background-color: #e3ecff;
+            color: #0b3d91;
         }
-        QScrollBar:vertical {
+        #navigationPanel QTreeWidget::item:hover {
+            background-color: #f0f4ff;
+        }
+        #navigationPanel QScrollBar:vertical {
             background-color: transparent;
             width: 12px;
             margin: 4px;
         }
-        QScrollBar::handle:vertical {
+        #navigationPanel QScrollBar::handle:vertical {
             background-color: #c9d6eb;
             border-radius: 6px;
         }
-        QScrollBar::handle:vertical:hover {
+        #navigationPanel QScrollBar::handle:vertical:hover {
             background-color: #a7b9d8;
+        }
+        #navigationPanel QWidget#actionBar {
+            background: transparent;
+            border: none;
+        }
+        #instructionPanel {
+            background-color: #ffffff;
+            border: 1px solid #d9e2ec;
+            border-radius: 12px;
+        }
+        #instructionPanel QLabel {
+            color: #1f2933;
+        }
+        QStatusBar {
+            background-color: #ffffff;
+            border-top: 1px solid #d7e0ed;
         }
         """
 
