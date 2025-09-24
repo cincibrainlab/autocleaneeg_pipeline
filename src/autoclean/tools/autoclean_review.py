@@ -179,6 +179,7 @@ class FileSelector(QWidget):
         self._plot_is_raw = False
         self._auto_saving_epochs = False
 
+        self._apply_global_theme()
         self.initUI()
 
         if self.current_dir:
@@ -191,18 +192,22 @@ class FileSelector(QWidget):
 
         # Left container (directory controls + file tree + buttons)
         left_container = QWidget()
+        left_container.setObjectName("navigationPanel")
         self.left_layout = QVBoxLayout()
         left_container.setLayout(self.left_layout)
 
         self.select_dir_btn = QPushButton("Select Directory")
+        self.select_dir_btn.setProperty("variant", "nav")
         self.select_dir_btn.clicked.connect(self.selectDirectory)
         self.left_layout.addWidget(self.select_dir_btn)
 
         self.open_folder_btn = QPushButton("Open Current Folder")
+        self.open_folder_btn.setProperty("variant", "nav")
         self.open_folder_btn.clicked.connect(self.openCurrentFolder)
         self.left_layout.addWidget(self.open_folder_btn)
 
         self.refresh_btn = QPushButton("Refresh File Tree")
+        self.refresh_btn.setProperty("variant", "nav")
         self.refresh_btn.clicked.connect(self.refreshFileTree)
         self.refresh_btn.setShortcut("F5")  # Add F5 shortcut for refresh
         self.refresh_btn.setToolTip(
@@ -220,31 +225,37 @@ class FileSelector(QWidget):
         self.left_layout.addWidget(self.file_tree)
 
         self.plot_btn = QPushButton("Review Selected File")
+        self.plot_btn.setProperty("variant", "primary")
         self.plot_btn.clicked.connect(self.plotFile)
         self.plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.plot_btn)
 
         # Close Plot button
         self.close_plot_btn = QPushButton("Close Review Plot")
+        self.close_plot_btn.setProperty("variant", "ghost")
         self.close_plot_btn.clicked.connect(self.closePlot)
         self.close_plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.close_plot_btn)
 
         self.view_record_btn = QPushButton("View Run Record")
+        self.view_record_btn.setProperty("variant", "ghost")
         self.view_record_btn.clicked.connect(self.viewRunRecord)
         self.view_record_btn.setEnabled(False)
         self.left_layout.addWidget(self.view_record_btn)
 
         self.exit_btn = QPushButton("Exit")
+        self.exit_btn.setProperty("variant", "destructive")
         self.exit_btn.clicked.connect(self.close)
         self.left_layout.addWidget(self.exit_btn)
 
         # Right container (for the plot widget)
         self.right_container = QWidget()
+        self.right_container.setObjectName("contentPanel")
         self.right_layout = QVBoxLayout()
 
         # Create and style instruction label
         self.instruction_widget = QWidget()
+        self.instruction_widget.setObjectName("instructionPanel")
         instruction_layout = QVBoxLayout()
 
         title_label = QLabel("Manual Epoch Rejection Instructions")
@@ -339,6 +350,156 @@ class FileSelector(QWidget):
         self.setWindowTitle("Autoclean 1.0 - Manual Epoch Rejection")
         # Set window state to be maximized on startup
         self.setWindowState(Qt.WindowMaximized)
+
+    def _apply_global_theme(self) -> None:
+        palette_css = """
+        QWidget {
+            background-color: #f3f6fb;
+            color: #1f2933;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+        }
+        QWidget#navigationPanel {
+            background-color: #eef2f8;
+            border-right: 1px solid #d7e0ed;
+        }
+        QWidget#contentPanel {
+            background-color: #ffffff;
+        }
+        QWidget#instructionPanel {
+            background-color: #ffffff;
+            border: 1px solid #d9e2ec;
+            border-radius: 12px;
+        }
+        QLabel {
+            color: #1f2933;
+        }
+        QTreeWidget {
+            background-color: #ffffff;
+            border: 1px solid #d7e0ed;
+            border-radius: 10px;
+            padding: 6px;
+        }
+        QTreeWidget::item:selected {
+            background-color: #e3ecff;
+            color: #0b3d91;
+        }
+        QTreeWidget::item:hover {
+            background-color: #f0f4ff;
+        }
+        QPushButton {
+            border-radius: 8px;
+            border: 1px solid transparent;
+            padding: 8px 16px;
+            font-weight: 600;
+            background-color: #ffffff;
+            color: #1f2933;
+        }
+        QPushButton:hover {
+            border-color: #4f83ff;
+            color: #1a56db;
+        }
+        QPushButton[variant="nav"] {
+            background-color: #ffffff;
+            border-color: #d7e0ed;
+        }
+        QPushButton[variant="nav"]:hover {
+            background-color: #e9efff;
+            border-color: #4f83ff;
+        }
+        QPushButton[variant="primary"] {
+            background-color: #1a56db;
+            border-color: #1a56db;
+            color: #ffffff;
+        }
+        QPushButton[variant="primary"]:hover {
+            background-color: #184bcc;
+            border-color: #184bcc;
+        }
+        QPushButton[variant="primary"]:disabled {
+            background-color: #b4c6ff;
+            border-color: #b4c6ff;
+            color: #f5f7ff;
+        }
+        QPushButton[variant="ghost"] {
+            background-color: transparent;
+            border-color: #d7e0ed;
+            color: #52606d;
+        }
+        QPushButton[variant="ghost"]:hover {
+            background-color: #f0f4ff;
+            color: #1f2933;
+        }
+        QPushButton[variant="destructive"] {
+            background-color: #fbeaea;
+            border-color: #f5c2c0;
+            color: #b42318;
+        }
+        QPushButton[variant="destructive"]:hover {
+            background-color: #f8d7d5;
+            border-color: #f19b96;
+        }
+        QStatusBar {
+            background-color: #ffffff;
+            border-top: 1px solid #d7e0ed;
+        }
+        QTextEdit {
+            background-color: #ffffff;
+            border: 1px solid #d7e0ed;
+            border-radius: 10px;
+            padding: 10px;
+        }
+        QListWidget {
+            background-color: #ffffff;
+            border: 1px solid #d7e0ed;
+            border-radius: 10px;
+        }
+        QGroupBox {
+            border: 1px solid #d7e0ed;
+            border-radius: 12px;
+            margin-top: 12px;
+            background-color: #ffffff;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top left;
+            padding: 6px 12px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #51606f;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+        }
+        QTableWidget {
+            border: 1px solid #d7e0ed;
+            border-radius: 10px;
+            gridline-color: #eef2f8;
+        }
+        QHeaderView::section {
+            background-color: #eef2f8;
+            padding: 6px;
+            border: none;
+            font-weight: 600;
+        }
+        QSplitter::handle {
+            background-color: #d7e0ed;
+            width: 4px;
+        }
+        QScrollBar:vertical {
+            background-color: transparent;
+            width: 12px;
+            margin: 4px;
+        }
+        QScrollBar::handle:vertical {
+            background-color: #c9d6eb;
+            border-radius: 6px;
+        }
+        QScrollBar::handle:vertical:hover {
+            background-color: #a7b9d8;
+        }
+        """
+
+        self.setStyleSheet(palette_css)
 
     def openCurrentFolder(self):
         if self.current_dir:
