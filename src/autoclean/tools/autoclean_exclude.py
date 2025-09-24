@@ -125,6 +125,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.related_list: Optional[QListWidget] = None
         self.detail_panel: Optional[QWidget] = None
         self.save_timer: Optional[QTimer] = None
+        self._status_buttons: dict[str, QPushButton] = {}
+        self._clear_button: Optional[QPushButton] = None
 
         self._updating_notes = False
 
@@ -154,44 +156,157 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.save_timer.setInterval(400)
         self.save_timer.timeout.connect(self._commit_decisions)
 
-        decision_group = QGroupBox("Decision")
+        decision_card = QFrame()
+        decision_card.setObjectName("decisionCard")
         decision_layout = QVBoxLayout()
+        decision_layout.setContentsMargins(18, 18, 18, 18)
+        decision_layout.setSpacing(14)
+        decision_card.setLayout(decision_layout)
+
+        header_row = QHBoxLayout()
+        header_row.setSpacing(10)
+
+        header_label = QLabel("Review Decision")
+        header_label.setObjectName("decisionHeader")
+        header_row.addWidget(header_label)
+        header_row.addStretch(1)
+
+        self.status_label = QLabel("Not Started")
+        self.status_label.setObjectName("decisionStatusChip")
+        self.status_label.setAlignment(Qt.AlignCenter)
+        header_row.addWidget(self.status_label)
+        decision_layout.addLayout(header_row)
 
         self.current_file_label = QLabel("No file selected")
+        self.current_file_label.setObjectName("decisionFileLabel")
         self.current_file_label.setWordWrap(True)
         decision_layout.addWidget(self.current_file_label)
 
-        self.status_label = QLabel("Status: Not Started")
-        self.status_label.setStyleSheet("font-weight: bold; color: #2c3e50")
-        decision_layout.addWidget(self.status_label)
-
+        button_container = QFrame()
+        button_container.setObjectName("decisionButtonRow")
+        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
         button_row = QHBoxLayout()
+        button_row.setContentsMargins(0, 0, 0, 0)
+        button_row.setSpacing(10)
+        button_container.setLayout(button_row)
+
         self._shortcuts: dict[str, QShortcut] = {}
+        self._status_buttons.clear()
         for status in ("PASS", "FAIL", "REVIEW"):
             meta = STATUS_DEFINITIONS[status]
-            btn = QPushButton(f"{meta['label']} ({meta['shortcut']})")
+            btn = QPushButton(meta["label"])
+            btn.setCursor(Qt.PointingHandCursor)
+            btn.setCheckable(True)
+            btn.setMinimumHeight(34)
+            btn.setToolTip(
+                f"Mark the selection as {meta['label']}. Shortcut: {meta['shortcut']}"
+            )
             btn.clicked.connect(partial(self._set_status, status))
             button_row.addWidget(btn)
+            self._status_buttons[status] = btn
+
             shortcut = QShortcut(QKeySequence(meta["shortcut"]), self)
             shortcut.activated.connect(partial(self._set_status, status))
             self._shortcuts[status] = shortcut
 
-        clear_btn = QPushButton("Clear")
-        clear_btn.clicked.connect(partial(self._set_status, "UNSET"))
-        button_row.addWidget(clear_btn)
-        decision_layout.addLayout(button_row)
+        button_row.addStretch(1)
 
-        self.save_state_label = QLabel("")
-        self.save_state_label.setStyleSheet("color: #7f8c8d; font-style: italic")
+        clear_btn = QPushButton("Clear")
+        clear_btn.setObjectName("decisionClearButton")
+        clear_btn.setCursor(Qt.PointingHandCursor)
+        clear_btn.setMinimumHeight(34)
+        clear_btn.setToolTip("Reset decision to Not Started. Shortcut: C")
+        clear_btn.clicked.connect(partial(self._set_status, "UNSET"))
+        self._clear_button = clear_btn
+        button_row.addWidget(clear_btn)
+
+        clear_shortcut = QShortcut(QKeySequence("C"), self)
+        clear_shortcut.activated.connect(partial(self._set_status, "UNSET"))
+        self._shortcuts["CLEAR"] = clear_shortcut
+
+        decision_layout.addWidget(button_container)
+
+        shortcut_hint = QLabel("Shortcuts: P Pass • F Fail • R Needs Review • C Clear")
+        shortcut_hint.setObjectName("decisionShortcutHint")
+        shortcut_hint.setWordWrap(True)
+        decision_layout.addWidget(shortcut_hint)
+
+        self.save_state_label = QLabel("Select a file to assign a decision.")
+        self.save_state_label.setObjectName("decisionSaveLabel")
         decision_layout.addWidget(self.save_state_label)
 
-        decision_group.setLayout(decision_layout)
+        decision_card.setStyleSheet(
+            """
+            #decisionCard {
+                background-color: #ffffff;
+                border: 1px solid #d9e2ec;
+                border-radius: 12px;
+            }
+            #decisionHeader {
+                font-size: 13px;
+                text-transform: uppercase;
+                letter-spacing: 0.8px;
+                color: #51606f;
+                font-weight: 700;
+            }
+            #decisionFileLabel {
+                color: #1f2d3d;
+                font-weight: 600;
+            }
+            #decisionStatusChip {
+                padding: 4px 12px;
+                border-radius: 12px;
+                font-weight: 600;
+                background-color: #edf2f7;
+                color: #5b6c7c;
+            }
+            #decisionButtonRow QPushButton {
+                background-color: #f6f9ff;
+                border: 1px solid #d4e2ff;
+                border-radius: 8px;
+                padding: 6px 18px;
+                font-weight: 600;
+                color: #1f2d3d;
+            }
+            #decisionButtonRow QPushButton:hover {
+                border-color: #3a7bd5;
+                color: #1a4fa3;
+            }
+            #decisionButtonRow QPushButton:checked {
+                background-color: #1a4fa3;
+                border-color: #1a4fa3;
+                color: #ffffff;
+            }
+            #decisionButtonRow QPushButton:disabled {
+                background-color: #f0f4f8;
+                color: #9aa5b1;
+                border-color: #dfe4ea;
+            }
+            #decisionClearButton {
+                background-color: #ffffff;
+                border: 1px solid #d9e2ec;
+                color: #5b6c7c;
+            }
+            #decisionClearButton:hover {
+                border-color: #94a3b8;
+                color: #2c3e50;
+            }
+            #decisionShortcutHint {
+                color: #64748b;
+                font-size: 12px;
+            }
+            #decisionSaveLabel {
+                color: #64748b;
+                font-style: italic;
+            }
+            """
+        )
 
         # Insert decision controls right above the close/exit buttons
         insert_index = self.left_layout.indexOf(self.close_plot_btn)
         if insert_index < 0:
             insert_index = self.left_layout.count() - 1
-        self.left_layout.insertWidget(insert_index, decision_group)
+        self.left_layout.insertWidget(insert_index, decision_card)
 
         summary_group = QGroupBox("Summary")
         summary_layout = QVBoxLayout()
@@ -562,11 +677,34 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
     def _update_decision_controls(self, record: Optional[dict[str, str]]) -> None:
         status = record.get("status") if record else "UNSET"
         meta = STATUS_DEFINITIONS.get(status or "UNSET", STATUS_DEFINITIONS["UNSET"])
+        has_selection = self.current_key is not None
+
         if self.status_label is not None:
-            self.status_label.setText(f"Status: {meta['label']}")
+            display_label = meta["label"] if status and status != "UNSET" else "Not Started"
+            if status and status != "UNSET":
+                chip_color = QColor(meta["color"])
+                chip_bg = QColor(chip_color)
+                chip_bg.setAlpha(48)
+                chip_bg_value = chip_bg.name(QColor.HexArgb)
+            else:
+                chip_color = QColor("#5b6c7c")
+                chip_bg = QColor("#edf2f7")
+                chip_bg_value = chip_bg.name()
+
+            self.status_label.setText(display_label)
             self.status_label.setStyleSheet(
-                f"font-weight: bold; color: {meta['color'] if status != 'UNSET' else '#2c3e50'}"
+                "padding: 4px 12px; border-radius: 12px; font-weight: 600; "
+                f"background-color: {chip_bg_value}; color: {chip_color.name()};"
             )
+
+        for key, button in self._status_buttons.items():
+            button.blockSignals(True)
+            button.setEnabled(has_selection)
+            button.setChecked(has_selection and status == key)
+            button.blockSignals(False)
+
+        if self._clear_button is not None:
+            self._clear_button.setEnabled(has_selection)
         if self.current_file_label is not None:
             if self.current_display_name:
                 self.current_file_label.setText(self.current_display_name)
@@ -576,6 +714,13 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self._updating_notes = True
             self.notes_edit.setPlainText(record.get("notes", "") if record else "")
             self._updating_notes = False
+
+        if self.save_state_label is not None:
+            if has_selection:
+                if self.save_state_label.text() in {"Select a file to assign a decision.", ""}:
+                    self.save_state_label.setText("Changes auto-save after a short pause.")
+            else:
+                self.save_state_label.setText("Select a file to assign a decision.")
 
     def _apply_status_to_item(self, item, status: str) -> None:
         base_label = item.data(0, Qt.UserRole + 2) or item.text(0)
