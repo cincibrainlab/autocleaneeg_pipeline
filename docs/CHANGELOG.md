@@ -1,4 +1,12 @@
 # Changelog
+## [2.3.0] - 9/24/2025
+
+### Changed
+- BREAKING: Upgraded `mne-icalabel` to `>=0.8.0`, which introduces a hard dependency on `onnxruntime`. This may require users to install additional system packages or use compatible wheels, especially on Apple Silicon and Linux distributions.
+
+### Notes
+- If you experience installation issues, ensure `onnxruntime` (or `onnxruntime-silicon` on Apple Silicon, if preferred) is available. See project README for troubleshooting tips.
+
 
 All notable changes to this project will be documented in this file.
 
