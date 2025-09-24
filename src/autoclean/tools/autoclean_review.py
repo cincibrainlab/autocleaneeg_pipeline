@@ -8,6 +8,7 @@ import subprocess
 import sys
 import webbrowser
 from pathlib import Path
+from typing import Optional
 
 import fitz
 import matplotlib.pyplot as plt
@@ -173,6 +174,10 @@ class FileSelector(QWidget):
         self.current_run_record_window = None
         self.plot_widget = None
         self.current_epochs = None  # Store the currently loaded epochs
+        self.current_raw = None
+        self._plotted_file_path: Optional[str] = None
+        self._plot_is_raw = False
+        self._auto_saving_epochs = False
 
         self.initUI()
 
@@ -225,11 +230,6 @@ class FileSelector(QWidget):
         self.close_plot_btn.setEnabled(False)
         self.left_layout.addWidget(self.close_plot_btn)
 
-        # New "Save Edits" button
-        self.save_edits_btn = QPushButton("Save Edits")
-        self.save_edits_btn.setEnabled(False)
-        self.left_layout.addWidget(self.save_edits_btn)
-
         self.view_record_btn = QPushButton("View Run Record")
         self.view_record_btn.clicked.connect(self.viewRunRecord)
         self.view_record_btn.setEnabled(False)
@@ -277,8 +277,8 @@ class FileSelector(QWidget):
             <ul>
                 <li>Use <span class='key'>←/→</span> keys to navigate between epochs</li>
                 <li>Press <span class='key'>Space</span> to mark/unmark bad epochs</li>
-                <li>Click <span class='key'>Save Edits</span> when finished to save your changes</li>
-                <li>After confirmation, edited files will be saved to the <span class='key'>postedit</span> directory</li>
+                <li>Your selections autosave when you switch files or close the viewer</li>
+                <li>Edited files write to the <span class='key'>postedit</span> directory</li>
             </ul>
             <p><span class='step'>5.</span> Click <span class='key'>View Run Record</span> to see:</p>
             <ul>
@@ -402,6 +402,7 @@ class FileSelector(QWidget):
     def selectDirectory(self):
         dir_path = QFileDialog.getExistingDirectory(self, "Select Directory")
         if dir_path:
+            self.closePlot()
             self.current_dir = dir_path
             self.loadFiles()
             self.updateStatusBar()
@@ -412,14 +413,26 @@ class FileSelector(QWidget):
 
     def onFileSelect(self, item):
         if item.text(0).endswith(".set") or item.text(0).endswith(".set *"):
-            self.selected_file = item.text(0).replace(" *", "")
-            self.plot_btn.setEnabled(True)
+            selected_name = item.text(0).replace(" *", "")
             path_parts = []
             current = item
             while current is not None:
                 path_parts.insert(0, current.text(0).replace(" *", ""))
                 current = current.parent()
-            self.selected_file_path = os.path.join(self.current_dir, *path_parts[1:])
+            selected_path = os.path.join(self.current_dir, *path_parts[1:])
+
+            if (
+                self.plot_widget is not None
+                and self._plotted_file_path is not None
+                and self._plotted_file_path != selected_path
+            ):
+                self._auto_save_pending_epochs(reason="selection_changed")
+                self._plotted_file_path = None
+                self._plot_is_raw = False
+
+            self.selected_file = selected_name
+            self.plot_btn.setEnabled(True)
+            self.selected_file_path = selected_path
             try:
                 self.current_run_id = self.getRunId(self.selected_file_path)
                 self.current_run_record = get_run_record(self.current_run_id)
@@ -972,21 +985,92 @@ class FileSelector(QWidget):
     def closePlot(self):
         """Close the plot and show instructions"""
         if self.plot_widget is not None:
+            self._auto_save_pending_epochs(reason="close_button")
             self.plot_widget.close()
             self.plot_widget.deleteLater()
             self.plot_widget = None
             self.close_plot_btn.setEnabled(False)
-            self.save_edits_btn.setEnabled(False)
+            self._plotted_file_path = None
+            self._plot_is_raw = False
             self.instruction_widget.show()
             QApplication.processEvents()
 
+    def _auto_save_pending_epochs(self, reason: str = "") -> None:
+        """Persist any marked bad epochs without prompting the reviewer."""
+
+        if self._auto_saving_epochs or self.plot_widget is None:
+            return
+        if self._plot_is_raw or self._plotted_file_path is None:
+            return
+        if self.current_epochs is None or self.current_run_id is None:
+            return
+        if not hasattr(self.plot_widget, "mne") or self.plot_widget.mne is None:
+            return
+        if self.current_dir is None:
+            return
+
+        try:
+            bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
+        except AttributeError:
+            bad_epochs = []
+
+        if not bad_epochs:
+            return
+
+        self._auto_saving_epochs = True
+        try:
+            run_record = get_run_record(self.current_run_id)
+
+            original_stage_dir = Path(
+                run_record["metadata"]["step_prepare_directories"]["stage"]
+            )
+            try:
+                task_name = original_stage_dir.parent.name
+                container_stage_dir = Path(self.current_dir) / task_name / "stage"
+            except Exception:
+                container_stage_dir = Path(self.current_dir) / "stage"
+
+            autoclean_dict = {
+                "run_id": self.current_run_id,
+                "stage_files": run_record["metadata"]["entrypoint"]["stage_files"],
+                "stage_dir": container_stage_dir,
+                "unprocessed_file": run_record["unprocessed_file"],
+            }
+
+            message(
+                "info",
+                f"Auto-saving {len(bad_epochs)} marked epochs for {Path(self._plotted_file_path).name}",
+            )
+
+            self.current_epochs.drop(bad_epochs)
+            container_stage_dir.mkdir(parents=True, exist_ok=True)
+            save_epochs_to_set(self.current_epochs, autoclean_dict, stage="post_edit")
+
+            if self.status_bar is not None:
+                self.status_bar.showMessage(
+                    f"Auto-saved exclusions for {Path(self._plotted_file_path).name}", 5000
+                )
+
+            if reason != "selection_changed" and hasattr(self, "loadFiles"):
+                self.loadFiles()
+
+        except Exception as exc:
+            message("error", f"Auto-save failed: {exc}")
+        finally:
+            self._auto_saving_epochs = False
+
     def plotFile(self):
         if hasattr(self, "selected_file_path"):
+            if self._plotted_file_path is not None:
+                self._auto_save_pending_epochs(reason="preload")
+                self._plotted_file_path = None
+                self._plot_is_raw = False
             try:
                 print("INFO", "Plotting file")
 
                 # Check if this is a RAW file
                 is_raw = "_raw.set" in self.selected_file_path.lower()
+                self._plot_is_raw = is_raw
 
                 try:
                     if is_raw:
@@ -995,14 +1079,10 @@ class FileSelector(QWidget):
                             self.selected_file_path, preload=True
                         )
                         self.current_raw = raw.copy()
-                        self.save_edits_btn.setEnabled(
-                            False
-                        )  # Disable saving for raw files
                     else:
                         # Load as epochs
                         epochs = mne.read_epochs_eeglab(self.selected_file_path)
                         self.current_epochs = epochs.copy()
-                        self.save_edits_btn.setEnabled(True)
                 except Exception as e:
                     QMessageBox.critical(self, "Error", f"Error loading file: {str(e)}")
                     print(f"Error in plotFile: {str(e)}")
@@ -1022,102 +1102,6 @@ class FileSelector(QWidget):
                 if not is_raw:
                     self.original_epoch_count = len(self.current_epochs)
                     print("INFO", "Original epoch count:", self.original_epoch_count)
-
-                    def close_plot():
-                        message("info", "Closing plot after save.")
-                        message("info", f"Epoch number: {len(self.current_epochs)}")
-                        message("info", "Manually marked epochs for removal:")
-                        message("info", "=" * 50)
-
-                        # Store bad epochs before any cleanup can occur
-                        try:
-                            bad_epochs = (
-                                sorted(self.plot_widget.mne.bad_epochs)
-                                if hasattr(self.plot_widget, "mne")
-                                and self.plot_widget.mne is not None
-                                else []
-                            )
-                        except AttributeError:
-                            bad_epochs = []
-                            message(
-                                "warning",
-                                "Could not retrieve bad epochs, assuming none marked",
-                            )
-
-                        if bad_epochs:
-                            message("info", f"Total epochs marked: {len(bad_epochs)}")
-                            message("info", f"Epoch indices: {bad_epochs}")
-                        else:
-                            message("info", "No epochs were marked for removal")
-                        message("info", "=" * 50)
-
-                        run_record = get_run_record(self.current_run_id)
-
-                        # Get the original stage directory from the database
-                        original_stage_dir = Path(
-                            run_record["metadata"]["step_prepare_directories"]["stage"]
-                        )
-
-                        # Extract the relative portion of the path that matters
-                        # This assumes the stage directory is within a structure we can extract
-                        # For example, if the path is /srv2/RAWDATA/.../MouseXdatAssr/stage/
-                        # We want to extract 'MouseXdatAssr/stage/' or just 'stage/'
-
-                        # Find the immediate parent directory that contains 'stage'
-                        try:
-                            # This gets the parent folder of 'stage' (typically the task name)
-                            task_name = original_stage_dir.parent.name
-                            # Reconstruct the path using the current directory and the task/stage structure
-                            container_stage_dir = (
-                                Path(self.current_dir) / task_name / "stage"
-                            )
-                            message(
-                                "info",
-                                f"Remapped stage directory from {original_stage_dir} to {container_stage_dir}",
-                            )
-                        except Exception:
-                            # If we can't extract the path structure, try a simpler approach
-                            # Just use the current directory as the base and add 'stage'
-                            container_stage_dir = Path(self.current_dir) / "stage"
-                            message(
-                                "warning",
-                                f"Could not extract task name from path, using simplified mapping: {container_stage_dir}",
-                            )
-
-                        autoclean_dict = {
-                            "run_id": self.current_run_id,
-                            "stage_files": run_record["metadata"]["entrypoint"][
-                                "stage_files"
-                            ],
-                            "stage_dir": container_stage_dir,  # Use our remapped path
-                            "unprocessed_file": run_record["unprocessed_file"],
-                        }
-
-                        reply = QMessageBox.question(
-                            self,
-                            "Confirm Save",
-                            "Are you sure you want to save these changes?",
-                            QMessageBox.Yes | QMessageBox.No,
-                        )
-
-                        if reply == QMessageBox.Yes:
-                            message("info", "Saving epochs to file...")
-                            self.current_epochs.drop(bad_epochs)
-
-                            # Create the stage directory if it doesn't exist
-                            container_stage_dir.mkdir(parents=True, exist_ok=True)
-
-                            save_epochs_to_set(
-                                self.current_epochs, autoclean_dict, stage="post_edit"
-                            )
-                            # Refresh the file tree after saving
-                            self.loadFiles()
-                        else:
-                            message("info", "Save cancelled by user")
-
-                        self.closePlot()
-
-                    self.save_edits_btn.clicked.connect(close_plot)
 
                     # Create the plot widget for epochs
                     self.plot_widget = self.current_epochs.plot(
@@ -1145,6 +1129,7 @@ class FileSelector(QWidget):
                 self.right_layout.addWidget(self.plot_widget)
                 self.plot_widget.show()
                 self.close_plot_btn.setEnabled(True)
+                self._plotted_file_path = getattr(self, "selected_file_path", None)
 
                 print("INFO", "Plot widget created and embedded in GUI")
                 if not is_raw:
