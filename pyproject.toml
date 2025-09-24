@@ -76,7 +76,7 @@ dependencies = [
     "autocleaneeg-view==0.1.6",
     # GUI dependencies
     "PyQt5==5.15.11",
-    "mne-qt-browser==0.7.2",
+    "autocleaneeg-mne-qt-browser-fork>0.7.2",
     # "PySide6>=6.5.0",
     "pymupdf==1.26.4",
     "pyjsonviewer==1.6.0",
@@ -92,6 +92,10 @@ dependencies = [
     "openai==1.109.0",
     "onnxruntime==1.22.1",
 ]
+
+[tool.uv.sources]
+autocleaneeg-mne-qt-browser-fork = { path = "/Volumes/braindata/cincineuro_github/mne-qt-browser", editable = true }
+
 
 [project.urls]
 Homepage = "https://github.com/cincibrainlab/autoclean_pipeline"
