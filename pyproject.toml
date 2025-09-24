@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autocleaneeg-pipeline"
-version = "2.2.7"
+version = "2.3.0"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
@@ -35,7 +35,7 @@ dependencies = [
     "PyWavelets>=1.5.0",
     # EEG processing core
     "mne>=1.7.0",
-    "mne-icalabel>=0.7.0",
+    "mne-icalabel>=0.8.0",
     "mne-bids>=0.10",
     "autoreject>=0.3.0",
     "pyprep>=0.3.0",
@@ -90,6 +90,7 @@ dependencies = [
     # Documentation handled externally; keep Python package lean
     # AI dependencies
     "openai>=1.78.1",
+    "onnxruntime>=1.22.1",
 ]
 
 [project.urls]
