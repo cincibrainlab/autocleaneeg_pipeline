@@ -76,6 +76,7 @@ pyqtRemoveInputHook()
 
 
 plt.style.use("default")
+os.environ["MNE_BROWSER_THEME"] = "light"
 mne.viz.set_browser_backend("qt")
 
 
@@ -1273,6 +1274,8 @@ class FileSelector(QWidget):
                         show_options=True,
                     )
 
+                self._enforce_light_browser_theme(self.plot_widget)
+
                 # Embed the plot in our GUI
                 self.right_layout.addWidget(self.plot_widget)
                 self.plot_widget.show()
@@ -1306,6 +1309,49 @@ class FileSelector(QWidget):
             # Restore button state
             self.refresh_btn.setText(original_text)
             self.refresh_btn.setEnabled(True)
+
+    def _enforce_light_browser_theme(self, widget):
+        """Try to force the Qt browser into a light appearance."""
+
+        if widget is None:
+            return
+
+        try:
+            if hasattr(widget, "set_theme"):
+                widget.set_theme("light")
+                return
+        except Exception:
+            pass
+
+        try:
+            if hasattr(widget, "set_dark_mode"):
+                widget.set_dark_mode(False)
+                return
+        except Exception:
+            pass
+
+        try:
+            if hasattr(widget, "_toggle_dark_mode"):
+                widget._toggle_dark_mode(False)
+                return
+        except Exception:
+            pass
+
+        try:
+            palette = widget.palette()
+            palette.setColor(QPalette.Window, QColor("#ffffff"))
+            palette.setColor(QPalette.Base, QColor("#ffffff"))
+            palette.setColor(QPalette.AlternateBase, QColor("#f5f7fb"))
+            palette.setColor(QPalette.Text, QColor("#1f2933"))
+            palette.setColor(QPalette.WindowText, QColor("#1f2933"))
+            widget.setPalette(palette)
+            widget.setStyleSheet(
+                "background-color: #ffffff; color: #1f2933;"
+            )
+            for child in widget.findChildren(QWidget):
+                child.setPalette(palette)
+        except Exception:
+            pass
 
             print(f"File tree refreshed for directory: {self.current_dir}")
 
