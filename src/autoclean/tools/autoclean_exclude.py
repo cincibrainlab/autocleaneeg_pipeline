@@ -619,6 +619,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self, "Select Directory", self.current_dir or str(Path.cwd())
         )
         if dir_path:
+            self.closePlot()
             self._configure_directory(dir_path)
             self._load_decisions()
             self.current_key = None
@@ -647,6 +648,18 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self.current_display_name = None
             self._update_decision_controls(None)
             return
+
+        previous_plot = getattr(self, "_plotted_file_path", None)
+        if (
+            self.plot_widget is not None
+            and previous_plot is not None
+            and Path(previous_plot) != file_path
+        ):
+            self._auto_save_pending_epochs(reason="selection_changed")
+            self._plotted_file_path = None
+            self._plot_is_raw = False
+            if hasattr(self, "_current_plot_path"):
+                self._current_plot_path = None
 
         self.selected_item = item
         self.selected_file = file_path.name
