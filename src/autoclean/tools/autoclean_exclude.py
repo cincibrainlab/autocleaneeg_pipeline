@@ -42,10 +42,11 @@ def check_gui_dependencies() -> None:
 check_gui_dependencies()
 
 
-from PyQt5.QtCore import Qt, QTimer  # noqa: E402
+from PyQt5.QtCore import Qt, QTimer, QSize  # noqa: E402
 from PyQt5.QtGui import QColor, QKeySequence  # noqa: E402
 from PyQt5.QtWidgets import (  # noqa: E402
     QApplication,
+    QFrame,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
@@ -54,12 +55,14 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QListWidgetItem,
     QPushButton,
     QShortcut,
+    QSizePolicy,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
+    QStyle,
 )
 
 from autoclean.tools import autoclean_review  # noqa: E402
@@ -142,6 +145,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
     # ------------------------------------------------------------------
     def _extend_ui(self) -> None:
         """Inject decision widgets while keeping the base layout intact."""
+
+        # Refresh the directory controls with a compact toolbar treatment
+        self._modify_top_buttons()
 
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
@@ -238,6 +244,103 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.detail_panel.setLayout(detail_layout)
         self.detail_panel.hide()
         self.right_layout.addWidget(self.detail_panel)
+
+    def _modify_top_buttons(self) -> None:
+        """Replace the default directory buttons with a polished toolbar."""
+
+        if getattr(self, "_directory_toolbar_initialized", False):
+            return
+
+        toolbar = QFrame()
+        toolbar.setObjectName("directoryToolbar")
+
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setContentsMargins(12, 10, 12, 10)
+        toolbar_layout.setSpacing(10)
+        toolbar_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+        header = QLabel("Workspace")
+        header.setObjectName("directoryToolbarLabel")
+        header.setAlignment(Qt.AlignVCenter)
+        header.setStyleSheet(
+            "font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; "
+            "color: #5b6c7c; font-weight: 600;"
+        )
+        toolbar_layout.addWidget(header)
+
+        button_specs = (
+            (
+                self.select_dir_btn,
+                "Choose Folder…",
+                self.style().standardIcon(QStyle.SP_DialogOpenButton),
+                "Browse for a directory containing exported .set files.",
+            ),
+            (
+                self.open_folder_btn,
+                "Open Folder",
+                self.style().standardIcon(QStyle.SP_DirIcon),
+                "Reveal the current review folder in your file browser.",
+            ),
+            (
+                self.refresh_btn,
+                "Refresh List",
+                self.style().standardIcon(QStyle.SP_BrowserReload),
+                "Reload the file tree to pick up new or modified exports.",
+            ),
+        )
+
+        for button, label, icon, tooltip in button_specs:
+            index = self.left_layout.indexOf(button)
+            if index >= 0:
+                self.left_layout.removeWidget(button)
+            button.setText(label)
+            if not icon.isNull():
+                button.setIcon(icon)
+                button.setIconSize(QSize(18, 18))
+            button.setToolTip(tooltip)
+            button.setCursor(Qt.PointingHandCursor)
+            button.setMinimumHeight(34)
+            button.setMaximumWidth(180)
+            button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+            toolbar_layout.addWidget(button)
+
+        toolbar_layout.addStretch(1)
+
+        toolbar.setLayout(toolbar_layout)
+        toolbar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        toolbar.setStyleSheet(
+            """
+            #directoryToolbar {
+                background-color: #f7f9fc;
+                border: 1px solid #d9e2ec;
+                border-radius: 8px;
+            }
+            #directoryToolbar QPushButton {
+                background-color: #ffffff;
+                border: 1px solid #d9e2ec;
+                border-radius: 6px;
+                padding: 6px 14px;
+                font-weight: 600;
+                color: #1f2d3d;
+            }
+            #directoryToolbar QPushButton:hover {
+                border-color: #3a7bd5;
+                color: #1a4fa3;
+            }
+            #directoryToolbar QPushButton:pressed {
+                background-color: #ecf2fb;
+            }
+            #directoryToolbar QPushButton:disabled {
+                background-color: #f1f3f6;
+                color: #9aa5b1;
+                border-color: #dfe4ea;
+            }
+            """
+        )
+
+        self.left_layout.insertWidget(0, toolbar)
+        self.directory_toolbar = toolbar
+        self._directory_toolbar_initialized = True
 
     # ------------------------------------------------------------------
     # Directory + persistence helpers
