@@ -43,7 +43,7 @@ check_gui_dependencies()
 
 
 from PyQt5.QtCore import Qt, QTimer, QSize  # noqa: E402
-from PyQt5.QtGui import QColor, QKeySequence  # noqa: E402
+from PyQt5.QtGui import QColor, QKeySequence, QPalette  # noqa: E402
 from PyQt5.QtWidgets import (  # noqa: E402
     QApplication,
     QFrame,
@@ -405,8 +405,13 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 text-transform: uppercase;
                 letter-spacing: 0.4px;
             }
+            QTabWidget#decisionInfoTabs QWidget {
+                background-color: #ffffff;
+                color: #1f2933;
+            }
             QTabWidget#decisionInfoTabs::pane {
-                border: none;
+                border: 1px solid #dde4ef;
+                background-color: #ffffff;
                 margin-top: -4px;
             }
             QTabWidget#decisionInfoTabs QTabBar::tab {
@@ -537,6 +542,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         detail_layout.addWidget(detail_tabs)
         detail_layout.addStretch(1)
 
+        self._apply_light_palette(self.detail_panel)
+        self._apply_light_palette(detail_tabs)
+
         self.detail_panel.setLayout(detail_layout)
         self.detail_panel.hide()
 
@@ -644,6 +652,29 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.left_layout.insertWidget(0, toolbar)
         self.directory_toolbar = toolbar
         self._directory_toolbar_initialized = True
+
+    def _apply_light_palette(self, widget: Optional[QWidget]) -> None:
+        if widget is None:
+            return
+
+        try:
+            palette = widget.palette()
+            palette.setColor(QPalette.Window, QColor("#ffffff"))
+            palette.setColor(QPalette.Base, QColor("#ffffff"))
+            palette.setColor(QPalette.AlternateBase, QColor("#f6f9ff"))
+            palette.setColor(QPalette.Text, QColor("#1f2933"))
+            palette.setColor(QPalette.WindowText, QColor("#1f2933"))
+            palette.setColor(QPalette.Button, QColor("#ffffff"))
+            palette.setColor(QPalette.ButtonText, QColor("#1f2933"))
+            widget.setPalette(palette)
+            widget.setAutoFillBackground(True)
+            for child in widget.findChildren(QWidget):
+                try:
+                    child.setPalette(palette)
+                except Exception:
+                    continue
+        except Exception:
+            pass
 
     # ------------------------------------------------------------------
     # Directory + persistence helpers
@@ -1058,6 +1089,21 @@ def run_autoclean_exclusion_tool(
     """Launch the Qt inclusion/exclusion helper."""
 
     app = QApplication(sys.argv)
+    try:
+        app.setStyle("Fusion")
+    except Exception:
+        pass
+    pal = app.palette()
+    pal.setColor(QPalette.Window, QColor("#f7f9fc"))
+    pal.setColor(QPalette.Base, QColor("#ffffff"))
+    pal.setColor(QPalette.AlternateBase, QColor("#f1f5ff"))
+    pal.setColor(QPalette.Text, QColor("#1f2933"))
+    pal.setColor(QPalette.WindowText, QColor("#1f2933"))
+    pal.setColor(QPalette.Button, QColor("#ffffff"))
+    pal.setColor(QPalette.ButtonText, QColor("#1f2933"))
+    pal.setColor(QPalette.Highlight, QColor("#cde3ff"))
+    pal.setColor(QPalette.HighlightedText, QColor("#0b3d91"))
+    app.setPalette(pal)
     window = ExclusionFileSelector(exports_dir=exports_dir, task_root=task_root)
     window.setWindowTitle("Autoclean - Inclusion/Exclusion Review")
     window.showMaximized()
