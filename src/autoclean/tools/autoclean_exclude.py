@@ -1,10 +1,10 @@
-"""AutoClean EEG inclusion/exclusion review tool.
+"""AutoClean EEG inclusion/exclusion review helper.
 
-This module provides a lightweight Qt application that mirrors the spirit of
-the legacy :mod:`autoclean.tools.autoclean_review` helper but focuses on
-quickly classifying exported EEG deliverables as *pass*, *fail*, or *needs
-review*.  The tool keeps everything in a single script so researchers can copy
-it into bespoke environments without chasing additional modules.
+This tool extends the classic :mod:`autoclean.tools.autoclean_review` window
+so reviewers can keep the familiar full-screen MNE browser while tracking
+Pass/Fail/Review decisions and notes for every exported ``.set`` file.  The
+script keeps everything self-contained to make distribution easy for labs that
+copy the helper into bespoke environments.
 """
 
 from __future__ import annotations
@@ -16,17 +16,17 @@ import os
 import subprocess
 import sys
 from collections import Counter
-from dataclasses import dataclass, field
 from datetime import datetime
+from functools import partial
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, Optional
 
 
 def check_gui_dependencies() -> None:
-    """Ensure the optional GUI stack is available before importing Qt."""
+    """Fail fast if the optional GUI stack is missing."""
 
     missing: list[str] = []
-    try:  # pragma: no cover - import side effect only
+    try:  # pragma: no cover - import guard only
         import PyQt5  # noqa: F401
     except ImportError:  # pragma: no cover - runtime dependency guard
         missing.append("PyQt5")
@@ -39,55 +39,33 @@ def check_gui_dependencies() -> None:
         sys.exit(1)
 
 
-# Guard Qt imports behind the dependency check so running this module from a
-# minimal environment fails fast with a readable error message.
 check_gui_dependencies()
 
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QColor
+
+from PyQt5.QtCore import Qt, QTimer  # noqa: E402
+from PyQt5.QtGui import QColor, QKeySequence  # noqa: E402
 from PyQt5.QtWidgets import (  # noqa: E402
     QApplication,
     QFileDialog,
     QGroupBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
-    QLineEdit,
     QListWidget,
     QListWidgetItem,
-    QMainWindow,
-    QMessageBox,
     QPushButton,
     QShortcut,
-    QSplitter,
-    QStatusBar,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
+    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
-from PyQt5.QtGui import QKeySequence
 
-from autoclean.utils.user_config import UserConfigManager
+from autoclean.tools import autoclean_review  # noqa: E402
 
 
-PRIMARY_EXTENSIONS: set[str] = {
-    ".set",
-    ".fif",
-    ".edf",
-    ".bdf",
-    ".vhdr",
-    ".eeg",
-    ".xdf",
-    ".gdf",
-    ".mat",
-    ".parquet",
-    ".csv",
-    ".tsv",
-}
-
-STATUS_STYLES: Dict[str, Dict[str, str]] = {
+STATUS_DEFINITIONS: dict[str, dict[str, str]] = {
     "UNSET": {"label": "Not Started", "color": "#bdc3c7", "shortcut": ""},
     "PASS": {"label": "Pass", "color": "#2ecc71", "shortcut": "P"},
     "FAIL": {"label": "Fail", "color": "#e74c3c", "shortcut": "F"},
@@ -98,33 +76,15 @@ STATUS_STYLES: Dict[str, Dict[str, str]] = {
     },
 }
 
-
-@dataclass
-class ExportRecord:
-    """Container describing a single exported deliverable."""
-
-    base_name: str
-    primary_files: list[Path] = field(default_factory=list)
-    additional_files: list[Path] = field(default_factory=list)
-    reports: list[Path] = field(default_factory=list)
-    status: str = "UNSET"
-    notes: str = ""
-    last_updated: Optional[str] = None
-
-    def to_dict(self) -> Dict[str, object]:
-        return {
-            "base_name": self.base_name,
-            "status": self.status,
-            "notes": self.notes,
-            "last_updated": self.last_updated,
-            "primary_files": [str(p) for p in self.primary_files],
-            "additional_files": [str(p) for p in self.additional_files],
-            "reports": [str(p) for p in self.reports],
-        }
+STATUS_ORDER: tuple[str, ...] = ("PASS", "FAIL", "REVIEW", "UNSET")
 
 
-def _open_in_file_browser(path: Path) -> None:
-    """Open *path* in the platform's default file browser."""
+def _human_timestamp() -> str:
+    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _open_path(path: Path) -> None:
+    """Open *path* using the default OS handler."""
 
     if sys.platform.startswith("darwin"):
         subprocess.run(["open", str(path)], check=False)
@@ -134,637 +94,540 @@ def _open_in_file_browser(path: Path) -> None:
         subprocess.run(["xdg-open", str(path)], check=False)
 
 
-class InclusionExclusionWindow(QMainWindow):
-    """Qt window that manages the inclusion/exclusion review workflow."""
+class ExclusionFileSelector(autoclean_review.FileSelector):
+    """Subclass of the classic review widget with exclusion helpers."""
 
     def __init__(
         self,
         exports_dir: Optional[Path] = None,
         task_root: Optional[Path] = None,
-        parent: Optional[QWidget] = None,
     ) -> None:
-        super().__init__(parent)
-
-        self.exports_dir: Optional[Path] = exports_dir
-        self.task_root: Optional[Path] = task_root
-        self.reports_dir: Optional[Path] = None
-        self.records: list[ExportRecord] = []
-        self.row_lookup: Dict[str, int] = {}
-        self.unsaved_changes = False
-        self.status_counts: Counter[str] = Counter()
+        self.task_root = Path(task_root).resolve() if task_root else None
+        self.exports_dir = Path(exports_dir).resolve() if exports_dir else None
 
         self.decisions_path: Optional[Path] = None
         self.decisions_csv_path: Optional[Path] = None
+        self.decisions: Dict[str, dict[str, str]] = {}
+        self.row_lookup: dict[str, QTreeWidgetItem] = {}
+        self.all_keys: set[str] = set()
+        self.current_key: Optional[str] = None
+        self.current_display_name: Optional[str] = None
+
+        self.status_label: Optional[QLabel] = None
+        self.current_file_label: Optional[QLabel] = None
+        self.save_state_label: Optional[QLabel] = None
+        self.summary_table: Optional[QTableWidget] = None
+        self.notes_edit: Optional[QTextEdit] = None
+        self.related_list: Optional[QListWidget] = None
+        self.detail_panel: Optional[QWidget] = None
+        self.save_timer: Optional[QTimer] = None
+
+        self._updating_notes = False
+
+        super().__init__(
+            str(self.exports_dir) if self.exports_dir is not None else None
+        )
+
+        # Base ``__init__`` calls ``loadFiles`` once; run our extensions after.
+        self._extend_ui()
+        self._configure_directory(self.current_dir)
+        self._load_decisions()
+        self.loadFiles()  # Refresh now that status metadata exists
+        self.updateStatusBar()
+        self._update_decision_controls(None)
+
+    # ------------------------------------------------------------------
+    # UI bootstrapping helpers
+    # ------------------------------------------------------------------
+    def _extend_ui(self) -> None:
+        """Inject decision widgets while keeping the base layout intact."""
 
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
-        self.save_timer.timeout.connect(self.save_decisions)
+        self.save_timer.setInterval(400)
+        self.save_timer.timeout.connect(self._commit_decisions)
 
-        self._updating_notes = False
-        self.current_record: Optional[ExportRecord] = None
+        decision_group = QGroupBox("Decision")
+        decision_layout = QVBoxLayout()
 
-        self.setWindowTitle("AutoClean EEG – Inclusion/Exclusion Review")
-        self.setMinimumSize(1200, 720)
+        self.current_file_label = QLabel("No file selected")
+        self.current_file_label.setWordWrap(True)
+        decision_layout.addWidget(self.current_file_label)
 
-        self._build_ui()
-
-        if self.exports_dir:
-            self._configure_directory(self.exports_dir)
-
-    # ------------------------------------------------------------------
-    # UI construction helpers
-    # ------------------------------------------------------------------
-    def _build_ui(self) -> None:
-        central = QWidget()
-        central_layout = QVBoxLayout()
-        central_layout.setContentsMargins(12, 12, 12, 12)
-        central.setLayout(central_layout)
-
-        # Directory controls -------------------------------------------------
-        controls_row = QHBoxLayout()
-        controls_row.setSpacing(8)
-
-        self.directory_label = QLabel("No exports directory selected")
-        self.directory_label.setStyleSheet(
-            "font-weight:600; color:#2c3e50;" "padding:4px 8px;"
-        )
-        controls_row.addWidget(self.directory_label, 1)
-
-        self.select_dir_btn = QPushButton("Choose Directory…")
-        self.select_dir_btn.clicked.connect(self.select_directory)
-        controls_row.addWidget(self.select_dir_btn, 0)
-
-        self.open_dir_btn = QPushButton("Open Folder")
-        self.open_dir_btn.clicked.connect(self.open_exports_folder)
-        self.open_dir_btn.setEnabled(False)
-        controls_row.addWidget(self.open_dir_btn, 0)
-
-        central_layout.addLayout(controls_row)
-
-        # Progress summary ---------------------------------------------------
-        self.summary_box = QGroupBox("Progress Overview")
-        summary_layout = QHBoxLayout()
-        summary_layout.setContentsMargins(12, 8, 12, 8)
-        self.summary_labels: Dict[str, QLabel] = {}
-        for status_key in ("PASS", "FAIL", "REVIEW", "UNSET"):
-            label = QLabel()
-            label.setAlignment(Qt.AlignCenter)
-            label.setMinimumWidth(140)
-            label.setStyleSheet("font-size:14px; font-weight:600;")
-            self.summary_labels[status_key] = label
-            summary_layout.addWidget(label)
-        summary_layout.addStretch(1)
-        self.summary_box.setLayout(summary_layout)
-        central_layout.addWidget(self.summary_box)
-
-        # Search + table -----------------------------------------------------
-        splitter = QSplitter(Qt.Horizontal)
-
-        left_panel = QWidget()
-        left_layout = QVBoxLayout()
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_panel.setLayout(left_layout)
-
-        filter_row = QHBoxLayout()
-        filter_label = QLabel("Filter exports:")
-        self.search_box = QLineEdit()
-        self.search_box.setPlaceholderText("Search by basename or status…")
-        self.search_box.textChanged.connect(self.apply_filter)
-        filter_row.addWidget(filter_label)
-        filter_row.addWidget(self.search_box)
-        left_layout.addLayout(filter_row)
-
-        self.table = QTableWidget(0, 4)
-        self.table.setHorizontalHeaderLabels(
-            ["#", "Recording", "Primary Files", "Status"]
-        )
-        self.table.verticalHeader().setVisible(False)
-        self.table.setSelectionBehavior(QTableWidget.SelectRows)
-        self.table.setSelectionMode(QTableWidget.SingleSelection)
-        self.table.setAlternatingRowColors(True)
-        self.table.itemSelectionChanged.connect(self.display_selected_record)
-        self.table.setSortingEnabled(False)
-        self.table.setStyleSheet(
-            "QTableWidget::item { padding:6px; }"
-            "QHeaderView::section { background-color:#ecf0f1; padding:6px; }"
-        )
-        header = self.table.horizontalHeader()
-        header.setStretchLastSection(True)
-        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-        header.setSectionResizeMode(2, QHeaderView.Stretch)
-        left_layout.addWidget(self.table)
-
-        navigation_row = QHBoxLayout()
-        self.previous_btn = QPushButton("◀ Previous")
-        self.previous_btn.clicked.connect(self.goto_previous)
-        self.previous_btn.setEnabled(False)
-        self.next_btn = QPushButton("Next ▶")
-        self.next_btn.clicked.connect(self.goto_next)
-        self.next_btn.setEnabled(False)
-        navigation_row.addWidget(self.previous_btn)
-        navigation_row.addWidget(self.next_btn)
-        left_layout.addLayout(navigation_row)
-
-        splitter.addWidget(left_panel)
-
-        # Detail pane --------------------------------------------------------
-        detail_panel = QWidget()
-        detail_layout = QVBoxLayout()
-        detail_panel.setLayout(detail_layout)
-
-        self.record_title = QLabel("Select a recording to begin")
-        self.record_title.setStyleSheet("font-size:20px; font-weight:600; color:#2c3e50;")
-        detail_layout.addWidget(self.record_title)
-
-        status_group = QGroupBox("Set classification")
-        status_layout = QHBoxLayout()
-        status_group.setLayout(status_layout)
-
-        self.status_buttons: Dict[str, QPushButton] = {}
-        for status_key in ("PASS", "FAIL", "REVIEW"):
-            btn = QPushButton(
-                f"{STATUS_STYLES[status_key]['label']} ({STATUS_STYLES[status_key]['shortcut']})"
-            )
-            btn.setEnabled(False)
-            btn.clicked.connect(lambda _checked=False, s=status_key: self.mark_status(s))
-            btn.setStyleSheet(
-                f"background-color:{STATUS_STYLES[status_key]['color']};"
-                "color:#1b1b1b; font-weight:600; padding:10px 14px; border-radius:6px;"
-            )
-            self.status_buttons[status_key] = btn
-            status_layout.addWidget(btn)
-        status_layout.addStretch(1)
-        detail_layout.addWidget(status_group)
-
-        notes_group = QGroupBox("Reviewer notes")
-        notes_layout = QVBoxLayout()
-        self.notes_edit = QTextEdit()
-        self.notes_edit.setPlaceholderText("Add optional context or reminders…")
-        self.notes_edit.textChanged.connect(self._handle_notes_changed)
-        self.notes_edit.setEnabled(False)
-        notes_layout.addWidget(self.notes_edit)
-        notes_group.setLayout(notes_layout)
-        detail_layout.addWidget(notes_group, 2)
-
-        files_group = QGroupBox("Available files")
-        files_layout = QHBoxLayout()
-
-        exports_column = QVBoxLayout()
-        exports_label = QLabel("Exports directory")
-        exports_label.setStyleSheet("font-weight:600;")
-        self.exports_list = QListWidget()
-        self.exports_list.itemDoubleClicked.connect(self._open_selected_item)
-        self.exports_list.setContextMenuPolicy(Qt.CustomContextMenu)
-        exports_column.addWidget(exports_label)
-        exports_column.addWidget(self.exports_list)
-
-        reports_column = QVBoxLayout()
-        reports_label = QLabel("Reports & QA artifacts")
-        reports_label.setStyleSheet("font-weight:600;")
-        self.reports_list = QListWidget()
-        self.reports_list.itemDoubleClicked.connect(self._open_selected_item)
-        reports_column.addWidget(reports_label)
-        reports_column.addWidget(self.reports_list)
-
-        files_layout.addLayout(exports_column)
-        files_layout.addLayout(reports_column)
-        files_group.setLayout(files_layout)
-        detail_layout.addWidget(files_group, 3)
+        self.status_label = QLabel("Status: Not Started")
+        self.status_label.setStyleSheet("font-weight: bold; color: #2c3e50")
+        decision_layout.addWidget(self.status_label)
 
         button_row = QHBoxLayout()
-        self.open_reports_btn = QPushButton("Open reports folder")
-        self.open_reports_btn.clicked.connect(self.open_reports_folder)
-        self.open_reports_btn.setEnabled(False)
-        self.save_btn = QPushButton("Save summary")
-        self.save_btn.clicked.connect(self.save_decisions)
-        self.save_btn.setEnabled(False)
-        button_row.addWidget(self.open_reports_btn)
-        button_row.addStretch(1)
-        button_row.addWidget(self.save_btn)
-        detail_layout.addLayout(button_row)
+        self._shortcuts: dict[str, QShortcut] = {}
+        for status in ("PASS", "FAIL", "REVIEW"):
+            meta = STATUS_DEFINITIONS[status]
+            btn = QPushButton(f"{meta['label']} ({meta['shortcut']})")
+            btn.clicked.connect(partial(self._set_status, status))
+            button_row.addWidget(btn)
+            shortcut = QShortcut(QKeySequence(meta["shortcut"]), self)
+            shortcut.activated.connect(partial(self._set_status, status))
+            self._shortcuts[status] = shortcut
 
-        instructions = QLabel(
-            "<b>Keyboard shortcuts</b>: "
-            "<code>P</code> = Pass, <code>F</code> = Fail, <code>R</code> = Review, "
-            "<code>Ctrl+S</code> = Save, <code>Alt+Right</code>/<code>Alt+Left</code> = Next/Previous"
+        clear_btn = QPushButton("Clear")
+        clear_btn.clicked.connect(partial(self._set_status, "UNSET"))
+        button_row.addWidget(clear_btn)
+        decision_layout.addLayout(button_row)
+
+        self.save_state_label = QLabel("")
+        self.save_state_label.setStyleSheet("color: #7f8c8d; font-style: italic")
+        decision_layout.addWidget(self.save_state_label)
+
+        decision_group.setLayout(decision_layout)
+
+        # Insert decision controls right above the close/exit buttons
+        insert_index = self.left_layout.indexOf(self.close_plot_btn)
+        if insert_index < 0:
+            insert_index = self.left_layout.count() - 1
+        self.left_layout.insertWidget(insert_index, decision_group)
+
+        summary_group = QGroupBox("Summary")
+        summary_layout = QVBoxLayout()
+        self.summary_table = QTableWidget(len(STATUS_ORDER), 2)
+        self.summary_table.setHorizontalHeaderLabels(["Status", "Count"])
+        self.summary_table.verticalHeader().setVisible(False)
+        self.summary_table.horizontalHeader().setStretchLastSection(True)
+        self.summary_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.summary_table.setSelectionMode(QTableWidget.NoSelection)
+        for row, status in enumerate(STATUS_ORDER):
+            meta = STATUS_DEFINITIONS[status]
+            status_item = QTableWidgetItem(meta["label"])
+            status_item.setFlags(Qt.ItemIsEnabled)
+            status_item.setForeground(QColor(meta["color"]))
+            self.summary_table.setItem(row, 0, status_item)
+            count_item = QTableWidgetItem("0")
+            count_item.setTextAlignment(Qt.AlignCenter)
+            count_item.setFlags(Qt.ItemIsEnabled)
+            self.summary_table.setItem(row, 1, count_item)
+        summary_layout.addWidget(self.summary_table)
+        summary_group.setLayout(summary_layout)
+
+        exit_index = self.left_layout.indexOf(self.exit_btn)
+        self.left_layout.insertWidget(exit_index, summary_group)
+
+        # Detail panel (notes + related exports)
+        self.detail_panel = QWidget()
+        detail_layout = QVBoxLayout()
+
+        notes_group = QGroupBox("Reviewer Notes")
+        notes_layout = QVBoxLayout()
+        self.notes_edit = QTextEdit()
+        self.notes_edit.setPlaceholderText(
+            "Summarize observations, reasons for exclusion, or follow-up items."
         )
-        instructions.setStyleSheet("color:#555; padding-top:8px;")
-        detail_layout.addWidget(instructions)
+        self.notes_edit.textChanged.connect(self._handle_notes_changed)
+        notes_layout.addWidget(self.notes_edit)
+        notes_group.setLayout(notes_layout)
+        detail_layout.addWidget(notes_group)
 
-        splitter.addWidget(detail_panel)
-        splitter.setStretchFactor(0, 4)
-        splitter.setStretchFactor(1, 6)
-        central_layout.addWidget(splitter, 1)
+        related_group = QGroupBox("Related Exports & Reports")
+        related_layout = QVBoxLayout()
+        self.related_list = QListWidget()
+        self.related_list.itemActivated.connect(self._open_related_item)
+        related_layout.addWidget(self.related_list)
+        related_group.setLayout(related_layout)
+        detail_layout.addWidget(related_group)
+        detail_layout.addStretch(1)
 
-        # Status bar ---------------------------------------------------------
-        self.status_bar = QStatusBar()
-        self.setStatusBar(self.status_bar)
-
-        self.setCentralWidget(central)
-
-        # Global shortcuts ---------------------------------------------------
-        QShortcut(QKeySequence("P"), self, activated=lambda: self.mark_status("PASS"))
-        QShortcut(QKeySequence("F"), self, activated=lambda: self.mark_status("FAIL"))
-        QShortcut(QKeySequence("R"), self, activated=lambda: self.mark_status("REVIEW"))
-        QShortcut(QKeySequence("Ctrl+S"), self, activated=self.save_decisions)
-        QShortcut(QKeySequence("Alt+Right"), self, activated=self.goto_next)
-        QShortcut(QKeySequence("Alt+Left"), self, activated=self.goto_previous)
+        self.detail_panel.setLayout(detail_layout)
+        self.detail_panel.hide()
+        self.right_layout.addWidget(self.detail_panel)
 
     # ------------------------------------------------------------------
-    # Directory handling
+    # Directory + persistence helpers
     # ------------------------------------------------------------------
-    def _configure_directory(self, exports_dir: Path) -> None:
-        exports_dir = exports_dir.resolve()
-        self.exports_dir = exports_dir
-        self.decisions_path = exports_dir / "autocleaneeg_exclusion_decisions.json"
-        self.decisions_csv_path = exports_dir / "autocleaneeg_exclusion_summary.csv"
-
-        if exports_dir.name == "exports":
-            self.task_root = exports_dir.parent
-        elif self.task_root is None:
-            self.task_root = exports_dir.parent if exports_dir.parent != exports_dir else None
-
-        potential_reports = None
-        if self.task_root and (self.task_root / "reports").exists():
-            potential_reports = self.task_root / "reports"
-        elif exports_dir.parent != exports_dir and (exports_dir.parent / "reports").exists():
-            potential_reports = exports_dir.parent / "reports"
-        self.reports_dir = potential_reports
-
-        self.directory_label.setText(str(exports_dir))
-        self.open_dir_btn.setEnabled(True)
-        self.open_reports_btn.setEnabled(self.reports_dir is not None)
-        self.save_btn.setEnabled(True)
-
-        self._load_records()
-        self._load_saved_decisions()
-        self._refresh_table()
-        self.status_bar.showMessage(
-            f"Loaded {len(self.records)} recordings from {exports_dir}", 5000
-        )
-
-    def select_directory(self) -> None:
-        chosen = QFileDialog.getExistingDirectory(self, "Select exports or task directory")
-        if not chosen:
-            return
-
-        selected = Path(chosen)
-        if (selected / "exports").exists():
-            exports_dir = selected / "exports"
-            self.task_root = selected
+    def _configure_directory(self, directory: Optional[str]) -> None:
+        if directory:
+            root = Path(directory).resolve()
+        elif self.exports_dir:
+            root = self.exports_dir
         else:
-            exports_dir = selected
-            if exports_dir.name == "exports":
-                self.task_root = exports_dir.parent
-        self._configure_directory(exports_dir)
+            root = Path.cwd()
+        self.exports_dir = root
+        self.current_dir = str(root)
+        self.decisions_path = root / "autoclean_exclusion_decisions.json"
+        self.decisions_csv_path = root / "autoclean_exclusion_decisions.csv"
 
-    def open_exports_folder(self) -> None:
-        if self.exports_dir:
-            _open_in_file_browser(self.exports_dir)
+    def _load_decisions(self) -> None:
+        self.decisions = {}
+        if self.decisions_path and self.decisions_path.exists():
+            try:
+                data = json.loads(self.decisions_path.read_text())
+                if isinstance(data, dict):
+                    self.decisions = data
+            except Exception as exc:  # pragma: no cover - defensive
+                print(f"Warning: could not load decisions file: {exc}")
+        self._update_summary()
 
-    def open_reports_folder(self) -> None:
-        if self.reports_dir:
-            _open_in_file_browser(self.reports_dir)
+    def _schedule_save(self) -> None:
+        if self.save_state_label is not None:
+            self.save_state_label.setText("Saving...")
+        if self.save_timer is not None:
+            self.save_timer.start()
 
-    # ------------------------------------------------------------------
-    # Data loading and persistence
-    # ------------------------------------------------------------------
-    def _load_records(self) -> None:
-        assert self.exports_dir is not None
-        records: Dict[str, ExportRecord] = {}
-
-        for file_path in sorted(self.exports_dir.glob("**/*")):
-            if not file_path.is_file():
-                continue
-            base_name = file_path.stem
-            record = records.setdefault(base_name, ExportRecord(base_name))
-            if file_path.suffix.lower() in PRIMARY_EXTENSIONS or not record.primary_files:
-                record.primary_files.append(file_path)
-            else:
-                record.additional_files.append(file_path)
-
-        if self.reports_dir and self.reports_dir.exists():
-            report_files = [f for f in self.reports_dir.rglob("*") if f.is_file()]
-            for report_file in report_files:
-                for record in records.values():
-                    if record.base_name in report_file.stem:
-                        record.reports.append(report_file)
-
-        self.records = sorted(records.values(), key=lambda r: r.base_name.lower())
-        self.row_lookup = {record.base_name: idx for idx, record in enumerate(self.records)}
-
-    def _load_saved_decisions(self) -> None:
-        if not self.decisions_path or not self.decisions_path.exists():
-            self.unsaved_changes = False
-            self.update_summary()
-            return
-
-        try:
-            with self.decisions_path.open("r", encoding="utf-8") as handle:
-                payload = json.load(handle)
-        except json.JSONDecodeError:
-            QMessageBox.warning(
-                self,
-                "Decisions file",
-                "Existing decisions file is corrupt – starting fresh.",
-            )
-            self.unsaved_changes = False
-            self.update_summary()
-            return
-
-        stored_records = {rec["base_name"]: rec for rec in payload.get("records", [])}
-        for record in self.records:
-            saved = stored_records.get(record.base_name)
-            if not saved:
-                continue
-            record.status = saved.get("status", "UNSET")
-            record.notes = saved.get("notes", "")
-            record.last_updated = saved.get("last_updated")
-
-        self.unsaved_changes = False
-        self.update_summary()
-
-    def save_decisions(self) -> None:
+    def _commit_decisions(self) -> None:
         if not self.decisions_path:
             return
-        if not self.exports_dir:
-            return
 
-        payload = {
-            "generated_at": datetime.utcnow().isoformat(timespec="seconds"),
-            "exports_directory": str(self.exports_dir),
-            "task_root": str(self.task_root) if self.task_root else None,
-            "records": [record.to_dict() for record in self.records],
-            "summary": dict(self.status_counts),
-        }
+        self.decisions_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = json.dumps(self.decisions, indent=2, sort_keys=True)
+        self.decisions_path.write_text(payload)
 
-        self.decisions_path.write_text(
-            json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
         if self.decisions_csv_path:
-            with self.decisions_csv_path.open("w", newline="", encoding="utf-8") as handle:
-                writer = csv.writer(handle)
-                writer.writerow(["base_name", "status", "notes", "primary_files", "additional_files", "reports"])
-                for record in self.records:
-                    writer.writerow(
-                        [
-                            record.base_name,
-                            record.status,
-                            record.notes,
-                            " | ".join(p.name for p in record.primary_files),
-                            " | ".join(p.name for p in record.additional_files),
-                            " | ".join(r.name for r in record.reports),
-                        ]
-                    )
+            rows = []
+            for key, record in sorted(self.decisions.items()):
+                rows.append(
+                    {
+                        "entry": key,
+                        "status": record.get("status", "UNSET"),
+                        "notes": record.get("notes", ""),
+                        "relative_path": record.get("relative_path", ""),
+                        "last_updated": record.get("last_updated", ""),
+                    }
+                )
+            with self.decisions_csv_path.open("w", newline="", encoding="utf-8") as fp:
+                writer = csv.DictWriter(
+                    fp, fieldnames=["entry", "status", "notes", "relative_path", "last_updated"]
+                )
+                writer.writeheader()
+                writer.writerows(rows)
 
-        self.unsaved_changes = False
-        self.status_bar.showMessage("Decisions saved", 3000)
+        if self.save_state_label is not None:
+            self.save_state_label.setText(f"Saved {_human_timestamp()}")
 
     # ------------------------------------------------------------------
-    # Table + detail interactions
+    # Tree + selection logic
     # ------------------------------------------------------------------
-    def _refresh_table(self) -> None:
-        self.table.setRowCount(len(self.records))
-        for row, record in enumerate(self.records):
-            row_item = QTableWidgetItem(str(row + 1))
-            row_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self.table.setItem(row, 0, row_item)
+    def loadFiles(self) -> None:  # noqa: N802 - inherited public API
+        self.file_tree.clear()
+        self.row_lookup.clear()
+        self.all_keys.clear()
+        if self.current_dir:
+            root_path = Path(self.current_dir)
+            root_item = QTreeWidgetItem(self.file_tree, [root_path.name])
+            root_item.setData(0, Qt.UserRole, str(root_path))
+            self._populate_tree(root_item, root_path)
+            root_item.setExpanded(True)
+            if root_item.childCount() > 0:
+                root_item.child(0).setExpanded(True)
+        self._update_summary()
 
-            name_item = QTableWidgetItem(record.base_name)
-            name_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self.table.setItem(row, 1, name_item)
+    def _populate_tree(
+        self,
+        parent_item: QTreeWidgetItem,
+        directory: Path,
+    ) -> None:
+        entries = sorted(directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
+        for entry in entries:
+            if entry.is_dir():
+                folder = QTreeWidgetItem(parent_item, [entry.name])
+                folder.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
+                folder.setData(0, Qt.UserRole, str(entry))
+                self._populate_tree(folder, entry)
+            elif entry.suffix.lower() == ".set":
+                item = QTreeWidgetItem(parent_item, [entry.name])
+                item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
+                item.setData(0, Qt.UserRole, str(entry))
+                key = self._record_key(entry)
+                item.setData(0, Qt.UserRole + 1, key)
+                base_label = entry.name
+                if entry.name in self.modified_files:
+                    base_label = f"{base_label} *"
+                item.setData(0, Qt.UserRole + 2, base_label)
+                self.row_lookup[key] = item
+                self.all_keys.add(key)
+                status = self.decisions.get(key, {}).get("status", "UNSET")
+                self._apply_status_to_item(item, status)
 
-            primary_text = "\n".join(p.name for p in record.primary_files)
-            primary_item = QTableWidgetItem(primary_text)
-            primary_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self.table.setItem(row, 2, primary_item)
+    def selectDirectory(self) -> None:  # noqa: N802 - inherited public API
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "Select Directory", self.current_dir or str(Path.cwd())
+        )
+        if dir_path:
+            self._configure_directory(dir_path)
+            self._load_decisions()
+            self.current_key = None
+            self.current_display_name = None
+            if self.related_list is not None:
+                self.related_list.clear()
+            self._update_decision_controls(None)
+            super().updateStatusBar()
+            self.loadFiles()
 
-            status_item = QTableWidgetItem(STATUS_STYLES[record.status]["label"])
-            status_item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
-            self.table.setItem(row, 3, status_item)
-            self._apply_status_format(row, record.status)
-
-        if self.records:
-            self.table.selectRow(0)
-            self.previous_btn.setEnabled(True)
-            self.next_btn.setEnabled(True)
-        else:
-            self.record_title.setText("No exports discovered in the selected folder")
-            self.previous_btn.setEnabled(False)
-            self.next_btn.setEnabled(False)
-
-        self.update_summary()
-
-    def _apply_status_format(self, row: int, status: str) -> None:
-        color = QColor(STATUS_STYLES[status]["color"])
-        muted = QColor(color)
-        muted.setAlpha(60)
-        for col in range(self.table.columnCount()):
-            item = self.table.item(row, col)
-            if not item:
-                continue
-            if col == 3:
-                item.setBackground(color.lighter(140))
-                item.setForeground(QColor("black"))
-            else:
-                item.setBackground(muted)
-
-    def display_selected_record(self) -> None:
-        selected_rows = self.table.selectionModel().selectedRows()
-        if not selected_rows:
-            self.current_record = None
-            return
-        row = selected_rows[0].row()
-        record = self.records[row]
-        self.current_record = record
-
-        self.record_title.setText(record.base_name)
-        for btn in self.status_buttons.values():
-            btn.setEnabled(True)
-        self.notes_edit.setEnabled(True)
-
-        self._updating_notes = True
-        self.notes_edit.setPlainText(record.notes)
-        self._updating_notes = False
-
-        self.exports_list.clear()
-        for file_path in record.primary_files + record.additional_files:
-            item = QListWidgetItem(file_path.name)
-            item.setData(Qt.UserRole, file_path)
-            self.exports_list.addItem(item)
-
-        self.reports_list.clear()
-        for file_path in record.reports:
-            item = QListWidgetItem(file_path.name)
-            item.setData(Qt.UserRole, file_path)
-            self.reports_list.addItem(item)
-
-    def _open_selected_item(self, item: QListWidgetItem) -> None:
-        path: Path = item.data(Qt.UserRole)
-        if path:
-            _open_in_file_browser(path)
-
-    def mark_status(self, status: str) -> None:
-        if not self.current_record:
-            return
-        if status not in STATUS_STYLES:
+    def onFileSelect(self, item):  # noqa: N802 - inherited public API
+        file_path_str = item.data(0, Qt.UserRole)
+        if not file_path_str:
+            self.plot_btn.setEnabled(False)
+            self.view_record_btn.setEnabled(False)
+            self.current_key = None
+            self.current_display_name = None
+            self._update_decision_controls(None)
             return
 
-        if self.current_record.status == status:
+        file_path = Path(file_path_str)
+        if file_path.suffix.lower() != ".set":
+            self.plot_btn.setEnabled(False)
+            self.view_record_btn.setEnabled(False)
+            self.current_key = None
+            self.current_display_name = None
+            self._update_decision_controls(None)
             return
 
-        self.current_record.status = status
-        self.current_record.last_updated = datetime.utcnow().isoformat(timespec="seconds")
-        row = self.row_lookup.get(self.current_record.base_name)
-        if row is not None:
-            status_item = self.table.item(row, 3)
-            if status_item:
-                status_item.setText(STATUS_STYLES[status]["label"])
-            self._apply_status_format(row, status)
+        self.selected_item = item
+        self.selected_file = file_path.name
+        self.selected_file_path = str(file_path)
+        self.plot_btn.setEnabled(True)
+        self.current_display_name = self._relative_path(file_path)
+        try:
+            self.current_run_id = self.getRunId(self.selected_file_path)
+            self.current_run_record = autoclean_review.get_run_record(self.current_run_id)
+            self.view_record_btn.setEnabled(True)
+        except Exception:
+            self.view_record_btn.setEnabled(False)
+            self.current_run_record = None
 
-        self.unsaved_changes = True
-        self.update_summary()
-        self.save_timer.start(1200)
+        self.current_key = self._record_key(file_path)
+        record = self.decisions.get(self.current_key)
+        self._update_decision_controls(record)
+        self._refresh_related_list(file_path)
+        if self.detail_panel is not None:
+            self.detail_panel.show()
+
+    def plotFile(self) -> None:  # noqa: N802 - inherited public API
+        super().plotFile()
+        if self.detail_panel is not None and self.detail_panel.isHidden():
+            self.detail_panel.show()
+        if self.detail_panel is not None:
+            # Ensure the detail panel sits underneath the plot widget
+            self.right_layout.removeWidget(self.detail_panel)
+            self.right_layout.addWidget(self.detail_panel)
+
+    def closePlot(self) -> None:  # noqa: N802 - inherited public API
+        super().closePlot()
+
+    # ------------------------------------------------------------------
+    # Decision management
+    # ------------------------------------------------------------------
+    def _set_status(self, status: str) -> None:
+        if not self.current_key or not hasattr(self, "selected_file_path"):
+            return
+
+        record = self.decisions.setdefault(
+            self.current_key,
+            {
+                "status": "UNSET",
+                "notes": "",
+                "relative_path": self._relative_path(Path(self.selected_file_path)),
+                "last_updated": "",
+            },
+        )
+        record["status"] = status
+        record["last_updated"] = _human_timestamp()
+        if self.notes_edit is not None:
+            record["notes"] = self.notes_edit.toPlainText().strip()
+
+        item = self.row_lookup.get(self.current_key)
+        if item is not None:
+            self._apply_status_to_item(item, status)
+
+        self._update_decision_controls(record)
+        self._update_summary()
+        self._schedule_save()
 
     def _handle_notes_changed(self) -> None:
-        if self._updating_notes:
+        if self._updating_notes or not self.current_key or self.notes_edit is None:
             return
-        if not self.current_record:
-            return
-        self.current_record.notes = self.notes_edit.toPlainText()
-        self.unsaved_changes = True
-        self.save_timer.start(1500)
+        record = self.decisions.setdefault(
+            self.current_key,
+            {
+                "status": "UNSET",
+                "notes": "",
+                "relative_path": self._relative_path(Path(self.selected_file_path)),
+                "last_updated": "",
+            },
+        )
+        record["notes"] = self.notes_edit.toPlainText().strip()
+        record["last_updated"] = _human_timestamp()
+        self._schedule_save()
 
-    def apply_filter(self, text: str) -> None:
-        text_lower = text.lower().strip()
-        for row, record in enumerate(self.records):
-            should_hide = False
-            if text_lower:
-                matches = (
-                    text_lower in record.base_name.lower()
-                    or text_lower in STATUS_STYLES[record.status]["label"].lower()
-                )
-                should_hide = not matches
-            self.table.setRowHidden(row, should_hide)
-
-    def goto_next(self) -> None:
-        if not self.records:
-            return
-        current_row = self.table.currentRow()
-        next_row = 0 if current_row == len(self.records) - 1 else current_row + 1
-        self.table.selectRow(next_row)
-
-    def goto_previous(self) -> None:
-        if not self.records:
-            return
-        current_row = self.table.currentRow()
-        previous_row = len(self.records) - 1 if current_row <= 0 else current_row - 1
-        self.table.selectRow(previous_row)
-
-    def update_summary(self) -> None:
-        self.status_counts = Counter(record.status for record in self.records)
-        total = len(self.records) or 1
-        for status_key, label in self.summary_labels.items():
-            count = self.status_counts.get(status_key, 0)
-            percent = int((count / total) * 100)
-            label.setText(f"{STATUS_STYLES[status_key]['label']}\n<b>{count}</b> ({percent}%)")
-            label.setStyleSheet(
-                f"font-size:14px; font-weight:600; color:{STATUS_STYLES[status_key]['color']};"
+    def _update_decision_controls(self, record: Optional[dict[str, str]]) -> None:
+        status = record.get("status") if record else "UNSET"
+        meta = STATUS_DEFINITIONS.get(status or "UNSET", STATUS_DEFINITIONS["UNSET"])
+        if self.status_label is not None:
+            self.status_label.setText(f"Status: {meta['label']}")
+            self.status_label.setStyleSheet(
+                f"font-weight: bold; color: {meta['color'] if status != 'UNSET' else '#2c3e50'}"
             )
-
-    def closeEvent(self, event) -> None:  # type: ignore[override]
-        if self.unsaved_changes:
-            self.save_decisions()
-        super().closeEvent(event)
-
-
-# ----------------------------------------------------------------------
-# CLI helpers
-# ----------------------------------------------------------------------
-
-
-def discover_default_exports_dir(user_supplied: Optional[str] = None) -> tuple[Optional[Path], Optional[Path]]:
-    """Best-effort discovery of the exports directory for the active task."""
-
-    manager = UserConfigManager()
-    exports_dir: Optional[Path] = None
-    task_root: Optional[Path] = None
-
-    if user_supplied:
-        supplied_path = Path(user_supplied).expanduser().resolve()
-        if supplied_path.is_dir():
-            if supplied_path.name == "exports":
-                exports_dir = supplied_path
-                task_root = supplied_path.parent
-            elif (supplied_path / "exports").is_dir():
-                task_root = supplied_path
-                exports_dir = supplied_path / "exports"
+        if self.current_file_label is not None:
+            if self.current_display_name:
+                self.current_file_label.setText(self.current_display_name)
             else:
-                exports_dir = supplied_path
-                if (exports_dir.parent / "reports").is_dir():
-                    task_root = exports_dir.parent
+                self.current_file_label.setText("No file selected")
+        if self.notes_edit is not None:
+            self._updating_notes = True
+            self.notes_edit.setPlainText(record.get("notes", "") if record else "")
+            self._updating_notes = False
 
-    if exports_dir and exports_dir.exists():
+    def _apply_status_to_item(self, item, status: str) -> None:
+        base_label = item.data(0, Qt.UserRole + 2) or item.text(0)
+        meta = STATUS_DEFINITIONS.get(status, STATUS_DEFINITIONS["UNSET"])
+        display = base_label
+        if status and status != "UNSET":
+            display = f"{base_label} [{meta['label']}]"
+        item.setText(0, display)
+        if status and status != "UNSET":
+            color = QColor(meta["color"])
+            color.setAlpha(60)
+            item.setBackground(0, color)
+        else:
+            item.setBackground(0, QColor())
+
+    def _update_summary(self) -> None:
+        counts = Counter({key: 0 for key in STATUS_DEFINITIONS})
+        for key in self.all_keys:
+            status = self.decisions.get(key, {}).get("status", "UNSET")
+            counts[status] += 1
+        if self.summary_table is not None:
+            for row, status in enumerate(STATUS_ORDER):
+                item = self.summary_table.item(row, 1)
+                if item is not None:
+                    item.setText(str(counts[status]))
+
+    # ------------------------------------------------------------------
+    # Related files + helpers
+    # ------------------------------------------------------------------
+    def _refresh_related_list(self, file_path: Path) -> None:
+        if self.related_list is None:
+            return
+        self.related_list.clear()
+        for related in self._gather_related_files(file_path):
+            item = QListWidgetItem(related.name)
+            item.setToolTip(str(related))
+            item.setData(Qt.UserRole, str(related))
+            self.related_list.addItem(item)
+
+    def _open_related_item(self, item: QListWidgetItem) -> None:
+        data = item.data(Qt.UserRole)
+        if data:
+            _open_path(Path(str(data)))
+
+    def _gather_related_files(self, file_path: Path) -> Iterable[Path]:
+        base_stem = file_path.stem
+        results: list[Path] = []
+
+        for sibling in sorted(file_path.parent.iterdir()):
+            if sibling == file_path:
+                continue
+            if sibling.name.startswith(base_stem):
+                results.append(sibling)
+
+        if self.task_root and self.task_root.exists():
+            reports_root = self.task_root / "reports"
+            if reports_root.exists():
+                for report in sorted(reports_root.rglob("*")):
+                    if report.is_file() and base_stem in report.stem:
+                        if report not in results and report != file_path:
+                            results.append(report)
+
+        return results
+
+    def _record_key(self, file_path: Path) -> str:
+        root = self.exports_dir or Path(self.current_dir or "")
+        try:
+            relative = file_path.resolve().relative_to(root.resolve())
+        except Exception:
+            relative = file_path.name
+            return str(Path(relative).with_suffix(""))
+        return str(Path(relative).with_suffix(""))
+
+    def _relative_path(self, file_path: Path) -> str:
+        root = self.exports_dir or Path(self.current_dir or "")
+        try:
+            return str(file_path.resolve().relative_to(root.resolve()))
+        except Exception:
+            return str(file_path.name)
+
+
+def determine_paths(args: argparse.Namespace) -> tuple[Path, Optional[Path]]:
+    """Infer exports/task directories from CLI arguments."""
+
+    if args.exports:
+        exports_dir = Path(args.exports).expanduser().resolve()
+        task_root: Optional[Path] = (
+            Path(args.task_root).expanduser().resolve()
+            if args.task_root
+            else exports_dir.parent
+        )
         return exports_dir, task_root
 
-    default_output = manager.get_default_output_dir()
-    active_task = manager.get_active_task()
+    if args.path:
+        candidate = Path(args.path).expanduser().resolve()
+        exports_candidate = candidate / "exports"
+        if exports_candidate.exists():
+            task_root = candidate
+            return exports_candidate, task_root
+        return candidate, candidate.parent if candidate.parent.exists() else None
 
-    candidate_dirs: List[Path] = []
-    if active_task:
-        candidate_dirs.append(default_output / active_task)
-
-    if default_output.exists():
-        subdirs = [p for p in default_output.iterdir() if p.is_dir()]
-        subdirs.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-        candidate_dirs.extend(subdirs)
-
-    for candidate in candidate_dirs:
-        if not candidate.exists():
-            continue
-        if (candidate / "exports").is_dir():
-            return candidate / "exports", candidate
-
-    if default_output.exists():
-        return default_output, default_output
-
-    return None, None
+    cwd = Path.cwd()
+    default_exports = cwd / "exports"
+    if default_exports.exists():
+        return default_exports, cwd
+    return cwd, cwd
 
 
-def run_autoclean_exclusion_tool(exports_dir: Optional[Path] = None, task_root: Optional[Path] = None) -> None:
-    """Entry point that creates the Qt application."""
+def run_autoclean_exclusion_tool(
+    exports_dir: Optional[Path] = None,
+    task_root: Optional[Path] = None,
+) -> None:
+    """Launch the Qt inclusion/exclusion helper."""
 
-    app = QApplication.instance() or QApplication(sys.argv)
-    app.setApplicationDisplayName("AutoClean EEG Exclusion Tool")
-    window = InclusionExclusionWindow(exports_dir=exports_dir, task_root=task_root)
-    window.show()
-    app.exec_()
+    app = QApplication(sys.argv)
+    window = ExclusionFileSelector(exports_dir=exports_dir, task_root=task_root)
+    window.setWindowTitle("Autoclean - Inclusion/Exclusion Review")
+    window.showMaximized()
+    if not app.styleSheet():
+        app.setStyleSheet("")
+    sys.exit(app.exec_())
 
 
-def main(argv: Optional[Iterable[str]] = None) -> None:
-    """Console entry point used by ``autocleaneeg-exclude``."""
-
+def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Launch the AutoClean EEG inclusion/exclusion helper. "
-            "Point to a task root or exports directory to preload recordings."
+            "Launch the Autoclean inclusion/exclusion review interface with the "
+            "full timeseries browser from autoclean_review."
         )
     )
     parser.add_argument(
         "path",
         nargs="?",
-        help="Optional task root or exports directory to review.",
+        help=(
+            "Optional path to a run folder or exports directory. Defaults to the "
+            "current working directory or ./exports if present."
+        ),
     )
-    args = parser.parse_args(list(argv) if argv is not None else None)
+    parser.add_argument(
+        "--exports",
+        help="Directly specify the exports directory to inspect.",
+    )
+    parser.add_argument(
+        "--task-root",
+        help="Optional task/run root directory so related reports can be listed.",
+    )
+    return parser.parse_args(argv)
 
-    exports_dir, task_root = discover_default_exports_dir(args.path)
 
-    if exports_dir is None:
-        print("Could not locate an exports directory. Launching without preload…")
-
+def main(argv: Optional[list[str]] = None) -> None:
+    args = parse_args(argv)
+    exports_dir, task_root = determine_paths(args)
+    if not exports_dir.exists():
+        raise SystemExit(f"Exports directory not found: {exports_dir}")
     run_autoclean_exclusion_tool(exports_dir, task_root)
 
 
-if __name__ == "__main__":  # pragma: no cover - manual launch helper
+if __name__ == "__main__":  # pragma: no cover - manual execution helper
     main()
-
