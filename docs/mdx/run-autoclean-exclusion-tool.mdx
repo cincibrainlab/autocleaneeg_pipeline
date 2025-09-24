@@ -1,0 +1,73 @@
+---
+title: AutoClean Exclusion Tool Run Log
+description: Duplicated the legacy Qt review helper into a standalone inclusion/exclusion GUI with a dedicated CLI entry point.
+---
+
+# AutoClean Exclusion Tool Run Log
+
+<Steps>
+  <Step title="Locate the baseline helper">
+    The existing <code>autoclean_review</code> Qt script lives in <code>src/autoclean/tools</code>. I reviewed its directory handling and dependency guards to understand how the original GUI bootstraps PyQt, fetches workspace paths, and renders long-running trees.
+  </Step>
+  <Step title="Build a dedicated inclusion/exclusion GUI">
+    I composed a fresh single-file Qt application called <code>autoclean_exclude.py</code>. It scans an exports directory, groups files by basename, pulls nearby reports, and lets reviewers classify each trace as <em>Pass</em>, <em>Fail</em>, or <em>Needs Review</em>. Keyboard shortcuts (P/F/R, Alt+←/→, Ctrl+S) keep navigation quick, while auto-save writes both JSON and CSV summaries.
+  </Step>
+  <Step title="Expose an easy CLI entry point">
+    A new console script <code>autocleaneeg-exclude</code> launches the GUI. It auto-discovers the current workspace exports directory (falling back to the active task or most recent run) but also accepts an explicit path. The tool shares the same optional <code>[gui]</code> extra dependencies as the legacy review window.
+  </Step>
+</Steps>
+
+## Interface at a Glance
+
+<Diagram name="High-level flow when the GUI launches">
+discover_default_exports_dir() -> heuristics using UserConfigManager
+  -> InclusionExclusionWindow(exports_dir, task_root)
+      -> scans exports & reports folders
+      -> groups files by basename
+      -> populates Qt table + detail panel
+      -> auto-saves JSON/CSV decisions on change
+CLI autocleaneeg-exclude -> main() -> run_autoclean_exclusion_tool()
+</Diagram>
+
+## How to Reproduce the Run Locally
+
+<Steps>
+  <Step title="Install GUI extras (first run only)">
+    <code>pip install autocleaneeg-pipeline[gui]</code>
+  </Step>
+  <Step title="Launch the tool">
+    <code>autocleaneeg-exclude</code><br />
+    The window auto-loads the newest exports directory. Use the folder picker if you want to point at a different task or dataset.
+  </Step>
+  <Step title="Classify recordings">
+    Select a row, hit <code>P</code>/<code>F</code>/<code>R</code> (or click the buttons), and jot notes if needed. Double-click any export or report file to open it in your OS viewer.
+  </Step>
+  <Step title="Review saved outputs">
+    The tool writes <code>autocleaneeg_exclusion_decisions.json</code> and <code>autocleaneeg_exclusion_summary.csv</code> beside the exports. Share those summaries with collaborators or rerun the tool to pick up where you left off.
+  </Step>
+</Steps>
+
+## Verification Checklist
+
+<Accordion>
+  <AccordionItem title="Smoke-test the CLI">
+    From a terminal, run <code>autocleaneeg-exclude --help</code> to confirm the entry point is installed. Launching the GUI without arguments should resolve your workspace automatically.
+  </AccordionItem>
+  <AccordionItem title="Point to a custom folder">
+    <code>autocleaneeg-exclude /path/to/task/root</code> or <code>autocleaneeg-exclude /path/to/task/exports</code> will preload that directory. Verify the status badges and counts update as you change classifications.
+  </AccordionItem>
+  <AccordionItem title="Inspect saved summaries">
+    After toggling a few statuses, ensure the JSON and CSV files appear in the exports directory with timestamps and per-record metadata.
+  </AccordionItem>
+</Accordion>
+
+## Notes & Considerations
+
+<Callout>
+  Auto-discovery leans on <code>UserConfigManager</code> heuristics: if a dataset used a custom <code>dataset_name</code> instead of the task name, the tool picks the most recently modified directory under the workspace output. Users can always override it via the folder picker or CLI argument.
+</Callout>
+
+<Note>
+  The GUI avoids embedding heavy waveform viewers to keep the script portable; it shells out to the OS for opening exports or PDFs. Labs that need inline previews can extend the single file by borrowing snippets from <code>autoclean_review.py</code>.
+</Note>
+
