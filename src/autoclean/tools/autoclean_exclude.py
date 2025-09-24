@@ -336,12 +336,13 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 color: #64748b;
                 font-style: italic;
             }
-            QGroupBox#decisionSummaryGroup {
+            #decisionSummaryGroup {
                 background-color: #f8fafc;
-                border: 1px solid #d9e2ec;
-                border-radius: 10px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                
             }
-            QGroupBox#decisionSummaryGroup:title {
+            #decisionSummaryGroup:title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 4px 8px;
@@ -351,12 +352,29 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 text-transform: uppercase;
                 letter-spacing: 0.6px;
             }
-            QGroupBox#decisionNotesGroup {
+            #decisionNotesGroup {
                 background-color: #ffffff;
-                border: 1px solid #d9e2ec;
-                border-radius: 10px;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                
             }
-            QGroupBox#decisionNotesGroup:title {
+            #decisionNotesGroup:title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 4px 8px;
+                font-size: 12px;
+                font-weight: 700;
+                color: #51606f;
+                text-transform: uppercase;
+                letter-spacing: 0.6px;
+            }
+            #decisionRelatedGroup {
+                background-color: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                
+            }
+            #decisionRelatedGroup:title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
                 padding: 4px 8px;
@@ -369,7 +387,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             #decisionEmptyState {
                 background-color: #f8fafc;
                 border: 1px dashed #d0d7e2;
-                border-radius: 10px;
+                border-radius: 6px;
+                padding: 10px;
             }
             #decisionEmptyTitle {
                 font-size: 13px;
@@ -392,15 +411,15 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         summary_group = QGroupBox("Summary")
         summary_group.setObjectName("decisionSummaryGroup")
         summary_layout = QVBoxLayout()
-        summary_layout.setContentsMargins(12, 12, 12, 12)
-        summary_layout.setSpacing(6)
+        summary_layout.setContentsMargins(2, 4, 2, 4)
+        summary_layout.setSpacing(4)
         self.summary_table = QTableWidget(len(STATUS_ORDER), 2)
         self.summary_table.setHorizontalHeaderLabels(["Status", "Count"])
         self.summary_table.verticalHeader().setVisible(False)
         self.summary_table.horizontalHeader().setStretchLastSection(True)
         self.summary_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.summary_table.setSelectionMode(QTableWidget.NoSelection)
-        self.summary_table.setMinimumWidth(180)
+        self.summary_table.setMinimumWidth(150)
         for row, status in enumerate(STATUS_ORDER):
             meta = STATUS_DEFINITIONS[status]
             status_item = QTableWidgetItem(meta["label"])
@@ -415,6 +434,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         summary_layout.addStretch(1)
         summary_group.setLayout(summary_layout)
         summary_group.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        summary_group.setMinimumWidth(180)
         self.summary_group = summary_group
 
         # Detail panel (notes + related exports)
@@ -425,8 +445,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         notes_group.setObjectName("decisionNotesGroup")
         notes_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         notes_layout = QVBoxLayout()
-        notes_layout.setContentsMargins(12, 12, 12, 12)
-        notes_layout.setSpacing(8)
+        notes_layout.setContentsMargins(4, 6, 4, 6)
+        notes_layout.setSpacing(6)
         self.notes_edit = QTextEdit()
         self.notes_edit.setPlaceholderText(
             "Summarize observations, reasons for exclusion, or follow-up items."
@@ -436,20 +456,24 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         notes_layout.addWidget(self.notes_edit)
         notes_group.setLayout(notes_layout)
 
-        info_row = QHBoxLayout()
-        info_row.setContentsMargins(0, 0, 0, 0)
-        info_row.setSpacing(16)
-        info_row.addWidget(self.summary_group)
-        info_row.addWidget(notes_group, 1)
-        detail_layout.addLayout(info_row)
-
         related_group = QGroupBox("Related Exports & Reports")
+        related_group.setObjectName("decisionRelatedGroup")
+        related_group.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+        related_group.setMinimumWidth(210)
         related_layout = QVBoxLayout()
         self.related_list = QListWidget()
         self.related_list.itemActivated.connect(self._open_related_item)
+        self.related_list.setMinimumHeight(150)
         related_layout.addWidget(self.related_list)
         related_group.setLayout(related_layout)
-        detail_layout.addWidget(related_group)
+
+        info_row = QHBoxLayout()
+        info_row.setContentsMargins(0, 0, 0, 0)
+        info_row.setSpacing(8)
+        info_row.addWidget(self.summary_group)
+        info_row.addWidget(notes_group, 1)
+        info_row.addWidget(related_group)
+        detail_layout.addLayout(info_row)
         detail_layout.addStretch(1)
 
         self.detail_panel.setLayout(detail_layout)
