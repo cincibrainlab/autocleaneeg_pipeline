@@ -57,6 +57,7 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QShortcut,
     QSizePolicy,
     QStackedLayout,
+    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -124,7 +125,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.summary_table: Optional[QTableWidget] = None
         self.notes_edit: Optional[QTextEdit] = None
         self.related_list: Optional[QListWidget] = None
-        self.detail_panel: Optional[QWidget] = None
+        self.detail_panel: Optional[QFrame] = None
         self.save_timer: Optional[QTimer] = None
         self._status_buttons: dict[str, QPushButton] = {}
         self._clear_button: Optional[QPushButton] = None
@@ -162,8 +163,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         decision_card = QFrame()
         decision_card.setObjectName("decisionCard")
         decision_layout = QVBoxLayout()
-        decision_layout.setContentsMargins(18, 18, 18, 18)
-        decision_layout.setSpacing(14)
+        decision_layout.setContentsMargins(14, 14, 14, 14)
+        decision_layout.setSpacing(12)
         decision_card.setLayout(decision_layout)
 
         header_row = QHBoxLayout()
@@ -200,7 +201,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             btn = QPushButton(meta["label"])
             btn.setCursor(Qt.PointingHandCursor)
             btn.setCheckable(True)
-            btn.setMinimumHeight(34)
+            btn.setMinimumHeight(32)
             btn.setToolTip(
                 f"Mark the selection as {meta['label']}. Shortcut: {meta['shortcut']}"
             )
@@ -217,7 +218,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         clear_btn = QPushButton("Clear")
         clear_btn.setObjectName("decisionClearButton")
         clear_btn.setCursor(Qt.PointingHandCursor)
-        clear_btn.setMinimumHeight(34)
+        clear_btn.setMinimumHeight(32)
         clear_btn.setToolTip("Reset decision to Not Started. Shortcut: C")
         clear_btn.clicked.connect(partial(self._set_status, "UNSET"))
         self._clear_button = clear_btn
@@ -280,7 +281,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 border-radius: 12px;
             }
             #decisionHeader {
-                font-size: 13px;
+                font-size: 12px;
                 text-transform: uppercase;
                 letter-spacing: 0.8px;
                 color: #51606f;
@@ -291,8 +292,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 font-weight: 600;
             }
             #decisionStatusChip {
-                padding: 4px 12px;
-                border-radius: 12px;
+                padding: 3px 10px;
+                border-radius: 10px;
                 font-weight: 600;
                 background-color: #edf2f7;
                 color: #5b6c7c;
@@ -330,59 +331,102 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             }
             #decisionShortcutHint {
                 color: #64748b;
-                font-size: 12px;
+                font-size: 11px;
             }
             #decisionSaveLabel {
                 color: #64748b;
                 font-style: italic;
             }
+            #decisionInfoPanel {
+                background-color: transparent;
+                border: none;
+            }
+            #decisionInfoPanel QLabel {
+                color: #1f2933;
+                font-size: 12px;
+            }
+            #decisionInfoPanel QTextEdit {
+                background-color: #ffffff;
+                color: #1f2933;
+                border: 1px solid #d7e0ed;
+                border-radius: 6px;
+            }
+            #decisionInfoPanel QListWidget {
+                background-color: #ffffff;
+                color: #1f2933;
+                border: 1px solid #d7e0ed;
+                border-radius: 6px;
+            }
             #decisionSummaryGroup {
                 background-color: #f8fafc;
-                border: 1px solid #e2e8f0;
+                border: 1px solid #dde4ef;
                 border-radius: 6px;
-                
+                padding: 4px 6px;
             }
             #decisionSummaryGroup:title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
-                padding: 4px 8px;
-                font-size: 12px;
+                padding: 2px 6px;
+                font-size: 11px;
                 font-weight: 700;
                 color: #51606f;
                 text-transform: uppercase;
-                letter-spacing: 0.6px;
+                letter-spacing: 0.4px;
             }
             #decisionNotesGroup {
                 background-color: #ffffff;
-                border: 1px solid #e2e8f0;
+                border: 1px solid #dde4ef;
                 border-radius: 6px;
-                
+                padding: 4px 6px;
             }
             #decisionNotesGroup:title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
-                padding: 4px 8px;
-                font-size: 12px;
+                padding: 2px 6px;
+                font-size: 11px;
                 font-weight: 700;
                 color: #51606f;
                 text-transform: uppercase;
-                letter-spacing: 0.6px;
+                letter-spacing: 0.4px;
             }
             #decisionRelatedGroup {
                 background-color: #ffffff;
-                border: 1px solid #e2e8f0;
+                border: 1px solid #dde4ef;
                 border-radius: 6px;
-                
+                padding: 4px 6px;
             }
             #decisionRelatedGroup:title {
                 subcontrol-origin: margin;
                 subcontrol-position: top left;
-                padding: 4px 8px;
-                font-size: 12px;
+                padding: 2px 6px;
+                font-size: 11px;
                 font-weight: 700;
                 color: #51606f;
                 text-transform: uppercase;
-                letter-spacing: 0.6px;
+                letter-spacing: 0.4px;
+            }
+            QTabWidget#decisionInfoTabs::pane {
+                border: none;
+                margin-top: -4px;
+            }
+            QTabWidget#decisionInfoTabs QTabBar::tab {
+                background-color: transparent;
+                border: 1px solid transparent;
+                border-bottom: none;
+                padding: 4px 10px;
+                margin-right: 6px;
+                color: #5b6c7c;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            QTabWidget#decisionInfoTabs QTabBar::tab:selected {
+                border-color: #a5b9d5;
+                background-color: #eef3ff;
+                color: #1f2d3d;
+                border-radius: 6px 6px 0 0;
+            }
+            QTabWidget#decisionInfoTabs QTabBar::tab:hover {
+                color: #1a56db;
             }
             #decisionEmptyState {
                 background-color: #f8fafc;
@@ -411,7 +455,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         summary_group = QGroupBox("Summary")
         summary_group.setObjectName("decisionSummaryGroup")
         summary_layout = QVBoxLayout()
-        summary_layout.setContentsMargins(2, 4, 2, 4)
+        summary_layout.setContentsMargins(4, 6, 4, 6)
         summary_layout.setSpacing(4)
         self.summary_table = QTableWidget(len(STATUS_ORDER), 2)
         self.summary_table.setHorizontalHeaderLabels(["Status", "Count"])
@@ -420,6 +464,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.summary_table.setEditTriggers(QTableWidget.NoEditTriggers)
         self.summary_table.setSelectionMode(QTableWidget.NoSelection)
         self.summary_table.setMinimumWidth(150)
+        self.summary_table.setStyleSheet("font-size: 12px;")
+        self.summary_table.verticalHeader().setDefaultSectionSize(22)
+        self.summary_table.horizontalHeader().setFixedHeight(22)
         for row, status in enumerate(STATUS_ORDER):
             meta = STATUS_DEFINITIONS[status]
             status_item = QTableWidgetItem(meta["label"])
@@ -433,54 +480,73 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         summary_layout.addWidget(self.summary_table)
         summary_layout.addStretch(1)
         summary_group.setLayout(summary_layout)
-        summary_group.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        summary_group.setMinimumWidth(180)
+        summary_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        summary_group.setMinimumHeight(120)
         self.summary_group = summary_group
 
         # Detail panel (notes + related exports)
-        self.detail_panel = QWidget()
+        self.detail_panel = QFrame()
+        self.detail_panel.setObjectName("decisionInfoPanel")
+        self.detail_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         detail_layout = QVBoxLayout()
-        detail_layout.setContentsMargins(0, 0, 0, 0)
-        detail_layout.setSpacing(6)
+        detail_layout.setContentsMargins(0, 8, 0, 0)
+        detail_layout.setSpacing(10)
 
-        notes_group = QGroupBox("Reviewer Notes")
+        notes_group = QGroupBox("Notes")
         notes_group.setObjectName("decisionNotesGroup")
         notes_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
         notes_layout = QVBoxLayout()
         notes_layout.setContentsMargins(4, 6, 4, 6)
-        notes_layout.setSpacing(6)
+        notes_layout.setSpacing(4)
         self.notes_edit = QTextEdit()
         self.notes_edit.setPlaceholderText(
             "Summarize observations, reasons for exclusion, or follow-up items."
         )
-        self.notes_edit.setMinimumHeight(140)
+        self.notes_edit.setMinimumHeight(110)
         self.notes_edit.textChanged.connect(self._handle_notes_changed)
+        self.notes_edit.setStyleSheet("font-size: 12px;")
         notes_layout.addWidget(self.notes_edit)
         notes_group.setLayout(notes_layout)
 
-        related_group = QGroupBox("Related Exports & Reports")
+        related_group = QGroupBox("Related")
         related_group.setObjectName("decisionRelatedGroup")
-        related_group.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
-        related_group.setMinimumWidth(210)
+        related_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        related_group.setMinimumHeight(120)
         related_layout = QVBoxLayout()
+        related_layout.setContentsMargins(4, 6, 4, 6)
+        related_layout.setSpacing(4)
         self.related_list = QListWidget()
         self.related_list.itemActivated.connect(self._open_related_item)
-        self.related_list.setMinimumHeight(150)
+        self.related_list.setMinimumHeight(110)
+        self.related_list.setStyleSheet("font-size: 12px;")
         related_layout.addWidget(self.related_list)
         related_group.setLayout(related_layout)
 
-        info_row = QHBoxLayout()
-        info_row.setContentsMargins(0, 0, 0, 0)
-        info_row.setSpacing(8)
-        info_row.addWidget(self.summary_group)
-        info_row.addWidget(notes_group, 1)
-        info_row.addWidget(related_group)
-        detail_layout.addLayout(info_row)
+        detail_tabs = QTabWidget()
+        detail_tabs.setObjectName("decisionInfoTabs")
+        detail_tabs.setTabPosition(QTabWidget.North)
+        detail_tabs.setElideMode(Qt.ElideRight)
+        detail_tabs.setDocumentMode(True)
+        detail_tabs.setFocusPolicy(Qt.NoFocus)
+        detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+
+        detail_tabs.addTab(self.summary_group, "Summary")
+        detail_tabs.addTab(notes_group, "Notes")
+        detail_tabs.addTab(related_group, "Related")
+
+        detail_layout.addWidget(detail_tabs)
         detail_layout.addStretch(1)
 
         self.detail_panel.setLayout(detail_layout)
         self.detail_panel.hide()
-        self.right_layout.addWidget(self.detail_panel)
+
+        action_bar = self.exit_btn.parentWidget() if hasattr(self, "exit_btn") else None
+        insert_index = self.left_layout.count()
+        if action_bar is not None:
+            idx = self.left_layout.indexOf(action_bar)
+            if idx != -1:
+                insert_index = idx
+        self.left_layout.insertWidget(insert_index, self.detail_panel)
 
     def _modify_top_buttons(self) -> None:
         """Replace the default directory buttons with a polished toolbar."""
@@ -709,6 +775,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self.current_key = None
             self.current_display_name = None
             self._update_decision_controls(None)
+            if self.detail_panel is not None:
+                self.detail_panel.hide()
             return
 
         file_path = Path(file_path_str)
@@ -718,6 +786,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self.current_key = None
             self.current_display_name = None
             self._update_decision_controls(None)
+            if self.detail_panel is not None:
+                self.detail_panel.hide()
             return
 
         previous_plot = getattr(self, "_plotted_file_path", None)
@@ -759,10 +829,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         super().plotFile()
         if self.detail_panel is not None and self.detail_panel.isHidden():
             self.detail_panel.show()
-        if self.detail_panel is not None:
-            # Ensure the detail panel sits underneath the plot widget
-            self.right_layout.removeWidget(self.detail_panel)
-            self.right_layout.addWidget(self.detail_panel)
         self._current_plot_path = getattr(self, "selected_file_path", None)
 
     def closePlot(self) -> None:  # noqa: N802 - inherited public API
