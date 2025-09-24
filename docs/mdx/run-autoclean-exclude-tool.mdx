@@ -1,0 +1,71 @@
+---
+title: Autoclean Exclude Tool Run Log
+description: Turning the legacy review helper into a pass/fail triage GUI with keyboard shortcuts and export-aware previews.
+---
+
+# Autoclean Exclude Tool Run Log
+
+<Steps>
+  <Step title="Objective">
+    Re-purpose the existing Qt review helper so that analysts can walk exports, mark them as <strong>PASS</strong>, <strong>FAIL</strong>, or <strong>REVIEW</strong>, and keep those tallies alongside attachments such as reports and QA images.
+  </Step>
+  <Step title="Approach">
+    <ul>
+      <li>Cloned the review window into <code>src/autoclean/tools/autoclean_exclude.py</code> and simplified the workflow around a single exports list, decision buttons, and notes.</li>
+      <li>Added discovery utilities that automatically surface the active task and exports folders when the tool launches (or when the user selects a new root directory).</li>
+      <li>Built an attachments panel that finds PDFs, images, and JSON/HTML sidecars matching the export basename so reviewers can preview reports inline.</li>
+      <li>Recorded all choices to <code>autoclean_exclusion_decisions.csv</code> and exposed a new CLI entry point named <code>autocleaneeg-exclude</code>.</li>
+    </ul>
+  </Step>
+  <Step title="Verification">
+    <ol>
+      <li>Ran <code>python -m compileall src/autoclean/tools/autoclean_exclude.py</code> to confirm syntax correctness.</li>
+      <li>Invoked <code>autocleaneeg-exclude</code> with a temporary directory to confirm the GUI starts, defaults to the detected exports folder, and saves a CSV when statuses are toggled.</li>
+      <li>Used <code>pytest</code> to ensure core pipeline checks continue to pass.</li>
+    </ol>
+  </Step>
+</Steps>
+
+## Layout Walkthrough
+
+<Diagram name="Window anatomy">
+Exports list (left)
+  -> keyboard shortcuts P / F / R update highlighted row
+  -> Tab / Shift+Tab navigate through files
+Decision & notes panel (center)
+  -> buttons mirror shortcuts and persist notes asynchronously
+Attachments & preview (right)
+  -> double-click opens system viewer
+  -> first PDF/image renders inline for quick inspection
+</Diagram>
+
+## How to Re-run and Validate
+
+<Steps>
+  <Step title="Launch the GUI">
+    <ol>
+      <li>Ensure GUI extras are installed: <code>pip install autocleaneeg-pipeline[gui]</code>.</li>
+      <li>From an autoclean output directory run <code>autocleaneeg-exclude</code>; the tool auto-detects the exports folder or lets you pick one.</li>
+    </ol>
+  </Step>
+  <Step title="Triage exports">
+    <ul>
+      <li>Select files with Tab / Shift+Tab and press <kbd>P</kbd>, <kbd>F</kbd>, or <kbd>R</kbd> to categorize.</li>
+      <li>Add optional notes; the tool auto-saves into <code>autoclean_exclusion_decisions.csv</code>.</li>
+      <li>Preview PDF/image reports in the right panel or double-click attachments to open them externally.</li>
+    </ul>
+  </Step>
+  <Step title="Verify persistence">
+    <ol>
+      <li>Close the window and reopen it; decisions and notes reload from the CSV.</li>
+      <li>Inspect the CSV to integrate with downstream inclusion/exclusion workflows.</li>
+    </ol>
+  </Step>
+</Steps>
+
+## Concerns & Mitigations
+
+<Note>
+The attachment crawler walks the selected directory tree while skipping common virtual-environment folders. Large directories with many unrelated assets could still slow startup; if that becomes an issue we can add extension filters or explicit include paths in a follow-up.
+</Note>
+
