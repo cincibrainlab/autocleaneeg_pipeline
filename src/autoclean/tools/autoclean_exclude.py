@@ -56,6 +56,7 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QPushButton,
     QShortcut,
     QSizePolicy,
+    QStackedLayout,
     QTableWidget,
     QTableWidgetItem,
     QTextEdit,
@@ -127,6 +128,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.save_timer: Optional[QTimer] = None
         self._status_buttons: dict[str, QPushButton] = {}
         self._clear_button: Optional[QPushButton] = None
+        self._decision_stack: Optional[QStackedLayout] = None
 
         self._updating_notes = False
 
@@ -224,16 +226,50 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         clear_shortcut.activated.connect(partial(self._set_status, "UNSET"))
         self._shortcuts["CLEAR"] = clear_shortcut
 
-        decision_layout.addWidget(button_container)
-
         shortcut_hint = QLabel("Shortcuts: P Pass • F Fail • R Needs Review • C Clear")
         shortcut_hint.setObjectName("decisionShortcutHint")
         shortcut_hint.setWordWrap(True)
-        decision_layout.addWidget(shortcut_hint)
 
         self.save_state_label = QLabel("Select a file to assign a decision.")
         self.save_state_label.setObjectName("decisionSaveLabel")
-        decision_layout.addWidget(self.save_state_label)
+
+        actions_widget = QWidget()
+        actions_layout = QVBoxLayout()
+        actions_layout.setContentsMargins(0, 4, 0, 0)
+        actions_layout.setSpacing(12)
+        actions_widget.setLayout(actions_layout)
+        actions_layout.addWidget(button_container)
+        actions_layout.addWidget(shortcut_hint)
+        actions_layout.addWidget(self.save_state_label)
+
+        empty_widget = QFrame()
+        empty_widget.setObjectName("decisionEmptyState")
+        empty_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        empty_layout = QVBoxLayout()
+        empty_layout.setContentsMargins(0, 8, 0, 8)
+        empty_layout.setSpacing(6)
+        empty_widget.setLayout(empty_layout)
+        empty_layout.addStretch(1)
+        empty_title = QLabel("Waiting for a selection")
+        empty_title.setObjectName("decisionEmptyTitle")
+        empty_title.setAlignment(Qt.AlignCenter)
+        empty_layout.addWidget(empty_title)
+        empty_body = QLabel(
+            "Pick an export on the left to assign Pass, Fail, or Needs Review decisions."
+        )
+        empty_body.setObjectName("decisionEmptyBody")
+        empty_body.setAlignment(Qt.AlignCenter)
+        empty_body.setWordWrap(True)
+        empty_layout.addWidget(empty_body)
+        empty_layout.addStretch(1)
+
+        self._decision_stack = QStackedLayout()
+        self._decision_stack.setContentsMargins(0, 0, 0, 0)
+        self._decision_stack.setSpacing(0)
+        self._decision_stack.addWidget(empty_widget)
+        self._decision_stack.addWidget(actions_widget)
+        self._decision_stack.setCurrentIndex(0)
+        decision_layout.addLayout(self._decision_stack)
 
         decision_card.setStyleSheet(
             """
@@ -298,6 +334,20 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             #decisionSaveLabel {
                 color: #64748b;
                 font-style: italic;
+            }
+            #decisionEmptyState {
+                background-color: #f8fafc;
+                border: 1px dashed #d0d7e2;
+                border-radius: 10px;
+            }
+            #decisionEmptyTitle {
+                font-size: 13px;
+                font-weight: 700;
+                color: #52606d;
+            }
+            #decisionEmptyBody {
+                color: #7b8794;
+                font-size: 12px;
             }
             """
         )
@@ -678,6 +728,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         status = record.get("status") if record else "UNSET"
         meta = STATUS_DEFINITIONS.get(status or "UNSET", STATUS_DEFINITIONS["UNSET"])
         has_selection = self.current_key is not None
+
+        if self._decision_stack is not None:
+            self._decision_stack.setCurrentIndex(1 if has_selection else 0)
 
         if self.status_label is not None:
             display_label = meta["label"] if status and status != "UNSET" else "Not Started"
