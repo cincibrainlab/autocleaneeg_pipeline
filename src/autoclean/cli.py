@@ -495,6 +495,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("📁\u00a0 input", "Manage active input path"),
         ("▶\u00a0 process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
+        ("🚫 exclude", "Start inclusion/exclusion GUI"),
         ("🔐 auth", "Authentication & Part-11 commands"),
     ]
     for c, d in rows:
@@ -583,6 +584,7 @@ Basic Usage:
   autocleaneeg-pipeline process ica                     # Apply ICA control sheet edits
   autocleaneeg-pipeline task list                      # Show available tasks
   autocleaneeg-pipeline review                         # Start review GUI
+  autocleaneeg-pipeline exclude [path]                 # Start inclusion/exclusion GUI
 
 Active Task (Simplified Workflow):
   autocleaneeg-pipeline task set                       # Select active task interactively
@@ -735,6 +737,33 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         type=Path,
         required=False,  # Changed from required=True to required=False
         help="AutoClean output directory to review (default: workspace/output)",
+    )
+
+    # Exclude command (GUI inclusion/exclusion helper)
+    exclude_parser = subparsers.add_parser(
+        "exclude", help="Start inclusion/exclusion GUI", add_help=False
+    )
+    attach_rich_help(exclude_parser)
+    # Keep arguments aligned with the standalone helper for familiarity
+    exclude_parser.add_argument(
+        "path",
+        nargs="?",
+        type=Path,
+        help=(
+            "Optional path to a run folder or exports directory. Defaults to CWD, "
+            "or ./exports if present."
+        ),
+    )
+    exclude_parser.add_argument(
+        "--exports",
+        type=Path,
+        help="Directly specify the exports directory to inspect.",
+    )
+    exclude_parser.add_argument(
+        "--task-root",
+        type=Path,
+        dest="task_root",
+        help="Optional task/run root directory so related reports can be listed.",
     )
 
     # Task management commands
@@ -1694,6 +1723,19 @@ def validate_args(args) -> bool:
             message("error", f"Output directory does not exist: {args.output}")
             return False
 
+    elif args.command == "exclude":
+        # Pre-resolve paths and validate if user provided an explicit target
+        try:
+            exports_dir, _task_root = _resolve_exclude_paths(args)
+            # Only hard-fail early if the user specified a target that doesn't exist
+            if getattr(args, "exports", None) or getattr(args, "path", None):
+                if not exports_dir.exists():
+                    message("error", f"Exports directory does not exist: {exports_dir}")
+                    return False
+        except Exception:
+            # Fallback to runtime validation
+            pass
+
     return True
 
 
@@ -2090,6 +2132,61 @@ def cmd_review(args) -> int:
         message("error", f"Failed to start review GUI: {str(e)}")
         return 1
 
+
+def _resolve_exclude_paths(args) -> tuple[Path, Optional[Path]]:
+    """Resolve exports and task root paths for the exclude GUI.
+
+    Mirrors the logic in autoclean.tools.autoclean_exclude.determine_paths but
+    kept inline to avoid importing GUI deps at module import time.
+    """
+    # --exports takes precedence
+    if getattr(args, "exports", None):
+        exports_dir = Path(args.exports).expanduser().resolve()
+        task_root = (
+            Path(args.task_root).expanduser().resolve()
+            if getattr(args, "task_root", None)
+            else exports_dir.parent
+        )
+        return exports_dir, task_root
+
+    # Positional path can be a run folder or an exports folder
+    if getattr(args, "path", None):
+        candidate = Path(args.path).expanduser().resolve()
+        exports_candidate = candidate / "exports"
+        if exports_candidate.exists():
+            return exports_candidate, candidate
+        return candidate, candidate.parent if candidate.parent.exists() else None
+
+    # Default: prefer ./exports if present, otherwise current working directory
+    cwd = Path.cwd()
+    default_exports = cwd / "exports"
+    if default_exports.exists():
+        return default_exports, cwd
+    return cwd, cwd
+
+
+def cmd_exclude(args) -> int:
+    """Launch the inclusion/exclusion GUI via CLI command."""
+    try:
+        exports_dir, task_root = _resolve_exclude_paths(args)
+        if not exports_dir.exists():
+            message("error", f"Exports directory not found: {exports_dir}")
+            return 1
+
+        # Import lazily to avoid requiring GUI deps for non-GUI commands
+        from autoclean.tools.autoclean_exclude import (
+            run_autoclean_exclusion_tool,
+        )
+
+        message("info", f"Starting exclusion GUI at: {exports_dir}")
+        run_autoclean_exclusion_tool(exports_dir=exports_dir, task_root=task_root)
+        return 0
+    except SystemExit as e:
+        # Propagate exit codes from the underlying tool cleanly
+        return int(getattr(e, "code", 1) or 0)
+    except Exception as e:
+        message("error", f"Failed to start exclusion GUI: {str(e)}")
+        return 1
 
 def cmd_workspace(args) -> int:
     """Workspace command dispatcher and helpers."""
@@ -6130,6 +6227,8 @@ def main(argv: Optional[list] = None) -> int:
         return _finish(cmd_list_tasks(args))
     elif args.command == "review":
         return _finish(cmd_review(args))
+    elif args.command == "exclude":
+        return _finish(cmd_exclude(args))
     elif args.command == "task":
         return _finish(cmd_task(args))
     elif args.command == "input":
