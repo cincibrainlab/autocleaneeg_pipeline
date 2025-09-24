@@ -129,6 +129,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self._status_buttons: dict[str, QPushButton] = {}
         self._clear_button: Optional[QPushButton] = None
         self._decision_stack: Optional[QStackedLayout] = None
+        self._current_plot_path: Optional[str] = None
 
         self._updating_notes = False
 
@@ -667,6 +668,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if self.detail_panel is not None:
             self.detail_panel.show()
 
+        if self.plot_widget is None or self._current_plot_path != self.selected_file_path:
+            self.plotFile()
+
     def plotFile(self) -> None:  # noqa: N802 - inherited public API
         super().plotFile()
         if self.detail_panel is not None and self.detail_panel.isHidden():
@@ -675,9 +679,11 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             # Ensure the detail panel sits underneath the plot widget
             self.right_layout.removeWidget(self.detail_panel)
             self.right_layout.addWidget(self.detail_panel)
+        self._current_plot_path = getattr(self, "selected_file_path", None)
 
     def closePlot(self) -> None:  # noqa: N802 - inherited public API
         super().closePlot()
+        self._current_plot_path = None
 
     # ------------------------------------------------------------------
     # Decision management
