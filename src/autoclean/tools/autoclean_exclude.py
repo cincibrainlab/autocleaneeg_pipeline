@@ -440,6 +440,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         # Detail panel (notes + related exports)
         self.detail_panel = QWidget()
         detail_layout = QVBoxLayout()
+        detail_layout.setContentsMargins(0, 0, 0, 0)
+        detail_layout.setSpacing(6)
 
         notes_group = QGroupBox("Reviewer Notes")
         notes_group.setObjectName("decisionNotesGroup")
