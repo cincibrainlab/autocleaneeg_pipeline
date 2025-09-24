@@ -17,7 +17,7 @@ import scipy.io as sio
 from dotenv import load_dotenv
 from PyQt5.Qt import *  # noqa: F403
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QColor, QPalette
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
@@ -179,6 +179,7 @@ class FileSelector(QWidget):
         self._plot_is_raw = False
         self._auto_saving_epochs = False
 
+        self.setObjectName("autocleanRoot")
         self._apply_global_theme()
         self.initUI()
 
@@ -362,7 +363,26 @@ class FileSelector(QWidget):
         self.setWindowState(Qt.WindowMaximized)
 
     def _apply_global_theme(self) -> None:
+        palette = self.palette()
+        palette.setColor(QPalette.Window, QColor("#f5f7fb"))
+        palette.setColor(QPalette.Base, QColor("#ffffff"))
+        palette.setColor(QPalette.AlternateBase, QColor("#eef2f8"))
+        palette.setColor(QPalette.Button, QColor("#ffffff"))
+        palette.setColor(QPalette.ButtonText, QColor("#1f2933"))
+        palette.setColor(QPalette.WindowText, QColor("#1f2933"))
+        palette.setColor(QPalette.Text, QColor("#1f2933"))
+        palette.setColor(QPalette.Highlight, QColor("#cce0ff"))
+        palette.setColor(QPalette.HighlightedText, QColor("#0b3d91"))
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
+
         palette_css = """
+        #autocleanRoot {
+            background-color: #f5f7fb;
+            color: #1f2933;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            font-size: 13px;
+        }
         #navigationPanel {
             background-color: #eef2f8;
             border-right: 1px solid #d7e0ed;
@@ -425,6 +445,9 @@ class FileSelector(QWidget):
             border-radius: 10px;
             padding: 6px;
         }
+        #navigationPanel QTreeWidget::item {
+            color: #1f2933;
+        }
         #navigationPanel QTreeWidget::item:selected {
             background-color: #e3ecff;
             color: #0b3d91;
@@ -459,6 +482,7 @@ class FileSelector(QWidget):
         QStatusBar {
             background-color: #ffffff;
             border-top: 1px solid #d7e0ed;
+            color: #1f2933;
         }
         """
 
