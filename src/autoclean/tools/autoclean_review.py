@@ -1358,6 +1358,22 @@ class FileSelector(QWidget):
 
 def run_autoclean_review(autoclean_dir):
     app = QApplication(sys.argv)
+    try:
+        app.setStyle("Fusion")
+    except Exception:
+        pass
+    # Global light palette to avoid OS dark mode bleed-through
+    pal = app.palette()
+    pal.setColor(QPalette.Window, QColor("#f7f9fc"))
+    pal.setColor(QPalette.Base, QColor("#ffffff"))
+    pal.setColor(QPalette.AlternateBase, QColor("#f1f5ff"))
+    pal.setColor(QPalette.Text, QColor("#1f2933"))
+    pal.setColor(QPalette.WindowText, QColor("#1f2933"))
+    pal.setColor(QPalette.Button, QColor("#ffffff"))
+    pal.setColor(QPalette.ButtonText, QColor("#1f2933"))
+    pal.setColor(QPalette.Highlight, QColor("#cde3ff"))
+    pal.setColor(QPalette.HighlightedText, QColor("#0b3d91"))
+    app.setPalette(pal)
     app.setStyleSheet("")
     window = FileSelector(autoclean_dir)
     window.showMaximized()  # Start the application maximized instead of normal size
