@@ -2157,7 +2157,19 @@ def _resolve_exclude_paths(args) -> tuple[Path, Optional[Path]]:
             return exports_candidate, candidate
         return candidate, candidate.parent if candidate.parent.exists() else None
 
-    # Default: prefer ./exports if present, otherwise current working directory
+    # Default: prefer most recent task exports in workspace, then ./exports, then current directory
+    workspace_output = user_config.get_default_output_dir()
+    if workspace_output.exists():
+        # Find the most recent task directory in workspace output
+        task_dirs = [d for d in workspace_output.iterdir() if d.is_dir()]
+        if task_dirs:
+            # Sort by modification time, most recent first
+            task_dirs.sort(key=lambda d: d.stat().st_mtime, reverse=True)
+            most_recent_task = task_dirs[0]
+            task_exports = most_recent_task / "exports"
+            if task_exports.exists():
+                return task_exports, most_recent_task
+
     cwd = Path.cwd()
     default_exports = cwd / "exports"
     if default_exports.exists():
