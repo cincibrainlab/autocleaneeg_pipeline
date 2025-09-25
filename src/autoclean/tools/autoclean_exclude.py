@@ -134,6 +134,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self._workspace_path_label: Optional[QLabel] = None
 
         self._updating_notes = False
+        self._suppress_selection_autoload = False
 
         super().__init__(
             str(self.exports_dir) if self.exports_dir is not None else None
@@ -162,6 +163,12 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.save_timer.setSingleShot(True)
         self.save_timer.setInterval(400)
         self.save_timer.timeout.connect(self._commit_decisions)
+
+        if hasattr(self, "file_tree") and self.file_tree is not None:
+            try:
+                self.file_tree.itemSelectionChanged.connect(self._handle_tree_selection_changed)
+            except Exception:
+                pass
 
         decision_card = QFrame()
         decision_card.setObjectName("decisionCard")
@@ -863,53 +870,76 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if self.save_state_label is not None:
             self.save_state_label.setText(f"Saved {_human_timestamp()}")
 
+    def _handle_tree_selection_changed(self) -> None:
+        if getattr(self, "_suppress_selection_autoload", False):
+            return
+        if not hasattr(self, "file_tree") or self.file_tree is None:
+            return
+        items = self.file_tree.selectedItems()
+        if not items:
+            return
+        item = items[0]
+        try:
+            self.onFileSelect(item)
+        except Exception:
+            return
+        if hasattr(self, "plot_btn") and self.plot_btn.isEnabled():
+            try:
+                self.plotFile()
+            except Exception:
+                pass
+
     # ------------------------------------------------------------------
     # Tree + selection logic
     # ------------------------------------------------------------------
     def loadFiles(self) -> None:  # noqa: N802 - inherited public API
-        self.file_tree.clear()
-        self.row_lookup.clear()
-        self.all_keys.clear()
+        self._suppress_selection_autoload = True
+        try:
+            self.file_tree.clear()
+            self.row_lookup.clear()
+            self.all_keys.clear()
 
-        current_dir = self.current_dir
-        if not current_dir:
+            current_dir = self.current_dir
+            if not current_dir:
+                self._update_summary()
+                return
+
+            root_path = Path(current_dir)
+            if not root_path.exists():
+                self._update_summary()
+                return
+            file_icon = self.style().standardIcon(self.style().SP_FileIcon)
+
+            def _sort_key(path: Path) -> tuple[str, str]:
+                relative = path.relative_to(root_path)
+                folder = "/".join(relative.parts[:-1])
+                return (folder.lower(), relative.name.lower())
+
+            set_files = sorted(root_path.rglob("*.set"), key=_sort_key)
+
+            for file_path in set_files:
+                relative_path = file_path.relative_to(root_path)
+                display_name = relative_path.as_posix()
+                base_label = display_name
+                if file_path.name in self.modified_files:
+                    base_label = f"{base_label} *"
+
+                item = QTreeWidgetItem([base_label])
+                if not file_icon.isNull():
+                    item.setIcon(0, file_icon)
+                item.setData(0, Qt.UserRole, str(file_path))
+                key = self._record_key(file_path)
+                item.setData(0, Qt.UserRole + 1, key)
+                item.setData(0, Qt.UserRole + 2, base_label)
+                self.file_tree.addTopLevelItem(item)
+                self.row_lookup[key] = item
+                self.all_keys.add(key)
+                status = self.decisions.get(key, {}).get("status", "UNSET")
+                self._apply_status_to_item(item, status)
+
             self._update_summary()
-            return
-
-        root_path = Path(current_dir)
-        if not root_path.exists():
-            self._update_summary()
-            return
-        file_icon = self.style().standardIcon(self.style().SP_FileIcon)
-
-        def _sort_key(path: Path) -> tuple[str, str]:
-            relative = path.relative_to(root_path)
-            folder = "/".join(relative.parts[:-1])
-            return (folder.lower(), relative.name.lower())
-
-        set_files = sorted(root_path.rglob("*.set"), key=_sort_key)
-
-        for file_path in set_files:
-            relative_path = file_path.relative_to(root_path)
-            display_name = relative_path.as_posix()
-            base_label = display_name
-            if file_path.name in self.modified_files:
-                base_label = f"{base_label} *"
-
-            item = QTreeWidgetItem([base_label])
-            if not file_icon.isNull():
-                item.setIcon(0, file_icon)
-            item.setData(0, Qt.UserRole, str(file_path))
-            key = self._record_key(file_path)
-            item.setData(0, Qt.UserRole + 1, key)
-            item.setData(0, Qt.UserRole + 2, base_label)
-            self.file_tree.addTopLevelItem(item)
-            self.row_lookup[key] = item
-            self.all_keys.add(key)
-            status = self.decisions.get(key, {}).get("status", "UNSET")
-            self._apply_status_to_item(item, status)
-
-        self._update_summary()
+        finally:
+            self._suppress_selection_autoload = False
 
     def selectDirectory(self) -> None:  # noqa: N802 - inherited public API
         dir_path = QFileDialog.getExistingDirectory(
