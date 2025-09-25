@@ -286,45 +286,45 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         summary_panel = QWidget()
         summary_panel.setObjectName("decisionSummaryPanel")
-        summary_layout = QHBoxLayout()
+        summary_layout = QVBoxLayout()
         summary_layout.setContentsMargins(0, 4, 0, 0)
-        summary_layout.setSpacing(6)
+        summary_layout.setSpacing(2)
         summary_panel.setLayout(summary_layout)
 
         self.summary_chip_labels = {}
         for status in STATUS_ORDER:
             meta = STATUS_DEFINITIONS[status]
-            chip = QFrame()
-            chip.setObjectName("summaryChip")
-            chip_layout = QVBoxLayout()
-            chip_layout.setContentsMargins(10, 6, 10, 6)
-            chip_layout.setSpacing(1)
-            chip.setLayout(chip_layout)
+            color_hex = STATUS_DEFINITIONS[status]["color"]
 
-            color = QColor(meta["color"])
-            bg = QColor(color)
-            bg.setAlpha(32)
-            chip.setStyleSheet(
-                f"background-color: {bg.name(QColor.HexArgb)}; border: 1px solid {color.name()}; border-radius: 8px;"
+            row = QFrame()
+            row.setObjectName("decisionSummaryRow")
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(6, 4, 6, 4)
+            row_layout.setSpacing(8)
+            row.setLayout(row_layout)
+
+            indicator = QFrame()
+            indicator.setFixedWidth(3)
+            indicator.setObjectName("decisionSummaryBar")
+            indicator.setStyleSheet(
+                f"background-color: {color_hex}; border-radius: 2px;"
             )
+            row_layout.addWidget(indicator)
+
+            name_label = QLabel(meta["label"])
+            name_label.setObjectName("decisionSummaryName")
+            row_layout.addWidget(name_label)
+
+            row_layout.addStretch(1)
 
             count_label = QLabel("0")
-            count_label.setObjectName("summaryChipCount")
-            count_label.setAlignment(Qt.AlignCenter)
-            count_label.setStyleSheet(
-                f"color: {color.name()}; font-weight: 700; font-size: 13px;"
-            )
-            chip_layout.addWidget(count_label, alignment=Qt.AlignCenter)
+            count_label.setObjectName("decisionSummaryCount")
+            count_label.setStyleSheet(f"color: {color_hex};")
+            row_layout.addWidget(count_label, 0, Qt.AlignRight)
 
-            status_label = QLabel(meta["label"])
-            status_label.setObjectName("summaryChipLabel")
-            status_label.setAlignment(Qt.AlignCenter)
-            chip_layout.addWidget(status_label, alignment=Qt.AlignCenter)
-
-            summary_layout.addWidget(chip)
+            summary_layout.addWidget(row)
             self.summary_chip_labels[status] = count_label
 
-        summary_layout.addStretch(1)
         actions_layout.addWidget(summary_panel)
         actions_layout.addWidget(self.save_state_label)
 
@@ -424,14 +424,33 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 font-style: italic;
                 font-size: 11px;
             }
-            #summaryChipLabel,
-            #summaryChipLabelLarge {
-                color: #6f7b8e;
-                font-size: 11px;
+            #decisionSummaryPanel,
+            #decisionSummaryPanelLarge {
+                background-color: transparent;
+            }
+            #decisionSummaryRow {
+                background-color: #f7f9ff;
+                border: 1px solid #e1e8f5;
+                border-radius: 6px;
+            }
+            #decisionSummaryRowLarge {
+                background-color: #ffffff;
+                border: 1px solid #dbe3f3;
+                border-radius: 8px;
+            }
+            #decisionSummaryName,
+            #decisionSummaryNameLarge {
+                color: #4b5567;
+                font-size: 12px;
                 font-weight: 600;
             }
-            #summaryChipCountLarge {
+            #decisionSummaryCount {
+                font-size: 12px;
+                font-weight: 700;
+            }
+            #decisionSummaryCountLarge {
                 font-size: 16px;
+                font-weight: 700;
             }
             #decisionInfoPanel {
                 background-color: transparent;
@@ -609,49 +628,48 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         summary_tab_layout.setSpacing(10)
         summary_tab.setLayout(summary_tab_layout)
 
-        summary_tab_panel = QWidget()
-        summary_tab_panel.setObjectName("decisionSummaryPanel")
-        summary_tab_layout.addWidget(summary_tab_panel)
-        tab_chip_layout = QHBoxLayout()
-        tab_chip_layout.setContentsMargins(0, 0, 0, 0)
-        tab_chip_layout.setSpacing(10)
-        summary_tab_panel.setLayout(tab_chip_layout)
+        tab_summary_panel = QWidget()
+        tab_summary_panel.setObjectName("decisionSummaryPanelLarge")
+        tab_summary_layout = QVBoxLayout()
+        tab_summary_layout.setContentsMargins(0, 0, 0, 0)
+        tab_summary_layout.setSpacing(8)
+        tab_summary_panel.setLayout(tab_summary_layout)
+        summary_tab_layout.addWidget(tab_summary_panel)
 
         self.summary_tab_labels = {}
         for status in STATUS_ORDER:
             meta = STATUS_DEFINITIONS[status]
-            color = QColor(meta["color"])
-            bg = QColor(color)
-            bg.setAlpha(28)
+            color_hex = STATUS_DEFINITIONS[status]["color"]
 
-            chip = QFrame()
-            chip.setObjectName("summaryChipLarge")
-            chip.setStyleSheet(
-                f"background-color: {bg.name(QColor.HexArgb)}; border: 1px solid {color.name()}; border-radius: 10px;"
+            row = QFrame()
+            row.setObjectName("decisionSummaryRowLarge")
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(8, 10, 8, 10)
+            row_layout.setSpacing(12)
+            row.setLayout(row_layout)
+
+            indicator = QFrame()
+            indicator.setFixedWidth(4)
+            indicator.setObjectName("decisionSummaryBarLarge")
+            indicator.setStyleSheet(
+                f"background-color: {color_hex}; border-radius: 2px;"
             )
-            chip_layout = QVBoxLayout()
-            chip_layout.setContentsMargins(14, 10, 14, 10)
-            chip_layout.setSpacing(3)
-            chip.setLayout(chip_layout)
+            row_layout.addWidget(indicator)
+
+            name_label = QLabel(meta["label"])
+            name_label.setObjectName("decisionSummaryNameLarge")
+            row_layout.addWidget(name_label)
+            row_layout.addStretch(1)
 
             count_label = QLabel("0")
-            count_label.setObjectName("summaryChipCountLarge")
-            count_label.setAlignment(Qt.AlignCenter)
-            count_label.setStyleSheet(
-                f"color: {color.name()}; font-weight: 700; font-size: 16px;"
-            )
-            chip_layout.addWidget(count_label)
+            count_label.setObjectName("decisionSummaryCountLarge")
+            count_label.setStyleSheet(f"color: {color_hex};")
+            row_layout.addWidget(count_label)
 
-            label = QLabel(meta["label"])
-            label.setObjectName("summaryChipLabelLarge")
-            label.setAlignment(Qt.AlignCenter)
-            chip_layout.addWidget(label)
-
-            tab_chip_layout.addWidget(chip)
+            tab_summary_layout.addWidget(row)
             self.summary_tab_labels[status] = count_label
 
-        tab_chip_layout.addStretch(1)
-        summary_tab_layout.addStretch(1)
+        tab_summary_layout.addStretch(1)
 
         detail_tabs.addTab(summary_tab, "Summary")
         detail_tabs.addTab(notes_group, "Notes")
