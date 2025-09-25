@@ -656,19 +656,52 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 color: #9aa5b1;
                 border-color: #dfe4ea;
             }
+            #directoryActionToolbar {
+                background-color: #f7f9fc;
+                border: 1px solid #d9e2ec;
+                border-radius: 8px;
+            }
+            #directoryActionToolbar QPushButton {
+                border-radius: 6px;
+                padding: 6px 14px;
+            }
             """
         )
 
         self.left_layout.insertWidget(0, toolbar)
         self.directory_toolbar = toolbar
-        self._directory_toolbar_initialized = True
 
-        # Add folder path label on its own row under the toolbar
+        action_toolbar = QFrame()
+        action_toolbar.setObjectName("directoryActionToolbar")
+        action_layout = QHBoxLayout()
+        action_layout.setContentsMargins(12, 8, 12, 8)
+        action_layout.setSpacing(10)
+        action_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+        if hasattr(self, "close_plot_btn"):
+            self.close_plot_btn.setMinimumHeight(32)
+            action_layout.addWidget(self.close_plot_btn)
+        if hasattr(self, "view_record_btn"):
+            self.view_record_btn.setMinimumHeight(32)
+            action_layout.addWidget(self.view_record_btn)
+
+        action_layout.addStretch(1)
+
+        if hasattr(self, "exit_btn"):
+            self.exit_btn.setMinimumHeight(32)
+            action_layout.addWidget(self.exit_btn)
+
+        action_toolbar.setLayout(action_layout)
+        action_toolbar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.left_layout.insertWidget(1, action_toolbar)
+        self._directory_action_toolbar = action_toolbar
+
+        # Add folder path label on its own row under the toolbar rows
         path_label = QLabel()
         path_label.setObjectName("directoryPathLabel")
         path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         path_label.setWordWrap(True)
-        self.left_layout.insertWidget(1, path_label)
+        self.left_layout.insertWidget(2, path_label)
         self._workspace_path_label = path_label
         self._refresh_workspace_path_label()
 
@@ -679,6 +712,12 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 self.file_tree.setAlternatingRowColors(True)
             except Exception:
                 pass
+
+        if original_action_bar is not None:
+            self.left_layout.removeWidget(original_action_bar)
+            original_action_bar.deleteLater()
+
+        self._directory_toolbar_initialized = True
 
     def _apply_light_palette(self, widget: Optional[QWidget]) -> None:
         if widget is None:
