@@ -66,13 +66,6 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QStyle,
 )
 
-try:  # noqa: E402
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.figure import Figure
-except Exception:  # pragma: no cover - matplotlib optional for metrics
-    FigureCanvas = None  # type: ignore
-    Figure = None  # type: ignore
-
 from autoclean.tools import autoclean_review  # noqa: E402
 from autoclean.utils.user_config import user_config  # noqa: E402
 
@@ -126,6 +119,18 @@ def _safe_int(value: Optional[str]) -> int:
         return 0
 
 
+def _safe_float(value: Optional[str]) -> float:
+    try:
+        if value is None:
+            return 0.0
+        text = str(value).strip()
+        if not text:
+            return 0.0
+        return float(text)
+    except (ValueError, TypeError):
+        return 0.0
+
+
 def _longest_common_prefix_length(a: str, b: str) -> int:
     length = 0
     for char_a, char_b in zip(a, b):
@@ -140,7 +145,7 @@ class ProcessingMetricsWidget(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+        layout.setSpacing(10)
         self.setLayout(layout)
 
         self.message_label = QLabel("")
@@ -148,90 +153,64 @@ class ProcessingMetricsWidget(QWidget):
         self.message_label.setAlignment(Qt.AlignCenter)
         layout.addWidget(self.message_label)
 
-        if Figure is None or FigureCanvas is None:
-            self.figure = None
-            self.canvas = None
-            self.message_label.setText("Matplotlib is required to display processing metrics.")
-            self.metrics = []
-            return
+        self.rows_container = QVBoxLayout()
+        self.rows_container.setContentsMargins(0, 0, 0, 0)
+        self.rows_container.setSpacing(4)
+        layout.addLayout(self.rows_container)
 
-        self.figure = Figure(figsize=(6, 4), tight_layout=True)
-        self.canvas = FigureCanvas(self.figure)
-        self.canvas.setObjectName("decisionMetricsCanvas")
-        layout.addWidget(self.canvas)
-
-        self.metrics: List[Tuple[str, Dict[str, int]]] = []
         self._render_no_data("No processing metrics available.")
 
     def show_message(self, message: str) -> None:
         self._render_no_data(message)
 
     def _render_no_data(self, message: str) -> None:
-        if self.figure is not None and self.canvas is not None:
-            self.figure.clear()
-            self.canvas.draw()
-            self.canvas.hide()
+        self._clear_rows()
         self.message_label.setText(message)
         self.message_label.show()
 
-    def update_metrics(self, metrics: List[Tuple[str, Dict[str, int]]]) -> None:
-        if self.figure is None or self.canvas is None:
-            return
+    def _clear_rows(self) -> None:
+        while self.rows_container.count():
+            item = self.rows_container.takeAt(0)
+            widget = item.widget()
+            if widget is not None:
+                widget.deleteLater()
+
+    def update_metrics(self, metrics: List[Tuple[str, str, str]]) -> None:
+        self._clear_rows()
 
         if not metrics:
             self._render_no_data("No processing metrics available.")
             return
 
-        metrics = metrics[:4]
-
-        has_data = any(counter for _, counter in metrics if sum(counter.values()) > 0)
-        if not has_data:
-            self._render_no_data("No processing metrics available.")
-            return
-
         self.message_label.hide()
-        self.canvas.show()
-        self.figure.clear()
-        axes = self.figure.subplots(2, 2).flatten()
-        metrics = metrics + [("", {})] * (len(axes) - len(metrics))
 
-        palette = [
-            "#264653",
-            "#2a9d8f",
-            "#e9c46a",
-            "#f4a261",
-            "#e76f51",
-            "#8ab9ff",
-            "#b8c1ec",
-        ]
+        for label_text, value_text, color in metrics:
+            row = QFrame()
+            row.setObjectName("decisionMetricsRow")
+            row_layout = QHBoxLayout()
+            row_layout.setContentsMargins(6, 6, 6, 6)
+            row_layout.setSpacing(10)
+            row.setLayout(row_layout)
 
-        for ax, (title, counter) in zip(axes, metrics):
-            total = sum(counter.values())
-            if total == 0:
-                ax.axis("off")
-                if title:
-                    ax.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=10)
-                    ax.set_title(title, fontsize=11, fontweight="bold")
-                continue
+            indicator = QFrame()
+            indicator.setFixedWidth(4)
+            indicator.setObjectName("decisionMetricsBar")
+            indicator.setStyleSheet(f"background-color: {color}; border-radius: 2px;")
+            row_layout.addWidget(indicator)
 
-            labels = list(counter.keys())
-            sizes = list(counter.values())
-            colors = palette[: len(labels)]
-            wedges, texts, autotexts = ax.pie(
-                sizes,
-                labels=labels,
-                autopct="%1.0f%%",
-                startangle=90,
-                colors=colors,
-                textprops={"fontsize": 9},
-            )
-            for text in autotexts:
-                text.set_fontsize(9)
-            ax.axis("equal")
-            if title:
-                ax.set_title(title, fontsize=11, fontweight="bold")
+            name_label = QLabel(label_text)
+            name_label.setObjectName("decisionMetricsName")
+            row_layout.addWidget(name_label)
+            row_layout.addStretch(1)
 
-        self.canvas.draw()
+            value_label = QLabel(value_text)
+            value_label.setObjectName("decisionMetricsValue")
+            value_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+            row_layout.addWidget(value_label)
+
+            self.rows_container.addWidget(row)
+
+        self.rows_container.addStretch(1)
 
 
 
@@ -599,6 +578,29 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             #decisionSummaryCountLarge {
                 font-size: 16px;
                 font-weight: 700;
+            }
+            #decisionMetricsMessage {
+                color: #6b778c;
+                font-style: italic;
+                font-size: 12px;
+            }
+            #decisionMetricsRow {
+                background-color: #f7f9ff;
+                border: 1px solid #e0e7f5;
+                border-radius: 6px;
+            }
+            #decisionMetricsBar {
+                background-color: #98a4b5;
+            }
+            #decisionMetricsName {
+                color: #445066;
+                font-size: 12px;
+                font-weight: 600;
+            }
+            #decisionMetricsValue {
+                color: #2f3b52;
+                font-size: 12px;
+                font-weight: 600;
             }
             #decisionInfoPanel {
                 background-color: transparent;
@@ -1032,53 +1034,24 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         except Exception:
             return []
 
-    def _limit_segments(self, counter: Counter, limit: int = 6) -> OrderedDict[str, int]:
+    def _limit_segments(self, counter: Dict[str, int], limit: int = 6) -> OrderedDict[str, int]:
         if not counter:
             return OrderedDict()
-        if len(counter) <= limit:
-            return OrderedDict(counter.most_common())
-        most_common = counter.most_common(limit - 1)
-        used = {key for key, _ in most_common}
-        other_total = sum(value for key, value in counter.items() if key not in used)
-        ordered = OrderedDict((key, value) for key, value in most_common)
+
+        if isinstance(counter, Counter):
+            items = counter.most_common()
+        else:
+            items = list(counter.items())
+            items.sort(key=lambda item: item[1], reverse=True)
+
+        if len(items) <= limit:
+            return OrderedDict(items)
+
+        kept = items[: limit - 1]
+        other_total = sum(value for _, value in items[limit - 1 :])
+        ordered = OrderedDict(kept)
         ordered["Other"] = other_total
         return ordered
-
-    def _counter_from_columns(
-        self,
-        rows: List[Dict[str, str]],
-        columns: Iterable[str],
-        limit: int = 6,
-    ) -> OrderedDict[str, int]:
-        for column in columns:
-            values = [str(row.get(column, "")).strip() for row in rows if row.get(column)]
-            values = [val for val in values if val]
-            if values:
-                normalized = [value or "Unspecified" for value in values]
-                counter = Counter(normalized)
-                counter = Counter({k: v for k, v in counter.items() if v > 0})
-                if counter:
-                    return self._limit_segments(counter, limit)
-        return OrderedDict()
-
-    def _counter_from_list_columns(
-        self,
-        rows: List[Dict[str, str]],
-        columns: Iterable[str],
-        limit: int = 6,
-    ) -> OrderedDict[str, int]:
-        aggregated: Counter = Counter()
-        for column in columns:
-            column_counter = Counter()
-            for row in rows:
-                items = _coerce_list(row.get(column))
-                for item in items:
-                    column_counter[item or "Unspecified"] += 1
-            if column_counter:
-                aggregated = column_counter
-                break
-        aggregated = Counter({k: v for k, v in aggregated.items() if v > 0})
-        return self._limit_segments(aggregated, limit)
 
     def _channel_retention_metrics(self, row: Dict[str, str]) -> OrderedDict[str, int]:
         orig = _safe_int(row.get("net_nbchan_orig"))
@@ -1091,11 +1064,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         removed = max(orig - post, bad_list, 0)
         retained = max(orig - removed, 0)
         counter = OrderedDict()
-        if retained > 0:
-            counter["Retained"] = retained
-        if removed > 0:
-            counter["Removed"] = removed
-        return counter
+        counter["Retained"] = max(retained, 0)
+        counter["Removed"] = max(removed, 0)
+        return self._limit_segments(counter, 2)
 
     def _epoch_retention_metrics(self, row: Dict[str, str]) -> OrderedDict[str, int]:
         total = _safe_int(row.get("epoch_trials"))
@@ -1107,11 +1078,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if total <= 0:
             total = kept + bad
         counter = OrderedDict()
-        if kept > 0:
-            counter["Kept"] = kept
-        if bad > 0:
-            counter["Rejected"] = bad
-        return counter
+        counter["Kept"] = max(kept, 0)
+        counter["Rejected"] = max(bad, 0)
+        return self._limit_segments(counter, 2)
 
     def _ica_component_metrics(self, row: Dict[str, str]) -> OrderedDict[str, int]:
         total = _safe_int(row.get("proc_nComps"))
@@ -1121,44 +1090,112 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         removed = min(removed, total) if total > 0 else removed
         retained = max(total - removed, 0)
         counter = OrderedDict()
-        if retained > 0:
-            counter["Retained"] = retained
-        if removed > 0:
-            counter["Removed"] = removed
-        return counter
+        counter["Retained"] = max(retained, 0)
+        counter["Removed"] = max(removed, 0)
+        return self._limit_segments(counter, 2)
 
     def _build_processing_metrics(
         self, rows: List[Dict[str, str]]
-    ) -> List[Tuple[str, Dict[str, int]]]:
+    ) -> List[Tuple[str, str, str]]:
         if not rows:
             return []
 
-        metrics: List[Tuple[str, Dict[str, int]]] = []
-        metrics.append(
-            (
-                "Step Outcomes",
-                self._counter_from_columns(rows, ("proc_state", "status", "outcome", "result"), limit=6),
+        latest = rows[-1]
+        metrics: List[Tuple[str, str, str]] = []
+
+        raw_duration = _safe_float(latest.get("proc_xmax_raw"))
+        post_duration = _safe_float(latest.get("proc_xmax_post"))
+        if raw_duration > 0 or post_duration > 0:
+            if raw_duration <= 0:
+                raw_duration = post_duration
+            retained_pct = (post_duration / raw_duration * 100.0) if raw_duration > 0 else 0.0
+            removed_duration = max(raw_duration - post_duration, 0.0)
+            metrics.append(
+                (
+                    "Data Retained",
+                    f"{post_duration:.1f}s of {raw_duration:.1f}s ({retained_pct:.1f}%)",
+                    "#2ecc71",
+                )
             )
-        )
-        metrics.append(
-            (
-                "Channels",
-                self._channel_retention_metrics(rows[-1]),
-            )
-        )
-        metrics.append(
-            (
-                "Epochs",
-                self._epoch_retention_metrics(rows[-1]),
-            )
-        )
-        metrics.append(
-            (
-                "ICA Components",
-                self._ica_component_metrics(rows[-1]),
-            )
-        )
-        return metrics
+            if removed_duration > 0:
+                removed_pct = 100.0 - retained_pct if raw_duration > 0 else 0.0
+                metrics.append(
+                    (
+                        "Data Removed",
+                        f"{removed_duration:.1f}s ({removed_pct:.1f}%)",
+                        "#e74c3c",
+                    )
+                )
+
+        channel_counts = self._channel_retention_metrics(latest)
+        if channel_counts:
+            retained = channel_counts.get("Retained", 0)
+            removed = channel_counts.get("Removed", 0)
+            total = retained + removed
+            if total > 0:
+                metrics.append(
+                    (
+                        "Channels Retained",
+                        f"{retained} / {total}",
+                        "#3498db",
+                    )
+                )
+            if removed > 0:
+                metrics.append(
+                    (
+                        "Channels Removed",
+                        str(removed),
+                        "#e76f51",
+                    )
+                )
+
+        epoch_counts = self._epoch_retention_metrics(latest)
+        if epoch_counts:
+            kept = epoch_counts.get("Kept", 0)
+            rejected = epoch_counts.get("Rejected", 0)
+            total = kept + rejected
+            if total > 0:
+                kept_pct = kept / total * 100.0
+                metrics.append(
+                    (
+                        "Epochs Kept",
+                        f"{kept} / {total} ({kept_pct:.1f}%)",
+                        "#2a9d8f",
+                    )
+                )
+            if rejected > 0:
+                rejected_pct = rejected / total * 100.0 if total > 0 else 0.0
+                metrics.append(
+                    (
+                        "Epochs Rejected",
+                        f"{rejected} ({rejected_pct:.1f}%)",
+                        "#f4a261",
+                    )
+                )
+
+        ica_counts = self._ica_component_metrics(latest)
+        if ica_counts:
+            retained = ica_counts.get("Retained", 0)
+            removed = ica_counts.get("Removed", 0)
+            total = retained + removed
+            if total > 0:
+                metrics.append(
+                    (
+                        "ICA Components Retained",
+                        f"{retained} / {total}",
+                        "#6c5ce7",
+                    )
+                )
+            if removed > 0:
+                metrics.append(
+                    (
+                        "ICA Components Removed",
+                        str(removed),
+                        "#e84393",
+                    )
+                )
+
+        return [metric for metric in metrics if metric[1]]
 
     def _update_processing_metrics_panel(self) -> None:
         if self.metrics_widget is not None:
@@ -1220,7 +1257,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             return
 
         metrics = self._build_processing_metrics(rows)
-        if not any(sum(counter.values()) for _, counter in metrics):
+        if not metrics:
             self.metrics_widget.show_message(
                 "Processing log does not include recognized metrics"
             )
@@ -1293,8 +1330,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         except Exception:
             return
 
-        self._auto_plot_current()
-
     def _auto_plot_current(self) -> None:
         if not getattr(self, "selected_file_path", None):
             return
@@ -1310,6 +1345,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
     def loadFiles(self) -> None:  # noqa: N802 - inherited public API
         self._suppress_selection_autoload = True
         first_item: Optional[QTreeWidgetItem] = None
+        first_key: Optional[str] = None
         try:
             if self.file_tree is not None:
                 self.file_tree.clear()
@@ -1368,6 +1404,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 self._apply_status_to_item(item, status)
                 if first_item is None:
                     first_item = item
+                    first_key = key
 
             self._update_summary()
             self._update_processing_metrics_panel()
@@ -1390,7 +1427,11 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             def _select_initial() -> None:
                 if not hasattr(self, "file_tree") or self.file_tree is None:
                     return
-                self.file_tree.setCurrentItem(first_item)
+                target = first_item
+                if first_key is not None:
+                    target = self.row_lookup.get(first_key, target)
+                if target is not None:
+                    self.file_tree.setCurrentItem(target)
 
             QTimer.singleShot(0, _select_initial)
         else:
@@ -1479,6 +1520,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         if self.status_bar is not None and self.current_display_name:
             self.status_bar.showMessage(f"Queued · {self.current_display_name}")
+
+        self._auto_plot_current()
 
     def _render_plot(self, *, reason: str) -> None:
         current_path = getattr(self, "selected_file_path", None)
