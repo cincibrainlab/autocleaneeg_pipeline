@@ -58,8 +58,6 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QSizePolicy,
     QStackedLayout,
     QTabWidget,
-    QTableWidget,
-    QTableWidgetItem,
     QTextEdit,
     QTreeWidgetItem,
     QVBoxLayout,
@@ -122,7 +120,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.status_label: Optional[QLabel] = None
         self.current_file_label: Optional[QLabel] = None
         self.save_state_label: Optional[QLabel] = None
-        self.summary_table: Optional[QTableWidget] = None
+        self.summary_chip_labels: Dict[str, QLabel] = {}
+        self.summary_tab_labels: Dict[str, QLabel] = {}
         self.notes_edit: Optional[QTextEdit] = None
         self.related_list: Optional[QListWidget] = None
         self.detail_panel: Optional[QFrame] = None
@@ -284,6 +283,49 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         actions_layout.setSpacing(6)
         actions_widget.setLayout(actions_layout)
         actions_layout.addWidget(button_panel)
+
+        summary_panel = QWidget()
+        summary_panel.setObjectName("decisionSummaryPanel")
+        summary_layout = QHBoxLayout()
+        summary_layout.setContentsMargins(0, 4, 0, 0)
+        summary_layout.setSpacing(6)
+        summary_panel.setLayout(summary_layout)
+
+        self.summary_chip_labels = {}
+        for status in STATUS_ORDER:
+            meta = STATUS_DEFINITIONS[status]
+            chip = QFrame()
+            chip.setObjectName("summaryChip")
+            chip_layout = QVBoxLayout()
+            chip_layout.setContentsMargins(10, 6, 10, 6)
+            chip_layout.setSpacing(1)
+            chip.setLayout(chip_layout)
+
+            color = QColor(meta["color"])
+            bg = QColor(color)
+            bg.setAlpha(32)
+            chip.setStyleSheet(
+                f"background-color: {bg.name(QColor.HexArgb)}; border: 1px solid {color.name()}; border-radius: 8px;"
+            )
+
+            count_label = QLabel("0")
+            count_label.setObjectName("summaryChipCount")
+            count_label.setAlignment(Qt.AlignCenter)
+            count_label.setStyleSheet(
+                f"color: {color.name()}; font-weight: 700; font-size: 13px;"
+            )
+            chip_layout.addWidget(count_label, alignment=Qt.AlignCenter)
+
+            status_label = QLabel(meta["label"])
+            status_label.setObjectName("summaryChipLabel")
+            status_label.setAlignment(Qt.AlignCenter)
+            chip_layout.addWidget(status_label, alignment=Qt.AlignCenter)
+
+            summary_layout.addWidget(chip)
+            self.summary_chip_labels[status] = count_label
+
+        summary_layout.addStretch(1)
+        actions_layout.addWidget(summary_panel)
         actions_layout.addWidget(self.save_state_label)
 
         empty_widget = QFrame()
@@ -382,7 +424,16 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 font-style: italic;
                 font-size: 11px;
             }
-#decisionInfoPanel {
+            #summaryChipLabel,
+            #summaryChipLabelLarge {
+                color: #6f7b8e;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            #summaryChipCountLarge {
+                font-size: 16px;
+            }
+            #decisionInfoPanel {
                 background-color: transparent;
                 border: none;
             }
@@ -505,38 +556,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             insert_index += 1
         self.left_layout.insertWidget(insert_index, decision_card)
 
-        summary_group = QGroupBox("Summary")
-        summary_group.setObjectName("decisionSummaryGroup")
-        summary_layout = QVBoxLayout()
-        summary_layout.setContentsMargins(4, 6, 4, 6)
-        summary_layout.setSpacing(4)
-        self.summary_table = QTableWidget(len(STATUS_ORDER), 2)
-        self.summary_table.setHorizontalHeaderLabels(["Status", "Count"])
-        self.summary_table.verticalHeader().setVisible(False)
-        self.summary_table.horizontalHeader().setStretchLastSection(True)
-        self.summary_table.setEditTriggers(QTableWidget.NoEditTriggers)
-        self.summary_table.setSelectionMode(QTableWidget.NoSelection)
-        self.summary_table.setMinimumWidth(150)
-        self.summary_table.setStyleSheet("font-size: 12px;")
-        self.summary_table.verticalHeader().setDefaultSectionSize(22)
-        self.summary_table.horizontalHeader().setFixedHeight(22)
-        for row, status in enumerate(STATUS_ORDER):
-            meta = STATUS_DEFINITIONS[status]
-            status_item = QTableWidgetItem(meta["label"])
-            status_item.setFlags(Qt.ItemIsEnabled)
-            status_item.setForeground(QColor(meta["color"]))
-            self.summary_table.setItem(row, 0, status_item)
-            count_item = QTableWidgetItem("0")
-            count_item.setTextAlignment(Qt.AlignCenter)
-            count_item.setFlags(Qt.ItemIsEnabled)
-            self.summary_table.setItem(row, 1, count_item)
-        summary_layout.addWidget(self.summary_table)
-        summary_layout.addStretch(1)
-        summary_group.setLayout(summary_layout)
-        summary_group.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        summary_group.setMinimumHeight(120)
-        self.summary_group = summary_group
-
         # Detail panel (notes + related exports)
         self.detail_panel = QFrame()
         self.detail_panel.setObjectName("decisionInfoPanel")
@@ -583,7 +602,58 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         detail_tabs.setFocusPolicy(Qt.NoFocus)
         detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        detail_tabs.addTab(self.summary_group, "Summary")
+        summary_tab = QWidget()
+        summary_tab.setObjectName("decisionSummaryTab")
+        summary_tab_layout = QVBoxLayout()
+        summary_tab_layout.setContentsMargins(6, 8, 6, 8)
+        summary_tab_layout.setSpacing(10)
+        summary_tab.setLayout(summary_tab_layout)
+
+        summary_tab_panel = QWidget()
+        summary_tab_panel.setObjectName("decisionSummaryPanel")
+        summary_tab_layout.addWidget(summary_tab_panel)
+        tab_chip_layout = QHBoxLayout()
+        tab_chip_layout.setContentsMargins(0, 0, 0, 0)
+        tab_chip_layout.setSpacing(10)
+        summary_tab_panel.setLayout(tab_chip_layout)
+
+        self.summary_tab_labels = {}
+        for status in STATUS_ORDER:
+            meta = STATUS_DEFINITIONS[status]
+            color = QColor(meta["color"])
+            bg = QColor(color)
+            bg.setAlpha(28)
+
+            chip = QFrame()
+            chip.setObjectName("summaryChipLarge")
+            chip.setStyleSheet(
+                f"background-color: {bg.name(QColor.HexArgb)}; border: 1px solid {color.name()}; border-radius: 10px;"
+            )
+            chip_layout = QVBoxLayout()
+            chip_layout.setContentsMargins(14, 10, 14, 10)
+            chip_layout.setSpacing(3)
+            chip.setLayout(chip_layout)
+
+            count_label = QLabel("0")
+            count_label.setObjectName("summaryChipCountLarge")
+            count_label.setAlignment(Qt.AlignCenter)
+            count_label.setStyleSheet(
+                f"color: {color.name()}; font-weight: 700; font-size: 16px;"
+            )
+            chip_layout.addWidget(count_label)
+
+            label = QLabel(meta["label"])
+            label.setObjectName("summaryChipLabelLarge")
+            label.setAlignment(Qt.AlignCenter)
+            chip_layout.addWidget(label)
+
+            tab_chip_layout.addWidget(chip)
+            self.summary_tab_labels[status] = count_label
+
+        tab_chip_layout.addStretch(1)
+        summary_tab_layout.addStretch(1)
+
+        detail_tabs.addTab(summary_tab, "Summary")
         detail_tabs.addTab(notes_group, "Notes")
         detail_tabs.addTab(related_group, "Related")
 
@@ -1277,11 +1347,12 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         for key in self.all_keys:
             status = self.decisions.get(key, {}).get("status", "UNSET")
             counts[status] += 1
-        if self.summary_table is not None:
-            for row, status in enumerate(STATUS_ORDER):
-                item = self.summary_table.item(row, 1)
-                if item is not None:
-                    item.setText(str(counts[status]))
+        for status, label in self.summary_chip_labels.items():
+            if label is not None:
+                label.setText(str(counts.get(status, 0)))
+        for status, label in self.summary_tab_labels.items():
+            if label is not None:
+                label.setText(str(counts.get(status, 0)))
 
     # ------------------------------------------------------------------
     # Related files + helpers
