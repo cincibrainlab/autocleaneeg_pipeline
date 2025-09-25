@@ -428,11 +428,13 @@ class ICAReportingMixin:
                 ax_table.legend(
                     legend_elements,
                     color_map.keys(),
-                    loc="upper right",
+                    loc="lower center",
+                    bbox_to_anchor=(0.5, -0.05),
+                    ncol=len(color_map),
                     title="Component Types",
                 )
 
-                plt.subplots_adjust(top=0.85, bottom=0.15)
+                plt.subplots_adjust(top=0.85, bottom=0.25)
 
                 pdf.savefig(fig_table)
                 plt.close(fig_table)
