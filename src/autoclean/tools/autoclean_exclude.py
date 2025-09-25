@@ -10,16 +10,17 @@ copy the helper into bespoke environments.
 from __future__ import annotations
 
 import argparse
+import ast
 import csv
 import json
 import os
 import subprocess
 import sys
-from collections import Counter
+from collections import Counter, OrderedDict
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Dict, Iterable, Optional
+from typing import Dict, Iterable, Optional, List, Tuple
 
 
 def check_gui_dependencies() -> None:
@@ -65,6 +66,13 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QStyle,
 )
 
+try:  # noqa: E402
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.figure import Figure
+except Exception:  # pragma: no cover - matplotlib optional for metrics
+    FigureCanvas = None  # type: ignore
+    Figure = None  # type: ignore
+
 from autoclean.tools import autoclean_review  # noqa: E402
 from autoclean.utils.user_config import user_config  # noqa: E402
 
@@ -85,6 +93,146 @@ STATUS_ORDER: tuple[str, ...] = ("PASS", "FAIL", "REVIEW", "UNSET")
 
 def _human_timestamp() -> str:
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+
+def _coerce_list(value: Optional[str]) -> List[str]:
+    if value is None:
+        return []
+    text = str(value).strip()
+    if not text:
+        return []
+    try:
+        parsed = ast.literal_eval(text)
+        if isinstance(parsed, (list, tuple, set)):
+            return [str(item).strip() for item in parsed if str(item).strip()]
+    except (ValueError, SyntaxError):
+        pass
+    if ";" in text:
+        return [part.strip() for part in text.split(";") if part.strip()]
+    if "," in text:
+        return [part.strip() for part in text.split(",") if part.strip()]
+    return [text]
+
+
+def _safe_int(value: Optional[str]) -> int:
+    try:
+        if value is None:
+            return 0
+        text = str(value).strip()
+        if not text:
+            return 0
+        return int(float(text))
+    except (ValueError, TypeError):
+        return 0
+
+
+def _longest_common_prefix_length(a: str, b: str) -> int:
+    length = 0
+    for char_a, char_b in zip(a, b):
+        if char_a != char_b:
+            break
+        length += 1
+    return length
+
+
+class ProcessingMetricsWidget(QWidget):
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+        self.setLayout(layout)
+
+        self.message_label = QLabel("")
+        self.message_label.setObjectName("decisionMetricsMessage")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        layout.addWidget(self.message_label)
+
+        if Figure is None or FigureCanvas is None:
+            self.figure = None
+            self.canvas = None
+            self.message_label.setText("Matplotlib is required to display processing metrics.")
+            self.metrics = []
+            return
+
+        self.figure = Figure(figsize=(6, 4), tight_layout=True)
+        self.canvas = FigureCanvas(self.figure)
+        self.canvas.setObjectName("decisionMetricsCanvas")
+        layout.addWidget(self.canvas)
+
+        self.metrics: List[Tuple[str, Dict[str, int]]] = []
+        self._render_no_data("No processing metrics available.")
+
+    def show_message(self, message: str) -> None:
+        self._render_no_data(message)
+
+    def _render_no_data(self, message: str) -> None:
+        if self.figure is not None and self.canvas is not None:
+            self.figure.clear()
+            self.canvas.draw()
+            self.canvas.hide()
+        self.message_label.setText(message)
+        self.message_label.show()
+
+    def update_metrics(self, metrics: List[Tuple[str, Dict[str, int]]]) -> None:
+        if self.figure is None or self.canvas is None:
+            return
+
+        if not metrics:
+            self._render_no_data("No processing metrics available.")
+            return
+
+        metrics = metrics[:4]
+
+        has_data = any(counter for _, counter in metrics if sum(counter.values()) > 0)
+        if not has_data:
+            self._render_no_data("No processing metrics available.")
+            return
+
+        self.message_label.hide()
+        self.canvas.show()
+        self.figure.clear()
+        axes = self.figure.subplots(2, 2).flatten()
+        metrics = metrics + [("", {})] * (len(axes) - len(metrics))
+
+        palette = [
+            "#264653",
+            "#2a9d8f",
+            "#e9c46a",
+            "#f4a261",
+            "#e76f51",
+            "#8ab9ff",
+            "#b8c1ec",
+        ]
+
+        for ax, (title, counter) in zip(axes, metrics):
+            total = sum(counter.values())
+            if total == 0:
+                ax.axis("off")
+                if title:
+                    ax.text(0.5, 0.5, "No data", ha="center", va="center", fontsize=10)
+                    ax.set_title(title, fontsize=11, fontweight="bold")
+                continue
+
+            labels = list(counter.keys())
+            sizes = list(counter.values())
+            colors = palette[: len(labels)]
+            wedges, texts, autotexts = ax.pie(
+                sizes,
+                labels=labels,
+                autopct="%1.0f%%",
+                startangle=90,
+                colors=colors,
+                textprops={"fontsize": 9},
+            )
+            for text in autotexts:
+                text.set_fontsize(9)
+            ax.axis("equal")
+            if title:
+                ax.set_title(title, fontsize=11, fontweight="bold")
+
+        self.canvas.draw()
+
 
 
 def _open_path(path: Path) -> None:
@@ -121,7 +269,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.current_file_label: Optional[QLabel] = None
         self.save_state_label: Optional[QLabel] = None
         self.summary_chip_labels: Dict[str, QLabel] = {}
-        self.summary_tab_labels: Dict[str, QLabel] = {}
         self.notes_edit: Optional[QTextEdit] = None
         self.related_list: Optional[QListWidget] = None
         self.detail_panel: Optional[QFrame] = None
@@ -131,6 +278,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self._decision_stack: Optional[QStackedLayout] = None
         self._current_plot_path: Optional[str] = None
         self._workspace_path_label: Optional[QLabel] = None
+        self.metrics_widget: Optional[ProcessingMetricsWidget] = None
 
         self._updating_notes = False
         self._suppress_selection_autoload = False
@@ -621,57 +769,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         detail_tabs.setFocusPolicy(Qt.NoFocus)
         detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        summary_tab = QWidget()
-        summary_tab.setObjectName("decisionSummaryTab")
-        summary_tab_layout = QVBoxLayout()
-        summary_tab_layout.setContentsMargins(6, 8, 6, 8)
-        summary_tab_layout.setSpacing(10)
-        summary_tab.setLayout(summary_tab_layout)
-
-        tab_summary_panel = QWidget()
-        tab_summary_panel.setObjectName("decisionSummaryPanelLarge")
-        tab_summary_layout = QVBoxLayout()
-        tab_summary_layout.setContentsMargins(0, 0, 0, 0)
-        tab_summary_layout.setSpacing(8)
-        tab_summary_panel.setLayout(tab_summary_layout)
-        summary_tab_layout.addWidget(tab_summary_panel)
-
-        self.summary_tab_labels = {}
-        for status in STATUS_ORDER:
-            meta = STATUS_DEFINITIONS[status]
-            color_hex = STATUS_DEFINITIONS[status]["color"]
-
-            row = QFrame()
-            row.setObjectName("decisionSummaryRowLarge")
-            row_layout = QHBoxLayout()
-            row_layout.setContentsMargins(8, 10, 8, 10)
-            row_layout.setSpacing(12)
-            row.setLayout(row_layout)
-
-            indicator = QFrame()
-            indicator.setFixedWidth(4)
-            indicator.setObjectName("decisionSummaryBarLarge")
-            indicator.setStyleSheet(
-                f"background-color: {color_hex}; border-radius: 2px;"
-            )
-            row_layout.addWidget(indicator)
-
-            name_label = QLabel(meta["label"])
-            name_label.setObjectName("decisionSummaryNameLarge")
-            row_layout.addWidget(name_label)
-            row_layout.addStretch(1)
-
-            count_label = QLabel("0")
-            count_label.setObjectName("decisionSummaryCountLarge")
-            count_label.setStyleSheet(f"color: {color_hex};")
-            row_layout.addWidget(count_label)
-
-            tab_summary_layout.addWidget(row)
-            self.summary_tab_labels[status] = count_label
-
-        tab_summary_layout.addStretch(1)
-
-        detail_tabs.addTab(summary_tab, "Summary")
+        self.metrics_widget = ProcessingMetricsWidget()
+        detail_tabs.addTab(self.metrics_widget, "Processing Metrics")
         detail_tabs.addTab(notes_group, "Notes")
         detail_tabs.addTab(related_group, "Related")
 
@@ -923,6 +1022,210 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             except Exception as exc:  # pragma: no cover - defensive
                 print(f"Warning: could not load decisions file: {exc}")
         self._update_summary()
+        self._update_processing_metrics_panel()
+
+    def _read_processing_log_file(self, log_path: Path) -> List[Dict[str, str]]:
+        try:
+            with log_path.open("r", newline="", encoding="utf-8") as handle:
+                reader = csv.DictReader(handle)
+                return [dict(row) for row in reader]
+        except Exception:
+            return []
+
+    def _limit_segments(self, counter: Counter, limit: int = 6) -> OrderedDict[str, int]:
+        if not counter:
+            return OrderedDict()
+        if len(counter) <= limit:
+            return OrderedDict(counter.most_common())
+        most_common = counter.most_common(limit - 1)
+        used = {key for key, _ in most_common}
+        other_total = sum(value for key, value in counter.items() if key not in used)
+        ordered = OrderedDict((key, value) for key, value in most_common)
+        ordered["Other"] = other_total
+        return ordered
+
+    def _counter_from_columns(
+        self,
+        rows: List[Dict[str, str]],
+        columns: Iterable[str],
+        limit: int = 6,
+    ) -> OrderedDict[str, int]:
+        for column in columns:
+            values = [str(row.get(column, "")).strip() for row in rows if row.get(column)]
+            values = [val for val in values if val]
+            if values:
+                normalized = [value or "Unspecified" for value in values]
+                counter = Counter(normalized)
+                counter = Counter({k: v for k, v in counter.items() if v > 0})
+                if counter:
+                    return self._limit_segments(counter, limit)
+        return OrderedDict()
+
+    def _counter_from_list_columns(
+        self,
+        rows: List[Dict[str, str]],
+        columns: Iterable[str],
+        limit: int = 6,
+    ) -> OrderedDict[str, int]:
+        aggregated: Counter = Counter()
+        for column in columns:
+            column_counter = Counter()
+            for row in rows:
+                items = _coerce_list(row.get(column))
+                for item in items:
+                    column_counter[item or "Unspecified"] += 1
+            if column_counter:
+                aggregated = column_counter
+                break
+        aggregated = Counter({k: v for k, v in aggregated.items() if v > 0})
+        return self._limit_segments(aggregated, limit)
+
+    def _channel_retention_metrics(self, row: Dict[str, str]) -> OrderedDict[str, int]:
+        orig = _safe_int(row.get("net_nbchan_orig"))
+        post = _safe_int(row.get("net_nbchan_post"))
+        bad_list = len(_coerce_list(row.get("proc_badchans")))
+        if orig <= 0 and post <= 0 and bad_list == 0:
+            return OrderedDict()
+        if orig <= 0:
+            orig = post + bad_list
+        removed = max(orig - post, bad_list, 0)
+        retained = max(orig - removed, 0)
+        counter = OrderedDict()
+        if retained > 0:
+            counter["Retained"] = retained
+        if removed > 0:
+            counter["Removed"] = removed
+        return counter
+
+    def _epoch_retention_metrics(self, row: Dict[str, str]) -> OrderedDict[str, int]:
+        total = _safe_int(row.get("epoch_trials"))
+        bad = _safe_int(row.get("epoch_badtrials"))
+        if total <= 0 and bad <= 0:
+            return OrderedDict()
+        bad = min(bad, total) if total > 0 else bad
+        kept = max(total - bad, 0)
+        if total <= 0:
+            total = kept + bad
+        counter = OrderedDict()
+        if kept > 0:
+            counter["Kept"] = kept
+        if bad > 0:
+            counter["Rejected"] = bad
+        return counter
+
+    def _ica_component_metrics(self, row: Dict[str, str]) -> OrderedDict[str, int]:
+        total = _safe_int(row.get("proc_nComps"))
+        removed = len(_coerce_list(row.get("proc_removeComps")))
+        if total <= 0 and removed <= 0:
+            return OrderedDict()
+        removed = min(removed, total) if total > 0 else removed
+        retained = max(total - removed, 0)
+        counter = OrderedDict()
+        if retained > 0:
+            counter["Retained"] = retained
+        if removed > 0:
+            counter["Removed"] = removed
+        return counter
+
+    def _build_processing_metrics(
+        self, rows: List[Dict[str, str]]
+    ) -> List[Tuple[str, Dict[str, int]]]:
+        if not rows:
+            return []
+
+        metrics: List[Tuple[str, Dict[str, int]]] = []
+        metrics.append(
+            (
+                "Step Outcomes",
+                self._counter_from_columns(rows, ("proc_state", "status", "outcome", "result"), limit=6),
+            )
+        )
+        metrics.append(
+            (
+                "Channels",
+                self._channel_retention_metrics(rows[-1]),
+            )
+        )
+        metrics.append(
+            (
+                "Epochs",
+                self._epoch_retention_metrics(rows[-1]),
+            )
+        )
+        metrics.append(
+            (
+                "ICA Components",
+                self._ica_component_metrics(rows[-1]),
+            )
+        )
+        return metrics
+
+    def _update_processing_metrics_panel(self) -> None:
+        if self.metrics_widget is not None:
+            self.metrics_widget.show_message("Select a file to view processing metrics")
+
+    def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
+        parent = file_path.parent
+        candidates = list(parent.glob("*_processing_log.csv"))
+        if not candidates:
+            return None
+
+        stem = file_path.stem
+        variants = {stem}
+        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw"]
+        for suffix in suffixes:
+            if stem.endswith(suffix):
+                variants.add(stem[: -len(suffix)])
+
+        parts = stem.split("_")
+        if len(parts) >= 3:
+            variants.add("_".join(parts[:3]))
+        if len(parts) >= 2:
+            variants.add("_".join(parts[:2]))
+
+        best_score = -1
+        best_path: Optional[Path] = None
+        for log_path in candidates:
+            log_stem = log_path.stem
+            if "_processing_log" in log_stem:
+                log_prefix = log_stem.rsplit("_processing_log", 1)[0]
+            else:
+                log_prefix = log_stem
+
+            score = max(_longest_common_prefix_length(log_prefix, variant) for variant in variants)
+            if score > best_score:
+                best_score = score
+                best_path = log_path
+
+        if best_score <= 0:
+            return None
+        return best_path
+
+    def _update_processing_metrics_for_file(self, file_path: Path) -> None:
+        if self.metrics_widget is None:
+            return
+
+        log_path = self._find_processing_log_for_file(file_path)
+        if log_path is None or not log_path.exists():
+            self.metrics_widget.show_message(
+                "Processing log not available for this file"
+            )
+            return
+
+        rows = self._read_processing_log_file(log_path)
+        if not rows:
+            self.metrics_widget.show_message(
+                "Processing log not available for this file"
+            )
+            return
+
+        metrics = self._build_processing_metrics(rows)
+        if not any(sum(counter.values()) for _, counter in metrics):
+            self.metrics_widget.show_message(
+                "Processing log does not include recognized metrics"
+            )
+            return
+        self.metrics_widget.update_metrics(metrics)
 
     def _schedule_save(self) -> None:
         if self.save_state_label is not None:
@@ -1020,6 +1323,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                     self.instruction_widget.show()
                 if self.status_bar is not None:
                     self.status_bar.showMessage("No folder selected")
+                if self.metrics_widget is not None:
+                    self.metrics_widget.show_message("Select a folder with processing logs")
                 return
 
             root_path = Path(current_dir)
@@ -1029,6 +1334,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                     self.instruction_widget.show()
                 if self.status_bar is not None:
                     self.status_bar.showMessage("Folder not found")
+                if self.metrics_widget is not None:
+                    self.metrics_widget.show_message("Processing folder not found")
                 return
             file_icon = self.style().standardIcon(self.style().SP_FileIcon)
 
@@ -1063,11 +1370,16 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                     first_item = item
 
             self._update_summary()
+            self._update_processing_metrics_panel()
 
             if not set_files and self.instruction_widget is not None:
                 self.instruction_widget.show()
                 if self.status_bar is not None:
                     self.status_bar.showMessage("No .set files found in the selected folder")
+                if self.metrics_widget is not None:
+                    self.metrics_widget.show_message(
+                        "Processing log not available for this folder"
+                    )
         finally:
             self._suppress_selection_autoload = False
 
@@ -1121,6 +1433,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self._update_decision_controls(None)
             if self.detail_panel is not None:
                 self.detail_panel.hide()
+            self._update_processing_metrics_panel()
             return
 
         file_path = Path(file_path_str)
@@ -1132,6 +1445,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self._update_decision_controls(None)
             if self.detail_panel is not None:
                 self.detail_panel.hide()
+            self._update_processing_metrics_panel()
             return
 
         previous_plot = getattr(self, "_plotted_file_path", None)
@@ -1160,6 +1474,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self._refresh_related_list(file_path)
         if self.detail_panel is not None:
             self.detail_panel.show()
+
+        self._update_processing_metrics_for_file(file_path)
 
         if self.status_bar is not None and self.current_display_name:
             self.status_bar.showMessage(f"Queued · {self.current_display_name}")
@@ -1366,9 +1682,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             status = self.decisions.get(key, {}).get("status", "UNSET")
             counts[status] += 1
         for status, label in self.summary_chip_labels.items():
-            if label is not None:
-                label.setText(str(counts.get(status, 0)))
-        for status, label in self.summary_tab_labels.items():
             if label is not None:
                 label.setText(str(counts.get(status, 0)))
 
