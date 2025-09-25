@@ -145,7 +145,7 @@ class ProcessingMetricsWidget(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(6)
+        layout.setSpacing(4)
         self.setLayout(layout)
 
         self.message_label = QLabel("")
@@ -156,10 +156,11 @@ class ProcessingMetricsWidget(QWidget):
 
         self.rows_container = QVBoxLayout()
         self.rows_container.setContentsMargins(0, 0, 0, 0)
-        self.rows_container.setSpacing(2)
+        self.rows_container.setSpacing(0)
         layout.addLayout(self.rows_container)
 
-        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.setMaximumHeight(140)
 
         self._render_no_data("No processing metrics available.")
 
@@ -191,8 +192,8 @@ class ProcessingMetricsWidget(QWidget):
             row = QFrame()
             row.setObjectName("decisionMetricsRow")
             row_layout = QHBoxLayout()
-            row_layout.setContentsMargins(6, 4, 6, 4)
-            row_layout.setSpacing(10)
+            row_layout.setContentsMargins(6, 2, 6, 2)
+            row_layout.setSpacing(6)
             row.setLayout(row_layout)
 
             indicator = QFrame()
@@ -213,7 +214,9 @@ class ProcessingMetricsWidget(QWidget):
 
             self.rows_container.addWidget(row)
 
-        self.rows_container.addStretch(1)
+        spacer = QWidget()
+        spacer.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.rows_container.addWidget(spacer)
 
 
 
@@ -732,7 +735,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.detail_panel = QFrame()
         self.detail_panel.setObjectName("decisionInfoPanel")
         self.detail_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.detail_panel.setMaximumHeight(260)
+        self.detail_panel.setMaximumHeight(180)
         detail_layout = QVBoxLayout()
         detail_layout.setContentsMargins(0, 8, 0, 0)
         detail_layout.setSpacing(10)
