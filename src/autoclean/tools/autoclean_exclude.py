@@ -1,10 +1,9 @@
 """AutoClean EEG inclusion/exclusion review helper.
 
-This tool extends the classic :mod:`autoclean.tools.autoclean_review` window
-so reviewers can keep the familiar full-screen MNE browser while tracking
-Pass/Fail/Review decisions and notes for every exported ``.set`` file.  The
-script keeps everything self-contained to make distribution easy for labs that
-copy the helper into bespoke environments.
+The exclusion assistant ships as a fully standalone PyQt application so
+reviewers can triage exported ``.set`` files while preserving the familiar
+full-screen MNE browser.  The window collects Pass/Fail/Review decisions,
+notes, and context without relying on the legacy ``autoclean_review`` module.
 """
 
 from __future__ import annotations
@@ -28,9 +27,14 @@ def check_gui_dependencies() -> None:
 
     missing: list[str] = []
     try:  # pragma: no cover - import guard only
-        import PyQt5  # noqa: F401
+        import PyQt6  # noqa: F401
     except ImportError:  # pragma: no cover - runtime dependency guard
-        missing.append("PyQt5")
+        missing.append("PyQt6")
+
+    try:  # pragma: no cover - import guard only
+        from PyQt6 import QtPdf  # noqa: F401
+    except ImportError:  # pragma: no cover - runtime dependency guard
+        missing.append("QtPdf")
 
     if missing:
         print("Error: Missing required GUI dependencies for the exclusion tool.")
@@ -43,37 +47,62 @@ def check_gui_dependencies() -> None:
 check_gui_dependencies()
 
 
-from PyQt5.QtCore import Qt, QTimer, QSize, QEvent, QObject  # noqa: E402
-from PyQt5.QtGui import QColor, QKeySequence, QPalette, QPixmap, QImage  # noqa: E402
-from PyQt5.QtWidgets import (  # noqa: E402
+from qtpy.QtCore import (  # noqa: E402
+    QAbstractItemModel,
+    QModelIndex,
+    QObject,
+    QEvent,
+    QPointF,
+    QSize,
+    Qt,
+    QTimer,
+)
+from qtpy.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
+from qtpy.QtWidgets import (  # noqa: E402
     QApplication,
-    QFrame,
     QFileDialog,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
     QListWidget,
     QListWidgetItem,
+    QMessageBox,
     QPushButton,
-    QShortcut,
     QScrollArea,
+    QShortcut,
+    QSplitter,
     QSizePolicy,
     QStackedLayout,
+    QStatusBar,
+    QStyle,
     QTabWidget,
     QTextEdit,
+    QTreeView,
+    QTreeWidget,
     QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
-    QStyle,
 )
 
-from autoclean.tools import autoclean_review  # noqa: E402
+from PyQt6.QtCore import pyqtRemoveInputHook  # noqa: E402
+from PyQt6.QtPdf import QPdfDocument  # noqa: E402
+from PyQt6.QtPdfWidgets import QPdfView  # noqa: E402
+
+from autoclean.io.export import save_epochs_to_set  # noqa: E402
+from autoclean.utils.database import get_run_record  # noqa: E402
+from autoclean.utils.logging import message  # noqa: E402
+from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
 from autoclean.utils.user_config import user_config  # noqa: E402
 
-try:
-    import fitz  # type: ignore
-except Exception:  # pragma: no cover - optional dependency
-    fitz = None  # type: ignore
+import mne  # noqa: E402
+import scipy.io as sio  # noqa: E402
+
+
+pyqtRemoveInputHook()
+
+os.environ["MNE_BROWSER_THEME"] = "light"
+mne.viz.set_browser_backend("qt")
 
 
 STATUS_DEFINITIONS: dict[str, dict[str, str]] = {
@@ -152,6 +181,553 @@ def _normalized_prefix_score(a: str, b: str) -> int:
 
     return _longest_common_prefix_length(normalize(a), normalize(b))
 
+
+class PdfPreviewWidget(QWidget):
+    """Lightweight PDF viewer that embeds Qt's native renderer."""
+
+    def __init__(self, placeholder: str, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        self._placeholder = placeholder
+        self._document = QPdfDocument(self)
+        self._view = QPdfView(self)
+        self._view.setDocument(self._document)
+        self._view.setZoomMode(QPdfView.ZoomMode.FitToWidth)
+        self._view.setPageMode(QPdfView.PageMode.SinglePage)
+
+        self._message = QLabel(placeholder)
+        self._message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._message.setWordWrap(True)
+
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(6)
+        layout.addWidget(self._message)
+        layout.addWidget(self._view, 1)
+        self.setLayout(layout)
+
+        self._current_path: Optional[Path] = None
+        self.clear()
+
+    def clear(self) -> None:
+        self._document.close()
+        self._current_path = None
+        self.show_message(self._placeholder)
+
+    def show_message(self, message: str) -> None:
+        self._message.setText(message)
+        self._message.show()
+        self._view.hide()
+
+    def load(self, path: Path) -> None:
+        status = self._document.load(str(path))
+        if status != QPdfDocument.Status.Ready:
+            self.clear()
+            self.show_message("Failed to load preview")
+            return
+
+        navigator = self._view.pageNavigator()
+        if navigator is not None:
+            navigator.jump(0, QPointF(0, 0))
+
+        self._current_path = path
+        self._message.hide()
+        self._view.show()
+
+
+class ReviewBase(QWidget):
+    """Minimal review surface providing file tree + plotting helpers."""
+
+    def __init__(self, autoclean_dir: Optional[str]) -> None:
+        super().__init__()
+        self.current_dir = autoclean_dir
+        self.modified_files: set[str] = set()
+        self.current_run_id: Optional[str] = None
+        self.current_run_record: Optional[dict] = None
+        self.current_run_record_window: Optional[QWidget] = None
+        self.plot_widget: Optional[QWidget] = None
+        self.current_epochs: Optional[mne.BaseEpochs] = None
+        self.current_raw: Optional[mne.io.BaseRaw] = None
+        self._plotted_file_path: Optional[str] = None
+        self._plot_is_raw = False
+        self._auto_saving_epochs = False
+
+        self.selected_item: Optional[QTreeWidgetItem] = None
+        self.selected_file: Optional[str] = None
+        self.selected_file_path: Optional[str] = None
+
+        self.left_layout: Optional[QVBoxLayout] = None
+        self.file_tree: Optional[QTreeWidget] = None
+        self.status_bar: Optional[QStatusBar] = None
+        self.instruction_widget: Optional[QWidget] = None
+        self.right_container = QWidget()
+        self.right_layout = QVBoxLayout()
+        self.right_layout.setContentsMargins(0, 0, 0, 0)
+        self.right_layout.setSpacing(0)
+        self.right_container.setLayout(self.right_layout)
+
+        self.select_dir_btn: Optional[QPushButton] = None
+        self.open_folder_btn: Optional[QPushButton] = None
+        self.refresh_btn: Optional[QPushButton] = None
+        self.plot_btn: Optional[QPushButton] = None
+        self.close_plot_btn: Optional[QPushButton] = None
+        self.view_record_btn: Optional[QPushButton] = None
+        self.exit_btn: Optional[QPushButton] = None
+
+        self._apply_global_theme()
+        self._init_ui()
+
+        if self.current_dir:
+            self.loadFiles()
+            self.updateStatusBar()
+
+    # ------------------------------------------------------------------
+    # UI bootstrapping
+    # ------------------------------------------------------------------
+    def _init_ui(self) -> None:
+        root_layout = QVBoxLayout()
+        root_layout.setContentsMargins(12, 12, 12, 12)
+        root_layout.setSpacing(8)
+
+        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        navigation = QWidget()
+        navigation.setObjectName("navigationPanel")
+        self.left_layout = QVBoxLayout()
+        self.left_layout.setContentsMargins(12, 12, 12, 12)
+        self.left_layout.setSpacing(10)
+        navigation.setLayout(self.left_layout)
+
+        self.select_dir_btn = QPushButton("Select Directory")
+        self.select_dir_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.select_dir_btn.clicked.connect(self.selectDirectory)
+        self.left_layout.addWidget(self.select_dir_btn)
+
+        self.open_folder_btn = QPushButton("Open Folder")
+        self.open_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.open_folder_btn.clicked.connect(self._open_current_directory)
+        self.left_layout.addWidget(self.open_folder_btn)
+
+        self.refresh_btn = QPushButton("Refresh")
+        self.refresh_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.refresh_btn.clicked.connect(self.refreshFileTree)
+        self.left_layout.addWidget(self.refresh_btn)
+
+        self.file_tree = QTreeWidget()
+        self.file_tree.setHeaderHidden(True)
+        self.file_tree.itemClicked.connect(self.onFileSelect)
+        self.file_tree.setObjectName("fileTree")
+        self.left_layout.addWidget(self.file_tree, 1)
+
+        action_bar = QHBoxLayout()
+        action_bar.setContentsMargins(0, 0, 0, 0)
+        action_bar.setSpacing(6)
+
+        self.plot_btn = QPushButton("Plot Selected")
+        self.plot_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.plot_btn.clicked.connect(self.plotFile)
+        self.plot_btn.setEnabled(False)
+        action_bar.addWidget(self.plot_btn)
+
+        self.close_plot_btn = QPushButton("Close Plot")
+        self.close_plot_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.close_plot_btn.clicked.connect(self.closePlot)
+        self.close_plot_btn.setEnabled(False)
+        action_bar.addWidget(self.close_plot_btn)
+
+        self.view_record_btn = QPushButton("View Run Record")
+        self.view_record_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.view_record_btn.clicked.connect(self.viewRunRecord)
+        self.view_record_btn.setEnabled(False)
+        action_bar.addWidget(self.view_record_btn)
+
+        self.exit_btn = QPushButton("Exit")
+        self.exit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.exit_btn.clicked.connect(self.close)
+        action_bar.addWidget(self.exit_btn)
+
+        action_container = QWidget()
+        action_container.setObjectName("actionBar")
+        action_container.setLayout(action_bar)
+        self.left_layout.addWidget(action_container)
+
+        navigation.setMinimumWidth(320)
+        content_splitter.addWidget(navigation)
+        content_splitter.addWidget(self.right_container)
+        content_splitter.setStretchFactor(1, 1)
+
+        self.instruction_widget = QLabel("Select a file to review")
+        self.instruction_widget.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.instruction_widget.setWordWrap(True)
+        self.instruction_widget.setObjectName("instructionPanel")
+        self.right_layout.addWidget(self.instruction_widget, 1)
+
+        root_layout.addWidget(content_splitter, 1)
+
+        self.status_bar = QStatusBar()
+        root_layout.addWidget(self.status_bar)
+
+        self.setLayout(root_layout)
+        self.setWindowTitle("AutoClean Exclusion Review")
+        self.resize(1280, 720)
+
+    def _apply_global_theme(self) -> None:
+        palette = self.palette()
+        palette.setColor(QPalette.ColorRole.Window, QColor("#f5f7fb"))
+        palette.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
+        palette.setColor(QPalette.ColorRole.AlternateBase, QColor("#eef2f8"))
+        palette.setColor(QPalette.ColorRole.Button, QColor("#ffffff"))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor("#1f2933"))
+        palette.setColor(QPalette.ColorRole.WindowText, QColor("#1f2933"))
+        palette.setColor(QPalette.ColorRole.Text, QColor("#1f2933"))
+        palette.setColor(QPalette.ColorRole.Highlight, QColor("#cce0ff"))
+        palette.setColor(QPalette.ColorRole.HighlightedText, QColor("#0b3d91"))
+        self.setPalette(palette)
+        self.setAutoFillBackground(True)
+
+    # ------------------------------------------------------------------
+    # File tree + status helpers
+    # ------------------------------------------------------------------
+    def loadFiles(self) -> None:  # noqa: N802 - public API compatibility
+        if self.file_tree is None:
+            return
+        self.file_tree.clear()
+        if not self.current_dir:
+            return
+        root_path = Path(self.current_dir)
+        if not root_path.exists():
+            return
+        for file_path in sorted(root_path.rglob("*.set")):
+            item = QTreeWidgetItem([file_path.name])
+            item.setData(0, Qt.ItemDataRole.UserRole, str(file_path))
+            self.file_tree.addTopLevelItem(item)
+
+    def updateStatusBar(self) -> None:  # noqa: N802 - public API compatibility
+        if self.status_bar is None:
+            return
+        if self.current_dir:
+            self.status_bar.showMessage(f"Workspace: {self.current_dir}")
+        else:
+            self.status_bar.showMessage("Select a folder with .set files")
+
+    def selectDirectory(self) -> None:  # noqa: N802 - public API compatibility
+        dir_path = QFileDialog.getExistingDirectory(
+            self, "Select Directory", self.current_dir or str(Path.cwd())
+        )
+        if dir_path:
+            self.closePlot()
+            self.current_dir = dir_path
+            self.loadFiles()
+            self.updateStatusBar()
+
+    def _open_current_directory(self) -> None:
+        if not self.current_dir:
+            return
+        _open_path(Path(self.current_dir))
+
+    def refreshFileTree(self) -> None:
+        if self.current_dir:
+            self.loadFiles()
+            self.updateStatusBar()
+
+    # ------------------------------------------------------------------
+    # Selection + plotting hooks
+    # ------------------------------------------------------------------
+    def getRunId(self, file_path: str) -> str:  # noqa: N802 - public API
+        eeg = sio.loadmat(file_path)
+        return str(eeg["etc"]["run_id"][0][0][0])
+
+    def onFileSelect(self, item: QTreeWidgetItem) -> None:  # noqa: N802
+        data = item.data(0, Qt.ItemDataRole.UserRole)
+        if not data:
+            return
+        self.selected_item = item
+        self.selected_file = item.text(0)
+        self.selected_file_path = str(data)
+        if self.plot_btn is not None:
+            self.plot_btn.setEnabled(True)
+        try:
+            self.current_run_id = self.getRunId(self.selected_file_path)
+            self.current_run_record = get_run_record(self.current_run_id)
+            if self.view_record_btn is not None:
+                self.view_record_btn.setEnabled(True)
+        except Exception:
+            if self.view_record_btn is not None:
+                self.view_record_btn.setEnabled(False)
+
+    def viewRunRecord(self) -> None:  # noqa: N802 - legacy public API
+        if not self.current_run_record:
+            QMessageBox.information(self, "Run Record", "No record available.")
+            return
+
+        window = QWidget()
+        window.setWindowTitle("Run Record")
+        window.resize(1000, 800)
+
+        layout = QVBoxLayout()
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+
+        scroll_tree = QScrollArea()
+        tree_view = QTreeView()
+        model = _JsonTreeModel(self.current_run_record)
+        tree_view.setModel(model)
+        tree_view.expandAll()
+        scroll_tree.setWidget(tree_view)
+        scroll_tree.setWidgetResizable(True)
+        splitter.addWidget(scroll_tree)
+
+        placeholder = QLabel("Artifacts preview is not available in this build.")
+        placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        splitter.addWidget(placeholder)
+
+        layout.addWidget(splitter)
+        window.setLayout(layout)
+        window.show()
+        self.current_run_record_window = window
+
+    def plotFile(self) -> None:  # noqa: N802 - legacy public API
+        if not self.selected_file_path:
+            return
+
+        file_path = Path(self.selected_file_path)
+        if not file_path.exists():
+            QMessageBox.warning(self, "Missing File", f"{file_path} not found")
+            return
+
+        try:
+            resolved_path = resolve_moved_path(file_path)
+        except Exception:
+            resolved_path = file_path
+
+        self.instruction_widget.hide() if self.instruction_widget else None
+
+        try:
+            epochs = mne.read_epochs(resolved_path, preload=True)
+            self.current_epochs = epochs
+            self.current_raw = None
+            is_raw = False
+        except Exception:
+            raw = mne.io.read_raw_eeglab(resolved_path, preload=True)
+            self.current_raw = raw
+            self.current_epochs = None
+            is_raw = True
+
+        if self.plot_widget is not None:
+            self.right_layout.removeWidget(self.plot_widget)
+            self.plot_widget.close()
+
+        if not is_raw and self.current_epochs is not None:
+            self.plot_widget = self.current_epochs.plot(
+                n_epochs=10,
+                show=False,
+                block=False,
+                picks="all",
+                events=True,
+                show_scalebars=True,
+                scalings={"eeg": 25e-6},
+                n_channels=self.current_epochs.info["nchan"],
+            )
+        elif self.current_raw is not None:
+            self.plot_widget = self.current_raw.plot(
+                show=False,
+                block=True,
+                show_scalebars=True,
+                scalings={"eeg": 25e-6},
+                n_channels=self.current_raw.info["nchan"],
+                show_options=True,
+            )
+        else:
+            return
+
+        self._plot_is_raw = is_raw
+        self._plotted_file_path = str(resolved_path)
+        self._enforce_light_browser_theme(self.plot_widget)
+        self.right_layout.addWidget(self.plot_widget)
+        self.plot_widget.show()
+        if self.close_plot_btn is not None:
+            self.close_plot_btn.setEnabled(True)
+
+    def closePlot(self) -> None:  # noqa: N802 - legacy public API
+        if self.plot_widget is None:
+            return
+        self._auto_save_pending_epochs()
+        self.right_layout.removeWidget(self.plot_widget)
+        self.plot_widget.close()
+        self.plot_widget.deleteLater()
+        self.plot_widget = None
+        if self.close_plot_btn is not None:
+            self.close_plot_btn.setEnabled(False)
+        self._plotted_file_path = None
+        self._plot_is_raw = False
+        if self.instruction_widget is not None:
+            self.instruction_widget.show()
+
+    def _auto_save_pending_epochs(self, reason: str = "") -> None:
+        if self._auto_saving_epochs:
+            return
+        if self._plot_is_raw or self._plotted_file_path is None:
+            return
+        if self.current_epochs is None or self.current_run_id is None:
+            return
+        if not hasattr(self.plot_widget, "mne") or self.plot_widget.mne is None:
+            return
+        if self.current_dir is None:
+            return
+
+        try:
+            bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
+        except AttributeError:
+            bad_epochs = []
+
+        if not bad_epochs:
+            return
+
+        self._auto_saving_epochs = True
+        try:
+            run_record = get_run_record(self.current_run_id)
+            original_stage_dir = Path(
+                run_record["metadata"]["step_prepare_directories"]["stage"]
+            )
+            try:
+                task_name = original_stage_dir.parent.name
+                container_stage_dir = Path(self.current_dir) / task_name / "stage"
+            except Exception:
+                container_stage_dir = Path(self.current_dir) / "stage"
+
+            autoclean_dict = {
+                "run_id": self.current_run_id,
+                "stage_files": run_record["metadata"]["entrypoint"]["stage_files"],
+                "stage_dir": container_stage_dir,
+                "unprocessed_file": run_record["unprocessed_file"],
+            }
+
+            message(
+                "info",
+                f"Auto-saving {len(bad_epochs)} marked epochs for {Path(self._plotted_file_path).name}",
+            )
+
+            self.current_epochs.drop(bad_epochs)
+            container_stage_dir.mkdir(parents=True, exist_ok=True)
+            save_epochs_to_set(self.current_epochs, autoclean_dict, stage="post_edit")
+
+            if self.status_bar is not None:
+                self.status_bar.showMessage(
+                    f"Auto-saved exclusions for {Path(self._plotted_file_path).name}",
+                    5000,
+                )
+        finally:
+            self._auto_saving_epochs = False
+
+    def _enforce_light_browser_theme(self, widget: Optional[QWidget]) -> None:
+        if widget is None:
+            return
+        try:
+            if hasattr(widget, "set_theme"):
+                widget.set_theme("light")
+                return
+        except Exception:
+            pass
+        try:
+            if hasattr(widget, "set_dark_mode"):
+                widget.set_dark_mode(False)
+                return
+        except Exception:
+            pass
+        try:
+            palette = widget.palette()
+            palette.setColor(QPalette.ColorRole.Window, QColor("#ffffff"))
+            palette.setColor(QPalette.ColorRole.Base, QColor("#ffffff"))
+            palette.setColor(QPalette.ColorRole.Text, QColor("#1f2933"))
+            palette.setColor(QPalette.ColorRole.WindowText, QColor("#1f2933"))
+            widget.setPalette(palette)
+            widget.setStyleSheet("background-color: #ffffff; color: #1f2933;")
+            for child in widget.findChildren(QWidget):
+                child.setPalette(palette)
+        except Exception:
+            pass
+
+
+class _JsonTreeModel(QAbstractItemModel):
+    """Simplified tree model for displaying nested JSON-like data."""
+
+    class TreeItem:
+        def __init__(self, key, value, children=None):
+            self.key = key
+            self.value = value
+            self.children = children or []
+            self.parent = None
+            for child in self.children:
+                child.parent = self
+
+    def __init__(self, data):
+        super().__init__()
+        self._root = self.TreeItem("root", "")
+        self._root.children = self._process_data(data)
+        for child in self._root.children:
+            child.parent = self._root
+
+    def _process_data(self, data):
+        items = []
+        if isinstance(data, dict):
+            for key, value in data.items():
+                if isinstance(value, (dict, list)):
+                    item = self.TreeItem(str(key), "")
+                    item.children = self._process_data(value)
+                    for child in item.children:
+                        child.parent = item
+                else:
+                    item = self.TreeItem(str(key), str(value))
+                items.append(item)
+        elif isinstance(data, list):
+            for i, value in enumerate(data):
+                if isinstance(value, (dict, list)):
+                    item = self.TreeItem(str(i), "")
+                    item.children = self._process_data(value)
+                    for child in item.children:
+                        child.parent = item
+                else:
+                    item = self.TreeItem(str(i), str(value))
+                items.append(item)
+        return items
+
+    def index(self, row, column, parent=QModelIndex()):
+        if not self.hasIndex(row, column, parent):
+            return QModelIndex()
+        parent_item = parent.internalPointer() if parent.isValid() else self._root
+        if row < len(parent_item.children):
+            return self.createIndex(row, column, parent_item.children[row])
+        return QModelIndex()
+
+    def parent(self, index):
+        if not index.isValid():
+            return QModelIndex()
+        child_item = index.internalPointer()
+        parent_item = child_item.parent
+        if parent_item is self._root or parent_item is None:
+            return QModelIndex()
+        row = (
+            parent_item.parent.children.index(parent_item) if parent_item.parent else 0
+        )
+        return self.createIndex(row, 0, parent_item)
+
+    def rowCount(self, parent=QModelIndex()):
+        if parent.column() > 0:
+            return 0
+        parent_item = parent.internalPointer() if parent.isValid() else self._root
+        return len(parent_item.children)
+
+    def columnCount(self, parent=QModelIndex()):
+        return 2
+
+    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
+        if not index.isValid() or role != Qt.ItemDataRole.DisplayRole:
+            return None
+        item = index.internalPointer()
+        return item.key if index.column() == 0 else item.value
+
+    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+            return ["Key", "Value"][section]
+        return None
 
 class ProcessingMetricsWidget(QWidget):
     def __init__(self, parent: Optional[QWidget] = None) -> None:
@@ -244,7 +820,7 @@ def _open_path(path: Path) -> None:
         subprocess.run(["xdg-open", str(path)], check=False)
 
 
-class ExclusionFileSelector(autoclean_review.FileSelector):
+class ExclusionFileSelector(ReviewBase):
     """Subclass of the classic review widget with exclusion helpers."""
 
     def __init__(
@@ -283,14 +859,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.psd_image_label: Optional[QLabel] = None
         self.psd_scroll: Optional[QScrollArea] = None
         self.psd_original_pixmap: Optional[QPixmap] = None
-        self.run_report_message_label: Optional[QLabel] = None
-        self.run_report_image_label: Optional[QLabel] = None
-        self.run_report_scroll: Optional[QScrollArea] = None
-        self.run_report_original_pixmap: Optional[QPixmap] = None
-        self.ica_message_label: Optional[QLabel] = None
-        self.ica_image_label: Optional[QLabel] = None
-        self.ica_scroll: Optional[QScrollArea] = None
-        self.ica_original_pixmap: Optional[QPixmap] = None
+        self.run_report_preview: Optional[PdfPreviewWidget] = None
+        self.ica_preview: Optional[PdfPreviewWidget] = None
         self.time_series_tab_index: Optional[int] = None
         self.psd_tab_index: Optional[int] = None
         self.run_report_tab_index: Optional[int] = None
@@ -400,23 +970,11 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         run_layout.setSpacing(8)
         run_tab_container.setLayout(run_layout)
 
-        self.run_report_message_label = QLabel("Select a file to view run report")
-        self.run_report_message_label.setObjectName("runReportMessage")
-        self.run_report_message_label.setAlignment(Qt.AlignCenter)
-        run_layout.addWidget(self.run_report_message_label)
-
-        self.run_report_scroll = QScrollArea()
-        self.run_report_scroll.setObjectName("runReportScroll")
-        self.run_report_scroll.setWidgetResizable(True)
-        self.run_report_image_label = QLabel()
-        self.run_report_image_label.setObjectName("runReportImage")
-        self.run_report_image_label.setAlignment(Qt.AlignCenter)
-        self.run_report_scroll.setWidget(self.run_report_image_label)
-        self.run_report_scroll.hide()
-        run_layout.addWidget(self.run_report_scroll, 1)
-
-        if self.run_report_scroll is not None:
-            self.run_report_scroll.viewport().installEventFilter(self)
+        self.run_report_preview = PdfPreviewWidget(
+            "Select a file to view run report"
+        )
+        self.run_report_preview.setObjectName("runReportPreview")
+        run_layout.addWidget(self.run_report_preview, 1)
         self.run_report_tab_index = self.plot_tabs.addTab(run_tab_container, "Run Report")
 
         ica_tab_container = QWidget()
@@ -425,23 +983,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         ica_layout.setSpacing(8)
         ica_tab_container.setLayout(ica_layout)
 
-        self.ica_message_label = QLabel("Select a file to view ICA overview")
-        self.ica_message_label.setObjectName("icaOverviewMessage")
-        self.ica_message_label.setAlignment(Qt.AlignCenter)
-        ica_layout.addWidget(self.ica_message_label)
-
-        self.ica_scroll = QScrollArea()
-        self.ica_scroll.setObjectName("icaOverviewScroll")
-        self.ica_scroll.setWidgetResizable(True)
-        self.ica_image_label = QLabel()
-        self.ica_image_label.setObjectName("icaOverviewImage")
-        self.ica_image_label.setAlignment(Qt.AlignCenter)
-        self.ica_scroll.setWidget(self.ica_image_label)
-        self.ica_scroll.hide()
-        ica_layout.addWidget(self.ica_scroll, 1)
-
-        if self.ica_scroll is not None:
-            self.ica_scroll.viewport().installEventFilter(self)
+        self.ica_preview = PdfPreviewWidget("Select a file to view ICA overview")
+        self.ica_preview.setObjectName("icaOverviewPreview")
+        ica_layout.addWidget(self.ica_preview, 1)
         self.ica_tab_index = self.plot_tabs.addTab(ica_tab_container, "ICA Components")
 
         container_layout = self.right_container.layout()
@@ -1577,150 +2121,46 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.psd_image_label.setPixmap(scaled)
 
     def _update_run_report_preview_for_file(self, file_path: Optional[Path]) -> None:
-        if (
-            self.run_report_message_label is None
-            or self.run_report_image_label is None
-            or self.run_report_scroll is None
-        ):
-            return
-
-        if fitz is None:
-            self.run_report_original_pixmap = None
-            self.run_report_scroll.hide()
-            self.run_report_message_label.setText("Install pymupdf to preview run reports")
-            self.run_report_message_label.show()
+        if self.run_report_preview is None:
             return
 
         if file_path is None:
-            self.run_report_original_pixmap = None
-            self.run_report_scroll.hide()
-            self.run_report_message_label.setText("Select a file to view run report")
-            self.run_report_message_label.show()
+            self.run_report_preview.clear()
+            self.run_report_preview.show_message("Select a file to view run report")
             return
 
         pdf_path = self._find_run_report_for_file(file_path)
-        if pdf_path is None:
-            self.run_report_original_pixmap = None
-            self.run_report_scroll.hide()
-            self.run_report_message_label.setText("Run report not available for this file")
-            self.run_report_message_label.show()
+        if pdf_path is None or not pdf_path.exists():
+            self.run_report_preview.clear()
+            self.run_report_preview.show_message("Run report not available for this file")
             return
 
         try:
-            doc = fitz.open(str(pdf_path))
-            page = doc.load_page(0)
-            zoom = 1.5
-            matrix = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=matrix, alpha=True)
-            doc.close()
+            self.run_report_preview.load(pdf_path)
         except Exception:
-            self.run_report_original_pixmap = None
-            self.run_report_scroll.hide()
-            self.run_report_message_label.setText("Failed to load run report preview")
-            self.run_report_message_label.show()
-            return
-
-        mode = QImage.Format_RGBA8888 if pix.alpha else QImage.Format_RGB888
-        image = QImage(pix.samples, pix.width, pix.height, pix.stride, mode)
-        pixmap = QPixmap.fromImage(image.copy())
-
-        self.run_report_original_pixmap = pixmap
-        self._set_run_report_pixmap()
-        self.run_report_scroll.show()
-        self.run_report_message_label.hide()
-
-    def _set_run_report_pixmap(self, pixmap: Optional[QPixmap] = None) -> None:
-        if self.run_report_image_label is None or self.run_report_scroll is None:
-            return
-        if pixmap is not None:
-            self.run_report_original_pixmap = pixmap
-        source = self.run_report_original_pixmap
-        if source is None:
-            return
-        viewport = self.run_report_scroll.viewport()
-        if viewport.width() > 0:
-            scaled = source.scaled(
-                viewport.width(),
-                viewport.width(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
-            )
-        else:
-            scaled = source
-        self.run_report_image_label.setPixmap(scaled)
+            self.run_report_preview.clear()
+            self.run_report_preview.show_message("Failed to load run report preview")
 
     def _update_ica_preview_for_file(self, file_path: Optional[Path]) -> None:
-        if (
-            self.ica_message_label is None
-            or self.ica_image_label is None
-            or self.ica_scroll is None
-        ):
-            return
-
-        if fitz is None:
-            self.ica_original_pixmap = None
-            self.ica_scroll.hide()
-            self.ica_message_label.setText("Install pymupdf to preview ICA components")
-            self.ica_message_label.show()
+        if self.ica_preview is None:
             return
 
         if file_path is None:
-            self.ica_original_pixmap = None
-            self.ica_scroll.hide()
-            self.ica_message_label.setText("Select a file to view ICA overview")
-            self.ica_message_label.show()
+            self.ica_preview.clear()
+            self.ica_preview.show_message("Select a file to view ICA overview")
             return
 
         ica_path = self._find_ica_overview_for_file(file_path)
-        if ica_path is None:
-            self.ica_original_pixmap = None
-            self.ica_scroll.hide()
-            self.ica_message_label.setText("ICA overview not available for this file")
-            self.ica_message_label.show()
+        if ica_path is None or not ica_path.exists():
+            self.ica_preview.clear()
+            self.ica_preview.show_message("ICA overview not available for this file")
             return
 
         try:
-            doc = fitz.open(str(ica_path))
-            page = doc.load_page(0)
-            zoom = 1.3
-            matrix = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=matrix, alpha=True)
-            doc.close()
+            self.ica_preview.load(ica_path)
         except Exception:
-            self.ica_original_pixmap = None
-            self.ica_scroll.hide()
-            self.ica_message_label.setText("Failed to load ICA overview")
-            self.ica_message_label.show()
-            return
-
-        mode = QImage.Format_RGBA8888 if pix.alpha else QImage.Format_RGB888
-        image = QImage(pix.samples, pix.width, pix.height, pix.stride, mode)
-        pixmap = QPixmap.fromImage(image.copy())
-
-        self.ica_original_pixmap = pixmap
-        self._set_ica_pixmap()
-        self.ica_scroll.show()
-        self.ica_message_label.hide()
-
-    def _set_ica_pixmap(self, pixmap: Optional[QPixmap] = None) -> None:
-        if self.ica_image_label is None or self.ica_scroll is None:
-            return
-        if pixmap is not None:
-            self.ica_original_pixmap = pixmap
-        source = self.ica_original_pixmap
-        if source is None:
-            return
-        viewport = self.ica_scroll.viewport()
-        if viewport.width() > 0:
-            scaled = source.scaled(
-                viewport.width(),
-                viewport.width(),
-                Qt.KeepAspectRatio,
-                Qt.SmoothTransformation,
-            )
-        else:
-            scaled = source
-        self.ica_image_label.setPixmap(scaled)
+            self.ica_preview.clear()
+            self.ica_preview.show_message("Failed to load ICA overview")
 
 
     def _handle_plot_tab_changed(self, index: int) -> None:
@@ -1728,19 +2168,11 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             return
         if index == self.psd_tab_index:
             self._set_psd_pixmap()
-        elif index == self.run_report_tab_index:
-            self._set_run_report_pixmap()
-        elif index == self.ica_tab_index:
-            self._set_ica_pixmap()
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Resize:
             if self.psd_scroll is not None and obj is self.psd_scroll.viewport():
                 self._set_psd_pixmap()
-            elif self.run_report_scroll is not None and obj is self.run_report_scroll.viewport():
-                self._set_run_report_pixmap()
-            elif self.ica_scroll is not None and obj is self.ica_scroll.viewport():
-                self._set_ica_pixmap()
         return super().eventFilter(obj, event)
 
     def _update_processing_metrics_for_file(self, file_path: Path) -> None:
@@ -2006,7 +2438,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.current_display_name = self._relative_path(file_path)
         try:
             self.current_run_id = self.getRunId(self.selected_file_path)
-            self.current_run_record = autoclean_review.get_run_record(self.current_run_id)
+            self.current_run_record = get_run_record(self.current_run_id)
             if self.view_record_btn is not None:
                 self.view_record_btn.setEnabled(True)
         except Exception:
@@ -2358,14 +2790,14 @@ def run_autoclean_exclusion_tool(
     window.showMaximized()
     if not app.styleSheet():
         app.setStyleSheet("")
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
             "Launch the AutocleanEEG inclusion/exclusion review interface with the "
-            "full timeseries browser from autoclean_review."
+            "embedded MNE time-series browser."
         )
     )
     parser.add_argument(
