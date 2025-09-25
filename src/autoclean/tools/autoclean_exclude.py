@@ -56,6 +56,7 @@ from PyQt5.QtWidgets import (  # noqa: E402
     QListWidgetItem,
     QPushButton,
     QShortcut,
+    QScrollArea,
     QSizePolicy,
     QStackedLayout,
     QTabWidget,
@@ -353,12 +354,15 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.psd_message_label.setAlignment(Qt.AlignCenter)
         psd_layout.addWidget(self.psd_message_label)
 
+        self.psd_scroll = QScrollArea()
+        self.psd_scroll.setObjectName("psdOverviewScroll")
+        self.psd_scroll.setWidgetResizable(True)
         self.psd_image_label = QLabel()
         self.psd_image_label.setObjectName("psdOverviewImage")
         self.psd_image_label.setAlignment(Qt.AlignCenter)
-        self.psd_image_label.setScaledContents(True)
-        self.psd_image_label.hide()
-        psd_layout.addWidget(self.psd_image_label, 1)
+        self.psd_scroll.setWidget(self.psd_image_label)
+        self.psd_scroll.hide()
+        psd_layout.addWidget(self.psd_scroll, 1)
 
         self.plot_tabs.addTab(psd_tab_container, "PSD Overview")
 
@@ -1329,33 +1333,48 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         return best_path
 
     def _update_psd_preview_for_file(self, file_path: Optional[Path]) -> None:
-        if self.psd_message_label is None or self.psd_image_label is None:
+        if self.psd_message_label is None or self.psd_image_label is None or self.psd_scroll is None:
             return
 
         if file_path is None:
-            self.psd_image_label.hide()
+            self.psd_scroll.hide()
             self.psd_message_label.setText("Select a file to view PSD overview")
             self.psd_message_label.show()
             return
 
         psd_path = self._find_psd_overview_for_file(file_path)
         if psd_path is None:
-            self.psd_image_label.hide()
+            self.psd_scroll.hide()
             self.psd_message_label.setText("PSD overview not available for this file")
             self.psd_message_label.show()
             return
 
         pixmap = QPixmap(str(psd_path))
         if pixmap.isNull():
-            self.psd_image_label.hide()
+            self.psd_scroll.hide()
             self.psd_message_label.setText("PSD overview failed to load")
             self.psd_message_label.show()
             return
 
-        self.psd_image_label.setPixmap(pixmap)
-        self.psd_image_label.show()
+        self._set_psd_pixmap(pixmap)
+        self.psd_scroll.show()
         self.psd_message_label.hide()
 
+    def _set_psd_pixmap(self, pixmap: QPixmap) -> None:
+        if self.psd_image_label is None:
+            return
+        viewport = self.psd_scroll.viewport()
+        if viewport.width() > 0:
+            scaled = pixmap.scaled(
+                viewport.width(),
+                viewport.width(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+        else:
+            scaled = pixmap
+        self.psd_image_label.setPixmap(scaled)
+        self.psd_image_label.adjustSize()
     def _update_processing_metrics_for_file(self, file_path: Path) -> None:
         if self.metrics_widget is None:
             return
