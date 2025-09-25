@@ -501,7 +501,7 @@ class ReviewBase(QWidget):
         self.instruction_widget.hide() if self.instruction_widget else None
 
         try:
-            epochs = mne.read_epochs(resolved_path, preload=True)
+            epochs = mne.io.read_epochs_eeglab(resolved_path)
             self.current_epochs = epochs
             self.current_raw = None
             is_raw = False
