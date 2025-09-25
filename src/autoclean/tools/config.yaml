@@ -1,0 +1,33 @@
+# AutoClean Exclude Configuration
+# This file defines the suffix stripping, postfix mapping, and directory resolution
+# for different asset types in the AutoClean exclusion tool.
+
+suffixes:
+  global:
+    - "_comp_epo"
+    - "_comp"
+    - "_epo"
+    - "_postedit"
+    - "_preproc"
+    - "_raw"
+    - "_clean"
+  psd_overview:
+    - "_psd"
+  ica_report:
+    - "_ica"
+
+postfixes:
+  processing_log: "_processing_log.csv"
+  psd_overview: "_psd_topo_figure.png"
+  run_report: "_autoclean_report.pdf"
+  ica_report: "_ica_components.pdf"
+
+directories:
+  processing_log: "."                # same folder as .set file
+  psd_overview: "reports/psd_topo"
+  run_report: "reports/run_reports"
+  ica_report: "reports/ica_components"
+
+logfile:
+  name: "preprocessing_log.csv"
+  key_column: "subj_basename"
