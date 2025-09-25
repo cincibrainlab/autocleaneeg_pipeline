@@ -203,17 +203,22 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         decision_card = QFrame()
         decision_card.setObjectName("decisionCard")
         decision_layout = QVBoxLayout()
-        decision_layout.setContentsMargins(14, 14, 14, 14)
-        decision_layout.setSpacing(12)
+        decision_layout.setContentsMargins(12, 12, 12, 12)
+        decision_layout.setSpacing(8)
         decision_card.setLayout(decision_layout)
 
         header_row = QHBoxLayout()
-        header_row.setSpacing(10)
+        header_row.setSpacing(6)
 
         header_label = QLabel("Review Decision")
         header_label.setObjectName("decisionHeader")
         header_row.addWidget(header_label)
-        header_row.addStretch(1)
+
+        shortcut_hint = QLabel("P Pass • F Fail • R Review • C Clear")
+        shortcut_hint.setObjectName("decisionShortcutHint")
+        shortcut_hint.setAlignment(Qt.AlignCenter)
+        header_row.addWidget(shortcut_hint, 0, Qt.AlignRight)
+        header_row.addSpacing(4)
 
         self.status_label = QLabel("Not Started")
         self.status_label.setObjectName("decisionStatusChip")
@@ -226,13 +231,12 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.current_file_label.setWordWrap(True)
         decision_layout.addWidget(self.current_file_label)
 
-        button_container = QFrame()
-        button_container.setObjectName("decisionButtonRow")
-        button_container.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        button_row = QHBoxLayout()
-        button_row.setContentsMargins(0, 0, 0, 0)
-        button_row.setSpacing(10)
-        button_container.setLayout(button_row)
+        button_panel = QWidget()
+        button_panel.setObjectName("decisionButtonPanel")
+        button_layout = QHBoxLayout()
+        button_layout.setContentsMargins(0, 0, 0, 0)
+        button_layout.setSpacing(6)
+        button_panel.setLayout(button_layout)
 
         self._shortcuts: dict[str, QShortcut] = {}
         self._status_buttons.clear()
@@ -241,47 +245,45 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             btn = QPushButton(meta["label"])
             btn.setCursor(Qt.PointingHandCursor)
             btn.setCheckable(True)
-            btn.setMinimumHeight(32)
+            btn.setMinimumHeight(28)
+            btn.setMinimumWidth(0)
             btn.setToolTip(
                 f"Mark the selection as {meta['label']}. Shortcut: {meta['shortcut']}"
             )
             btn.clicked.connect(partial(self._set_status, status))
-            button_row.addWidget(btn)
+            button_layout.addWidget(btn)
             self._status_buttons[status] = btn
 
             shortcut = QShortcut(QKeySequence(meta["shortcut"]), self)
             shortcut.activated.connect(partial(self._set_status, status))
             self._shortcuts[status] = shortcut
 
-        button_row.addStretch(1)
+        button_layout.addSpacing(2)
 
         clear_btn = QPushButton("Clear")
         clear_btn.setObjectName("decisionClearButton")
         clear_btn.setCursor(Qt.PointingHandCursor)
-        clear_btn.setMinimumHeight(32)
+        clear_btn.setMinimumHeight(28)
+        clear_btn.setFixedWidth(64)
         clear_btn.setToolTip("Reset decision to Not Started. Shortcut: C")
         clear_btn.clicked.connect(partial(self._set_status, "UNSET"))
         self._clear_button = clear_btn
-        button_row.addWidget(clear_btn)
+        button_layout.addWidget(clear_btn)
 
         clear_shortcut = QShortcut(QKeySequence("C"), self)
         clear_shortcut.activated.connect(partial(self._set_status, "UNSET"))
         self._shortcuts["CLEAR"] = clear_shortcut
 
-        shortcut_hint = QLabel("Shortcuts: P Pass • F Fail • R Needs Review • C Clear")
-        shortcut_hint.setObjectName("decisionShortcutHint")
-        shortcut_hint.setWordWrap(True)
-
         self.save_state_label = QLabel("Select a file to assign a decision.")
         self.save_state_label.setObjectName("decisionSaveLabel")
+        self.save_state_label.setAlignment(Qt.AlignLeft)
 
         actions_widget = QWidget()
         actions_layout = QVBoxLayout()
-        actions_layout.setContentsMargins(0, 4, 0, 0)
-        actions_layout.setSpacing(12)
+        actions_layout.setContentsMargins(0, 2, 0, 0)
+        actions_layout.setSpacing(6)
         actions_widget.setLayout(actions_layout)
-        actions_layout.addWidget(button_container)
-        actions_layout.addWidget(shortcut_hint)
+        actions_layout.addWidget(button_panel)
         actions_layout.addWidget(self.save_state_label)
 
         empty_widget = QFrame()
@@ -317,48 +319,54 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             """
             #decisionCard {
                 background-color: #ffffff;
-                border: 1px solid #d9e2ec;
-                border-radius: 12px;
+                border: 1px solid #d3deea;
+                border-radius: 10px;
             }
             #decisionHeader {
                 font-size: 12px;
                 text-transform: uppercase;
-                letter-spacing: 0.8px;
-                color: #51606f;
+                letter-spacing: 0.7px;
+                color: #425466;
                 font-weight: 700;
             }
+            #decisionShortcutHint {
+                color: #7a8ca3;
+                font-size: 11px;
+                letter-spacing: 0.3px;
+            }
             #decisionFileLabel {
-                color: #1f2d3d;
-                font-weight: 600;
+                color: #1d2939;
+                font-weight: 500;
+                font-size: 12px;
             }
             #decisionStatusChip {
-                padding: 3px 10px;
-                border-radius: 10px;
+                padding: 2px 10px;
+                border-radius: 12px;
                 font-weight: 600;
-                background-color: #edf2f7;
-                color: #5b6c7c;
+                background-color: #ecf2ff;
+                color: #1a4fa3;
             }
-            #decisionButtonRow QPushButton {
-                background-color: #f6f9ff;
-                border: 1px solid #d4e2ff;
-                border-radius: 8px;
-                padding: 6px 18px;
+            #decisionButtonPanel QPushButton {
+                background-color: #eef3ff;
+                border: 1px solid #c9d6ff;
+                border-radius: 6px;
+                padding: 4px 12px;
                 font-weight: 600;
                 color: #1f2d3d;
             }
-            #decisionButtonRow QPushButton:hover {
-                border-color: #3a7bd5;
+            #decisionButtonPanel QPushButton:hover {
+                border-color: #93aaff;
                 color: #1a4fa3;
             }
-            #decisionButtonRow QPushButton:checked {
+            #decisionButtonPanel QPushButton:checked {
                 background-color: #1a4fa3;
                 border-color: #1a4fa3;
                 color: #ffffff;
             }
-            #decisionButtonRow QPushButton:disabled {
-                background-color: #f0f4f8;
-                color: #9aa5b1;
-                border-color: #dfe4ea;
+            #decisionButtonPanel QPushButton:disabled {
+                background-color: #f1f4fb;
+                color: #98a4b5;
+                border-color: #d7deeb;
             }
             #decisionClearButton {
                 background-color: #ffffff;
@@ -366,18 +374,15 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 color: #5b6c7c;
             }
             #decisionClearButton:hover {
-                border-color: #94a3b8;
-                color: #2c3e50;
-            }
-            #decisionShortcutHint {
-                color: #64748b;
-                font-size: 11px;
+                border-color: #a5b4c7;
+                color: #2f3d4f;
             }
             #decisionSaveLabel {
-                color: #64748b;
+                color: #738194;
                 font-style: italic;
+                font-size: 11px;
             }
-            #decisionInfoPanel {
+#decisionInfoPanel {
                 background-color: transparent;
                 border: none;
             }
@@ -913,19 +918,29 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
     # ------------------------------------------------------------------
     def loadFiles(self) -> None:  # noqa: N802 - inherited public API
         self._suppress_selection_autoload = True
+        first_item: Optional[QTreeWidgetItem] = None
         try:
-            self.file_tree.clear()
+            if self.file_tree is not None:
+                self.file_tree.clear()
             self.row_lookup.clear()
             self.all_keys.clear()
 
             current_dir = self.current_dir
             if not current_dir:
                 self._update_summary()
+                if self.instruction_widget is not None:
+                    self.instruction_widget.show()
+                if self.status_bar is not None:
+                    self.status_bar.showMessage("No folder selected")
                 return
 
             root_path = Path(current_dir)
             if not root_path.exists():
                 self._update_summary()
+                if self.instruction_widget is not None:
+                    self.instruction_widget.show()
+                if self.status_bar is not None:
+                    self.status_bar.showMessage("Folder not found")
                 return
             file_icon = self.style().standardIcon(self.style().SP_FileIcon)
 
@@ -950,15 +965,37 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 key = self._record_key(file_path)
                 item.setData(0, Qt.UserRole + 1, key)
                 item.setData(0, Qt.UserRole + 2, base_label)
-                self.file_tree.addTopLevelItem(item)
+                if self.file_tree is not None:
+                    self.file_tree.addTopLevelItem(item)
                 self.row_lookup[key] = item
                 self.all_keys.add(key)
                 status = self.decisions.get(key, {}).get("status", "UNSET")
                 self._apply_status_to_item(item, status)
+                if first_item is None:
+                    first_item = item
 
             self._update_summary()
+
+            if not set_files and self.instruction_widget is not None:
+                self.instruction_widget.show()
+                if self.status_bar is not None:
+                    self.status_bar.showMessage("No .set files found in the selected folder")
         finally:
             self._suppress_selection_autoload = False
+
+        if first_item is not None:
+            if self.instruction_widget is not None:
+                self.instruction_widget.hide()
+
+            def _select_initial() -> None:
+                if not hasattr(self, "file_tree") or self.file_tree is None:
+                    return
+                self.file_tree.setCurrentItem(first_item)
+
+            QTimer.singleShot(0, _select_initial)
+        else:
+            if self.status_bar is not None:
+                self.status_bar.showMessage("Select a folder with .set files")
 
     def selectDirectory(self) -> None:  # noqa: N802 - inherited public API
         dir_path = QFileDialog.getExistingDirectory(
