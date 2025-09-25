@@ -135,6 +135,10 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         self._updating_notes = False
         self._suppress_selection_autoload = False
+        self._plot_in_progress = False
+        self._pending_plot_refresh = False
+        self._pending_selection_item: Optional[QTreeWidgetItem] = None
+        self._selection_timer: Optional[QTimer] = None
 
         super().__init__(
             str(self.exports_dir) if self.exports_dir is not None else None
@@ -163,6 +167,11 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.save_timer.setSingleShot(True)
         self.save_timer.setInterval(400)
         self.save_timer.timeout.connect(self._commit_decisions)
+
+        self._selection_timer = QTimer(self)
+        self._selection_timer.setSingleShot(True)
+        self._selection_timer.setInterval(180)
+        self._selection_timer.timeout.connect(self._process_pending_selection)
 
         if hasattr(self, "file_tree") and self.file_tree is not None:
             try:
@@ -879,15 +888,37 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if not items:
             return
         item = items[0]
+        self._pending_selection_item = item
+        if self._selection_timer is not None:
+            self._selection_timer.stop()
+            self._selection_timer.start()
+
+    def _process_pending_selection(self) -> None:
+        if self._pending_selection_item is None:
+            return
+        item = self._pending_selection_item
+        self._pending_selection_item = None
+
+        if not hasattr(self, "file_tree") or self.file_tree is None:
+            return
+        if item not in self.file_tree.selectedItems():
+            return
+
         try:
             self.onFileSelect(item)
         except Exception:
             return
-        if hasattr(self, "plot_btn") and self.plot_btn.isEnabled():
-            try:
-                self.plotFile()
-            except Exception:
-                pass
+
+        self._auto_plot_current()
+
+    def _auto_plot_current(self) -> None:
+        if not getattr(self, "selected_file_path", None):
+            return
+        if self._plot_in_progress:
+            self._pending_plot_refresh = True
+            return
+        self._pending_plot_refresh = False
+        self._render_plot(reason="auto")
 
     # ------------------------------------------------------------------
     # Tree + selection logic
@@ -991,16 +1022,10 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             return
 
         previous_plot = getattr(self, "_plotted_file_path", None)
-        if (
-            self.plot_widget is not None
-            and previous_plot is not None
-            and Path(previous_plot) != file_path
+        if self.plot_widget is not None and (
+            previous_plot is None or Path(previous_plot) != file_path
         ):
-            self._auto_save_pending_epochs(reason="selection_changed")
-            self._plotted_file_path = None
-            self._plot_is_raw = False
-            if hasattr(self, "_current_plot_path"):
-                self._current_plot_path = None
+            self.closePlot(reason="selection_changed")
 
         self.selected_item = item
         self.selected_file = file_path.name
@@ -1022,18 +1047,92 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if self.detail_panel is not None:
             self.detail_panel.show()
 
-        if self.plot_widget is None or self._current_plot_path != self.selected_file_path:
-            self.plotFile()
+        if self.status_bar is not None and self.current_display_name:
+            self.status_bar.showMessage(f"Queued · {self.current_display_name}")
+
+    def _render_plot(self, *, reason: str) -> None:
+        current_path = getattr(self, "selected_file_path", None)
+        if not current_path:
+            return
+
+        if self._plot_in_progress:
+            self._pending_plot_refresh = True
+            return
+
+        if (
+            reason != "manual"
+            and self.plot_widget is not None
+            and self._current_plot_path == current_path
+        ):
+            if self.status_bar is not None and self.current_display_name:
+                self.status_bar.showMessage(f"Ready · {self.current_display_name}")
+            return
+
+        self._plot_in_progress = True
+        try:
+            reload_reason = "reload" if reason == "manual" else "selection_changed"
+            if self.plot_widget is not None:
+                self.closePlot(reason=reload_reason)
+
+            if self.status_bar is not None and self.current_display_name:
+                verb = "Reloading" if reason == "manual" else "Loading"
+                self.status_bar.showMessage(f"{verb} {self.current_display_name}…")
+
+            if self.instruction_widget is not None:
+                self.instruction_widget.show()
+
+            super().plotFile()
+
+            if self.detail_panel is not None and self.detail_panel.isHidden():
+                self.detail_panel.show()
+
+            self._current_plot_path = getattr(self, "selected_file_path", None)
+
+            if self.status_bar is not None and self.current_display_name:
+                self.status_bar.showMessage(f"Ready · {self.current_display_name}")
+        finally:
+            self._plot_in_progress = False
+            if self._pending_plot_refresh:
+                self._pending_plot_refresh = False
+                self._auto_plot_current()
 
     def plotFile(self) -> None:  # noqa: N802 - inherited public API
-        super().plotFile()
-        if self.detail_panel is not None and self.detail_panel.isHidden():
-            self.detail_panel.show()
-        self._current_plot_path = getattr(self, "selected_file_path", None)
+        self._render_plot(reason="manual")
 
-    def closePlot(self) -> None:  # noqa: N802 - inherited public API
-        super().closePlot()
+    def closePlot(self, reason: str = "close_button") -> None:  # noqa: N802
+        if self.plot_widget is None:
+            return
+
+        try:
+            self._auto_save_pending_epochs(reason=reason)
+        except TypeError:
+            self._auto_save_pending_epochs()
+
+        try:
+            if hasattr(self, "right_layout") and self.right_layout is not None:
+                self.right_layout.removeWidget(self.plot_widget)
+        except Exception:
+            pass
+
+        self.plot_widget.close()
+        self.plot_widget.deleteLater()
+        self.plot_widget = None
+        self.close_plot_btn.setEnabled(False)
+        self._plotted_file_path = None
+        self._plot_is_raw = False
         self._current_plot_path = None
+        self._pending_plot_refresh = False
+
+        suppress_placeholder = reason == "selection_changed"
+        if not suppress_placeholder and self.instruction_widget is not None:
+            self.instruction_widget.show()
+        if suppress_placeholder and self.instruction_widget is not None:
+            self.instruction_widget.hide()
+
+        if self.status_bar is not None and not suppress_placeholder:
+            self.status_bar.showMessage("Select a file to review")
+
+        QApplication.processEvents()
 
     # ------------------------------------------------------------------
     # Decision management
