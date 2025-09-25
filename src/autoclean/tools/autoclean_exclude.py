@@ -163,6 +163,14 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         # Refresh the directory controls with a compact toolbar treatment
         self._modify_top_buttons()
 
+        if hasattr(self, "plot_btn"):
+            try:
+                self.left_layout.removeWidget(self.plot_btn)
+            except Exception:
+                pass
+            self.plot_btn.deleteLater()
+            self.plot_btn = None
+
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
         self.save_timer.setInterval(400)
@@ -471,7 +479,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         )
 
         # Place decision controls directly below the file actions button row
-        insert_index = self.left_layout.indexOf(self.plot_btn)
+        anchor = getattr(self, "file_tree", None)
+        insert_index = self.left_layout.indexOf(anchor) if anchor is not None else -1
         if insert_index == -1:
             insert_index = self.left_layout.count()
         else:
@@ -1001,7 +1010,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
     def onFileSelect(self, item):  # noqa: N802 - inherited public API
         file_path_str = item.data(0, Qt.UserRole)
         if not file_path_str:
-            self.plot_btn.setEnabled(False)
             self.view_record_btn.setEnabled(False)
             self.current_key = None
             self.current_display_name = None
@@ -1012,7 +1020,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         file_path = Path(file_path_str)
         if file_path.suffix.lower() != ".set":
-            self.plot_btn.setEnabled(False)
             self.view_record_btn.setEnabled(False)
             self.current_key = None
             self.current_display_name = None
@@ -1030,7 +1037,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.selected_item = item
         self.selected_file = file_path.name
         self.selected_file_path = str(file_path)
-        self.plot_btn.setEnabled(True)
         self.current_display_name = self._relative_path(file_path)
         try:
             self.current_run_id = self.getRunId(self.selected_file_path)
