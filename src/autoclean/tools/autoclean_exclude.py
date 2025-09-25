@@ -171,6 +171,19 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self.plot_btn.deleteLater()
             self.plot_btn = None
 
+        for attr in ("view_record_btn", "close_plot_btn", "exit_btn"):
+            btn = getattr(self, attr, None)
+            if btn is None:
+                continue
+            try:
+                btn.hide()
+                parent = btn.parentWidget()
+                if parent is not None and parent.layout() is not None:
+                    parent.layout().removeWidget(btn)
+                btn.setParent(self)
+            except Exception:
+                pass
+
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
         self.save_timer.setInterval(400)
@@ -681,15 +694,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 color: #9aa5b1;
                 border-color: #dfe4ea;
             }
-            #directoryActionToolbar {
-                background-color: #f7f9fc;
-                border: 1px solid #d9e2ec;
-                border-radius: 8px;
-            }
-            #directoryActionToolbar QPushButton {
-                border-radius: 6px;
-                padding: 6px 14px;
-            }
             """
         )
 
@@ -702,31 +706,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         header_layout.addWidget(toolbar)
         self.directory_toolbar = toolbar
-
-        action_toolbar = QFrame()
-        action_toolbar.setObjectName("directoryActionToolbar")
-        action_layout = QHBoxLayout()
-        action_layout.setContentsMargins(12, 8, 12, 8)
-        action_layout.setSpacing(10)
-        action_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-
-        if hasattr(self, "close_plot_btn"):
-            self.close_plot_btn.setMinimumHeight(32)
-            action_layout.addWidget(self.close_plot_btn)
-        if hasattr(self, "view_record_btn"):
-            self.view_record_btn.setMinimumHeight(32)
-            action_layout.addWidget(self.view_record_btn)
-
-        action_layout.addStretch(1)
-
-        if hasattr(self, "exit_btn"):
-            self.exit_btn.setMinimumHeight(32)
-            action_layout.addWidget(self.exit_btn)
-
-        action_toolbar.setLayout(action_layout)
-        action_toolbar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        header_layout.addWidget(action_toolbar)
-        self._directory_action_toolbar = action_toolbar
 
         self.left_layout.insertWidget(0, header_container)
         self.directory_toolbar_container = header_container
@@ -1010,7 +989,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
     def onFileSelect(self, item):  # noqa: N802 - inherited public API
         file_path_str = item.data(0, Qt.UserRole)
         if not file_path_str:
-            self.view_record_btn.setEnabled(False)
+            if self.view_record_btn is not None:
+                self.view_record_btn.setEnabled(False)
             self.current_key = None
             self.current_display_name = None
             self._update_decision_controls(None)
@@ -1020,7 +1000,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         file_path = Path(file_path_str)
         if file_path.suffix.lower() != ".set":
-            self.view_record_btn.setEnabled(False)
+            if self.view_record_btn is not None:
+                self.view_record_btn.setEnabled(False)
             self.current_key = None
             self.current_display_name = None
             self._update_decision_controls(None)
@@ -1041,9 +1022,11 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         try:
             self.current_run_id = self.getRunId(self.selected_file_path)
             self.current_run_record = autoclean_review.get_run_record(self.current_run_id)
-            self.view_record_btn.setEnabled(True)
+            if self.view_record_btn is not None:
+                self.view_record_btn.setEnabled(True)
         except Exception:
-            self.view_record_btn.setEnabled(False)
+            if self.view_record_btn is not None:
+                self.view_record_btn.setEnabled(False)
             self.current_run_record = None
 
         self.current_key = self._record_key(file_path)
@@ -1123,7 +1106,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.plot_widget.close()
         self.plot_widget.deleteLater()
         self.plot_widget = None
-        self.close_plot_btn.setEnabled(False)
+        if self.close_plot_btn is not None:
+            self.close_plot_btn.setEnabled(False)
         self._plotted_file_path = None
         self._plot_is_raw = False
         self._current_plot_path = None
