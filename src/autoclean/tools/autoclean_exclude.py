@@ -43,8 +43,8 @@ def check_gui_dependencies() -> None:
 check_gui_dependencies()
 
 
-from PyQt5.QtCore import Qt, QTimer, QSize  # noqa: E402
-from PyQt5.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
+from PyQt5.QtCore import Qt, QTimer, QSize, QEvent, QObject  # noqa: E402
+from PyQt5.QtGui import QColor, QKeySequence, QPalette, QPixmap, QImage  # noqa: E402
 from PyQt5.QtWidgets import (  # noqa: E402
     QApplication,
     QFrame,
@@ -69,6 +69,11 @@ from PyQt5.QtWidgets import (  # noqa: E402
 
 from autoclean.tools import autoclean_review  # noqa: E402
 from autoclean.utils.user_config import user_config  # noqa: E402
+
+try:
+    import fitz  # type: ignore
+except Exception:  # pragma: no cover - optional dependency
+    fitz = None  # type: ignore
 
 
 STATUS_DEFINITIONS: dict[str, dict[str, str]] = {
@@ -139,6 +144,13 @@ def _longest_common_prefix_length(a: str, b: str) -> int:
             break
         length += 1
     return length
+
+
+def _normalized_prefix_score(a: str, b: str) -> int:
+    def normalize(s: str) -> str:
+        return "".join(ch for ch in s if ch.isalnum()).lower()
+
+    return _longest_common_prefix_length(normalize(a), normalize(b))
 
 
 class ProcessingMetricsWidget(QWidget):
@@ -269,6 +281,20 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.plot_tab_layout: Optional[QVBoxLayout] = None
         self.psd_message_label: Optional[QLabel] = None
         self.psd_image_label: Optional[QLabel] = None
+        self.psd_scroll: Optional[QScrollArea] = None
+        self.psd_original_pixmap: Optional[QPixmap] = None
+        self.run_report_message_label: Optional[QLabel] = None
+        self.run_report_image_label: Optional[QLabel] = None
+        self.run_report_scroll: Optional[QScrollArea] = None
+        self.run_report_original_pixmap: Optional[QPixmap] = None
+        self.ica_message_label: Optional[QLabel] = None
+        self.ica_image_label: Optional[QLabel] = None
+        self.ica_scroll: Optional[QScrollArea] = None
+        self.ica_original_pixmap: Optional[QPixmap] = None
+        self.time_series_tab_index: Optional[int] = None
+        self.psd_tab_index: Optional[int] = None
+        self.run_report_tab_index: Optional[int] = None
+        self.ica_tab_index: Optional[int] = None
 
         self._updating_notes = False
         self._suppress_selection_autoload = False
@@ -340,7 +366,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 if widget is not None:
                     plot_tab_layout.addWidget(widget)
 
-        self.plot_tabs.addTab(plot_tab_container, "Time Series")
+        self.time_series_tab_index = self.plot_tabs.addTab(plot_tab_container, "Time Series")
         self.right_layout = plot_tab_layout
 
         psd_tab_container = QWidget()
@@ -364,7 +390,59 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.psd_scroll.hide()
         psd_layout.addWidget(self.psd_scroll, 1)
 
-        self.plot_tabs.addTab(psd_tab_container, "PSD Overview")
+        if self.psd_scroll is not None:
+            self.psd_scroll.viewport().installEventFilter(self)
+        self.psd_tab_index = self.plot_tabs.addTab(psd_tab_container, "PSD Overview")
+
+        run_tab_container = QWidget()
+        run_layout = QVBoxLayout()
+        run_layout.setContentsMargins(12, 12, 12, 12)
+        run_layout.setSpacing(8)
+        run_tab_container.setLayout(run_layout)
+
+        self.run_report_message_label = QLabel("Select a file to view run report")
+        self.run_report_message_label.setObjectName("runReportMessage")
+        self.run_report_message_label.setAlignment(Qt.AlignCenter)
+        run_layout.addWidget(self.run_report_message_label)
+
+        self.run_report_scroll = QScrollArea()
+        self.run_report_scroll.setObjectName("runReportScroll")
+        self.run_report_scroll.setWidgetResizable(True)
+        self.run_report_image_label = QLabel()
+        self.run_report_image_label.setObjectName("runReportImage")
+        self.run_report_image_label.setAlignment(Qt.AlignCenter)
+        self.run_report_scroll.setWidget(self.run_report_image_label)
+        self.run_report_scroll.hide()
+        run_layout.addWidget(self.run_report_scroll, 1)
+
+        if self.run_report_scroll is not None:
+            self.run_report_scroll.viewport().installEventFilter(self)
+        self.run_report_tab_index = self.plot_tabs.addTab(run_tab_container, "Run Report")
+
+        ica_tab_container = QWidget()
+        ica_layout = QVBoxLayout()
+        ica_layout.setContentsMargins(12, 12, 12, 12)
+        ica_layout.setSpacing(8)
+        ica_tab_container.setLayout(ica_layout)
+
+        self.ica_message_label = QLabel("Select a file to view ICA overview")
+        self.ica_message_label.setObjectName("icaOverviewMessage")
+        self.ica_message_label.setAlignment(Qt.AlignCenter)
+        ica_layout.addWidget(self.ica_message_label)
+
+        self.ica_scroll = QScrollArea()
+        self.ica_scroll.setObjectName("icaOverviewScroll")
+        self.ica_scroll.setWidgetResizable(True)
+        self.ica_image_label = QLabel()
+        self.ica_image_label.setObjectName("icaOverviewImage")
+        self.ica_image_label.setAlignment(Qt.AlignCenter)
+        self.ica_scroll.setWidget(self.ica_image_label)
+        self.ica_scroll.hide()
+        ica_layout.addWidget(self.ica_scroll, 1)
+
+        if self.ica_scroll is not None:
+            self.ica_scroll.viewport().installEventFilter(self)
+        self.ica_tab_index = self.plot_tabs.addTab(ica_tab_container, "ICA Components")
 
         container_layout = self.right_container.layout()
         if container_layout is None:
@@ -373,6 +451,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             container_layout.setSpacing(0)
             self.right_container.setLayout(container_layout)
         container_layout.addWidget(self.plot_tabs)
+        self.plot_tabs.currentChanged.connect(self._handle_plot_tab_changed)
 
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
@@ -1250,6 +1329,9 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if self.metrics_widget is not None:
             self.metrics_widget.show_message("Select a file to view processing metrics")
         self._update_psd_preview_for_file(None)
+        self._update_run_report_preview_for_file(None)
+        self._update_ica_preview_for_file(None)
+        self._update_run_report_preview_for_file(None)
 
     def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
         parent = file_path.parent
@@ -1259,7 +1341,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         stem = file_path.stem
         variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw"]
+        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
         for suffix in suffixes:
             if stem.endswith(suffix):
                 variants.add(stem[: -len(suffix)])
@@ -1269,6 +1351,10 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             variants.add("_".join(parts[:3]))
         if len(parts) >= 2:
             variants.add("_".join(parts[:2]))
+        if parts:
+            variants.add(parts[0])
+            variants.add(f"sub-{parts[0]}")
+            variants.add(f"sub_{parts[0]}")
 
         best_score = -1
         best_path: Optional[Path] = None
@@ -1279,7 +1365,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             else:
                 log_prefix = log_stem
 
-            score = max(_longest_common_prefix_length(log_prefix, variant) for variant in variants)
+            score = max(_normalized_prefix_score(log_prefix, variant) for variant in variants)
             if score > best_score:
                 best_score = score
                 best_path = log_path
@@ -1293,6 +1379,24 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             return self.task_root / "reports" / "psd_topo"
         if self.exports_dir:
             candidate = self.exports_dir.parent / "reports" / "psd_topo"
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _run_reports_dir(self) -> Optional[Path]:
+        if self.task_root and (self.task_root / "reports" / "run_reports").exists():
+            return self.task_root / "reports" / "run_reports"
+        if self.exports_dir:
+            candidate = self.exports_dir.parent / "reports" / "run_reports"
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _ica_reports_dir(self) -> Optional[Path]:
+        if self.task_root and (self.task_root / "reports" / "ica_components").exists():
+            return self.task_root / "reports" / "ica_components"
+        if self.exports_dir:
+            candidate = self.exports_dir.parent / "reports" / "ica_components"
             if candidate.exists():
                 return candidate
         return None
@@ -1316,6 +1420,10 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         parts = stem.split("_")
         for length in range(len(parts), 1, -1):
             variants.add("_".join(parts[:length]))
+        if parts:
+            variants.add(parts[0])
+            variants.add(f"sub-{parts[0]}")
+            variants.add(f"sub_{parts[0]}")
 
         best_score = -1
         best_path: Optional[Path] = None
@@ -1323,7 +1431,91 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             c_stem = candidate.stem
             if "_psd_topo" in c_stem:
                 c_stem = c_stem.split("_psd_topo", 1)[0]
-            score = max(_longest_common_prefix_length(c_stem, variant) for variant in variants)
+            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
+            if score > best_score:
+                best_score = score
+                best_path = candidate
+
+        if best_score <= 0:
+            return None
+        return best_path
+
+    def _find_run_report_for_file(self, file_path: Path) -> Optional[Path]:
+        reports_dir = self._run_reports_dir()
+        if reports_dir is None:
+            return None
+
+        candidates = list(reports_dir.glob("*_autoclean_report.pdf"))
+        if not candidates:
+            candidates = list(reports_dir.glob("*.pdf"))
+        if not candidates:
+            return None
+
+        stem = file_path.stem
+        variants = {stem}
+        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
+        for suffix in suffixes:
+            if stem.endswith(suffix):
+                variants.add(stem[: -len(suffix)])
+
+        parts = stem.split("_")
+        for length in range(len(parts), 1, -1):
+            variants.add("_".join(parts[:length]))
+        if parts:
+            variants.add(parts[0])
+            variants.add(f"sub-{parts[0]}")
+            variants.add(f"sub_{parts[0]}")
+
+        best_score = -1
+        best_path: Optional[Path] = None
+        for candidate in candidates:
+            c_stem = candidate.stem
+            for needle in ("_autoclean_report", "_report"):
+                if needle in c_stem:
+                    c_stem = c_stem.split(needle, 1)[0]
+                    break
+            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
+            if score > best_score:
+                best_score = score
+                best_path = candidate
+
+        if best_score <= 0:
+            return None
+        return best_path
+
+    def _find_ica_overview_for_file(self, file_path: Path) -> Optional[Path]:
+        ica_dir = self._ica_reports_dir()
+        if ica_dir is None:
+            return None
+
+        candidates = list(ica_dir.glob("*.pdf"))
+        if not candidates:
+            return None
+
+        stem = file_path.stem
+        variants = {stem}
+        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
+        for suffix in suffixes:
+            if stem.endswith(suffix):
+                variants.add(stem[: -len(suffix)])
+
+        parts = stem.split("_")
+        for length in range(len(parts), 1, -1):
+            variants.add("_".join(parts[:length]))
+        if parts:
+            variants.add(parts[0])
+            variants.add(f"sub-{parts[0]}")
+            variants.add(f"sub_{parts[0]}")
+
+        best_score = -1
+        best_path: Optional[Path] = None
+        for candidate in candidates:
+            c_stem = candidate.stem
+            for needle in ("_ica_components", "_components", "_report"):
+                if needle in c_stem:
+                    c_stem = c_stem.split(needle, 1)[0]
+                    break
+            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
             if score > best_score:
                 best_score = score
                 best_path = candidate
@@ -1337,6 +1529,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             return
 
         if file_path is None:
+            self.psd_original_pixmap = None
             self.psd_scroll.hide()
             self.psd_message_label.setText("Select a file to view PSD overview")
             self.psd_message_label.show()
@@ -1344,6 +1537,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         psd_path = self._find_psd_overview_for_file(file_path)
         if psd_path is None:
+            self.psd_original_pixmap = None
             self.psd_scroll.hide()
             self.psd_message_label.setText("PSD overview not available for this file")
             self.psd_message_label.show()
@@ -1351,30 +1545,204 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         pixmap = QPixmap(str(psd_path))
         if pixmap.isNull():
+            self.psd_original_pixmap = None
             self.psd_scroll.hide()
             self.psd_message_label.setText("PSD overview failed to load")
             self.psd_message_label.show()
             return
 
-        self._set_psd_pixmap(pixmap)
+        self.psd_original_pixmap = pixmap
+        self._set_psd_pixmap()
         self.psd_scroll.show()
         self.psd_message_label.hide()
 
-    def _set_psd_pixmap(self, pixmap: QPixmap) -> None:
-        if self.psd_image_label is None:
+    def _set_psd_pixmap(self, pixmap: Optional[QPixmap] = None) -> None:
+        if self.psd_image_label is None or self.psd_scroll is None:
+            return
+        if pixmap is not None:
+            self.psd_original_pixmap = pixmap
+        source = self.psd_original_pixmap
+        if source is None:
             return
         viewport = self.psd_scroll.viewport()
         if viewport.width() > 0:
-            scaled = pixmap.scaled(
+            scaled = source.scaled(
                 viewport.width(),
                 viewport.width(),
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )
         else:
-            scaled = pixmap
+            scaled = source
         self.psd_image_label.setPixmap(scaled)
-        self.psd_image_label.adjustSize()
+
+    def _update_run_report_preview_for_file(self, file_path: Optional[Path]) -> None:
+        if (
+            self.run_report_message_label is None
+            or self.run_report_image_label is None
+            or self.run_report_scroll is None
+        ):
+            return
+
+        if fitz is None:
+            self.run_report_original_pixmap = None
+            self.run_report_scroll.hide()
+            self.run_report_message_label.setText("Install pymupdf to preview run reports")
+            self.run_report_message_label.show()
+            return
+
+        if file_path is None:
+            self.run_report_original_pixmap = None
+            self.run_report_scroll.hide()
+            self.run_report_message_label.setText("Select a file to view run report")
+            self.run_report_message_label.show()
+            return
+
+        pdf_path = self._find_run_report_for_file(file_path)
+        if pdf_path is None:
+            self.run_report_original_pixmap = None
+            self.run_report_scroll.hide()
+            self.run_report_message_label.setText("Run report not available for this file")
+            self.run_report_message_label.show()
+            return
+
+        try:
+            doc = fitz.open(str(pdf_path))
+            page = doc.load_page(0)
+            zoom = 1.5
+            matrix = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=matrix, alpha=True)
+            doc.close()
+        except Exception:
+            self.run_report_original_pixmap = None
+            self.run_report_scroll.hide()
+            self.run_report_message_label.setText("Failed to load run report preview")
+            self.run_report_message_label.show()
+            return
+
+        mode = QImage.Format_RGBA8888 if pix.alpha else QImage.Format_RGB888
+        image = QImage(pix.samples, pix.width, pix.height, pix.stride, mode)
+        pixmap = QPixmap.fromImage(image.copy())
+
+        self.run_report_original_pixmap = pixmap
+        self._set_run_report_pixmap()
+        self.run_report_scroll.show()
+        self.run_report_message_label.hide()
+
+    def _set_run_report_pixmap(self, pixmap: Optional[QPixmap] = None) -> None:
+        if self.run_report_image_label is None or self.run_report_scroll is None:
+            return
+        if pixmap is not None:
+            self.run_report_original_pixmap = pixmap
+        source = self.run_report_original_pixmap
+        if source is None:
+            return
+        viewport = self.run_report_scroll.viewport()
+        if viewport.width() > 0:
+            scaled = source.scaled(
+                viewport.width(),
+                viewport.width(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+        else:
+            scaled = source
+        self.run_report_image_label.setPixmap(scaled)
+
+    def _update_ica_preview_for_file(self, file_path: Optional[Path]) -> None:
+        if (
+            self.ica_message_label is None
+            or self.ica_image_label is None
+            or self.ica_scroll is None
+        ):
+            return
+
+        if fitz is None:
+            self.ica_original_pixmap = None
+            self.ica_scroll.hide()
+            self.ica_message_label.setText("Install pymupdf to preview ICA components")
+            self.ica_message_label.show()
+            return
+
+        if file_path is None:
+            self.ica_original_pixmap = None
+            self.ica_scroll.hide()
+            self.ica_message_label.setText("Select a file to view ICA overview")
+            self.ica_message_label.show()
+            return
+
+        ica_path = self._find_ica_overview_for_file(file_path)
+        if ica_path is None:
+            self.ica_original_pixmap = None
+            self.ica_scroll.hide()
+            self.ica_message_label.setText("ICA overview not available for this file")
+            self.ica_message_label.show()
+            return
+
+        try:
+            doc = fitz.open(str(ica_path))
+            page = doc.load_page(0)
+            zoom = 1.3
+            matrix = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=matrix, alpha=True)
+            doc.close()
+        except Exception:
+            self.ica_original_pixmap = None
+            self.ica_scroll.hide()
+            self.ica_message_label.setText("Failed to load ICA overview")
+            self.ica_message_label.show()
+            return
+
+        mode = QImage.Format_RGBA8888 if pix.alpha else QImage.Format_RGB888
+        image = QImage(pix.samples, pix.width, pix.height, pix.stride, mode)
+        pixmap = QPixmap.fromImage(image.copy())
+
+        self.ica_original_pixmap = pixmap
+        self._set_ica_pixmap()
+        self.ica_scroll.show()
+        self.ica_message_label.hide()
+
+    def _set_ica_pixmap(self, pixmap: Optional[QPixmap] = None) -> None:
+        if self.ica_image_label is None or self.ica_scroll is None:
+            return
+        if pixmap is not None:
+            self.ica_original_pixmap = pixmap
+        source = self.ica_original_pixmap
+        if source is None:
+            return
+        viewport = self.ica_scroll.viewport()
+        if viewport.width() > 0:
+            scaled = source.scaled(
+                viewport.width(),
+                viewport.width(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
+            )
+        else:
+            scaled = source
+        self.ica_image_label.setPixmap(scaled)
+
+
+    def _handle_plot_tab_changed(self, index: int) -> None:
+        if self.plot_tabs is None:
+            return
+        if index == self.psd_tab_index:
+            self._set_psd_pixmap()
+        elif index == self.run_report_tab_index:
+            self._set_run_report_pixmap()
+        elif index == self.ica_tab_index:
+            self._set_ica_pixmap()
+
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Resize:
+            if self.psd_scroll is not None and obj is self.psd_scroll.viewport():
+                self._set_psd_pixmap()
+            elif self.run_report_scroll is not None and obj is self.run_report_scroll.viewport():
+                self._set_run_report_pixmap()
+            elif self.ica_scroll is not None and obj is self.ica_scroll.viewport():
+                self._set_ica_pixmap()
+        return super().eventFilter(obj, event)
+
     def _update_processing_metrics_for_file(self, file_path: Path) -> None:
         if self.metrics_widget is None:
             return
@@ -1654,6 +2022,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self.detail_panel.show()
 
         self._update_psd_preview_for_file(file_path)
+        self._update_run_report_preview_for_file(file_path)
+        self._update_ica_preview_for_file(file_path)
         self._update_processing_metrics_for_file(file_path)
 
         if self.status_bar is not None and self.current_display_name:
@@ -1984,7 +2354,7 @@ def run_autoclean_exclusion_tool(
     pal.setColor(QPalette.HighlightedText, QColor("#0b3d91"))
     app.setPalette(pal)
     window = ExclusionFileSelector(exports_dir=exports_dir, task_root=task_root)
-    window.setWindowTitle("Autoclean - Inclusion/Exclusion Review")
+    window.setWindowTitle("AutocleanEEG - Inclusion/Exclusion Review")
     window.showMaximized()
     if not app.styleSheet():
         app.setStyleSheet("")
@@ -1994,7 +2364,7 @@ def run_autoclean_exclusion_tool(
 def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Launch the Autoclean inclusion/exclusion review interface with the "
+            "Launch the AutocleanEEG inclusion/exclusion review interface with the "
             "full timeseries browser from autoclean_review."
         )
     )
