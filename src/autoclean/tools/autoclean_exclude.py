@@ -145,18 +145,21 @@ class ProcessingMetricsWidget(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
+        layout.setSpacing(6)
         self.setLayout(layout)
 
         self.message_label = QLabel("")
         self.message_label.setObjectName("decisionMetricsMessage")
         self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Fixed)
         layout.addWidget(self.message_label)
 
         self.rows_container = QVBoxLayout()
         self.rows_container.setContentsMargins(0, 0, 0, 0)
-        self.rows_container.setSpacing(4)
+        self.rows_container.setSpacing(2)
         layout.addLayout(self.rows_container)
+
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
 
         self._render_no_data("No processing metrics available.")
 
@@ -188,7 +191,7 @@ class ProcessingMetricsWidget(QWidget):
             row = QFrame()
             row.setObjectName("decisionMetricsRow")
             row_layout = QHBoxLayout()
-            row_layout.setContentsMargins(6, 6, 6, 6)
+            row_layout.setContentsMargins(6, 4, 6, 4)
             row_layout.setSpacing(10)
             row.setLayout(row_layout)
 
@@ -728,7 +731,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         # Detail panel (notes + related exports)
         self.detail_panel = QFrame()
         self.detail_panel.setObjectName("decisionInfoPanel")
-        self.detail_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        self.detail_panel.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
+        self.detail_panel.setMaximumHeight(260)
         detail_layout = QVBoxLayout()
         detail_layout.setContentsMargins(0, 8, 0, 0)
         detail_layout.setSpacing(10)
