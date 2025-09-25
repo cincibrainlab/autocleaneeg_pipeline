@@ -185,8 +185,8 @@ class ICAReportingMixin:
         # Adjust layout
         plt.tight_layout()
 
-        basename = self.config["bids_path"].basename
-        basename = basename.replace("_eeg", "_ica_components_full_duration")
+        basename = Path(self.config["unprocessed_file"]).stem
+        basename = f"{basename}_ica_components_full_duration"
         target_figure = self._resolve_report_path("ica_components", basename)
 
         # Save figure with higher DPI for better resolution of wider plot
@@ -336,8 +336,8 @@ class ICAReportingMixin:
         tmax = raw.times[n_samples - 1] if n_samples > 0 else 0.0
         raw_fast = raw.copy().crop(tmin=0, tmax=tmax)
 
-        basename = self.config["bids_path"].basename
-        basename = basename.replace("_eeg", report_name)
+        basename = Path(self.config["unprocessed_file"]).stem
+        basename = f"{basename}_{report_name}"
         pdf_path = self._resolve_report_path("ica_components", basename).with_suffix(".pdf")
 
         if os.path.exists(pdf_path):
@@ -414,7 +414,7 @@ class ICAReportingMixin:
                 method_tag = f" [{formatted_method}]" if formatted_method else ""
                 summary_title = f"ICA Components Summary{method_tag}"
                 fig_table.suptitle(
-                    f"{summary_title} - {self.config['bids_path'].basename}\n"
+                    f"{summary_title} - {Path(self.config['unprocessed_file']).stem}\n"
                     f"(Page {page + 1} of {num_pages})\n"
                     f"Generated: {timestamp}",
                     fontsize=12,
@@ -463,7 +463,7 @@ class ICAReportingMixin:
                 pdf.savefig(fig_overlay)
                 plt.close(fig_overlay)
 
-            source_name = self.config["bids_path"].basename
+            source_name = Path(self.config["unprocessed_file"]).stem
             
             # Pre-compute batch data for better performance
             from autoclean.mixins.viz._ica_topography_cache import get_cached_topographies
@@ -755,8 +755,8 @@ class ICAReportingMixin:
         plt.tight_layout()
         fig.subplots_adjust(hspace=0.3)
 
-        basename = self.config["bids_path"].basename
-        basename = basename.replace("_eeg", "_ica_classification_comparison")
+        basename = Path(self.config["unprocessed_file"]).stem
+        basename = f"{basename}_ica_classification_comparison"
         target_figure = self._resolve_report_path("ica_components", basename)
 
         # Save figure with higher DPI
