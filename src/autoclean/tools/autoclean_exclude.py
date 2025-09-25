@@ -21,6 +21,9 @@ from functools import partial
 from pathlib import Path
 from typing import Dict, Iterable, Optional, List, Tuple
 
+import pandas as pd
+import yaml
+
 
 def check_gui_dependencies() -> None:
     """Fail fast if the optional GUI stack is missing."""
@@ -194,6 +197,147 @@ def _enum_name(value: object) -> str:
     if name:
         return str(name)
     return str(value)
+
+
+# --- Configuration and Asset Resolution ---
+
+def _load_config() -> dict:
+    """Load configuration from config.yaml."""
+    config_path = Path(__file__).parent / "config.yaml"
+    try:
+        with open(config_path) as f:
+            return yaml.safe_load(f)
+    except FileNotFoundError:
+        print(f"Warning: Configuration file not found at {config_path}")
+        return {}
+    except yaml.YAMLError as e:
+        print(f"Warning: Error parsing configuration file: {e}")
+        return {}
+
+
+def strip_suffixes(stem: str, asset_type: str = None, config: dict = None) -> str:
+    """Strip suffixes from filename stem based on configuration.
+    
+    Args:
+        stem: The filename stem to process
+        asset_type: Optional asset type for asset-specific suffixes
+        config: Configuration dictionary (loaded if not provided)
+    
+    Returns:
+        Stem with suffixes stripped
+    """
+    if config is None:
+        config = _load_config()
+    
+    if not config:
+        return stem
+    
+    # Get global suffixes
+    all_suffixes = list(config.get("suffixes", {}).get("global", []))
+    
+    # Add asset-specific suffixes if available
+    if asset_type and asset_type in config.get("suffixes", {}):
+        all_suffixes.extend(config["suffixes"][asset_type])
+    
+    # Sort by length (longest first) to handle overlapping suffixes correctly
+    all_suffixes = sorted(all_suffixes, key=len, reverse=True)
+    
+    # Strip suffixes
+    for suffix in all_suffixes:
+        if stem.endswith(suffix):
+            return stem[:-len(suffix)]
+    
+    return stem
+
+
+def resolve_asset(file_path: Path, asset_type: str, log_df: pd.DataFrame = None, config: dict = None) -> Optional[Path]:
+    """Resolve asset path using configuration-based approach.
+    
+    Args:
+        file_path: The source file path
+        asset_type: Type of asset to resolve (processing_log, psd_overview, run_report, ica_report)
+        log_df: DataFrame containing preprocessing log (optional for backward compatibility)
+        config: Configuration dictionary (loaded if not provided)
+    
+    Returns:
+        Resolved asset path or None if not found
+    """
+    if config is None:
+        config = _load_config()
+    
+    if not config:
+        return None
+    
+    # Strip suffixes to get normalized stem
+    stem = strip_suffixes(file_path.stem, asset_type, config)
+    
+    # Get configuration for this asset type
+    postfixes = config.get("postfixes", {})
+    directories = config.get("directories", {})
+    logfile_config = config.get("logfile", {})
+    
+    if asset_type not in postfixes or asset_type not in directories:
+        return None
+    
+    postfix = postfixes[asset_type]
+    subdir = directories[asset_type]
+    
+    # Determine base directory
+    if subdir == ".":
+        base_dir = file_path.parent
+    else:
+        base_dir = file_path.parent / subdir
+    
+    # Construct the asset path
+    asset_path = base_dir / f"{stem}{postfix}"
+    
+    # If log DataFrame is provided, verify the stem exists in the log
+    if log_df is not None and not log_df.empty:
+        key_column = logfile_config.get("key_column", "subj_basename")
+        if key_column in log_df.columns:
+            if stem not in log_df[key_column].values:
+                return None
+    
+    return asset_path
+
+
+def _load_preprocessing_log(task_root: Optional[Path] = None, exports_dir: Optional[Path] = None) -> Optional[pd.DataFrame]:
+    """Load preprocessing log DataFrame.
+    
+    Args:
+        task_root: Task root directory
+        exports_dir: Exports directory
+    
+    Returns:
+        DataFrame with preprocessing log or None if not found
+    """
+    config = _load_config()
+    if not config:
+        return None
+    
+    logfile_name = config.get("logfile", {}).get("name", "preprocessing_log.csv")
+    
+    # Try to find the log file in common locations
+    search_paths = []
+    
+    if task_root:
+        search_paths.append(task_root / logfile_name)
+        search_paths.append(task_root / "logs" / logfile_name)
+    
+    if exports_dir:
+        search_paths.append(exports_dir / logfile_name)
+        search_paths.append(exports_dir.parent / logfile_name)
+        search_paths.append(exports_dir.parent / "logs" / logfile_name)
+    
+    for log_path in search_paths:
+        if log_path.exists():
+            try:
+                return pd.read_csv(log_path)
+            except Exception as e:
+                print(f"Warning: Could not load preprocessing log from {log_path}: {e}")
+                continue
+    
+    return None
 
 
 class PdfPreviewWidget(QWidget):
@@ -418,6 +562,10 @@ class ReviewBase(QWidget):
         self._plotted_file_path: Optional[str] = None
         self._plot_is_raw = False
         self._auto_saving_epochs = False
+        
+        # New configuration-based asset resolution
+        self.preprocessing_log_df: Optional[pd.DataFrame] = None
+        self.config: dict = _load_config()
 
         self.selected_item: Optional[QTreeWidgetItem] = None
         self.selected_file: Optional[str] = None
@@ -445,6 +593,7 @@ class ReviewBase(QWidget):
         self._init_ui()
 
         if self.current_dir:
+            self._load_preprocessing_log()
             self.loadFiles()
             self.updateStatusBar()
 
@@ -584,6 +733,7 @@ class ReviewBase(QWidget):
         if dir_path:
             self.closePlot()
             self.current_dir = dir_path
+            self._load_preprocessing_log()
             self.loadFiles()
             self.updateStatusBar()
 
@@ -596,6 +746,35 @@ class ReviewBase(QWidget):
         if self.current_dir:
             self.loadFiles()
             self.updateStatusBar()
+
+    def _load_preprocessing_log(self) -> None:
+        """Load preprocessing log DataFrame for asset resolution."""
+        if not self.current_dir:
+            return
+        
+        # Try to determine task_root and exports_dir from current_dir
+        current_path = Path(self.current_dir)
+        
+        # Look for exports directory
+        exports_dir = None
+        if current_path.name == "exports":
+            exports_dir = current_path
+        elif (current_path / "exports").exists():
+            exports_dir = current_path / "exports"
+        
+        # Look for task root (parent of exports or current directory)
+        task_root = None
+        if exports_dir:
+            task_root = exports_dir.parent
+        else:
+            task_root = current_path
+        
+        self.preprocessing_log_df = _load_preprocessing_log(task_root, exports_dir)
+        
+        if self.preprocessing_log_df is not None:
+            print(f"Loaded preprocessing log with {len(self.preprocessing_log_df)} entries")
+        else:
+            print("No preprocessing log found - using fallback asset resolution")
 
     # ------------------------------------------------------------------
     # Selection + plotting hooks
@@ -2046,6 +2225,19 @@ class ExclusionFileSelector(ReviewBase):
         self._update_run_report_preview_for_file(None)
 
     def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
+        """Find processing log for a file using configuration-based resolution."""
+        try:
+            asset_path = resolve_asset(file_path, "processing_log", self.preprocessing_log_df, self.config)
+            if asset_path and asset_path.exists():
+                return asset_path
+        except Exception as e:
+            print(f"Warning: Error resolving processing log for {file_path}: {e}")
+        
+        # Fallback to legacy method if configuration-based approach fails
+        return self._find_processing_log_for_file_legacy(file_path)
+    
+    def _find_processing_log_for_file_legacy(self, file_path: Path) -> Optional[Path]:
+        """Legacy processing log finding method (kept as fallback)."""
         parent = file_path.parent
         candidates = list(parent.glob("*_processing_log.csv"))
         if not candidates:
@@ -2114,6 +2306,19 @@ class ExclusionFileSelector(ReviewBase):
         return None
 
     def _find_psd_overview_for_file(self, file_path: Path) -> Optional[Path]:
+        """Find PSD overview for a file using configuration-based resolution."""
+        try:
+            asset_path = resolve_asset(file_path, "psd_overview", self.preprocessing_log_df, self.config)
+            if asset_path and asset_path.exists():
+                return asset_path
+        except Exception as e:
+            print(f"Warning: Error resolving PSD overview for {file_path}: {e}")
+        
+        # Fallback to legacy method if configuration-based approach fails
+        return self._find_psd_overview_for_file_legacy(file_path)
+    
+    def _find_psd_overview_for_file_legacy(self, file_path: Path) -> Optional[Path]:
+        """Legacy PSD overview finding method (kept as fallback)."""
         psd_dir = self._psd_reports_dir()
         if psd_dir is None:
             return None
@@ -2153,6 +2358,19 @@ class ExclusionFileSelector(ReviewBase):
         return best_path
 
     def _find_run_report_for_file(self, file_path: Path) -> Optional[Path]:
+        """Find run report for a file using configuration-based resolution."""
+        try:
+            asset_path = resolve_asset(file_path, "run_report", self.preprocessing_log_df, self.config)
+            if asset_path and asset_path.exists():
+                return asset_path
+        except Exception as e:
+            print(f"Warning: Error resolving run report for {file_path}: {e}")
+        
+        # Fallback to legacy method if configuration-based approach fails
+        return self._find_run_report_for_file_legacy(file_path)
+    
+    def _find_run_report_for_file_legacy(self, file_path: Path) -> Optional[Path]:
+        """Legacy run report finding method (kept as fallback)."""
         reports_dir = self._run_reports_dir()
         if reports_dir is None:
             log_warning(
@@ -2214,6 +2432,19 @@ class ExclusionFileSelector(ReviewBase):
         return best_path
 
     def _find_ica_overview_for_file(self, file_path: Path) -> Optional[Path]:
+        """Find ICA overview for a file using configuration-based resolution."""
+        try:
+            asset_path = resolve_asset(file_path, "ica_report", self.preprocessing_log_df, self.config)
+            if asset_path and asset_path.exists():
+                return asset_path
+        except Exception as e:
+            print(f"Warning: Error resolving ICA overview for {file_path}: {e}")
+        
+        # Fallback to legacy method if configuration-based approach fails
+        return self._find_ica_overview_for_file_legacy(file_path)
+    
+    def _find_ica_overview_for_file_legacy(self, file_path: Path) -> Optional[Path]:
+        """Legacy ICA overview finding method (kept as fallback)."""
         ica_dir = self._ica_reports_dir()
         if ica_dir is None:
             log_warning(
