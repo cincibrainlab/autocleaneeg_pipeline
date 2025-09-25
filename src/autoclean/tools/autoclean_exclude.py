@@ -211,6 +211,7 @@ class PdfPreviewWidget(QWidget):
     def clear(self) -> None:
         self._document.close()
         self._current_path = None
+        print(f"[{_human_timestamp()}] PDF preview cleared; placeholder restored.")
         self.show_message(self._placeholder)
 
     def show_message(self, message: str) -> None:
@@ -219,12 +220,15 @@ class PdfPreviewWidget(QWidget):
         self._view.hide()
 
     def load(self, path: Path) -> None:
+        print(f"[{_human_timestamp()}] Attempting to load PDF preview: {path}")
         status = self._document.load(str(path))
         if status != QPdfDocument.Status.Ready:
+            print(f"[{_human_timestamp()}] PDF load failed for {path}; status={status}.")
             self.clear()
             self.show_message("Failed to load preview")
             return
 
+        print(f"[{_human_timestamp()}] PDF load succeeded: {path}")
         navigator = self._view.pageNavigator()
         if navigator is not None:
             navigator.jump(0, QPointF(0, 0))
@@ -1987,14 +1991,18 @@ class ExclusionFileSelector(ReviewBase):
     def _find_run_report_for_file(self, file_path: Path) -> Optional[Path]:
         reports_dir = self._run_reports_dir()
         if reports_dir is None:
+            print(f"[{_human_timestamp()}] Run report directory missing for {file_path}.")
             return None
 
+        print(f"[{_human_timestamp()}] Searching run reports in {reports_dir}.")
         candidates = list(reports_dir.glob("*_autoclean_report.pdf"))
         if not candidates:
             candidates = list(reports_dir.glob("*.pdf"))
         if not candidates:
+            print(f"[{_human_timestamp()}] No run report PDFs found in {reports_dir}.")
             return None
 
+        print(f"[{_human_timestamp()}] Evaluating {len(candidates)} run report candidates for {file_path}.")
         stem = file_path.stem
         variants = {stem}
         suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
@@ -2024,18 +2032,24 @@ class ExclusionFileSelector(ReviewBase):
                 best_path = candidate
 
         if best_score <= 0:
+            print(f"[{_human_timestamp()}] No suitable run report match for {file_path}.")
             return None
+        print(f"[{_human_timestamp()}] Best run report match for {file_path}: {best_path} (score={best_score}).")
         return best_path
 
     def _find_ica_overview_for_file(self, file_path: Path) -> Optional[Path]:
         ica_dir = self._ica_reports_dir()
         if ica_dir is None:
+            print(f"[{_human_timestamp()}] ICA report directory missing for {file_path}.")
             return None
 
+        print(f"[{_human_timestamp()}] Searching ICA reports in {ica_dir}.")
         candidates = list(ica_dir.glob("*.pdf"))
         if not candidates:
+            print(f"[{_human_timestamp()}] No ICA PDFs found in {ica_dir}.")
             return None
 
+        print(f"[{_human_timestamp()}] Evaluating {len(candidates)} ICA report candidates for {file_path}.")
         stem = file_path.stem
         variants = {stem}
         suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
@@ -2065,7 +2079,9 @@ class ExclusionFileSelector(ReviewBase):
                 best_path = candidate
 
         if best_score <= 0:
+            print(f"[{_human_timestamp()}] No suitable ICA report match for {file_path}.")
             return None
+        print(f"[{_human_timestamp()}] Best ICA report match for {file_path}: {best_path} (score={best_score}).")
         return best_path
 
     def _update_psd_preview_for_file(self, file_path: Optional[Path]) -> None:
@@ -2131,13 +2147,16 @@ class ExclusionFileSelector(ReviewBase):
 
         pdf_path = self._find_run_report_for_file(file_path)
         if pdf_path is None or not pdf_path.exists():
+            print(f"[{_human_timestamp()}] Run report not available for {file_path}; found path={pdf_path}.")
             self.run_report_preview.clear()
             self.run_report_preview.show_message("Run report not available for this file")
             return
 
         try:
+            print(f"[{_human_timestamp()}] Loading run report preview from {pdf_path}.")
             self.run_report_preview.load(pdf_path)
-        except Exception:
+        except Exception as exc:
+            print(f"[{_human_timestamp()}] Exception while loading run report {pdf_path}: {exc}")
             self.run_report_preview.clear()
             self.run_report_preview.show_message("Failed to load run report preview")
 
@@ -2152,13 +2171,16 @@ class ExclusionFileSelector(ReviewBase):
 
         ica_path = self._find_ica_overview_for_file(file_path)
         if ica_path is None or not ica_path.exists():
+            print(f"[{_human_timestamp()}] ICA overview not available for {file_path}; found path={ica_path}.")
             self.ica_preview.clear()
             self.ica_preview.show_message("ICA overview not available for this file")
             return
 
         try:
+            print(f"[{_human_timestamp()}] Loading ICA overview preview from {ica_path}.")
             self.ica_preview.load(ica_path)
-        except Exception:
+        except Exception as exc:
+            print(f"[{_human_timestamp()}] Exception while loading ICA overview {ica_path}: {exc}")
             self.ica_preview.clear()
             self.ica_preview.show_message("Failed to load ICA overview")
 
