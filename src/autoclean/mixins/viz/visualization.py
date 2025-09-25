@@ -992,7 +992,7 @@ class VisualizationMixin:
         fig.subplots_adjust(top=0.95, bottom=0.03)
 
         # Save and close figure
-        fig.savefig(target_figure, dpi=300)
+        fig.savefig(target_figure, dpi=300, bbox_inches="tight")
         plt.close(fig)
 
         message(
