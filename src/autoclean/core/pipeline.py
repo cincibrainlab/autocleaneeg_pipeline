@@ -99,7 +99,7 @@ from autoclean.utils.user_config import user_config
 
 # Try to import optional GUI dependencies
 try:
-    from autoclean.tools.autoclean_review import run_autoclean_review
+    from autoclean.tools import run_autoclean_exclude, run_autoclean_review
 
     GUI_AVAILABLE = True
 except ImportError:
@@ -1016,25 +1016,27 @@ class Pipeline:
             "post_comp",
         ]
 
-    def start_autoclean_review(self):
-        """Launch the AutoClean Review GUI tool.
+    def start_autoclean_exclude(self) -> None:
+        """Launch the AutoClean Exclude GUI tool."""
 
-        Notes
-        -----
-        This method requires the GUI dependencies to be installed.
-        Install them with: pip install autocleaneeg-pipeline[gui]
-
-        Note: The ideal use of the Review tool is as a docker container.
-        """
         if not GUI_AVAILABLE:
             message(
                 "error",
-                "GUI dependencies not installed. To use the review tool, install:",
+                "GUI dependencies not installed. To use the exclude tool, install:",
             )
             message("error", "pip install autocleaneeg-pipeline[gui]")
             raise ImportError("GUI dependencies not available")
 
-        run_autoclean_review(self.output_dir)
+        run_autoclean_exclude(self.output_dir)
+
+    def start_autoclean_review(self) -> None:
+        """Backward-compatible launcher for the deprecated review GUI."""
+
+        message(
+            "warning",
+            "'autoclean_review' is deprecated. Launching the replacement 'autoclean_exclude' GUI.",
+        )
+        self.start_autoclean_exclude()
 
     def add_task(self, task_file_path: Union[str, Path]) -> str:
         """Register a Python task file for use in this pipeline session.

@@ -74,9 +74,9 @@ autocleaneeg-pipeline process RestingState /path/to/data.raw
 autocleaneeg-pipeline process RestingState /path/to/dir --recursive
 ```
 
-- Start the review GUI for your workspace output:
+- Start the exclusion GUI for your workspace output:
 ```bash
-autocleaneeg-pipeline review
+autocleaneeg-pipeline exclude
 ```
 
 ## Python API (programmatic)

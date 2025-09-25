@@ -1,0 +1,72 @@
+import { Callout, Steps, Cards, Tabs } from 'nextra/components';
+
+# Autoclean Exclude Standalone Conversion
+
+<Callout>
+We merged the exclusion workflow directly into `autoclean_exclude`, introduced a first-class CLI entry point, and retargeted the GUI to QtPy/PyQt6 so the tool runs without the legacy review shim.
+</Callout>
+
+## Highlights
+
+<Cards>
+  <Cards.Card title="Self-contained GUI" icon="🧠">
+    The full manual rejection interface now lives in `autoclean_exclude.py`, which imports Qt via `qtpy` and exposes `run_autoclean_exclude` as the canonical launcher.【F:src/autoclean/tools/autoclean_exclude.py†L1-L121】【F:src/autoclean/tools/autoclean_exclude.py†L1210-L1227】
+  </Cards.Card>
+  <Cards.Card title="Pipeline & CLI support" icon="🛠️">
+    `Pipeline.start_autoclean_exclude` powers a new `autocleaneeg-pipeline exclude` command while the legacy review command delegates with a deprecation warning.【F:src/autoclean/core/pipeline.py†L94-L109】【F:src/autoclean/core/pipeline.py†L1018-L1040】【F:src/autoclean/cli.py†L488-L515】【F:src/autoclean/cli.py†L730-L740】【F:src/autoclean/cli.py†L1700-L1732】【F:src/autoclean/cli.py†L2111-L2143】【F:src/autoclean/cli.py†L6176-L6184】
+  </Cards.Card>
+  <Cards.Card title="Dependency refresh" icon="🔄">
+    GUI extras now depend on PyQt6 by default while retaining compatibility with PyQt5 through runtime checks, and all user docs point to the new command.【F:pyproject.toml†L61-L109】【F:src/autoclean/tools/autoclean_exclude.py†L49-L88】【F:README.md†L131-L152】【F:docs/task_generator_wizard.md†L72-L86】【F:docs/development.rst†L9-L18】
+  </Cards.Card>
+</Cards>
+
+## How it fits together
+
+<Tabs items={['GUI flow', 'CLI workflow']}>
+  <Tabs.Tab>
+    <Steps>
+      ### Resolve dependencies
+      The module checks for `qtpy`, PyMuPDF, and a PyQt binding before wiring up QtCore/QtWidgets aliases. Missing packages surface a clear install hint for the `gui` extra.【F:src/autoclean/tools/autoclean_exclude.py†L49-L88】
+      ### Manual review panel
+      The refactored widget keeps the directory tree, epoch viewer, and report browser logic that previously lived in `autoclean_review`, so analysts still see ICA figures and metadata discovery without touching another module.【F:src/autoclean/tools/autoclean_exclude.py†L275-L640】
+      ### Launch helper
+      `run_autoclean_exclude` spins up the QApplication and maximized window, and the legacy wrapper simply proxies to it for backward compatibility.【F:src/autoclean/tools/autoclean_exclude.py†L1210-L1227】【F:src/autoclean/tools/autoclean_review.py†L1-L26】
+    </Steps>
+  </Tabs.Tab>
+  <Tabs.Tab>
+    <Steps>
+      ### CLI entry point
+      Argument parsing gained an `exclude` sub-command that mirrors the old review flags, ensuring workspace defaults still populate the output path when omitted.【F:src/autoclean/cli.py†L730-L764】【F:src/autoclean/cli.py†L1700-L1732】
+      ### Command execution
+      `cmd_exclude` builds a `Pipeline` instance and calls the new pipeline hook, while `_finish` now routes the `exclude` command alongside existing handlers.【F:src/autoclean/cli.py†L2111-L2143】【F:src/autoclean/cli.py†L6176-L6184】
+      ### Backwards compatibility
+      Running `autocleaneeg-pipeline review` still works—validation prints a warning and the command simply invokes the exclusion GUI under the hood.【F:src/autoclean/cli.py†L1709-L1732】【F:src/autoclean/cli.py†L2100-L2127】【F:src/autoclean/core/pipeline.py†L1032-L1040】
+    </Steps>
+  </Tabs.Tab>
+</Tabs>
+
+## Validation checklist
+
+<Steps>
+  ### 1. Update environment
+  Install the refreshed GUI stack, or upgrade an existing environment:
+  ```bash
+  pip install -e .[gui]
+  ```
+  ### 2. Launch the exclusion GUI
+  ```bash
+  autocleaneeg-pipeline exclude --output /path/to/workspace/output
+  ```
+  The viewer should open maximized and list available `.set` files; edits save back into the run directory.
+  ### 3. Legacy alias sanity check
+  ```bash
+  autocleaneeg-pipeline review --output /path/to/workspace/output
+  ```
+  Expect a console warning about deprecation before the same GUI appears.
+</Steps>
+
+## Considerations
+
+<Callout type="warning">
+QtPy selects whichever PyQt binding is available. We ship PyQt6 by default but fall back to PyQt5 if it is already installed, so double-check virtual environments that pin older Qt releases before distributing builds.【F:src/autoclean/tools/autoclean_exclude.py†L63-L88】
+</Callout>

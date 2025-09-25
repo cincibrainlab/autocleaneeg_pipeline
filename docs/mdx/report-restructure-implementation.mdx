@@ -16,7 +16,7 @@ We centralized every generated report under a predictable `reports/` tree, updat
     Base mixins gained `_get_reports_root`, `_resolve_report_path`, and `_report_relative_path` helpers, ensuring every visualization writes into the shared hierarchy and records relative paths for metadata consumers.【F:src/autoclean/mixins/base.py†L380-L438】
   </Cards.Card>
   <Cards.Card title="Tooling awareness" icon="🛠️">
-    CLI commands, the review GUI, and run reporting now prefer the new folders but gracefully fall back to legacy locations when working with older runs.【F:src/autoclean/cli.py†L4551-L4629】【F:src/autoclean/tools/autoclean_review.py†L520-L620】【F:src/autoclean/step_functions/reports.py†L120-L200】
+    CLI commands, the exclusion GUI, and run reporting now prefer the new folders but gracefully fall back to legacy locations when working with older runs.【F:src/autoclean/cli.py†L4480-L4660】【F:src/autoclean/tools/autoclean_exclude.py†L520-L640】【F:src/autoclean/step_functions/reports.py†L120-L200】
   </Cards.Card>
 </Cards>
 
@@ -34,7 +34,7 @@ New helper methods on `BaseMixin` construct and memoize report paths, and calcul
 ICA reporting functions switched to the same helpers, store PDFs and overlays inside `reports/ica_components`, and emit relative metadata paths so downstream viewers know exactly where to look.【F:src/autoclean/mixins/viz/ica.py†L173-L231】【F:src/autoclean/mixins/viz/ica.py†L270-L418】
 
 ### 4. Relocate textual reports and consumers
-`Task.emit_llm_reports` now saves into `reports/llm/<subject>/` and locates the PDF from the new run-report folder. The CLI’s report chat logic and the GUI browser search the `reports/` tree first while keeping backward-compatible fallbacks.【F:src/autoclean/core/task.py†L334-L515】【F:src/autoclean/cli.py†L4551-L4629】【F:src/autoclean/tools/autoclean_review.py†L556-L619】
+`Task.emit_llm_reports` now saves into `reports/llm/<subject>/` and locates the PDF from the new run-report folder. The CLI’s report chat logic and the GUI browser search the `reports/` tree first while keeping backward-compatible fallbacks.【F:src/autoclean/core/task.py†L334-L515】【F:src/autoclean/cli.py†L4480-L4660】【F:src/autoclean/tools/autoclean_exclude.py†L520-L640】
 
 ### 5. Move run PDFs out of metadata
 The run-summary generator writes into `reports/run_reports/`, keeping metadata JSON files separate from rendered reports, and still copies to legacy locations when needed.【F:src/autoclean/step_functions/reports.py†L122-L200】
@@ -62,13 +62,13 @@ All three commands pass after the changes, demonstrating the directory setup, ta
 Run a small pipeline invocation (for example on synthetic data) and confirm the output tree includes `reports/` with subfolders such as `llm/`, `psd_topo/`, and `ica_components/`. Figures and LLM context files should now live there instead of cluttering `metadata/` or subject derivative roots.【F:src/autoclean/utils/file_system.py†L107-L145】【F:src/autoclean/mixins/viz/visualization.py†L214-L234】【F:src/autoclean/core/task.py†L501-L514】
 
 ### 3. Validate tooling discovery
-Launch `autoclean_review` or `autocleaneeg-pipeline report chat` against the same run. Both tools now search the `reports/` tree before falling back to legacy paths, so the GUI dropdowns and CLI summaries should list the newly relocated PNG/PDF assets automatically.【F:src/autoclean/tools/autoclean_review.py†L556-L619】【F:src/autoclean/cli.py†L4551-L4629】
+Launch `autoclean_exclude` (or the legacy `autoclean_review` alias) or `autocleaneeg-pipeline report chat` against the same run. Both tools now search the `reports/` tree before falling back to legacy paths, so the GUI dropdowns and CLI summaries should list the newly relocated PNG/PDF assets automatically.【F:src/autoclean/tools/autoclean_exclude.py†L520-L640】【F:src/autoclean/cli.py†L4480-L4660】
 
 </Steps>
 
 ## Considerations & next steps
 
-- Older runs will keep their historical layout. The CLI and review tool continue to scan the legacy directories to avoid breaking workflows, but you may want a one-time migration script if consistency across archives matters.【F:src/autoclean/cli.py†L4551-L4629】【F:src/autoclean/tools/autoclean_review.py†L556-L619】
+- Older runs will keep their historical layout. The CLI and exclusion tool continue to scan the legacy directories to avoid breaking workflows, but you may want a one-time migration script if consistency across archives matters.【F:src/autoclean/cli.py†L4480-L4660】【F:src/autoclean/tools/autoclean_exclude.py†L520-L640】
 - Report metadata now stores derivatives-relative paths (`reports/...`). Any downstream analytics that assumed bare filenames should use the stored string as-is to build full paths.【F:src/autoclean/mixins/viz/visualization.py†L229-L234】【F:src/autoclean/mixins/viz/ica.py†L180-L185】
 - If you add new report types, extend the helper calls with a unique subfolder name so the hierarchy stays organized. The `BaseMixin` helpers take care of directory creation and metadata-friendly relative paths.【F:src/autoclean/mixins/base.py†L399-L438】
 

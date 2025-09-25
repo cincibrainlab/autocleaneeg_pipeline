@@ -494,7 +494,8 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("🗂\u00a0 task", "Manage tasks (list, explore)"),
         ("📁\u00a0 input", "Manage active input path"),
         ("▶\u00a0 process", "Process EEG data"),
-        ("📝 review", "Start review GUI"),
+        ("🧹 exclude", "Launch manual exclusion GUI"),
+        ("📝 review", "Launch legacy review GUI (deprecated)"),
         ("🔐 auth", "Authentication & Part-11 commands"),
     ]
     for c, d in rows:
@@ -725,9 +726,21 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Show workspace tasks that override built-in tasks",
     )
 
+    # Exclude command
+    exclude_parser = subparsers.add_parser(
+        "exclude", help="Launch manual exclusion GUI", add_help=False
+    )
+    attach_rich_help(exclude_parser)
+    exclude_parser.add_argument(
+        "--output",
+        type=Path,
+        required=False,
+        help="AutoClean output directory to review (default: workspace/output)",
+    )
+
     # Review command
     review_parser = subparsers.add_parser(
-        "review", help="Start review GUI", add_help=False
+        "review", help="Start review GUI (deprecated)", add_help=False
     )
     attach_rich_help(review_parser)
     review_parser.add_argument(
@@ -1684,6 +1697,15 @@ def validate_args(args) -> bool:
                 console.print("Usage: autocleaneeg-pipeline view <file> [--no-view]")
             return False
 
+    elif args.command == "exclude":
+        if not args.output:
+            args.output = user_config.get_default_output_dir()
+            message("info", f"Using default workspace output directory: {args.output}")
+
+        if not args.output.exists():
+            message("error", f"Output directory does not exist: {args.output}")
+            return False
+
     elif args.command == "review":
         # Set default output directory if not provided
         if not args.output:
@@ -1693,6 +1715,11 @@ def validate_args(args) -> bool:
         if not args.output.exists():
             message("error", f"Output directory does not exist: {args.output}")
             return False
+
+        message(
+            "warning",
+            "'autoclean_review' is deprecated. Prefer 'autocleaneeg-pipeline exclude'.",
+        )
 
     return True
 
@@ -2088,6 +2115,29 @@ def cmd_review(args) -> int:
 
     except Exception as e:
         message("error", f"Failed to start review GUI: {str(e)}")
+        return 1
+
+
+def cmd_exclude(args) -> int:
+    """Execute the exclude command."""
+    try:
+        # Check if Pipeline is available
+        if not PIPELINE_AVAILABLE:
+            message(
+                "error",
+                "Pipeline not available. Please ensure autoclean is properly installed.",
+            )
+            return 1
+
+        pipeline = Pipeline(output_dir=args.output)
+
+        message("info", f"Starting exclusion GUI for: {args.output}")
+        pipeline.start_autoclean_exclude()
+
+        return 0
+
+    except Exception as e:
+        message("error", f"Failed to start exclusion GUI: {str(e)}")
         return 1
 
 
@@ -6128,6 +6178,8 @@ def main(argv: Optional[list] = None) -> int:
         return _finish(cmd_process(args))
     elif args.command == "list-tasks":
         return _finish(cmd_list_tasks(args))
+    elif args.command == "exclude":
+        return _finish(cmd_exclude(args))
     elif args.command == "review":
         return _finish(cmd_review(args))
     elif args.command == "task":

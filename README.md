@@ -129,7 +129,7 @@ Key points:
 ## QA Visualizations
 
 - Fastplot summary images go to `<task>/qa/`.
-- The review GUI auto‑discovers images from `reports/` and `qa/`.
+- The exclusion GUI auto‑discovers images from `reports/` and `qa/`.
 
 
 ## Removed Legacy Folders
@@ -150,10 +150,10 @@ This release removes the old locations and naming used during development:
 autocleaneeg-pipeline process RestingEyesOpen /path/to/file.set
 ```
 
-- Open the review GUI for an output directory:
+- Open the exclusion GUI for an output directory:
 
 ```bash
-autocleaneeg-pipeline review --output /path/to/output
+autocleaneeg-pipeline exclude --output /path/to/output
 ```
 
 - Apply ICA control‑sheet edits (reads `<task>/ica/ica_control_sheet.csv` by default when a metadata path is provided):

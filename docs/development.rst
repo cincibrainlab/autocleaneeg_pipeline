@@ -67,7 +67,8 @@ The project is organized as follows:
    - ``logging.py``: Logging functionality
 
 - ``src/autoclean/tools/``: Additional features for the pipeline
-   - ``autoclean_review.py``: Review GUI
+   - ``autoclean_exclude.py``: Manual exclusion GUI (primary implementation)
+   - ``autoclean_review.py``: Legacy wrapper that delegates to ``autoclean_exclude``
 
 Architecture
 ------------

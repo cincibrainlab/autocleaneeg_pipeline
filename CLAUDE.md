@@ -77,7 +77,7 @@ pipeline.process_file("/path/to/data.raw", task="MyTask")
 1. **Setup Phase**: Interactive workspace setup wizard, drop Python task files into workspace
 2. **Testing Phase**: Process single files to validate task quality and parameter tuning  
 3. **Production Phase**: Use batch processing methods for full datasets
-4. **Quality Review**: Examine results via review GUI and derivatives folder
+4. **Quality Review**: Examine results via exclusion GUI (formerly review) and derivatives folder
 
 ### Task Design Philosophy (v2.0.0)
 - **"Drop and Go" Approach**: Copy Python task files to workspace for instant availability

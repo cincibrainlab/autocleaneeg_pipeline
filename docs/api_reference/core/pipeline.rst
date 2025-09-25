@@ -45,6 +45,8 @@ analysis pipelines.
       :no-index:
    .. automethod:: list_stage_files
       :no-index:
+   .. automethod:: start_autoclean_exclude
+      :no-index:
    .. automethod:: start_autoclean_review
       :no-index:
 
