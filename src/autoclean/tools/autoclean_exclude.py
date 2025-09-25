@@ -668,7 +668,14 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             """
         )
 
-        self.left_layout.insertWidget(0, toolbar)
+        header_container = QFrame()
+        header_container.setObjectName("directoryHeaderContainer")
+        header_layout = QVBoxLayout()
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
+        header_container.setLayout(header_layout)
+
+        header_layout.addWidget(toolbar)
         self.directory_toolbar = toolbar
 
         action_toolbar = QFrame()
@@ -693,15 +700,18 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         action_toolbar.setLayout(action_layout)
         action_toolbar.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.left_layout.insertWidget(1, action_toolbar)
+        header_layout.addWidget(action_toolbar)
         self._directory_action_toolbar = action_toolbar
+
+        self.left_layout.insertWidget(0, header_container)
+        self.directory_toolbar_container = header_container
 
         # Add folder path label on its own row under the toolbar rows
         path_label = QLabel()
         path_label.setObjectName("directoryPathLabel")
         path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         path_label.setWordWrap(True)
-        self.left_layout.insertWidget(2, path_label)
+        self.left_layout.insertWidget(1, path_label)
         self._workspace_path_label = path_label
         self._refresh_workspace_path_label()
 
