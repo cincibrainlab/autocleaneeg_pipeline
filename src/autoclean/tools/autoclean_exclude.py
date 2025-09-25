@@ -140,6 +140,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         # Base ``__init__`` calls ``loadFiles`` once; run our extensions after.
         self._extend_ui()
+        # Ensure file tree uses a consistent light theme even when expanded
+        self._apply_file_tree_theme()
         self._configure_directory(self.current_dir)
         self._load_decisions()
         self.loadFiles()  # Refresh now that status metadata exists
@@ -675,6 +677,53 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                     continue
         except Exception:
             pass
+
+    def _apply_file_tree_theme(self) -> None:
+        """Force the navigation file tree to a light background.
+
+        Some platforms/styles render the QTreeWidget viewport with a dark
+        background when branches expand. Apply explicit palette + stylesheet
+        to keep it consistently light with dark text.
+        """
+        if not hasattr(self, "file_tree") or self.file_tree is None:
+            return
+
+        # Palette for viewport/base colors
+        try:
+            pal = self.file_tree.palette()
+            pal.setColor(QPalette.Base, QColor("#ffffff"))
+            pal.setColor(QPalette.AlternateBase, QColor("#f6f9ff"))
+            pal.setColor(QPalette.Text, QColor("#1f2933"))
+            pal.setColor(QPalette.WindowText, QColor("#1f2933"))
+            self.file_tree.setPalette(pal)
+            self.file_tree.viewport().setAutoFillBackground(True)
+        except Exception:
+            pass
+
+        # Targeted stylesheet to cover viewport, items, and branches
+        self.file_tree.setStyleSheet(
+            """
+            QTreeWidget, QTreeView {
+                background-color: #ffffff;
+                color: #1f2933;
+                alternate-background-color: #f6f9ff;
+            }
+            QTreeWidget::viewport, QTreeView::viewport {
+                background-color: #ffffff;
+            }
+            QTreeWidget::item, QTreeView::item {
+                background-color: transparent;
+                color: #1f2933;
+            }
+            QTreeWidget::item:selected, QTreeView::item:selected {
+                background-color: #e3ecff;
+                color: #0b3d91;
+            }
+            QTreeWidget::branch, QTreeView::branch {
+                background: #ffffff;
+            }
+            """
+        )
 
     # ------------------------------------------------------------------
     # Directory + persistence helpers
