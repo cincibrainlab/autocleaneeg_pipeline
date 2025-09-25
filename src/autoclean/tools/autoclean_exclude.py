@@ -44,7 +44,7 @@ check_gui_dependencies()
 
 
 from PyQt5.QtCore import Qt, QTimer, QSize  # noqa: E402
-from PyQt5.QtGui import QColor, QKeySequence, QPalette  # noqa: E402
+from PyQt5.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
 from PyQt5.QtWidgets import (  # noqa: E402
     QApplication,
     QFrame,
@@ -264,6 +264,10 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self._current_plot_path: Optional[str] = None
         self._workspace_path_label: Optional[QLabel] = None
         self.metrics_widget: Optional[ProcessingMetricsWidget] = None
+        self.plot_tabs: Optional[QTabWidget] = None
+        self.plot_tab_layout: Optional[QVBoxLayout] = None
+        self.psd_message_label: Optional[QLabel] = None
+        self.psd_image_label: Optional[QLabel] = None
 
         self._updating_notes = False
         self._suppress_selection_autoload = False
@@ -315,6 +319,56 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 btn.setParent(self)
             except Exception:
                 pass
+
+        # Configure plot + PSD tabs on the right side
+        self.plot_tabs = QTabWidget()
+        self.plot_tabs.setObjectName("decisionPlotTabs")
+
+        plot_tab_container = QWidget()
+        plot_tab_layout = QVBoxLayout()
+        plot_tab_layout.setContentsMargins(0, 0, 0, 0)
+        plot_tab_layout.setSpacing(0)
+        plot_tab_container.setLayout(plot_tab_layout)
+        self.plot_tab_layout = plot_tab_layout
+
+        existing_right_layout = getattr(self, "right_layout", None)
+        if existing_right_layout is not None:
+            while existing_right_layout.count():
+                item = existing_right_layout.takeAt(0)
+                widget = item.widget()
+                if widget is not None:
+                    plot_tab_layout.addWidget(widget)
+
+        self.plot_tabs.addTab(plot_tab_container, "Time Series")
+        self.right_layout = plot_tab_layout
+
+        psd_tab_container = QWidget()
+        psd_layout = QVBoxLayout()
+        psd_layout.setContentsMargins(12, 12, 12, 12)
+        psd_layout.setSpacing(8)
+        psd_tab_container.setLayout(psd_layout)
+
+        self.psd_message_label = QLabel("Select a file to view PSD overview")
+        self.psd_message_label.setObjectName("psdOverviewMessage")
+        self.psd_message_label.setAlignment(Qt.AlignCenter)
+        psd_layout.addWidget(self.psd_message_label)
+
+        self.psd_image_label = QLabel()
+        self.psd_image_label.setObjectName("psdOverviewImage")
+        self.psd_image_label.setAlignment(Qt.AlignCenter)
+        self.psd_image_label.setScaledContents(True)
+        self.psd_image_label.hide()
+        psd_layout.addWidget(self.psd_image_label, 1)
+
+        self.plot_tabs.addTab(psd_tab_container, "PSD Overview")
+
+        container_layout = self.right_container.layout()
+        if container_layout is None:
+            container_layout = QVBoxLayout()
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            container_layout.setSpacing(0)
+            self.right_container.setLayout(container_layout)
+        container_layout.addWidget(self.plot_tabs)
 
         self.save_timer = QTimer(self)
         self.save_timer.setSingleShot(True)
@@ -607,6 +661,25 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 color: #2f3b52;
                 font-size: 12px;
                 font-weight: 600;
+            }
+            QTabWidget#decisionPlotTabs::pane {
+                border: none;
+                background-color: #ffffff;
+            }
+            QTabWidget#decisionPlotTabs QTabBar::tab {
+                background-color: transparent;
+                border: 1px solid transparent;
+                padding: 6px 12px;
+                margin-right: 4px;
+                color: #5b6c7c;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            QTabWidget#decisionPlotTabs QTabBar::tab:selected {
+                background-color: #eef3ff;
+                border: 1px solid #a5b9d5;
+                border-radius: 6px 6px 0 0;
+                color: #1f2d3d;
             }
             #decisionInfoPanel {
                 background-color: transparent;
@@ -1172,6 +1245,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
     def _update_processing_metrics_panel(self) -> None:
         if self.metrics_widget is not None:
             self.metrics_widget.show_message("Select a file to view processing metrics")
+        self._update_psd_preview_for_file(None)
 
     def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
         parent = file_path.parent
@@ -1209,6 +1283,78 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if best_score <= 0:
             return None
         return best_path
+
+    def _psd_reports_dir(self) -> Optional[Path]:
+        if self.task_root and (self.task_root / "reports" / "psd_topo").exists():
+            return self.task_root / "reports" / "psd_topo"
+        if self.exports_dir:
+            candidate = self.exports_dir.parent / "reports" / "psd_topo"
+            if candidate.exists():
+                return candidate
+        return None
+
+    def _find_psd_overview_for_file(self, file_path: Path) -> Optional[Path]:
+        psd_dir = self._psd_reports_dir()
+        if psd_dir is None:
+            return None
+
+        candidates = list(psd_dir.glob("*_psd_topo_figure.png"))
+        if not candidates:
+            return None
+
+        stem = file_path.stem
+        variants = {stem}
+        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
+        for suffix in suffixes:
+            if stem.endswith(suffix):
+                variants.add(stem[: -len(suffix)])
+
+        parts = stem.split("_")
+        for length in range(len(parts), 1, -1):
+            variants.add("_".join(parts[:length]))
+
+        best_score = -1
+        best_path: Optional[Path] = None
+        for candidate in candidates:
+            c_stem = candidate.stem
+            if "_psd_topo" in c_stem:
+                c_stem = c_stem.split("_psd_topo", 1)[0]
+            score = max(_longest_common_prefix_length(c_stem, variant) for variant in variants)
+            if score > best_score:
+                best_score = score
+                best_path = candidate
+
+        if best_score <= 0:
+            return None
+        return best_path
+
+    def _update_psd_preview_for_file(self, file_path: Optional[Path]) -> None:
+        if self.psd_message_label is None or self.psd_image_label is None:
+            return
+
+        if file_path is None:
+            self.psd_image_label.hide()
+            self.psd_message_label.setText("Select a file to view PSD overview")
+            self.psd_message_label.show()
+            return
+
+        psd_path = self._find_psd_overview_for_file(file_path)
+        if psd_path is None:
+            self.psd_image_label.hide()
+            self.psd_message_label.setText("PSD overview not available for this file")
+            self.psd_message_label.show()
+            return
+
+        pixmap = QPixmap(str(psd_path))
+        if pixmap.isNull():
+            self.psd_image_label.hide()
+            self.psd_message_label.setText("PSD overview failed to load")
+            self.psd_message_label.show()
+            return
+
+        self.psd_image_label.setPixmap(pixmap)
+        self.psd_image_label.show()
+        self.psd_message_label.hide()
 
     def _update_processing_metrics_for_file(self, file_path: Path) -> None:
         if self.metrics_widget is None:
@@ -1488,6 +1634,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         if self.detail_panel is not None:
             self.detail_panel.show()
 
+        self._update_psd_preview_for_file(file_path)
         self._update_processing_metrics_for_file(file_path)
 
         if self.status_bar is not None and self.current_display_name:
