@@ -131,6 +131,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self._clear_button: Optional[QPushButton] = None
         self._decision_stack: Optional[QStackedLayout] = None
         self._current_plot_path: Optional[str] = None
+        self._workspace_path_label: Optional[QLabel] = None
 
         self._updating_notes = False
 
@@ -581,6 +582,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         )
         toolbar_layout.addWidget(header)
 
+        toolbar_layout.addStretch(1)
+
         button_specs = (
             (
                 self.select_dir_btn,
@@ -654,6 +657,23 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.left_layout.insertWidget(0, toolbar)
         self.directory_toolbar = toolbar
         self._directory_toolbar_initialized = True
+
+        # Add folder path label on its own row under the toolbar
+        path_label = QLabel()
+        path_label.setObjectName("directoryPathLabel")
+        path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        path_label.setWordWrap(True)
+        self.left_layout.insertWidget(1, path_label)
+        self._workspace_path_label = path_label
+        self._refresh_workspace_path_label()
+
+        if hasattr(self, "file_tree") and self.file_tree is not None:
+            try:
+                self.file_tree.setRootIsDecorated(False)
+                self.file_tree.setIndentation(10)
+                self.file_tree.setAlternatingRowColors(True)
+            except Exception:
+                pass
 
     def _apply_light_palette(self, widget: Optional[QWidget]) -> None:
         if widget is None:
@@ -739,6 +759,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.current_dir = str(root)
         self.decisions_path = root / "autoclean_exclusion_decisions.json"
         self.decisions_csv_path = root / "autoclean_exclusion_decisions.csv"
+        # Update the workspace path label whenever directory changes
+        self._refresh_workspace_path_label()
 
     def _load_decisions(self) -> None:
         self.decisions = {}
@@ -794,42 +816,46 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.file_tree.clear()
         self.row_lookup.clear()
         self.all_keys.clear()
-        if self.current_dir:
-            root_path = Path(self.current_dir)
-            root_item = QTreeWidgetItem(self.file_tree, [root_path.name])
-            root_item.setData(0, Qt.UserRole, str(root_path))
-            self._populate_tree(root_item, root_path)
-            root_item.setExpanded(True)
-            if root_item.childCount() > 0:
-                root_item.child(0).setExpanded(True)
-        self._update_summary()
 
-    def _populate_tree(
-        self,
-        parent_item: QTreeWidgetItem,
-        directory: Path,
-    ) -> None:
-        entries = sorted(directory.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower()))
-        for entry in entries:
-            if entry.is_dir():
-                folder = QTreeWidgetItem(parent_item, [entry.name])
-                folder.setIcon(0, self.style().standardIcon(self.style().SP_DirIcon))
-                folder.setData(0, Qt.UserRole, str(entry))
-                self._populate_tree(folder, entry)
-            elif entry.suffix.lower() == ".set":
-                item = QTreeWidgetItem(parent_item, [entry.name])
-                item.setIcon(0, self.style().standardIcon(self.style().SP_FileIcon))
-                item.setData(0, Qt.UserRole, str(entry))
-                key = self._record_key(entry)
-                item.setData(0, Qt.UserRole + 1, key)
-                base_label = entry.name
-                if entry.name in self.modified_files:
-                    base_label = f"{base_label} *"
-                item.setData(0, Qt.UserRole + 2, base_label)
-                self.row_lookup[key] = item
-                self.all_keys.add(key)
-                status = self.decisions.get(key, {}).get("status", "UNSET")
-                self._apply_status_to_item(item, status)
+        current_dir = self.current_dir
+        if not current_dir:
+            self._update_summary()
+            return
+
+        root_path = Path(current_dir)
+        if not root_path.exists():
+            self._update_summary()
+            return
+        file_icon = self.style().standardIcon(self.style().SP_FileIcon)
+
+        def _sort_key(path: Path) -> tuple[str, str]:
+            relative = path.relative_to(root_path)
+            folder = "/".join(relative.parts[:-1])
+            return (folder.lower(), relative.name.lower())
+
+        set_files = sorted(root_path.rglob("*.set"), key=_sort_key)
+
+        for file_path in set_files:
+            relative_path = file_path.relative_to(root_path)
+            display_name = relative_path.as_posix()
+            base_label = display_name
+            if file_path.name in self.modified_files:
+                base_label = f"{base_label} *"
+
+            item = QTreeWidgetItem([base_label])
+            if not file_icon.isNull():
+                item.setIcon(0, file_icon)
+            item.setData(0, Qt.UserRole, str(file_path))
+            key = self._record_key(file_path)
+            item.setData(0, Qt.UserRole + 1, key)
+            item.setData(0, Qt.UserRole + 2, base_label)
+            self.file_tree.addTopLevelItem(item)
+            self.row_lookup[key] = item
+            self.all_keys.add(key)
+            status = self.decisions.get(key, {}).get("status", "UNSET")
+            self._apply_status_to_item(item, status)
+
+        self._update_summary()
 
     def selectDirectory(self) -> None:  # noqa: N802 - inherited public API
         dir_path = QFileDialog.getExistingDirectory(
@@ -846,6 +872,16 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             self._update_decision_controls(None)
             super().updateStatusBar()
             self.loadFiles()
+            self._refresh_workspace_path_label()
+
+    def _refresh_workspace_path_label(self) -> None:
+        """Update the workspace path label with the current directory."""
+        label = self._workspace_path_label
+        if label is None:
+            return
+        text = self.current_dir or ""
+        label.setToolTip(text)
+        label.setText(text)
 
     def onFileSelect(self, item):  # noqa: N802 - inherited public API
         file_path_str = item.data(0, Qt.UserRole)
