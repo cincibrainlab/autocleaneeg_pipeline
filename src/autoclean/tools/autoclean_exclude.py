@@ -700,7 +700,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         except Exception:
             pass
 
-        # Targeted stylesheet to cover viewport, items, and branches
+        # Targeted stylesheet to cover viewport and branches only
         self.file_tree.setStyleSheet(
             """
             QTreeWidget, QTreeView {
@@ -712,7 +712,7 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                 background-color: #ffffff;
             }
             QTreeWidget::item, QTreeView::item {
-                background-color: transparent;
+                /* no background here so per-item brushes (status shading) show */
                 color: #1f2933;
             }
             QTreeWidget::item:selected, QTreeView::item:selected {
@@ -1023,7 +1023,8 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             color.setAlpha(60)
             item.setBackground(0, color)
         else:
-            item.setBackground(0, QColor())
+            # Explicit white so unmarked rows are light, not dark/transparent.
+            item.setBackground(0, QColor("#ffffff"))
 
     def _update_summary(self) -> None:
         counts = Counter({key: 0 for key in STATUS_DEFINITIONS})
