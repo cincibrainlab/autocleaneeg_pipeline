@@ -181,6 +181,15 @@ def _normalized_prefix_score(a: str, b: str) -> int:
 
     return _longest_common_prefix_length(normalize(a), normalize(b))
 
+def _enum_name(value: object) -> str:
+    """Return the Enum name if available, otherwise string form."""
+    if value is None:
+        return "None"
+    name = getattr(value, 'name', None)
+    if name:
+        return str(name)
+    return str(value)
+
 
 class PdfPreviewWidget(QWidget):
     """Lightweight PDF viewer that embeds Qt's native renderer."""
@@ -198,37 +207,146 @@ class PdfPreviewWidget(QWidget):
         self._message.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._message.setWordWrap(True)
 
+        self._status_label = QLabel("No document loaded")
+        self._status_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._status_label.setWordWrap(True)
+        self._status_label.setObjectName("pdfStatusLabel")
+        self._status_label.hide()
+
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
         layout.addWidget(self._message)
         layout.addWidget(self._view, 1)
+        layout.addWidget(self._status_label)
         self.setLayout(layout)
 
         self._current_path: Optional[Path] = None
-        self.clear()
+        self._total_pages = 0
+        self._current_page = 0
 
-    def clear(self) -> None:
+        self._navigator = self._view.pageNavigator()
+        if self._navigator is not None:
+            self._navigator.currentPageChanged.connect(self._on_page_changed)
+
+        self._next_page_shortcut = QShortcut(
+            QKeySequence(QKeySequence.StandardKey.MoveToNextPage), self
+        )
+        self._next_page_shortcut.activated.connect(lambda: self._step_page(+1))
+
+        self._prev_page_shortcut = QShortcut(
+            QKeySequence(QKeySequence.StandardKey.MoveToPreviousPage), self
+        )
+        self._prev_page_shortcut.activated.connect(lambda: self._step_page(-1))
+
+        self._view.hide()
+        self.clear(suppress_log=True)
+
+    def clear(self, suppress_log: bool = False) -> None:
         self._document.close()
         self._current_path = None
-        print(f"[{_human_timestamp()}] PDF preview cleared; placeholder restored.")
+        self._total_pages = 0
+        self._current_page = 0
+        self._status_label.hide()
+        if not suppress_log:
+            print(f"[{_human_timestamp()}] PDF preview cleared; placeholder restored.")
         self.show_message(self._placeholder)
 
     def show_message(self, message: str) -> None:
         self._message.setText(message)
         self._message.show()
         self._view.hide()
+        self._status_label.hide()
 
     def load(self, path: Path) -> None:
         print(f"[{_human_timestamp()}] Attempting to load PDF preview: {path}")
         status = self._document.load(str(path))
-        if status != QPdfDocument.Status.Ready:
-            print(f"[{_human_timestamp()}] PDF load failed for {path}; status={status}.")
-            self.clear()
-            self.show_message("Failed to load preview")
+        status_name = _enum_name(status)
+
+        try:
+            doc_status = self._document.status()
+        except Exception as exc:
+            doc_status = None
+            doc_status_name = f"status_call_failed={exc}"
+        else:
+            doc_status_name = _enum_name(doc_status)
+
+        error_value: Optional[object] = None
+        error_name = 'unsupported'
+        if hasattr(self._document, 'error'):
+            try:
+                error_value = self._document.error()
+                error_name = _enum_name(error_value)
+            except Exception as exc:
+                error_name = f"error_call_failed={exc}"
+
+        ready = doc_status_name == 'Ready'
+        error_ok = error_name in {'None', 'None_', 'NoError', 'NoError_', 'unsupported'}
+
+        if not ready or not error_ok:
+            diagnostics: list[str] = []
+            try:
+                exists = path.exists()
+            except Exception as exc:
+                diagnostics.append(f"exists_check_failed={exc}")
+                exists = False
+
+            if exists:
+                try:
+                    stat = path.stat()
+                except OSError as exc:
+                    diagnostics.append(f"stat_error={exc}")
+                else:
+                    diagnostics.append(f"size={stat.st_size} bytes")
+                    diagnostics.append(
+                        f"mtime={datetime.fromtimestamp(stat.st_mtime).isoformat(timespec='seconds')}"
+                    )
+            else:
+                diagnostics.append('file_missing')
+
+            if hasattr(self._document, 'errorString'):
+                try:
+                    error_string = self._document.errorString()
+                except Exception as exc:
+                    diagnostics.append(f"error_string_failed={exc}")
+                else:
+                    if error_string:
+                        diagnostics.append(f"error_string={error_string!r}")
+
+            diag_text = ", ".join(diagnostics) if diagnostics else 'no file diagnostics'
+            print(
+                f"[{_human_timestamp()}] PDF load failed for {path}; "
+                f"requested_status={status_name}, document_status={doc_status_name}, "
+                f"error={error_name}, {diag_text}."
+            )
+            self.clear(suppress_log=True)
+            self.show_message('Failed to load preview')
             return
 
-        print(f"[{_human_timestamp()}] PDF load succeeded: {path}")
+        try:
+            page_count = self._document.pageCount()
+        except Exception as exc:
+            page_count = f"page_count_failed={exc}"
+        print(
+            f"[{_human_timestamp()}] PDF load succeeded: {path} "
+            f"(requested_status={status_name}, document_status={doc_status_name}, "
+            f"error={error_name}, pages={page_count})."
+        )
+
+        if isinstance(page_count, int) and page_count > 0:
+            self._total_pages = page_count
+        else:
+            self._total_pages = 0
+        self._current_page = 0
+
+        if self._navigator is not None:
+            self._navigator.jump(0, QPointF(0, 0))
+
+        if self._total_pages > 1:
+            self._view.setPageMode(QPdfView.PageMode.MultiPage)
+        else:
+            self._view.setPageMode(QPdfView.PageMode.SinglePage)
+
         navigator = self._view.pageNavigator()
         if navigator is not None:
             navigator.jump(0, QPointF(0, 0))
@@ -236,6 +354,45 @@ class PdfPreviewWidget(QWidget):
         self._current_path = path
         self._message.hide()
         self._view.show()
+        self._status_label.show()
+        self._update_status_label()
+
+
+    def _update_status_label(self) -> None:
+        if self._total_pages <= 0:
+            self._status_label.setText("No document loaded")
+            return
+        page_text = f"Page {self._current_page + 1} / {self._total_pages}"
+        try:
+            zoom = self._view.zoomFactor()
+        except Exception:
+            zoom = 1.0
+        zoom_pct = int(round(zoom * 100))
+        mode = self._view.pageMode()
+        mode_name = getattr(mode, 'name', str(mode))
+        self._status_label.setText(
+            f"{page_text} · Zoom {zoom_pct}% · Mode {mode_name}"
+        )
+
+    def _step_page(self, delta: int) -> None:
+        if self._navigator is None or self._total_pages <= 0:
+            return
+        try:
+            current = self._navigator.currentPage()
+        except Exception:
+            current = self._current_page
+        target = max(0, min(self._total_pages - 1, current + delta))
+        if target == current:
+            return
+        self._navigator.jump(target, QPointF(0, 0))
+        self._current_page = target
+        self._update_status_label()
+
+    def _on_page_changed(self, page: int) -> None:
+        if self._total_pages <= 0:
+            return
+        self._current_page = max(0, min(self._total_pages - 1, page))
+        self._update_status_label()
 
 
 class ReviewBase(QWidget):
