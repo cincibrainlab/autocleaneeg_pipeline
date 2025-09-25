@@ -1374,7 +1374,7 @@ class ExclusionFileSelector(ReviewBase):
         header_label.setObjectName("decisionHeader")
         header_row.addWidget(header_label)
 
-        shortcut_hint = QLabel("P Pass • F Fail • R Review • C Clear")
+        shortcut_hint = QLabel("P Pass • F Fail • R Review • C Clear • ↑↓ Navigate")
         shortcut_hint.setObjectName("decisionShortcutHint")
         shortcut_hint.setAlignment(Qt.AlignCenter)
         header_row.addWidget(shortcut_hint, 0, Qt.AlignRight)
@@ -1414,7 +1414,9 @@ class ExclusionFileSelector(ReviewBase):
             button_layout.addWidget(btn)
             self._status_buttons[status] = btn
 
+            # Create global shortcuts that work regardless of focus
             shortcut = QShortcut(QKeySequence(meta["shortcut"]), self)
+            shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
             shortcut.activated.connect(partial(self._set_status, status))
             self._shortcuts[status] = shortcut
 
@@ -1430,9 +1432,22 @@ class ExclusionFileSelector(ReviewBase):
         self._clear_button = clear_btn
         button_layout.addWidget(clear_btn)
 
+        # Create global shortcut for clear that works regardless of focus
         clear_shortcut = QShortcut(QKeySequence("C"), self)
+        clear_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
         clear_shortcut.activated.connect(partial(self._set_status, "UNSET"))
         self._shortcuts["CLEAR"] = clear_shortcut
+
+        # Add up/down arrow navigation shortcuts
+        up_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.MoveToPreviousLine), self)
+        up_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        up_shortcut.activated.connect(self._navigate_up)
+        self._shortcuts["UP"] = up_shortcut
+
+        down_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.MoveToNextLine), self)
+        down_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
+        down_shortcut.activated.connect(self._navigate_down)
+        self._shortcuts["DOWN"] = down_shortcut
 
         self.save_state_label = QLabel("Select a file to assign a decision.")
         self.save_state_label.setObjectName("decisionSaveLabel")
@@ -3172,6 +3187,44 @@ class ExclusionFileSelector(ReviewBase):
             return str(file_path.resolve().relative_to(root.resolve()))
         except Exception:
             return str(file_path.name)
+
+    def _navigate_up(self) -> None:
+        """Navigate to the previous file in the tree using up arrow key."""
+        if not hasattr(self, "file_tree") or self.file_tree is None:
+            return
+        
+        current_item = self.file_tree.currentItem()
+        if current_item is None:
+            # If no current item, select the first item
+            if self.file_tree.topLevelItemCount() > 0:
+                self.file_tree.setCurrentItem(self.file_tree.topLevelItem(0))
+            return
+        
+        current_index = self.file_tree.indexOfTopLevelItem(current_item)
+        if current_index > 0:
+            # Move to previous item
+            prev_item = self.file_tree.topLevelItem(current_index - 1)
+            if prev_item is not None:
+                self.file_tree.setCurrentItem(prev_item)
+
+    def _navigate_down(self) -> None:
+        """Navigate to the next file in the tree using down arrow key."""
+        if not hasattr(self, "file_tree") or self.file_tree is None:
+            return
+        
+        current_item = self.file_tree.currentItem()
+        if current_item is None:
+            # If no current item, select the first item
+            if self.file_tree.topLevelItemCount() > 0:
+                self.file_tree.setCurrentItem(self.file_tree.topLevelItem(0))
+            return
+        
+        current_index = self.file_tree.indexOfTopLevelItem(current_item)
+        if current_index < self.file_tree.topLevelItemCount() - 1:
+            # Move to next item
+            next_item = self.file_tree.topLevelItem(current_index + 1)
+            if next_item is not None:
+                self.file_tree.setCurrentItem(next_item)
 
 
 def determine_paths(args: argparse.Namespace) -> tuple[Path, Optional[Path]]:
