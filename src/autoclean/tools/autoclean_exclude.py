@@ -1354,6 +1354,11 @@ class ExclusionFileSelector(ReviewBase):
         self._selection_timer.setInterval(180)
         self._selection_timer.timeout.connect(self._process_pending_selection)
 
+        # Timer for periodic epoch capture (every 2 seconds when plot is active)
+        self._epoch_capture_timer = QTimer(self)
+        self._epoch_capture_timer.setInterval(2000)
+        self._epoch_capture_timer.timeout.connect(self._periodic_epoch_capture)
+
         if hasattr(self, "file_tree") and self.file_tree is not None:
             try:
                 self.file_tree.itemSelectionChanged.connect(self._handle_tree_selection_changed)
@@ -2691,11 +2696,22 @@ class ExclusionFileSelector(ReviewBase):
                         "notes": record.get("notes", ""),
                         "relative_path": record.get("relative_path", ""),
                         "last_updated": record.get("last_updated", ""),
+                        "epochs_reviewed": record.get("epochs_reviewed", False),
+                        "bad_epochs_count": record.get("bad_epochs_count", 0),
+                        "bad_epoch_indices": record.get("bad_epoch_indices", ""),
+                        "bad_epoch_times": record.get("bad_epoch_times", ""),
+                        "bad_epoch_events": record.get("bad_epoch_events", ""),
+                        "total_epochs": record.get("total_epochs", 0),
+                        "epoch_rejection_rate": record.get("epoch_rejection_rate", 0.0),
                     }
                 )
             with self.decisions_csv_path.open("w", newline="", encoding="utf-8") as fp:
                 writer = csv.DictWriter(
-                    fp, fieldnames=["entry", "status", "notes", "relative_path", "last_updated"]
+                    fp, fieldnames=[
+                        "entry", "status", "notes", "relative_path", "last_updated",
+                        "epochs_reviewed", "bad_epochs_count", "bad_epoch_indices", 
+                        "bad_epoch_times", "bad_epoch_events", "total_epochs", "epoch_rejection_rate"
+                    ]
                 )
                 writer.writeheader()
                 writer.writerows(rows)
@@ -2913,6 +2929,11 @@ class ExclusionFileSelector(ReviewBase):
             self.current_run_record = None
 
         self.current_key = self._record_key(file_path)
+        
+        # Capture bad epochs from previous file before switching
+        if hasattr(self, '_previous_key') and self._previous_key and self._previous_key != self.current_key:
+            self._capture_bad_epochs_for_key(self._previous_key)
+        
         record = self.decisions.get(self.current_key)
         self._update_decision_controls(record)
         self._refresh_related_list(file_path)
@@ -2927,6 +2948,9 @@ class ExclusionFileSelector(ReviewBase):
         if self.status_bar is not None and self.current_display_name:
             self.status_bar.showMessage(f"Queued · {self.current_display_name}")
 
+        # Store current key for next file switch
+        self._previous_key = self.current_key
+        
         self._auto_plot_current()
 
     def _render_plot(self, *, reason: str) -> None:
@@ -2969,6 +2993,11 @@ class ExclusionFileSelector(ReviewBase):
 
             if self.status_bar is not None and self.current_display_name:
                 self.status_bar.showMessage(f"Ready · {self.current_display_name}")
+            
+            # Start periodic epoch capture timer
+            if hasattr(self, '_epoch_capture_timer'):
+                self._epoch_capture_timer.start()
+                
         finally:
             self._plot_in_progress = False
             if self._pending_plot_refresh:
@@ -2981,6 +3010,14 @@ class ExclusionFileSelector(ReviewBase):
     def closePlot(self, reason: str = "close_button") -> None:  # noqa: N802
         if self.plot_widget is None:
             return
+
+        # Stop periodic epoch capture timer
+        if hasattr(self, '_epoch_capture_timer'):
+            self._epoch_capture_timer.stop()
+        
+        # Capture bad epochs before closing plot
+        if self.current_key:
+            self._capture_bad_epochs_for_current_file()
 
         try:
             self._auto_save_pending_epochs(reason=reason)
@@ -3028,12 +3065,22 @@ class ExclusionFileSelector(ReviewBase):
                 "notes": "",
                 "relative_path": self._relative_path(Path(self.selected_file_path)),
                 "last_updated": "",
+                "epochs_reviewed": False,
+                "bad_epochs_count": 0,
+                "bad_epoch_indices": "",
+                "bad_epoch_times": "",
+                "bad_epoch_events": "",
+                "total_epochs": 0,
+                "epoch_rejection_rate": 0.0,
             },
         )
         record["status"] = status
         record["last_updated"] = _human_timestamp()
         if self.notes_edit is not None:
             record["notes"] = self.notes_edit.toPlainText().strip()
+
+        # Capture current bad epoch state when status is set
+        self._capture_bad_epochs_for_current_file()
 
         item = self.row_lookup.get(self.current_key)
         if item is not None:
@@ -3042,6 +3089,143 @@ class ExclusionFileSelector(ReviewBase):
         self._update_decision_controls(record)
         self._update_summary()
         self._schedule_save()
+
+    def _capture_bad_epochs_for_current_file(self) -> None:
+        """Capture bad epoch information for the current file independently of decision status."""
+        if not self.current_key:
+            return
+        
+        # Initialize record if it doesn't exist
+        record = self.decisions.setdefault(
+            self.current_key,
+            {
+                "status": "UNSET",
+                "notes": "",
+                "relative_path": self._relative_path(Path(self.selected_file_path)) if hasattr(self, "selected_file_path") else "",
+                "last_updated": "",
+                "epochs_reviewed": False,
+                "bad_epochs_count": 0,
+                "bad_epoch_indices": "",
+                "bad_epoch_times": "",
+                "bad_epoch_events": "",
+                "total_epochs": 0,
+                "epoch_rejection_rate": 0.0,
+            },
+        )
+        
+        # Check if we have a plot widget with bad epochs
+        bad_epochs = []
+        total_epochs = 0
+        epoch_times = []
+        epoch_events = []
+        
+        if (self.plot_widget is not None and 
+            hasattr(self.plot_widget, "mne") and 
+            self.plot_widget.mne is not None and
+            self.current_epochs is not None):
+            
+            try:
+                bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
+                total_epochs = len(self.current_epochs)
+                
+                # Extract timing and event information for bad epochs
+                if bad_epochs and hasattr(self.current_epochs, 'events'):
+                    for idx in bad_epochs:
+                        if idx < len(self.current_epochs.events):
+                            # Convert sample to time
+                            time_sec = self.current_epochs.events[idx, 0] / self.current_epochs.info['sfreq']
+                            epoch_times.append(f"{time_sec:.3f}")
+                            epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                
+                record["epochs_reviewed"] = True
+                
+            except (AttributeError, IndexError) as e:
+                print(f"Warning: Could not extract epoch information: {e}")
+                bad_epochs = []
+        
+        # Update record with epoch information
+        record["bad_epochs_count"] = len(bad_epochs)
+        record["bad_epoch_indices"] = ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
+        record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
+        record["total_epochs"] = total_epochs
+        record["epoch_rejection_rate"] = (len(bad_epochs) / total_epochs * 100.0) if total_epochs > 0 else 0.0
+        
+        # Update visual indicator if we have bad epochs
+        item = self.row_lookup.get(self.current_key)
+        if item is not None:
+            self._apply_status_to_item(item, record.get("status", "UNSET"))
+
+    def _capture_bad_epochs_for_key(self, key: str) -> None:
+        """Capture bad epoch information for a specific file key."""
+        if not key:
+            return
+        
+        # Initialize record if it doesn't exist
+        record = self.decisions.setdefault(
+            key,
+            {
+                "status": "UNSET",
+                "notes": "",
+                "relative_path": "",
+                "last_updated": "",
+                "epochs_reviewed": False,
+                "bad_epochs_count": 0,
+                "bad_epoch_indices": "",
+                "bad_epoch_times": "",
+                "bad_epoch_events": "",
+                "total_epochs": 0,
+                "epoch_rejection_rate": 0.0,
+            },
+        )
+        
+        # Check if we have a plot widget with bad epochs
+        bad_epochs = []
+        total_epochs = 0
+        epoch_times = []
+        epoch_events = []
+        
+        if (self.plot_widget is not None and 
+            hasattr(self.plot_widget, "mne") and 
+            self.plot_widget.mne is not None and
+            self.current_epochs is not None):
+            
+            try:
+                bad_epochs = sorted(self.plot_widget.mne.bad_epochs)
+                total_epochs = len(self.current_epochs)
+                
+                # Extract timing and event information for bad epochs
+                if bad_epochs and hasattr(self.current_epochs, 'events'):
+                    for idx in bad_epochs:
+                        if idx < len(self.current_epochs.events):
+                            # Convert sample to time
+                            time_sec = self.current_epochs.events[idx, 0] / self.current_epochs.info['sfreq']
+                            epoch_times.append(f"{time_sec:.3f}")
+                            epoch_events.append(str(self.current_epochs.events[idx, 2]))
+                
+                record["epochs_reviewed"] = True
+                
+            except (AttributeError, IndexError) as e:
+                print(f"Warning: Could not extract epoch information for {key}: {e}")
+                bad_epochs = []
+        
+        # Update record with epoch information
+        record["bad_epochs_count"] = len(bad_epochs)
+        record["bad_epoch_indices"] = ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
+        record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
+        record["total_epochs"] = total_epochs
+        record["epoch_rejection_rate"] = (len(bad_epochs) / total_epochs * 100.0) if total_epochs > 0 else 0.0
+        
+        # Update visual indicator if we have bad epochs
+        item = self.row_lookup.get(key)
+        if item is not None:
+            self._apply_status_to_item(item, record.get("status", "UNSET"))
+
+    def _periodic_epoch_capture(self) -> None:
+        """Periodically capture bad epochs while plot is active."""
+        if self.current_key and self.plot_widget is not None:
+            self._capture_bad_epochs_for_current_file()
 
     def _handle_notes_changed(self) -> None:
         if self._updating_notes or not self.current_key or self.notes_edit is None:
@@ -3113,13 +3297,33 @@ class ExclusionFileSelector(ReviewBase):
     def _apply_status_to_item(self, item, status: str) -> None:
         base_label = item.data(0, Qt.UserRole + 2) or item.text(0)
         meta = STATUS_DEFINITIONS.get(status, STATUS_DEFINITIONS["UNSET"])
+        
+        # Get the key for this item to check epoch information
+        key = item.data(0, Qt.UserRole + 1)
+        epoch_info = ""
+        if key and key in self.decisions:
+            record = self.decisions[key]
+            bad_count = record.get("bad_epochs_count", 0)
+            if bad_count > 0:
+                epoch_info = f" ({bad_count} bad epochs)"
+        
         display = base_label
         if status and status != "UNSET":
-            display = f"{base_label} [{meta['label']}]"
+            display = f"{base_label} [{meta['label']}]{epoch_info}"
+        elif epoch_info:
+            display = f"{base_label}{epoch_info}"
+        
         item.setText(0, display)
+        
+        # Set background color based on status and epoch information
         if status and status != "UNSET":
             color = QColor(meta["color"])
             color.setAlpha(60)
+            item.setBackground(0, color)
+        elif epoch_info:
+            # Light orange/yellow for files with bad epochs but no decision
+            color = QColor("#f39c12")
+            color.setAlpha(40)
             item.setBackground(0, color)
         else:
             # Explicit white so unmarked rows are light, not dark/transparent.
