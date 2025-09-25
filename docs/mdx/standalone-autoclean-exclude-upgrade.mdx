@@ -1,0 +1,75 @@
+---
+title: AutoClean Exclusion Tool Modernization Run Log
+description: Documenting the stand-alone refactor of autoclean_exclude, including the PyQt6 transition and native PDF preview upgrades.
+---
+
+# AutoClean Exclusion Tool Modernization Run Log
+
+<Steps>
+  <Step title="Unhook the legacy autoclean_review dependency">
+    I copied only the essentials of the old review window (directory picker, file tree, status bar, and MNE plotting helpers) into a new <code>ReviewBase</code> class that lives inside <code>autoclean_exclude.py</code>. The exclusion widget now inherits from this local base, so it keeps every familiar control without importing <code>autoclean_review</code>.
+  </Step>
+  <Step title="Upgrade the GUI stack to PyQt6">
+    All Qt imports now come from the PyQt6 toolchain (via QtPy for compatibility). The runtime guard checks for PyQt6+QtPdf, the CLI launches with <code>app.exec()</code>, and the requirements file switches the optional GUI extra to <code>PyQt6</code> so fresh environments install the right wheels.
+  </Step>
+  <Step title="Swap bitmap PDF hacks for QtPdf previews">
+    Instead of rendering PDFs with PyMuPDF into temporary pixmaps, the run-report and ICA tabs embed a reusable <code>PdfPreviewWidget</code> that wraps <code>QPdfDocument</code>/<code>QPdfView</code>. The viewer fits the first page to the tab width automatically and falls back to friendly status messages whenever a report is missing or unreadable.
+  </Step>
+</Steps>
+
+## Refactor Overview
+
+<Diagram name="New stand-alone flow">
+autoclean_exclude.run_autoclean_exclusion_tool()
+  -> ReviewBase(__init__): build PyQt6 shell, file tree, MNE hooks
+  -> ExclusionFileSelector._extend_ui(): inject decision cards + preview tabs
+  -> PdfPreviewWidget: render run/ICA PDFs directly in the tab view
+  -> Decision autosave: JSON/CSV sync stays untouched
+</Diagram>
+
+<Callout type="tip" title="Why QtPy?">
+  QtPy keeps the code readable with familiar <code>Qt.AlignCenter</code> style constants while PyQt6 delivers the modern back end. You can still override <code>QT_API</code> if you ever test against PySide6, but PyQt6 is the officially supported GUI provider going forward.
+</Callout>
+
+## How to Reproduce the Upgrade Locally
+
+<Steps>
+  <Step title="Install the GUI extras">
+    <code>pip install autocleaneeg-pipeline[gui]</code><br />
+    This now installs PyQt6 and QtPdf. Existing PyMuPDF dependencies are no longer required.
+  </Step>
+  <Step title="Launch the exclusion helper">
+    <code>autocleaneeg-pipeline exclude</code><br />
+    The window opens maximized, backed entirely by the in-module <code>ReviewBase</code>. The workflow, keyboard shortcuts, and autosave behavior are identical to the previous release.
+  </Step>
+  <Step title="Preview run and ICA reports">
+    Select a <code>.set</code> file that has accompanying <code>*_report.pdf</code> or <code>*_ica.pdf</code> siblings. The corresponding tab renders the PDF directly in Qt, resizes with the window, and shows a text hint if the file is missing.
+  </Step>
+  <Step title="Confirm decisions persist">
+    Mark a few files, close the browser tab, and reopen the tool. The JSON/CSV decision store and colored tree rows should still mirror your selections just like before the refactor.
+  </Step>
+</Steps>
+
+## Verification Checklist
+
+<Accordion>
+  <AccordionItem title="Run-time dependency guard">
+    Start the CLI in a clean environment. If PyQt6 or QtPdf is missing, the helper exits early with an actionable message pointing to <code>pip install autocleaneeg-pipeline[gui]</code>.
+  </AccordionItem>
+  <AccordionItem title="MNE plotting still works">
+    Open a <code>.set</code> file, load the MNE browser, and verify the toolbar/light theme match the previous release. Close the plot to ensure auto-save of bad epochs still triggers.
+  </AccordionItem>
+  <AccordionItem title="PDF previews resize smoothly">
+    Resize the application window while a PDF is visible. The QtPdf view should refit to the new width without flicker or manual refresh.
+  </AccordionItem>
+</Accordion>
+
+## Notes & Concerns
+
+<Note>
+  The vendored <code>ReviewBase</code> intentionally implements only the subset of features the exclusion workflow relies on. If you need advanced run-record visualizations from the old review tool, continue launching <code>autoclean_review</code> separately—it remains untouched but still depends on PyQt5.
+</Note>
+
+<Callout type="warning" title="PyQt6-only from here on out">
+  The GUI extras now install PyQt6. If you have custom automation that pinned PyQt5, update those environments before rolling out the new exclusion helper.
+</Callout>
