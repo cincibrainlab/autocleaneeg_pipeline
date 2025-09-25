@@ -1109,7 +1109,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             if raw_duration <= 0:
                 raw_duration = post_duration
             retained_pct = (post_duration / raw_duration * 100.0) if raw_duration > 0 else 0.0
-            removed_duration = max(raw_duration - post_duration, 0.0)
             metrics.append(
                 (
                     "Data Retained",
@@ -1117,15 +1116,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                     "#2ecc71",
                 )
             )
-            if removed_duration > 0:
-                removed_pct = 100.0 - retained_pct if raw_duration > 0 else 0.0
-                metrics.append(
-                    (
-                        "Data Removed",
-                        f"{removed_duration:.1f}s ({removed_pct:.1f}%)",
-                        "#e74c3c",
-                    )
-                )
 
         channel_counts = self._channel_retention_metrics(latest)
         if channel_counts:
@@ -1138,14 +1128,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                         "Channels Retained",
                         f"{retained} / {total}",
                         "#3498db",
-                    )
-                )
-            if removed > 0:
-                metrics.append(
-                    (
-                        "Channels Removed",
-                        str(removed),
-                        "#e76f51",
                     )
                 )
 
@@ -1163,15 +1145,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                         "#2a9d8f",
                     )
                 )
-            if rejected > 0:
-                rejected_pct = rejected / total * 100.0 if total > 0 else 0.0
-                metrics.append(
-                    (
-                        "Epochs Rejected",
-                        f"{rejected} ({rejected_pct:.1f}%)",
-                        "#f4a261",
-                    )
-                )
 
         ica_counts = self._ica_component_metrics(latest)
         if ica_counts:
@@ -1184,14 +1157,6 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
                         "ICA Components Retained",
                         f"{retained} / {total}",
                         "#6c5ce7",
-                    )
-                )
-            if removed > 0:
-                metrics.append(
-                    (
-                        "ICA Components Removed",
-                        str(removed),
-                        "#e84393",
                     )
                 )
 
