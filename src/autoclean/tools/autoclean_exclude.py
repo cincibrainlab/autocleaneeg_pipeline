@@ -454,10 +454,12 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
             """
         )
 
-        # Insert decision controls right above the close/exit buttons
-        insert_index = self.left_layout.indexOf(self.close_plot_btn)
-        if insert_index < 0:
-            insert_index = self.left_layout.count() - 1
+        # Place decision controls directly below the file actions button row
+        insert_index = self.left_layout.indexOf(self.plot_btn)
+        if insert_index == -1:
+            insert_index = self.left_layout.count()
+        else:
+            insert_index += 1
         self.left_layout.insertWidget(insert_index, decision_card)
 
         summary_group = QGroupBox("Summary")
@@ -551,12 +553,11 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
         self.detail_panel.setLayout(detail_layout)
         self.detail_panel.hide()
 
-        action_bar = self.exit_btn.parentWidget() if hasattr(self, "exit_btn") else None
-        insert_index = self.left_layout.count()
-        if action_bar is not None:
-            idx = self.left_layout.indexOf(action_bar)
-            if idx != -1:
-                insert_index = idx
+        insert_index = self.left_layout.indexOf(decision_card)
+        if insert_index == -1:
+            insert_index = self.left_layout.count()
+        else:
+            insert_index += 1
         self.left_layout.insertWidget(insert_index, self.detail_panel)
 
     def _modify_top_buttons(self) -> None:
@@ -564,6 +565,10 @@ class ExclusionFileSelector(autoclean_review.FileSelector):
 
         if getattr(self, "_directory_toolbar_initialized", False):
             return
+
+        original_action_bar = None
+        if hasattr(self, "close_plot_btn"):
+            original_action_bar = self.close_plot_btn.parentWidget()
 
         toolbar = QFrame()
         toolbar.setObjectName("directoryToolbar")
