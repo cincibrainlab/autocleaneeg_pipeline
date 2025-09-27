@@ -258,6 +258,32 @@ def _print_startup_context(console) -> None:
             ws.append("Workspace not configured — ", style="muted")
             ws.append(display_path, style="accent")
             console.print(_Align.center(ws))
+
+        try:
+            registry = BuiltinRegistry()
+            registry_info = registry.registry_status()
+            commit = registry_info.get("commit") or "unknown"
+            synced_at = registry_info.get("synced_at") or "never"
+            status_line = _Text()
+            status_line.append("Task library: ", style="muted")
+            status_line.append(commit, style="accent")
+            status_line.append("  ", style="muted")
+            status_line.append("synced ", style="muted")
+            status_line.append(synced_at, style="accent")
+            console.print(_Align.center(status_line))
+
+            last_error = registry_info.get("last_error")
+            if isinstance(last_error, dict):
+                err_text = _Text()
+                err_text.append("Last registry error: ", style="warning")
+                err_text.append(last_error.get("message", "unknown"), style="warning")
+                timestamp = last_error.get("timestamp")
+                if timestamp:
+                    err_text.append("  ", style="muted")
+                    err_text.append(timestamp, style="muted")
+                console.print(_Align.center(err_text))
+        except Exception:
+            pass
             tip = _Text()
             tip.append("Run ", style="muted")
             tip.append("autocleaneeg-pipeline workspace", style="accent")
@@ -937,6 +963,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         add_help=False,
     )
     attach_rich_help(builtins_update)
+    builtins_update.add_argument(
+        "--no-network",
+        action="store_true",
+        help="Skip GitHub fetch and rely on cached/package data",
+    )
 
     builtins_list = builtins_subparsers.add_parser(
         "list",
@@ -2147,6 +2178,28 @@ def cmd_list_tasks(args) -> int:
         )
         console.print()
 
+        registry = BuiltinRegistry()
+        registry_info = registry.registry_status()
+
+        commit = registry_info.get("commit") or "unknown"
+        synced_at = registry_info.get("synced_at") or "never"
+        last_error = registry_info.get("last_error")
+
+        summary_line = (
+            f"[info]Task library commit:[/info] {commit}  [muted]synced[/muted] {synced_at}"
+        )
+        console.print(_Align.center(_Text(summary_line)))
+        if isinstance(last_error, dict):
+            err_msg = last_error.get("message", "unknown error")
+            err_time = last_error.get("timestamp", "")
+            console.print(
+                _Align.center(
+                    _Text(
+                        f"[warning]Last registry error:[/warning] {err_msg} [muted]{err_time}[/muted]"
+                    )
+                )
+            )
+
         valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
         def _montage_label(task_name: str) -> str:
@@ -2179,15 +2232,29 @@ def cmd_list_tasks(args) -> int:
                 show_header=True, header_style="header", box=None, padding=(0, 1)
             )
             built_in_table.add_column("Task Name", style="accent", no_wrap=True)
+            built_in_table.add_column("Sync", style="info", no_wrap=True)
             built_in_table.add_column("Module", style="muted")
             built_in_table.add_column("Montage", style="info", no_wrap=True)
             built_in_table.add_column("Description", style="muted", max_width=50)
 
+            workspace_dir = user_config.tasks_dir
+
             for task in sorted(built_in_tasks, key=lambda x: x.name):
                 # Extract just the module name from the full path
                 module_name = Path(task.source).stem
+                sync = registry.task_sync_status(task.name, workspace_dir)
+                sync_state = sync.get("status") or "unknown"
+                if sync_state == "synced":
+                    sync_text = "[success]synced[/success]"
+                elif sync_state == "modified":
+                    sync_text = "[warning]modified[/warning]"
+                elif sync_state == "not_installed":
+                    sync_text = "[muted]not installed[/muted]"
+                else:
+                    sync_text = "[muted]unknown[/muted]"
                 built_in_table.add_row(
                     task.name,
+                    sync_text,
                     module_name + ".py",
                     _montage_label(task.name),
                     task.description or "No description",
@@ -5343,7 +5410,8 @@ def cmd_task_builtins(args) -> int:
     registry = BuiltinRegistry()
 
     if action == "update":
-        console.print(registry.update_cache())
+        allow_network = not getattr(args, "no_network", False)
+        console.print(registry.update_cache(allow_network=allow_network))
         return 0
 
     if action == "list":
@@ -5352,24 +5420,55 @@ def cmd_task_builtins(args) -> int:
             console.print("[warning]No built-in tasks found in registry.json[/warning]")
             return 0
 
+        status_info = registry.registry_status()
+        commit = status_info.get("commit") or "unknown"
+        synced_at = status_info.get("synced_at") or "never"
+        last_error = status_info.get("last_error")
+
+        summary = "[info]Registry commit:[/info] {commit}  [muted]synced[/muted] {synced}"
+        summary = summary.format(commit=commit, synced=synced_at)
+        console.print(summary)
+        if isinstance(last_error, dict):
+            err_msg = last_error.get("message", "unknown error")
+            err_time = last_error.get("timestamp", "")
+            console.print(
+                f"[warning]Last sync error[/warning]: {err_msg} [muted]{err_time}[/muted]"
+            )
+
         from rich.table import Table as _Table
 
         table = _Table(show_header=True, box=None, padding=(0, 1))
         table.add_column("Task", style="accent")
+        table.add_column("Status", style="info")
         table.add_column("Source", style="muted")
         if getattr(args, "show_paths", False):
             table.add_column("Registry path", style="info")
 
+        workspace_dir = user_config.tasks_dir
+
         for task in tasks:
-            source = registry.task_source(task.name)
+            sync = registry.task_sync_status(task.name, workspace_dir)
+            status = sync.get("status") or "unknown"
+            if status == "synced":
+                status_text = "[success]synced[/success]"
+            elif status == "modified":
+                status_text = "[warning]modified[/warning]"
+            elif status == "not_installed":
+                status_text = "[muted]not installed[/muted]"
+            elif status == "missing":
+                status_text = "[error]missing[/error]"
+            else:
+                status_text = "[muted]unknown[/muted]"
+
+            source = sync.get("source") or "unknown"
             if source == "cache":
-                source_text = "cache (updated)"
+                source_text = "cache"
             elif source == "package":
                 source_text = "package snapshot"
             else:
-                source_text = "unknown"
+                source_text = source
 
-            row = [task.name, source_text]
+            row = [task.name, status_text, source_text]
             if getattr(args, "show_paths", False):
                 row.append(task.path)
             table.add_row(*row)
