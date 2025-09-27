@@ -1,0 +1,12 @@
+{%- set sentences = [
+  "EEG preprocessing was performed using AutoCleanEEG v" ~ pipeline_version ~ " (MNE-Python " ~ mne_version ~ "). Data were converted to BIDS and organized under " ~ bids_label ~ ".",
+  resample_hz and ("Signals were resampled to " ~ resample_hz ~ " Hz."),
+  filter_band and ("Data were filtered (" ~ filter_band ~ ")."),
+  reference and ("Signals were re-referenced to " ~ reference ~ "."),
+  ica and ("Independent Component Analysis was performed using " ~ ica.method ~ " (" ~ ica.n_components ~ " components). Components were classified with " ~ ica.classifier ~ " and " ~ ica.removed_count ~ " components were removed."),
+  epochs and ("Data were epoched from " ~ epochs.tmin ~ "s to " ~ epochs.tmax ~ "s" ~ (epochs.baseline or "") ~ "."),
+  epochs and epochs.counts_sentence,
+  epochs and epochs.rejection_sentence,
+  montage and ("Electrodes were assigned to the " ~ montage ~ " montage.")
+] | reject('equalto', none) %}
+{{ sentences | join(' ') }}
