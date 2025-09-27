@@ -1,0 +1,55 @@
+import { Callout, Cards, Steps, Tabs } from 'nextra/components';
+
+# Reporting Template Extension
+
+<Callout type="info">
+We identified the deterministic methods paragraph generator as another ad-hoc string builder and moved it onto the shared Jinja pipeline so reporting copy benefits from the same guardrails as the task wizard.
+</Callout>
+
+## Why the change
+
+<Cards>
+  <Cards.Card title="Avoid string drift" icon="🧩">
+    Converting `render_methods` to a template keeps the sentence sequencing declarative and ensures future copy tweaks live in one place rather than scattered conditionals.【F:src/autoclean/reporting/llm_reporting.py†L96-L166】【F:src/autoclean/templates/methods_paragraph.jinja†L1-L9】
+  </Cards.Card>
+  <Cards.Card title="Reuse hardened renderer" icon="🛡️">
+    Reusing `render_template` extends StrictUndefined and filesystem checks to the reporting path, preventing silent failures when placeholders change or templates go missing.【F:src/autoclean/utils/template_renderer.py†L26-L63】【F:src/autoclean/reporting/llm_reporting.py†L96-L166】
+  </Cards.Card>
+</Cards>
+
+## How it works
+
+<Steps>
+
+### 1. Shape the rendering context
+We normalize filter, ICA, and epoch metadata into serializable dictionaries so the Jinja template can focus on presentation logic without duplicating numeric formatting rules.【F:src/autoclean/reporting/llm_reporting.py†L107-L154】
+
+### 2. Author a reporting template
+The new `methods_paragraph.jinja` template composes optional sentences with Jinja's list filtering and joins them into a single paragraph that mirrors the legacy output verbatim.【F:src/autoclean/templates/methods_paragraph.jinja†L1-L9】
+
+### 3. Return trimmed output
+A final `.strip()` keeps whitespace identical to the prior implementation, ensuring downstream formatting remains unchanged.【F:src/autoclean/reporting/llm_reporting.py†L164-L166】
+
+</Steps>
+
+## How to verify
+
+<Tabs items={['Unit test', 'Manual spot-check']}> 
+  <Tabs.Tab>
+
+  1. From the repository root, run:<br/>`pytest --override-ini addopts="" tests/unit/reporting/test_llm_reporting.py -q`
+  2. The suite exercises both a fully populated context and an empty baseline to confirm the rendered paragraph matches historic expectations exactly.【F:tests/unit/reporting/test_llm_reporting.py†L1-L112】
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+  1. Launch any pipeline run that emits a methods paragraph.
+  2. Compare the generated text before and after this change; the sentences should match byte-for-byte while now flowing through the templating safeguards.
+
+  </Tabs.Tab>
+</Tabs>
+
+## Future considerations
+
+- If other reporting sections (e.g., executive summaries) accumulate conditionals, port them to Jinja alongside shared filters to maintain consistency.
+- Consider centralizing sentence fragments into translation-friendly templates should localization become a requirement.
