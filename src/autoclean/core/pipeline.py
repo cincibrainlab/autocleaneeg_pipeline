@@ -55,6 +55,7 @@ import inspect
 # Standard library imports
 import json
 import os
+import shutil
 import sys
 import threading  # Add threading import
 from datetime import datetime
@@ -93,7 +94,11 @@ from autoclean.utils.database import (
     manage_database_conditionally,
     set_database_path,
 )
-from autoclean.utils.file_system import step_prepare_directories, update_status_marker
+from autoclean.utils.file_system import (
+    STATUS_DIR_NAME,
+    step_prepare_directories,
+    update_status_marker,
+)
 from autoclean.utils.logging import configure_logger, message
 from autoclean.utils.user_config import user_config
 
@@ -484,6 +489,23 @@ class Pipeline:
                 operation="update",
                 update_record={"run_id": run_id, "task_file_info": task_file_info},
             )
+
+            if task_root is not None:
+                task_file_path = task_file_info.get("file_path")
+                if task_file_path:
+                    source_path = Path(task_file_path)
+                    if source_path.exists() and source_path.is_file():
+                        status_dir = task_root / STATUS_DIR_NAME
+                        try:
+                            status_dir.mkdir(parents=True, exist_ok=True)
+                            destination = status_dir / source_path.name
+                            if source_path.resolve() != destination.resolve():
+                                shutil.copy2(source_path, destination)
+                        except Exception as copy_error:  # pylint: disable=broad-except
+                            message(
+                                "warning",
+                                f"Failed to copy task file to status directory: {copy_error}",
+                            )
 
             task_object.run()
 
