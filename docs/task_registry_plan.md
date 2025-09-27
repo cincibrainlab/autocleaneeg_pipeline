@@ -71,11 +71,11 @@ That ensures zero regressions if GitHub is down or the user is offline.
 Add one namespaced group for clarity:
 
 ```
-autocleaneeg-pipeline task builtins update
+autocleaneeg-pipeline task library update
 
-autocleaneeg-pipeline task builtins list
+autocleaneeg-pipeline task library list
 
-autocleaneeg-pipeline task builtins install RestingEyesOpen
+autocleaneeg-pipeline task library install RestingEyesOpen
 ```
 
 Users still run the pipeline the same way as today once a task is in their workspace.
@@ -142,7 +142,7 @@ Integrate this subcommand into your main CLI:
 
 ```python
 from . import builtins as builtins_cmd
-app.add_typer(builtins_cmd.app, name="task builtins")
+app.add_typer(builtins_cmd.app, name="task library")
 ```
 
 ## How this maps to your codebase today
@@ -164,7 +164,7 @@ Add a workflow that:
 
 - Zero background networking: All network access happens only on explicit update/install.
 - One source of truth: Built-ins live in the GitHub repo; the package includes a snapshot in `autoclean/data/builtins/` as the offline fallback.
-- Fast iteration: Updating built-ins doesn’t require cutting a new package—users just run `task builtins update` to sync the latest (or they continue using the packaged snapshot if they prefer stability).
+- Fast iteration: Updating built-ins doesn’t require cutting a new package—users just run `task library update` to sync the latest (or they continue using the packaged snapshot if they prefer stability).
 
 ## Immediate action plan
 
@@ -178,16 +178,16 @@ Add a workflow that:
 With internet:
 
 ```
-autocleaneeg-pipeline task builtins update && \
-  autocleaneeg-pipeline task builtins list && \
-  autocleaneeg-pipeline task builtins install RestingEyesOpen
+autocleaneeg-pipeline task library update && \
+  autocleaneeg-pipeline task library list && \
+  autocleaneeg-pipeline task library install RestingEyesOpen
 ```
 
 Airplane mode:
 
 ```
-autocleaneeg-pipeline task builtins list && \
-  autocleaneeg-pipeline task builtins install RestingEyesOpen
+autocleaneeg-pipeline task library list && \
+  autocleaneeg-pipeline task library install RestingEyesOpen
 ```
 
 ## Future enhancements
