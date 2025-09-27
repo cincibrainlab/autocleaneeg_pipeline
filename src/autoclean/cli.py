@@ -27,6 +27,7 @@ from rich.table import Table
 from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+from autoclean.utils.builtins import BuiltinRegistry
 from autoclean.utils.cli_display import CLIDisplay
 from autoclean.utils.config import (
     disable_compliance_mode,
@@ -407,6 +408,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
+            ("🧱 task builtins …", "Manage official built-in task templates"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -414,6 +416,25 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         console.print(
             "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
+        console.print()
+        return
+
+    if topic in {"task builtins", "builtins", "builtin"}:
+        console.print("[header]Built-in Task Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        tbl.add_row("🔄 task builtins update", "Sync registry.json from GitHub")
+        tbl.add_row("📋 task builtins list", "Show built-ins and their source (cache/package)")
+        tbl.add_row(
+            "📦 task builtins install <name>",
+            "Copy a built-in into workspace/tasks",
+        )
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]Built-ins mirror the public GitHub registry with an offline fallback bundled in the wheel.[/muted]"
         )
         console.print()
         return
@@ -897,6 +918,53 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--name",
         type=str,
         help="When copying a built-in task, save as this name (without .py)",
+    )
+
+    builtins_parser = task_subparsers.add_parser(
+        "builtins",
+        help="Sync, list, and install official built-in tasks",
+        add_help=False,
+    )
+    attach_rich_help(builtins_parser)
+    builtins_subparsers = builtins_parser.add_subparsers(
+        dest="task_builtins_action",
+        help="Built-in task commands",
+    )
+
+    builtins_update = builtins_subparsers.add_parser(
+        "update",
+        help="Update local cache of built-in tasks from GitHub",
+        add_help=False,
+    )
+    attach_rich_help(builtins_update)
+
+    builtins_list = builtins_subparsers.add_parser(
+        "list",
+        help="List built-in tasks bundled with the CLI",
+        add_help=False,
+    )
+    attach_rich_help(builtins_list)
+    builtins_list.add_argument(
+        "--show-paths",
+        action="store_true",
+        help="Show registry paths for each built-in task",
+    )
+
+    builtins_install = builtins_subparsers.add_parser(
+        "install",
+        help="Copy a built-in task into the workspace tasks folder",
+        add_help=False,
+    )
+    attach_rich_help(builtins_install)
+    builtins_install.add_argument(
+        "task_name",
+        type=str,
+        help="Name of the built-in task to install",
+    )
+    builtins_install.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite the workspace copy if it already exists",
     )
     edit_parser.add_argument(
         "--force",
@@ -4327,6 +4395,8 @@ def cmd_task(args) -> int:
         return cmd_task_unset(args)
     elif args.task_action == "show":
         return cmd_task_show(args)
+    elif args.task_action == "builtins":
+        return cmd_task_builtins(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -5257,6 +5327,94 @@ def cmd_task_show(_args) -> int:
     except Exception as e:
         message("error", f"Failed to show active task: {e}")
         return 1
+
+
+def cmd_task_builtins(args) -> int:
+    """Handle 'task builtins' subcommands."""
+    action = getattr(args, "task_builtins_action", None)
+    console = get_console(args)
+
+    if not action:
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "task builtins")
+        return 0
+
+    registry = BuiltinRegistry()
+
+    if action == "update":
+        console.print(registry.update_cache())
+        return 0
+
+    if action == "list":
+        tasks = registry.list_tasks()
+        if not tasks:
+            console.print("[warning]No built-in tasks found in registry.json[/warning]")
+            return 0
+
+        from rich.table import Table as _Table
+
+        table = _Table(show_header=True, box=None, padding=(0, 1))
+        table.add_column("Task", style="accent")
+        table.add_column("Source", style="muted")
+        if getattr(args, "show_paths", False):
+            table.add_column("Registry path", style="info")
+
+        for task in tasks:
+            source = registry.task_source(task.name)
+            if source == "cache":
+                source_text = "cache (updated)"
+            elif source == "package":
+                source_text = "package snapshot"
+            else:
+                source_text = "unknown"
+
+            row = [task.name, source_text]
+            if getattr(args, "show_paths", False):
+                row.append(task.path)
+            table.add_row(*row)
+
+        console.print()
+        console.print(table)
+        console.print()
+        console.print(
+            "[muted]Use 'task builtins install <name>' to copy a task into your workspace.[/muted]"
+        )
+        return 0
+
+    if action == "install":
+        dest_path = user_config.tasks_dir / f"{args.task_name}.py"
+        if dest_path.exists() and not getattr(args, "force", False):
+            message(
+                "warning",
+                f"Task '{args.task_name}' already exists at {dest_path}. Use --force to overwrite.",
+            )
+            return 1
+
+        try:
+            installed_path = registry.materialize_task_to(
+                args.task_name, user_config.tasks_dir
+            )
+        except ValueError as exc:
+            message("error", str(exc))
+            return 1
+        except FileNotFoundError as exc:
+            message("error", str(exc))
+            return 1
+        except Exception as exc:  # pylint: disable=broad-except
+            message("error", f"Failed to install built-in task: {exc}")
+            return 1
+
+        console.print(
+            f"[accent]{args.task_name}[/accent] copied to [info]{installed_path}[/info]"
+        )
+        console.print(
+            "[muted]Edit this file in your workspace to customize the task.[/muted]"
+        )
+        return 0
+
+    message("error", f"Unknown built-ins action: {action}")
+    return 1
 
 
 def cmd_source(args) -> int:
