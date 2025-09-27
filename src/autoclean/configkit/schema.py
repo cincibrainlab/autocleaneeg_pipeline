@@ -67,6 +67,13 @@ def _build_task_settings_schema() -> Schema:
     step_value_num = {**step_bool, "value": Or(int, float, None)}
     step_value_list = {**step_bool, "value": Or(list, None)}
 
+    # allow eog_step.value to be either a dict with keys or a simple list of indices
+    eog_value_schema = Or(
+        {"eog_indices": Or(list[int], None), "eog_drop": Or(bool, None)},
+        list,
+        None,
+    )
+
     return Schema(
         {
             "montage": {"enabled": bool, "value": Or(And(str, _is_valid_montage), None)},
@@ -84,13 +91,7 @@ def _build_task_settings_schema() -> Schema:
                 },
             },
             "drop_outerlayer": step_value_list,
-            "eog_step": {
-                "enabled": bool,
-                "value": {
-                    "eog_indices": Or(list[int], None),
-                    "eog_drop": Or(bool, None),
-                },
-            },
+            "eog_step": {**step_bool, "value": eog_value_schema},
             "trim_step": {**step_bool, "value": Or(int, float)},
             "crop_step": {
                 "enabled": bool,
