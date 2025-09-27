@@ -202,10 +202,10 @@ class BuiltinRegistry:
         """Fetch the registry index from GitHub into the local cache."""
 
         if not allow_network:
-            commit = self.manifest.registry_commit or "unknown"
+            commit = self.manifest.registry_commit or "not yet synced"
             return (
-                "Skipped built-ins update (network disabled). "
-                f"Using cached commit={commit}."
+                "Skipped online check (offline mode). "
+                f"Using cached Task Library version {commit}."
             )
 
         url = f"{self.raw_base}/registry.json"
@@ -214,13 +214,14 @@ class BuiltinRegistry:
             index = json.loads(self._cache_index_path().read_text(encoding="utf-8"))
             commit = index.get("commit", "unknown")
             self.manifest.record_success(commit)
-            return f"Updated built-ins index (commit={commit})"
+            label = commit if commit != "unknown" else "latest"
+            return f"Task Library refreshed (version {label})."
         except (URLError, HTTPError) as exc:
             message = str(exc)
             self.manifest.record_error(message)
             return (
-                "Could not update built-ins index from GitHub. "
-                f"Using packaged fallback ({message})."
+                "Could not reach the Task Library online. "
+                f"Using bundled templates ({message})."
             )
         except Exception as exc:  # pragma: no cover - defensive
             message = str(exc)
