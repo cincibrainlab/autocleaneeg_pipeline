@@ -20,11 +20,11 @@ Community submissions, signing/AST scans, declarative DSL, per-task dependency h
 
 Propose a new repo (name is up to you; two options):
 
-- `cincibrainlab/autoclean-builtins` (clear it’s only the built-ins for now)
+- `cincibrainlab/autocleaneeg-task-registry` (clear it’s only the built-ins for now)
 - `cincibrainlab/autoclean-task-registry` (future-proof name; still fine to start with built-ins only)
 
 ```
-autoclean-builtins/
+autocleaneeg-task-registry/
 ├── README.md
 ├── registry.json              # tiny index (name -> path)
 └── tasks/
@@ -111,7 +111,7 @@ from urllib.request import urlopen, Request
 from urllib.error import URLError, HTTPError
 import importlib.resources as pkg_resources
 
-RAW_BASE = "https://raw.githubusercontent.com/cincibrainlab/autoclean-builtins/main"
+RAW_BASE = "https://raw.githubusercontent.com/cincibrainlab/autocleaneeg-task-registry/main"
 CACHE_ROOT = Path.home() / ".config" / "autocleaneeg" / ".builtin_cache"
 
 @dataclass(frozen=True)
