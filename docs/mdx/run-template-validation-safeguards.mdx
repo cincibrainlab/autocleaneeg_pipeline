@@ -1,0 +1,56 @@
+import { Callout, Cards, Steps, Tabs } from 'nextra/components';
+
+# Template Safety Validation Run
+
+<Callout type="success">
+This follow-up run focuses on protecting the custom task generator against malformed input and brittle templates while keeping the onboarding wizard user-friendly.
+</Callout>
+
+## Why these changes matter
+
+<Cards>
+  <Cards.Card title="Invalid class names" icon="🛡️">
+    The wizard now rejects task names that are not valid Python identifiers before touching the filesystem, preventing syntax errors from ever shipping to disk.【F:src/autoclean/cli.py†L3208-L3258】
+  </Cards.Card>
+  <Cards.Card title="Template regressions" icon="🧪">
+    Expanded renderer tests ensure missing or broken template files raise helpful errors instead of silently generating corrupt modules.【F:tests/unit/templates/test_custom_task_template.py†L1-L52】
+  </Cards.Card>
+</Cards>
+
+## What changed under the hood
+
+<Steps>
+
+### 1. Centralize identifier validation
+`autoclean.utils.template_renderer` now exposes `validate_python_identifier`, a reusable helper that enforces identifier rules and keyword checks across any templated content.【F:src/autoclean/utils/template_renderer.py†L1-L65】
+
+### 2. Guard the wizard entry point
+`_wizard_create_task_from_template` delegates to the new validator so wizard flows fail fast with actionable feedback when users supply unsafe class names.【F:src/autoclean/cli.py†L3208-L3258】
+
+### 3. Extend the regression test matrix
+Unit tests now cover the happy path, missing template files, malformed template syntax, and identifier validation success/failure, giving confidence that our safeguards stay in place.【F:tests/unit/templates/test_custom_task_template.py†L1-L52】
+
+</Steps>
+
+## How to verify the work yourself
+
+<Tabs items={['Run the tests', 'Manual spot-check']}>
+  <Tabs.Tab>
+
+  1. Install the dev extras if you have not already: `pip install -r requirements-dev.txt` (or ensure `pytest`, `pytest-cov`, and `pytest-timeout` are available).
+  2. Execute `pytest --no-cov unit/templates/test_custom_task_template.py` from the `tests/` directory to run the targeted regression suite.【70539b†L1-L11】
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+  1. Launch `autocleaneeg-pipeline wizard` and attempt to create a task with an invalid name like `123bad`. The wizard should immediately report that the class name must be a valid identifier.
+  2. Rename `src/autoclean/templates/custom_task_template.jinja` temporarily and run the wizard again to see the hardened error message about the missing template.
+  3. Restore the template file afterward to keep your workspace consistent.
+
+  </Tabs.Tab>
+</Tabs>
+
+## Future considerations
+
+- We can promote the validation helper to other template entry points (report builders, future scaffolds) to keep the guardrails consistent.【F:src/autoclean/utils/template_renderer.py†L1-L65】
+- Consider a CLI flag that intentionally bypasses validation for advanced users who need dynamic class names, paired with clear warnings.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import keyword
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Mapping
@@ -57,3 +58,16 @@ def render_template(template_path: Path, context: Mapping[str, Any]) -> str:
         return template.render(**context)
     except TemplateError as exc:
         raise RuntimeError(f"Failed to render template {template_path}: {exc}") from exc
+
+
+def validate_python_identifier(value: str, *, label: str = "value") -> None:
+    """Ensure *value* is a valid, non-keyword Python identifier.
+
+    Raises
+    ------
+    ValueError
+        If the provided value is empty, not identifier-compatible, or a keyword.
+    """
+
+    if not value or not value.isidentifier() or keyword.iskeyword(value):
+        raise ValueError(f"{label} must be a valid Python identifier and not a keyword.")
