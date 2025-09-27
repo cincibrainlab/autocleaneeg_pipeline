@@ -420,6 +420,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             "🧭 montage list",
             "List EEG montages defined in configs/montages.yaml",
         )
+        tbl.add_row(
+            "🛠 montage set [name]",
+            "Select or apply a montage to the active task",
+        )
         console.print(tbl)
         console.print()
         console.print(
@@ -616,6 +620,7 @@ Custom Tasks:
 
 Montages:
   autocleaneeg-pipeline montage list                  # Show available montages
+  autocleaneeg-pipeline montage set                   # Update active task montage
 
 
 For detailed help on any command: autocleaneeg-pipeline <command> --help
@@ -968,6 +973,21 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "list", help="List available EEG montages", add_help=False
     )
     attach_rich_help(montage_list_parser)
+
+    montage_set_parser = montage_subparsers.add_parser(
+        "set", help="Update the active task's montage", add_help=False
+    )
+    attach_rich_help(montage_set_parser)
+    montage_set_parser.add_argument(
+        "montage_name",
+        nargs="?",
+        help="Montage identifier to apply (omit to pick interactively)",
+    )
+    montage_set_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Skip confirmation prompt and apply immediately",
+    )
 
     # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(
@@ -2158,6 +2178,8 @@ def cmd_montage(args) -> int:
 
     if action == "list":
         return cmd_montage_list(args)
+    if action == "set":
+        return cmd_montage_set(args)
 
     message("error", f"Unknown montage action: {action}")
     return 1
@@ -2204,6 +2226,275 @@ def cmd_montage_list(args) -> int:
     )
 
     return 0
+
+
+def cmd_montage_set(args) -> int:
+    """Interactively set the montage for the active task."""
+
+    try:
+        montages = load_valid_montages()
+    except Exception as exc:  # pylint: disable=broad-except
+        message("error", f"Failed to load montage definitions: {exc}")
+        return 1
+
+    if not montages:
+        message(
+            "error",
+            "No montage definitions found in configs/montages.yaml; nothing to set.",
+        )
+        return 1
+
+    active_task = user_config.get_active_task()
+    if not active_task:
+        message("error", "No active task is currently set.")
+        message("info", "Use: autocleaneeg-pipeline task set")
+        return 1
+
+    task_path = user_config.get_custom_task_path(active_task)
+    if task_path is None or not task_path.exists():
+        message(
+            "error",
+            (
+                f"Active task '{active_task}' is not a workspace task and cannot be edited."
+            ),
+        )
+        message(
+            "info",
+            "Copy the task into your workspace with: autocleaneeg-pipeline task copy",
+        )
+        return 1
+
+    try:
+        with task_path.open("r", encoding="utf-8", newline="") as f:
+            task_source = f.read()
+    except Exception as exc:  # pylint: disable=broad-except
+        message("error", f"Failed to read task file '{task_path.name}': {exc}")
+        return 1
+
+    block_text, block_start, block_end = _locate_montage_block(task_source)
+    if block_text is None:
+        message(
+            "error",
+            f"Task '{active_task}' does not define a montage block that can be edited.",
+        )
+        return 1
+
+    current_value = _extract_montage_value(block_text)
+
+    selected_montage = getattr(args, "montage_name", None)
+    if selected_montage:
+        if selected_montage not in montages:
+            message(
+                "error",
+                f"Montage '{selected_montage}' not found. Run 'montage list' to view options.",
+            )
+            return 1
+    else:
+        selected_montage = _prompt_for_montage(args, montages, current_value)
+        if not selected_montage:
+            message("info", "No montage selected.")
+            return 0
+
+    if current_value == selected_montage:
+        message("info", f"Montage is already set to '{selected_montage}'. No changes needed.")
+        return 0
+
+    confirmed = args.force
+    if not confirmed:
+        try:
+            from rich.prompt import Confirm
+
+            prompt = (
+                f"Update montage in {task_path.name} from "
+                f"'{current_value or 'None'}' to '{selected_montage}'?"
+            )
+            confirmed = Confirm.ask(prompt, default=True)
+        except Exception:
+            response = input(
+                f"Apply montage '{selected_montage}' to {task_path.name}? [y/N] "
+            ).strip()
+            confirmed = response.lower() in {"y", "yes"}
+
+    if not confirmed:
+        message("info", "Aborted. No changes made.")
+        return 0
+
+    updated_block = _replace_montage_value(block_text, selected_montage)
+    if updated_block is None:
+        message(
+            "error",
+            "Failed to update montage value; the task file may have unexpected formatting.",
+        )
+        return 1
+
+    updated_source = task_source[:block_start] + updated_block + task_source[block_end:]
+
+    try:
+        with task_path.open("w", encoding="utf-8", newline="") as f:
+            f.write(updated_source)
+    except Exception as exc:  # pylint: disable=broad-except
+        message("error", f"Failed to write task file '{task_path.name}': {exc}")
+        return 1
+
+    message(
+        "success",
+        f"✓ Montage for '{active_task}' updated to '{selected_montage}' in {task_path.name}",
+    )
+    return 0
+
+
+def _prompt_for_montage(args, montages, current_value):
+    """Prompt the user to choose a montage interactively."""
+
+    items = sorted(montages.items())
+
+    try:
+        from rich.prompt import Prompt
+
+        console = get_console(args)
+        console.print()
+
+        table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+        table.add_column("#", style="muted", width=3)
+        table.add_column("Montage", style="accent", no_wrap=True)
+        table.add_column("Description", style="muted")
+
+        for idx, (name, desc) in enumerate(items, 1):
+            descriptor = desc or "No description"
+            if current_value and name == current_value:
+                descriptor = f"{descriptor} [muted](current)[/muted]"
+            table.add_row(str(idx), name, descriptor)
+
+        console.print(table)
+
+        current_msg = f" (current: {current_value})" if current_value else ""
+        console.print(
+            f"Select a montage by number or name{current_msg}. Press Enter to cancel."
+        )
+
+        choice = Prompt.ask("Choice", default="", show_default=False)
+        if not choice.strip():
+            return None
+
+        choice = choice.strip()
+        # Allow direct montage name entry
+        if choice in montages:
+            return choice
+
+        try:
+            idx = int(choice)
+        except ValueError:
+            console.print("[error]Invalid selection.[/error]")
+            return None
+
+        if 1 <= idx <= len(items):
+            return items[idx - 1][0]
+
+        console.print("[error]Selection out of range.[/error]")
+        return None
+
+    except Exception:
+        print()
+        for idx, (name, desc) in enumerate(items, 1):
+            descriptor = desc or "No description"
+            marker = " (current)" if current_value and name == current_value else ""
+            print(f"  {idx}. {name} - {descriptor}{marker}")
+        choice = input("Choice (blank to cancel): ").strip()
+        if not choice:
+            return None
+        if choice in montages:
+            return choice
+        try:
+            idx = int(choice)
+        except ValueError:
+            print("Invalid selection.")
+            return None
+        if 1 <= idx <= len(items):
+            return items[idx - 1][0]
+        print("Selection out of range.")
+        return None
+
+
+def _locate_montage_block(text: str):
+    """Find the montage configuration block in a task file."""
+
+    match = re.search(r"[\"']montage[\"']\s*:\s*\{", text)
+    if not match:
+        return None, None, None
+
+    brace_start = text.find("{", match.start())
+    if brace_start == -1:
+        return None, None, None
+
+    depth = 0
+    in_string: Optional[str] = None
+    escape = False
+
+    for idx in range(brace_start, len(text)):
+        char = text[idx]
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == in_string:
+                in_string = None
+        else:
+            if char in {'"', "'"}:
+                in_string = char
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    block_end = idx + 1
+                    block_start = match.start()
+                    return text[block_start:block_end], block_start, block_end
+
+    return None, None, None
+
+
+def _extract_montage_value(block_text: str) -> Optional[str]:
+    """Extract the montage value from the montage block."""
+
+    value_match = re.search(
+        r'([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)',
+        block_text,
+        re.DOTALL,
+    )
+    if value_match:
+        return value_match.group("val")
+
+    none_match = re.search(r'[\"\']value[\"\']\s*:\s*None', block_text)
+    if none_match:
+        return None
+
+    return None
+
+
+def _replace_montage_value(block_text: str, new_value: str) -> Optional[str]:
+    """Return a montage block with the value replaced."""
+
+    string_match = re.search(
+        r'([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)',
+        block_text,
+        re.DOTALL,
+    )
+    if string_match:
+        prefix = block_text[: string_match.start()]
+        suffix = block_text[string_match.end() :]
+        quote = string_match.group("quote")
+        replacement = f"{string_match.group(1)}{quote}{new_value}{quote}"
+        return prefix + replacement + suffix
+
+    none_match = re.search(r'([\"\']value[\"\']\s*:\s*)None', block_text)
+    if none_match:
+        prefix = block_text[: none_match.start()]
+        suffix = block_text[none_match.end() :]
+        replacement = f'{none_match.group(1)}"{new_value}"'
+        return prefix + replacement + suffix
+
+    return None
 
 
 def cmd_review(args) -> int:
