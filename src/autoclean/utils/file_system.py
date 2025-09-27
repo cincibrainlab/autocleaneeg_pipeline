@@ -18,7 +18,7 @@ from autoclean.utils.logging import message
 _PREPARED_TASK_ROOTS: set[Path] = set()
 _CACHE_LOCK = threading.Lock()
 
-STATUS_DIR_NAME = ".autoclean-status"
+STATUS_DIR_NAME = "status"
 
 
 def step_prepare_directories(
@@ -110,12 +110,14 @@ def step_prepare_directories(
     # Derivatives for this pipeline under BIDS (versionless)
     derivatives_root = bids_root / "derivatives"
 
+    status_dir = task_root / STATUS_DIR_NAME
+
     dirs = {
         "bids": bids_root,
         # Metadata directory removed; repurpose to reports root for compatibility
         "metadata": task_root / "reports",
         "clean": derivatives_root,  # Legacy compatibility (BIDS derivatives root)
-        "logs": task_root / "logs",
+        "logs": status_dir,
         # Write per-stage outputs directly under BIDS derivatives
         "stage": derivatives_root,
         "reports": task_root / "reports",
