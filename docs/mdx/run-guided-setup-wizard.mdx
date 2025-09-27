@@ -1,0 +1,73 @@
+import { Callout, Cards, Steps, Tabs } from 'nextra/components';
+
+# Guided CLI Wizard — Implementation & Verification Notes
+
+<Callout>
+We introduced a new `autocleaneeg-pipeline wizard` command that walks newcomers through workspace creation, task bootstrapping, montage selection, and input defaults without leaving the terminal.
+</Callout>
+
+## Highlights at a Glance
+
+<Cards>
+  <Cards.Card title="All-in-one onboarding" icon="✨">
+    The wizard greets the user with a Rich-branded header, summarizes the current workspace/task/input state, and then leads them through four curated steps with confirmations before persisting changes.【F:src/autoclean/cli.py†L3049-L3258】
+  </Cards.Card>
+  <Cards.Card title="Safe task creation" icon="🧩">
+    We normalize class names, slugify filenames, and generate custom task files from the bundled template so montage edits are always applied against workspace copies, never built-ins.【F:src/autoclean/cli.py†L2966-L3036】【F:src/autoclean/cli.py†L3128-L3218】
+  </Cards.Card>
+  <Cards.Card title="Status-driven confirmations" icon="✅">
+    Every step reuses a shared summary table so users see the before/after state of workspace, task, montage, and input selections, reducing surprises on fresh installs.【F:src/autoclean/cli.py†L2921-L2963】【F:src/autoclean/cli.py†L3235-L3258】
+  </Cards.Card>
+</Cards>
+
+## How the change came together
+
+<Steps>
+
+### 1. Capture the baseline
+We added helper utilities to collect the active workspace, task file, montage, and input, and render them with Rich tables so the wizard can preview state before touching anything.【F:src/autoclean/cli.py†L2882-L2963】
+
+### 2. Create task bootstrap helpers
+Fresh installs need a workspace task to edit. We embedded template-driven creation plus class/filename sanitizers so the wizard can materialize a ready-to-edit task safely.【F:src/autoclean/cli.py†L2965-L3036】
+
+### 3. Orchestrate the wizard flow
+The new `cmd_wizard` function wraps workspace selection, task choice/creation, montage updates, and input path capture with polished prompts, fallbacks, and error handling.【F:src/autoclean/cli.py†L3038-L3258】
+
+### 4. Expose the command in the CLI shell
+We registered the `wizard` subcommand and surfaced it in the Rich help index so the new flow is discoverable from day one.【F:src/autoclean/cli.py†L640-L648】【F:src/autoclean/cli.py†L506-L514】【F:src/autoclean/cli.py†L7238-L7268】
+
+</Steps>
+
+## How to try it locally
+
+<Tabs items={['Happy path', 'Montage check', 'Input fallback']}>
+  <Tabs.Tab>
+
+  1. Run `autocleaneeg-pipeline wizard` in a fresh shell.
+  2. Accept the default workspace or choose a folder.
+  3. Let the wizard create a task when prompted; note the confirmation banner for the new file.
+  4. Finish the flow and review the final summary panel to confirm every section is green.
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+  1. After creating a workspace task, rerun `autocleaneeg-pipeline wizard`.
+  2. When you reach the montage table, pick a different montage by number.
+  3. Inspect the task file inside `<workspace>/tasks/` to see the montage value updated inline.
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+  1. Launch the wizard but decline to set an input path.
+  2. Observe the informational message confirming AutoClean will prompt per run.
+  3. Later, rerun the wizard and supply a file or directory to persist the default.
+
+  </Tabs.Tab>
+</Tabs>
+
+## Considerations & follow-up
+
+- The wizard warns if you select a built-in task (without a workspace copy) before the montage step, nudging users to create a workspace variant for safe edits.【F:src/autoclean/cli.py†L3175-L3203】
+- If Rich is unavailable the command explains the missing dependency, maintaining parity with the rest of the CLI styling expectations.【F:src/autoclean/cli.py†L3038-L3047】
+- You can re-run the wizard any time; it preserves completed steps and only changes what you confirm during the session.【F:src/autoclean/cli.py†L3050-L3058】【F:src/autoclean/cli.py†L3235-L3258】
+

@@ -9,6 +9,7 @@ standalone tool (via uv tool) and within development environments.
 import argparse
 import csv
 import json
+import keyword
 import os
 import re
 import shutil
@@ -17,7 +18,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import requests
 from rich.panel import Panel
@@ -26,6 +27,7 @@ from rich.table import Table
 from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+from autoclean.utils.cli_display import CLIDisplay
 from autoclean.utils.config import (
     disable_compliance_mode,
     enable_compliance_mode,
@@ -36,6 +38,7 @@ from autoclean.utils.config import (
 from autoclean.utils.console import get_console
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.logging import has_logged_errors, message
+from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
     get_task_by_name,
@@ -511,6 +514,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
 
     rows = [
         ("❓ help", "Show help and topics (alias for -h/--help)"),
+        ("✨ wizard", "Guided first-run setup"),
         ("🗂\u00a0 workspace", "Configure workspace folder"),
         ("👁\u00a0 view", "View EEG file (MNE-QT)"),
         ("🗂\u00a0 task", "Manage tasks (list, explore)"),
@@ -640,6 +644,13 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     attach_rich_help(parser, root=True)
 
     # Process command
+    wizard_parser = subparsers.add_parser(
+        "wizard",
+        help="Guided setup for workspace, tasks, montage, and input",
+        add_help=False,
+    )
+    attach_rich_help(wizard_parser)
+
     process_parser = subparsers.add_parser(
         "process", help="Process EEG data", add_help=False
     )
@@ -1381,6 +1392,9 @@ def _show_process_guard(args) -> bool:
     """
     console = get_console(args)
 
+    # Determine target output directory for status tagging
+    output_root = Path(args.output) if getattr(args, "output", None) else user_config.get_default_output_dir()
+
     # Get current values
     task_name = args.task_name or args.task
     input_path = args.input_path or args.file or args.directory
@@ -1396,6 +1410,35 @@ def _show_process_guard(args) -> bool:
         active_source = user_config.get_active_source()
         if active_source and active_source != "NONE":
             input_path = Path(active_source)
+
+    dataset_name = None
+    try:
+        if task_name:
+            dataset_name = extract_config_from_task(task_name, "dataset_name")
+    except Exception:  # pylint: disable=broad-except
+        dataset_name = None
+
+    task_dir_name = None
+    if dataset_name:
+        task_dir_name = str(dataset_name)
+    elif task_name:
+        task_dir_name = str(task_name)
+    task_root = (output_root / task_dir_name) if task_dir_name else None
+
+    def _mark_cancelled(reason: str) -> None:
+        """Write a cancellation status marker if directories exist."""
+        if task_root is None:
+            return
+        update_status_marker(
+            task_root,
+            "cancelled-before-start",
+            details={
+                "reason": reason,
+                "task": task_name,
+                "input": str(input_path) if input_path else None,
+            },
+            create_task_root=False,
+        )
 
     # Header
     console.print()
@@ -1523,13 +1566,26 @@ def _show_process_guard(args) -> bool:
     try:
         from rich.prompt import Confirm
 
-        return Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
+        try:
+            proceed = Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
+        except KeyboardInterrupt:
+            message("warning", "Processing cancelled by user (Ctrl+C).")
+            _mark_cancelled("user-interrupted-before-start")
+            return False
+        if not proceed:
+            _mark_cancelled("user-declined-guard")
+        return proceed
     except ImportError:
         # Fallback for systems without rich Confirm
         try:
             response = input("🚀 Proceed with processing? (y/N): ").lower().strip()
-            return response in ["y", "yes"]
+            proceed = response in ["y", "yes"]
+            if not proceed:
+                _mark_cancelled("user-declined-guard")
+            return proceed
         except (EOFError, KeyboardInterrupt):
+            message("warning", "Processing cancelled by user (Ctrl+C).")
+            _mark_cancelled("user-interrupted-before-start")
             return False
 
 
@@ -3034,6 +3090,623 @@ def _simple_header(
     if subtitle:
         console.print(f"[subtitle]{subtitle}[/subtitle]")
     console.print()
+
+
+def _wizard_collect_state() -> Tuple[Path, bool, Optional[str], Optional[Path], Optional[str], Optional[str]]:
+    """Gather current workspace, task, montage, and input state for summaries."""
+
+    workspace_dir = user_config.config_dir
+    try:
+        workspace_valid = user_config._is_workspace_valid()  # type: ignore[attr-defined]
+    except Exception:
+        workspace_valid = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+
+    active_task = None
+    active_task_path: Optional[Path] = None
+    try:
+        active_task = user_config.get_active_task()
+        if active_task:
+            candidate = user_config.get_custom_task_path(active_task)
+            if candidate and candidate.exists():
+                active_task_path = candidate
+    except Exception:
+        active_task = None
+
+    active_montage: Optional[str] = None
+    if active_task_path:
+        try:
+            source = active_task_path.read_text(encoding="utf-8")
+            block, _, _ = _locate_montage_block(source)
+            if block:
+                active_montage = _extract_montage_value(block)
+        except Exception:
+            active_montage = None
+
+    active_input: Optional[str] = None
+    try:
+        active_input = user_config.get_active_source()
+    except Exception:
+        active_input = None
+
+    return (
+        workspace_dir,
+        workspace_valid,
+        active_task,
+        active_task_path,
+        active_montage,
+        active_input,
+    )
+
+
+def _wizard_render_state(display: CLIDisplay, title: str) -> None:
+    """Render a compact table showing the current configuration state."""
+
+    (
+        workspace_dir,
+        workspace_valid,
+        active_task,
+        active_task_path,
+        active_montage,
+        active_input,
+    ) = _wizard_collect_state()
+
+    from rich.table import Table
+
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column("Setting", style="accent", no_wrap=True)
+    table.add_column("Status", style="muted")
+
+    home = str(Path.home())
+    workspace_display = str(workspace_dir)
+    if workspace_display.startswith(home):
+        workspace_display = workspace_display.replace(home, "~", 1)
+
+    status_icon = "✓" if workspace_valid else "⚠"
+    table.add_row(
+        "Workspace",
+        f"{status_icon} {workspace_display}"
+        if workspace_valid
+        else f"⚠ {workspace_display} [warning](needs setup)[/warning]",
+    )
+
+    if active_task:
+        location = (
+            f"[muted]({active_task_path.name})[/muted]"
+            if active_task_path is not None
+            else "[warning](built-in)[/warning]"
+        )
+        table.add_row("Task", f"🎯 {active_task} {location}")
+    else:
+        table.add_row("Task", "[warning]not selected[/warning]")
+
+    if active_montage:
+        table.add_row("Montage", f"🧭 {active_montage}")
+    elif active_task_path is None and active_task:
+        table.add_row(
+            "Montage",
+            "[warning]cannot edit built-in tasks[/warning]",
+        )
+    else:
+        table.add_row("Montage", "[warning]not configured[/warning]")
+
+    if active_input:
+        display_path = active_input
+        if display_path.startswith(home):
+            display_path = display_path.replace(home, "~", 1)
+        table.add_row("Input", f"📁 {display_path}")
+    else:
+        table.add_row("Input", "[muted]prompt each run[/muted]")
+
+    display.blank_line()
+    display.header(title, style="title")
+    display.console.print(table)
+    display.blank_line()
+
+
+def _wizard_create_task_from_template(
+    display: CLIDisplay, class_name: str, file_name: str
+) -> Path:
+    """Create a custom task file from the bundled template."""
+
+    template_path = (
+        Path(__file__).resolve().parent / "templates" / "custom_task_template.py"
+    )
+    target_path = user_config.tasks_dir / f"{file_name}.py"
+
+    try:
+        template = template_path.read_text(encoding="utf-8")
+    except Exception as exc:  # pylint: disable=broad-except
+        raise RuntimeError(f"Failed to read task template: {exc}")
+
+    # Replace the class name throughout the template to give the user a head start
+    customized = template.replace("CustomTask", class_name)
+
+    try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        target_path.write_text(customized, encoding="utf-8")
+    except Exception as exc:  # pylint: disable=broad-except
+        raise RuntimeError(f"Failed to write task file: {exc}")
+
+    display.success(
+        "Custom task created",
+        f"Saved template to {target_path}",
+    )
+
+    return target_path
+
+
+def _wizard_normalize_class_name(raw: str) -> str:
+    """Normalize arbitrary user input into a valid Task class name."""
+
+    cleaned = re.sub(r"[^0-9A-Za-z]+", " ", raw).strip()
+    parts = [part.capitalize() for part in cleaned.split() if part]
+    if not parts:
+        parts = ["Custom", "Task"]
+    candidate = "".join(parts)
+    if candidate and candidate[0].isdigit():
+        candidate = f"Task{candidate}"
+    if not candidate:
+        candidate = "CustomTask"
+    if keyword.iskeyword(candidate.lower()) or keyword.iskeyword(candidate):
+        candidate = f"{candidate.capitalize()}Task"
+    if not candidate.isidentifier():
+        candidate = f"Task_{candidate}"
+    if not candidate.isidentifier():
+        candidate = "TaskCustom"
+    return candidate
+
+
+def _wizard_slugify(raw: str) -> str:
+    """Create a filesystem-friendly slug for the task filename."""
+
+    slug = re.sub(r"[^0-9A-Za-z]+", "_", raw).strip("_").lower()
+    if not slug:
+        slug = "custom_task"
+    return slug
+
+
+def cmd_wizard(args) -> int:
+    """Run the guided onboarding wizard for new users."""
+
+    try:
+        display = CLIDisplay(console=get_console(args))
+    except Exception as exc:  # pylint: disable=broad-except
+        message("error", f"Wizard requires Rich console support: {exc}")
+        return 1
+
+    from rich.text import Text
+    from rich.table import Table
+
+    try:
+        console = display.console
+        _simple_header(
+            console,
+            "Guided Setup Wizard",
+            "Configure workspace, task, montage, and input in one flow",
+        )
+
+        intro = Text()
+        intro.append("Welcome to the AutoCleanEEG Pipeline!\n", style="brand")
+        intro.append(
+            "This guided setup prepares a workspace, creates or selects a task, "
+            "updates the montage, and stores a default input path."
+        )
+        intro.append(
+            "\n\nPress Ctrl+C any time to exit and resume later; "
+            "changes already applied will be preserved.",
+            style="muted",
+        )
+        intro.append(
+            "\nSee https://autocleaneeg.org for full documentation.", style="muted"
+        )
+
+        display.panel(intro, title="Getting started", style="border")
+
+        _wizard_render_state(display, "Snapshot before changes")
+
+        # Step 1 — Workspace configuration
+        workspace_dir, workspace_valid, *_ = _wizard_collect_state()
+        display.header(
+            "Step 1 • Workspace",
+            "Choose where AutoClean stores configuration and outputs",
+        )
+
+        if workspace_valid:
+            keep_workspace = display.prompt_yes_no(
+                "Keep using this workspace?",
+                default=True,
+            )
+        else:
+            display.warning(
+                "Workspace not fully initialized",
+                "We'll create the recommended folders now.",
+            )
+            keep_workspace = False
+
+        if not keep_workspace:
+            while True:
+                entry = display.prompt_text(
+                    "Workspace folder",
+                    default=str(workspace_dir),
+                    show_default=True,
+                )
+                entry = (entry or "").strip()
+                if not entry:
+                    entry = str(workspace_dir)
+                candidate = Path(entry).expanduser().resolve()
+
+                if not display.prompt_yes_no(
+                    f"Use workspace at {candidate}?",
+                    default=True,
+                ):
+                    continue
+
+                try:
+                    candidate.mkdir(parents=True, exist_ok=True)
+                    user_config._save_global_config(candidate)  # type: ignore[attr-defined]
+                    user_config._create_workspace_structure(candidate)  # type: ignore[attr-defined]
+                    user_config.config_dir = candidate
+                    user_config.tasks_dir = candidate / "tasks"
+                    display.success("Workspace ready", str(candidate))
+                    break
+                except Exception as exc:  # pylint: disable=broad-except
+                    display.error("Workspace setup failed", str(exc))
+                    if not display.prompt_yes_no("Try a different location?", default=True):
+                        return 1
+        else:
+            display.success("Workspace confirmed", str(workspace_dir))
+
+        # Step 2 — Task selection / creation
+        (
+            _ws,
+            _valid,
+            active_task,
+            active_task_path,
+            _active_montage,
+            _active_input,
+        ) = _wizard_collect_state()
+
+        display.header(
+            "Step 2 • Task file",
+            "Select or create the processing recipe for your data",
+        )
+
+        custom_tasks = user_config.list_custom_tasks()
+        if custom_tasks:
+            task_table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+            task_table.add_column("#", style="muted", width=3)
+            task_table.add_column("Task", style="accent")
+            task_table.add_column("Source", style="muted")
+            for idx, (name, meta) in enumerate(sorted(custom_tasks.items()), start=1):
+                marker = " [success](active)[/success]" if name == active_task else ""
+                task_table.add_row(
+                    str(idx),
+                    f"{name}{marker}",
+                    str(Path(meta["file_path"]).name),
+                )
+            display.console.print(task_table)
+        else:
+            display.info(
+                "No custom tasks yet",
+                "We'll generate one from the bundled template.",
+            )
+
+        options: List[Tuple[str, str]] = []
+        if active_task:
+            options.append(("keep", "Keep current active task"))
+        if custom_tasks:
+            options.append(("choose", "Select an existing custom task"))
+        options.append(("create", "Create a new task file from the template"))
+
+        option_table = Table(show_header=False, box=None, padding=(0, 1))
+        option_table.add_column("Option", style="accent", no_wrap=True)
+        option_table.add_column("Description", style="muted")
+        for key, desc in options:
+            option_table.add_row(key, desc)
+        display.console.print(option_table)
+
+        choice_keys = [key for key, _ in options]
+        selection = display.prompt_choice(
+            "Task setup option",
+            choice_keys,
+            default=choice_keys[0],
+        )
+
+        if selection == "keep" and active_task:
+            display.success("Active task unchanged", active_task)
+        elif selection == "choose" and custom_tasks:
+            items = list(enumerate(sorted(custom_tasks.items()), start=1))
+            while True:
+                default_choice = active_task or ""
+                answer = display.prompt_text(
+                    "Task to activate (number or class name)",
+                    default=default_choice,
+                    show_default=bool(default_choice),
+                )
+                answer = (answer or "").strip()
+                if not answer and default_choice:
+                    answer = default_choice
+
+                chosen_name: Optional[str] = None
+                if answer.isdigit():
+                    idx = int(answer)
+                    for number, (name, _meta) in items:
+                        if number == idx:
+                            chosen_name = name
+                            break
+                else:
+                    for _number, (name, _meta) in items:
+                        if name.lower() == answer.lower():
+                            chosen_name = name
+                            break
+
+                if not chosen_name:
+                    display.warning(
+                        "Task not found",
+                        "Enter the listed number or exact class name.",
+                    )
+                    continue
+
+                if user_config.set_active_task(chosen_name):
+                    display.success("Active task set", chosen_name)
+                    active_task = chosen_name
+                    active_task_path = Path(custom_tasks[chosen_name]["file_path"])
+                else:
+                    display.error("Failed to save task selection")
+                    return 1
+                break
+        else:  # create new task
+            while True:
+                raw_class = display.prompt_text(
+                    "Task class name (CamelCase)",
+                    default="CustomTask",
+                    show_default=True,
+                )
+                class_name = _wizard_normalize_class_name(raw_class or "")
+                slug_default = _wizard_slugify(class_name)
+                raw_slug = display.prompt_text(
+                    "Filename (without .py)",
+                    default=slug_default,
+                    show_default=True,
+                )
+                slug = _wizard_slugify(raw_slug or slug_default)
+                target_path = user_config.tasks_dir / f"{slug}.py"
+
+                if target_path.exists():
+                    if not display.prompt_yes_no(
+                        f"{target_path} exists. Overwrite?",
+                        default=False,
+                    ):
+                        continue
+
+                try:
+                    active_task_path = _wizard_create_task_from_template(
+                        display, class_name, slug
+                    )
+                except RuntimeError as exc:  # pylint: disable=broad-except
+                    display.error("Could not create task", str(exc))
+                    if not display.prompt_yes_no("Try again?", default=True):
+                        return 1
+                    continue
+
+                if user_config.set_active_task(class_name):
+                    active_task = class_name
+                    display.success("Active task set", class_name)
+                else:
+                    display.error("Failed to save active task")
+                    return 1
+                break
+
+        # Step 3 — Montage selection
+        (_, _, active_task, active_task_path, current_montage, _) = _wizard_collect_state()
+
+        display.header(
+            "Step 3 • Montage",
+            "Align the task with the correct electrode layout",
+        )
+
+        montages = {}
+        try:
+            montages = load_valid_montages()
+        except Exception as exc:  # pylint: disable=broad-except
+            display.error("Failed to load montage catalog", str(exc))
+
+        if not active_task:
+            display.warning(
+                "No active task",
+                "Set a task before editing the montage.",
+            )
+        elif not active_task_path or not active_task_path.exists():
+            display.warning(
+                "Built-in task",
+                "Copy the task into your workspace to edit its montage.",
+            )
+        elif not montages:
+            display.warning(
+                "No montage definitions found",
+                "Update configs/montages.yaml and rerun the wizard.",
+            )
+        else:
+            montage_items = list(enumerate(sorted(montages.items()), start=1))
+            montage_table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+            montage_table.add_column("#", style="muted", width=3)
+            montage_table.add_column("Montage", style="accent")
+            montage_table.add_column("Description", style="muted")
+            for idx, (name, description) in montage_items:
+                descriptor = description or "No description"
+                if current_montage and name == current_montage:
+                    descriptor = f"{descriptor} [success](current)[/success]"
+                montage_table.add_row(str(idx), name, descriptor)
+            display.console.print(montage_table)
+
+            if display.prompt_yes_no(
+                "Change the montage now?",
+                default=current_montage is None,
+            ):
+                while True:
+                    default_choice = current_montage or ""
+                    answer = display.prompt_text(
+                        "Montage (number or name)",
+                        default=default_choice,
+                        show_default=bool(default_choice),
+                    )
+                    answer = (answer or "").strip()
+                    if not answer and default_choice:
+                        answer = default_choice
+
+                    chosen_montage: Optional[str] = None
+                    if answer in montages:
+                        chosen_montage = answer
+                    elif answer.isdigit():
+                        idx = int(answer)
+                        for number, (name, _desc) in montage_items:
+                            if number == idx:
+                                chosen_montage = name
+                                break
+
+                    if not chosen_montage:
+                        display.warning(
+                            "Invalid selection",
+                            "Pick a number from the table or type a montage name.",
+                        )
+                        continue
+
+                    if chosen_montage == current_montage:
+                        display.info("Montage unchanged", chosen_montage)
+                        break
+
+                    try:
+                        source = active_task_path.read_text(encoding="utf-8")
+                    except Exception as exc:  # pylint: disable=broad-except
+                        display.error("Failed to read task file", str(exc))
+                        return 1
+
+                    block, start, end = _locate_montage_block(source)
+                    if block is None:
+                        display.warning(
+                            "Montage block not found",
+                            "Edit the task manually to update its montage.",
+                        )
+                        break
+
+                    updated_block = _replace_montage_value(block, chosen_montage)
+                    if updated_block is None:
+                        display.error(
+                            "Montage update failed",
+                            "The task file has unexpected formatting.",
+                        )
+                        return 1
+
+                    new_source = source[:start] + updated_block + source[end:]
+                    try:
+                        active_task_path.write_text(new_source, encoding="utf-8")
+                    except Exception as exc:  # pylint: disable=broad-except
+                        display.error("Failed to save task file", str(exc))
+                        return 1
+
+                    display.success(
+                        "Montage updated",
+                        f"{chosen_montage} saved to {active_task_path.name}",
+                    )
+                    current_montage = chosen_montage
+                    break
+            else:
+                display.info(
+                    "Montage unchanged",
+                    current_montage or "No montage specified",
+                )
+
+        # Step 4 — Input source
+        (*_, _, current_input) = _wizard_collect_state()
+
+        display.header(
+            "Step 4 • Input",
+            "Store a default EEG file or directory to speed up processing",
+        )
+
+        if current_input:
+            display.info("Current input", current_input)
+
+        if display.prompt_yes_no(
+            "Set or update the default input path now?",
+            default=current_input is None,
+        ):
+            while True:
+                answer = display.prompt_text(
+                    "Input path (file or directory)",
+                    default=current_input or "",
+                    show_default=bool(current_input),
+                )
+                answer = _strip_wrapping_quotes(answer)
+                if not answer:
+                    display.info("Input unchanged", "Will prompt during processing")
+                    break
+
+                candidate = Path(answer).expanduser().resolve()
+                if not candidate.exists():
+                    display.warning("Path not found", str(candidate))
+                    if not display.prompt_yes_no("Try another path?", default=True):
+                        break
+                    continue
+
+                # Guard against obvious path traversal outside user-controlled roots
+                allowed_roots = []
+                try:
+                    workspace_root = user_config.get_default_output_dir().resolve().parent
+                    allowed_roots.append(workspace_root)
+                except Exception:
+                    pass
+                try:
+                    allowed_roots.append(Path.home().resolve())
+                except Exception:
+                    pass
+
+                def _is_within_allowed(path: Path, roots: list[Path]) -> bool:
+                    for root in roots:
+                        try:
+                            path.relative_to(root)
+                            return True
+                        except ValueError:
+                            continue
+                    return False
+
+                if allowed_roots and not _is_within_allowed(candidate, allowed_roots):
+                    display.warning(
+                        "Path outside workspace/home",
+                        (
+                            "The selected path is outside your workspace or home directory and "
+                            "may expose sensitive locations."
+                        ),
+                    )
+                    if not display.prompt_yes_no("Use this path anyway?", default=False):
+                        continue
+
+                if user_config.set_active_source(str(candidate)):
+                    display.success("Input saved", str(candidate))
+                else:
+                    display.error("Failed to store input path")
+                    return 1
+                break
+        else:
+            display.info("Input unchanged", current_input or "Will prompt each run")
+
+        _wizard_render_state(display, "All set!")
+
+        closing = Text()
+        closing.append("Next steps", style="header")
+        closing.append(
+            "\n• Run `autocleaneeg-pipeline` to review your selections"
+            "\n• Use `autocleaneeg-pipeline process to start processing"
+            "\n• Rerun this wizard anytime to adjust defaults",
+            style="muted",
+        )
+        display.panel(closing, style="border")
+
+        return 0
+
+    except KeyboardInterrupt:
+        display.warning("Wizard interrupted", "Resume anytime with 'wizard'")
+        return 1
 
 
 def _run_interactive_setup() -> int:
@@ -6648,55 +7321,61 @@ def main(argv: Optional[list] = None) -> int:
         return result
 
     # Execute command
-    if args.command == "process":
-        if getattr(args, "process_action", None) == "ica":
-            return _finish(cmd_process_ica(args))
-        return _finish(cmd_process(args))
-    elif args.command == "list-tasks":
-        return _finish(cmd_list_tasks(args))
-    elif args.command == "review":
-        return _finish(cmd_review(args))
-    elif args.command == "exclude":
-        return _finish(cmd_exclude(args))
-    elif args.command == "task":
-        return _finish(cmd_task(args))
-    elif args.command == "montage":
-        return _finish(cmd_montage(args))
-    elif args.command == "input":
-        return _finish(cmd_input(args))
-    elif args.command == "source":
-        return _finish(cmd_source(args))
-    elif args.command == "config":
-        return _finish(cmd_config(args))
-    elif args.command == "workspace":
-        return _finish(cmd_workspace(args))
-    elif args.command == "export-access-log":
-        return _finish(cmd_export_access_log(args))
-    elif args.command == "login":
-        return _finish(cmd_login(args))
-    elif args.command == "logout":
-        return _finish(cmd_logout(args))
-    elif args.command == "whoami":
-        return _finish(cmd_whoami(args))
-    elif args.command == "auth0-diagnostics":
-        return _finish(cmd_auth0_diagnostics(args))
-    elif args.command == "auth":
-        return _finish(cmd_auth(args))
-    elif args.command == "clean-task":
-        return _finish(cmd_clean_task(args))
-    elif args.command == "view":
-        return _finish(cmd_view(args))
-    elif args.command == "report":
-        return _finish(cmd_report(args))
-    elif args.command == "version":
-        return _finish(cmd_version(args))
-    elif args.command == "help":
-        return _finish(cmd_help(args))
-    elif args.command == "tutorial":
-        return _finish(cmd_tutorial(args))
-    else:
+    if args.command == "wizard":
+        return _finish(cmd_wizard(args))
+    try:
+        if args.command == "process":
+            if getattr(args, "process_action", None) == "ica":
+                return _finish(cmd_process_ica(args))
+            return _finish(cmd_process(args))
+        if args.command == "list-tasks":
+            return _finish(cmd_list_tasks(args))
+        if args.command == "review":
+            return _finish(cmd_review(args))
+        if args.command == "exclude":
+            return _finish(cmd_exclude(args))
+        if args.command == "task":
+            return _finish(cmd_task(args))
+        if args.command == "montage":
+            return _finish(cmd_montage(args))
+        if args.command == "input":
+            return _finish(cmd_input(args))
+        if args.command == "source":
+            return _finish(cmd_source(args))
+        if args.command == "config":
+            return _finish(cmd_config(args))
+        if args.command == "workspace":
+            return _finish(cmd_workspace(args))
+        if args.command == "export-access-log":
+            return _finish(cmd_export_access_log(args))
+        if args.command == "login":
+            return _finish(cmd_login(args))
+        if args.command == "logout":
+            return _finish(cmd_logout(args))
+        if args.command == "whoami":
+            return _finish(cmd_whoami(args))
+        if args.command == "auth0-diagnostics":
+            return _finish(cmd_auth0_diagnostics(args))
+        if args.command == "auth":
+            return _finish(cmd_auth(args))
+        if args.command == "clean-task":
+            return _finish(cmd_clean_task(args))
+        if args.command == "view":
+            return _finish(cmd_view(args))
+        if args.command == "report":
+            return _finish(cmd_report(args))
+        if args.command == "version":
+            return _finish(cmd_version(args))
+        if args.command == "help":
+            return _finish(cmd_help(args))
+        if args.command == "tutorial":
+            return _finish(cmd_tutorial(args))
+
         parser.print_help()
         return _finish(1)
+    except KeyboardInterrupt:
+        message("warning", "Interrupted by user (Ctrl+C). Exiting gracefully.")
+        return _finish(130)
 
 
 if __name__ == "__main__":
