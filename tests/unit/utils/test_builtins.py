@@ -39,7 +39,7 @@ def test_sync_status_roundtrip(tmp_path: Path) -> None:
 
     # Before update, we should be able to skip network cleanly.
     offline_msg = registry.update_cache(allow_network=False)
-    assert "Skipped" in offline_msg
+    assert "Skipped online check" in offline_msg
 
     # Perform actual update from local file URI.
     message = registry.update_cache()

@@ -118,6 +118,19 @@ def _sanitize_arguments(args: List[str]) -> List[str]:
     return sanitized
 
 
+def _pretty_timestamp(value: Optional[str], *, default: str = "not yet checked") -> str:
+    """Render ISO timestamps in a user-friendly format."""
+
+    if not value or value in {"never", "not yet checked"}:
+        return default
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    local_dt = dt.astimezone()
+    return local_dt.strftime("%Y-%m-%d %H:%M %Z")
+
+
 def _rotate_log(log_path: Path) -> None:
     """Rotate log file when it gets too large."""
     try:
@@ -262,22 +275,27 @@ def _print_startup_context(console) -> None:
         try:
             registry = BuiltinRegistry()
             registry_info = registry.registry_status()
-            commit = registry_info.get("commit") or "unknown"
-            synced_at = registry_info.get("synced_at") or "never"
+            commit_raw = registry_info.get("commit")
+            commit = commit_raw or "not yet synced"
+            if commit in {"unknown", ""}:
+                commit = "not yet synced"
+            elif commit == "local-snapshot":
+                commit = "local snapshot"
+            synced_at = _pretty_timestamp(registry_info.get("synced_at"))
             status_line = _Text()
-            status_line.append("Task library: ", style="muted")
+            status_line.append("Task Library: ", style="muted")
             status_line.append(commit, style="accent")
             status_line.append("  ", style="muted")
-            status_line.append("synced ", style="muted")
+            status_line.append("last checked ", style="muted")
             status_line.append(synced_at, style="accent")
             console.print(_Align.center(status_line))
 
             last_error = registry_info.get("last_error")
             if isinstance(last_error, dict):
                 err_text = _Text()
-                err_text.append("Last registry error: ", style="warning")
-                err_text.append(last_error.get("message", "unknown"), style="warning")
-                timestamp = last_error.get("timestamp")
+                err_text.append("Working offline: ", style="warning")
+                err_text.append(last_error.get("message", "connection problem"), style="warning")
+                timestamp = _pretty_timestamp(last_error.get("timestamp"), default="time not recorded")
                 if timestamp:
                     err_text.append("  ", style="muted")
                     err_text.append(timestamp, style="muted")
@@ -2181,21 +2199,28 @@ def cmd_list_tasks(args) -> int:
         registry = BuiltinRegistry()
         registry_info = registry.registry_status()
 
-        commit = registry_info.get("commit") or "unknown"
-        synced_at = registry_info.get("synced_at") or "never"
+        commit_raw = registry_info.get("commit")
+        commit = commit_raw or "not yet synced"
+        if commit in {"unknown", ""}:
+            commit = "not yet synced"
+        elif commit == "local-snapshot":
+            commit = "local snapshot"
+        synced_at = _pretty_timestamp(registry_info.get("synced_at"))
         last_error = registry_info.get("last_error")
 
         summary_line = (
-            f"[info]Task library commit:[/info] {commit}  [muted]synced[/muted] {synced_at}"
+            f"[info]Task Library version:[/info] {commit} [muted](last checked {synced_at})[/muted]"
         )
         console.print(_Align.center(_Text(summary_line)))
         if isinstance(last_error, dict):
-            err_msg = last_error.get("message", "unknown error")
-            err_time = last_error.get("timestamp", "")
+            err_msg = last_error.get("message", "connection problem")
+            err_time = _pretty_timestamp(
+                last_error.get("timestamp"), default="time not recorded"
+            )
             console.print(
                 _Align.center(
                     _Text(
-                        f"[warning]Last registry error:[/warning] {err_msg} [muted]{err_time}[/muted]"
+                        f"[warning]Last online check failed:[/warning] {err_msg} [muted]{err_time}[/muted]"
                     )
                 )
             )
@@ -2245,13 +2270,13 @@ def cmd_list_tasks(args) -> int:
                 sync = registry.task_sync_status(task.name, workspace_dir)
                 sync_state = sync.get("status") or "unknown"
                 if sync_state == "synced":
-                    sync_text = "[success]synced[/success]"
+                    sync_text = "[success]up to date[/success]"
                 elif sync_state == "modified":
-                    sync_text = "[warning]modified[/warning]"
+                    sync_text = "[warning]customized[/warning]"
                 elif sync_state == "not_installed":
-                    sync_text = "[muted]not installed[/muted]"
+                    sync_text = "[muted]install to use[/muted]"
                 else:
-                    sync_text = "[muted]unknown[/muted]"
+                    sync_text = "[muted]status unknown[/muted]"
                 built_in_table.add_row(
                     task.name,
                     sync_text,
@@ -5421,19 +5446,31 @@ def cmd_task_builtins(args) -> int:
             return 0
 
         status_info = registry.registry_status()
-        commit = status_info.get("commit") or "unknown"
-        synced_at = status_info.get("synced_at") or "never"
+        commit_raw = status_info.get("commit")
+        commit = commit_raw or "not yet synced"
+        if commit in {"unknown", ""}:
+            commit = "not yet synced"
+        elif commit == "local-snapshot":
+            commit = "local snapshot"
+        synced_at = _pretty_timestamp(status_info.get("synced_at"))
         last_error = status_info.get("last_error")
 
-        summary = "[info]Registry commit:[/info] {commit}  [muted]synced[/muted] {synced}"
-        summary = summary.format(commit=commit, synced=synced_at)
+        summary = (
+            f"[info]Task Library version:[/info] {commit} "
+            f"[muted](last checked {synced_at})[/muted]"
+        )
         console.print(summary)
         if isinstance(last_error, dict):
-            err_msg = last_error.get("message", "unknown error")
-            err_time = last_error.get("timestamp", "")
-            console.print(
-                f"[warning]Last sync error[/warning]: {err_msg} [muted]{err_time}[/muted]"
+            err_msg = last_error.get("message", "connection problem")
+            err_time = _pretty_timestamp(
+                last_error.get("timestamp"), default="time not recorded"
             )
+            note = (
+                "[warning]Last online check failed:[/warning] "
+                f"{err_msg} [muted]{err_time}[/muted]\n"
+                "[muted]Working from your cached templates instead.[/muted]"
+            )
+            console.print(note)
 
         from rich.table import Table as _Table
 
@@ -5450,21 +5487,21 @@ def cmd_task_builtins(args) -> int:
             sync = registry.task_sync_status(task.name, workspace_dir)
             status = sync.get("status") or "unknown"
             if status == "synced":
-                status_text = "[success]synced[/success]"
+                status_text = "[success]up to date[/success]"
             elif status == "modified":
-                status_text = "[warning]modified[/warning]"
+                status_text = "[warning]customized[/warning]"
             elif status == "not_installed":
-                status_text = "[muted]not installed[/muted]"
+                status_text = "[muted]install to use[/muted]"
             elif status == "missing":
-                status_text = "[error]missing[/error]"
+                status_text = "[error]not in library[/error]"
             else:
-                status_text = "[muted]unknown[/muted]"
+                status_text = "[muted]status unknown[/muted]"
 
             source = sync.get("source") or "unknown"
             if source == "cache":
-                source_text = "cache"
+                source_text = "local download"
             elif source == "package":
-                source_text = "package snapshot"
+                source_text = "bundled snapshot"
             else:
                 source_text = source
 
