@@ -2,6 +2,7 @@
 """
 This module contains functions for setting up and validating directory structures.
 """
+import json
 import os
 import shutil
 import threading
@@ -16,6 +17,8 @@ from autoclean.utils.logging import message
 # cache is cleared automatically on the next run.
 _PREPARED_TASK_ROOTS: set[Path] = set()
 _CACHE_LOCK = threading.Lock()
+
+STATUS_DIR_NAME = "status"
 
 
 def step_prepare_directories(
@@ -107,12 +110,14 @@ def step_prepare_directories(
     # Derivatives for this pipeline under BIDS (versionless)
     derivatives_root = bids_root / "derivatives"
 
+    status_dir = task_root / STATUS_DIR_NAME
+
     dirs = {
         "bids": bids_root,
         # Metadata directory removed; repurpose to reports root for compatibility
         "metadata": task_root / "reports",
         "clean": derivatives_root,  # Legacy compatibility (BIDS derivatives root)
-        "logs": task_root / "logs",
+        "logs": status_dir,
         # Write per-stage outputs directly under BIDS derivatives
         "stage": derivatives_root,
         "reports": task_root / "reports",
@@ -152,3 +157,54 @@ def step_prepare_directories(
         dirs["exports"],
         backup_info,
     )
+
+
+def update_status_marker(
+    task_root: Path,
+    status: str,
+    *,
+    run_id: str | None = None,
+    details: dict | None = None,
+    create_task_root: bool = True,
+) -> None:
+    """Write a JSON status marker for a task run.
+
+    Parameters
+    ----------
+    task_root : Path
+        Root directory for the task (contains bids/, logs/, etc.).
+    status : str
+        Status label, e.g., 'running', 'completed', 'interrupted'.
+    run_id : str, optional
+        Unique run identifier. If omitted, writes a task-level status marker.
+    details : dict, optional
+        Additional metadata to include in the status file.
+    create_task_root : bool, optional
+        Whether to create the task root directory if it does not exist.
+    """
+
+    try:
+        if not task_root.exists():
+            if not create_task_root:
+                return
+            task_root.mkdir(parents=True, exist_ok=True)
+
+        status_dir = task_root / STATUS_DIR_NAME
+        status_dir.mkdir(parents=True, exist_ok=True)
+
+        payload = {
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+        }
+        if run_id:
+            payload["run_id"] = run_id
+        if details:
+            payload["details"] = details
+
+        marker_name = f"{run_id or 'task'}.json"
+        marker_path = status_dir / marker_name
+        with marker_path.open("w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2)
+
+    except Exception as exc:  # pylint: disable=broad-except
+        message("warning", f"Failed to write status marker: {exc}")
