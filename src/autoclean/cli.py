@@ -38,7 +38,10 @@ from autoclean.utils.config import (
 from autoclean.utils.console import get_console
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.logging import has_logged_errors, message
-from autoclean.utils.template_renderer import render_template
+from autoclean.utils.template_renderer import (
+    render_template,
+    validate_python_identifier,
+)
 from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
@@ -3210,6 +3213,13 @@ def _wizard_create_task_from_template(
     templates_dir = Path(__file__).resolve().parent / "templates"
     template_path = templates_dir / "custom_task_template.jinja"
     target_path = user_config.tasks_dir / f"{file_name}.py"
+
+    try:
+        validate_python_identifier(
+            class_name, label="Task class name"
+        )
+    except ValueError as exc:
+        raise RuntimeError(str(exc)) from exc
 
     if not template_path.is_file():
         raise RuntimeError(f"Task template not found at {template_path}")
