@@ -42,6 +42,7 @@ from autoclean.utils.task_discovery import (
     get_task_overrides,
     safe_discover_tasks,
 )
+from autoclean.utils.montage import load_valid_montages
 from autoclean.utils.user_config import user_config
 
 # ------------------------------------------------------------
@@ -410,6 +411,23 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
+    if topic in {"montage", "montages"}:
+        console.print("[header]Montage Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        tbl.add_row(
+            "🧭 montage list",
+            "List EEG montages defined in configs/montages.yaml",
+        )
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]Edit configs/montages.yaml to add or rename montages.[/muted]"
+        )
+        console.print()
+        return
+
     if topic in {"input", "inputs"}:
         console.print("[header]Input Commands[/header]")
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
@@ -492,6 +510,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("🗂\u00a0 workspace", "Configure workspace folder"),
         ("👁\u00a0 view", "View EEG file (MNE-QT)"),
         ("🗂\u00a0 task", "Manage tasks (list, explore)"),
+        ("🧭\u00a0 montage", "Inspect EEG montage definitions"),
         ("📁\u00a0 input", "Manage active input path"),
         ("▶\u00a0 process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
@@ -594,6 +613,9 @@ Active Task (Simplified Workflow):
 Custom Tasks:
   autocleaneeg-pipeline task add my_task.py            # Add custom task file
   autocleaneeg-pipeline task list                      # List all tasks
+
+Montages:
+  autocleaneeg-pipeline montage list                  # Show available montages
 
 
 For detailed help on any command: autocleaneeg-pipeline <command> --help
@@ -932,6 +954,20 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "show", help="Show the current active task", add_help=False
     )
     attach_rich_help(show_task_parser)
+
+    # Montage commands
+    montage_parser = subparsers.add_parser(
+        "montage", help="Inspect EEG montage definitions", add_help=False
+    )
+    attach_rich_help(montage_parser)
+    montage_subparsers = montage_parser.add_subparsers(
+        dest="montage_action", help="Montage actions"
+    )
+
+    montage_list_parser = montage_subparsers.add_parser(
+        "list", help="List available EEG montages", add_help=False
+    )
+    attach_rich_help(montage_list_parser)
 
     # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(
@@ -2108,6 +2144,66 @@ def cmd_list_tasks(args) -> int:
     except Exception as e:
         message("error", f"Failed to list tasks: {str(e)}")
         return 1
+
+
+def cmd_montage(args) -> int:
+    """Execute montage-related commands."""
+    action = getattr(args, "montage_action", None)
+    if not action:
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "montage")
+        return 0
+
+    if action == "list":
+        return cmd_montage_list(args)
+
+    message("error", f"Unknown montage action: {action}")
+    return 1
+
+
+def cmd_montage_list(args) -> int:
+    """List EEG montages defined in the configuration file."""
+    console = get_console(args)
+
+    try:
+        montages = load_valid_montages()
+    except Exception as exc:  # pylint: disable=broad-except
+        message("error", f"Failed to load montage definitions: {exc}")
+        return 1
+
+    if not montages:
+        console.print(
+            "[warning]No montage definitions found in configs/montages.yaml[/warning]"
+        )
+        return 0
+
+    from rich.align import Align
+    from rich.text import Text
+
+    console.print()
+    console.print(Align.center(Text("EEG Montage Catalog", style="title")))
+    console.print(
+        Align.center(Text("Defined in configs/montages.yaml", style="subtitle"))
+    )
+    console.print()
+
+    table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+    table.add_column("Montage", style="accent", no_wrap=True)
+    table.add_column("Description", style="muted")
+
+    for montage_id, description in sorted(montages.items()):
+        display_description = description or "[muted]No description provided[/muted]"
+        table.add_row(montage_id, display_description)
+
+    console.print(table)
+    console.print()
+    console.print(
+        f"[muted]{len(montages)} montage(s) available · Edit configs/montages.yaml to customize.[/muted]"
+    )
+
+    return 0
 
 
 def cmd_review(args) -> int:
@@ -6243,6 +6339,8 @@ def main(argv: Optional[list] = None) -> int:
         return _finish(cmd_exclude(args))
     elif args.command == "task":
         return _finish(cmd_task(args))
+    elif args.command == "montage":
+        return _finish(cmd_montage(args))
     elif args.command == "input":
         return _finish(cmd_input(args))
     elif args.command == "source":
