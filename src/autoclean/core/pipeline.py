@@ -93,7 +93,7 @@ from autoclean.utils.database import (
     manage_database_conditionally,
     set_database_path,
 )
-from autoclean.utils.file_system import step_prepare_directories
+from autoclean.utils.file_system import step_prepare_directories, update_status_marker
 from autoclean.utils.logging import configure_logger, message
 from autoclean.utils.user_config import user_config
 
@@ -313,6 +313,7 @@ class Pipeline:
 
         # Initialize run_dict early for error handling
         run_dict = None
+        task_root: Optional[Path] = None
 
         try:
             # Perform core validation steps
@@ -336,6 +337,8 @@ class Pipeline:
                 final_files_dir,  # Final processed files directory
                 backup_info,  # Optional backup move details
             ) = step_prepare_directories(task, self.output_dir, dataset_name)
+
+            task_root = logs_dir.parent
 
             # If an auto-backup occurred, persist minimal info in current run metadata
             if backup_info:
@@ -390,6 +393,17 @@ class Pipeline:
                     "Directory setup failed:\n- " + "\n- ".join(_errors),
                 )
                 raise EnvironmentError("Task directory setup failed")
+
+            if task_root is not None:
+                update_status_marker(
+                    task_root,
+                    "running",
+                    run_id=run_id,
+                    details={
+                        "task": task,
+                        "unprocessed_file": str(unprocessed_file),
+                    },
+                )
 
             # Update database with directory structure using audit protection
             manage_database(
@@ -590,7 +604,31 @@ class Pipeline:
                 json.dump(run_record, f, indent=4)
             message("success", f"✓ Run record exported to {json_file}")
 
+            if task_root is not None:
+                update_status_marker(
+                    task_root,
+                    "completed",
+                    run_id=run_id,
+                    details={
+                        "task": task,
+                        "unprocessed_file": str(unprocessed_file),
+                        "flagged": bool(locals().get("flagged")),
+                        "generated_exports": bool(locals().get("generated_exports")),
+                    },
+                )
+
         except Exception as e:
+            if task_root is not None:
+                update_status_marker(
+                    task_root,
+                    "failed",
+                    run_id=run_id,
+                    details={
+                        "task": task,
+                        "unprocessed_file": str(unprocessed_file),
+                        "error": str(e),
+                    },
+                )
             # Get flagged status before creating summary for error case
             try:
                 flagged, error_flagged_reasons = task_object.get_flagged_status()
@@ -645,6 +683,19 @@ class Pipeline:
                 )
 
             message("error", f"Run {run_record['run_id']} Pipeline failed: {e}")
+            raise
+        except KeyboardInterrupt:
+            if task_root is not None:
+                update_status_marker(
+                    task_root,
+                    "interrupted",
+                    run_id=run_id,
+                    details={
+                        "task": task,
+                        "unprocessed_file": str(unprocessed_file),
+                        "reason": "KeyboardInterrupt",
+                    },
+                )
             raise
 
         return run_record["run_id"]
