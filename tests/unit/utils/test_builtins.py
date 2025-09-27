@@ -1,4 +1,4 @@
-"""Tests for the built-in task registry helpers."""
+"""Tests for the task library registry helpers."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ def _make_registry(root: Path) -> Path:
     task_file.write_text("class DemoTask:\n    pass\n", encoding="utf-8")
     registry = {
         "version": 1,
-        "commit": "abc123",
+        "commit": "local-snapshot",
         "tasks": [
             {"name": "DemoTask", "path": "tasks/resting/DemoTask.py"},
         ],
@@ -43,9 +43,9 @@ def test_sync_status_roundtrip(tmp_path: Path) -> None:
 
     # Perform actual update from local file URI.
     message = registry.update_cache()
-    assert "abc123" in message
+    assert "local-snapshot" in message
     status = registry.registry_status()
-    assert status["commit"] == "abc123"
+    assert status["commit"] == "local-snapshot"
 
     # Status before install -> not installed.
     sync_info = registry.task_sync_status("DemoTask", workspace)
@@ -56,7 +56,7 @@ def test_sync_status_roundtrip(tmp_path: Path) -> None:
     sync_info = registry.task_sync_status("DemoTask", workspace)
     assert sync_info["status"] == "synced"
 
-    # Modify workspace copy -> status flips to modified.
+    # Modify workspace copy -> status flips to customized.
     task_path = workspace / "DemoTask.py"
     task_path.write_text(task_path.read_text(encoding="utf-8") + "# tweak\n", encoding="utf-8")
     sync_info = registry.task_sync_status("DemoTask", workspace)
