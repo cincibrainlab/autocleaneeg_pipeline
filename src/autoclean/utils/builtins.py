@@ -15,7 +15,7 @@ try:  # Python 3.10+ provides importlib.resources.files
 except ImportError:  # pragma: no cover - fallback for very old Python
     from importlib_resources import files  # type: ignore
 
-RAW_BASE = "https://raw.githubusercontent.com/cincibrainlab/autoclean-builtins/main"
+RAW_BASE = "https://raw.githubusercontent.com/cincibrainlab/autocleaneeg-task-registry/main"
 CACHE_ROOT = Path.home() / ".config" / "autocleaneeg" / ".builtin_cache"
 
 
@@ -41,7 +41,7 @@ class BuiltinRegistry:
 
     # ---------------- Remote fetch helpers -----------------
     def _fetch_bytes(self, url: str) -> bytes:
-        req = Request(url, headers={"User-Agent": "autocleaneeg-builtins/1.0"})
+        req = Request(url, headers={"User-Agent": "autocleaneeg-task-registry/1.0"})
         with urlopen(req) as resp:  # type: ignore[call-arg]
             return resp.read()
 
