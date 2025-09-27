@@ -177,7 +177,9 @@ class BuiltinRegistry:
             raise URLError(f"Request timed out after {self.timeout}s") from exc
 
     def _download_to(self, url: str, dest: Path) -> None:
-        data = self._fetch_bytes(url)
+        cache_buster = _timestamp().replace(":", "-")
+        separator = "&" if "?" in url else "?"
+        data = self._fetch_bytes(f"{url}{separator}cb={cache_buster}")
         dest.parent.mkdir(parents=True, exist_ok=True)
         tmp_path = dest.with_suffix(dest.suffix + ".tmp")
         tmp_path.write_bytes(data)
