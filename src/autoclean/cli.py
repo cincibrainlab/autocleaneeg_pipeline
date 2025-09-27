@@ -2021,6 +2021,27 @@ def cmd_list_tasks(args) -> int:
 
         valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
+        def _montage_label(task_name: str) -> str:
+            try:
+                montage_info = extract_config_from_task(task_name, "montage")
+            except Exception:  # pylint: disable=broad-except
+                return "—"
+
+            if isinstance(montage_info, dict):
+                enabled = montage_info.get("enabled", True)
+                value = montage_info.get("value")
+                if value is None:
+                    return "None"
+                label = str(value)
+                if not enabled:
+                    label = f"{label} [muted](disabled)[/muted]"
+                return label
+
+            if montage_info is None:
+                return "None"
+
+            return str(montage_info)
+
         # --- Built-in Tasks ---
         built_in_tasks = [
             task for task in valid_tasks if "autoclean/tasks" in task.source
@@ -2031,13 +2052,17 @@ def cmd_list_tasks(args) -> int:
             )
             built_in_table.add_column("Task Name", style="accent", no_wrap=True)
             built_in_table.add_column("Module", style="muted")
+            built_in_table.add_column("Montage", style="info", no_wrap=True)
             built_in_table.add_column("Description", style="muted", max_width=50)
 
             for task in sorted(built_in_tasks, key=lambda x: x.name):
                 # Extract just the module name from the full path
                 module_name = Path(task.source).stem
                 built_in_table.add_row(
-                    task.name, module_name + ".py", task.description or "No description"
+                    task.name,
+                    module_name + ".py",
+                    _montage_label(task.name),
+                    task.description or "No description",
                 )
 
             built_in_panel = Panel(
@@ -2067,13 +2092,17 @@ def cmd_list_tasks(args) -> int:
             )
             custom_table.add_column("Task Name", style="accent", no_wrap=True)
             custom_table.add_column("File", style="muted")
+            custom_table.add_column("Montage", style="info", no_wrap=True)
             custom_table.add_column("Description", style="muted", max_width=50)
 
             for task in sorted(custom_tasks, key=lambda x: x.name):
                 # Show just the filename for custom tasks
                 file_name = Path(task.source).name
                 custom_table.add_row(
-                    task.name, file_name, task.description or "No description"
+                    task.name,
+                    file_name,
+                    _montage_label(task.name),
+                    task.description or "No description",
                 )
 
             custom_panel = Panel(
