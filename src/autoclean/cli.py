@@ -37,6 +37,7 @@ from autoclean.utils.config import (
 from autoclean.utils.console import get_console
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.logging import has_logged_errors, message
+from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
     get_task_by_name,
@@ -1390,6 +1391,9 @@ def _show_process_guard(args) -> bool:
     """
     console = get_console(args)
 
+    # Determine target output directory for status tagging
+    output_root = Path(args.output) if getattr(args, "output", None) else user_config.get_default_output_dir()
+
     # Get current values
     task_name = args.task_name or args.task
     input_path = args.input_path or args.file or args.directory
@@ -1405,6 +1409,35 @@ def _show_process_guard(args) -> bool:
         active_source = user_config.get_active_source()
         if active_source and active_source != "NONE":
             input_path = Path(active_source)
+
+    dataset_name = None
+    try:
+        if task_name:
+            dataset_name = extract_config_from_task(task_name, "dataset_name")
+    except Exception:  # pylint: disable=broad-except
+        dataset_name = None
+
+    task_dir_name = None
+    if dataset_name:
+        task_dir_name = str(dataset_name)
+    elif task_name:
+        task_dir_name = str(task_name)
+    task_root = (output_root / task_dir_name) if task_dir_name else None
+
+    def _mark_cancelled(reason: str) -> None:
+        """Write a cancellation status marker if directories exist."""
+        if task_root is None:
+            return
+        update_status_marker(
+            task_root,
+            "cancelled-before-start",
+            details={
+                "reason": reason,
+                "task": task_name,
+                "input": str(input_path) if input_path else None,
+            },
+            create_task_root=False,
+        )
 
     # Header
     console.print()
@@ -1533,17 +1566,25 @@ def _show_process_guard(args) -> bool:
         from rich.prompt import Confirm
 
         try:
-            return Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
+            proceed = Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
         except KeyboardInterrupt:
             message("warning", "Processing cancelled by user (Ctrl+C).")
+            _mark_cancelled("user-interrupted-before-start")
             return False
+        if not proceed:
+            _mark_cancelled("user-declined-guard")
+        return proceed
     except ImportError:
         # Fallback for systems without rich Confirm
         try:
             response = input("🚀 Proceed with processing? (y/N): ").lower().strip()
-            return response in ["y", "yes"]
+            proceed = response in ["y", "yes"]
+            if not proceed:
+                _mark_cancelled("user-declined-guard")
+            return proceed
         except (EOFError, KeyboardInterrupt):
             message("warning", "Processing cancelled by user (Ctrl+C).")
+            _mark_cancelled("user-interrupted-before-start")
             return False
 
 
