@@ -452,7 +452,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
-            ("🧱 task builtins …", "Manage official built-in task templates"),
+            ("📚 task library …", "Browse and copy official task templates"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -464,21 +464,22 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
-    if topic in {"task builtins", "builtins", "builtin"}:
-        console.print("[header]Built-in Task Commands[/header]")
+    if topic in {"task library", "library", "task builtins", "builtins", "builtin"}:
+        console.print("[header]Task Library Commands[/header]")
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
-        tbl.add_row("🔄 task builtins update", "Sync registry.json from GitHub")
-        tbl.add_row("📋 task builtins list", "Show built-ins and their source (cache/package)")
+        tbl.add_row("🔄 task library update", "Check online for refreshed templates")
+        tbl.add_row("📋 task library list", "See templates and sync status")
         tbl.add_row(
-            "📦 task builtins install <name>",
-            "Copy a built-in into workspace/tasks",
+            "📦 task library install <name>",
+            "Copy a template into workspace/tasks",
         )
         console.print(tbl)
         console.print()
         console.print(
-            "[muted]Built-ins mirror the public GitHub registry with an offline fallback bundled in the wheel.[/muted]"
+            "[muted]The Task Library mirrors the public GitHub registry while keeping an offline copy inside the app." \
+            "[/muted]"
         )
         console.print()
         return
@@ -964,53 +965,59 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="When copying a built-in task, save as this name (without .py)",
     )
 
-    builtins_parser = task_subparsers.add_parser(
-        "builtins",
-        help="Sync, list, and install official built-in tasks",
+    library_parser = task_subparsers.add_parser(
+        "library",
+        help="Browse the official task library",
         add_help=False,
+        aliases=["builtins"],
     )
-    attach_rich_help(builtins_parser)
-    builtins_subparsers = builtins_parser.add_subparsers(
-        dest="task_builtins_action",
-        help="Built-in task commands",
+    attach_rich_help(library_parser)
+    library_subparsers = library_parser.add_subparsers(
+        dest="task_library_action",
+        help="Task Library commands",
     )
 
-    builtins_update = builtins_subparsers.add_parser(
+    library_update = library_subparsers.add_parser(
         "update",
-        help="Update local cache of built-in tasks from GitHub",
+        help="Check GitHub for refreshed task templates",
         add_help=False,
     )
-    attach_rich_help(builtins_update)
-    builtins_update.add_argument(
+    attach_rich_help(library_update)
+    library_update.add_argument(
         "--no-network",
         action="store_true",
-        help="Skip GitHub fetch and rely on cached/package data",
+        help="Skip the online check and rely on cached/package data",
     )
 
-    builtins_list = builtins_subparsers.add_parser(
+    library_list = library_subparsers.add_parser(
         "list",
-        help="List built-in tasks bundled with the CLI",
+        help="Show available library templates",
         add_help=False,
     )
-    attach_rich_help(builtins_list)
-    builtins_list.add_argument(
+    attach_rich_help(library_list)
+    library_list.add_argument(
         "--show-paths",
         action="store_true",
-        help="Show registry paths for each built-in task",
+        help="Show the registry path for each template",
+    )
+    library_list.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Check online for updates before listing",
     )
 
-    builtins_install = builtins_subparsers.add_parser(
+    library_install = library_subparsers.add_parser(
         "install",
-        help="Copy a built-in task into the workspace tasks folder",
+        help="Copy a library template into the workspace",
         add_help=False,
     )
-    attach_rich_help(builtins_install)
-    builtins_install.add_argument(
+    attach_rich_help(library_install)
+    library_install.add_argument(
         "task_name",
         type=str,
-        help="Name of the built-in task to install",
+        help="Name of the template to install",
     )
-    builtins_install.add_argument(
+    library_install.add_argument(
         "--force",
         action="store_true",
         help="Overwrite the workspace copy if it already exists",
@@ -4487,8 +4494,8 @@ def cmd_task(args) -> int:
         return cmd_task_unset(args)
     elif args.task_action == "show":
         return cmd_task_show(args)
-    elif args.task_action == "builtins":
-        return cmd_task_builtins(args)
+    elif args.task_action in {"library", "builtins"}:
+        return cmd_task_library(args)
     else:
         message("error", "No task action specified")
         return 1
@@ -5421,16 +5428,22 @@ def cmd_task_show(_args) -> int:
         return 1
 
 
-def cmd_task_builtins(args) -> int:
-    """Handle 'task builtins' subcommands."""
-    action = getattr(args, "task_builtins_action", None)
+def cmd_task_library(args) -> int:
+    """Handle 'task library' subcommands (and the legacy builtins alias)."""
+    action = getattr(args, "task_library_action", None)
     console = get_console(args)
 
     if not action:
         _simple_header(console)
         _print_startup_context(console)
-        _print_root_help(console, "task builtins")
+        _print_root_help(console, "task library")
         return 0
+
+    if getattr(args, "task_action", None) == "builtins":
+        console.print(
+            "[muted]Tip: 'task builtins' is now 'task library'.\n"
+            "Commands continue to work, but the updated name is easier to remember.[/muted]"
+        )
 
     registry = BuiltinRegistry()
 
@@ -5440,9 +5453,11 @@ def cmd_task_builtins(args) -> int:
         return 0
 
     if action == "list":
+        if getattr(args, "refresh", False):
+            console.print(registry.update_cache())
         tasks = registry.list_tasks()
         if not tasks:
-            console.print("[warning]No built-in tasks found in registry.json[/warning]")
+            console.print("[warning]No Task Library templates found in registry.json[/warning]")
             return 0
 
         status_info = registry.registry_status()
@@ -5514,7 +5529,7 @@ def cmd_task_builtins(args) -> int:
         console.print(table)
         console.print()
         console.print(
-            "[muted]Use 'task builtins install <name>' to copy a task into your workspace.[/muted]"
+            "[muted]Use 'task library install <name>' to copy a template into your workspace.[/muted]"
         )
         return 0
 
