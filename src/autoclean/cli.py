@@ -38,6 +38,7 @@ from autoclean.utils.config import (
 from autoclean.utils.console import get_console
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.logging import has_logged_errors, message
+from autoclean.utils.template_renderer import render_template
 from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
@@ -2970,40 +2971,38 @@ def cmd_workspace_default(_args) -> int:
 
 def _detect_shell() -> list:
     """Return command list for user's interactive shell."""
-    try:
-        if sys.platform.startswith("win"):
-            # Prefer PowerShell if available
-            pwsh = shutil.which("pwsh") or shutil.which("powershell")
-            if pwsh:
-                return [pwsh]
-            return [os.environ.get("COMSPEC", "cmd")]
-        # Unix-like
-        shell = os.environ.get("SHELL")
-        if shell:
-            return [shell]
-        return ["/bin/sh"]
-    except Exception:
-        return ["/bin/sh"]
+
+    if sys.platform.startswith("win"):
+        # Prefer PowerShell if available
+        pwsh = shutil.which("pwsh") or shutil.which("powershell")
+        if pwsh:
+            return [pwsh]
+        return [os.environ.get("COMSPEC", "cmd")]
+
+    # Unix-like
+    shell = os.environ.get("SHELL")
+    if shell:
+        return [shell]
+    return ["/bin/sh"]
 
 
 def _detect_shell_kind() -> str:
     """Best-effort detection of user's shell kind for printing snippets."""
-    try:
-        if sys.platform.startswith("win"):
-            # Heuristic: if running inside PowerShell, PSModulePath is usually set
-            if os.environ.get("PSModulePath"):
-                return "powershell"
-            return "cmd"
-        sh = os.environ.get("SHELL", "")
-        if "fish" in sh:
-            return "fish"
-        if "zsh" in sh:
-            return "zsh"
-        if "bash" in sh:
-            return "bash"
+
+    if sys.platform.startswith("win"):
+        # Heuristic: if running inside PowerShell, PSModulePath is usually set
+        if os.environ.get("PSModulePath"):
+            return "powershell"
+        return "cmd"
+
+    sh = os.environ.get("SHELL", "")
+    if "fish" in sh:
+        return "fish"
+    if "zsh" in sh:
+        return "zsh"
+    if "bash" in sh:
         return "bash"
-    except Exception:
-        return "bash"
+    return "bash"
 
 
 def _esc_for_bash_zsh(path: str) -> str:
@@ -3039,8 +3038,8 @@ def cmd_workspace_cd(args) -> int:
             message("info", f"Spawning shell in: {ws}")
             try:
                 subprocess.call(shell_cmd, cwd=str(ws))
-            except Exception as e:
-                message("error", f"Failed to spawn shell: {e}")
+            except OSError as exc:
+                message("error", f"Failed to spawn shell: {exc}")
                 return 1
             return 0
 
@@ -3061,8 +3060,8 @@ def cmd_workspace_cd(args) -> int:
         # Default: print path only (no styling) for command substitution
         print(str(ws))
         return 0
-    except Exception as e:
-        message("error", f"Failed to resolve workspace directory: {e}")
+    except (OSError, RuntimeError) as exc:
+        message("error", f"Failed to resolve workspace directory: {exc}")
         return 1
 
 
@@ -3204,28 +3203,44 @@ def _wizard_render_state(display: CLIDisplay, title: str) -> None:
 
 
 def _wizard_create_task_from_template(
-    display: CLIDisplay, class_name: str, file_name: str
+    display: CLIDisplay, class_name: str, file_name: str, *, overwrite: bool = False
 ) -> Path:
     """Create a custom task file from the bundled template."""
 
-    template_path = (
-        Path(__file__).resolve().parent / "templates" / "custom_task_template.py"
-    )
+    templates_dir = Path(__file__).resolve().parent / "templates"
+    template_path = templates_dir / "custom_task_template.jinja"
     target_path = user_config.tasks_dir / f"{file_name}.py"
 
-    try:
-        template = template_path.read_text(encoding="utf-8")
-    except Exception as exc:  # pylint: disable=broad-except
-        raise RuntimeError(f"Failed to read task template: {exc}")
+    if not template_path.is_file():
+        raise RuntimeError(f"Task template not found at {template_path}")
 
-    # Replace the class name throughout the template to give the user a head start
-    customized = template.replace("CustomTask", class_name)
+    try:
+        customized = render_template(template_path, {"class_name": class_name})
+    except RuntimeError as exc:
+        raise RuntimeError(f"Failed to materialize task template: {exc}") from exc
 
     try:
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(customized, encoding="utf-8")
-    except Exception as exc:  # pylint: disable=broad-except
-        raise RuntimeError(f"Failed to write task file: {exc}")
+    except OSError as exc:
+        raise RuntimeError(f"Failed to prepare task directory: {exc}") from exc
+
+    if overwrite:
+        try:
+            target_path.write_text(customized, encoding="utf-8")
+        except OSError as exc:
+            raise RuntimeError(f"Failed to write task file: {exc}") from exc
+    else:
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        try:
+            fd = os.open(target_path, flags)
+        except FileExistsError as exc:
+            raise RuntimeError(
+                f"Task file already exists at {target_path}"
+            ) from exc
+        except OSError as exc:
+            raise RuntimeError(f"Failed to create task file: {exc}") from exc
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(customized)
 
     display.success(
         "Custom task created",
@@ -3471,6 +3486,7 @@ def cmd_wizard(args) -> int:
                 )
                 slug = _wizard_slugify(raw_slug or slug_default)
                 target_path = user_config.tasks_dir / f"{slug}.py"
+                allow_overwrite = False
 
                 if target_path.exists():
                     if not display.prompt_yes_no(
@@ -3478,10 +3494,11 @@ def cmd_wizard(args) -> int:
                         default=False,
                     ):
                         continue
+                    allow_overwrite = True
 
                 try:
                     active_task_path = _wizard_create_task_from_template(
-                        display, class_name, slug
+                        display, class_name, slug, overwrite=allow_overwrite
                     )
                 except RuntimeError as exc:  # pylint: disable=broad-except
                     display.error("Could not create task", str(exc))
