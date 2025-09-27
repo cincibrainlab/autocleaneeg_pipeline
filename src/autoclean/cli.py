@@ -9,6 +9,7 @@ standalone tool (via uv tool) and within development environments.
 import argparse
 import csv
 import json
+import keyword
 import os
 import re
 import shutil
@@ -3242,8 +3243,16 @@ def _wizard_normalize_class_name(raw: str) -> str:
     if not parts:
         parts = ["Custom", "Task"]
     candidate = "".join(parts)
-    if candidate[0].isdigit():
+    if candidate and candidate[0].isdigit():
         candidate = f"Task{candidate}"
+    if not candidate:
+        candidate = "CustomTask"
+    if keyword.iskeyword(candidate.lower()) or keyword.iskeyword(candidate):
+        candidate = f"{candidate.capitalize()}Task"
+    if not candidate.isidentifier():
+        candidate = f"Task_{candidate}"
+    if not candidate.isidentifier():
+        candidate = "TaskCustom"
     return candidate
 
 
@@ -3639,6 +3648,38 @@ def cmd_wizard(args) -> int:
                     if not display.prompt_yes_no("Try another path?", default=True):
                         break
                     continue
+
+                # Guard against obvious path traversal outside user-controlled roots
+                allowed_roots = []
+                try:
+                    workspace_root = user_config.get_default_output_dir().resolve().parent
+                    allowed_roots.append(workspace_root)
+                except Exception:
+                    pass
+                try:
+                    allowed_roots.append(Path.home().resolve())
+                except Exception:
+                    pass
+
+                def _is_within_allowed(path: Path, roots: list[Path]) -> bool:
+                    for root in roots:
+                        try:
+                            path.relative_to(root)
+                            return True
+                        except ValueError:
+                            continue
+                    return False
+
+                if allowed_roots and not _is_within_allowed(candidate, allowed_roots):
+                    display.warning(
+                        "Path outside workspace/home",
+                        (
+                            "The selected path is outside your workspace or home directory and "
+                            "may expose sensitive locations."
+                        ),
+                    )
+                    if not display.prompt_yes_no("Use this path anyway?", default=False):
+                        continue
 
                 if user_config.set_active_source(str(candidate)):
                     display.success("Input saved", str(candidate))
