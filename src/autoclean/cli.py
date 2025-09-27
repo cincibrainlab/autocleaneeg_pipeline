@@ -1532,13 +1532,18 @@ def _show_process_guard(args) -> bool:
     try:
         from rich.prompt import Confirm
 
-        return Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
+        try:
+            return Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
+        except KeyboardInterrupt:
+            message("warning", "Processing cancelled by user (Ctrl+C).")
+            return False
     except ImportError:
         # Fallback for systems without rich Confirm
         try:
             response = input("🚀 Proceed with processing? (y/N): ").lower().strip()
             return response in ["y", "yes"]
         except (EOFError, KeyboardInterrupt):
+            message("warning", "Processing cancelled by user (Ctrl+C).")
             return False
 
 
@@ -7236,55 +7241,59 @@ def main(argv: Optional[list] = None) -> int:
     # Execute command
     if args.command == "wizard":
         return _finish(cmd_wizard(args))
-    if args.command == "process":
-        if getattr(args, "process_action", None) == "ica":
-            return _finish(cmd_process_ica(args))
-        return _finish(cmd_process(args))
-    elif args.command == "list-tasks":
-        return _finish(cmd_list_tasks(args))
-    elif args.command == "review":
-        return _finish(cmd_review(args))
-    elif args.command == "exclude":
-        return _finish(cmd_exclude(args))
-    elif args.command == "task":
-        return _finish(cmd_task(args))
-    elif args.command == "montage":
-        return _finish(cmd_montage(args))
-    elif args.command == "input":
-        return _finish(cmd_input(args))
-    elif args.command == "source":
-        return _finish(cmd_source(args))
-    elif args.command == "config":
-        return _finish(cmd_config(args))
-    elif args.command == "workspace":
-        return _finish(cmd_workspace(args))
-    elif args.command == "export-access-log":
-        return _finish(cmd_export_access_log(args))
-    elif args.command == "login":
-        return _finish(cmd_login(args))
-    elif args.command == "logout":
-        return _finish(cmd_logout(args))
-    elif args.command == "whoami":
-        return _finish(cmd_whoami(args))
-    elif args.command == "auth0-diagnostics":
-        return _finish(cmd_auth0_diagnostics(args))
-    elif args.command == "auth":
-        return _finish(cmd_auth(args))
-    elif args.command == "clean-task":
-        return _finish(cmd_clean_task(args))
-    elif args.command == "view":
-        return _finish(cmd_view(args))
-    elif args.command == "report":
-        return _finish(cmd_report(args))
-    elif args.command == "version":
-        return _finish(cmd_version(args))
-    elif args.command == "help":
-        return _finish(cmd_help(args))
-    elif args.command == "tutorial":
-        return _finish(cmd_tutorial(args))
-    else:
+    try:
+        if args.command == "process":
+            if getattr(args, "process_action", None) == "ica":
+                return _finish(cmd_process_ica(args))
+            return _finish(cmd_process(args))
+        if args.command == "list-tasks":
+            return _finish(cmd_list_tasks(args))
+        if args.command == "review":
+            return _finish(cmd_review(args))
+        if args.command == "exclude":
+            return _finish(cmd_exclude(args))
+        if args.command == "task":
+            return _finish(cmd_task(args))
+        if args.command == "montage":
+            return _finish(cmd_montage(args))
+        if args.command == "input":
+            return _finish(cmd_input(args))
+        if args.command == "source":
+            return _finish(cmd_source(args))
+        if args.command == "config":
+            return _finish(cmd_config(args))
+        if args.command == "workspace":
+            return _finish(cmd_workspace(args))
+        if args.command == "export-access-log":
+            return _finish(cmd_export_access_log(args))
+        if args.command == "login":
+            return _finish(cmd_login(args))
+        if args.command == "logout":
+            return _finish(cmd_logout(args))
+        if args.command == "whoami":
+            return _finish(cmd_whoami(args))
+        if args.command == "auth0-diagnostics":
+            return _finish(cmd_auth0_diagnostics(args))
+        if args.command == "auth":
+            return _finish(cmd_auth(args))
+        if args.command == "clean-task":
+            return _finish(cmd_clean_task(args))
+        if args.command == "view":
+            return _finish(cmd_view(args))
+        if args.command == "report":
+            return _finish(cmd_report(args))
+        if args.command == "version":
+            return _finish(cmd_version(args))
+        if args.command == "help":
+            return _finish(cmd_help(args))
+        if args.command == "tutorial":
+            return _finish(cmd_tutorial(args))
+
         parser.print_help()
         return _finish(1)
+    except KeyboardInterrupt:
+        message("warning", "Interrupted by user (Ctrl+C). Exiting gracefully.")
+        return _finish(130)
 
 
 if __name__ == "__main__":
