@@ -3231,7 +3231,7 @@ def cmd_wizard(args) -> int:
         )
 
         intro = Text()
-        intro.append("Welcome to AutoClean EEG!\n", style="brand")
+        intro.append("Welcome to the AutoCleanEEG Pipeline!\n", style="brand")
         intro.append(
             "This guided setup prepares a workspace, creates or selects a task, "
             "updates the montage, and stores a default input path."
@@ -3241,6 +3241,10 @@ def cmd_wizard(args) -> int:
             "changes already applied will be preserved.",
             style="muted",
         )
+        intro.append(
+            "\nSee https://autocleaneeg.org for full documentation.", style="muted"
+        )
+
         display.panel(intro, title="Getting started", style="border")
 
         _wizard_render_state(display, "Snapshot before changes")
@@ -3604,8 +3608,8 @@ def cmd_wizard(args) -> int:
         closing = Text()
         closing.append("Next steps", style="header")
         closing.append(
-            "\n• Run `autocleaneeg-pipeline task list` to review your tasks"
-            "\n• Use `autocleaneeg-pipeline process <TaskName> <file>` to start processing"
+            "\n• Run `autocleaneeg-pipeline` to review your selections"
+            "\n• Use `autocleaneeg-pipeline process to start processing"
             "\n• Rerun this wizard anytime to adjust defaults",
             style="muted",
         )
