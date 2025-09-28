@@ -1,0 +1,56 @@
+import { Callout, Cards, Steps, Tabs } from 'nextra/components';
+
+# Template Engine Evaluation & Rollout
+
+<Callout type="info">
+We replaced the ad-hoc string substitution used during custom task generation with a first-class Jinja rendering pipeline and audited the codebase for other high-impact templating opportunities.
+</Callout>
+
+## Where templating helps most
+
+<Cards>
+  <Cards.Card title="Wizard-generated tasks" icon="🧙">
+    The CLI wizard now renders the bundled task skeleton through Jinja so only the class definition changes while comments and metadata stay untouched, eliminating the possibility of accidental substitutions elsewhere in the file.【F:src/autoclean/cli.py†L3208-L3235】【F:src/autoclean/templates/custom_task_template.jinja†L1-L118】
+  </Cards.Card>
+  <Cards.Card title="HTML report assembly" icon="📄">
+    We confirmed that the visualization report builder still hand-crafts large HTML strings, making it a likely follow-up candidate for Jinja extraction if future work targets maintainability in that area.【F:src/autoclean/functions/visualization/reports.py†L160-L245】
+  </Cards.Card>
+</Cards>
+
+## How we wired it up
+
+<Steps>
+
+### 1. Centralize template rendering
+We introduced `autoclean.utils.template_renderer.render_template`, a memoized helper that loads Jinja templates with `StrictUndefined` so missing placeholders are caught early.【F:src/autoclean/utils/template_renderer.py†L1-L44】
+
+### 2. Author a canonical Jinja template
+The Python skeleton now has a `.jinja` twin that keeps the comments and processing scaffold intact while exposing the class name as a parameter. Rendering it with `class_name="CustomTask"` reproduces the shipped module verbatim, ensuring downstream imports continue to work.【F:src/autoclean/templates/custom_task_template.jinja†L1-L118】【F:tests/unit/templates/test_custom_task_template.py†L1-L11】
+
+### 3. Swap the wizard over to Jinja
+`_wizard_create_task_from_template` now funnels class-name substitutions through the renderer and wraps any loader/rendering error in a friendly `RuntimeError`, keeping UX consistent with the rest of the wizard messaging.【F:src/autoclean/cli.py†L3208-L3244】
+
+</Steps>
+
+## How to validate locally
+
+<Tabs items={['Unit test', 'Manual CLI exercise']}>
+  <Tabs.Tab>
+
+  1. Install dependencies (the wizard now requires `Jinja2`).
+  2. Run `pytest tests/unit/templates/test_custom_task_template.py` to confirm the rendered output matches the canonical Python module byte-for-byte.【F:tests/unit/templates/test_custom_task_template.py†L1-L11】
+
+  </Tabs.Tab>
+  <Tabs.Tab>
+
+  1. Launch `autocleaneeg-pipeline wizard` and create a new task.
+  2. Inspect the generated file to verify only the class declaration reflects your chosen name; the rest should mirror the shipped template exactly.
+  3. Repeat with an existing slug to confirm overwrite handling still works as documented previously.【F:src/autoclean/cli.py†L3208-L3254】
+
+  </Tabs.Tab>
+</Tabs>
+
+## Future opportunities
+
+- Port the HTML report builder to a Jinja template once we prioritize documentation/reporting maintainability; doing so would simplify styling tweaks and make localization possible.【F:src/autoclean/functions/visualization/reports.py†L160-L245】
+- Expand the renderer helper with reusable filters (e.g., slugifying names) if additional templates emerge.

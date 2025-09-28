@@ -55,7 +55,18 @@ List tasks and show overrides:
 
 ```bash
 autocleaneeg-pipeline task list
+```
 
+### Exporting the Task Schema
+
+To view the canonical task configuration schema as JSON, run:
+
+```bash
+autocleaneeg-pipeline task schema export -o schema.json
+```
+
+Every release also ships a pre-generated artifact at
+`autoclean/configkit/schema_exports/schema-2025.09.json` inside the package.
 
 ## Output Structure
 

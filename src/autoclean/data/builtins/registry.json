@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "commit": "0000000000000000000000000000000000000000",
+  "tasks": [
+    {"name": "RestingEyesOpen", "path": "tasks/resting/RestingEyesOpen.py"},
+    {"name": "RestingEyesClosed", "path": "tasks/resting/RestingEyesClosed.py"},
+    {"name": "ASSR_40Hz", "path": "tasks/auditory/ASSR_40Hz.py"},
+    {"name": "MMN_Standard", "path": "tasks/auditory/MMN_Standard.py"}
+  ]
+}

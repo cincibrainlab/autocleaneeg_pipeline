@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from autoclean.utils.auth import require_authentication
 from autoclean.utils.logging import message
+from autoclean.utils.template_renderer import render_template
 
 # ---------- Data models ----------
 
@@ -78,17 +79,14 @@ class RunContext:
 def render_methods(context: RunContext) -> str:
     """Render a deterministic methods paragraph."""
 
+    template_path = (
+        Path(__file__).resolve().parent.parent / "templates" / "methods_paragraph.jinja"
+    )
+
     fp = context.filter_params
     e = context.epochs
     ica = context.ica
-    parts = []
-    parts.append(
-        f"EEG preprocessing was performed using AutoCleanEEG v{context.pipeline_version} "
-        f"(MNE-Python {context.mne_version or 'n/a'}). Data were converted to BIDS and organized under "
-        f"{Path(context.bids_root).name if context.bids_root else 'a BIDS-compliant folder'}."
-    )
-    if context.resample_hz:
-        parts.append(f"Signals were resampled to {context.resample_hz:.0f} Hz.")
+
     if fp.l_freq or fp.h_freq or fp.notch_freqs:
         band = []
         if fp.l_freq is not None:
@@ -96,33 +94,72 @@ def render_methods(context: RunContext) -> str:
         if fp.h_freq is not None:
             band.append(f"low-pass at {fp.h_freq:g} Hz")
         if fp.notch_freqs:
-            band.append(
-                f"notch at {', '.join(map(lambda x: str(int(x)), fp.notch_freqs))} Hz"
-            )
-        parts.append("Data were filtered (" + "; ".join(band) + ").")
-    if context.reference:
-        parts.append(f"Signals were re-referenced to {context.reference}.")
+            notch = ", ".join(str(int(freq)) for freq in fp.notch_freqs)
+            band.append(f"notch at {notch} Hz")
+        filter_band = "; ".join(band)
+    else:
+        filter_band = None
+
     if ica:
-        parts.append(
-            f"Independent Component Analysis was performed using {ica.method} "
-            f"({ica.n_components if ica.n_components is not None else 'n'} components). "
-            f"Components were classified with {ica.classifier or 'unspecified'} and "
-            f"{len(ica.removed_indices)} components were removed."
-        )
+        ica_context: Optional[Dict[str, Any]] = {
+            "method": ica.method,
+            "n_components": (
+                str(ica.n_components)
+                if ica.n_components is not None
+                else "n"
+            ),
+            "classifier": ica.classifier or "unspecified",
+            "removed_count": len(ica.removed_indices),
+        }
+    else:
+        ica_context = None
+
+    epochs_context: Optional[Dict[str, Any]] = None
     if e and (e.tmin is not None or e.tmax is not None):
-        base = ""
+        baseline = None
         if e.baseline and any(x is not None for x in e.baseline):
-            base = f" with baseline correction ({e.baseline[0]} to {e.baseline[1]} s)"
-        parts.append(f"Data were epoched from {e.tmin}s to {e.tmax}s{base}.")
+            baseline = f" with baseline correction ({e.baseline[0]} to {e.baseline[1]} s)"
+
+        counts_sentence = None
         if e.total_epochs is not None:
-            parts.append(
-                f"Epoch counts: total={e.total_epochs}, kept={e.kept_epochs}, rejected={e.rejected_epochs}."
+            counts_sentence = (
+                f"Epoch counts: total={e.total_epochs}, "
+                f"kept={e.kept_epochs}, rejected={e.rejected_epochs}."
             )
+
+        rejection_sentence = None
         if e.rejection_rules:
-            parts.append(f"Automated epoch rejection thresholds: {e.rejection_rules}.")
-    if context.montage:
-        parts.append(f"Electrodes were assigned to the {context.montage} montage.")
-    return " ".join(parts)
+            rejection_sentence = (
+                f"Automated epoch rejection thresholds: {e.rejection_rules}."
+            )
+
+        epochs_context = {
+            "tmin": e.tmin,
+            "tmax": e.tmax,
+            "baseline": baseline,
+            "counts_sentence": counts_sentence,
+            "rejection_sentence": rejection_sentence,
+        }
+
+    template_context = {
+        "pipeline_version": context.pipeline_version,
+        "mne_version": context.mne_version or "n/a",
+        "bids_label": (
+            Path(context.bids_root).name
+            if context.bids_root
+            else "a BIDS-compliant folder"
+        ),
+        "resample_hz": (
+            f"{context.resample_hz:.0f}" if context.resample_hz else None
+        ),
+        "filter_band": filter_band,
+        "reference": context.reference,
+        "ica": ica_context,
+        "epochs": epochs_context,
+        "montage": context.montage,
+    }
+
+    return render_template(template_path, template_context).strip()
 
 
 # ---------- LLM provider (OpenAI-compatible; easy to swap) ----------
