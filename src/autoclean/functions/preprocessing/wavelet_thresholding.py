@@ -91,16 +91,75 @@ def _normalize_threshold_mode(threshold_mode: str) -> str:
     return mode
 
 
+def _resolve_pick_indices(
+    inst: Union[mne.io.BaseRaw, mne.Epochs],
+    picks: Optional[Union[str, Sequence[Union[str, int]]]],
+) -> np.ndarray:
+    """Resolve channel picks into integer indices for denoising."""
+
+    n_channels = len(inst.ch_names)
+    if picks is None:
+        return np.arange(n_channels, dtype=int)
+
+    if isinstance(picks, str):
+        key = picks.lower()
+        if key in {"all", "everything"}:
+            return np.arange(n_channels, dtype=int)
+        if key == "eeg":
+            picked = mne.pick_types(inst.info, eeg=True, meg=False, ref_meg=False, exclude=[])
+            if picked.size == 0:
+                raise ValueError("No EEG channels available for picks='eeg'")
+            return picked.astype(int)
+        if picks in inst.ch_names:
+            return np.array([inst.ch_names.index(picks)], dtype=int)
+        raise ValueError(f"Unknown picks value '{picks}'")
+
+    if isinstance(picks, Sequence):
+        indices: list[int] = []
+        for item in picks:
+            if isinstance(item, str):
+                if item in inst.ch_names:
+                    indices.append(inst.ch_names.index(item))
+                else:
+                    raise ValueError(f"Channel '{item}' not found in data")
+            elif isinstance(item, int):
+                if -n_channels <= item < n_channels:
+                    indices.append(item % n_channels)
+                else:
+                    raise IndexError(
+                        f"Channel index {item} out of bounds (0..{n_channels - 1})"
+                    )
+            else:
+                raise TypeError("picks sequence must contain channel names or indices")
+
+        if not indices:
+            raise ValueError("picks sequence resolved to no channels")
+        return np.array(sorted(set(indices)), dtype=int)
+
+    raise TypeError("picks must be None, a string, or a sequence of names/indices")
+
+
 def _denoise_signal(
     signal: np.ndarray,
     wavelet: str,
-    level: int,
+    level: Union[int, str],
     threshold_mode: str = "soft",
+    threshold_scale: float = 1.0,
 ) -> np.ndarray:
     """Denoise a 1D signal using wavelet thresholding."""
 
     signal_array = np.asarray(signal)
-    effective_level = _resolve_decomposition_level(signal_array.size, wavelet, level)
+    if isinstance(level, str):
+        if level.lower() != "auto":
+            raise ValueError(
+                "wavelet_threshold level must be an integer or 'auto', got "
+                f"{level!r}"
+            )
+        requested_level = signal_array.size  # upper bound for auto selection
+    else:
+        requested_level = int(level)
+
+    effective_level = _resolve_decomposition_level(signal_array.size, wavelet, requested_level)
     if effective_level == 0:
         return signal_array.copy()
 
@@ -108,6 +167,7 @@ def _denoise_signal(
     coeffs = pywt.wavedec(signal_array, wavelet, level=effective_level)
     sigma = np.median(np.abs(coeffs[-1])) / 0.6745 if coeffs[-1].size else 0.0
     uthresh = sigma * np.sqrt(2 * np.log(signal_array.size)) if sigma else 0.0
+    uthresh *= float(threshold_scale)
     coeffs_thresh = [coeffs[0]]
     if uthresh == 0.0:
         coeffs_thresh.extend(coeffs[1:])
@@ -123,11 +183,13 @@ def _denoise_signal(
 def wavelet_threshold(
     data: Union[mne.io.BaseRaw, mne.Epochs],
     wavelet: str = "sym4",
-    level: int = 5,
+    level: Union[int, str] = 5,
     threshold_mode: str = "soft",
     is_erp: bool = False,
     bandpass: Optional[Tuple[float, float]] = (1.0, 30.0),
     filter_kwargs: Optional[Mapping[str, Any]] = None,
+    threshold_scale: float = 1.0,
+    picks: Optional[Union[str, Sequence[Union[str, int]]]] = None,
 ) -> Union[mne.io.BaseRaw, mne.Epochs]:
     """Apply wavelet thresholding to EEG data.
 
@@ -148,6 +210,14 @@ def wavelet_threshold(
         When ``True`` the function filters the signal once, estimates
         artifacts in the filtered space, subtracts them from the unfiltered
         signal, and finally applies the band-pass filter.
+    threshold_scale
+        Multiply the universal threshold by this factor (``>0``) to adjust
+        denoising aggressiveness. Values greater than one increase artifact
+        removal; values below one preserve more detail.
+    picks
+        Optional subset of channels to denoise (names, indices, or channel
+        type strings such as ``"eeg"``). Channels not included remain
+        unchanged.
     bandpass
         Two-element ``(low, high)`` tuple specifying the ERP band-pass. Ignored
         when ``is_erp`` is ``False``.
@@ -155,6 +225,9 @@ def wavelet_threshold(
         Optional extra keyword arguments forwarded to ``mne``'s ``filter``
         method during ERP processing.
     """
+
+    if threshold_scale <= 0:
+        raise ValueError("threshold_scale must be positive")
 
     if is_erp:
         if bandpass is None or len(bandpass) != 2:
@@ -176,6 +249,9 @@ def wavelet_threshold(
             threshold_mode=threshold_mode,
             is_erp=False,
             bandpass=None,
+            filter_kwargs=filter_params,
+            threshold_scale=threshold_scale,
+            picks=picks,
         )
 
         artifact_data = filtered.get_data() - denoised_filtered.get_data()
@@ -188,20 +264,29 @@ def wavelet_threshold(
 
     mode = _normalize_threshold_mode(threshold_mode)
     cleaned = data.copy()
+    pick_indices = _resolve_pick_indices(cleaned, picks)
+
     if isinstance(cleaned, mne.io.BaseRaw):
         arr = cleaned.get_data()
-        for idx in range(arr.shape[0]):
-            arr[idx] = _denoise_signal(arr[idx], wavelet, level, threshold_mode=mode)
+        for idx in pick_indices:
+            arr[idx] = _denoise_signal(
+                arr[idx],
+                wavelet,
+                level,
+                threshold_mode=mode,
+                threshold_scale=threshold_scale,
+            )
         cleaned._data = arr
     elif isinstance(cleaned, mne.Epochs):
         arr = cleaned.get_data()
         for epoch in range(arr.shape[0]):
-            for channel in range(arr.shape[1]):
+            for channel in pick_indices:
                 arr[epoch, channel] = _denoise_signal(
                     arr[epoch, channel],
                     wavelet,
                     level,
                     threshold_mode=mode,
+                    threshold_scale=threshold_scale,
                 )
         cleaned._data = arr
     else:
@@ -287,13 +372,34 @@ def _compute_psd_metrics(
     sfreq: float,
     ch_names: Sequence[str],
     bands: Dict[str, Tuple[float, float]] = FREQUENCY_BANDS,
+    psd_fmax: Optional[float] = None,
 ) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
-    """Compute Welch PSDs and band power reductions."""
+"""Compute Welch PSDs and band power reductions.
+
+The optional ``psd_fmax`` argument enforces a ceiling on the analysis range,
+mirroring the pipeline-wide configuration knob. When omitted the legacy 45 Hz
+limit is retained for backwards compatibility.
+"""
 
     n_times = baseline.shape[1]
     n_fft = min(1024, n_times)
     n_overlap = max(n_fft // 2, 0)
-    psd_kwargs = dict(fmin=1.0, fmax=45.0, n_fft=n_fft, n_overlap=n_overlap, verbose=False)
+
+    nyquist = sfreq / 2.0 if sfreq else None
+    if psd_fmax is not None and nyquist is not None:
+        ceiling = min(float(psd_fmax), max(1.0, nyquist - 0.5))
+    elif nyquist is not None:
+        ceiling = min(45.0, max(1.0, nyquist - 0.5))
+    else:
+        ceiling = 45.0
+
+    psd_kwargs = dict(
+        fmin=1.0,
+        fmax=ceiling,
+        n_fft=n_fft,
+        n_overlap=n_overlap,
+        verbose=False,
+    )
     psd_before, freqs = psd_array_welch(baseline, sfreq=sfreq, **psd_kwargs)
     psd_after, _ = psd_array_welch(cleaned, sfreq=sfreq, **psd_kwargs)
 
@@ -448,6 +554,14 @@ def _create_summary_table(summary: Dict[str, Union[str, float, int, Dict[str, fl
             ["Sampling rate (Hz)", f"{summary['sfreq']:.2f}"],
             ["Duration (s)", f"{summary['duration_sec']:.2f}"],
             [
+                "PSD ceiling (Hz)",
+                f"{summary['psd_fmax']:.2f}" if summary.get("psd_fmax") else "Default (45 Hz)",
+            ],
+            [
+                "Threshold scale",
+                f"{summary.get('threshold_scale', 1.0):.2f}",
+            ],
+            [
                 "Effective wavelet level",
                 f"{summary['effective_level']} (requested {summary['requested_level']})",
             ],
@@ -465,6 +579,10 @@ def _create_summary_table(summary: Dict[str, Union[str, float, int, Dict[str, fl
             ],
         ]
     )
+
+    if summary.get("picks"):
+        picks_display = ", ".join(str(item) for item in summary["picks"])
+        table_data.append(["Channel selection", picks_display])
 
     band_reductions = summary.get("band_reductions", {})
     for band in FREQUENCY_BANDS.keys():
@@ -648,7 +766,7 @@ def generate_wavelet_report(
     source: Union[str, Path, mne.io.BaseRaw],
     output_pdf: Union[str, Path],
     wavelet: str = "sym4",
-    level: int = 5,
+    level: Union[int, str] = 5,
     picks: Union[str, Iterable[str]] = "eeg",
     snippet_duration: float = 5.0,
     top_n_channels: int = 10,
@@ -656,8 +774,23 @@ def generate_wavelet_report(
     is_erp: bool = False,
     bandpass: Optional[Tuple[float, float]] = (1.0, 30.0),
     filter_kwargs: Optional[Mapping[str, Any]] = None,
+    psd_fmax: Optional[float] = None,
+    threshold_scale: float = 1.0,
 ) -> WaveletReportResult:
-    """Generate a PDF report comparing pre/post wavelet thresholding."""
+    """Generate a PDF report comparing pre/post wavelet thresholding.
+
+    Parameters
+    ----------
+    picks : str or iterable, optional
+        Channel selection applied when computing the report and mirrored during
+        denoising. Defaults to ``"eeg"``.
+    psd_fmax : float or None, optional
+        Optional frequency ceiling for PSD metrics/plots. When ``None`` the
+        historical 45 Hz cutoff is used.
+    threshold_scale : float, optional
+        Multiplier applied to the universal threshold when generating the
+        report. Mirrors the preprocessing setting.
+    """
 
     raw, source_path = _load_raw_object(source)
     source_name = source_path.name if source_path else getattr(raw, "filenames", ["Raw data"])[0]
@@ -677,11 +810,17 @@ def generate_wavelet_report(
         is_erp=is_erp,
         bandpass=bandpass,
         filter_kwargs=filter_kwargs,
+        threshold_scale=threshold_scale,
+        picks=picks,
     ).get_data()
 
     metrics = _compute_channel_metrics(baseline, cleaned, raw_subset.ch_names)
     psd_metrics, freqs, psd_before, psd_after = _compute_psd_metrics(
-        baseline, cleaned, sfreq=float(raw_subset.info["sfreq"]), ch_names=raw_subset.ch_names
+        baseline,
+        cleaned,
+        sfreq=float(raw_subset.info["sfreq"]),
+        ch_names=raw_subset.ch_names,
+        psd_fmax=psd_fmax,
     )
 
     effective_level = _resolve_decomposition_level(
@@ -704,6 +843,8 @@ def generate_wavelet_report(
         "requested_level": level,
         "threshold_mode": threshold_mode.lower(),
         "erp_mode": bool(is_erp),
+        "psd_fmax": float(psd_fmax) if psd_fmax is not None else None,
+        "threshold_scale": float(threshold_scale),
         "ptp_mean": float(metrics["ptp_reduction_pct"].mean()),
         "ptp_median": float(metrics["ptp_reduction_pct"].median()),
         "ptp_max": float(metrics["ptp_reduction_pct"].max()),
@@ -714,6 +855,11 @@ def generate_wavelet_report(
         ),
         "band_reductions": {band: float(band_reductions.get(band, 0.0)) for band in FREQUENCY_BANDS.keys()},
     }
+    if picks is not None:
+        if isinstance(picks, str):
+            summary["picks"] = [picks]
+        else:
+            summary["picks"] = list(picks)
 
     figure_buffer = _build_overview_figure(
         baseline,
