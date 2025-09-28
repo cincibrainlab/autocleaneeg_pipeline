@@ -1,0 +1,102 @@
+{
+  "schema_version": "2025.09",
+  "tasks": {
+    "montage": {
+      "enabled": "bool",
+      "value": "string (valid montage) | 'auto' | None"
+    },
+    "ai_reporting": "bool|null",
+    "move_flagged_files": "bool|null",
+    "resample_step": {
+      "enabled": "bool",
+      "value": "number|null"
+    },
+    "filtering": {
+      "enabled": "bool",
+      "value": {
+        "l_freq": "number|null",
+        "h_freq": "number|null",
+        "notch_freqs": "number|list[number]|None",
+        "notch_widths": "number|list[number]|None"
+      }
+    },
+    "drop_outerlayer": {
+      "enabled": "bool",
+      "value": "list|None"
+    },
+    "eog_step": {
+      "enabled": "bool",
+      "value": "dict{eog_indices:list[int]|None, eog_drop:bool|None} | list | None"
+    },
+    "trim_step": {
+      "enabled": "bool",
+      "value": "number"
+    },
+    "crop_step": {
+      "enabled": "bool",
+      "value": {
+        "start": "number",
+        "end": "number|None"
+      }
+    },
+    "wavelet_threshold": {
+      "enabled": "bool",
+      "value": {
+        "wavelet": "string (PyWavelets name)",
+        "level": "integer>=0 or 'auto'",
+        "threshold_mode": "'soft'|'hard'",
+        "is_erp": "bool",
+        "threshold_scale": "number (default 1.0)",
+        "psd_fmax": "number|null",
+        "bandpass": "[low, high] or None",
+        "filter_kwargs": "mapping|None",
+        "picks": "str|sequence|None"
+      }
+    },
+    "reference_step": {
+      "enabled": "bool",
+      "value": "'average' | list[str] | None"
+    },
+    "ICA": {
+      "enabled": "bool",
+      "value": {
+        "method": "'fastica'|'infomax'|'picard'",
+        "n_components": "number|null",
+        "noise_cov": "dict|None",
+        "random_state": "int|null",
+        "fit_params": "dict|None",
+        "max_iter": "int|'auto'|None",
+        "allow_ref_meg": "bool|None",
+        "decim": "int|None",
+        "temp_highpass_for_ica": "float|None"
+      }
+    },
+    "component_rejection": {
+      "enabled": "bool",
+      "method": "'iclabel'|'icvision'|'hybrid'",
+      "value": {
+        "ic_flags_to_reject": "list[str]",
+        "ic_rejection_threshold": "number",
+        "psd_fmax": "number|null",
+        "ic_rejection_overrides": "dict|None",
+        "icvision_n_components": "int|None"
+      }
+    },
+    "epoch_settings": {
+      "enabled": "bool",
+      "value": {
+        "tmin": "number|null",
+        "tmax": "number|null"
+      },
+      "event_id": "dict|null",
+      "remove_baseline": {
+        "enabled": "bool",
+        "window": "[start, end]|None"
+      },
+      "threshold_rejection": {
+        "enabled": "bool",
+        "volt_threshold": "dict|number"
+      }
+    }
+  }
+}
