@@ -27,6 +27,7 @@ from rich.table import Table
 from autoclean import __version__
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
+from autoclean.utils.builtins import BuiltinRegistry
 from autoclean.utils.cli_display import CLIDisplay
 from autoclean.utils.config import (
     disable_compliance_mode,
@@ -115,6 +116,19 @@ def _sanitize_arguments(args: List[str]) -> List[str]:
         sanitized.append(sanitized_arg)
 
     return sanitized
+
+
+def _pretty_timestamp(value: Optional[str], *, default: str = "not yet checked") -> str:
+    """Render ISO timestamps in a user-friendly format."""
+
+    if not value or value in {"never", "not yet checked"}:
+        return default
+    try:
+        dt = datetime.fromisoformat(value)
+    except ValueError:
+        return value
+    local_dt = dt.astimezone()
+    return local_dt.strftime("%Y-%m-%d %H:%M %Z")
 
 
 def _rotate_log(log_path: Path) -> None:
@@ -257,6 +271,37 @@ def _print_startup_context(console) -> None:
             ws.append("Workspace not configured — ", style="muted")
             ws.append(display_path, style="accent")
             console.print(_Align.center(ws))
+
+        try:
+            registry = BuiltinRegistry()
+            registry_info = registry.registry_status()
+            commit_raw = registry_info.get("commit")
+            commit = commit_raw or "not yet synced"
+            if commit in {"unknown", ""}:
+                commit = "not yet synced"
+            elif commit == "local-snapshot":
+                commit = "local snapshot"
+            synced_at = _pretty_timestamp(registry_info.get("synced_at"))
+            status_line = _Text()
+            status_line.append("Task Library: ", style="muted")
+            status_line.append(commit, style="accent")
+            status_line.append("  ", style="muted")
+            status_line.append("last checked ", style="muted")
+            status_line.append(synced_at, style="accent")
+            console.print(_Align.center(status_line))
+
+            last_error = registry_info.get("last_error")
+            if isinstance(last_error, dict):
+                err_text = _Text()
+                err_text.append("Working offline: ", style="warning")
+                err_text.append(last_error.get("message", "connection problem"), style="warning")
+                timestamp = _pretty_timestamp(last_error.get("timestamp"), default="time not recorded")
+                if timestamp:
+                    err_text.append("  ", style="muted")
+                    err_text.append(timestamp, style="muted")
+                console.print(_Align.center(err_text))
+        except Exception:
+            pass
             tip = _Text()
             tip.append("Run ", style="muted")
             tip.append("autocleaneeg-pipeline workspace", style="accent")
@@ -407,6 +452,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
+            ("📚 task library …", "Browse and copy official task templates"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -414,6 +460,26 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         console.print(
             "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
+        console.print()
+        return
+
+    if topic in {"task library", "library", "task builtins", "builtins", "builtin"}:
+        console.print("[header]Task Library Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        tbl.add_row("🔄 task library update", "Check online for refreshed templates")
+        tbl.add_row("📋 task library list", "See templates and sync status")
+        tbl.add_row(
+            "📦 task library install <name>",
+            "Copy a template into workspace/tasks",
+        )
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]The Task Library mirrors the public GitHub registry while keeping an offline copy inside the app." \
+            "[/muted]"
         )
         console.print()
         return
@@ -897,6 +963,94 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--name",
         type=str,
         help="When copying a built-in task, save as this name (without .py)",
+    )
+
+    library_parser = task_subparsers.add_parser(
+        "library",
+        help="Browse the official task library",
+        add_help=False,
+        aliases=["builtins"],
+    )
+    attach_rich_help(library_parser)
+    library_subparsers = library_parser.add_subparsers(
+        dest="task_library_action",
+        help="Task Library commands",
+    )
+
+    library_update = library_subparsers.add_parser(
+        "update",
+        help="Check GitHub for refreshed task templates",
+        add_help=False,
+    )
+    attach_rich_help(library_update)
+    library_update.add_argument(
+        "--no-network",
+        action="store_true",
+        help="Skip the online check and rely on cached/package data",
+    )
+
+    library_list = library_subparsers.add_parser(
+        "list",
+        help="Show available library templates",
+        add_help=False,
+    )
+    attach_rich_help(library_list)
+    library_list.add_argument(
+        "--show-paths",
+        action="store_true",
+        help="Show the registry path for each template",
+    )
+    library_list.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Check online for updates before listing",
+    )
+
+    library_install = library_subparsers.add_parser(
+        "install",
+        help="Copy a library template into the workspace",
+        add_help=False,
+    )
+    attach_rich_help(library_install)
+    library_install.add_argument(
+        "task_name",
+        type=str,
+        help="Name of the template to install",
+    )
+    library_install.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite the workspace copy if it already exists",
+    )
+
+    schema_parser = task_subparsers.add_parser(
+        "schema",
+        help="Inspect or export the task schema",
+        add_help=False,
+    )
+    attach_rich_help(schema_parser)
+    schema_subparsers = schema_parser.add_subparsers(
+        dest="task_schema_action",
+        help="Task schema commands",
+    )
+
+    schema_export_parser = schema_subparsers.add_parser(
+        "export",
+        help="Export the canonical task schema to JSON",
+        add_help=False,
+    )
+    attach_rich_help(schema_export_parser)
+    schema_export_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="Write schema JSON to this path (defaults to stdout)",
+    )
+    schema_export_parser.add_argument(
+        "--indent",
+        type=int,
+        default=2,
+        help="Indent level for JSON output (set to 0 for compact)",
     )
     edit_parser.add_argument(
         "--force",
@@ -2079,6 +2233,35 @@ def cmd_list_tasks(args) -> int:
         )
         console.print()
 
+        registry = BuiltinRegistry()
+        registry_info = registry.registry_status()
+
+        commit_raw = registry_info.get("commit")
+        commit = commit_raw or "not yet synced"
+        if commit in {"unknown", ""}:
+            commit = "not yet synced"
+        elif commit == "local-snapshot":
+            commit = "local snapshot"
+        synced_at = _pretty_timestamp(registry_info.get("synced_at"))
+        last_error = registry_info.get("last_error")
+
+        summary_line = (
+            f"[info]Task Library version:[/info] {commit} [muted](last checked {synced_at})[/muted]"
+        )
+        console.print(_Align.center(_Text(summary_line)))
+        if isinstance(last_error, dict):
+            err_msg = last_error.get("message", "connection problem")
+            err_time = _pretty_timestamp(
+                last_error.get("timestamp"), default="time not recorded"
+            )
+            console.print(
+                _Align.center(
+                    _Text(
+                        f"[warning]Last online check failed:[/warning] {err_msg} [muted]{err_time}[/muted]"
+                    )
+                )
+            )
+
         valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
 
         def _montage_label(task_name: str) -> str:
@@ -2111,15 +2294,29 @@ def cmd_list_tasks(args) -> int:
                 show_header=True, header_style="header", box=None, padding=(0, 1)
             )
             built_in_table.add_column("Task Name", style="accent", no_wrap=True)
+            built_in_table.add_column("Sync", style="info", no_wrap=True)
             built_in_table.add_column("Module", style="muted")
             built_in_table.add_column("Montage", style="info", no_wrap=True)
             built_in_table.add_column("Description", style="muted", max_width=50)
 
+            workspace_dir = user_config.tasks_dir
+
             for task in sorted(built_in_tasks, key=lambda x: x.name):
                 # Extract just the module name from the full path
                 module_name = Path(task.source).stem
+                sync = registry.task_sync_status(task.name, workspace_dir)
+                sync_state = sync.get("status") or "unknown"
+                if sync_state == "synced":
+                    sync_text = "[success]up to date[/success]"
+                elif sync_state == "modified":
+                    sync_text = "[warning]customized[/warning]"
+                elif sync_state == "not_installed":
+                    sync_text = "[muted]install to use[/muted]"
+                else:
+                    sync_text = "[muted]status unknown[/muted]"
                 built_in_table.add_row(
                     task.name,
+                    sync_text,
                     module_name + ".py",
                     _montage_label(task.name),
                     task.description or "No description",
@@ -4327,9 +4524,57 @@ def cmd_task(args) -> int:
         return cmd_task_unset(args)
     elif args.task_action == "show":
         return cmd_task_show(args)
+    elif args.task_action in {"library", "builtins"}:
+        return cmd_task_library(args)
+    elif args.task_action == "schema":
+        return cmd_task_schema(args)
     else:
         message("error", "No task action specified")
         return 1
+
+
+def cmd_task_schema(args) -> int:
+    """Handle task schema subcommands."""
+
+    if not getattr(args, "task_schema_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        console.print(
+            "[header]Task Schema[/header]\n\n"
+            "Use `autocleaneeg-pipeline task schema export` to emit the canonical "
+            "task configuration schema as JSON.",
+        )
+        return 0
+
+    if args.task_schema_action == "export":
+        return cmd_task_schema_export(args)
+
+    message("error", "Unknown task schema action")
+    return 1
+
+
+def cmd_task_schema_export(args) -> int:
+    """Export the canonical task schema as JSON."""
+
+    from autoclean.configkit.schema import export_task_schema_layout
+
+    payload = export_task_schema_layout()
+    indent = None if args.indent is None or args.indent < 0 else args.indent
+    text = json.dumps(payload, indent=indent)
+
+    if args.output:
+        output_path: Path = args.output
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as fh:
+            fh.write(text)
+            if indent is not None:
+                fh.write("\n")
+        message("success", f"Task schema exported to {output_path}")
+    else:
+        console = get_console(args)
+        console.print(text)
+
+    return 0
 
 
 def cmd_task_add(args) -> int:
@@ -5257,6 +5502,181 @@ def cmd_task_show(_args) -> int:
     except Exception as e:
         message("error", f"Failed to show active task: {e}")
         return 1
+
+
+def cmd_task_library(args) -> int:
+    """Handle 'task library' subcommands (and the legacy builtins alias)."""
+    action = getattr(args, "task_library_action", None)
+    console = get_console(args)
+
+    if not action:
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "task library")
+        return 0
+
+    if getattr(args, "task_action", None) == "builtins":
+        console.print(
+            "[muted]Tip: 'task builtins' is now 'task library'.\n"
+            "Commands continue to work, but the updated name is easier to remember.[/muted]"
+        )
+
+    registry = BuiltinRegistry()
+
+    if action == "update":
+        allow_network = not getattr(args, "no_network", False)
+        console.print("Checking for updates…")
+        msg = registry.update_cache(allow_network=allow_network)
+        console.print(msg)
+
+        summary = registry.last_update_summary()
+        new = summary.get("new", [])
+        updated = summary.get("updated", [])
+        removed = summary.get("removed", [])
+
+        total_changes = len(new) + len(updated) + len(removed)
+        if total_changes == 0:
+            console.print("[muted]No changes detected. Your library index is current.[/muted]")
+            return 0
+
+        from rich.table import Table as _Table
+
+        console.print(f"[success]✓[/success] Found {total_changes} change(s)")
+        table = _Table(show_header=True, box=None, padding=(0, 1))
+        table.add_column("Task", style="accent")
+        table.add_column("Status", style="info")
+
+        for name in sorted(new):
+            table.add_row(name, "new")
+        for name in sorted(updated):
+            table.add_row(name, "updated")
+        for name in sorted(removed):
+            table.add_row(name, "removed")
+
+        console.print(table)
+
+        # Helpful next step if updates exist
+        if updated:
+            examples = ", ".join(updated[:3])
+            console.print(
+                f"[muted]Run 'task library install <name> --force' to update your copy (e.g., {examples}).[/muted]"
+            )
+        return 0
+
+    if action == "list":
+        if getattr(args, "refresh", False):
+            console.print(registry.update_cache())
+        tasks = registry.list_tasks()
+        if not tasks:
+            console.print("[warning]No Task Library templates found in registry.json[/warning]")
+            return 0
+
+        status_info = registry.registry_status()
+        commit_raw = status_info.get("commit")
+        commit = commit_raw or "not yet synced"
+        if commit in {"unknown", ""}:
+            commit = "not yet synced"
+        elif commit == "local-snapshot":
+            commit = "local snapshot"
+        synced_at = _pretty_timestamp(status_info.get("synced_at"))
+        last_error = status_info.get("last_error")
+
+        summary = (
+            f"[info]Task Library version:[/info] {commit} "
+            f"[muted](last checked {synced_at})[/muted]"
+        )
+        console.print(summary)
+        if isinstance(last_error, dict):
+            err_msg = last_error.get("message", "connection problem")
+            err_time = _pretty_timestamp(
+                last_error.get("timestamp"), default="time not recorded"
+            )
+            note = (
+                "[warning]Last online check failed:[/warning] "
+                f"{err_msg} [muted]{err_time}[/muted]\n"
+                "[muted]Working from your cached templates instead.[/muted]"
+            )
+            console.print(note)
+
+        from rich.table import Table as _Table
+
+        table = _Table(show_header=True, box=None, padding=(0, 1))
+        table.add_column("Task", style="accent")
+        table.add_column("Status", style="info")
+        table.add_column("Source", style="muted")
+        if getattr(args, "show_paths", False):
+            table.add_column("Registry path", style="info")
+
+        workspace_dir = user_config.tasks_dir
+
+        for task in tasks:
+            sync = registry.task_sync_status(task.name, workspace_dir)
+            status = sync.get("status") or "unknown"
+            if status == "synced":
+                status_text = "[success]up to date[/success]"
+            elif status == "modified":
+                status_text = "[warning]customized[/warning]"
+            elif status == "not_installed":
+                status_text = "[muted]install to use[/muted]"
+            elif status == "missing":
+                status_text = "[error]not in library[/error]"
+            else:
+                status_text = "[muted]status unknown[/muted]"
+
+            source = sync.get("source") or "unknown"
+            if source == "cache":
+                source_text = "local download"
+            elif source == "package":
+                source_text = "bundled snapshot"
+            else:
+                source_text = source
+
+            row = [task.name, status_text, source_text]
+            if getattr(args, "show_paths", False):
+                row.append(task.path)
+            table.add_row(*row)
+
+        console.print()
+        console.print(table)
+        console.print()
+        console.print(
+            "[muted]Use 'task library install <name>' to copy a template into your workspace.[/muted]"
+        )
+        return 0
+
+    if action == "install":
+        dest_path = user_config.tasks_dir / f"{args.task_name}.py"
+        if dest_path.exists() and not getattr(args, "force", False):
+            message(
+                "warning",
+                f"Task '{args.task_name}' already exists at {dest_path}. Use --force to overwrite.",
+            )
+            return 1
+
+        try:
+            installed_path = registry.materialize_task_to(
+                args.task_name, user_config.tasks_dir
+            )
+        except ValueError as exc:
+            message("error", str(exc))
+            return 1
+        except FileNotFoundError as exc:
+            message("error", str(exc))
+            return 1
+        except Exception as exc:  # pylint: disable=broad-except
+            message("error", f"Failed to install built-in task: {exc}")
+            return 1
+
+        console.print(
+            f"[accent]{args.task_name}[/accent] copied to [info]{installed_path}[/info]"
+        )
+        console.print(
+            "[muted]Edit this file in your workspace to customize the task.[/muted]"
+        )
+        return 0
+
+    message("error", f"Unknown built-ins action: {action}")
+    return 1
 
 
 def cmd_source(args) -> int:
