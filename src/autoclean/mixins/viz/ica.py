@@ -288,6 +288,7 @@ class ICAReportingMixin:
         raw = self.raw
         ica = self.final_ica
         ic_labels = getattr(self, "ica_flags", None)
+        psd_fmax = self._resolve_psd_fmax()
 
         classification_method = getattr(self, "ica_classification_method", None)
         if not classification_method and ic_labels is not None:
@@ -478,8 +479,10 @@ class ICAReportingMixin:
                 
                 # Pre-compute all PSDs for the components we'll plot
                 logger.debug(f"Pre-computing PSDs for {len(component_indices)} components")
-                get_cached_component_psds(ica, raw, component_indices)
-                get_cached_component_psds(ica, raw_fast, component_indices)
+                get_cached_component_psds(ica, raw, component_indices, fmax=psd_fmax)
+                get_cached_component_psds(
+                    ica, raw_fast, component_indices, fmax=psd_fmax
+                )
                 
                 message("info", f"Pre-computed batch data for {len(component_indices)} components")
             except Exception as exc:
@@ -512,6 +515,7 @@ class ICAReportingMixin:
                     classification_method=classification_method,
                     raw_full=raw,
                     source_filename=source_name,
+                    psd_fmax=psd_fmax,
                 )
 
                 if isinstance(fig, plt.Figure):
@@ -522,6 +526,40 @@ class ICAReportingMixin:
 
         message("success", f"ICA report saved to {pdf_path}")
         return str(self._report_relative_path(Path(pdf_path)))
+
+    def _resolve_psd_fmax(self) -> Optional[float]:
+        """Find the PSD ceiling for ICA plots from cached values or configuration."""
+
+        def _sanitize(value: Optional[float]) -> Optional[float]:
+            if value is None:
+                return None
+            try:
+                numeric = float(value)
+            except (TypeError, ValueError):
+                return None
+            return numeric if numeric > 0 else None
+
+        cached_value = _sanitize(getattr(self, "_ica_plot_psd_fmax", None))
+        if cached_value is not None:
+            return cached_value
+
+        try:
+            is_enabled, step_config = self._check_step_enabled("component_rejection")
+        except Exception:
+            return None
+
+        if not is_enabled or not step_config or not isinstance(step_config, dict):
+            return None
+
+        psd_candidate = None
+        value_dict = step_config.get("value")
+        if isinstance(value_dict, dict):
+            psd_candidate = value_dict.get("psd_fmax")
+
+        if psd_candidate is None:
+            psd_candidate = step_config.get("psd_fmax")
+
+        return _sanitize(psd_candidate)
 
     def get_cache_info(self) -> dict:
         """Get ICA sources cache statistics for monitoring.
