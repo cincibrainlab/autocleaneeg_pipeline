@@ -10,6 +10,7 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
+    "schema_version": "2025.09",
     "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
     "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 250},
@@ -36,6 +37,8 @@ config = {
             "level": 5,
             "threshold_mode": "soft",
             "is_erp": False,
+            "threshold_scale": 1.0,
+            "psd_fmax": 45.0,
             "bandpass": [1.0, 30.0],
             "filter_kwargs": None,
         },

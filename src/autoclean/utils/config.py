@@ -13,6 +13,7 @@ import yaml
 from platformdirs import user_config_dir
 
 
+from autoclean.configkit.schema import SCHEMA_VERSION
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
 
@@ -45,6 +46,7 @@ def _legacy_build_task_settings_schema():
 
     return Schema(
         {
+            "schema_version": And(str, lambda v: v == SCHEMA_VERSION),
             Optional("ai_reporting"): Or(bool, None),
             # Basic preprocessing
             "resample_step": step_value_num,
@@ -69,11 +71,17 @@ def _legacy_build_task_settings_schema():
                 "enabled": bool,
                 "value": {
                     "wavelet": And(str, _is_valid_wavelet),
-                    "level": And(Or(int, float), lambda v: v >= 0),
+                    "level": Or(
+                        And(Or(int, float), lambda v: v >= 0),
+                        And(str, lambda v: v.lower() == "auto"),
+                    ),
                     "threshold_mode": Or(*THRESHOLD_MODES),
                     "is_erp": bool,
+                    Optional("threshold_scale"): Or(int, float),
+                    Optional("psd_fmax"): Or(int, float, None),
                     Optional("bandpass"): Or(list, tuple, None),
                     Optional("filter_kwargs"): Or(dict, None),
+                    Optional("picks"): Or(str, list, tuple, None),
                 },
             },
             # Referencing and montage

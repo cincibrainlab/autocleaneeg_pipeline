@@ -28,7 +28,7 @@ config = {
     # Optional: Specify a dataset name for organized output directories
     # Examples:
     #   With dataset_name: "Experiment1_07-03-2025"
-    #   Without dataset_name: "CustomTask"
+    #   Without dataset_name: "{{ class_name }}"
     "dataset_name": "Experiment1",  # Uncomment and modify for your dataset
     # Optional: Specify default input file or directory for this task
     # This will be used when no input is provided via CLI or API
@@ -123,7 +123,7 @@ config = {
 }
 
 
-class CustomTask(Task):
+class {{ class_name }}(Task):
     """
     Custom EEG preprocessing task template.
 
