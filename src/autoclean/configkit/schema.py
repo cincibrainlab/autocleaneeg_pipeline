@@ -59,6 +59,90 @@ def _ic_flags_valid(flags: list) -> bool:
         return False
 
 
+def _step_bool_descriptor() -> dict:
+    return {"enabled": "bool"}
+
+
+def _step_value_num_descriptor() -> dict:
+    return {"enabled": "bool", "value": "number|null"}
+
+
+def _filtering_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "l_freq": "number|null",
+            "h_freq": "number|null",
+            "notch_freqs": "number|list[number]|None",
+            "notch_widths": "number|list[number]|None",
+        },
+    }
+
+
+def _wavelet_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "wavelet": "string (PyWavelets name)",
+            "level": "integer>=0 or 'auto'",
+            "threshold_mode": "'soft'|'hard'",
+            "is_erp": "bool",
+            "threshold_scale": "number (default 1.0)",
+            "psd_fmax": "number|null",
+            "bandpass": "[low, high] or None",
+            "filter_kwargs": "mapping|None",
+            "picks": "str|sequence|None",
+        },
+    }
+
+
+def _ica_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "method": "'fastica'|'infomax'|'picard'",
+            "n_components": "number|null",
+            "noise_cov": "dict|None",
+            "random_state": "int|null",
+            "fit_params": "dict|None",
+            "max_iter": "int|'auto'|None",
+            "allow_ref_meg": "bool|None",
+            "decim": "int|None",
+            "temp_highpass_for_ica": "float|None",
+        },
+    }
+
+
+def _component_rejection_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "method": "'iclabel'|'icvision'|'hybrid'",
+        "value": {
+            "ic_flags_to_reject": "list[str]",
+            "ic_rejection_threshold": "number",
+            "psd_fmax": "number|null",
+            "ic_rejection_overrides": "dict|None",
+            "icvision_n_components": "int|None",
+        },
+    }
+
+
+def _epoch_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {"tmin": "number|null", "tmax": "number|null"},
+        "event_id": "dict|null",
+        "remove_baseline": {
+            "enabled": "bool",
+            "window": "[start, end]|None",
+        },
+        "threshold_rejection": {
+            "enabled": "bool",
+            "volt_threshold": "dict|number",
+        },
+    }
+
+
 def _build_task_settings_schema() -> Schema:
     """Schema for Python task module `config` dictionaries.
 
@@ -160,6 +244,42 @@ def _build_task_settings_schema() -> Schema:
             },
         }
     )
+
+
+def export_task_schema_layout() -> dict:
+    """Return a JSON-serialisable view of the task schema."""
+
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "tasks": {
+            "montage": {
+                "enabled": "bool",
+                "value": "string (valid montage) | 'auto' | None",
+            },
+            "ai_reporting": "bool|null",
+            "move_flagged_files": "bool|null",
+            "resample_step": _step_value_num_descriptor(),
+            "filtering": _filtering_descriptor(),
+            "drop_outerlayer": {"enabled": "bool", "value": "list|None"},
+            "eog_step": {
+                "enabled": "bool",
+                "value": "dict{eog_indices:list[int]|None, eog_drop:bool|None} | list | None",
+            },
+            "trim_step": {"enabled": "bool", "value": "number"},
+            "crop_step": {
+                "enabled": "bool",
+                "value": {"start": "number", "end": "number|None"},
+            },
+            "wavelet_threshold": _wavelet_descriptor(),
+            "reference_step": {
+                "enabled": "bool",
+                "value": "'average' | list[str] | None",
+            },
+            "ICA": _ica_descriptor(),
+            "component_rejection": _component_rejection_descriptor(),
+            "epoch_settings": _epoch_descriptor(),
+        },
+    }
 
 
 def migrate_legacy_task_config(task_config: dict) -> dict:

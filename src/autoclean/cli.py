@@ -1022,6 +1022,36 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Overwrite the workspace copy if it already exists",
     )
+
+    schema_parser = task_subparsers.add_parser(
+        "schema",
+        help="Inspect or export the task schema",
+        add_help=False,
+    )
+    attach_rich_help(schema_parser)
+    schema_subparsers = schema_parser.add_subparsers(
+        dest="task_schema_action",
+        help="Task schema commands",
+    )
+
+    schema_export_parser = schema_subparsers.add_parser(
+        "export",
+        help="Export the canonical task schema to JSON",
+        add_help=False,
+    )
+    attach_rich_help(schema_export_parser)
+    schema_export_parser.add_argument(
+        "-o",
+        "--output",
+        type=Path,
+        help="Write schema JSON to this path (defaults to stdout)",
+    )
+    schema_export_parser.add_argument(
+        "--indent",
+        type=int,
+        default=2,
+        help="Indent level for JSON output (set to 0 for compact)",
+    )
     edit_parser.add_argument(
         "--force",
         action="store_true",
@@ -4496,9 +4526,55 @@ def cmd_task(args) -> int:
         return cmd_task_show(args)
     elif args.task_action in {"library", "builtins"}:
         return cmd_task_library(args)
+    elif args.task_action == "schema":
+        return cmd_task_schema(args)
     else:
         message("error", "No task action specified")
         return 1
+
+
+def cmd_task_schema(args) -> int:
+    """Handle task schema subcommands."""
+
+    if not getattr(args, "task_schema_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        console.print(
+            "[header]Task Schema[/header]\n\n"
+            "Use `autocleaneeg-pipeline task schema export` to emit the canonical "
+            "task configuration schema as JSON.",
+        )
+        return 0
+
+    if args.task_schema_action == "export":
+        return cmd_task_schema_export(args)
+
+    message("error", "Unknown task schema action")
+    return 1
+
+
+def cmd_task_schema_export(args) -> int:
+    """Export the canonical task schema as JSON."""
+
+    from autoclean.configkit.schema import export_task_schema_layout
+
+    payload = export_task_schema_layout()
+    indent = None if args.indent is None or args.indent < 0 else args.indent
+    text = json.dumps(payload, indent=indent)
+
+    if args.output:
+        output_path: Path = args.output
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with output_path.open("w", encoding="utf-8") as fh:
+            fh.write(text)
+            if indent is not None:
+                fh.write("\n")
+        message("success", f"Task schema exported to {output_path}")
+    else:
+        console = get_console(args)
+        console.print(text)
+
+    return 0
 
 
 def cmd_task_add(args) -> int:
