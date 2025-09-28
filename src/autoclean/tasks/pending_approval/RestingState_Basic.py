@@ -13,6 +13,7 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
+    "schema_version": "2025.09",
     "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 250},
     "filtering": {
