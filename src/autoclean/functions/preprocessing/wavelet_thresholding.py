@@ -373,13 +373,13 @@ def _compute_psd_metrics(
     ch_names: Sequence[str],
     bands: Dict[str, Tuple[float, float]] = FREQUENCY_BANDS,
     psd_fmax: Optional[float] = None,
-) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
-"""Compute Welch PSDs and band power reductions.
+    ) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
+    """Compute Welch PSDs and band power reductions.
 
-The optional ``psd_fmax`` argument enforces a ceiling on the analysis range,
-mirroring the pipeline-wide configuration knob. When omitted the legacy 45 Hz
-limit is retained for backwards compatibility.
-"""
+    The optional ``psd_fmax`` argument enforces a ceiling on the analysis range,
+    mirroring the pipeline-wide configuration knob. When omitted the legacy 45 Hz
+    limit is retained for backwards compatibility.
+    """
 
     n_times = baseline.shape[1]
     n_fft = min(1024, n_times)
