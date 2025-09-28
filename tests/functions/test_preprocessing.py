@@ -6,6 +6,7 @@ referencing, and basic channel operations.
 
 import importlib.util
 from pathlib import Path
+from typing import List
 
 import numpy as np
 import pytest
@@ -29,6 +30,7 @@ _SPEC.loader.exec_module(wavelet_module)
 
 wavelet_threshold = wavelet_module.wavelet_threshold
 _resolve_decomposition_level = wavelet_module._resolve_decomposition_level
+_compute_psd_metrics = wavelet_module._compute_psd_metrics
 
 
 class TestFiltering:
@@ -161,6 +163,21 @@ class TestWaveletThreshold:
         hard_value = np.abs(cleaned_hard.get_data()[0, spike_index])
         assert hard_value >= soft_value
 
+    def test_wavelet_threshold_threshold_scale(self):
+        """Scaling the threshold should modulate artifact attenuation."""
+
+        raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=1)
+        artifact = raw.copy()
+        idx = 150
+        artifact._data[0, idx] += 3.0
+
+        cleaned_low = wavelet_threshold(artifact, threshold_scale=0.5)
+        cleaned_high = wavelet_threshold(artifact, threshold_scale=2.0)
+
+        low_value = np.abs(cleaned_low.get_data()[0, idx])
+        high_value = np.abs(cleaned_high.get_data()[0, idx])
+        assert high_value <= low_value
+
     def test_wavelet_threshold_invalid_mode_raises(self):
         """Unsupported threshold modes should raise a helpful error."""
 
@@ -168,6 +185,29 @@ class TestWaveletThreshold:
 
         with pytest.raises(ValueError):
             wavelet_threshold(raw, threshold_mode="invalid")
+
+    def test_wavelet_threshold_auto_level(self):
+        """Auto level should match the maximum safe decomposition level."""
+
+        raw = create_synthetic_raw(n_channels=1, sfreq=250, duration=1)
+        auto_cleaned = wavelet_threshold(raw, level="auto")
+
+        max_level = _resolve_decomposition_level(raw.n_times, "sym4", raw.n_times)
+        explicit_cleaned = wavelet_threshold(raw, level=max_level)
+
+        assert np.allclose(auto_cleaned.get_data(), explicit_cleaned.get_data())
+
+    def test_wavelet_threshold_picks_subset(self):
+        """Channel picks should confine denoising to selected channels."""
+
+        raw = create_synthetic_raw(montage="standard_1020", n_channels=4, sfreq=250, duration=1)
+        artifact = raw.copy()
+        artifact._data[0, 80] += 4.0
+
+        cleaned = wavelet_threshold(artifact, picks=[artifact.ch_names[0]])
+
+        assert not np.allclose(cleaned.get_data()[0], artifact.get_data()[0])
+        assert np.allclose(cleaned.get_data()[1], artifact.get_data()[1])
 
     def test_wavelet_threshold_erp_mode_matches_single_filter_when_clean(self):
         """ERP mode should reduce to a single filter when no artifact is present."""
@@ -192,6 +232,34 @@ class TestWaveletThreshold:
 
         with pytest.raises(ValueError):
             wavelet_threshold(raw, is_erp=True, bandpass=None)
+
+    def test_wavelet_psd_metrics_honour_ceiling(self, monkeypatch):
+        """Wavelet PSD metrics should respect the configured frequency ceiling."""
+
+        captured_fmax: List[float] = []
+
+        def _fake_psd(data, sfreq, **kwargs):
+            captured_fmax.append(kwargs.get("fmax", -1))
+            freqs = np.linspace(1.0, kwargs.get("fmax", 10.0), 8)
+            if freqs[0] >= freqs[-1]:
+                freqs = np.linspace(1.0, 10.0, 8)
+            return np.ones((data.shape[0], freqs.size)), freqs
+
+        monkeypatch.setattr(wavelet_module, "psd_array_welch", _fake_psd)
+
+        baseline = np.random.randn(2, 500)
+        cleaned = baseline.copy()
+
+        _compute_psd_metrics(
+            baseline,
+            cleaned,
+            sfreq=200.0,
+            ch_names=["Fz", "Cz"],
+            psd_fmax=25.0,
+        )
+
+        assert captured_fmax
+        assert all(fmax <= 25.0 for fmax in captured_fmax)
 
     def test_resolve_decomposition_level_matches_pywt(self):
         """Helper should agree with PyWavelets max level calculation."""

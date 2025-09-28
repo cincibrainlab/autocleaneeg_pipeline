@@ -67,6 +67,8 @@ config = {
             "level": 5,                  # Decomposition levels (auto-clamped internally)
             "threshold_mode": "soft",   # 'soft' or 'hard'
             "is_erp": False,             # Enable ERP-preserving mode
+            "threshold_scale": 1.0,      # Multiplier for universal threshold
+            "psd_fmax": 45.0,            # Optional PSD ceiling for wavelet QA plots
             "bandpass": [1.0, 30.0],     # Optional pre-filter band (set to None to skip)
             "filter_kwargs": None        # Extra args forwarded to MNE filtering
         },
