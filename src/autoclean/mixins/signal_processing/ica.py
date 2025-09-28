@@ -297,12 +297,17 @@ class IcaMixin:
         else:
             self.ica_vision_flags = None
 
+        # Persist psd_fmax for downstream plotting/reporting paths
+        setattr(self, "_ica_plot_psd_fmax", psd_fmax)
+
         metadata = {
             "ica": {
                 "classification_method": method,
                 "ica_components": self.final_ica.n_components_,
             }
         }
+        if psd_fmax is not None:
+            metadata["ica"]["psd_fmax"] = float(psd_fmax)
 
         self.ica_classification_method = method
         self._update_metadata("classify_ica_components", metadata)
