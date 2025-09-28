@@ -36,6 +36,8 @@ config = {
             "level": 5,
             "threshold_mode": "soft",
             "is_erp": False,
+            "threshold_scale": 1.0,
+            "psd_fmax": 45.0,
             "bandpass": [1.0, 30.0],
             "filter_kwargs": None,
         },

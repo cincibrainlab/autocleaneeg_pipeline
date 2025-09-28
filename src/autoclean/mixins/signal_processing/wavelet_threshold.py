@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Mapping, Optional, Tuple
+from typing import Mapping, Optional, Sequence, Tuple, Union
 
 import mne
 import numpy as np
@@ -52,13 +52,50 @@ class WaveletThresholdMixin:
 
         params = (settings or {}).get("value", {})
         wavelet_name = params.get("wavelet", "sym4")
-        level = int(params.get("level", 5))
-        if level < 0:
-            raise ValueError("wavelet_threshold level must be non-negative")
+        level_cfg = params.get("level", 5)
+        if isinstance(level_cfg, str):
+            if level_cfg.lower() != "auto":
+                raise ValueError(
+                    "wavelet_threshold level must be a non-negative integer or 'auto'"
+                )
+            level: Union[int, str] = "auto"
+        else:
+            level = int(level_cfg)
+            if level < 0:
+                raise ValueError("wavelet_threshold level must be non-negative")
         threshold_mode = params.get("threshold_mode", "soft")
         is_erp = bool(params.get("is_erp", False))
         bandpass_cfg = params.get("bandpass", (1.0, 30.0))
         filter_kwargs_cfg = params.get("filter_kwargs")
+        threshold_scale_cfg = params.get("threshold_scale", 1.0)
+        picks_cfg = params.get("picks")
+        psd_fmax_cfg = params.get("psd_fmax")
+
+        try:
+            threshold_scale = float(threshold_scale_cfg)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                "wavelet_threshold threshold_scale must be a numeric value"
+            ) from exc
+        if threshold_scale <= 0:
+            raise ValueError("wavelet_threshold threshold_scale must be positive")
+
+        psd_fmax_value: Optional[float]
+        if psd_fmax_cfg is None:
+            psd_fmax_value = None
+        else:
+            try:
+                psd_fmax_value = float(psd_fmax_cfg)
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "wavelet_threshold psd_fmax must be a numeric value when provided"
+                ) from exc
+            if psd_fmax_value <= 0:
+                message(
+                    "warning",
+                    "wavelet_threshold psd_fmax must be positive; ignoring provided value",
+                )
+                psd_fmax_value = None
 
         if bandpass_cfg is None:
             bandpass_tuple: Optional[Tuple[float, float]] = None
@@ -92,6 +129,8 @@ class WaveletThresholdMixin:
             is_erp=is_erp,
             bandpass=bandpass_tuple,
             filter_kwargs=filter_kwargs,
+            threshold_scale=threshold_scale,
+            picks=picks_cfg,
         )
 
         cleaned_data = cleaned.get_data()
@@ -112,9 +151,13 @@ class WaveletThresholdMixin:
         try:
             wavelet_obj = pywt.Wavelet(wavelet_name)
             max_level = pywt.dwt_max_level(baseline.shape[1], wavelet_obj.dec_len)
-            effective_level = int(max(0, min(level, max_level)))
+            if isinstance(level, str):
+                requested_level = max_level
+            else:
+                requested_level = level
+            effective_level = int(max(0, min(requested_level, max_level)))
         except Exception:
-            effective_level = level
+            effective_level = 0 if isinstance(level, str) else level
 
         report_path: Optional[Path] = None
         report_relative: Optional[Path] = None
@@ -155,6 +198,9 @@ class WaveletThresholdMixin:
                 is_erp=is_erp,
                 bandpass=bandpass_tuple,
                 filter_kwargs=filter_kwargs,
+                psd_fmax=psd_fmax_value,
+                threshold_scale=threshold_scale,
+                picks=picks_cfg,
             )
 
             if hasattr(self, "_report_relative_path"):
@@ -173,7 +219,7 @@ class WaveletThresholdMixin:
 
         metadata = {
             "wavelet": wavelet_name,
-            "level_requested": level,
+            "level_requested": level if isinstance(level, str) else int(level),
             "level_effective": effective_level,
             "threshold_mode": threshold_mode,
             "erp_mode": is_erp,
@@ -184,6 +230,16 @@ class WaveletThresholdMixin:
             "n_channels": int(cleaned_data.shape[0]),
             "report_path": str(report_relative or report_path) if report_path else None,
         }
+        if psd_fmax_value is not None:
+            metadata["psd_fmax"] = psd_fmax_value
+        metadata["threshold_scale"] = threshold_scale
+        if picks_cfg is not None:
+            if isinstance(picks_cfg, str):
+                metadata["picks"] = picks_cfg
+            elif isinstance(picks_cfg, Sequence):
+                metadata["picks"] = list(picks_cfg)
+            else:
+                metadata["picks"] = picks_cfg
         if filter_kwargs:
             metadata["filter_kwargs"] = filter_kwargs
 

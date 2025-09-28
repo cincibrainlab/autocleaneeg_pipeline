@@ -102,11 +102,17 @@ def _build_task_settings_schema() -> Schema:
                 "enabled": bool,
                 "value": {
                     "wavelet": And(str, _is_valid_wavelet),
-                    "level": And(Or(int, float), lambda v: v >= 0),
+                    "level": Or(
+                        And(Or(int, float), lambda v: v >= 0),
+                        And(str, lambda v: v.lower() == "auto"),
+                    ),
                     "threshold_mode": Or(*THRESHOLD_MODES),
                     "is_erp": bool,
+                    Optional("threshold_scale"): Or(int, float),
+                    Optional("psd_fmax"): Or(int, float, None),
                     Optional("bandpass"): Or(list, tuple, None),
                     Optional("filter_kwargs"): Or(dict, None),
+                    Optional("picks"): Or(str, list, tuple, None),
                 },
             },
             # Referencing and montage
