@@ -5,6 +5,7 @@ from __future__ import annotations
 from autoclean.core.task import Task
 
 config = {
+    "schema_version": "2025.09",
     "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
     "move_flagged_files": False,
     "resample_step": {"enabled": True, "value": 500},

@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from schema import And, Optional, Or, Schema
 
+SCHEMA_VERSION = "2025.09"
+
 from autoclean.utils.montage import VALID_MONTAGES
 
 # Optional: wavelet validation via PyWavelets
@@ -76,6 +78,7 @@ def _build_task_settings_schema() -> Schema:
 
     return Schema(
         {
+            "schema_version": And(str, lambda v: v == SCHEMA_VERSION),
             "montage": {"enabled": bool, "value": Or(And(str, _is_valid_montage), None)},
             Optional("ai_reporting"): Or(bool, None),
             Optional("move_flagged_files"): Or(bool, None),

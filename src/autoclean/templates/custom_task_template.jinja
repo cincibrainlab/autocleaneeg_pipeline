@@ -20,6 +20,7 @@ from autoclean.core.task import Task
 # =============================================================================
 
 config = {
+    "schema_version": "2025.09",
     # Optional: AI-powered textual reporting (default OFF)
     # Set to True to generate LLM-backed summaries after the run,
     # using the processing log CSV and the PDF report as inputs.
