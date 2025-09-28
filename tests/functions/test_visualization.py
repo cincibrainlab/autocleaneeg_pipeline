@@ -17,6 +17,7 @@ from autoclean.functions.visualization import (
     plot_psd_topography,
     plot_raw_comparison,
 )
+from autoclean.mixins.viz.ica import ICAReportingMixin
 
 
 @pytest.fixture
@@ -124,6 +125,18 @@ class TestPlotIcaComponents:
         mock_ica.plot_components.assert_called()
         plt.close(fig)
 
+    def test_psd_fmax_limits(self, mock_ica, mock_raw):
+        """PSD subplot should respect the provided psd_fmax ceiling."""
+        with patch(
+            "autoclean.functions.visualization.icvision_layouts.psd_array_welch",
+            return_value=(np.ones(32), np.linspace(1, 32, 32)),
+        ):
+            fig = plot_ica_components(mock_ica, mock_raw, psd_fmax=40.0)
+
+        titles = [ax.get_title() for ax in fig.axes]
+        assert any("1-40Hz" in title for title in titles)
+        plt.close(fig)
+
     def test_input_validation(self):
         """Test input validation."""
         with pytest.raises(TypeError):
@@ -208,3 +221,39 @@ class TestCreateProcessingSummary:
         assert summary["total_time"] == 3.8  # 2.3 + 1.5
         assert summary["steps"] == processing_steps
         assert "generated_at" in summary
+
+
+class DummyICAReportingTask(ICAReportingMixin):
+    """Lightweight harness to test ICAReportingMixin helpers."""
+
+    def __init__(self, check_result):
+        self._check_result = check_result
+
+    def _check_step_enabled(self, step_name):  # pragma: no cover - trivial shim
+        return self._check_result
+
+
+class TestResolvePsdFmax:
+    """Validate psd_fmax resolution logic for ICA reports."""
+
+    def test_prefers_cached_value(self):
+        task = DummyICAReportingTask((False, None))
+        task._ica_plot_psd_fmax = 55.0
+        assert task._resolve_psd_fmax() == 55.0
+
+    def test_fallback_to_config(self):
+        task = DummyICAReportingTask(
+            (
+                True,
+                {
+                    "value": {"psd_fmax": 42.0},
+                },
+            )
+        )
+        task._ica_plot_psd_fmax = None
+        assert task._resolve_psd_fmax() == 42.0
+
+    def test_returns_none_when_missing(self):
+        task = DummyICAReportingTask((False, {}))
+        task._ica_plot_psd_fmax = None
+        assert task._resolve_psd_fmax() is None
