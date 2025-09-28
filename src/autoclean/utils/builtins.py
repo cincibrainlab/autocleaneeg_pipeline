@@ -111,6 +111,17 @@ class CacheManifest:
         }
         self.save()
 
+    def update_task_remote(self, task_name: str, *, path: str, remote_hash: Optional[str]) -> None:
+        tasks: Dict[str, object] = self.data.setdefault("tasks", {})  # type: ignore[assignment]
+        rec: Dict[str, object] = tasks.get(task_name, {})  # type: ignore[assignment]
+        rec.update({
+            "path": path,
+            "remote_hash": remote_hash,
+            "last_seen_commit": self.data.get("registry_commit"),
+        })
+        tasks[task_name] = rec
+        self.save()
+
     def task_hash(self, task_name: str) -> Optional[str]:
         tasks: Dict[str, Dict[str, object]] = self.data.get("tasks", {})  # type: ignore[assignment]
         record = tasks.get(task_name)
@@ -166,6 +177,12 @@ class BuiltinRegistry:
             self.timeout = float(timeout or (float(env_timeout) if env_timeout else DEFAULT_TIMEOUT))
         except (TypeError, ValueError):
             self.timeout = DEFAULT_TIMEOUT
+        # Last update diff snapshot for CLI rendering
+        self._last_update_summary: Dict[str, List[str]] = {
+            "new": [],
+            "updated": [],
+            "removed": [],
+        }
 
     # ---------------- Remote fetch helpers -----------------
     def _fetch_bytes(self, url: str) -> bytes:
@@ -212,11 +229,56 @@ class BuiltinRegistry:
 
         url = f"{self.raw_base}/registry.json"
         try:
+            # Keep a snapshot of known tasks before update
+            before_records: Dict[str, Dict[str, object]] = (
+                self.manifest.data.get("tasks", {})  # type: ignore[assignment]
+                if isinstance(self.manifest.data.get("tasks"), dict)
+                else {}
+            )
+
             self._download_to(url, self._cache_index_path())
             index = json.loads(self._cache_index_path().read_text(encoding="utf-8"))
             commit = index.get("commit", "unknown")
+            # Compute diff of names
+            names_now = [e.get("name") for e in index.get("tasks", [])]
+            names_now = [n for n in names_now if isinstance(n, str)]
+            names_before = list(before_records.keys())
+            new = sorted([n for n in names_now if n not in names_before])
+            removed = sorted([n for n in names_before if n not in names_now])
+
+            # For each task in index, compute remote hash (fast enough at current scale)
+            updated: List[str] = []
+            for entry in index.get("tasks", []):
+                if not isinstance(entry, dict):
+                    continue
+                name = entry.get("name")
+                path = entry.get("path")
+                if not isinstance(name, str) or not isinstance(path, str):
+                    continue
+                remote_url = f"{self.raw_base}/{path}"
+                remote_hash: Optional[str]
+                try:
+                    data = self._fetch_bytes(remote_url)
+                    remote_hash = hashlib.sha256(data).hexdigest()
+                except (URLError, HTTPError, socket.timeout):  # pragma: no cover - network
+                    remote_hash = None
+                # Compare with prior remote hash if available
+                before = before_records.get(name) or {}
+                before_hash = before.get("remote_hash") if isinstance(before, dict) else None
+                if remote_hash and before_hash and isinstance(before_hash, str):
+                    if remote_hash != before_hash:
+                        updated.append(name)
+                # Persist the latest remote hash in the manifest
+                self.manifest.update_task_remote(name, path=path, remote_hash=remote_hash)
+
+            # Record success and summarize
             self.manifest.record_success(commit)
-            label = commit if commit != "unknown" else "latest"
+            self._last_update_summary = {
+                "new": new,
+                "updated": sorted(updated),
+                "removed": removed,
+            }
+            label = commit if commit not in ("unknown", "") else "latest"
             return f"Task Library refreshed (version {label})."
         except (URLError, HTTPError) as exc:
             message = str(exc)
@@ -390,6 +452,10 @@ class BuiltinRegistry:
             "synced_at": self.manifest.synced_at,
             "last_error": self.manifest.last_error,
         }
+
+    def last_update_summary(self) -> Dict[str, List[str]]:
+        """Return the last update summary (new/updated/removed names)."""
+        return self._last_update_summary
 
     def iter_sources(self, tasks: Iterable[BuiltinTask]) -> List[tuple[str, str]]:
         """Return (task_name, source) pairs for display purposes."""

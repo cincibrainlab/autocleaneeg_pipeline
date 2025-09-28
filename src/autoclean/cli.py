@@ -5449,7 +5449,42 @@ def cmd_task_library(args) -> int:
 
     if action == "update":
         allow_network = not getattr(args, "no_network", False)
-        console.print(registry.update_cache(allow_network=allow_network))
+        console.print("Checking for updates…")
+        msg = registry.update_cache(allow_network=allow_network)
+        console.print(msg)
+
+        summary = registry.last_update_summary()
+        new = summary.get("new", [])
+        updated = summary.get("updated", [])
+        removed = summary.get("removed", [])
+
+        total_changes = len(new) + len(updated) + len(removed)
+        if total_changes == 0:
+            console.print("[muted]No changes detected. Your library index is current.[/muted]")
+            return 0
+
+        from rich.table import Table as _Table
+
+        console.print(f"[success]✓[/success] Found {total_changes} change(s)")
+        table = _Table(show_header=True, box=None, padding=(0, 1))
+        table.add_column("Task", style="accent")
+        table.add_column("Status", style="info")
+
+        for name in sorted(new):
+            table.add_row(name, "new")
+        for name in sorted(updated):
+            table.add_row(name, "updated")
+        for name in sorted(removed):
+            table.add_row(name, "removed")
+
+        console.print(table)
+
+        # Helpful next step if updates exist
+        if updated:
+            examples = ", ".join(updated[:3])
+            console.print(
+                f"[muted]Run 'task library install <name> --force' to update your copy (e.g., {examples}).[/muted]"
+            )
         return 0
 
     if action == "list":
