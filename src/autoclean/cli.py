@@ -962,6 +962,30 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Show workspace tasks that override built-in tasks",
     )
+    list_all_parser.add_argument(
+        "--source",
+        choices=["all", "library", "builtin", "workspace", "active"],
+        default="all",
+        help="Filter by task source (default: all)",
+    )
+    list_all_parser.add_argument(
+        "--status",
+        choices=["all", "installed", "available", "outdated", "customized"],
+        default="all",
+        help="Filter by task status (default: all)",
+    )
+    list_all_parser.add_argument(
+        "--category",
+        choices=["all", "resting", "auditory", "visual", "rodent"],
+        default="all",
+        help="Filter by task category (default: all)",
+    )
+    list_all_parser.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format (default: table)",
+    )
 
     # Explore tasks folder (open in OS file browser)
     explore_parser = task_subparsers.add_parser(
@@ -1151,6 +1175,147 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "show", help="Show the current active task", add_help=False
     )
     attach_rich_help(show_task_parser)
+
+    # Use task (install + activate in one step)
+    use_task_parser = task_subparsers.add_parser(
+        "use",
+        help="Install and activate a task in one step (from library or built-in)",
+        add_help=False,
+    )
+    attach_rich_help(use_task_parser)
+    use_task_parser.add_argument(
+        "task_name",
+        nargs="?",
+        type=str,
+        help="Task to install and set active (omit for interactive selection)",
+    )
+    use_task_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing workspace copy without prompting",
+    )
+    use_task_parser.add_argument(
+        "--no-activate",
+        action="store_true",
+        help="Install only, don't set as active task",
+    )
+
+    # Install task (unified command for any source)
+    install_task_parser = task_subparsers.add_parser(
+        "install",
+        help="Install a task from library, file, or built-in source",
+        add_help=False,
+    )
+    attach_rich_help(install_task_parser)
+    install_task_parser.add_argument(
+        "task_source",
+        type=str,
+        help="Task name (from library) or file path to install",
+    )
+    install_task_parser.add_argument(
+        "--source",
+        choices=["auto", "library", "file", "builtin"],
+        default="auto",
+        help="Explicitly specify source type (default: auto-detect)",
+    )
+    install_task_parser.add_argument(
+        "--name",
+        type=str,
+        help="Custom name for installed task (default: use original name)",
+    )
+    install_task_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Overwrite existing workspace copy without prompting",
+    )
+    install_task_parser.add_argument(
+        "--activate",
+        action="store_true",
+        help="Set as active task after installing",
+    )
+
+    # Sync tasks (check for updates)
+    sync_task_parser = task_subparsers.add_parser(
+        "sync",
+        help="Check workspace tasks for updates from library/built-in sources",
+        add_help=False,
+    )
+    attach_rich_help(sync_task_parser)
+    sync_task_parser.add_argument(
+        "--update",
+        action="store_true",
+        help="Apply updates automatically (creates backups)",
+    )
+    sync_task_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be updated without making changes",
+    )
+
+    # Update library (promoted from task library update)
+    update_task_parser = task_subparsers.add_parser(
+        "update",
+        help="Update task library index from GitHub registry",
+        add_help=False,
+    )
+    attach_rich_help(update_task_parser)
+    update_task_parser.add_argument(
+        "--no-network",
+        action="store_true",
+        help="Skip network check (use cached data only)",
+    )
+
+    # Diagnose workspace health
+    diagnose_task_parser = task_subparsers.add_parser(
+        "diagnose",
+        help="Check workspace health and task integrity",
+        add_help=False,
+    )
+    attach_rich_help(diagnose_task_parser)
+
+    # Diff task (compare workspace vs source)
+    diff_task_parser = task_subparsers.add_parser(
+        "diff",
+        help="Show differences between workspace task and its source",
+        add_help=False,
+    )
+    attach_rich_help(diff_task_parser)
+    diff_task_parser.add_argument(
+        "task_name",
+        type=str,
+        help="Name of the task to compare",
+    )
+    diff_task_parser.add_argument(
+        "--color",
+        action="store_true",
+        default=True,
+        help="Use colorized output (default: on)",
+    )
+    diff_task_parser.add_argument(
+        "--context",
+        type=int,
+        default=3,
+        help="Lines of context to show (default: 3)",
+    )
+
+    # Search tasks
+    search_task_parser = task_subparsers.add_parser(
+        "search",
+        help="Search for tasks across all sources",
+        add_help=False,
+    )
+    attach_rich_help(search_task_parser)
+    search_task_parser.add_argument(
+        "query",
+        type=str,
+        help="Search term (matches name, description, tags)",
+    )
+    search_task_parser.add_argument(
+        "--source",
+        choices=["all", "library", "builtin", "workspace"],
+        default="all",
+        help="Limit search to specific source (default: all)",
+    )
 
     # Montage commands
     montage_parser = subparsers.add_parser(
@@ -2219,7 +2384,7 @@ def cmd_process_ica(args) -> int:
 
 
 def cmd_list_tasks(args) -> int:
-    """Execute the list-tasks command."""
+    """Execute the list-tasks command with unified view and filters."""
     try:
         console = get_console(args)
 
@@ -2269,49 +2434,59 @@ def cmd_list_tasks(args) -> int:
             )
             return 0
 
+        # Get filters
+        source_filter = getattr(args, "source", "all")
+        status_filter = getattr(args, "status", "all")
+        category_filter = getattr(args, "category", "all")
+        output_format = getattr(args, "format", "table")
+
         # Minimal header
         from rich.align import Align as _Align
         from rich.text import Text as _Text
 
-        console.print()
-        head = _Text()
-        head.append("Tasks", style="title")
-        console.print(_Align.center(head))
-        console.print(
-            _Align.center(_Text("Available processing tasks", style="subtitle"))
-        )
-        console.print()
+        if output_format == "table":
+            console.print()
+            head = _Text()
+            head.append("Tasks", style="title")
+            console.print(_Align.center(head))
+            console.print(
+                _Align.center(_Text("Available processing tasks", style="subtitle"))
+            )
+            console.print()
 
         registry = BuiltinRegistry()
         registry_info = registry.registry_status()
 
-        commit_raw = registry_info.get("commit")
-        commit = commit_raw or "not yet synced"
-        if commit in {"unknown", ""}:
-            commit = "not yet synced"
-        elif commit == "local-snapshot":
-            commit = "local snapshot"
-        synced_at = _pretty_timestamp(registry_info.get("synced_at"))
-        last_error = registry_info.get("last_error")
+        if output_format == "table":
+            commit_raw = registry_info.get("commit")
+            commit = commit_raw or "not yet synced"
+            if commit in {"unknown", ""}:
+                commit = "not yet synced"
+            elif commit == "local-snapshot":
+                commit = "local snapshot"
+            synced_at = _pretty_timestamp(registry_info.get("synced_at"))
+            last_error = registry_info.get("last_error")
 
-        summary_line = (
-            f"[info]Task Library version:[/info] {commit} [muted](last checked {synced_at})[/muted]"
-        )
-        console.print(_Align.center(_Text(summary_line)))
-        if isinstance(last_error, dict):
-            err_msg = last_error.get("message", "connection problem")
-            err_time = _pretty_timestamp(
-                last_error.get("timestamp"), default="time not recorded"
+            summary_line = (
+                f"[info]Task Library version:[/info] {commit} [muted](last checked {synced_at})[/muted]"
             )
-            console.print(
-                _Align.center(
-                    _Text(
-                        f"[warning]Last online check failed:[/warning] {err_msg} [muted]{err_time}[/muted]"
+            console.print(_Align.center(_Text(summary_line)))
+            if isinstance(last_error, dict):
+                err_msg = last_error.get("message", "connection problem")
+                err_time = _pretty_timestamp(
+                    last_error.get("timestamp"), default="time not recorded"
+                )
+                console.print(
+                    _Align.center(
+                        _Text(
+                            f"[warning]Last online check failed:[/warning] {err_msg} [muted]{err_time}[/muted]"
+                        )
                     )
                 )
-            )
 
+        # Discover all tasks
         valid_tasks, invalid_files, skipped_files = safe_discover_tasks()
+        workspace_dir = user_config.tasks_dir
 
         def _montage_label(task_name: str) -> str:
             try:
@@ -2334,103 +2509,240 @@ def cmd_list_tasks(args) -> int:
 
             return str(montage_info)
 
-        # --- Built-in Tasks ---
-        built_in_tasks = [
-            task for task in valid_tasks if "autoclean/tasks" in task.source
-        ]
-        if built_in_tasks:
-            built_in_table = Table(
-                show_header=True, header_style="header", box=None, padding=(0, 1)
-            )
-            built_in_table.add_column("Task Name", style="accent", no_wrap=True)
-            built_in_table.add_column("Sync", style="info", no_wrap=True)
-            built_in_table.add_column("Module", style="muted")
-            built_in_table.add_column("Montage", style="info", no_wrap=True)
-            built_in_table.add_column("Description", style="muted", max_width=50)
+        def _get_category(task_name: str) -> str:
+            """Determine task category from name."""
+            name_lower = task_name.lower()
+            if any(x in name_lower for x in ["rest", "resting"]):
+                return "resting"
+            if any(x in name_lower for x in ["assr", "chirp", "mmn", "auditory"]):
+                return "auditory"
+            if any(x in name_lower for x in ["vep", "visual"]):
+                return "visual"
+            if any(x in name_lower for x in ["mouse", "rodent"]):
+                return "rodent"
+            return "other"
 
-            workspace_dir = user_config.tasks_dir
+        # Build unified task list
+        unified_tasks = []
 
-            for task in sorted(built_in_tasks, key=lambda x: x.name):
-                # Extract just the module name from the full path
-                module_name = Path(task.source).stem
-                sync = registry.task_sync_status(task.name, workspace_dir)
-                sync_state = sync.get("status") or "unknown"
-                if sync_state == "synced":
-                    sync_text = "[success]up to date[/success]"
-                elif sync_state == "modified":
-                    sync_text = "[warning]customized[/warning]"
-                elif sync_state == "not_installed":
-                    sync_text = "[muted]install to use[/muted]"
-                else:
-                    sync_text = "[muted]status unknown[/muted]"
-                built_in_table.add_row(
-                    task.name,
-                    sync_text,
-                    module_name + ".py",
-                    _montage_label(task.name),
-                    task.description or "No description",
+        # Get library tasks
+        library_tasks = registry.list_tasks()
+
+        # Process workspace tasks
+        workspace_tasks = [t for t in valid_tasks if "autoclean/tasks" not in t.source]
+        workspace_names = {t.name for t in workspace_tasks}
+
+        # Process built-in tasks
+        builtin_tasks = [t for t in valid_tasks if "autoclean/tasks" in t.source]
+        builtin_names = {t.name for t in builtin_tasks}
+
+        # Add workspace tasks (installed, possibly customized)
+        for task in workspace_tasks:
+            sync = registry.task_sync_status(task.name, workspace_dir)
+            sync_status = sync.get("status") or "unknown"
+
+            # Determine source (library or user)
+            if task.name in [lt["name"] for lt in library_tasks]:
+                source = "library"
+            else:
+                source = "workspace"
+
+            unified_tasks.append({
+                "name": task.name,
+                "source": source,
+                "sync_status": sync_status,
+                "install_status": "installed",
+                "montage": _montage_label(task.name),
+                "description": task.description or "No description",
+                "category": _get_category(task.name),
+            })
+
+        # Add library tasks not in workspace (available to install)
+        for ltask in library_tasks:
+            if ltask["name"] not in workspace_names:
+                unified_tasks.append({
+                    "name": ltask["name"],
+                    "source": "library",
+                    "sync_status": "not_installed",
+                    "install_status": "available",
+                    "montage": "—",
+                    "description": ltask.get("description", "No description"),
+                    "category": _get_category(ltask["name"]),
+                })
+
+        # Add built-in tasks not overridden by workspace
+        for task in builtin_tasks:
+            if task.name not in workspace_names:
+                unified_tasks.append({
+                    "name": task.name,
+                    "source": "builtin",
+                    "sync_status": "builtin",
+                    "install_status": "available",
+                    "montage": _montage_label(task.name),
+                    "description": task.description or "No description",
+                    "category": _get_category(task.name),
+                })
+
+        # Apply filters
+        filtered_tasks = unified_tasks
+
+        if source_filter != "all":
+            if source_filter == "active":
+                active_task = user_config.get_active_task()
+                filtered_tasks = [t for t in filtered_tasks if t["name"] == active_task]
+            else:
+                filtered_tasks = [t for t in filtered_tasks if t["source"] == source_filter]
+
+        if status_filter != "all":
+            status_map = {
+                "installed": lambda t: t["install_status"] == "installed",
+                "available": lambda t: t["install_status"] == "available",
+                "outdated": lambda t: t["sync_status"] in ["outdated", "missing"],
+                "customized": lambda t: t["sync_status"] == "modified",
+            }
+            if status_filter in status_map:
+                filtered_tasks = [t for t in filtered_tasks if status_map[status_filter](t)]
+
+        if category_filter != "all":
+            filtered_tasks = [t for t in filtered_tasks if t["category"] == category_filter]
+
+        # Sort by name
+        filtered_tasks.sort(key=lambda t: t["name"])
+
+        # Output in requested format
+        if output_format == "json":
+            import json
+
+            output_data = {
+                "registry_info": registry_info,
+                "tasks": filtered_tasks,
+                "invalid_files": [
+                    {"file": f.source, "error": f.error} for f in invalid_files
+                ],
+                "skipped_files": [
+                    {"file": f.source, "reason": f.reason} for f in skipped_files
+                ],
+            }
+            console.print(json.dumps(output_data, indent=2))
+            return 0
+
+        # Table output with unified view
+        if filtered_tasks:
+            # Separate installed and available
+            installed = [t for t in filtered_tasks if t["install_status"] == "installed"]
+            available = [t for t in filtered_tasks if t["install_status"] == "available"]
+
+            # Show installed tasks
+            if installed:
+                installed_table = Table(
+                    show_header=True, header_style="header", box=None, padding=(0, 1)
                 )
+                installed_table.add_column("Task Name", style="accent", no_wrap=True)
+                installed_table.add_column("Source", style="info", no_wrap=True)
+                installed_table.add_column("Status", style="info", no_wrap=True)
+                installed_table.add_column("Montage", style="info", no_wrap=True)
+                installed_table.add_column("Description", style="muted", max_width=50)
 
-            built_in_panel = Panel(
-                built_in_table,
-                title="[title]Built-in Tasks[/title]",
-                border_style="border",
-                padding=(1, 1),
+                for task in installed:
+                    # Source indicator
+                    if task["source"] == "library":
+                        source_text = "[info]library[/info]"
+                    elif task["source"] == "workspace":
+                        source_text = "[accent]user[/accent]"
+                    else:
+                        source_text = "[muted]builtin[/muted]"
+
+                    # Sync status
+                    sync_state = task["sync_status"]
+                    if sync_state == "synced":
+                        status_text = "[success]✓ synced[/success]"
+                    elif sync_state == "modified":
+                        status_text = "[warning]⚠ customized[/warning]"
+                    elif sync_state == "outdated":
+                        status_text = "[warning]↻ outdated[/warning]"
+                    elif sync_state == "missing":
+                        status_text = "[error]✗ orphaned[/error]"
+                    else:
+                        status_text = "[muted]—[/muted]"
+
+                    installed_table.add_row(
+                        task["name"],
+                        source_text,
+                        status_text,
+                        task["montage"],
+                        task["description"],
+                    )
+
+                installed_panel = Panel(
+                    installed_table,
+                    title="[title]Installed Tasks (in workspace)[/title]",
+                    border_style="border",
+                    padding=(1, 1),
+                )
+                console.print(installed_panel)
+
+            # Show available tasks
+            if available:
+                available_table = Table(
+                    show_header=True, header_style="header", box=None, padding=(0, 1)
+                )
+                available_table.add_column("Task Name", style="accent", no_wrap=True)
+                available_table.add_column("Source", style="info", no_wrap=True)
+                available_table.add_column("Montage", style="info", no_wrap=True)
+                available_table.add_column("Description", style="muted", max_width=50)
+
+                for task in available:
+                    # Source indicator
+                    if task["source"] == "library":
+                        source_text = "[info]📦 library[/info]"
+                    else:
+                        source_text = "[muted]builtin[/muted]"
+
+                    available_table.add_row(
+                        task["name"],
+                        source_text,
+                        task["montage"],
+                        task["description"],
+                    )
+
+                available_panel = Panel(
+                    available_table,
+                    title="[title]Available to Install[/title]",
+                    border_style="border",
+                    padding=(1, 1),
+                )
+                console.print(available_panel)
+
+            # Summary
+            summary = _Text()
+            summary.append("Found ", style="muted")
+            summary.append(str(len(filtered_tasks)), style="accent")
+            summary.append(" tasks ", style="muted")
+            summary.append(
+                f"({len(installed)} installed, {len(available)} available)",
+                style="muted",
             )
-            console.print(built_in_panel)
+            if invalid_files or skipped_files:
+                summary.append("  •  ", style="muted")
+                summary.append(
+                    f"{len(skipped_files)} skipped, {len(invalid_files)} invalid",
+                    style="muted",
+                )
+            console.print(_Align.center(summary))
+            console.print()
+
         else:
             console.print(
                 Panel(
-                    "[muted]No built-in tasks found[/muted]",
-                    title="[title]Built-in Tasks[/title]",
+                    "[muted]No tasks found matching filters.[/muted]",
+                    title="[title]Tasks[/title]",
                     border_style="border",
                     padding=(1, 1),
                 )
             )
 
-        # --- Custom Tasks ---
-        custom_tasks = [
-            task for task in valid_tasks if "autoclean/tasks" not in task.source
-        ]
-        if custom_tasks:
-            custom_table = Table(
-                show_header=True, header_style="header", box=None, padding=(0, 1)
-            )
-            custom_table.add_column("Task Name", style="accent", no_wrap=True)
-            custom_table.add_column("File", style="muted")
-            custom_table.add_column("Montage", style="info", no_wrap=True)
-            custom_table.add_column("Description", style="muted", max_width=50)
-
-            for task in sorted(custom_tasks, key=lambda x: x.name):
-                # Show just the filename for custom tasks
-                file_name = Path(task.source).name
-                custom_table.add_row(
-                    task.name,
-                    file_name,
-                    _montage_label(task.name),
-                    task.description or "No description",
-                )
-
-            custom_panel = Panel(
-                custom_table,
-                title="[title]Custom Tasks[/title]",
-                border_style="border",
-                padding=(1, 1),
-            )
-            console.print(custom_panel)
-        else:
-            console.print(
-                Panel(
-                    "[muted]No custom tasks found.\n"
-                    "Use [accent]autocleaneeg-pipeline task add <file.py>[/accent] to add one.[/muted]",
-                    title="[title]Custom Tasks[/title]",
-                    border_style="border",
-                    padding=(1, 1),
-                )
-            )
-
-        # --- Skipped Task Files ---
-        if skipped_files:
+        # Show skipped and invalid files if present
+        if skipped_files and output_format == "table":
             skipped_table = Table(
                 show_header=True, header_style="header", box=None, padding=(0, 1)
             )
@@ -2438,7 +2750,6 @@ def cmd_list_tasks(args) -> int:
             skipped_table.add_column("Reason", style="muted", max_width=70)
 
             for file in skipped_files:
-                # Show just the filename for skipped files
                 file_name = Path(file.source).name
                 skipped_table.add_row(file_name, file.reason)
 
@@ -2450,8 +2761,7 @@ def cmd_list_tasks(args) -> int:
             )
             console.print(skipped_panel)
 
-        # --- Invalid Task Files ---
-        if invalid_files:
+        if invalid_files and output_format == "table":
             invalid_table = Table(
                 show_header=True, header_style="header", box=None, padding=(0, 1)
             )
@@ -2459,7 +2769,6 @@ def cmd_list_tasks(args) -> int:
             invalid_table.add_column("Error", style="warning", max_width=70)
 
             for file in invalid_files:
-                # Show relative path if in workspace, otherwise just filename
                 file_path = Path(file.source)
                 if file_path.is_absolute():
                     display_name = file_path.name
@@ -2475,24 +2784,6 @@ def cmd_list_tasks(args) -> int:
                 padding=(1, 1),
             )
             console.print(invalid_panel)
-
-        # Summary line (centered, minimal)
-        summary = _Text()
-        summary.append("Found ", style="muted")
-        summary.append(str(len(valid_tasks)), style="accent")
-        summary.append(" tasks ", style="muted")
-        summary.append(
-            f"({len(built_in_tasks)} built-in, {len(custom_tasks)} custom)",
-            style="muted",
-        )
-        if skipped_files or invalid_files:
-            summary.append("  •  ", style="muted")
-            summary.append(
-                f"{len(skipped_files)} skipped, {len(invalid_files)} invalid",
-                style="muted",
-            )
-        console.print(_Align.center(summary))
-        console.print()
 
         return 0
 
@@ -4573,6 +4864,20 @@ def cmd_task(args) -> int:
         return cmd_task_unset(args)
     elif args.task_action == "show":
         return cmd_task_show(args)
+    elif args.task_action == "use":
+        return cmd_task_use(args)
+    elif args.task_action == "install":
+        return cmd_task_install(args)
+    elif args.task_action == "sync":
+        return cmd_task_sync(args)
+    elif args.task_action == "update":
+        return cmd_task_update(args)
+    elif args.task_action == "diagnose":
+        return cmd_task_diagnose(args)
+    elif args.task_action == "diff":
+        return cmd_task_diff(args)
+    elif args.task_action == "search":
+        return cmd_task_search(args)
     elif args.task_action in {"library", "builtins"}:
         return cmd_task_library(args)
     elif args.task_action == "schema":
@@ -4628,6 +4933,13 @@ def cmd_task_schema_export(args) -> int:
 
 def cmd_task_add(args) -> int:
     """Add a custom task by copying to workspace tasks folder."""
+    # Deprecation warning
+    console = get_console(args)
+    console.print(
+        "[warning]⚠ Deprecation:[/warning] 'task add' will be deprecated in a future version.\n"
+        "[muted]Use [accent]'task install <file>'[/accent] instead for unified task installation.[/muted]\n"
+    )
+
     try:
         if not args.task_file.exists():
             message("error", f"Task file not found: {args.task_file}")
@@ -4965,6 +5277,13 @@ def cmd_task_import(args) -> int:
     - Lets user rename via --name or interactive prompt
     - After copy, shows how to use the task
     """
+    # Deprecation warning
+    console = get_console(args)
+    console.print(
+        "[warning]⚠ Deprecation:[/warning] 'task import' will be deprecated in a future version.\n"
+        "[muted]Use [accent]'task install <file>'[/accent] instead for unified task installation.[/muted]\n"
+    )
+
     try:
         src: Path = args.source.expanduser().resolve()
         if not src.exists() or not src.is_file():
@@ -5553,6 +5872,821 @@ def cmd_task_show(_args) -> int:
         return 1
 
 
+def cmd_task_use(args) -> int:
+    """Install and activate a task in one step (one-step workflow)."""
+    console = get_console(args)
+    registry = BuiltinRegistry()
+
+    # Interactive selection if no task name provided
+    if not args.task_name:
+        # Show available tasks for selection
+        tasks = registry.list_tasks()
+        if not tasks:
+            console.print("[warning]No library tasks available.[/warning]")
+            return 1
+
+        console.print("\n[header]Select a task to install and activate:[/header]\n")
+
+        from rich.table import Table
+        table = Table(show_header=True, box=None, padding=(0, 1))
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Task", style="accent")
+        table.add_column("Description", style="muted")
+
+        for i, task in enumerate(tasks, 1):
+            # Try to get description from registry
+            desc = "No description"
+            try:
+                index = json.loads(registry._cache_index_path().read_text() if registry._cache_index_path().exists() else registry._pkg_index_text())
+                for entry in index.get("tasks", []):
+                    if entry.get("name") == task.name:
+                        desc = entry.get("description", "No description")
+                        break
+            except Exception:
+                pass
+            table.add_row(str(i), task.name, desc)
+
+        console.print(table)
+
+        try:
+            from rich.prompt import Prompt
+            choice = Prompt.ask("\nSelect task by number", default="")
+            if not choice.strip():
+                console.print("[muted]Selection cancelled.[/muted]")
+                return 0
+
+            choice_num = int(choice)
+            if 1 <= choice_num <= len(tasks):
+                task_name = tasks[choice_num - 1].name
+            else:
+                console.print("[error]Invalid selection.[/error]")
+                return 1
+        except (ValueError, KeyboardInterrupt):
+            console.print("\n[muted]Selection cancelled.[/muted]")
+            return 0
+    else:
+        task_name = args.task_name
+
+    # Check if task exists in library
+    task = registry.get_task(task_name)
+    if not task:
+        console.print(f"[error]✗[/error] Task '{task_name}' not found in library")
+        console.print("[muted]Run 'task list' to see available tasks.[/muted]")
+        return 1
+
+    # Check if already exists in workspace
+    dest_path = user_config.tasks_dir / f"{task_name}.py"
+    skip_install = False
+
+    if dest_path.exists() and not args.force:
+        sync_status = registry.task_sync_status(task_name, user_config.tasks_dir)
+        status = sync_status.get("status")
+
+        if status == "synced":
+            console.print(f"[success]✓[/success] {task_name} already installed and up to date")
+            skip_install = True
+        elif status == "modified":
+            console.print(f"[warning]⚠[/warning] {task_name} exists with customizations")
+            console.print(f"[muted]Use --force to overwrite (this will delete your changes)[/muted]")
+            return 1
+        else:
+            skip_install = False
+
+    # Install task if needed
+    if not skip_install:
+        try:
+            installed_path = registry.materialize_task_to(task_name, user_config.tasks_dir)
+            console.print(f"[success]✓[/success] {task_name} installed to [info]{installed_path}[/info]")
+        except Exception as exc:
+            console.print(f"[error]✗[/error] Installation failed: {exc}")
+            return 1
+
+    # Set as active task (unless --no-activate)
+    if not args.no_activate:
+        if user_config.set_active_task(task_name):
+            console.print(f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]")
+            console.print(f"[muted]Ready to process: autocleaneeg-pipeline process <file>[/muted]")
+        else:
+            console.print(f"[error]✗[/error] Failed to set active task")
+            return 1
+
+    return 0
+
+
+def cmd_task_install(args) -> int:
+    """Install a task from any source (library, file, or built-in) - unified command."""
+    console = get_console(args)
+    registry = BuiltinRegistry()
+
+    task_source = args.task_source
+    source_type = args.source  # auto, library, file, builtin
+    custom_name = args.name
+    force = args.force
+    activate = args.activate
+
+    # Auto-detect source type if not specified
+    if source_type == "auto":
+        # Check if it's a file path
+        source_path = Path(task_source)
+        if source_path.exists() and source_path.is_file():
+            source_type = "file"
+        else:
+            # Try library first, then builtin
+            library_tasks = [t.name for t in registry.list_tasks()]
+            if task_source in library_tasks:
+                source_type = "library"
+            else:
+                # Check if it's a builtin task
+                valid_tasks, _, _ = safe_discover_tasks()
+                builtin_names = [
+                    t.name
+                    for t in valid_tasks
+                    if "autoclean/tasks" in t.source
+                ]
+                if task_source in builtin_names:
+                    source_type = "builtin"
+                else:
+                    console.print(
+                        f"[error]✗[/error] Cannot find '{task_source}' as file, library task, or built-in task"
+                    )
+                    console.print(
+                        "[muted]Tip: Use 'task search' to find tasks or 'task list' to see all available tasks.[/muted]"
+                    )
+                    return 1
+
+    # Install based on source type
+    try:
+        if source_type == "file":
+            # Install from file
+            source_path = Path(task_source)
+            if not source_path.exists():
+                console.print(f"[error]✗[/error] File not found: {task_source}")
+                return 1
+
+            # Determine destination name
+            if custom_name:
+                dest_name = f"{custom_name}.py"
+            else:
+                dest_name = source_path.name
+
+            dest_path = user_config.tasks_dir / dest_name
+
+            # Check if already exists
+            if dest_path.exists() and not force:
+                console.print(
+                    f"[error]✗[/error] Task '{dest_name}' already exists. Use --force to overwrite."
+                )
+                return 1
+
+            # Copy file
+            import shutil
+            shutil.copy2(source_path, dest_path)
+
+            # Extract task name
+            try:
+                class_name, _ = user_config._extract_task_info(dest_path)
+                task_name = class_name
+            except Exception:
+                task_name = dest_path.stem
+
+            console.print(
+                f"[success]✓[/success] Installed '{task_name}' from file to [info]{dest_path}[/info]"
+            )
+
+        elif source_type == "library":
+            # Install from library
+            task_name = custom_name if custom_name else task_source
+
+            # Check if task exists in library
+            task = registry.get_task(task_source)
+            if not task:
+                console.print(
+                    f"[error]✗[/error] Task '{task_source}' not found in library"
+                )
+                console.print(
+                    "[muted]Run 'task list --source=library' to see available library tasks.[/muted]"
+                )
+                return 1
+
+            dest_path = user_config.tasks_dir / f"{task_name}.py"
+
+            # Check if already exists
+            if dest_path.exists() and not force:
+                sync_status = registry.task_sync_status(
+                    task_source, user_config.tasks_dir
+                )
+                status = sync_status.get("status")
+
+                if status == "synced":
+                    console.print(
+                        f"[success]✓[/success] {task_name} already installed and up to date"
+                    )
+                elif status == "modified":
+                    console.print(
+                        f"[warning]⚠[/warning] {task_name} exists with customizations"
+                    )
+                    console.print(
+                        "[muted]Use --force to overwrite (this will delete your changes)[/muted]"
+                    )
+                    return 1
+                else:
+                    console.print(
+                        f"[error]✗[/error] Task '{task_name}' already exists. Use --force to overwrite."
+                    )
+                    return 1
+            else:
+                # Install task
+                installed_path = registry.materialize_task_to(
+                    task_source, user_config.tasks_dir
+                )
+
+                # Rename if custom name specified
+                if custom_name and custom_name != task_source:
+                    new_path = user_config.tasks_dir / f"{custom_name}.py"
+                    installed_path.rename(new_path)
+                    installed_path = new_path
+                    task_name = custom_name
+
+                console.print(
+                    f"[success]✓[/success] Installed '{task_name}' from library to [info]{installed_path}[/info]"
+                )
+
+        elif source_type == "builtin":
+            # Install from built-in
+            task_name = custom_name if custom_name else task_source
+
+            # Verify task exists in built-in
+            valid_tasks, _, _ = safe_discover_tasks()
+            builtin_task = None
+            for t in valid_tasks:
+                if "autoclean/tasks" in t.source and t.name == task_source:
+                    builtin_task = t
+                    break
+
+            if not builtin_task:
+                console.print(
+                    f"[error]✗[/error] Built-in task '{task_source}' not found"
+                )
+                console.print(
+                    "[muted]Run 'task list --source=builtin' to see available built-in tasks.[/muted]"
+                )
+                return 1
+
+            dest_path = user_config.tasks_dir / f"{task_name}.py"
+
+            # Check if already exists
+            if dest_path.exists() and not force:
+                console.print(
+                    f"[error]✗[/error] Task '{task_name}' already exists. Use --force to overwrite."
+                )
+                return 1
+
+            # Copy from built-in source
+            import shutil
+            shutil.copy2(builtin_task.source, dest_path)
+
+            console.print(
+                f"[success]✓[/success] Installed '{task_name}' from built-in to [info]{dest_path}[/info]"
+            )
+
+        # Optionally activate
+        if activate:
+            if user_config.set_active_task(task_name):
+                console.print(
+                    f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]"
+                )
+            else:
+                console.print(f"[error]✗[/error] Failed to set active task")
+                return 1
+
+        console.print(
+            "[muted]Use 'task set <name>' to set as active, or 'process <file>' to use it.[/muted]"
+        )
+        return 0
+
+    except Exception as e:
+        console.print(f"[error]✗[/error] Installation failed: {e}")
+        return 1
+
+
+def cmd_task_sync(args) -> int:
+    """Check workspace tasks for updates and optionally apply them."""
+    console = get_console(args)
+    registry = BuiltinRegistry()
+
+    console.print("→ Checking workspace tasks against sources...\n")
+
+    # Get all workspace tasks
+    workspace_tasks = user_config.list_custom_tasks()
+    if not workspace_tasks:
+        console.print("[muted]No tasks installed in workspace.[/muted]")
+        return 0
+
+    # Check sync status for each task
+    from rich.table import Table
+
+    synced_tasks = []
+    customized_tasks = []
+    outdated_tasks = []
+    orphaned_tasks = []
+
+    for task_name in workspace_tasks.keys():
+        sync_status = registry.task_sync_status(task_name, user_config.tasks_dir)
+        status = sync_status.get("status")
+        source = sync_status.get("source", "unknown")
+
+        if status == "synced":
+            synced_tasks.append((task_name, source))
+        elif status == "modified":
+            customized_tasks.append((task_name, source))
+        elif status == "not_installed":
+            # This shouldn't happen for workspace tasks, but handle it
+            continue
+        elif status == "missing":
+            orphaned_tasks.append(task_name)
+        else:
+            # Check if outdated by comparing remote hash
+            record = registry.manifest.task_record(task_name)
+            if record:
+                remote_hash = record.get("remote_hash")
+                workspace_hash = sync_status.get("workspace_hash")
+                if remote_hash and workspace_hash and remote_hash != workspace_hash:
+                    outdated_tasks.append((task_name, source))
+                else:
+                    customized_tasks.append((task_name, source))
+            else:
+                customized_tasks.append((task_name, source))
+
+    # Display results
+    console.print("[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]")
+    console.print("[header] SYNC STATUS[/header]")
+    console.print("[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]\n")
+
+    table = Table(show_header=False, box=None, padding=(0, 1))
+    table.add_column("Status", width=2)
+    table.add_column("Task", style="accent")
+    table.add_column("Source", style="muted")
+    table.add_column("Info", style="info")
+
+    for task_name, source in synced_tasks:
+        table.add_row("✓", task_name, f"[{source}]", "up to date")
+
+    for task_name, source in customized_tasks:
+        table.add_row("⚠", task_name, f"[{source}]", "customized")
+
+    for task_name, source in outdated_tasks:
+        table.add_row("↻", task_name, f"[{source}]", "[warning]outdated[/warning]")
+
+    for task_name in orphaned_tasks:
+        table.add_row("✗", task_name, "[orphan]", "[error]source removed[/error]")
+
+    console.print(table)
+    console.print()
+
+    # Summary
+    console.print("[header]Summary:[/header]")
+    if outdated_tasks:
+        console.print(f"  • {len(outdated_tasks)} task(s) have updates available")
+    if orphaned_tasks:
+        console.print(f"  • {len(orphaned_tasks)} orphaned task(s) (source no longer exists)")
+    if customized_tasks:
+        console.print(f"  • {len(customized_tasks)} customized task(s)")
+    if not outdated_tasks and not orphaned_tasks:
+        console.print("  • All tasks are up to date")
+
+    # Next steps
+    if outdated_tasks or orphaned_tasks:
+        console.print("\n[header]Next steps:[/header]")
+        if outdated_tasks:
+            console.print("  • Run [accent]'task sync --update'[/accent] to apply updates (will backup customized tasks)")
+            console.print(f"  • Run [accent]'task diff {outdated_tasks[0][0]}'[/accent] to preview changes")
+        if orphaned_tasks:
+            console.print("  • Run [accent]'task delete <name>'[/accent] to remove orphaned tasks")
+
+    # Apply updates if requested
+    if args.update and outdated_tasks:
+        if args.dry_run:
+            console.print("\n[muted]Dry run - no changes will be made[/muted]")
+            return 0
+
+        console.print(f"\n→ Updating {len(outdated_tasks)} task(s)...\n")
+
+        from datetime import datetime
+        backup_suffix = datetime.now().strftime("%Y-%m-%d-%H%M%S")
+
+        for task_name, source in outdated_tasks:
+            try:
+                # Create backup
+                task_path = user_config.tasks_dir / f"{task_name}.py"
+                backup_path = user_config.tasks_dir / f"{task_name}.backup.{backup_suffix}.py"
+
+                import shutil
+                shutil.copy2(task_path, backup_path)
+                console.print(f"  ⚠ Backed up {task_name} to {backup_path.name}")
+
+                # Reinstall from library
+                registry.materialize_task_to(task_name, user_config.tasks_dir)
+                console.print(f"  ✓ Updated {task_name} from {source}")
+            except Exception as exc:
+                console.print(f"  ✗ Failed to update {task_name}: {exc}")
+
+        console.print(f"\n[success]✓[/success] Update complete")
+
+    return 0
+
+
+def cmd_task_update(args) -> int:
+    """Update task library index from GitHub registry (promoted from task library update)."""
+    console = get_console(args)
+    registry = BuiltinRegistry()
+
+    console.print("→ Updating task library from GitHub registry...\n")
+
+    allow_network = not getattr(args, "no_network", False)
+    msg = registry.update_cache(allow_network=allow_network)
+    console.print(msg)
+
+    summary = registry.last_update_summary()
+    new = summary.get("new", [])
+    updated = summary.get("updated", [])
+    removed = summary.get("removed", [])
+
+    total_changes = len(new) + len(updated) + len(removed)
+    if total_changes == 0:
+        console.print("[success]✓[/success] Library is up to date")
+        console.print("[muted]No new tasks or updates available.[/muted]")
+        return 0
+
+    from rich.table import Table
+
+    console.print(f"[success]✓[/success] Found {total_changes} change(s) in library\n")
+
+    table = Table(show_header=True, box=None, padding=(0, 1))
+    table.add_column("Task", style="accent")
+    table.add_column("Change", style="info")
+
+    for name in sorted(new):
+        table.add_row(name, "[success]new[/success]")
+    for name in sorted(updated):
+        table.add_row(name, "[warning]updated[/warning]")
+    for name in sorted(removed):
+        table.add_row(name, "[error]removed[/error]")
+
+    console.print(table)
+    console.print()
+
+    # Helpful next steps
+    if new:
+        console.print("[header]New tasks available:[/header]")
+        console.print(f"  • Run [accent]'task list --source=library'[/accent] to see all library tasks")
+        console.print(f"  • Run [accent]'task use <name>'[/accent] to install and activate a new task")
+        console.print()
+
+    if updated:
+        console.print("[header]Tasks with updates:[/header]")
+        console.print(f"  • Run [accent]'task sync'[/accent] to check if your workspace tasks are outdated")
+        console.print(f"  • Run [accent]'task sync --update'[/accent] to automatically update outdated tasks")
+        console.print()
+
+    if removed:
+        console.print("[header]Removed tasks:[/header]")
+        console.print(f"  • These tasks are no longer in the library")
+        console.print(f"  • Your workspace copies will continue to work")
+        console.print()
+
+    return 0
+
+
+def cmd_task_diagnose(args) -> int:
+    """Run workspace health check."""
+    console = get_console(args)
+    registry = BuiltinRegistry()
+
+    console.print("→ Running workspace health check...\n")
+
+    from rich.table import Table
+
+    # Check tasks
+    workspace_tasks = user_config.list_custom_tasks()
+    num_tasks = len(workspace_tasks)
+    num_customized = 0
+    num_outdated = 0
+    num_orphaned = 0
+    import_errors = []
+
+    for task_name in workspace_tasks.keys():
+        sync_status = registry.task_sync_status(task_name, user_config.tasks_dir)
+        status = sync_status.get("status")
+
+        if status == "modified":
+            num_customized += 1
+        elif status == "missing":
+            num_orphaned += 1
+
+        # Check for outdated
+        record = registry.manifest.task_record(task_name)
+        if record:
+            remote_hash = record.get("remote_hash")
+            workspace_hash = sync_status.get("workspace_hash")
+            if remote_hash and workspace_hash and remote_hash != workspace_hash:
+                num_outdated += 1
+
+    # Check cache status
+    reg_status = registry.registry_status()
+    commit = reg_status.get("commit", "unknown")
+    synced_at = reg_status.get("synced_at")
+
+    # Calculate cache age
+    cache_age = "unknown"
+    if synced_at:
+        try:
+            from datetime import datetime, timezone
+            synced_time = datetime.fromisoformat(synced_at)
+            now = datetime.now(timezone.utc)
+            delta = now - synced_time
+            hours = delta.total_seconds() / 3600
+            if hours < 1:
+                cache_age = "< 1 hour ago"
+            elif hours < 24:
+                cache_age = f"{int(hours)} hours ago"
+            else:
+                days = int(hours / 24)
+                cache_age = f"{days} days ago"
+        except Exception:
+            pass
+
+    # Check network
+    network_ok = True
+    try:
+        import socket
+        socket.create_connection(("github.com", 443), timeout=2).close()
+    except Exception:
+        network_ok = False
+
+    # Calculate cache size
+    cache_size = "unknown"
+    try:
+        import os
+        total_size = 0
+        for dirpath, dirnames, filenames in os.walk(registry.cache_root):
+            for f in filenames:
+                fp = os.path.join(dirpath, f)
+                total_size += os.path.getsize(fp)
+        cache_size = f"{total_size / (1024*1024):.1f} MB"
+    except Exception:
+        pass
+
+    # Overall health
+    issues = num_outdated + num_orphaned + len(import_errors)
+    health = "GOOD ✓" if issues == 0 else "NEEDS ATTENTION ⚠"
+    health_style = "success" if issues == 0 else "warning"
+
+    # Display results
+    console.print(f"[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]")
+    console.print(f"[header] WORKSPACE HEALTH: [{health_style}]{health}[/{health_style}][/header]")
+    console.print(f"[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]\n")
+
+    console.print("[info]Tasks:[/info]")
+    console.print(f"  • {num_tasks} tasks installed in workspace")
+    if num_customized > 0:
+        console.print(f"  • {num_customized} customized")
+    if num_outdated > 0:
+        console.print(f"  • {num_outdated} outdated")
+    if len(import_errors) > 0:
+        console.print(f"  • {len(import_errors)} with import errors")
+    if num_orphaned > 0:
+        console.print(f"  • {num_orphaned} orphan(s)")
+
+    console.print(f"\n[info]Cache:[/info]")
+    console.print(f"  • Library cache: {commit} ({cache_age})")
+    console.print(f"  • Network: {'OK' if network_ok else 'Offline'}")
+    console.print(f"  • Cache size: {cache_size}")
+
+    console.print(f"\n[info]Configuration:[/info]")
+    active_task = user_config.get_active_task()
+    workspace_dir = user_config.config_dir
+    tasks_dir = user_config.tasks_dir
+
+    console.print(f"  • Active task: {active_task or 'None'} {'✓' if active_task else '✗'}")
+    console.print(f"  • Workspace: {workspace_dir} {'✓' if workspace_dir.exists() else '✗'}")
+    console.print(f"  • Tasks directory: {tasks_dir} {'✓' if tasks_dir.exists() else '✗'}")
+
+    if issues > 0:
+        console.print(f"\n[warning]Issues:[/warning]")
+        if num_outdated > 0:
+            console.print(f"  ⚠ {num_outdated} outdated task(s)")
+        if num_orphaned > 0:
+            console.print(f"  ⚠ {num_orphaned} orphaned task file(s)")
+
+        console.print(f"\n[info]Recommendations:[/info]")
+        if num_outdated > 0:
+            console.print("  • Run [accent]'task sync --update'[/accent] to update outdated tasks")
+        if num_orphaned > 0:
+            console.print("  • Run [accent]'task delete <name>'[/accent] to remove orphaned tasks")
+        if num_customized > 0:
+            console.print("  • Review customizations before updating")
+
+    console.print(f"\n[info]Overall:[/info] Your workspace is {health.lower()}{' with minor cleanup needed' if issues > 0 else ''}")
+
+    return 0
+
+
+def cmd_task_diff(args) -> int:
+    """Show differences between workspace task and its source."""
+    console = get_console(args)
+    registry = BuiltinRegistry()
+    task_name = args.task_name
+
+    # Check if task exists in workspace
+    workspace_path = user_config.tasks_dir / f"{task_name}.py"
+    if not workspace_path.exists():
+        console.print(f"[error]✗[/error] Task '{task_name}' not found in workspace")
+        console.print("[muted]Install it first with: task install {task_name}[/muted]")
+        return 1
+
+    # Get task from library
+    task = registry.get_task(task_name)
+    if not task:
+        console.print(f"[error]✗[/error] Task '{task_name}' not found in library")
+        console.print("[muted]This task may be user-created (no source to compare).[/muted]")
+        return 1
+
+    # Get source path (try cache first, then package)
+    cache_path = registry._cache_path_for(task.path)
+    if cache_path.exists():
+        source_path = cache_path
+        source_label = "library"
+    else:
+        # Try package
+        try:
+            resource = registry._pkg_task_resource(task.path)
+            if resource.is_file():
+                # Read from package resource
+                with resource.open("r", encoding="utf-8") as f:
+                    source_content = f.read()
+                source_path = None
+                source_label = "bundled package"
+            else:
+                console.print(f"[error]✗[/error] Source not found for '{task_name}'")
+                return 1
+        except Exception:
+            console.print(f"[error]✗[/error] Source not found for '{task_name}'")
+            return 1
+
+    # Read both files
+    try:
+        workspace_content = workspace_path.read_text(encoding="utf-8")
+        if source_path:
+            source_content = source_path.read_text(encoding="utf-8")
+    except Exception as exc:
+        console.print(f"[error]✗[/error] Failed to read files: {exc}")
+        return 1
+
+    # Check if identical
+    if workspace_content == source_content:
+        console.print(f"[success]✓[/success] No differences - workspace copy matches {source_label}")
+        return 0
+
+    # Show diff
+    console.print(f"→ Comparing workspace copy vs {source_label} source\n")
+    console.print("[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]")
+    console.print("[header] DIFFERENCES[/header]")
+    console.print("[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]\n")
+
+    # Generate unified diff
+    import difflib
+    workspace_lines = workspace_content.splitlines(keepends=True)
+    source_lines = source_content.splitlines(keepends=True)
+
+    diff = difflib.unified_diff(
+        source_lines,
+        workspace_lines,
+        fromfile=f"{source_label}/{task.path}",
+        tofile=f"workspace/{task_name}.py",
+        lineterm="",
+        n=args.context,
+    )
+
+    diff_lines = list(diff)
+    if not diff_lines:
+        console.print("[muted]No differences detected (whitespace may differ)[/muted]")
+        return 0
+
+    # Display diff with color if enabled
+    for line in diff_lines:
+        if line.startswith("---") or line.startswith("+++"):
+            console.print(f"[bold]{line}[/bold]")
+        elif line.startswith("@@"):
+            console.print(f"[info]{line}[/info]")
+        elif line.startswith("-"):
+            console.print(f"[error]{line}[/error]")
+        elif line.startswith("+"):
+            console.print(f"[success]{line}[/success]")
+        else:
+            console.print(f"[muted]{line}[/muted]")
+
+    console.print(f"\n[muted]Use 'task sync --update' to apply source changes (backup will be created)[/muted]")
+
+    return 0
+
+
+def cmd_task_search(args) -> int:
+    """Search for tasks across all sources."""
+    console = get_console(args)
+    registry = BuiltinRegistry()
+    query = args.query.lower()
+
+    console.print(f"→ Searching for [accent]'{args.query}'[/accent]...\n")
+
+    results = []
+
+    # Search library tasks
+    if args.source in ["all", "library"]:
+        try:
+            # Get registry data
+            if registry._cache_index_path().exists():
+                index_text = registry._cache_index_path().read_text(encoding="utf-8")
+            else:
+                index_text = registry._pkg_index_text()
+
+            index = json.loads(index_text)
+            for entry in index.get("tasks", []):
+                name = entry.get("name", "")
+                description = entry.get("description", "")
+                category = entry.get("category", "")
+
+                if (query in name.lower() or
+                    query in description.lower() or
+                    query in category.lower()):
+
+                    # Check if installed
+                    workspace_path = user_config.tasks_dir / f"{name}.py"
+                    status = "installed" if workspace_path.exists() else "available"
+
+                    results.append({
+                        "name": name,
+                        "description": description,
+                        "source": "library",
+                        "status": status,
+                        "category": category,
+                    })
+        except Exception:
+            pass
+
+    # Search workspace tasks
+    if args.source in ["all", "workspace"]:
+        workspace_tasks = user_config.list_custom_tasks()
+        for task_name, task_info in workspace_tasks.items():
+            description = task_info.get("description", "")
+            if query in task_name.lower() or query in description.lower():
+                results.append({
+                    "name": task_name,
+                    "description": description,
+                    "source": "workspace",
+                    "status": "installed",
+                    "category": "",
+                })
+
+    # Display results
+    if not results:
+        console.print(f"[warning]No tasks found matching [accent]'{args.query}'[/accent][/warning]")
+        console.print("[muted]Try a different search term or run 'task list' to see all tasks.[/muted]")
+        return 0
+
+    console.print(f"[success]Found {len(results)} task(s):[/success]\n")
+
+    from rich.table import Table
+    table = Table(show_header=True, box=None, padding=(0, 1))
+    table.add_column("Task", style="accent")
+    table.add_column("Source", style="muted")
+    table.add_column("Status", style="info")
+    table.add_column("Description", style="dim")
+
+    for result in sorted(results, key=lambda x: x["name"]):
+        status_text = result["status"]
+        if status_text == "installed":
+            status_text = "[success]installed[/success]"
+        else:
+            status_text = "[muted]available[/muted]"
+
+        table.add_row(
+            result["name"],
+            f"[{result['source']}]",
+            status_text,
+            result["description"][:50] + "..." if len(result["description"]) > 50 else result["description"],
+        )
+
+    console.print(table)
+    console.print()
+
+    # Show helpful next step
+    available_count = sum(1 for r in results if r["status"] == "available")
+    if available_count > 0:
+        console.print("[muted]Use 'task use <name>' to install and activate a task[/muted]")
+
+    return 0
+
+
 def cmd_task_library(args) -> int:
     """Handle 'task library' subcommands (and the legacy builtins alias)."""
     action = getattr(args, "task_library_action", None)
@@ -5573,6 +6707,12 @@ def cmd_task_library(args) -> int:
     registry = BuiltinRegistry()
 
     if action == "update":
+        # Deprecation warning
+        console.print(
+            "[warning]⚠ Deprecation:[/warning] 'task library update' will be deprecated.\n"
+            "[muted]Use [accent]'task update'[/accent] instead (promoted to top-level command).[/muted]\n"
+        )
+
         allow_network = not getattr(args, "no_network", False)
         console.print("Checking for updates…")
         msg = registry.update_cache(allow_network=allow_network)
@@ -5694,6 +6834,12 @@ def cmd_task_library(args) -> int:
         return 0
 
     if action == "install":
+        # Deprecation warning
+        console.print(
+            "[warning]⚠ Deprecation:[/warning] 'task library install' will be deprecated.\n"
+            "[muted]Use [accent]'task install <name>'[/accent] or [accent]'task use <name>'[/accent] (install + activate) instead.[/muted]\n"
+        )
+
         dest_path = user_config.tasks_dir / f"{args.task_name}.py"
         if dest_path.exists() and not getattr(args, "force", False):
             message(
