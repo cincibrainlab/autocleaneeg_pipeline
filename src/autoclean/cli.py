@@ -2527,6 +2527,21 @@ def cmd_list_tasks(args) -> int:
 
         # Get library tasks
         library_tasks = registry.list_tasks()
+        library_task_names = {t.name for t in library_tasks}
+
+        # Load library index for descriptions
+        library_index = {}
+        try:
+            import json
+            if registry._cache_index_path().exists():
+                index_data = json.loads(registry._cache_index_path().read_text())
+            else:
+                index_data = json.loads(registry._pkg_index_text())
+
+            for entry in index_data.get("tasks", []):
+                library_index[entry["name"]] = entry
+        except Exception:
+            pass
 
         # Process workspace tasks
         workspace_tasks = [t for t in valid_tasks if "autoclean/tasks" not in t.source]
@@ -2542,7 +2557,7 @@ def cmd_list_tasks(args) -> int:
             sync_status = sync.get("status") or "unknown"
 
             # Determine source (library or user)
-            if task.name in [lt["name"] for lt in library_tasks]:
+            if task.name in library_task_names:
                 source = "library"
             else:
                 source = "workspace"
@@ -2559,15 +2574,16 @@ def cmd_list_tasks(args) -> int:
 
         # Add library tasks not in workspace (available to install)
         for ltask in library_tasks:
-            if ltask["name"] not in workspace_names:
+            if ltask.name not in workspace_names:
+                lib_entry = library_index.get(ltask.name, {})
                 unified_tasks.append({
-                    "name": ltask["name"],
+                    "name": ltask.name,
                     "source": "library",
                     "sync_status": "not_installed",
                     "install_status": "available",
                     "montage": "—",
-                    "description": ltask.get("description", "No description"),
-                    "category": _get_category(ltask["name"]),
+                    "description": lib_entry.get("description", "No description"),
+                    "category": _get_category(ltask.name),
                 })
 
         # Add built-in tasks not overridden by workspace
