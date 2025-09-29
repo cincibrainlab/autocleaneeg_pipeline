@@ -19,7 +19,10 @@ config = {
     "drop_outerlayer": {"enabled": False, "value": []},
     "eog_step": {
         "enabled": True,
-        "value": [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128],
+        "value": {
+            "eog_indices": [1, 32, 8, 14, 17, 21, 25, 125, 126, 127, 128],
+            "eog_drop": True,
+        },
     },
     "trim_step": {"enabled": True, "value": 6},
     "crop_step": {"enabled": False, "value": {"start": 0, "end": 0}},
@@ -45,6 +48,7 @@ config = {
                 "line_noise",
             ],
             "ic_rejection_threshold": 0.25,
+            "psd_fmax": 70.0,
         },
     },
     "epoch_settings": {
