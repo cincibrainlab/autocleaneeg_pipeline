@@ -194,6 +194,107 @@ class TestBasicStepsMixin:
         assert test_instance.received_data == custom_raw
         assert result == custom_raw
 
+    def test_assign_eog_channels_dict_format(self):
+        """Test assign_eog_channels with dict format value."""
+        from autoclean.core.task import Task
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(n_channels=10)
+                self.config = {
+                    "eog_step": {
+                        "enabled": True,
+                        "value": {"eog_indices": [1, 2], "eog_drop": False},
+                    }
+                }
+
+        task = TestTask()
+        result = task.assign_eog_channels()
+        assert result is not None
+
+    def test_assign_eog_channels_list_format(self):
+        """Test assign_eog_channels with bare list format value."""
+        from autoclean.core.task import Task
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(n_channels=10)
+                self.config = {
+                    "eog_step": {"enabled": True, "value": [1, 2, 3]}
+                }
+
+        task = TestTask()
+        result = task.assign_eog_channels()
+        assert result is not None
+
+    def test_assign_eog_channels_none_format(self):
+        """Test assign_eog_channels with None value."""
+        from autoclean.core.task import Task
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(n_channels=10)
+                self.config = {
+                    "eog_step": {"enabled": True, "value": None}
+                }
+
+        task = TestTask()
+        result = task.assign_eog_channels()
+        # Should return data unchanged when value is None
+        assert result is not None
+
+    def test_assign_eog_channels_empty_list(self):
+        """Test assign_eog_channels with empty list."""
+        from autoclean.core.task import Task
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(n_channels=10)
+                self.config = {
+                    "eog_step": {"enabled": True, "value": []}
+                }
+
+        task = TestTask()
+        result = task.assign_eog_channels()
+        # Should return data unchanged when value is empty
+        assert result is not None
+
+    def test_resample_data_simple_number(self):
+        """Test resample_data with simple number format (schema-compliant)."""
+        from autoclean.core.task import Task
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(sfreq=1000.0)
+                self.config = {
+                    "resample_step": {"enabled": True, "value": 250}
+                }
+
+        task = TestTask()
+        result = task.resample_data()
+        assert result is not None
+        # Verify resampling occurred
+        assert result.info["sfreq"] == 250
+
+    def test_resample_data_dict_format(self):
+        """Test resample_data with dict format (advanced options)."""
+        from autoclean.core.task import Task
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(sfreq=1000.0)
+                self.config = {
+                    "resample_step": {
+                        "enabled": True,
+                        "value": {"sfreq": 500, "npad": "auto"}
+                    }
+                }
+
+        task = TestTask()
+        result = task.resample_data()
+        assert result is not None
+        assert result.info["sfreq"] == 500
+
 
 @pytest.mark.skipif(
     not SIGNAL_PROCESSING_AVAILABLE, reason="Signal processing mixins not available"
