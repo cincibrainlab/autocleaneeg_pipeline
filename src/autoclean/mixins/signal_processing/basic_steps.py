@@ -144,9 +144,16 @@ class BasicStepsMixin:
         with pipeline integration including configuration management, metadata
         tracking, and automatic export functionality.
 
-        Parameters override configuration values when provided. If not provided,
-        values are read from the task configuration using the existing
-        ``_check_step_enabled`` system.
+        Configuration uses simple format with sensible defaults for advanced parameters.
+        The schema requires only frequency-related fields (l_freq, h_freq, notch_freqs,
+        notch_widths). Advanced filtering parameters use these defaults:
+
+        - **method**: 'fir' (linear-phase FIR filter)
+        - **phase**: 'zero' (zero-phase filtering for no temporal distortion)
+        - **fir_window**: 'hamming' (Hamming window for spectral resolution)
+        - **verbose**: None (MNE default verbosity)
+
+        For advanced control, pass parameters directly to this method.
 
         Parameters
         ----------
@@ -162,13 +169,15 @@ class BasicStepsMixin:
         notch_freqs : list of float or None, optional
             Frequencies to notch filter in Hz. Overrides config if provided.
         notch_widths : float, list of float, or None, optional
-            Width of notch filters in Hz. Overrides config if provided.
+            Width of notch filters in Hz. Overrides config if provided. Default: 0.5 Hz.
         method : str or None, optional
-            Filtering method ('fir' or 'iir'). Overrides config if provided.
+            Filtering method ('fir' or 'iir'). Default: 'fir'. Overrides config if provided.
         phase : str or None, optional
-            Filter phase ('zero', 'zero-double', 'minimum'). Overrides config if provided.
+            Filter phase ('zero', 'zero-double', 'minimum'). Default: 'zero'.
+            Overrides config if provided.
         fir_window : str or None, optional
-            FIR window function. Overrides config if provided.
+            FIR window function ('hamming', 'hann', 'blackman'). Default: 'hamming'.
+            Overrides config if provided.
         verbose : bool or None, optional
             Control verbosity. Overrides config if provided.
 
@@ -178,9 +187,33 @@ class BasicStepsMixin:
             Filtered data object. Also updates ``self.raw`` or ``self.epochs``
             and triggers metadata tracking and export if configured.
 
+        Examples
+        --------
+        Simple configuration (schema-compliant):
+
+        >>> config = {
+        ...     "filtering": {
+        ...         "enabled": True,
+        ...         "value": {
+        ...             "l_freq": 1.0,        # Highpass at 1 Hz
+        ...             "h_freq": 100.0,      # Lowpass at 100 Hz
+        ...             "notch_freqs": [60],  # Notch filter at 60 Hz
+        ...         }
+        ...     }
+        ... }
+
+        Advanced parameter override:
+
+        >>> # Use IIR filter with minimum-phase for online processing
+        >>> task.filter_data(method="iir", phase="minimum")
+
+        >>> # Use different FIR window for better frequency resolution
+        >>> task.filter_data(fir_window="blackman")
+
         See Also
         --------
         autoclean.filter_data : The underlying standalone filtering function
+        mne.filter.filter_data : MNE-Python filtering implementation
         """
         data = self._get_data_object(data, use_epochs)
 

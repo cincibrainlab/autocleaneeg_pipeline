@@ -44,8 +44,13 @@ config = {
         "value": {
             "l_freq": 1,  # High-pass filter (Hz)
             "h_freq": 100,  # Low-pass filter (Hz)
-            "notch_freqs": [60, 120],  # Notch filter frequencies
-            "notch_widths": 5,  # Notch filter width
+            "notch_freqs": [60, 120],  # Notch filter frequencies (US: 60 Hz, EU: 50 Hz)
+            "notch_widths": 5,  # Notch filter width (Hz)
+            # Advanced options use sensible defaults (not required in config):
+            # - method: 'fir' (linear-phase FIR filter)
+            # - phase: 'zero' (zero-phase, no temporal distortion)
+            # - fir_window: 'hamming' (good spectral resolution)
+            # Override via method call if needed: self.filter_data(method="iir")
         },
     },
     "drop_outerlayer": {

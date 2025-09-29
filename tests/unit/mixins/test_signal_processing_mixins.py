@@ -295,6 +295,61 @@ class TestBasicStepsMixin:
         assert result is not None
         assert result.info["sfreq"] == 500
 
+    def test_filter_data_simple_format(self):
+        """Test filter_data with simple schema-compliant format."""
+        from autoclean.core.task import Task
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(sfreq=500.0, duration=10.0)
+                self.config = {
+                    "filtering": {
+                        "enabled": True,
+                        "value": {
+                            "l_freq": 1.0,
+                            "h_freq": 100.0,
+                            "notch_freqs": [60],
+                        }
+                    }
+                }
+
+        task = TestTask()
+        result = task.filter_data()
+        assert result is not None
+        # Verify filtering was applied (data object returned)
+        assert hasattr(result, "info")
+
+    def test_filter_data_defaults_applied(self):
+        """Test filter_data applies sensible defaults for advanced parameters."""
+        from autoclean.core.task import Task
+        from unittest.mock import patch
+
+        class TestTask(Task):
+            def __init__(self):
+                self.raw = create_synthetic_raw(sfreq=500.0, duration=10.0)
+                self.config = {
+                    "filtering": {
+                        "enabled": True,
+                        "value": {
+                            "l_freq": 1.0,
+                            "h_freq": 100.0,
+                        }
+                    }
+                }
+
+        task = TestTask()
+
+        # Patch the standalone function to verify defaults are passed
+        with patch('autoclean.mixins.signal_processing.basic_steps.standalone_filter_data') as mock_filter:
+            mock_filter.return_value = task.raw
+            task.filter_data()
+
+            # Verify default parameters were used
+            call_kwargs = mock_filter.call_args.kwargs
+            assert call_kwargs.get('method') == 'fir', "Default method should be 'fir'"
+            assert call_kwargs.get('phase') == 'zero', "Default phase should be 'zero'"
+            assert call_kwargs.get('fir_window') == 'hamming', "Default fir_window should be 'hamming'"
+
 
 @pytest.mark.skipif(
     not SIGNAL_PROCESSING_AVAILABLE, reason="Signal processing mixins not available"
