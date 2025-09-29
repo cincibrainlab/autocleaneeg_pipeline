@@ -20,7 +20,17 @@ from rich.style import Style
 from rich.theme import Theme
 
 
-AUTOCLEAN_THEME = os.getenv("AUTOCLEAN_THEME", "auto")
+def _get_persistent_theme() -> Optional[str]:
+    """Get theme from persistent user config."""
+    try:
+        from autoclean.utils.user_config import user_config
+
+        return user_config.get_theme()
+    except (ImportError, Exception):
+        return None
+
+
+AUTOCLEAN_THEME = os.getenv("AUTOCLEAN_THEME") or _get_persistent_theme() or "auto"
 AUTOCLEAN_COLOR_DEPTH = os.getenv("AUTOCLEAN_COLOR_DEPTH", "auto")
 NO_COLOR = os.getenv("NO_COLOR") is not None
 FORCE_COLOR = os.getenv("FORCE_COLOR") is not None

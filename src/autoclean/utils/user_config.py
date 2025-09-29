@@ -253,6 +253,152 @@ class UserConfigManager:
             print(f"Warning: Could not save active source config: {e}")
             return False
 
+    def get_theme(self) -> Optional[str]:
+        """Get the configured theme preference."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        if not global_config.exists():
+            return None
+
+        try:
+            with open(global_config, "r", encoding="utf-8") as f:
+                config = json.load(f)
+                return config.get("theme")
+        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+            return None
+
+    def set_theme(self, theme: Optional[str]) -> bool:
+        """Set the theme preference. Use None to unset (revert to default)."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        # Load existing config or create new one
+        config = {
+            "version": "1.0",
+            "setup_date": self._current_timestamp(),
+        }
+
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config.update(json.load(f))
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+
+        # Update theme
+        if theme is None:
+            config.pop("theme", None)
+        else:
+            config["theme"] = theme
+
+        # Save config
+        global_config.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(global_config, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Warning: Could not save theme config: {e}")
+            return False
+
+    def select_theme_interactive(self) -> Optional[str]:
+        """Interactive theme selection with preview."""
+        if not RICH_AVAILABLE:
+            return self._select_theme_basic()
+
+        from rich.prompt import Prompt
+
+        console = Console()
+
+        console.print("\n[bold]Select Theme:[/bold]")
+        console.print("[muted]Choose color scheme for CLI output[/muted]\n")
+
+        # Create theme options table
+        table = Table(show_header=True, header_style="bold magenta")
+        table.add_column("#", style="dim", width=3)
+        table.add_column("Theme", style="cyan")
+        table.add_column("Description", style="green")
+
+        themes = [
+            ("auto", "Auto-detect terminal background (recommended)"),
+            ("dark", "Dark terminal theme"),
+            ("light", "Light terminal theme"),
+            ("hc", "High contrast (accessibility)"),
+            ("mono", "Monochrome (no colors, bold/dim only)"),
+        ]
+
+        for i, (name, desc) in enumerate(themes, 1):
+            table.add_row(str(i), name, desc)
+
+        current_theme = self.get_theme()
+        if current_theme:
+            table.add_row("6", "Keep Current", f"Keep: {current_theme}")
+
+        console.print(table)
+
+        # Get current theme to show in prompt
+        current_msg = f" (current: {current_theme})" if current_theme else ""
+
+        console.print(
+            f"\nSelect a theme by number{current_msg}, or press Enter to cancel:"
+        )
+
+        try:
+            choice = Prompt.ask("Choice", default="", show_default=False)
+            if not choice.strip():
+                return None
+
+            choice_num = int(choice)
+            if 1 <= choice_num <= 5:
+                selected_theme = themes[choice_num - 1][0]
+                return selected_theme
+            elif choice_num == 6 and current_theme:
+                return current_theme
+            else:
+                console.print("[red]Invalid selection.[/red]")
+                return None
+        except (ValueError, KeyboardInterrupt):
+            return None
+
+    def _select_theme_basic(self) -> Optional[str]:
+        """Basic console-based theme selection (fallback when Rich unavailable)."""
+        print("\nSelect Theme:")
+        print("Choose color scheme for CLI output\n")
+
+        themes = [
+            ("auto", "Auto-detect terminal background (recommended)"),
+            ("dark", "Dark terminal theme"),
+            ("light", "Light terminal theme"),
+            ("hc", "High contrast (accessibility)"),
+            ("mono", "Monochrome (no colors, bold/dim only)"),
+        ]
+
+        for i, (name, desc) in enumerate(themes, 1):
+            print(f"  {i}. {name} - {desc}")
+
+        current_theme = self.get_theme()
+        current_msg = f" (current: {current_theme})" if current_theme else ""
+
+        try:
+            choice = input(
+                f"\nSelect a theme by number{current_msg}, or press Enter to cancel: "
+            ).strip()
+            if not choice:
+                return None
+
+            choice_num = int(choice)
+            if 1 <= choice_num <= 5:
+                selected_theme = themes[choice_num - 1][0]
+                return selected_theme
+            else:
+                print("Invalid selection.")
+                return None
+        except (ValueError, KeyboardInterrupt):
+            return None
+
     def select_active_task_interactive(self) -> Optional[str]:
         """Interactive selection of active task from available custom tasks."""
         custom_tasks = self.list_custom_tasks()

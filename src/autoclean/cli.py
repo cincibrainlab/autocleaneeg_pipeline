@@ -577,6 +577,28 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
+    if topic in {"settings", "setting"}:
+        console.print("[header]Settings Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        rows = [
+            ("🎨 settings theme [name]", "Configure CLI color theme (interactive if omitted)"),
+            ("🧹 settings theme --clear", "Reset theme to auto-detect"),
+        ]
+        for c, d in rows:
+            tbl.add_row(c, d)
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]Available themes:[/muted] [accent]auto, dark, light, hc (high contrast), mono[/accent]"
+        )
+        console.print(
+            "[muted]Theme is saved persistently and applies to all CLI commands.[/muted]"
+        )
+        console.print()
+        return
+
     console.print("[header]Commands[/header]")
     tbl = _Table(show_header=False, box=None, padding=(0, 1))
     tbl.add_column("Command", style="accent", no_wrap=True)
@@ -593,6 +615,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("▶\u00a0 process", "Process EEG data"),
         ("📝 review", "Start review GUI"),
         ("🚫 exclude", "Start inclusion/exclusion GUI"),
+        ("🎨 settings", "Manage persistent CLI settings (theme, etc.)"),
         ("🔐 auth", "Authentication & Part-11 commands"),
     ]
     for c, d in rows:
@@ -1539,6 +1562,32 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "disable", help="Disable compliance mode (if permitted)", add_help=False
     )
     attach_rich_help(auth_disable)
+
+    # Settings commands
+    settings_parser = subparsers.add_parser(
+        "settings", help="Manage persistent CLI settings", add_help=False
+    )
+    attach_rich_help(settings_parser)
+    settings_subparsers = settings_parser.add_subparsers(
+        dest="settings_action", help="Settings actions"
+    )
+
+    # Theme settings
+    theme_parser = settings_subparsers.add_parser(
+        "theme", help="Configure CLI color theme", add_help=False
+    )
+    attach_rich_help(theme_parser)
+    theme_parser.add_argument(
+        "theme_name",
+        nargs="?",
+        choices=["auto", "dark", "light", "hc", "mono"],
+        help="Theme to set (omit to choose interactively, or use 'clear' to reset)",
+    )
+    theme_parser.add_argument(
+        "--clear",
+        action="store_true",
+        help="Clear the saved theme preference (revert to auto)",
+    )
 
     return parser
 
@@ -5900,6 +5949,63 @@ def cmd_config_import(args) -> int:
         return 1
 
 
+def cmd_settings(args) -> int:
+    """Execute settings management commands."""
+    if not getattr(args, "settings_action", None):
+        # Show settings help when no subcommand provided
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "settings")
+        return 0
+
+    if args.settings_action == "theme":
+        return cmd_settings_theme(args)
+    else:
+        message("error", "Unknown settings action")
+        return 1
+
+
+def cmd_settings_theme(args) -> int:
+    """Configure CLI color theme."""
+    console = get_console(args)
+
+    # Handle --clear flag
+    if args.clear:
+        if user_config.set_theme(None):
+            console.print("[success]✓[/success] Theme preference cleared (reverted to auto)")
+            console.print("[muted]The CLI will now auto-detect your terminal background.[/muted]")
+            return 0
+        else:
+            console.print("[error]✗[/error] Failed to clear theme preference")
+            return 1
+
+    # If theme_name provided, set it directly
+    if args.theme_name:
+        theme = args.theme_name
+        if user_config.set_theme(theme):
+            console.print(f"[success]✓[/success] Theme set to: [accent]{theme}[/accent]")
+            console.print("[muted]Restart your CLI session to see the new theme.[/muted]")
+            return 0
+        else:
+            console.print(f"[error]✗[/error] Failed to set theme to: {theme}")
+            return 1
+
+    # Interactive theme selection
+    selected = user_config.select_theme_interactive()
+    if selected:
+        if user_config.set_theme(selected):
+            console.print(f"\n[success]✓[/success] Theme set to: [accent]{selected}[/accent]")
+            console.print("[muted]Restart your CLI session to see the new theme.[/muted]")
+            return 0
+        else:
+            console.print(f"[error]✗[/error] Failed to save theme preference")
+            return 1
+    else:
+        console.print("[muted]Theme selection cancelled.[/muted]")
+        return 0
+
+
 def cmd_clean_task(args) -> int:
     """Remove task output directory and database entries."""
     console = get_console(args)
@@ -7424,7 +7530,7 @@ def main(argv: Optional[list] = None) -> int:
                         # Minimal fallback without rich constructs
                         print(f"Unknown command: {first_non_option}")
                         print(
-                            "Try one of: process, task, input, view, review, workspace, help"
+                            "Try one of: process, task, input, view, review, workspace, settings, help"
                         )
                     return 2
     except Exception:
@@ -7791,6 +7897,8 @@ def main(argv: Optional[list] = None) -> int:
             return _finish(cmd_source(args))
         if args.command == "config":
             return _finish(cmd_config(args))
+        if args.command == "settings":
+            return _finish(cmd_settings(args))
         if args.command == "workspace":
             return _finish(cmd_workspace(args))
         if args.command == "export-access-log":
