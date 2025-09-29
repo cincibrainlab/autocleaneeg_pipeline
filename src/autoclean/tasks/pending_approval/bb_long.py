@@ -30,8 +30,13 @@ class BB_Long(Task):  # pylint: disable=invalid-name
         # Import and save raw EEG data
         self.import_raw()
 
-        # Continue with other preprocessing steps
-        self.run_basic_steps()
+        # Basic preprocessing steps
+        self.resample_data()
+        self.filter_data()
+        self.drop_outer_layer()
+        self.assign_eog_channels()
+        self.trim_edges()
+        self.crop_duration()
 
         # Store a copy of the pre-cleaned raw data for comparison in reports
         self.original_raw = self.raw.copy()

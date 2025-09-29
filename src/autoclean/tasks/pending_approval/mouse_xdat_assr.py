@@ -152,7 +152,13 @@ class MouseXdatAssr(Task):
         if self.raw is None:
             raise RuntimeError("No data has been imported")
 
-        self.run_basic_steps()
+        # Basic preprocessing steps
+        self.resample_data()
+        self.filter_data()
+        self.drop_outer_layer()
+        self.assign_eog_channels()
+        self.trim_edges()
+        self.crop_duration()
 
         self.original_raw = self.raw.copy()
 

@@ -55,7 +55,13 @@ class MouseXdatResting(Task):
 
         self.create_bids_path()
 
-        self.run_basic_steps()
+        # Basic preprocessing steps
+        self.resample_data()
+        self.filter_data()
+        self.drop_outer_layer()
+        self.assign_eog_channels()
+        self.trim_edges()
+        self.crop_duration()
 
         self.create_regular_epochs()
 

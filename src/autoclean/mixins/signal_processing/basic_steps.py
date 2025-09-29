@@ -1,6 +1,7 @@
 """Basic steps mixin for autoclean tasks."""
 
 from typing import List, Optional, Union
+import warnings
 
 import mne
 
@@ -28,6 +29,23 @@ class BasicStepsMixin:
     ) -> Union[mne.io.Raw, mne.Epochs]:
         """Runs all basic preprocessing steps sequentially based on configuration.
 
+        .. deprecated:: 2.3.0
+           `run_basic_steps()` is deprecated and will be removed in a future version.
+           For better transparency and control, use explicit individual method calls instead:
+
+           ```python
+           # Instead of: self.run_basic_steps()
+           # Use explicit calls:
+           self.resample_data()
+           self.filter_data()
+           self.drop_outer_layer()
+           self.assign_eog_channels()
+           self.trim_edges()
+           self.crop_duration()
+           ```
+
+           See approved tasks in src/autoclean/tasks/ for examples of the recommended pattern.
+
         The steps included are:
         1. Resample Data
         2. Filter Data
@@ -37,6 +55,9 @@ class BasicStepsMixin:
         6. Crop Duration
 
         Each step's execution depends on its 'enabled' status in the configuration.
+
+        Note: This method does NOT include rereferencing, which should be called
+        separately after channel cleaning: self.rereference_data()
 
         Parameters
         ----------
@@ -54,6 +75,16 @@ class BasicStepsMixin:
         inst : instance of mne.io.Raw or mne.io.Epochs
             The data object after applying all enabled basic processing steps.
         """
+        warnings.warn(
+            "run_basic_steps() is deprecated and will be removed in a future version. "
+            "For better transparency and control, use explicit individual method calls instead: "
+            "self.resample_data(), self.filter_data(), self.drop_outer_layer(), "
+            "self.assign_eog_channels(), self.trim_edges(), self.crop_duration(). "
+            "See approved tasks in src/autoclean/tasks/ for examples.",
+            DeprecationWarning,
+            stacklevel=2
+        )
+
         message("header", "Running basic preprocessing steps...")
 
         # Start with the correct data object
@@ -412,7 +443,6 @@ class BasicStepsMixin:
         """
 
         message("header", "Rereferencing data...")
-
         data = self._get_data_object(data, use_epochs)
 
         if not isinstance(
