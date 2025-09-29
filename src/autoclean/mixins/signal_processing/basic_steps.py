@@ -322,7 +322,24 @@ class BasicStepsMixin:
                 message("info", "Resampling step is disabled in configuration")
                 return data
 
-            target_sfreq = config_value.get("value", None)
+            # Normalize value to handle both simple number and dict formats
+            # Schema allows: int, float, or None (simple format for frequency)
+            # Advanced format (undocumented): dict with sfreq + advanced options
+            value = config_value.get("value", None)
+
+            if isinstance(value, dict):
+                # Advanced format: {"sfreq": 250, "npad": "auto", ...}
+                target_sfreq = value.get("sfreq") or value.get("target_sfreq")
+                config_args = value
+            elif isinstance(value, (int, float)):
+                # Simple format: 250 (most common, schema-compliant)
+                target_sfreq = value
+                config_args = {}
+            else:
+                # None or invalid
+                target_sfreq = None
+                config_args = {}
+
             if target_sfreq is None:
                 message(
                     "warning",
@@ -330,15 +347,11 @@ class BasicStepsMixin:
                 )
                 return data
 
-        # Get config defaults and apply overrides
-        config_args = {}
-        if hasattr(self, "config") and "resample_step" in self.config.get(
-            "tasks", {}
-        ).get(self.config.get("task", ""), {}).get("settings", {}):
-            config_args = self.config["tasks"][self.config["task"]]["settings"][
-                "resample_step"
-            ].get("value", {})
+        else:
+            # target_sfreq provided as parameter - no config extraction needed
+            config_args = {}
 
+        # Apply overrides for advanced options (default to sensible values)
         final_npad = npad if npad is not None else config_args.get("npad", "auto")
         final_window = (
             window if window is not None else config_args.get("window", "auto")
@@ -583,7 +596,21 @@ class BasicStepsMixin:
             message("info", "EOG Assignment step is disabled in configuration")
             return data
 
-        eog_channel_indices = config_value.get("value", {}).get("eog_indices", [])
+        # Normalize value to handle all schema-allowed formats:
+        # 1. Dict: {"eog_indices": list[int] | None, "eog_drop": bool | None}
+        # 2. Bare list: [1, 32, 8, 14, ...]
+        # 3. None
+        value = config_value.get("value")
+        if isinstance(value, dict):
+            eog_channel_indices = value.get("eog_indices", [])
+            eog_drop = value.get("eog_drop", False)
+        elif isinstance(value, list):
+            eog_channel_indices = value
+            eog_drop = False
+        else:  # None or other
+            eog_channel_indices = []
+            eog_drop = False
+
         if not eog_channel_indices:
             message("warning", "EOG channel indices not specified, skipping step")
             return data
@@ -632,8 +659,8 @@ class BasicStepsMixin:
         # we still call update_instance_data to potentially update self.raw/self.epochs
         self._update_instance_data(data, processed_data, use_epochs)
 
-        # Drop EOG channels if specified
-        if config_value.get("value", {}).get("eog_drop", False):
+        # Drop EOG channels if specified (eog_drop extracted during value normalization)
+        if eog_drop:
             processed_data = self.drop_eog_channels(data=processed_data)
 
         return processed_data
