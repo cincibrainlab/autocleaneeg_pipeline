@@ -1,0 +1,51 @@
+{
+  "id": "autoclean.wavelet_threshold",
+  "name": "Wavelet Thresholding",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "AutoClean EEG Team",
+      "email": "ernest.pedapati@cchmc.org"
+    }
+  ],
+  "summary": "Wavelet denoising block that accepts an MNE Raw object and returns a cleaned Raw instance.",
+  "entry_points": [
+    {
+      "function": "autoclean.mixins.signal_processing.wavelet_threshold.processing.wavelet_threshold",
+      "input": "mne.io.BaseRaw",
+      "output": "mne.io.BaseRaw"
+    },
+    {
+      "function": "autoclean.mixins.signal_processing.wavelet_threshold.processing.generate_wavelet_report",
+      "input": "mne.io.BaseRaw",
+      "output": "autoclean.mixins.signal_processing.wavelet_threshold.processing.WaveletReportResult"
+    }
+  ],
+  "related_blocks": [
+    {
+      "function": "autoclean.mixins.signal_processing.autoreject.processing.run_autoreject_raw",
+      "input": "mne.io.Raw",
+      "output": "AutorejectResult"
+    },
+    {
+      "function": "autoclean.mixins.signal_processing.autoreject.processing.run_autoreject",
+      "input": "mne.Epochs",
+      "output": "AutorejectResult"
+    },
+    {
+      "function": "autoclean.mixins.signal_processing.star_cleaning.processing.run_star_cleaning",
+      "input": "mne.io.Raw",
+      "output": "mne.io.Raw"
+    },
+    {
+      "function": "autoclean.mixins.signal_processing.asr.processing.apply_asr",
+      "input": "mne.io.Raw",
+      "output": "mne.io.Raw"
+    },
+    {
+      "function": "autoclean.mixins.signal_processing.zapline.processing.run_zapline",
+      "input": "mne.io.Raw",
+      "output": "mne.io.Raw"
+    }
+  ]
+}

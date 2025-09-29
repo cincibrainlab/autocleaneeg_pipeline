@@ -128,12 +128,24 @@ packages = ["src/autoclean", "configs"]
 "src/autoclean/data/builtins/registry.json" = "autoclean/data/builtins/registry.json"
 "src/autoclean/data/builtins/tasks" = "autoclean/data/builtins/tasks"
 "src/autoclean/configkit/schema_exports" = "autoclean/configkit/schema_exports"
+"src/autoclean/mixins/signal_processing/wavelet_threshold/manifest.json" = "autoclean/mixins/signal_processing/wavelet_threshold/manifest.json"
+"src/autoclean/mixins/signal_processing/autoreject/manifest.json" = "autoclean/mixins/signal_processing/autoreject/manifest.json"
+"src/autoclean/mixins/signal_processing/asr/manifest.json" = "autoclean/mixins/signal_processing/asr/manifest.json"
+"src/autoclean/mixins/signal_processing/star_cleaning/manifest.json" = "autoclean/mixins/signal_processing/star_cleaning/manifest.json"
+"src/autoclean/mixins/signal_processing/zapline/manifest.json" = "autoclean/mixins/signal_processing/zapline/manifest.json"
+"src/autoclean/mixins/signal_processing/gfp_clean_epochs/manifest.json" = "autoclean/mixins/signal_processing/gfp_clean_epochs/manifest.json"
 
 [tool.hatch.build.targets.sdist]
 include = [
     "src/autoclean/data/builtins/registry.json",
     "src/autoclean/data/builtins/tasks/**",
     "src/autoclean/configkit/schema_exports/**",
+    "src/autoclean/mixins/signal_processing/wavelet_threshold/manifest.json",
+    "src/autoclean/mixins/signal_processing/autoreject/manifest.json",
+    "src/autoclean/mixins/signal_processing/asr/manifest.json",
+    "src/autoclean/mixins/signal_processing/star_cleaning/manifest.json",
+    "src/autoclean/mixins/signal_processing/zapline/manifest.json",
+    "src/autoclean/mixins/signal_processing/gfp_clean_epochs/manifest.json",
 ]
 
 [tool.pytest.ini_options]

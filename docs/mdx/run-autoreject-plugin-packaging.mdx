@@ -1,0 +1,77 @@
+---
+title: AutoReject Plugin Packaging Run
+description: Break the AutoReject helpers into a standalone plugin with its own mixin, manifest, and novice-facing guidance.
+---
+
+# AutoReject Plugin Packaging Run
+
+The aim of this run was to move the AutoReject wrappers out of the wavelet toolkit and into their own Lego-style folder so the epochs-first cleaner can ship as an independent block.
+
+<Cards>
+  <Card title="Processing">`processing.py` exposes `run_autoreject` for epochs and `run_autoreject_raw` for Raw inputs, both returning an `AutorejectResult` bundle.</Card>
+  <Card title="Mixin">`AutorejectMixin` gives pipeline classes a single `apply_autoreject` method that falls back to `self.epochs` or `self.raw`.</Card>
+  <Card title="Manifest">`manifest.json` advertises the callable entry points and mixin so registries can surface AutoReject alongside other plugins.</Card>
+</Cards>
+
+## How it Works
+
+<Diagram name="AutoReject flow">
+Raw or Epochs -> optional fixed-length epoch builder -> `run_autoreject()` -> cleaned epochs + reject log -> optional metadata export
+</Diagram>
+
+<Steps>
+  <Step title="Import the block">
+```python
+from autoclean.mixins.signal_processing import autoreject
+
+result = autoreject.run_autoreject(epochs)
+```
+  </Step>
+  <Step title="Start from Raw data">
+```python
+from autoclean.mixins.signal_processing import autoreject
+
+result = autoreject.run_autoreject_raw(raw)
+clean_epochs, reject_log = result.epochs, result.reject_log
+```
+  </Step>
+  <Step title="Use the mixin">
+```python
+from autoclean.mixins.signal_processing.autoreject import AutorejectMixin
+
+class Cleaner(AutorejectMixin):
+    epochs = existing_epochs
+
+cleaned = Cleaner().apply_autoreject()
+```
+  </Step>
+  <Step title="Inspect the manifest">
+```python
+from autoclean.mixins.signal_processing.autoreject import PLUGIN_MANIFEST
+
+print(PLUGIN_MANIFEST["entry_points"])
+```
+  </Step>
+</Steps>
+
+## Concerns and Mitigations
+
+<Callout type="warning" title="Optional dependency">
+`autoreject` is not bundled by default. The plugin raises a clear ImportError explaining how to install it so novices know why the helper failed.
+</Callout>
+
+<Callout type="info" title="Epoch builder defaults">
+If you hand AutoReject a Raw recording, the plugin now defaults to 1-second, non-overlapping epochs via `mne.make_fixed_length_epochs`, keeping the Raw-in/Epochs-out signature predictable.
+</Callout>
+
+## Testing & Verification
+
+1. Import the plugin and call `run_autoreject` with a small synthetic epochs object to confirm the API.
+2. Use `pytest tests/functions/test_preprocessing.py::TestWaveletThreshold` to ensure prior wavelet tests (which rely on the compatibility shim) still pass.
+3. Open `src/autoclean/mixins/signal_processing/autoreject/manifest.json` to verify the entry points list both Raw and Epoch inputs.
+
+## Results Summary
+
+- AutoReject helpers live in `src/autoclean/mixins/signal_processing/autoreject/` with their own manifest and mixin.
+- The wavelet toolkit now re-exports these functions for backward compatibility.
+- Novice-facing documentation walks through imports, Raw/Epoch usage, manifest inspection, and dependency pitfalls.

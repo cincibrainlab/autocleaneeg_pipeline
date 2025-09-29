@@ -13,7 +13,7 @@ This run folds the PDF reporting utilities into the same file that implements wa
   </Step>
   <Step title="What changed?">
     <ul>
-      <li>Merged the report helpers, dataclass container, and constants into <code>src/autoclean/functions/preprocessing/wavelet_thresholding.py</code>.</li>
+      <li>Merged the report helpers, dataclass container, and constants into <code>src/autoclean/mixins/signal_processing/wavelet_threshold/processing.py</code>.</li>
       <li>Deleted the legacy <code>autoclean.reporting.wavelet_report</code> module and re-exported the reporting API from <code>autoclean.reporting.__init__</code>.</li>
       <li>Updated the CLI helper, the unit test fixture, and the MDX guide so they reference the unified module path.</li>
     </ul>
@@ -33,7 +33,7 @@ This run folds the PDF reporting utilities into the same file that implements wa
 wavelet_threshold(raw/epochs)
   -> uses _denoise_signal() and _resolve_decomposition_level()
   -> reused by generate_wavelet_report() for before/after comparisons
-scripts/wavelet_report.py -> loads functions/preprocessing/wavelet_thresholding.py
+scripts/wavelet_report.py -> loads mixins/signal_processing/wavelet_threshold/processing.py
 unit tests -> import the same file to validate PDF output
 </Diagram>
 
@@ -46,7 +46,7 @@ Bringing reporting dependencies (matplotlib, pandas, reportlab) into the preproc
 ## Re-run Checklist for New Contributors
 
 1. Check out the repo and ensure dependencies are installed (the reporting stack requires matplotlib, pandas, and reportlab).
-2. Inspect <code>src/autoclean/functions/preprocessing/wavelet_thresholding.py</code> to confirm both the cleaner and report helpers are present.
+2. Inspect <code>src/autoclean/mixins/signal_processing/wavelet_threshold/processing.py</code> to confirm both the cleaner and report helpers are present.
 3. Execute <code>pytest tests/reporting/test_wavelet_report.py</code> and review the generated PDF under <code>tmp_path</code> if you want to inspect it manually.
 4. (Optional) Generate a real PDF report using the CLI helper and confirm the summary tables render correctly.
 

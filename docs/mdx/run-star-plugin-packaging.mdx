@@ -1,0 +1,74 @@
+---
+title: STAR Plugin Packaging Run
+description: Promote the STAR spatial cleaner to its own plugin folder with a mixin wrapper and manifest metadata for discovery.
+---
+
+# STAR Plugin Packaging Run
+
+STAR (Spatial Time-series Artifact Rejection) now ships as a discrete plugin so teams can snap it into pipelines without dragging along unrelated wavelet utilities.
+
+<Cards>
+  <Card title="Processing">`processing.py` provides `run_star_cleaning` and the import guard for meegkit's STAR implementation.</Card>
+  <Card title="Mixin">`StarCleaningMixin` surfaces `apply_star_cleaning` that logs progress, updates metadata when hooks exist, and exports cleaned data.</Card>
+  <Card title="Manifest">`manifest.json` lists the Raw-in/Raw-out signature so registries can advertise the block.</Card>
+</Cards>
+
+## How it Works
+
+<Diagram name="STAR flow">
+Raw -> meegkit.star.star() -> cleaned numpy array -> Raw copy with STAR-filtered data
+</Diagram>
+
+<Steps>
+  <Step title="Use the function">
+```python
+from autoclean.mixins.signal_processing import star_cleaning
+
+cleaned = star_cleaning.run_star_cleaning(raw, lmbda=2.0)
+```
+  </Step>
+  <Step title="Adopt the mixin">
+```python
+from autoclean.mixins.signal_processing.star_cleaning import StarCleaningMixin
+
+class Cleaner(StarCleaningMixin):
+    raw = existing_raw
+
+cleaned = Cleaner().apply_star_cleaning(lmbda=3.0)
+```
+  </Step>
+  <Step title="Review metadata">
+```python
+from autoclean.mixins.signal_processing.star_cleaning import PLUGIN_MANIFEST
+
+print(PLUGIN_MANIFEST["entry_points"])
+```
+  </Step>
+  <Step title="Handle missing meegkit">
+```python
+try:
+    from autoclean.mixins.signal_processing import star_cleaning
+    star_cleaning.run_star_cleaning(raw)
+except ImportError as err:
+    print(err)
+```
+  </Step>
+</Steps>
+
+## Concerns and Mitigations
+
+<Callout type="warning" title="Dependency awareness">STAR relies on `meegkit`. The plugin raises an instructional ImportError pointing to the required package.</Callout>
+
+<Callout type="info" title="Raw copy semantics">The helper returns a copy of the Raw object, keeping the original untouched while satisfying the consistent entry/exit contract.</Callout>
+
+## Testing & Verification
+
+1. Import the plugin with `python -c "from autoclean.mixins.signal_processing import star_cleaning"`.
+2. Trigger the ImportError on a machine without meegkit to confirm the message is novice friendly.
+3. Inspect `src/autoclean/mixins/signal_processing/star_cleaning/manifest.json` to see the manifest entry for registries.
+
+## Results Summary
+
+- STAR cleaning resides in its own plugin directory with processing, mixin, and manifest files.
+- Backwards compatibility is preserved via the wavelet toolkit re-exports.
+- Documentation shows novices how to run the helper, adopt the mixin, and verify manifest metadata while handling missing dependencies.

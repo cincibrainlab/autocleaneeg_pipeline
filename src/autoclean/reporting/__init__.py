@@ -10,7 +10,7 @@ from .llm_reporting import (
     create_reports,
     render_methods,
 )
-from autoclean.functions.preprocessing.wavelet_thresholding import (
+from autoclean.mixins.signal_processing.wavelet_threshold.processing import (
     WaveletReportResult,
     generate_wavelet_report,
 )

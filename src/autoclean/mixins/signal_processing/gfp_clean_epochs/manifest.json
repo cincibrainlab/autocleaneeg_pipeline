@@ -1,0 +1,25 @@
+{
+  "id": "autoclean.gfp_clean_epochs",
+  "name": "GFP Epoch Cleaning",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "Ernest Pedapati",
+      "email": "ernest.pedapati@cchmc.org"
+    }
+  ],
+  "summary": "Remove high-GFP epochs while keeping the familiar MNE Epochs in/out contract.",
+  "entry_points": [
+    {
+      "function": "autoclean.mixins.signal_processing.gfp_clean_epochs.processing.clean_epochs_by_gfp",
+      "input": "mne.Epochs",
+      "output": "mne.Epochs"
+    }
+  ],
+  "mixins": [
+    {
+      "class": "autoclean.mixins.signal_processing.gfp_clean_epochs.GFPCleanEpochsMixin",
+      "method": "gfp_clean_epochs"
+    }
+  ]
+}

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from importlib import resources
 from pathlib import Path
 from typing import Mapping, Optional, Sequence, Tuple, Union
 
@@ -9,10 +11,11 @@ import mne
 import numpy as np
 import pywt
 
-from autoclean.functions.preprocessing.wavelet_thresholding import (
-    generate_wavelet_report,
-    wavelet_threshold,
-)
+from .processing import generate_wavelet_report, wavelet_threshold
+from .toolkit import apply_asr, run_autoreject, run_autoreject_raw, run_star_cleaning, run_zapline
+
+with resources.files(__package__).joinpath("manifest.json").open("r", encoding="utf-8") as _manifest_handle:
+    PLUGIN_MANIFEST = json.load(_manifest_handle)
 from autoclean.utils.logging import message
 
 
@@ -246,3 +249,16 @@ class WaveletThresholdMixin:
         self._update_metadata("step_wavelet_threshold", metadata)
         message("success", "Wavelet thresholding complete")
         return cleaned
+
+
+__all__ = [
+    "WaveletThresholdMixin",
+    "wavelet_threshold",
+    "generate_wavelet_report",
+    "PLUGIN_MANIFEST",
+    "run_autoreject",
+    "run_autoreject_raw",
+    "run_star_cleaning",
+    "apply_asr",
+    "run_zapline",
+]

@@ -11,7 +11,7 @@ remediation.
 - **ICVision plotting helpers** (`src/autoclean/functions/visualization/icvision_layouts.py`):
   clamp PSD axes to the provided ceiling, including the `.webp` outputs used for
   OpenAI Vision.
-- **Wavelet QA metrics/reports** (`src/autoclean/functions/preprocessing/wavelet_thresholding.py`):
+- **Wavelet QA metrics/reports** (`src/autoclean/mixins/signal_processing/wavelet_threshold/processing.py`):
   the PSD computation now honours the optional `psd_fmax` value threaded from
   configuration and surfaces it in the generated summaries.
 

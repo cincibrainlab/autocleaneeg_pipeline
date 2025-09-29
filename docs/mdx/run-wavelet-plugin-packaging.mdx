@@ -1,0 +1,94 @@
+---
+title: Wavelet Plugin Packaging Run
+description: Bundle the wavelet mixin, processing code, manifest, and companion blocks as a reusable plugin folder.
+---
+
+# Wavelet Plugin Packaging Run
+
+The goal of this run was to co-locate the wavelet threshold mixin with its signal-processing implementation so the entire denoising feature can be shared like a Lego block. The new folder `src/autoclean/mixins/signal_processing/wavelet_threshold/` now contains:
+
+<Cards>
+  <Card title="Processing">`processing.py` holds `wavelet_threshold`, `_resolve_decomposition_level`, and the PDF report helper so Raw objects can be cleaned and visualized without extra imports.</Card>
+  <Card title="Mixin">`__init__.py` exposes `WaveletThresholdMixin` and loads the JSON manifest so task classes automatically pick up metadata about the block.</Card>
+  <Card title="Toolkit bridge">`toolkit.py` now re-exports the AutoReject, STAR, ASR, and Zapline helpers from their own plugin folders so legacy imports keep working while encouraging the dedicated Lego blocks.</Card>
+  <Card title="Manifest">`manifest.json` advertises entry points for registries or UIs that want to list available Lego blocks.</Card>
+</Cards>
+
+## How it Works
+
+<Diagram name="Wavelet plugin flow">
+Task imports WaveletThresholdMixin -> `apply_wavelet_threshold()` -> `processing.wavelet_threshold()` -> optional report generation -> manifest records metadata
+</Diagram>
+
+<Steps>
+  <Step title="Import the mixin block">
+```python
+from autoclean.mixins.signal_processing.wavelet_threshold import (
+    WaveletThresholdMixin,
+    wavelet_threshold,
+    generate_wavelet_report,
+)
+```
+  </Step>
+  <Step title="Clean a Raw recording">
+```python
+cleaned = wavelet_threshold(raw, wavelet="sym4", level="auto")
+```
+  </Step>
+  <Step title="Run companion utilities">
+```python
+from autoclean.mixins.signal_processing import (
+    asr,
+    autoreject,
+    star_cleaning,
+    zapline,
+)
+
+asr_raw = asr.apply_asr(raw)
+star_raw = star_cleaning.run_star_cleaning(raw)
+zapline_raw = zapline.run_zapline(raw)
+reject = autoreject.run_autoreject_raw(raw)
+```
+  </Step>
+  <Step title="Inspect the manifest">
+```python
+from autoclean.mixins.signal_processing.wavelet_threshold import PLUGIN_MANIFEST
+
+print(PLUGIN_MANIFEST["entry_points"])
+```
+  </Step>
+  <Step title="Generate QA artifacts">
+```python
+report = generate_wavelet_report(raw, "reports/example_wavelet.pdf")
+print(report.summary)
+```
+  </Step>
+</Steps>
+
+## Concerns and Mitigations
+
+<Callout type="warning" title="Optional dependencies">
+`autoreject` and `meegkit` power the toolkit. If they are missing, the helpers raise a friendly ImportError that explains how to install them. The core wavelet denoiser continues to run without those extras.
+</Callout>
+
+<Callout type="info" title="Entry/Exit consistency">
+Every helper accepts and returns an MNE `Raw` or `Epochs` object. The default AutoReject wrapper even accepts a Raw object and internally builds fixed-length epochs so pipelines can chain blocks without conversions.
+</Callout>
+
+## Testing & Verification
+
+1. Confirm unit tests still pass for the relocated processing code:
+   ```bash
+   pytest tests/functions/test_preprocessing.py::TestWaveletThreshold
+   ```
+2. Use the CLI wrapper to generate a PDF report with the new module path:
+   ```bash
+   python scripts/wavelet_report.py /path/to/data.set --output reports/data_wavelet.pdf
+   ```
+3. Inspect `manifest.json` to verify entry points for registry integrations.
+
+## Results Summary
+
+- The mixin, processing logic, manifest, and toolkit now sit in one directory that can be copied as a self-contained plugin.
+- A compatibility shim keeps legacy imports working while new code points directly to the plugin folder.
+- Documentation and the CLI were updated to point at the new structure so novice users know exactly where to look.

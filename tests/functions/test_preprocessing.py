@@ -11,18 +11,27 @@ from typing import List
 import numpy as np
 import pytest
 import pywt
+from mne import create_info
+from mne.io import RawArray
+from numpy.random import default_rng
+import mne
 
 # Import test utilities
 from tests.fixtures.synthetic_data import create_synthetic_raw
+from autoclean.mixins.signal_processing.gfp_clean_epochs import (
+    GFPCleanEpochsMixin,
+    clean_epochs_by_gfp,
+)
 
 # Load wavelet module directly to avoid package side effects during testing
 _MODULE_PATH = (
     Path(__file__).resolve().parents[2]
     / "src"
     / "autoclean"
-    / "functions"
-    / "preprocessing"
-    / "wavelet_thresholding.py"
+    / "mixins"
+    / "signal_processing"
+    / "wavelet_threshold"
+    / "processing.py"
 )
 _SPEC = importlib.util.spec_from_file_location("wavelet_thresholding", _MODULE_PATH)
 wavelet_module = importlib.util.module_from_spec(_SPEC)
@@ -31,6 +40,16 @@ _SPEC.loader.exec_module(wavelet_module)
 wavelet_threshold = wavelet_module.wavelet_threshold
 _resolve_decomposition_level = wavelet_module._resolve_decomposition_level
 _compute_psd_metrics = wavelet_module._compute_psd_metrics
+
+
+def create_toy_data(n_channels=35, duration=25, sfreq=250, seed=None):
+    """Utility mirroring the user-provided toy dataset recipe."""
+
+    rng = default_rng(seed)
+    data = rng.standard_normal(size=(n_channels, duration * sfreq)) * 5e-6
+    ch_names = [f"EEG {i + 1:03d}" for i in range(n_channels)]
+    info = create_info(ch_names, sfreq, "eeg")
+    return RawArray(data, info)
 
 
 class TestFiltering:
@@ -197,6 +216,16 @@ class TestWaveletThreshold:
 
         assert np.allclose(auto_cleaned.get_data(), explicit_cleaned.get_data())
 
+    def test_wavelet_threshold_toy_data(self):
+        """The toy dataset recipe should flow through the wavelet helper."""
+
+        raw = create_toy_data(n_channels=8, duration=2, sfreq=250, seed=97)
+        cleaned = wavelet_threshold(raw)
+
+        assert cleaned is not raw
+        assert cleaned.get_data().shape == raw.get_data().shape
+
+
     def test_wavelet_threshold_picks_subset(self):
         """Channel picks should confine denoising to selected channels."""
 
@@ -277,3 +306,73 @@ class TestWaveletThreshold:
 
         very_short = 5
         assert _resolve_decomposition_level(very_short, wavelet, 5) == 0
+
+
+class TestGFPCleanEpochs:
+    """GFP plugin smoke tests."""
+
+    @staticmethod
+    def _make_epochs(n_epochs: int = 6, n_channels: int = 35, sfreq: int = 250):
+        rng = default_rng(42)
+        data = rng.standard_normal(size=(n_epochs, n_channels, sfreq)) * 5e-6
+        data[0] *= 25  # exaggerate one epoch to guarantee an outlier
+        ch_names = [f"EEG {i + 1:03d}" for i in range(n_channels)]
+        info = mne.create_info(ch_names, sfreq, "eeg")
+        events = np.column_stack(
+            [np.arange(n_epochs), np.zeros(n_epochs, dtype=int), np.ones(n_epochs, dtype=int)]
+        )
+        return mne.EpochsArray(data, info, events=events, event_id={"Stimulus": 1}, tmin=0.0)
+
+    def test_clean_epochs_by_gfp_removes_outlier(self):
+        """High-GFP epochs should be pruned."""
+
+        epochs = self._make_epochs()
+        result = clean_epochs_by_gfp(epochs, gfp_threshold=2.0)
+
+        assert isinstance(result.epochs, mne.BaseEpochs)
+        assert len(result.epochs) < len(epochs)
+        assert result.removed_count >= 1
+
+    def test_clean_epochs_by_gfp_number_of_epochs_cap(self):
+        """`number_of_epochs` should cap the output size deterministically."""
+
+        epochs = self._make_epochs()
+        result = clean_epochs_by_gfp(epochs, gfp_threshold=10.0, number_of_epochs=3, random_seed=7)
+
+        assert len(result.epochs) == 3
+        assert len(result.cleaned_stats) == 3
+
+    def test_gfp_mixin_integration_updates_metadata(self):
+        """The mixin should update metadata and swap out epochs on the instance."""
+
+        epochs = self._make_epochs()
+
+        class DummyTask(GFPCleanEpochsMixin):
+            def __init__(self, epochs_obj):
+                self.epochs = epochs_obj
+                self.metadata_calls = {}
+
+            def _get_data_object(self, epochs_obj=None, use_epochs=True):
+                return epochs_obj if epochs_obj is not None else self.epochs
+
+            def _update_metadata(self, key, value):
+                self.metadata_calls[key] = value
+
+            def _update_instance_data(self, original, new, use_epochs=True):
+                self.epochs = new
+
+            def _save_epochs_result(self, epochs_obj, stage_name):
+                self.saved = (stage_name, len(epochs_obj))
+
+            def _auto_export_if_enabled(self, epochs_obj, stage_name, export):
+                self.export = export
+
+        task = DummyTask(epochs)
+        cleaned = task.gfp_clean_epochs(stage_name="gfp_stage", export=True)
+
+        assert isinstance(cleaned, mne.BaseEpochs)
+        assert len(cleaned) <= len(epochs)
+        assert "step_gfp_clean_epochs" in task.metadata_calls
+        assert task.metadata_calls["step_gfp_clean_epochs"]["initial_epochs"] == len(epochs)
+        assert task.saved == ("gfp_stage", len(cleaned))
+        assert task.export is True

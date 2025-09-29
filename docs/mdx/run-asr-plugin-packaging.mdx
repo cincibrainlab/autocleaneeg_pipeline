@@ -1,0 +1,74 @@
+---
+title: ASR Plugin Packaging Run
+description: Extract the ASR helper into a discrete plugin with Raw-in/Raw-out ergonomics, mixin support, and clear validation steps.
+---
+
+# ASR Plugin Packaging Run
+
+We carved the Artifact Subspace Reconstruction helper out of the wavelet toolkit so labs can enable or disable it as a stand-alone Lego block while keeping the familiar MNE Raw entry point.
+
+<Cards>
+  <Card title="Processing">`processing.py` defines `apply_asr` and centralizes the meegkit import guard plus windowed transform loop.</Card>
+  <Card title="Mixin">`ASRMixin` wraps `apply_asr` with pipeline-friendly logging, metadata capture, and auto-export hooks when available.</Card>
+  <Card title="Manifest">`manifest.json` captures the callable entry point and mixin so registries or UIs can enumerate the module.</Card>
+</Cards>
+
+## How it Works
+
+<Diagram name="ASR flow">
+Raw -> train window selection -> ASR.fit(clean window) -> sliding window transform -> reshaped clean Raw
+</Diagram>
+
+<Steps>
+  <Step title="Call the helper">
+```python
+from autoclean.mixins.signal_processing import asr
+
+cleaned = asr.apply_asr(raw, cutoff=30.0)
+```
+  </Step>
+  <Step title="Use within a task">
+```python
+from autoclean.mixins.signal_processing.asr import ASRMixin
+
+class Cleaner(ASRMixin):
+    raw = existing_raw
+
+cleaned = Cleaner().apply_asr(train_duration=10)
+```
+  </Step>
+  <Step title="Check the manifest">
+```python
+from autoclean.mixins.signal_processing.asr import PLUGIN_MANIFEST
+
+print(PLUGIN_MANIFEST["entry_points"])
+```
+  </Step>
+  <Step title="Guard against missing deps">
+```python
+try:
+    from autoclean.mixins.signal_processing import asr
+    asr.apply_asr(raw)
+except ImportError as err:
+    print(err)
+```
+  </Step>
+</Steps>
+
+## Concerns and Mitigations
+
+<Callout type="warning" title="Meegkit dependency">ASR depends on `meegkit`. The helper now raises a descriptive ImportError instructing users to `pip install meegkit`.</Callout>
+
+<Callout type="info" title="Consistent Raw interface">The mixin and function both return a copy of the Raw object so callers never need to juggle numpy arrays.</Callout>
+
+## Testing & Verification
+
+1. Run `python -c "from autoclean.mixins.signal_processing import asr"` to ensure the plugin imports.
+2. Execute the snippet above to trigger the ImportError message in environments without meegkit.
+3. Confirm the manifest file at `src/autoclean/mixins/signal_processing/asr/manifest.json` lists the Raw in/out signature for registries.
+
+## Results Summary
+
+- ASR now lives in `src/autoclean/mixins/signal_processing/asr/` with a focused processing module and mixin.
+- The wavelet toolkit defers to this plugin, maintaining backwards-compatible imports.
+- Documentation highlights the Raw-in/Raw-out contract, dependency guardrails, and verification steps for new contributors.

@@ -1,0 +1,25 @@
+{
+  "id": "autoclean.asr",
+  "name": "Artifact Subspace Reconstruction",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "Ernest Pedapati",
+      "email": "ernest.pedapati@cchmc.org"
+    }
+  ],
+  "summary": "ASR cleaning block that consumes an MNE Raw object and returns a cleaned Raw copy.",
+  "entry_points": [
+    {
+      "function": "autoclean.mixins.signal_processing.asr.processing.apply_asr",
+      "input": "mne.io.Raw",
+      "output": "mne.io.Raw"
+    }
+  ],
+  "mixins": [
+    {
+      "class": "autoclean.mixins.signal_processing.asr.ASRMixin",
+      "method": "apply_asr"
+    }
+  ]
+}

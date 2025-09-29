@@ -1,0 +1,107 @@
+---
+title: GFP Plugin Packaging Run
+description: Bundle the GFP epoch cleaner with its processing code, manifest, and novice-friendly testing recipe.
+---
+
+# GFP Plugin Packaging Run
+
+To keep building the Lego-style signal-processing shelf, the Global Field Power (GFP) epoch cleaner now lives inside its own
+plugin folder `src/autoclean/mixins/signal_processing/gfp_clean_epochs/`. The folder mirrors the pattern used for wavelet,
+ASR, AutoReject, STAR, and Zapline:
+
+<Cards>
+  <Card title="Processing">`processing.py` exposes `clean_epochs_by_gfp` and the reusable plot renderer so any pipeline can
+  score epochs, drop GFP outliers, and render QA figures without importing the mixin.</Card>
+  <Card title="Mixin">`__init__.py` keeps `GFPCleanEpochsMixin` next to its helpers and loads `manifest.json` so registries can
+  introspect the block.</Card>
+  <Card title="Manifest">`manifest.json` advertises the entry point returning an `mne.Epochs` object, satisfying the Raw/Epochs
+  in/out contract you requested.</Card>
+</Cards>
+
+## How it Works
+
+<Diagram name="GFP plugin flow">
+Task class mixes in `GFPCleanEpochsMixin` → `_get_data_object()` fetches epochs → `processing.clean_epochs_by_gfp()` applies the
+GFP z-score filter → mixin updates metadata, saves cleaned epochs, and (optionally) renders plots → manifest lists the entry
+points for discovery.
+</Diagram>
+
+<Steps>
+  <Step title="Import the Lego block">
+```python
+from autoclean.mixins.signal_processing.gfp_clean_epochs import (
+    GFPCleanEpochsMixin,
+    clean_epochs_by_gfp,
+    render_gfp_plots,
+)
+```
+  </Step>
+  <Step title="Clean epochs inside a task">
+```python
+class MyTask(GFPCleanEpochsMixin):
+    ...
+
+cleaned_epochs = task.gfp_clean_epochs(gfp_threshold=2.5)
+```
+  </Step>
+  <Step title="Standalone helper usage">
+```python
+cleaned = clean_epochs_by_gfp(epochs, gfp_threshold=3.0).epochs
+```
+  </Step>
+  <Step title="Toy data smoke test">
+```python
+from mne import create_info
+from mne.io import RawArray
+from numpy.random import default_rng
+from autoclean.mixins.signal_processing.wavelet_threshold import wavelet_threshold
+
+
+def create_toy_data(n_channels=35, duration=25, sfreq=250, seed=None):
+    rng = default_rng(seed)
+    data = rng.standard_normal(size=(n_channels, duration * sfreq)) * 5e-6
+    ch_names = [f"EEG {i+1:03d}" for i in range(n_channels)]
+    info = create_info(ch_names, sfreq, "eeg")
+    return RawArray(data, info)
+
+raw = create_toy_data(seed=97)
+_ = wavelet_threshold(raw)
+```
+  Swap `wavelet_threshold` for other plugin helpers (ASR, STAR, Zapline, GFP epoch selection) to quickly confirm the Lego
+  blocks accept an MNE Raw or Epochs object and return the same type.</Step>
+  <Step title="Manifest peek">
+```python
+from autoclean.mixins.signal_processing.gfp_clean_epochs import PLUGIN_MANIFEST
+print(PLUGIN_MANIFEST["entry_points"])
+```
+  </Step>
+</Steps>
+
+## Concerns and Mitigations
+
+<Callout type="info" title="Consistent entry/exit types">
+`clean_epochs_by_gfp` and the mixin method both accept an `mne.Epochs` instance and return a cleaned `mne.Epochs` copy. The
+metadata dictionary also records how many epochs were removed so later steps can audit the process.
+</Callout>
+
+<Callout type="warning" title="Visualization dependency">
+Plot generation now lives in `render_gfp_plots`. If `matplotlib` is missing the plugin raises a clear ImportError so CI can
+skip optional QA assets without hiding the underlying data-cleaning result.
+</Callout>
+
+## Testing & Verification
+
+1. Run the focused unit tests:
+   ```bash
+   pytest tests/functions/test_preprocessing.py::TestWaveletThreshold::test_wavelet_threshold_toy_data
+   ```
+2. Within an interactive session, execute the toy data snippet above and ensure each plugin returns an MNE object of the same
+   type it received.
+3. Inspect `src/autoclean/mixins/signal_processing/gfp_clean_epochs/manifest.json` to confirm registry metadata ships with the
+   distribution.
+
+## Results Summary
+
+- GFP cleaning now mirrors the plugin structure used by other denoisers, keeping mixins, helpers, and metadata together.
+- The mixin delegates number-crunching to `processing.py`, making it trivial to reuse the helper in scripts or registries.
+- Documentation highlights the toy dataset recipe so novice users can validate each block without hunting for sample files.

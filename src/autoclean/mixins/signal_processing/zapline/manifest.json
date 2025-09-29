@@ -1,0 +1,25 @@
+{
+  "id": "autoclean.zapline",
+  "name": "Zapline Line Noise Removal",
+  "version": "1.0.0",
+  "authors": [
+    {
+      "name": "Ernest Pedapati",
+      "email": "ernest.pedapati@cchmc.org"
+    }
+  ],
+  "summary": "Line-noise removal via meegkit's DSS-based Zapline implementation.",
+  "entry_points": [
+    {
+      "function": "autoclean.mixins.signal_processing.zapline.processing.run_zapline",
+      "input": "mne.io.Raw",
+      "output": "mne.io.Raw"
+    }
+  ],
+  "mixins": [
+    {
+      "class": "autoclean.mixins.signal_processing.zapline.ZaplineMixin",
+      "method": "apply_zapline"
+    }
+  ]
+}

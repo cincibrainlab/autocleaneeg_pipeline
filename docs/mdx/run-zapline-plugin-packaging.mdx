@@ -1,0 +1,74 @@
+---
+title: Zapline Plugin Packaging Run
+description: Spin Zapline into an individual plugin so line-noise removal can be toggled like any other Lego block.
+---
+
+# Zapline Plugin Packaging Run
+
+Zapline now lives in its own plugin directory so researchers can share line-noise removal independent of wavelet thresholding or other denoisers.
+
+<Cards>
+  <Card title="Processing">`processing.py` contains `run_zapline` plus the meegkit import guard and exposes parameters for line frequency and DSS rank (`nkeep`).</Card>
+  <Card title="Mixin">`ZaplineMixin` adds `apply_zapline` with logging, metadata updates, and Raw export hooks when the host pipeline supplies them.</Card>
+  <Card title="Manifest">`manifest.json` details the callable entry point and mixin for registry discovery.</Card>
+</Cards>
+
+## How it Works
+
+<Diagram name="Zapline flow">
+Raw -> transpose to Samples × Channels -> meegkit.dss_line() -> transpose back -> Raw copy with reduced line noise
+</Diagram>
+
+<Steps>
+  <Step title="Run the helper">
+```python
+from autoclean.mixins.signal_processing import zapline
+
+cleaned = zapline.run_zapline(raw, line_freq=50.0)
+```
+  </Step>
+  <Step title="Adopt the mixin">
+```python
+from autoclean.mixins.signal_processing.zapline import ZaplineMixin
+
+class Cleaner(ZaplineMixin):
+    raw = existing_raw
+
+cleaned = Cleaner().apply_zapline(line_freq=60.0, nkeep=2)
+```
+  </Step>
+  <Step title="Verify metadata">
+```python
+from autoclean.mixins.signal_processing.zapline import PLUGIN_MANIFEST
+
+print(PLUGIN_MANIFEST["entry_points"])
+```
+  </Step>
+  <Step title="Handle missing meegkit">
+```python
+try:
+    from autoclean.mixins.signal_processing import zapline
+    zapline.run_zapline(raw)
+except ImportError as err:
+    print(err)
+```
+  </Step>
+</Steps>
+
+## Concerns and Mitigations
+
+<Callout type="warning" title="Dependency message">Zapline also depends on `meegkit`; the plugin emits a descriptive ImportError when it is absent.</Callout>
+
+<Callout type="info" title="Configurable rank">`nkeep` defaults to 1 but is surfaced through both the function and mixin so advanced users can keep more DSS components.</Callout>
+
+## Testing & Verification
+
+1. Import the plugin via `python -c "from autoclean.mixins.signal_processing import zapline"`.
+2. Run the helper with a small Raw mock (or trigger the ImportError) to ensure novices see the guidance text.
+3. Review `src/autoclean/mixins/signal_processing/zapline/manifest.json` to confirm the manifest entry describes Raw input/output.
+
+## Results Summary
+
+- Zapline resides in `src/autoclean/mixins/signal_processing/zapline/` with processing, mixin, and manifest files.
+- Legacy imports from the wavelet toolkit continue to function by forwarding to the new plugin.
+- Documentation explains usage, parameters, dependency handling, and verification steps for novice contributors.
