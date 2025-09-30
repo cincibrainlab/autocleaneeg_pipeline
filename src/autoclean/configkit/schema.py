@@ -127,6 +127,21 @@ def _component_rejection_descriptor() -> dict:
     }
 
 
+def _autoreject_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "n_interpolate": "list[int]",
+            "consensus": "list[float]",
+            "n_jobs": "int",
+            "cv": "int",
+            "random_state": "int|null",
+            "picks": "str|sequence|None",
+            "thresh_method": "str",
+        },
+    }
+
+
 def _epoch_descriptor() -> dict:
     return {
         "enabled": "bool",
@@ -242,6 +257,19 @@ def _build_task_settings_schema() -> Schema:
                     "volt_threshold": Or(dict, int, float),
                 },
             },
+            # AutoReject
+            Optional("apply_autoreject"): {
+                "enabled": bool,
+                "value": {
+                    "n_interpolate": list[int],
+                    "consensus": list[float],
+                    Optional("n_jobs"): int,
+                    Optional("cv"): int,
+                    Optional("random_state"): Or(int, None),
+                    Optional("picks"): Or(str, list, tuple, None),
+                    Optional("thresh_method"): str,
+                },
+            },
         }
     )
 
@@ -278,6 +306,7 @@ def export_task_schema_layout() -> dict:
             "ICA": _ica_descriptor(),
             "component_rejection": _component_rejection_descriptor(),
             "epoch_settings": _epoch_descriptor(),
+            "apply_autoreject": _autoreject_descriptor(),
         },
     }
 
