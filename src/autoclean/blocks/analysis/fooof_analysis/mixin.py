@@ -19,15 +19,19 @@ aperiodic components. Nature Neuroscience, 23(12), 1655-1665.
 
 from pathlib import Path
 from typing import Optional, Union
+import importlib.util
 
 import mne
 import pandas as pd
 
-from autoclean.calc.fooof_analysis import (
-    calculate_fooof_aperiodic,
-    calculate_fooof_periodic,
-    calculate_vertex_psd_for_fooof,
-)
+# Import algorithm functions dynamically (for bundled block compatibility)
+_algorithm_path = Path(__file__).parent / "algorithm.py"
+_spec = importlib.util.spec_from_file_location("_fooof_algorithm", _algorithm_path)
+_algorithm_module = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_algorithm_module)
+calculate_fooof_aperiodic = _algorithm_module.calculate_fooof_aperiodic
+calculate_fooof_periodic = _algorithm_module.calculate_fooof_periodic
+calculate_vertex_psd_for_fooof = _algorithm_module.calculate_vertex_psd_for_fooof
 
 
 class FOOOFAnalysisMixin:
