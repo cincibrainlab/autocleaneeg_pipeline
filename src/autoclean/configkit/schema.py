@@ -109,6 +109,28 @@ def _source_localization_descriptor() -> dict:
     }
 
 
+def _source_psd_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "segment_duration": "number|null (seconds of data to analyze)",
+            "n_jobs": "integer (parallel jobs)",
+            "generate_plots": "bool (create diagnostic PSD plots)",
+        },
+    }
+
+
+def _source_connectivity_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "epoch_length": "number (epoch duration in seconds)",
+            "n_epochs": "integer (number of epochs for averaging)",
+            "n_jobs": "integer (parallel jobs)",
+        },
+    }
+
+
 def _ica_descriptor() -> dict:
     return {
         "enabled": "bool",
@@ -294,6 +316,24 @@ def _build_task_settings_schema() -> Schema:
                     Optional("convert_to_eeg"): bool,
                 },
             },
+            # Source PSD
+            Optional("apply_source_psd"): {
+                "enabled": bool,
+                "value": {
+                    Optional("segment_duration"): Or(int, float, None),
+                    Optional("n_jobs"): int,
+                    Optional("generate_plots"): bool,
+                },
+            },
+            # Source Connectivity
+            Optional("apply_source_connectivity"): {
+                "enabled": bool,
+                "value": {
+                    Optional("epoch_length"): Or(int, float),
+                    Optional("n_epochs"): int,
+                    Optional("n_jobs"): int,
+                },
+            },
         }
     )
 
@@ -332,6 +372,8 @@ def export_task_schema_layout() -> dict:
             "epoch_settings": _epoch_descriptor(),
             "apply_autoreject": _autoreject_descriptor(),
             "apply_source_localization": _source_localization_descriptor(),
+            "apply_source_psd": _source_psd_descriptor(),
+            "apply_source_connectivity": _source_connectivity_descriptor(),
         },
     }
 

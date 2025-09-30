@@ -42,13 +42,13 @@ config = {
         "enabled": False,
         "method": "iclabel",
         "value": {
-            "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
+            "ic_flags_to_reject": [],
             "ic_rejection_threshold": 0.3,
         },
     },
     "epoch_settings": {
-        "enabled": True,
-        "value": {"tmin": -1, "tmax": 1},  # 2-second epochs
+        "enabled": False,
+        "value": {"tmin": -1, "tmax": 1},
         "event_id": None,
         "remove_baseline": {"enabled": False, "window": [None, 0]},
         "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 0.000125}},
@@ -74,18 +74,20 @@ config = {
     "apply_source_connectivity": {
         "enabled": True,
         "value": {
-            "method": "coh",  # Coherence
-            "fmin": 8.0,     # Alpha band
-            "fmax": 13.0,
-            "n_jobs": 4,
-            "generate_plots": True,
+            "epoch_length": 4.0,  # 4-second epochs
+            "n_epochs": 40,       # Number of epochs for averaging
+            "n_jobs": 4,          # Parallel jobs
         },
     },
 }
 
 
 class SourceAnalysisPipeline(Task):
-    """Test complete source analysis pipeline."""
+    """Test complete source analysis pipeline.
+
+    Note: Connectivity requires continuous data (self.stc), not epochs.
+    Source localization creates self.stc from Raw data, or self.stc_list from Epochs.
+    """
 
     def run(self) -> None:
         # Import and basic preprocessing
@@ -95,10 +97,7 @@ class SourceAnalysisPipeline(Task):
         self.crop_duration()
         self.rereference_data()
 
-        # Create epochs
-        self.create_regular_epochs()
-
-        # Source analysis pipeline
-        self.apply_source_localization()  # Creates self.stc_list
-        self.apply_source_psd()            # Uses self.stc_list
-        self.apply_source_connectivity()   # Uses self.stc_list
+        # Source analysis pipeline (no epochs - connectivity needs continuous data)
+        self.apply_source_localization()  # Creates self.stc from Raw
+        self.apply_source_psd()            # Uses self.stc
+        self.apply_source_connectivity()   # Uses self.stc
