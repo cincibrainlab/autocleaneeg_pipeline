@@ -120,6 +120,8 @@ class SourceLocalizationMixin:
         """
         # Check if this step is enabled in the configuration
         config_value = None
+        convert_to_eeg = False  # Initialize at function level
+
         if hasattr(self, "_check_step_enabled"):
             is_enabled, config_value = self._check_step_enabled(
                 "apply_source_localization"
@@ -134,10 +136,13 @@ class SourceLocalizationMixin:
 
             # Get parameters from config if available
             if config_value and isinstance(config_value, dict):
-                method = config_value.get("method", method)
-                lambda2 = config_value.get("lambda2", lambda2)
-                pick_ori = config_value.get("pick_ori", pick_ori)
-                n_jobs = config_value.get("n_jobs", n_jobs)
+                # Extract the actual parameters from the 'value' key
+                params = config_value.get("value", config_value)
+                method = params.get("method", method)
+                lambda2 = params.get("lambda2", lambda2)
+                pick_ori = params.get("pick_ori", pick_ori)
+                n_jobs = params.get("n_jobs", n_jobs)
+                convert_to_eeg = params.get("convert_to_eeg", False)
 
         # Determine which data to use
         if data is None:
@@ -260,10 +265,6 @@ class SourceLocalizationMixin:
                 self.stc_list = stc
 
             # Optional: Convert STC to EEG format for BIDS derivatives
-            convert_to_eeg = False
-            if config_value and isinstance(config_value, dict):
-                convert_to_eeg = config_value.get("convert_to_eeg", False)
-
             if convert_to_eeg:
                 try:
                     # Set up output directory

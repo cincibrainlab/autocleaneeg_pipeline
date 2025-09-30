@@ -32,7 +32,7 @@ config = {
     "drop_outerlayer": {"enabled": False, "value": []},
     "eog_step": {"enabled": False, "value": []},
     "trim_step": {"enabled": False, "value": 0},
-    "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
+    "montage": {"enabled": True, "value": "standard_1020"},
     "reference_step": {"enabled": True, "value": "average"},
     "crop_step": {"enabled": True, "value": {"start": 0, "end": 60}},  # Limit to 60s for speed
     "ICA": {"enabled": False, "value": {"method": "infomax"}},
@@ -74,10 +74,7 @@ class SourceLocalization_Raw(Task):
         self.filter_data()
         self.crop_duration()  # Limit duration for faster testing
 
-        # Set montage (required for source localization)
-        self.set_montage()
-
-        # Re-reference to average
+        # Re-reference to average (montage is already set during import)
         self.rereference_data()
 
         # Apply source localization with conversion
@@ -87,16 +84,4 @@ class SourceLocalization_Raw(Task):
         # 3. Apply inverse to Raw data → SourceEstimate (10,242 vertices)
         # 4. Convert to 68-channel EEG (Desikan-Killiany ROIs)
         # 5. Save EEGLAB .set + montage.fif + region_info.csv
-        stc = self.apply_source_localization()
-
-        # Verify outputs
-        if stc is not None:
-            self.message("success", f"Source localization complete: {stc.data.shape}")
-
-            if hasattr(self, "source_eeg") and self.source_eeg is not None:
-                self.message("success", f"STC→EEG conversion complete: {self.source_eeg.info['nchan']} ROI channels")
-                self.message("info", f"Output file: {self.source_eeg_file}")
-            else:
-                self.message("warning", "STC→EEG conversion was not performed")
-        else:
-            self.message("warning", "Source localization returned None")
+        self.apply_source_localization()

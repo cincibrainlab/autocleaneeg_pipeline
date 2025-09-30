@@ -32,7 +32,7 @@ config = {
     "drop_outerlayer": {"enabled": False, "value": []},
     "eog_step": {"enabled": False, "value": []},
     "trim_step": {"enabled": False, "value": 0},
-    "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
+    "montage": {"enabled": True, "value": "standard_1020"},
     "reference_step": {"enabled": True, "value": "average"},
     "crop_step": {"enabled": True, "value": {"start": 0, "end": 60}},  # Limit to 60s for speed
     "ICA": {"enabled": False, "value": {"method": "infomax"}},
@@ -74,10 +74,7 @@ class SourceLocalization_Epochs(Task):
         self.filter_data()
         self.crop_duration()  # Limit duration for faster testing
 
-        # Set montage (required for source localization)
-        self.set_montage()
-
-        # Re-reference to average
+        # Re-reference to average (montage is already set during import)
         self.rereference_data()
 
         # Create epochs from continuous data
@@ -90,18 +87,4 @@ class SourceLocalization_Epochs(Task):
         # 3. Apply inverse to Epochs → List of SourceEstimates
         # 4. Convert to 68-channel EEG Epochs (Desikan-Killiany ROIs)
         # 5. Save EEGLAB .set + montage.fif + region_info.csv
-        stc_list = self.apply_source_localization()
-
-        # Verify outputs
-        if stc_list is not None and isinstance(stc_list, list):
-            self.message("success", f"Source localization complete: {len(stc_list)} epochs")
-            if len(stc_list) > 0:
-                self.message("info", f"Each STC shape: {stc_list[0].data.shape}")
-
-            if hasattr(self, "source_eeg") and self.source_eeg is not None:
-                self.message("success", f"STC→EEG conversion complete: {len(self.source_eeg)} epochs, {self.source_eeg.info['nchan']} ROI channels")
-                self.message("info", f"Output file: {self.source_eeg_file}")
-            else:
-                self.message("warning", "STC→EEG conversion was not performed")
-        else:
-            self.message("warning", "Source localization did not return expected list")
+        self.apply_source_localization()
