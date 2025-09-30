@@ -176,7 +176,7 @@ def calculate_vertex_psd_for_fooof(
 
 
 def calculate_fooof_aperiodic(
-    stc_psd, subject_id=None, output_dir=None, n_jobs=10, aperiodic_mode="knee"
+    stc_psd, subject_id, output_dir, n_jobs=10, aperiodic_mode="knee"
 ):
     """
     Run FOOOF to model aperiodic parameters for all vertices with robust error handling.
@@ -185,10 +185,10 @@ def calculate_fooof_aperiodic(
     ----------
     stc_psd : instance of SourceEstimate
         The source estimate containing PSD data
-    subject_id : str | None
-        Subject identifier for file naming. If None, uses "unknown_subject"
-    output_dir : str | None
-        Directory to save output files. If None, uses current directory
+    subject_id : str
+        Subject identifier for file naming
+    output_dir : str
+        Directory to save output files
     n_jobs : int
         Number of parallel jobs to use for computation
     aperiodic_mode : str
@@ -201,12 +201,6 @@ def calculate_fooof_aperiodic(
     file_path : str
         Path to saved file
     """
-
-    # Handle defaults
-    if output_dir is None:
-        output_dir = os.getcwd()
-    if subject_id is None:
-        subject_id = "unknown_subject"
 
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)

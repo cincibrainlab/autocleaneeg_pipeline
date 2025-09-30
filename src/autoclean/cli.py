@@ -53,6 +53,9 @@ from autoclean.utils.task_discovery import (
 from autoclean.utils.montage import load_valid_montages
 from autoclean.utils.user_config import user_config
 
+# Block management commands
+from autoclean import cli_blocks
+
 # ------------------------------------------------------------
 # CLI Process Logging
 # ------------------------------------------------------------
@@ -1239,6 +1242,35 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Skip confirmation prompt and apply immediately",
     )
+
+    # Blocks management commands
+    blocks_parser = subparsers.add_parser(
+        "blocks", help="Manage bundled processing blocks", add_help=False
+    )
+    attach_rich_help(blocks_parser)
+    blocks_subparsers = blocks_parser.add_subparsers(
+        dest="blocks_action", help="Block actions"
+    )
+
+    blocks_list_parser = blocks_subparsers.add_parser(
+        "list", help="List all bundled blocks", add_help=False
+    )
+    attach_rich_help(blocks_list_parser)
+
+    blocks_info_parser = blocks_subparsers.add_parser(
+        "info", help="Show detailed information about a block", add_help=False
+    )
+    attach_rich_help(blocks_info_parser)
+    blocks_info_parser.add_argument(
+        "block_name",
+        type=str,
+        help="Name of the block to inspect",
+    )
+
+    blocks_update_parser = blocks_subparsers.add_parser(
+        "update", help="Update blocks from task-registry", add_help=False
+    )
+    attach_rich_help(blocks_update_parser)
 
     # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(
@@ -2716,6 +2748,27 @@ def cmd_list_tasks(args) -> int:
     except Exception as e:
         message("error", f"Failed to list tasks: {str(e)}")
         return 1
+
+
+def cmd_blocks(args) -> int:
+    """Execute block-related commands."""
+    action = getattr(args, "blocks_action", None)
+    if not action:
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "blocks")
+        return 0
+
+    if action == "list":
+        return cli_blocks.cmd_blocks_list(args)
+    if action == "info":
+        return cli_blocks.cmd_blocks_info(args)
+    if action == "update":
+        return cli_blocks.cmd_blocks_update(args)
+
+    message("error", f"Unknown blocks action: {action}")
+    return 1
 
 
 def cmd_montage(args) -> int:
@@ -8583,6 +8636,8 @@ def main(argv: Optional[list] = None) -> int:
             return _finish(cmd_task(args))
         if args.command == "montage":
             return _finish(cmd_montage(args))
+        if args.command == "blocks":
+            return _finish(cmd_blocks(args))
         if args.command == "input":
             return _finish(cmd_input(args))
         if args.command == "source":

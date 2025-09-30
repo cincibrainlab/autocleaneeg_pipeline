@@ -1,0 +1,168 @@
+{
+  "name": "autoreject",
+  "version": "1.0.0",
+  "description": "Data-driven automated artifact rejection and channel interpolation for EEG epochs using machine learning-based cross-validation",
+  "author": "AutoCleanEEG Team",
+  "maintainer": "ernest.pedapati@cchmc.org",
+  "license": "MIT",
+  "category": "signal_processing",
+
+  "api": {
+    "mixin_class": "AutoRejectEpochsMixin",
+    "mixin_method": "apply_autoreject",
+    "config_key": "apply_autoreject"
+  },
+
+  "dependencies": {
+    "python": ">=3.10",
+    "packages": {
+      "autoreject": ">=0.4.0",
+      "mne": ">=1.10.1",
+      "numpy": ">=2.0.0",
+      "scikit-learn": ">=1.5.0"
+    }
+  },
+
+  "parameters": {
+    "n_interpolate": {
+      "type": "list[int]",
+      "default": [1, 4, 8],
+      "description": "Number of channels to interpolate during cross-validation grid search",
+      "validation": {
+        "min_value": 0,
+        "max_value_relative": "n_channels - 1"
+      }
+    },
+    "consensus": {
+      "type": "list[float]",
+      "default": [0.1, 0.25, 0.5, 0.75, 0.9],
+      "description": "Consensus percentages for determining bad epochs (0.0-1.0)",
+      "validation": {
+        "min_value": 0.0,
+        "max_value": 1.0
+      }
+    },
+    "n_jobs": {
+      "type": "int",
+      "default": 1,
+      "description": "Number of parallel jobs for cross-validation (-1 for all cores)"
+    },
+    "cv": {
+      "type": "int",
+      "default": 4,
+      "description": "Number of cross-validation folds for parameter optimization",
+      "validation": {
+        "min_value": 2
+      }
+    },
+    "random_state": {
+      "type": "int | null",
+      "default": null,
+      "description": "Random seed for reproducible cross-validation splits"
+    },
+    "picks": {
+      "type": "list[str] | null",
+      "default": null,
+      "description": "Channel names to include (null for all EEG channels)"
+    },
+    "thresh_method": {
+      "type": "string",
+      "default": "bayesian_optimization",
+      "description": "Threshold optimization method",
+      "validation": {
+        "allowed_values": ["bayesian_optimization", "random_search"]
+      }
+    }
+  },
+
+  "compatible_data_types": [
+    "epochs"
+  ],
+
+  "processing_stages": [
+    "post_epoching",
+    "pre_averaging"
+  ],
+
+  "outputs": {
+    "data": "Cleaned epochs with bad epochs removed and bad channels interpolated",
+    "metadata": {
+      "initial_epochs": "Number of epochs before cleaning",
+      "final_epochs": "Number of epochs after cleaning",
+      "rejected_epochs": "Number of epochs rejected",
+      "rejection_percent": "Percentage of epochs rejected",
+      "interpolated_channels": "List of channels interpolated in any epoch",
+      "cv_scores": "Cross-validation scores for parameter selection"
+    }
+  },
+
+  "use_cases": [
+    "Objective quality control for EEG epochs",
+    "Data-driven artifact rejection without manual inspection",
+    "Channel interpolation for noisy electrodes",
+    "Automated preprocessing pipelines",
+    "Large-scale batch processing"
+  ],
+
+  "limitations": [
+    "Requires minimum 20-30 epochs for reliable parameter estimation",
+    "Best results with 100+ epochs for robust cross-validation",
+    "Memory-intensive for large datasets (consider chunking)",
+    "Processing time: 1-10 minutes for typical datasets",
+    "Aggressive rejection (>50%) may indicate poor data quality"
+  ],
+
+  "comparison": {
+    "vs_manual_rejection": "Automated, objective, reproducible vs. time-consuming, subjective",
+    "vs_simple_thresholding": "Data-driven thresholds vs. fixed thresholds across all channels",
+    "vs_wavelet_threshold": "Epoch-level rejection vs. continuous data denoising"
+  },
+
+  "references": [
+    {
+      "name": "AutoReject: Automated artifact rejection for MEG and EEG data",
+      "authors": "Jas, M., Engemann, D. A., Bekhti, Y., Raimondo, F., & Gramfort, A.",
+      "year": 2017,
+      "journal": "NeuroImage",
+      "volume": "159",
+      "pages": "417-429",
+      "doi": "10.1016/j.neuroimage.2017.06.030",
+      "pmid": "28645840",
+      "url": "https://doi.org/10.1016/j.neuroimage.2017.06.030",
+      "summary": "Primary paper introducing AutoReject method"
+    },
+    {
+      "name": "Automated rejection and repair of bad trials in MEG/EEG",
+      "authors": "Jas, M., Engemann, D. A., Raimondo, F., Bekhti, Y., & Gramfort, A.",
+      "year": 2016,
+      "conference": "2016 International Workshop on Pattern Recognition in Neuroimaging (PRNI)",
+      "pages": "1-4",
+      "doi": "10.1109/PRNI.2016.7552336",
+      "summary": "Conference paper on AutoReject algorithm"
+    },
+    {
+      "name": "AutoReject Python Package",
+      "authors": "Jas, M., et al.",
+      "year": 2024,
+      "type": "software",
+      "url": "https://autoreject.github.io/",
+      "github": "https://github.com/autoreject/autoreject",
+      "summary": "Official AutoReject package documentation and code"
+    }
+  ],
+
+  "tags": [
+    "artifact-rejection",
+    "epochs",
+    "quality-control",
+    "cross-validation",
+    "machine-learning",
+    "automated",
+    "channel-interpolation",
+    "bad-epoch-detection"
+  ],
+
+  "status": "stable",
+  "created_date": "2025-09-29",
+  "last_updated": "2025-09-29"
+}

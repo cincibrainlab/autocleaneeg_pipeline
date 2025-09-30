@@ -1,0 +1,180 @@
+{
+  "schema_version": "1.0.0",
+  "generated_at": "2025-09-30T13:48:24.280854Z",
+  "source": "autocleaneeg-task-registry",
+  "pipeline_version": "2.4.0",
+  "blocks": [
+    {
+      "name": "fooof_aperiodic",
+      "category": "analysis",
+      "version": "1.0.0",
+      "description": "Vertex-level extraction of aperiodic (1/f) parameters from source-localized EEG data using the FOOOF algorithm",
+      "path": "analysis/fooof_aperiodic",
+      "mixin_class": null,
+      "mixin_method": null,
+      "config_key": null,
+      "author": "AutoClean EEG Team",
+      "license": "MIT",
+      "tags": [],
+      "requires_packages": {}
+    },
+    {
+      "name": "fooof_periodic",
+      "category": "analysis",
+      "version": "1.0.0",
+      "description": "Vertex-level extraction of oscillatory peak parameters from source-localized EEG data using the FOOOF algorithm",
+      "path": "analysis/fooof_periodic",
+      "mixin_class": null,
+      "mixin_method": null,
+      "config_key": null,
+      "author": "AutoClean EEG Team",
+      "license": "MIT",
+      "tags": [],
+      "requires_packages": {}
+    },
+    {
+      "name": "source_connectivity",
+      "category": "analysis",
+      "version": "1.0.0",
+      "description": "Source-level functional connectivity and graph theory metrics using multiple methods (WPLI, PLV, coherence, PLI, AEC)",
+      "path": "analysis/source_connectivity",
+      "mixin_class": "SourceConnectivityMixin",
+      "mixin_method": "apply_source_connectivity",
+      "config_key": "apply_source_connectivity",
+      "author": "AutoCleanEEG Team",
+      "license": "MIT",
+      "tags": [
+        "connectivity",
+        "functional-connectivity",
+        "graph-theory",
+        "network-analysis",
+        "wpli",
+        "aec",
+        "brain-networks"
+      ],
+      "requires_packages": {
+        "mne": ">=1.10.0",
+        "mne-connectivity": ">=0.7.0",
+        "numpy": ">=2.0.0",
+        "scipy": ">=1.16.0",
+        "pandas": ">=2.0.0",
+        "networkx": ">=3.0.0",
+        "bctpy": ">=0.5.0"
+      }
+    },
+    {
+      "name": "source_localization",
+      "category": "analysis",
+      "version": "1.0.0",
+      "description": "MNE source localization for projecting sensor-space EEG to cortical sources using minimum norm estimation",
+      "path": "analysis/source_localization",
+      "mixin_class": "SourceLocalizationMixin",
+      "mixin_method": "apply_source_localization",
+      "config_key": "apply_source_localization",
+      "author": "AutoCleanEEG Team",
+      "license": "MIT",
+      "tags": [
+        "source-localization",
+        "inverse-solution",
+        "cortical-mapping",
+        "mne",
+        "fsaverage",
+        "minimum-norm"
+      ],
+      "requires_packages": {
+        "mne": ">=1.10.0",
+        "numpy": ">=2.0.0",
+        "scipy": ">=1.16.0",
+        "matplotlib": ">=3.10.0"
+      }
+    },
+    {
+      "name": "source_psd",
+      "category": "analysis",
+      "version": "1.0.0",
+      "description": "Source-level power spectral density (PSD) calculation with ROI averaging using Welch's method and Desikan-Killiany atlas",
+      "path": "analysis/source_psd",
+      "mixin_class": "SourcePSDMixin",
+      "mixin_method": "apply_source_psd",
+      "config_key": "apply_source_psd",
+      "author": "AutoCleanEEG Team",
+      "license": "MIT",
+      "tags": [
+        "source-psd",
+        "spectral-analysis",
+        "roi",
+        "desikan-killiany",
+        "welch",
+        "frequency-bands",
+        "power-analysis"
+      ],
+      "requires_packages": {
+        "mne": ">=1.10.0",
+        "numpy": ">=2.0.0",
+        "scipy": ">=1.16.0",
+        "pandas": ">=2.0.0",
+        "matplotlib": ">=3.10.0",
+        "seaborn": ">=0.12.0",
+        "joblib": ">=1.3.0",
+        "pyarrow": ">=10.0.0"
+      }
+    },
+    {
+      "name": "autoreject",
+      "category": "signal_processing",
+      "version": "1.0.0",
+      "description": "Data-driven automated artifact rejection and channel interpolation for EEG epochs using machine learning-based cross-validation",
+      "path": "signal_processing/autoreject",
+      "mixin_class": "AutoRejectEpochsMixin",
+      "mixin_method": "apply_autoreject",
+      "config_key": "apply_autoreject",
+      "author": "AutoCleanEEG Team",
+      "license": "MIT",
+      "tags": [
+        "artifact-rejection",
+        "epochs",
+        "quality-control",
+        "cross-validation",
+        "machine-learning",
+        "automated",
+        "channel-interpolation",
+        "bad-epoch-detection"
+      ],
+      "requires_packages": {
+        "autoreject": ">=0.4.0",
+        "mne": ">=1.10.1",
+        "numpy": ">=2.0.0",
+        "scikit-learn": ">=1.5.0"
+      }
+    },
+    {
+      "name": "wavelet_threshold",
+      "category": "signal_processing",
+      "version": "1.0.0",
+      "description": "Wavelet-based artifact removal using discrete wavelet transform with universal thresholding",
+      "path": "signal_processing/wavelet_threshold",
+      "mixin_class": "WaveletThresholdMixin",
+      "mixin_method": "apply_wavelet_threshold",
+      "config_key": "wavelet_threshold",
+      "author": "AutoCleanEEG Team",
+      "license": "MIT",
+      "tags": [
+        "artifact-removal",
+        "denoising",
+        "wavelet",
+        "preprocessing",
+        "happe",
+        "transient-artifacts"
+      ],
+      "requires_packages": {
+        "pywt": ">=1.9.0",
+        "numpy": ">=2.0.0",
+        "matplotlib": ">=3.10.0",
+        "reportlab": ">=4.0.0",
+        "scipy": ">=1.16.0",
+        "pandas": ">=2.3.0"
+      }
+    }
+  ],
+  "total_blocks": 7
+}

@@ -1,0 +1,153 @@
+{
+  "name": "source_connectivity",
+  "version": "1.0.0",
+  "description": "Source-level functional connectivity and graph theory metrics using multiple methods (WPLI, PLV, coherence, PLI, AEC)",
+  "author": "AutoCleanEEG Team",
+  "maintainer": "ernest.pedapati@cchmc.org",
+  "license": "MIT",
+  "category": "analysis",
+
+  "api": {
+    "mixin_class": "SourceConnectivityMixin",
+    "mixin_method": "apply_source_connectivity",
+    "config_key": "apply_source_connectivity",
+    "schema_function": "source_connectivity_descriptor"
+  },
+
+  "dependencies": {
+    "python": ">=3.10",
+    "packages": {
+      "mne": ">=1.10.0",
+      "mne-connectivity": ">=0.7.0",
+      "numpy": ">=2.0.0",
+      "scipy": ">=1.16.0",
+      "pandas": ">=2.0.0",
+      "networkx": ">=3.0.0",
+      "bctpy": ">=0.5.0"
+    },
+    "autocleaneeg-pipeline": ">=3.0.0",
+    "fsaverage_data": "required",
+    "blocks": ["source_localization"]
+  },
+
+  "compatibility": {
+    "data_types": ["stc"],
+    "processing_stages": ["post_source_localization"],
+    "requires_source_estimates": true,
+    "min_vertices": 10242,
+    "atlas": "Desikan-Killiany (aparc)"
+  },
+
+  "computational_requirements": {
+    "memory_gb": 16,
+    "estimated_time_minutes": "10-20 per subject",
+    "cpu_intensive": true,
+    "supports_parallel": true,
+    "recommended_jobs": 4
+  },
+
+  "outputs": {
+    "primary": {
+      "type": "DataFrame",
+      "format": "csv",
+      "saved_to": "derivatives/source_connectivity/{subject}_connectivity_summary.csv",
+      "description": "Pairwise connectivity values for all ROI pairs, methods, and frequency bands"
+    },
+    "connectivity_matrices": {
+      "type": "DataFrame",
+      "format": "csv",
+      "saved_to": "derivatives/source_connectivity/{subject}_{method}_{band}_matrix.csv",
+      "description": "Full ROI x ROI connectivity matrices for each method and band"
+    },
+    "graph_metrics": {
+      "type": "DataFrame",
+      "format": "csv",
+      "saved_to": "derivatives/source_connectivity/{subject}_graph_metrics.csv",
+      "description": "Graph theory metrics: clustering, efficiency, modularity, path length, assortativity, small-worldness"
+    },
+    "log": {
+      "type": "text",
+      "format": "txt",
+      "saved_to": "derivatives/source_connectivity/{subject}_connectivity_log.txt",
+      "description": "Detailed processing log with debugging information"
+    }
+  },
+
+  "parameters": {
+    "epoch_length": {
+      "type": "float",
+      "default": 4.0,
+      "description": "Length of epochs in seconds for connectivity calculation",
+      "range": [1.0, 10.0],
+      "unit": "seconds"
+    },
+    "n_epochs": {
+      "type": "integer",
+      "default": 40,
+      "description": "Number of epochs to use for connectivity averaging",
+      "range": [10, 200]
+    },
+    "n_jobs": {
+      "type": "integer",
+      "default": 4,
+      "description": "Number of parallel jobs for computation",
+      "range": [1, 64]
+    }
+  },
+
+  "connectivity_methods": {
+    "wpli": {"name": "Weighted Phase Lag Index", "robust_volume_conduction": true},
+    "plv": {"name": "Phase Locking Value", "robust_volume_conduction": false},
+    "coh": {"name": "Coherence", "robust_volume_conduction": false},
+    "pli": {"name": "Phase Lag Index", "robust_volume_conduction": true},
+    "aec": {"name": "Amplitude Envelope Correlation", "robust_volume_conduction": false}
+  },
+
+  "graph_metrics": {
+    "clustering": "Mean clustering coefficient (local connectivity density)",
+    "global_efficiency": "Global efficiency (inverse average shortest path)",
+    "char_path_length": "Characteristic path length (average shortest path)",
+    "modularity": "Modularity (community structure strength)",
+    "strength": "Mean node strength (average connectivity)",
+    "assortativity": "Degree assortativity (homophily)",
+    "small_worldness": "Small-worldness index (clustering × path length)"
+  },
+
+  "frequency_bands": {
+    "delta": {"range": [1, 4], "unit": "Hz"},
+    "theta": {"range": [4, 8], "unit": "Hz"},
+    "alpha": {"range": [8, 13], "unit": "Hz"},
+    "beta": {"range": [13, 30], "unit": "Hz"},
+    "gamma": {"range": [30, 45], "unit": "Hz"}
+  },
+
+  "references": [
+    {
+      "name": "WPLI",
+      "citation": "Vinck M, et al. (2011). The pairwise phase consistency: a bias-free measure of rhythmic neuronal synchronization. NeuroImage, 51(1), 112-122.",
+      "doi": "10.1016/j.neuroimage.2010.01.073"
+    },
+    {
+      "name": "Graph theory in neuroscience",
+      "citation": "Rubinov M & Sporns O (2010). Complex network measures of brain connectivity: Uses and interpretations. NeuroImage, 52(3), 1059-1069.",
+      "doi": "10.1016/j.neuroimage.2009.10.003"
+    },
+    {
+      "name": "MNE-Connectivity",
+      "url": "https://mne.tools/mne-connectivity/",
+      "citation": "Larson-Prior LJ, et al. (2013). Adding dynamics to the Human Connectome Project with MEG. NeuroImage, 80, 190-201.",
+      "doi": "10.1016/j.neuroimage.2013.05.056"
+    }
+  ],
+
+  "tags": ["connectivity", "functional-connectivity", "graph-theory", "network-analysis", "wpli", "aec", "brain-networks"],
+
+  "registry": {
+    "url": "https://registry.autocleaneeg.org/blocks/source_connectivity",
+    "documentation_url": "https://docs.autocleaneeg.org/blocks/source_connectivity",
+    "source_url": "https://github.com/cincibrainlab/autocleaneeg-task-registry/tree/main/blocks/analysis/source_connectivity"
+  },
+
+  "created_at": "2025-09-29T23:55:00Z",
+  "updated_at": "2025-09-29T23:55:00Z"
+}

@@ -1,0 +1,128 @@
+{
+  "name": "source_localization",
+  "version": "1.0.0",
+  "description": "MNE source localization for projecting sensor-space EEG to cortical sources using minimum norm estimation",
+  "author": "AutoCleanEEG Team",
+  "maintainer": "ernest.pedapati@cchmc.org",
+  "license": "MIT",
+  "category": "analysis",
+
+  "api": {
+    "mixin_class": "SourceLocalizationMixin",
+    "mixin_method": "apply_source_localization",
+    "config_key": "apply_source_localization",
+    "schema_function": "source_localization_descriptor"
+  },
+
+  "dependencies": {
+    "python": ">=3.10",
+    "packages": {
+      "mne": ">=1.10.0",
+      "numpy": ">=2.0.0",
+      "scipy": ">=1.16.0",
+      "matplotlib": ">=3.10.0"
+    },
+    "autocleaneeg-pipeline": ">=3.0.0",
+    "fsaverage_data": "required"
+  },
+
+  "compatibility": {
+    "data_types": ["raw", "epochs"],
+    "processing_stages": ["post_ica", "post_filtering", "post_epoching"],
+    "min_channels": 19,
+    "requires_montage": true,
+    "requires_reference": false
+  },
+
+  "computational_requirements": {
+    "memory_gb": 4,
+    "estimated_time_minutes": "2-5 per subject",
+    "cpu_intensive": true,
+    "supports_parallel": true
+  },
+
+  "outputs": {
+    "primary": {
+      "type": "SourceEstimate",
+      "format": "STC object",
+      "saved_to": "derivatives/source_localization/"
+    },
+    "optional_eeg_conversion": {
+      "type": "Raw or Epochs",
+      "format": "EEGLAB .set file",
+      "saved_to": "derivatives/source_localization_eeg/",
+      "description": "68-channel EEG (Desikan-Killiany ROIs) when convert_to_eeg=True",
+      "includes": [
+        "{subject}_dk_regions.set: EEGLAB file with ROI time courses",
+        "{subject}_dk_montage.fif: MNE montage with ROI centroids",
+        "{subject}_region_info.csv: ROI metadata (names, hemispheres, positions)"
+      ]
+    },
+    "metadata": {
+      "n_vertices": "integer (typically 10,242)",
+      "method": "string (MNE, dSPM, sLORETA)",
+      "lambda2": "float (regularization parameter)",
+      "sfreq": "float (sampling frequency)"
+    }
+  },
+
+  "parameters": {
+    "method": {
+      "type": "string",
+      "default": "MNE",
+      "options": ["MNE", "dSPM", "sLORETA"],
+      "description": "Inverse solution method"
+    },
+    "lambda2": {
+      "type": "float",
+      "default": 0.111,
+      "description": "Regularization parameter (1/SNR²)"
+    },
+    "pick_ori": {
+      "type": "string",
+      "default": "normal",
+      "options": ["normal", null],
+      "description": "Source orientation constraint"
+    },
+    "n_jobs": {
+      "type": "integer",
+      "default": 10,
+      "description": "Number of parallel jobs"
+    },
+    "convert_to_eeg": {
+      "type": "boolean",
+      "default": false,
+      "description": "Convert source estimates to 68-channel EEG format (Desikan-Killiany ROIs) for BIDS derivatives"
+    }
+  },
+
+  "references": [
+    {
+      "name": "Minimum norm estimates",
+      "citation": "Hämäläinen MS & Ilmoniemi RJ (1994). Interpreting magnetic fields of the brain: minimum norm estimates. Medical & Biological Engineering & Computing, 32(1), 35-42.",
+      "doi": "10.1007/BF02512476"
+    },
+    {
+      "name": "MNE-Python",
+      "url": "https://mne.tools/",
+      "citation": "Gramfort A, et al. (2013). MEG and EEG data analysis with MNE-Python. Frontiers in Neuroscience, 7, 267.",
+      "doi": "10.3389/fnins.2013.00267"
+    },
+    {
+      "name": "fsaverage template",
+      "citation": "Fischl B, et al. (1999). High-resolution intersubject averaging and a coordinate system for the cortical surface. Human Brain Mapping, 8(4), 272-284.",
+      "doi": "10.1002/(SICI)1097-0193(1999)8:4<272::AID-HBM10>3.0.CO;2-4"
+    }
+  ],
+
+  "tags": ["source-localization", "inverse-solution", "cortical-mapping", "mne", "fsaverage", "minimum-norm"],
+
+  "registry": {
+    "url": "https://registry.autocleaneeg.org/blocks/source_localization",
+    "documentation_url": "https://docs.autocleaneeg.org/blocks/source_localization",
+    "source_url": "https://github.com/cincibrainlab/autocleaneeg-task-registry/tree/main/blocks/analysis/source_localization"
+  },
+
+  "created_at": "2025-09-29T23:55:00Z",
+  "updated_at": "2025-09-29T23:55:00Z"
+}

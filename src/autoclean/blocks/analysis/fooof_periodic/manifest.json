@@ -1,0 +1,129 @@
+{
+  "name": "fooof_periodic",
+  "version": "1.0.0",
+  "category": "analysis",
+  "subcategory": "spectral_parameterization",
+  "description": "Vertex-level extraction of oscillatory peak parameters from source-localized EEG data using the FOOOF algorithm",
+  "author": "AutoClean EEG Team",
+  "created": "2025-09-30",
+  "dependencies": {
+    "required": ["mne>=1.10.1", "numpy", "scipy", "pandas"],
+    "optional": ["fooof", "specparam"]
+  },
+  "inputs": {
+    "data_type": "mne.SourceEstimate (PSD)",
+    "requirements": ["fooof_aperiodic_psd", "or_standalone_psd"],
+    "preferred_source": "apply_fooof_aperiodic() output"
+  },
+  "outputs": {
+    "files": [
+      "{subject}_fooof_periodic.parquet",
+      "{subject}_fooof_periodic.csv"
+    ],
+    "data_format": {
+      "columns": ["subject", "vertex", "band", "center_frequency", "power", "bandwidth"],
+      "vertex_count": 20484,
+      "bands_default": ["delta", "theta", "alpha", "beta", "gamma"]
+    }
+  },
+  "parameters": {
+    "freq_bands": {
+      "type": "dict",
+      "default": {
+        "delta": [1, 4],
+        "theta": [4, 8],
+        "alpha": [8, 13],
+        "beta": [13, 30],
+        "gamma": [30, 45]
+      },
+      "description": "Frequency bands for peak extraction",
+      "customizable": true
+    },
+    "n_jobs": {
+      "type": "int",
+      "default": 10,
+      "description": "Number of parallel jobs",
+      "range": [1, 32]
+    },
+    "aperiodic_mode": {
+      "type": "string",
+      "default": "knee",
+      "description": "FOOOF fitting mode",
+      "options": ["fixed", "knee"]
+    }
+  },
+  "scientific_references": [
+    {
+      "authors": "Donoghue T, Haller M, Peterson EJ, Varma P, Sebastian P, Gao R, Noto T, Lara AH, Wallis JD, Knight RT, Shestyuk A, Voytek B",
+      "title": "Parameterizing neural power spectra into periodic and aperiodic components",
+      "journal": "Nature Neuroscience",
+      "year": 2020,
+      "volume": 23,
+      "issue": 12,
+      "pages": "1655-1665",
+      "doi": "10.1038/s41593-020-00744-x",
+      "pmid": "33230329",
+      "url": "https://www.nature.com/articles/s41593-020-00744-x"
+    },
+    {
+      "authors": "Klimesch W",
+      "title": "EEG alpha and theta oscillations reflect cognitive and memory performance: a review and analysis",
+      "journal": "Brain Research Reviews",
+      "year": 1999,
+      "volume": 29,
+      "issue": "2-3",
+      "pages": "169-195",
+      "doi": "10.1016/S0165-0173(98)00056-3",
+      "pmid": "10209231"
+    },
+    {
+      "authors": "Haegens S, Cousijn H, Wallis G, Harrison PJ, Nobre AC",
+      "title": "Inter- and intra-individual variability in alpha peak frequency",
+      "journal": "NeuroImage",
+      "year": 2014,
+      "volume": 92,
+      "pages": "46-55",
+      "doi": "10.1016/j.neuroimage.2014.01.049",
+      "pmid": "24508648"
+    }
+  ],
+  "use_cases": {
+    "recommended": [
+      "Identifying individual alpha frequency (IAF)",
+      "Comparing oscillatory power across regions",
+      "Peak frequency shifts with development/aging",
+      "Task-related changes in oscillatory activity"
+    ],
+    "interpretation": {
+      "center_frequency": "Within-band variation is meaningful (e.g., 9 Hz vs 11 Hz alpha)",
+      "power": "Reflects oscillation strength after removing 1/f background",
+      "bandwidth": "<2 Hz = strong rhythmic, 2-4 Hz = moderate, >4 Hz = weak/noise"
+    }
+  },
+  "quality_metrics": {
+    "peak_detection_rate": "60-80% of vertices should have peaks in primary bands",
+    "typical_alpha_frequency": [8, 13],
+    "typical_beta_frequency": [15, 25],
+    "typical_gamma_frequency": [30, 45],
+    "bandwidth_threshold": 4.0
+  },
+  "performance": {
+    "computation_time_minutes": "4-6",
+    "memory_usage_gb": "2-4",
+    "scales_with": ["n_vertices", "n_bands"]
+  },
+  "validation": {
+    "test_file": "FOOOFAnalysisTest.py",
+    "test_data_requirements": "Source-localized EEG with computed PSD",
+    "expected_outputs": ["parquet", "csv with band-level peaks"]
+  },
+  "pipeline_integration": {
+    "typical_order": [
+      "apply_source_localization",
+      "apply_fooof_aperiodic",
+      "apply_fooof_periodic"
+    ],
+    "can_run_standalone": true,
+    "requires_psd": true
+  }
+}

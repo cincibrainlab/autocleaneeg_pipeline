@@ -1,0 +1,139 @@
+{
+  "name": "source_psd",
+  "version": "1.0.0",
+  "description": "Source-level power spectral density (PSD) calculation with ROI averaging using Welch's method and Desikan-Killiany atlas",
+  "author": "AutoCleanEEG Team",
+  "maintainer": "ernest.pedapati@cchmc.org",
+  "license": "MIT",
+  "category": "analysis",
+
+  "api": {
+    "mixin_class": "SourcePSDMixin",
+    "mixin_method": "apply_source_psd",
+    "config_key": "apply_source_psd",
+    "schema_function": "source_psd_descriptor"
+  },
+
+  "dependencies": {
+    "python": ">=3.10",
+    "packages": {
+      "mne": ">=1.10.0",
+      "numpy": ">=2.0.0",
+      "scipy": ">=1.16.0",
+      "pandas": ">=2.0.0",
+      "matplotlib": ">=3.10.0",
+      "seaborn": ">=0.12.0",
+      "joblib": ">=1.3.0",
+      "pyarrow": ">=10.0.0"
+    },
+    "autocleaneeg-pipeline": ">=3.0.0",
+    "fsaverage_data": "required",
+    "blocks": ["source_localization"]
+  },
+
+  "compatibility": {
+    "data_types": ["stc", "stc_list"],
+    "processing_stages": ["post_source_localization"],
+    "requires_source_estimates": true,
+    "min_vertices": 10242,
+    "atlas": "Desikan-Killiany (aparc)"
+  },
+
+  "computational_requirements": {
+    "memory_gb": 8,
+    "estimated_time_minutes": "3-8 per subject",
+    "cpu_intensive": true,
+    "supports_parallel": true,
+    "recommended_jobs": 4
+  },
+
+  "outputs": {
+    "primary": {
+      "type": "DataFrame",
+      "format": "parquet",
+      "saved_to": "derivatives/source_psd/{subject}_roi_psd.parquet",
+      "description": "Frequency-resolved PSD for 68 cortical ROIs"
+    },
+    "secondary": {
+      "type": "DataFrame",
+      "format": "csv",
+      "saved_to": "derivatives/source_psd/{subject}_roi_bands.csv",
+      "description": "Frequency band power summaries (delta, theta, alpha, beta, gamma)"
+    },
+    "visualization": {
+      "type": "Figure",
+      "format": "png",
+      "saved_to": "derivatives/source_psd/{subject}_psd_visualization.png",
+      "description": "4-panel diagnostic plot: regional PSDs, hemisphere comparison, band powers, alpha/beta ratio"
+    },
+    "metadata": {
+      "segment_duration": "float (seconds processed)",
+      "n_rois": "integer (number of ROIs, typically 68)",
+      "n_frequencies": "integer (frequency bins)",
+      "freq_min": "float (minimum frequency, typically 0.5 Hz)",
+      "freq_max": "float (maximum frequency, typically 45 Hz)"
+    }
+  },
+
+  "parameters": {
+    "segment_duration": {
+      "type": "float",
+      "default": 80,
+      "description": "Duration in seconds to process for PSD calculation. Uses middle epochs for stationarity. Set to null to use all data.",
+      "range": [30, null],
+      "unit": "seconds"
+    },
+    "n_jobs": {
+      "type": "integer",
+      "default": 4,
+      "description": "Number of parallel jobs for computation",
+      "range": [1, 64]
+    },
+    "generate_plots": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether to generate diagnostic PSD visualization plots"
+    }
+  },
+
+  "frequency_bands": {
+    "delta": {"range": [1, 4], "unit": "Hz"},
+    "theta": {"range": [4, 8], "unit": "Hz"},
+    "alpha": {"range": [8, 13], "unit": "Hz"},
+    "lowalpha": {"range": [8, 10], "unit": "Hz"},
+    "highalpha": {"range": [10, 13], "unit": "Hz"},
+    "lowbeta": {"range": [13, 20], "unit": "Hz"},
+    "highbeta": {"range": [20, 30], "unit": "Hz"},
+    "gamma": {"range": [30, 45], "unit": "Hz"}
+  },
+
+  "references": [
+    {
+      "name": "Welch's method",
+      "citation": "Welch P (1967). The use of fast Fourier transform for the estimation of power spectra: A method based on time averaging over short, modified periodograms. IEEE Transactions on Audio and Electroacoustics, 15(2), 70-73.",
+      "doi": "10.1109/TAU.1967.1161901"
+    },
+    {
+      "name": "Desikan-Killiany atlas",
+      "citation": "Desikan RS, et al. (2006). An automated labeling system for subdividing the human cerebral cortex on MRI scans into gyral based regions of interest. NeuroImage, 31(3), 968-980.",
+      "doi": "10.1016/j.neuroimage.2006.01.021"
+    },
+    {
+      "name": "MNE-Python",
+      "url": "https://mne.tools/",
+      "citation": "Gramfort A, et al. (2013). MEG and EEG data analysis with MNE-Python. Frontiers in Neuroscience, 7, 267.",
+      "doi": "10.3389/fnins.2013.00267"
+    }
+  ],
+
+  "tags": ["source-psd", "spectral-analysis", "roi", "desikan-killiany", "welch", "frequency-bands", "power-analysis"],
+
+  "registry": {
+    "url": "https://registry.autocleaneeg.org/blocks/source_psd",
+    "documentation_url": "https://docs.autocleaneeg.org/blocks/source_psd",
+    "source_url": "https://github.com/cincibrainlab/autocleaneeg-task-registry/tree/main/blocks/analysis/source_psd"
+  },
+
+  "created_at": "2025-09-29T23:55:00Z",
+  "updated_at": "2025-09-29T23:55:00Z"
+}

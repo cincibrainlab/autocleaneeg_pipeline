@@ -248,6 +248,46 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
             print("=" * 80)
             raise SystemExit(f"Critical module error: {full_item_name} - {e}")
 
+# --- Bundled Block Discovery ---
+# Discover blocks bundled with the pipeline from src/autoclean/blocks/
+_discovered_bundled_mixins: List[Type[Any]] = []
+_bundled_blocks_path = Path(__file__).parent.parent / "blocks"
+
+if _bundled_blocks_path.exists():
+    # Find all mixin.py files in bundled blocks
+    for mixin_file in _bundled_blocks_path.rglob("mixin.py"):
+        # Get the block structure: blocks/{category}/{block_name}/mixin.py
+        try:
+            relative_path = mixin_file.relative_to(_bundled_blocks_path)
+            if len(relative_path.parts) >= 3:  # category/block_name/mixin.py
+                category = relative_path.parts[0]
+                block_name = relative_path.parts[1]
+
+                # Create a module name for the bundled block
+                module_name = f"autoclean_bundled_blocks.{category}.{block_name}.mixin"
+
+                # Load the module directly from file path
+                import importlib.util
+                spec = importlib.util.spec_from_file_location(module_name, mixin_file)
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+
+                    # Look for Mixin classes
+                    for class_name, class_obj in inspect.getmembers(module, inspect.isclass):
+                        if (
+                            class_obj.__module__ == module_name
+                            and class_name.endswith("Mixin")
+                            and class_obj is not _BASE_MIXIN_CLASS
+                        ):
+                            if class_obj not in _discovered_bundled_mixins:
+                                _discovered_bundled_mixins.append(class_obj)
+                                # print(f"✓ Loaded bundled block: {class_name} from {category}/{block_name}")
+        except Exception as e:
+            # Don't fail on bundled block errors - just warn
+            print(f"Warning: Could not load bundled block from {mixin_file}: {e}")
+            continue
+
 # --- External Block Discovery ---
 # Discover plugin blocks from external directories
 _discovered_external_mixins: List[Type[Any]] = []
@@ -305,23 +345,31 @@ for external_path in _EXTERNAL_BLOCK_PATHS:
 
 # --- Assemble the Final Tuple of Mixins for Task Inheritance ---
 
-# Sort the discovered internal mixins alphabetically by class name for a consistent MRO.
+# Sort the discovered mixins alphabetically by class name for a consistent MRO.
+_discovered_bundled_mixins.sort(key=lambda cls: cls.__name__)
 _discovered_other_mixins.sort(key=lambda cls: cls.__name__)
-
-# Sort external mixins alphabetically as well
 _discovered_external_mixins.sort(key=lambda cls: cls.__name__)
 
-# The final list of mixins starts with BaseMixin (if found and real), then internal mixins, then external mixins.
+# The final list of mixins with priority order:
+# 1. BaseMixin (foundation)
+# 2. Bundled blocks (from src/autoclean/blocks/)
+# 3. Internal mixins (from src/autoclean/mixins/)
+# 4. External mixins (from user directories)
 _final_mixins_list: List[Type[Any]] = []
 if _base_mixin_found:  # Add the real BaseMixin if it was successfully imported
     _final_mixins_list.append(_BASE_MIXIN_CLASS)
+
+# Add bundled blocks first (highest priority after BaseMixin)
+for mixin_cls in _discovered_bundled_mixins:
+    if mixin_cls not in _final_mixins_list:
+        _final_mixins_list.append(mixin_cls)
 
 # Add internal mixins
 for mixin_cls in _discovered_other_mixins:
     if mixin_cls not in _final_mixins_list:
         _final_mixins_list.append(mixin_cls)
 
-# Add external mixins
+# Add external mixins (lowest priority, user overrides)
 for mixin_cls in _discovered_external_mixins:
     if mixin_cls not in _final_mixins_list:
         _final_mixins_list.append(mixin_cls)

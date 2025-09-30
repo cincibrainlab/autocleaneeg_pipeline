@@ -1,0 +1,110 @@
+{
+  "name": "fooof_aperiodic",
+  "version": "1.0.0",
+  "category": "analysis",
+  "subcategory": "spectral_parameterization",
+  "description": "Vertex-level extraction of aperiodic (1/f) parameters from source-localized EEG data using the FOOOF algorithm",
+  "author": "AutoClean EEG Team",
+  "created": "2025-09-30",
+  "dependencies": {
+    "required": ["mne>=1.10.1", "numpy", "scipy", "pandas", "h5py"],
+    "optional": ["fooof", "specparam"]
+  },
+  "inputs": {
+    "data_type": "mne.SourceEstimate",
+    "requirements": ["source_localization", "continuous_raw_data"],
+    "min_duration_seconds": 60
+  },
+  "outputs": {
+    "files": [
+      "{subject}_psd-stc.h5",
+      "{subject}_fooof_aperiodic.parquet",
+      "{subject}_fooof_aperiodic.csv"
+    ],
+    "data_format": {
+      "columns": ["subject", "vertex", "offset", "knee", "exponent", "r_squared", "error", "status"],
+      "vertex_count": 20484
+    }
+  },
+  "parameters": {
+    "fmin": {
+      "type": "float",
+      "default": 1.0,
+      "description": "Minimum frequency for analysis (Hz)",
+      "range": [0.5, 4.0]
+    },
+    "fmax": {
+      "type": "float",
+      "default": 45.0,
+      "description": "Maximum frequency for analysis (Hz)",
+      "range": [30.0, 100.0]
+    },
+    "n_jobs": {
+      "type": "int",
+      "default": 10,
+      "description": "Number of parallel jobs",
+      "range": [1, 32]
+    },
+    "aperiodic_mode": {
+      "type": "string",
+      "default": "knee",
+      "description": "FOOOF fitting mode",
+      "options": ["fixed", "knee"]
+    }
+  },
+  "scientific_references": [
+    {
+      "authors": "Donoghue T, Haller M, Peterson EJ, Varma P, Sebastian P, Gao R, Noto T, Lara AH, Wallis JD, Knight RT, Shestyuk A, Voytek B",
+      "title": "Parameterizing neural power spectra into periodic and aperiodic components",
+      "journal": "Nature Neuroscience",
+      "year": 2020,
+      "volume": 23,
+      "issue": 12,
+      "pages": "1655-1665",
+      "doi": "10.1038/s41593-020-00744-x",
+      "pmid": "33230329",
+      "url": "https://www.nature.com/articles/s41593-020-00744-x"
+    },
+    {
+      "authors": "Voytek B, Knight RT",
+      "title": "Dynamic network communication as a unifying neural basis for cognition, development, aging, and disease",
+      "journal": "Biological Psychiatry",
+      "year": 2015,
+      "volume": 77,
+      "issue": 12,
+      "pages": "1089-1097",
+      "doi": "10.1016/j.biopsych.2015.04.016",
+      "pmid": "26005114"
+    }
+  ],
+  "use_cases": {
+    "recommended": [
+      "Resting-state EEG with broadband spectrum",
+      "Studying developmental changes in E/I balance",
+      "Comparing aperiodic vs periodic contributions",
+      "Longitudinal studies (medications, aging, disease)"
+    ],
+    "not_recommended": [
+      "Narrow-band filtered data",
+      "Very short recordings (<30 seconds)",
+      "Data with extreme artifacts/noise",
+      "Task-based EEG with rapid power changes"
+    ]
+  },
+  "quality_metrics": {
+    "success_rate_threshold": 0.80,
+    "r_squared_threshold": 0.90,
+    "typical_exponent_range": [0.5, 2.5],
+    "typical_knee_range": [0, 20]
+  },
+  "performance": {
+    "computation_time_minutes": "3-5",
+    "memory_usage_gb": "2-4",
+    "scales_with": ["n_vertices", "data_duration", "frequency_range"]
+  },
+  "validation": {
+    "test_file": "FOOOFAnalysisTest.py",
+    "test_data_requirements": "60+ seconds source-localized EEG",
+    "expected_outputs": ["PSD file", "parquet", "csv"]
+  }
+}

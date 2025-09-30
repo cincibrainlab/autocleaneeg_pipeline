@@ -1,0 +1,66 @@
+{
+  "name": "wavelet_threshold",
+  "version": "1.0.0",
+  "description": "Wavelet-based artifact removal using discrete wavelet transform with universal thresholding",
+  "author": "AutoCleanEEG Team",
+  "maintainer": "ernest.pedapati@cchmc.org",
+  "license": "MIT",
+  "category": "signal_processing",
+
+  "api": {
+    "mixin_class": "WaveletThresholdMixin",
+    "mixin_method": "apply_wavelet_threshold",
+    "config_key": "wavelet_threshold",
+    "schema_function": "wavelet_descriptor"
+  },
+
+  "dependencies": {
+    "python": ">=3.10",
+    "packages": {
+      "pywt": ">=1.9.0",
+      "numpy": ">=2.0.0",
+      "matplotlib": ">=3.10.0",
+      "reportlab": ">=4.0.0",
+      "scipy": ">=1.16.0",
+      "pandas": ">=2.3.0"
+    },
+    "mne": ">=1.10.0",
+    "autocleaneeg-pipeline": ">=3.0.0"
+  },
+
+  "compatibility": {
+    "data_types": ["raw", "epochs"],
+    "processing_stages": ["post_filtering", "pre_epoching", "post_ica"],
+    "min_channels": 1,
+    "requires_montage": false
+  },
+
+  "references": [
+    {
+      "name": "HAPPE Pipeline",
+      "url": "https://github.com/PINE-Lab/HAPPE",
+      "citation": "Gabard-Durnam LJ, et al. (2018). The Harvard Automated Processing Pipeline for Electroencephalography (HAPPE): Standardized Processing Software for Developmental and High-Artifact Data. Frontiers in Neuroscience, 12, 97."
+    },
+    {
+      "name": "Wavelet thresholding theory",
+      "citation": "Donoho DL & Johnstone IM (1994). Ideal spatial adaptation by wavelet shrinkage. Biometrika, 81(3), 425-455.",
+      "doi": "10.1093/biomet/81.3.425"
+    },
+    {
+      "name": "Universal threshold",
+      "citation": "Donoho DL (1995). De-noising by soft-thresholding. IEEE Transactions on Information Theory, 41(3), 613-627.",
+      "doi": "10.1109/18.382009"
+    }
+  ],
+
+  "tags": ["artifact-removal", "denoising", "wavelet", "preprocessing", "happe", "transient-artifacts"],
+
+  "registry": {
+    "url": "https://registry.autocleaneeg.org/blocks/wavelet_threshold",
+    "documentation_url": "https://docs.autocleaneeg.org/blocks/wavelet_threshold",
+    "source_url": "https://github.com/cincibrainlab/autocleaneeg-task-registry/tree/main/blocks/signal_processing/wavelet_threshold"
+  },
+
+  "created_at": "2025-09-29T00:00:00Z",
+  "updated_at": "2025-09-29T00:00:00Z"
+}
