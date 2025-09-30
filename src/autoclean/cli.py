@@ -464,26 +464,6 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
-    if topic in {"task library", "library", "task builtins", "builtins", "builtin"}:
-        console.print("[header]Task Library Commands[/header]")
-        tbl = _Table(show_header=False, box=None, padding=(0, 1))
-        tbl.add_column("Command", style="accent", no_wrap=True)
-        tbl.add_column("Description", style="muted")
-        tbl.add_row("🔄 task library update", "Check online for refreshed templates")
-        tbl.add_row("📋 task library list", "See templates and sync status")
-        tbl.add_row(
-            "📦 task library install <name>",
-            "Copy a template into workspace/tasks",
-        )
-        console.print(tbl)
-        console.print()
-        console.print(
-            "[muted]The Task Library mirrors the public GitHub registry while keeping an offline copy inside the app." \
-            "[/muted]"
-        )
-        console.print()
-        return
-
     if topic in {"montage", "montages"}:
         console.print("[header]Montage Commands[/header]")
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
@@ -906,27 +886,6 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         dest="task_action", help="Task actions"
     )
 
-    # Add task
-    add_task_parser = task_subparsers.add_parser(
-        "add", help="Add a custom task", add_help=False
-    )
-    attach_rich_help(add_task_parser)
-    add_task_parser.add_argument("task_file", type=Path, help="Python task file to add")
-    add_task_parser.add_argument(
-        "--name", type=str, help="Custom name for the task (default: filename)"
-    )
-    add_task_parser.add_argument(
-        "--force", action="store_true", help="Overwrite existing task with same name"
-    )
-
-    # Remove task
-    remove_task_parser = task_subparsers.add_parser(
-        "remove", help="Remove a custom task", add_help=False
-    )
-    attach_rich_help(remove_task_parser)
-    remove_task_parser.add_argument(
-        "task_name", type=str, help="Name of the task to remove"
-    )
 
     # Delete task (alias with path/name support)
     delete_task_parser = task_subparsers.add_parser(
@@ -1012,64 +971,6 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="When copying a built-in task, save as this name (without .py)",
     )
 
-    library_parser = task_subparsers.add_parser(
-        "library",
-        help="Browse the official task library",
-        add_help=False,
-        aliases=["builtins"],
-    )
-    attach_rich_help(library_parser)
-    library_subparsers = library_parser.add_subparsers(
-        dest="task_library_action",
-        help="Task Library commands",
-    )
-
-    library_update = library_subparsers.add_parser(
-        "update",
-        help="Check GitHub for refreshed task templates",
-        add_help=False,
-    )
-    attach_rich_help(library_update)
-    library_update.add_argument(
-        "--no-network",
-        action="store_true",
-        help="Skip the online check and rely on cached/package data",
-    )
-
-    library_list = library_subparsers.add_parser(
-        "list",
-        help="Show available library templates",
-        add_help=False,
-    )
-    attach_rich_help(library_list)
-    library_list.add_argument(
-        "--show-paths",
-        action="store_true",
-        help="Show the registry path for each template",
-    )
-    library_list.add_argument(
-        "--refresh",
-        action="store_true",
-        help="Check online for updates before listing",
-    )
-
-    library_install = library_subparsers.add_parser(
-        "install",
-        help="Copy a library template into the workspace",
-        add_help=False,
-    )
-    attach_rich_help(library_install)
-    library_install.add_argument(
-        "task_name",
-        type=str,
-        help="Name of the template to install",
-    )
-    library_install.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite the workspace copy if it already exists",
-    )
-
     schema_parser = task_subparsers.add_parser(
         "schema",
         help="Inspect or export the task schema",
@@ -1103,27 +1004,6 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "--force",
         action="store_true",
         help="When copying a built-in task, overwrite existing without prompting",
-    )
-
-    # Import task (copy file into workspace tasks folder)
-    import_parser = task_subparsers.add_parser(
-        "import", help="Import a task file into your workspace", add_help=False
-    )
-    attach_rich_help(import_parser)
-    import_parser.add_argument(
-        "source",
-        type=Path,
-        help="Path to a Python task file to import (.py)",
-    )
-    import_parser.add_argument(
-        "--name",
-        type=str,
-        help="Save as this filename (without .py)",
-    )
-    import_parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Overwrite existing file without prompting",
     )
 
     # Copy task (name or path)
@@ -4858,18 +4738,12 @@ def cmd_task(args) -> int:
         _print_startup_context(console)
         _print_root_help(console, "task")
         return 0
-    if args.task_action == "add":
-        return cmd_task_add(args)
-    elif args.task_action == "remove":
-        return cmd_task_remove(args)
-    elif args.task_action == "list":
+    if args.task_action == "list":
         return cmd_list_tasks(args)
     elif args.task_action == "explore":
         return cmd_task_explore(args)
     elif args.task_action == "edit":
         return cmd_task_edit(args)
-    elif args.task_action == "import":
-        return cmd_task_import(args)
     elif args.task_action == "delete":
         return cmd_task_delete(args)
     elif args.task_action == "copy":
@@ -4894,8 +4768,6 @@ def cmd_task(args) -> int:
         return cmd_task_diff(args)
     elif args.task_action == "search":
         return cmd_task_search(args)
-    elif args.task_action in {"library", "builtins"}:
-        return cmd_task_library(args)
     elif args.task_action == "schema":
         return cmd_task_schema(args)
     else:
@@ -4945,91 +4817,6 @@ def cmd_task_schema_export(args) -> int:
         console.print(text)
 
     return 0
-
-
-def cmd_task_add(args) -> int:
-    """Add a custom task by copying to workspace tasks folder."""
-    # Deprecation warning
-    console = get_console(args)
-    console.print(
-        "[warning]⚠ Deprecation:[/warning] 'task add' will be deprecated in a future version.\n"
-        "[muted]Use [accent]'task install <file>'[/accent] instead for unified task installation.[/muted]\n"
-    )
-
-    try:
-        if not args.task_file.exists():
-            message("error", f"Task file not found: {args.task_file}")
-            return 1
-
-        # Ensure workspace exists
-        if not user_config.tasks_dir.exists():
-            user_config.tasks_dir.mkdir(parents=True, exist_ok=True)
-
-        # Determine destination name
-        if args.name:
-            dest_name = f"{args.name}.py"
-        else:
-            dest_name = args.task_file.name
-
-        dest_file = user_config.tasks_dir / dest_name
-
-        # Check if task already exists
-        if dest_file.exists() and not args.force:
-            message(
-                "error", f"Task '{dest_name}' already exists. Use --force to overwrite."
-            )
-            return 1
-
-        # Copy the task file
-        shutil.copy2(args.task_file, dest_file)
-
-        # Extract class name for usage message
-        try:
-            class_name, _ = user_config._extract_task_info(dest_file)
-            task_name = class_name
-        except Exception:
-            task_name = dest_file.stem
-
-        message("info", f"Task '{task_name}' added to workspace!")
-        print(f"📁 Copied to: {dest_file}")
-        print("\nUse your custom task with:")
-        print(f"  autocleaneeg-pipeline process {task_name} <data_file>")
-
-        return 0
-
-    except Exception as e:
-        message("error", f"Failed to add custom task: {str(e)}")
-        return 1
-
-
-def cmd_task_remove(args) -> int:
-    """Remove a custom task by deleting from workspace tasks folder."""
-    try:
-        # Find task file by class name or filename
-        custom_tasks = user_config.list_custom_tasks()
-
-        task_file = None
-        if args.task_name in custom_tasks:
-            # Found by class name
-            task_file = Path(custom_tasks[args.task_name]["file_path"])
-        else:
-            # Try by filename
-            potential_file = user_config.tasks_dir / f"{args.task_name}.py"
-            if potential_file.exists():
-                task_file = potential_file
-
-        if not task_file or not task_file.exists():
-            message("error", f"Task '{args.task_name}' not found")
-            return 1
-
-        # Remove the file
-        task_file.unlink()
-        message("info", f"Task '{args.task_name}' removed from workspace!")
-        return 0
-
-    except Exception as e:
-        message("error", f"Failed to remove custom task: {str(e)}")
-        return 1
 
 
 def cmd_task_explore(_args) -> int:
@@ -5280,106 +5067,6 @@ def cmd_task_edit(args) -> int:
             return 1
     except Exception as e:
         message("error", f"Failed to edit task: {e}")
-        return 1
-
-
-def cmd_task_import(args) -> int:
-    """Import a task Python file into the workspace tasks folder.
-
-    Guards and guidance:
-    - Verifies source exists and is a .py file
-    - Warns on private names (leading underscore) and common test/fixture names
-    - Prompts before overwriting unless --force
-    - Lets user rename via --name or interactive prompt
-    - After copy, shows how to use the task
-    """
-    # Deprecation warning
-    console = get_console(args)
-    console.print(
-        "[warning]⚠ Deprecation:[/warning] 'task import' will be deprecated in a future version.\n"
-        "[muted]Use [accent]'task install <file>'[/accent] instead for unified task installation.[/muted]\n"
-    )
-
-    try:
-        src: Path = args.source.expanduser().resolve()
-        if not src.exists() or not src.is_file():
-            message("error", f"Source file not found: {src}")
-            message("info", "Provide a valid Python file path (e.g., /path/to/task.py)")
-            return 1
-        if src.suffix.lower() != ".py":
-            message("error", "Only Python files (.py) can be imported as tasks")
-            return 1
-
-        # Heuristic warnings
-        if src.name.startswith("_"):
-            message(
-                "warning",
-                "File starts with '_' and may be ignored by loader. Consider renaming.",
-            )
-        lower = src.name.lower()
-        if any(x in lower for x in ("test", "fixture", "template")):
-            message(
-                "warning",
-                "File name looks like a test/fixture/template. Ensure it contains a Task subclass.",
-            )
-
-        # Destination
-        dest_dir = user_config.tasks_dir
-        dest_dir.mkdir(parents=True, exist_ok=True)
-        dest_name = args.name or src.stem
-        dest_name = dest_name if dest_name.endswith(".py") else f"{dest_name}.py"
-        dest = dest_dir / dest_name
-
-        # Confirm overwrite if exists
-        if dest.exists() and not args.force:
-            try:
-                from rich.prompt import Prompt as _Prompt
-
-                choice = _Prompt.ask(
-                    f"{dest.name} exists. Choose",
-                    choices=["overwrite", "rename", "cancel"],
-                    default="rename",
-                )
-                if choice == "cancel":
-                    message("info", "Canceled")
-                    return 0
-                if choice == "rename":
-                    new_name = _Prompt.ask(
-                        "New filename", default=f"copy_of_{dest.name}"
-                    )
-                    dest = dest_dir / (
-                        new_name if new_name.endswith(".py") else f"{new_name}.py"
-                    )
-            except Exception:
-                message(
-                    "warning",
-                    "Interactive prompt unavailable; re-run with --force or --name to control destination.",
-                )
-                return 1
-
-        # Perform copy
-        try:
-            shutil.copy2(src, dest)
-            message("success", f"✓ Imported task to workspace: {dest.name}")
-        except Exception as e:
-            message("error", f"Failed to copy file: {e}")
-            return 1
-
-        # Extract class name and show usage
-        try:
-            class_name, _ = user_config._extract_task_info(dest)
-            message("info", f"Detected task class: {class_name}")
-            print("\nUse your task with:")
-            print(f"  autocleaneeg-pipeline process {class_name} <data_file>")
-        except Exception:
-            message(
-                "warning",
-                "Could not detect Task class. Ensure the file defines a class extending Task.",
-            )
-
-        return 0
-    except Exception as e:
-        message("error", f"Failed to import task: {e}")
         return 1
 
 
@@ -6701,193 +6388,6 @@ def cmd_task_search(args) -> int:
         console.print("[muted]Use 'task use <name>' to install and activate a task[/muted]")
 
     return 0
-
-
-def cmd_task_library(args) -> int:
-    """Handle 'task library' subcommands (and the legacy builtins alias)."""
-    action = getattr(args, "task_library_action", None)
-    console = get_console(args)
-
-    if not action:
-        _simple_header(console)
-        _print_startup_context(console)
-        _print_root_help(console, "task library")
-        return 0
-
-    if getattr(args, "task_action", None) == "builtins":
-        console.print(
-            "[muted]Tip: 'task builtins' is now 'task library'.\n"
-            "Commands continue to work, but the updated name is easier to remember.[/muted]"
-        )
-
-    registry = BuiltinRegistry()
-
-    if action == "update":
-        # Deprecation warning
-        console.print(
-            "[warning]⚠ Deprecation:[/warning] 'task library update' will be deprecated.\n"
-            "[muted]Use [accent]'task update'[/accent] instead (promoted to top-level command).[/muted]\n"
-        )
-
-        allow_network = not getattr(args, "no_network", False)
-        console.print("Checking for updates…")
-        msg = registry.update_cache(allow_network=allow_network)
-        console.print(msg)
-
-        summary = registry.last_update_summary()
-        new = summary.get("new", [])
-        updated = summary.get("updated", [])
-        removed = summary.get("removed", [])
-
-        total_changes = len(new) + len(updated) + len(removed)
-        if total_changes == 0:
-            console.print("[muted]No changes detected. Your library index is current.[/muted]")
-            return 0
-
-        from rich.table import Table as _Table
-
-        console.print(f"[success]✓[/success] Found {total_changes} change(s)")
-        table = _Table(show_header=True, box=None, padding=(0, 1))
-        table.add_column("Task", style="accent")
-        table.add_column("Status", style="info")
-
-        for name in sorted(new):
-            table.add_row(name, "new")
-        for name in sorted(updated):
-            table.add_row(name, "updated")
-        for name in sorted(removed):
-            table.add_row(name, "removed")
-
-        console.print(table)
-
-        # Helpful next step if updates exist
-        if updated:
-            examples = ", ".join(updated[:3])
-            console.print(
-                f"[muted]Run 'task library install <name> --force' to update your copy (e.g., {examples}).[/muted]"
-            )
-        return 0
-
-    if action == "list":
-        if getattr(args, "refresh", False):
-            console.print(registry.update_cache())
-        tasks = registry.list_tasks()
-        if not tasks:
-            console.print("[warning]No Task Library templates found in registry.json[/warning]")
-            return 0
-
-        status_info = registry.registry_status()
-        commit_raw = status_info.get("commit")
-        commit = commit_raw or "not yet synced"
-        if commit in {"unknown", ""}:
-            commit = "not yet synced"
-        elif commit == "local-snapshot":
-            commit = "local snapshot"
-        synced_at = _pretty_timestamp(status_info.get("synced_at"))
-        last_error = status_info.get("last_error")
-
-        summary = (
-            f"[info]Task Library version:[/info] {commit} "
-            f"[muted](last checked {synced_at})[/muted]"
-        )
-        console.print(summary)
-        if isinstance(last_error, dict):
-            err_msg = last_error.get("message", "connection problem")
-            err_time = _pretty_timestamp(
-                last_error.get("timestamp"), default="time not recorded"
-            )
-            note = (
-                "[warning]Last online check failed:[/warning] "
-                f"{err_msg} [muted]{err_time}[/muted]\n"
-                "[muted]Working from your cached templates instead.[/muted]"
-            )
-            console.print(note)
-
-        from rich.table import Table as _Table
-
-        table = _Table(show_header=True, box=None, padding=(0, 1))
-        table.add_column("Task", style="accent")
-        table.add_column("Status", style="info")
-        table.add_column("Source", style="muted")
-        if getattr(args, "show_paths", False):
-            table.add_column("Registry path", style="info")
-
-        workspace_dir = user_config.tasks_dir
-
-        for task in tasks:
-            sync = registry.task_sync_status(task.name, workspace_dir)
-            status = sync.get("status") or "unknown"
-            if status == "synced":
-                status_text = "[success]up to date[/success]"
-            elif status == "modified":
-                status_text = "[warning]customized[/warning]"
-            elif status == "not_installed":
-                status_text = "[muted]install to use[/muted]"
-            elif status == "missing":
-                status_text = "[error]not in library[/error]"
-            else:
-                status_text = "[muted]status unknown[/muted]"
-
-            source = sync.get("source") or "unknown"
-            if source == "cache":
-                source_text = "local download"
-            elif source == "package":
-                source_text = "bundled snapshot"
-            else:
-                source_text = source
-
-            row = [task.name, status_text, source_text]
-            if getattr(args, "show_paths", False):
-                row.append(task.path)
-            table.add_row(*row)
-
-        console.print()
-        console.print(table)
-        console.print()
-        console.print(
-            "[muted]Use 'task library install <name>' to copy a template into your workspace.[/muted]"
-        )
-        return 0
-
-    if action == "install":
-        # Deprecation warning
-        console.print(
-            "[warning]⚠ Deprecation:[/warning] 'task library install' will be deprecated.\n"
-            "[muted]Use [accent]'task install <name>'[/accent] or [accent]'task use <name>'[/accent] (install + activate) instead.[/muted]\n"
-        )
-
-        dest_path = user_config.tasks_dir / f"{args.task_name}.py"
-        if dest_path.exists() and not getattr(args, "force", False):
-            message(
-                "warning",
-                f"Task '{args.task_name}' already exists at {dest_path}. Use --force to overwrite.",
-            )
-            return 1
-
-        try:
-            installed_path = registry.materialize_task_to(
-                args.task_name, user_config.tasks_dir
-            )
-        except ValueError as exc:
-            message("error", str(exc))
-            return 1
-        except FileNotFoundError as exc:
-            message("error", str(exc))
-            return 1
-        except Exception as exc:  # pylint: disable=broad-except
-            message("error", f"Failed to install built-in task: {exc}")
-            return 1
-
-        console.print(
-            f"[accent]{args.task_name}[/accent] copied to [info]{installed_path}[/info]"
-        )
-        console.print(
-            "[muted]Edit this file in your workspace to customize the task.[/muted]"
-        )
-        return 0
-
-    message("error", f"Unknown built-ins action: {action}")
-    return 1
 
 
 def cmd_source(args) -> int:
