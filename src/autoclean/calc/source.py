@@ -36,12 +36,12 @@ except ImportError:
 
 try:
     from bctpy import charpath, clustering_coef_wu, efficiency_wei
-    from fooof import FOOOF, FOOOFGroup
-    from fooof.analysis import get_band_peak_fm
+    from specparam import SpectralModel, SpectralGroupModel
+    from specparam.analysis import get_band_peak
 
-    FOOOF_AVAILABLE = True
+    SPECPARAM_AVAILABLE = True
 except ImportError:
-    FOOOF_AVAILABLE = False
+    SPECPARAM_AVAILABLE = False
 
 from autoclean.io.export import save_stc_to_file
 
@@ -3373,7 +3373,7 @@ def calculate_vertex_psd_for_fooof(
     stc, fmin=1.0, fmax=45.0, n_jobs=10, output_dir=None, subject_id=None
 ):
     """
-    Calculate full power spectral density at the vertex level for FOOOF analysis.
+    Calculate full power spectral density at the vertex level for specparam analysis.
 
     Parameters
     ----------
@@ -3410,7 +3410,7 @@ def calculate_vertex_psd_for_fooof(
     sfreq = stc.sfreq
     n_vertices = data.shape[0]
 
-    print(f"Calculating vertex-level PSD for FOOOF analysis - {subject_id}...")
+    print(f"Calculating vertex-level PSD for specparam analysis - {subject_id}...")
     print(f"Source data shape: {data.shape}")
 
     # Parameters for Welch's method
@@ -3502,7 +3502,7 @@ def calculate_fooof_aperiodic(
     stc_psd, subject_id, output_dir, n_jobs=10, aperiodic_mode="knee"
 ):
     """
-    Run FOOOF to model aperiodic parameters for all vertices with robust error handling.
+    Run specparam to model aperiodic parameters for all vertices with robust error handling.
 
     Parameters
     ----------
@@ -3515,7 +3515,7 @@ def calculate_fooof_aperiodic(
     n_jobs : int
         Number of parallel jobs to use for computation
     aperiodic_mode : str
-        Aperiodic mode for FOOOF ('fixed' or 'knee')
+        Aperiodic mode for specparam ('fixed' or 'knee')
 
     Returns
     -------
@@ -3528,10 +3528,10 @@ def calculate_fooof_aperiodic(
     # Create output directory
     os.makedirs(output_dir, exist_ok=True)
 
-    print(f"Calculating FOOOF aperiodic parameters for {subject_id}...")
+    print(f"Calculating specparam aperiodic parameters for {subject_id}...")
 
-    if not FOOOF_AVAILABLE:
-        print("FOOOF library not available. Skipping aperiodic parameter analysis.")
+    if not SPECPARAM_AVAILABLE:
+        print("specparam library not available. Skipping aperiodic parameter analysis.")
         return pd.DataFrame(), None
 
     # Get data from stc_psd
@@ -3539,9 +3539,9 @@ def calculate_fooof_aperiodic(
     freqs = stc_psd.times
 
     n_vertices = psds.shape[0]
-    print(f"Processing FOOOF analysis for {n_vertices} vertices...")
+    print(f"Processing specparam analysis for {n_vertices} vertices...")
 
-    # FOOOF parameters with fallback options
+    # specparam parameters with fallback options
     fooof_params = {
         "peak_width_limits": [1, 8.0],
         "max_n_peaks": 6,
@@ -3569,7 +3569,7 @@ def calculate_fooof_aperiodic(
             warnings.filterwarnings("ignore", category=RuntimeWarning)
 
             try:
-                fg = FOOOFGroup(**fooof_params)
+                fg = SpectralGroupModel(**fooof_params)
                 fg.fit(freqs, batch_psds)
 
                 # Check if fits were successful
@@ -3580,7 +3580,7 @@ def calculate_fooof_aperiodic(
             except Exception:
                 # Try again with fallback parameters
                 try:
-                    fg = FOOOFGroup(**fallback_params)
+                    fg = SpectralGroupModel(**fallback_params)
                     fg.fit(freqs, batch_psds)
                 except Exception:
                     # Create dummy results for completely failed fits
@@ -3721,7 +3721,7 @@ def calculate_fooof_aperiodic(
     success_count = (aperiodic_df["status"] == "SUCCESS").sum()
     success_rate = (success_count / len(aperiodic_df)) * 100
 
-    print(f"Saved FOOOF aperiodic parameters to {file_path}")
+    print(f"Saved specparam aperiodic parameters to {file_path}")
     print(
         f"Success rate: {success_rate:.1f}% ({success_count}/{len(aperiodic_df)} vertices)"
     )
@@ -3750,7 +3750,7 @@ def visualize_fooof_results(
     use_log=False,
 ):
     """
-    Create a comprehensive visualization of FOOOF analysis results.
+    Create a comprehensive visualization of specparam analysis results.
 
     Parameters
     ----------
@@ -3812,7 +3812,7 @@ def visualize_fooof_results(
     success_rate = (success_count / total_vertices) * 100
 
     summary_text = [
-        f"FOOOF Analysis Summary: {subject_id}",
+        f"specparam Analysis Summary: {subject_id}",
         f"Total vertices: {total_vertices}",
         f"Successful fits: {success_count} ({success_rate:.1f}%)",
         f"Average exponent: {success_df['exponent'].mean():.3f} ± {success_df['exponent'].std():.3f}",
@@ -3891,12 +3891,12 @@ def visualize_fooof_results(
         psds = stc_psd.data
         freqs = stc_psd.times
 
-        if not FOOOF_AVAILABLE:
-            print("FOOOF library not available. Skipping aperiodic visualization.")
+        if not SPECPARAM_AVAILABLE:
+            print("specparam library not available. Skipping aperiodic visualization.")
             return
 
-        # Create FOOOF model for visualization
-        fm = FOOOF(
+        # Create specparam model for visualization
+        fm = SpectralModel(
             peak_width_limits=[1, 8.0],
             aperiodic_mode="knee" if "knee" in success_df.columns else "fixed",
         )
@@ -3908,10 +3908,10 @@ def visualize_fooof_results(
         worst_idx = r2_sorted.iloc[-1]["vertex"]
 
         def plot_fit_custom(fm, ax, plt_log=use_log):
-            """Custom function to plot FOOOF fits on linear or log scale"""
-            # Get data from FOOOF model
+            """Custom function to plot specparam fits on linear or log scale"""
+            # Get data from specparam model
             ap_fit = fm._ap_fit
-            model_fit = fm.fooofed_spectrum_
+            model_fit = fm.modeled_spectrum_
             freqs = fm.freqs
             power_spectrum = fm.power_spectrum
 
@@ -4085,7 +4085,7 @@ def calculate_fooof_periodic(
     aperiodic_mode="knee",
 ):
     """
-    Calculate FOOOF periodic parameters from source-localized data and save results.
+    Calculate specparam periodic parameters from source-localized data and save results.
 
     Parameters
     ----------
@@ -4101,7 +4101,7 @@ def calculate_fooof_periodic(
     subject_id : str | None
         Subject identifier for file naming
     aperiodic_mode : str
-        Aperiodic mode for FOOOF ('fixed' or 'knee')
+        Aperiodic mode for specparam ('fixed' or 'knee')
 
     Returns
     -------
@@ -4111,9 +4111,9 @@ def calculate_fooof_periodic(
         Path to the saved data file
     """
 
-    if not FOOOF_AVAILABLE:
+    if not SPECPARAM_AVAILABLE:
         raise ImportError(
-            "FOOOF is required for this function. Install with 'pip install fooof'"
+            "specparam is required for this function. Install with 'pip install specparam'"
         )
 
     if output_dir is None:
@@ -4132,7 +4132,7 @@ def calculate_fooof_periodic(
             "gamma": (30, 45),
         }
 
-    print(f"Calculating FOOOF oscillatory parameters for {subject_id}...")
+    print(f"Calculating specparam oscillatory parameters for {subject_id}...")
 
     # Get data from stc
     if hasattr(stc, "data") and hasattr(stc, "times"):
@@ -4163,10 +4163,10 @@ def calculate_fooof_periodic(
 
     n_vertices = psds.shape[0]
     print(
-        f"Processing FOOOF analysis for {n_vertices} vertices and {len(freq_bands)} frequency bands..."
+        f"Processing specparam analysis for {n_vertices} vertices and {len(freq_bands)} frequency bands..."
     )
 
-    # FOOOF parameters
+    # specparam parameters
     fooof_params = {
         "peak_width_limits": [1, 12.0],
         "max_n_peaks": 6,
@@ -4181,8 +4181,8 @@ def calculate_fooof_periodic(
         # Extract data for these vertices
         batch_psds = psds_to_fit[vertices, :]
 
-        # Create FOOOF model and fit
-        fg = FOOOFGroup(**fooof_params)
+        # Create specparam model and fit
+        fg = SpectralGroupModel(**fooof_params)
         fg.fit(freqs_to_fit, batch_psds)
 
         # Extract periodic parameters for each frequency band
@@ -4190,11 +4190,11 @@ def calculate_fooof_periodic(
 
         for i, vertex_idx in enumerate(vertices):
             for band_name, band_range in freq_bands.items():
-                # Get FOOOF model for this vertex
-                fm = fg.get_fooof(i)
+                # Get specparam model for this vertex
+                fm = fg.get_model(i)
 
                 # Extract peak in this band
-                peak_params = get_band_peak_fm(fm, band_range, select_highest=True)
+                peak_params = get_band_peak(fm, band_range, select_highest=True)
 
                 if peak_params is not None:
                     cf, pw, bw = peak_params
@@ -4247,7 +4247,7 @@ def calculate_fooof_periodic(
     )
     periodic_df.to_parquet(file_path)
 
-    print(f"Saved FOOOF periodic parameters to {file_path}")
+    print(f"Saved specparam periodic parameters to {file_path}")
 
     return periodic_df, file_path
 

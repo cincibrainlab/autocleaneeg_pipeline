@@ -1,13 +1,13 @@
-"""FOOOF analysis mixin for autoclean tasks.
+"""specparam analysis mixin for autoclean tasks.
 
 This module provides functionality for spectral parameterization of source-localized
-EEG data using the FOOOF (Fitting Oscillations & One Over F) algorithm.
+EEG data using the specparam (Fitting Oscillations & One Over F) algorithm.
 
-The FOOOFAnalysisMixin class implements methods for calculating vertex-level PSDs
+The specparamAnalysisMixin class implements methods for calculating vertex-level PSDs
 and extracting both aperiodic (1/f) and periodic (oscillatory) parameters from
 source estimates produced by source localization.
 
-FOOOF separates neural power spectra into:
+specparam separates neural power spectra into:
 1. Aperiodic component: 1/f background activity (offset, knee, exponent)
 2. Periodic component: Oscillatory peaks (center frequency, power, bandwidth)
 
@@ -34,16 +34,16 @@ calculate_fooof_periodic = _algorithm_module.calculate_fooof_periodic
 calculate_vertex_psd_for_fooof = _algorithm_module.calculate_vertex_psd_for_fooof
 
 
-class FOOOFAnalysisMixin:
-    """Mixin class providing FOOOF spectral parameterization functionality.
+class specparamAnalysisMixin:
+    """Mixin class providing specparam spectral parameterization functionality.
 
     This mixin provides methods for decomposing neural power spectra into aperiodic
-    and periodic components using the FOOOF algorithm. The implementation operates
+    and periodic components using the specparam algorithm. The implementation operates
     at the vertex level, providing high spatial resolution parameterization across
     the cortical surface.
 
     The mixin automatically retrieves source estimates from the task object (self.stc)
-    and computes FOOOF parameters for each vertex. Results are saved as parquet and
+    and computes specparam parameters for each vertex. Results are saved as parquet and
     CSV files for easy analysis.
 
     References
@@ -61,11 +61,11 @@ class FOOOFAnalysisMixin:
         aperiodic_mode: str = "knee",
         stage_name: str = "apply_fooof_aperiodic",
     ) -> tuple:
-        """Calculate FOOOF aperiodic parameters from source estimates.
+        """Calculate specparam aperiodic parameters from source estimates.
 
-        This method applies the FOOOF algorithm to extract aperiodic (1/f) parameters
+        This method applies the specparam algorithm to extract aperiodic (1/f) parameters
         from source-localized EEG data. The method first calculates vertex-level PSD
-        using Welch's method, then fits the FOOOF model to extract:
+        using Welch's method, then fits the specparam model to extract:
         - Offset: Overall power level
         - Exponent: Slope of 1/f decay
         - Knee (optional): Bend point in 1/f curve
@@ -86,12 +86,12 @@ class FOOOFAnalysisMixin:
 
         Raises:
             AttributeError: If no source estimates found (no self.stc)
-            ImportError: If FOOOF library not available
-            RuntimeError: If FOOOF fitting fails
+            ImportError: If specparam library not available
+            RuntimeError: If specparam fitting fails
 
         Example:
             ```python
-            # Apply FOOOF aperiodic analysis with default parameters
+            # Apply specparam aperiodic analysis with default parameters
             df, file_path = task.apply_fooof_aperiodic()
 
             # Apply with custom parameters
@@ -122,9 +122,9 @@ class FOOOFAnalysisMixin:
 
             if not is_enabled:
                 if hasattr(self, "message"):
-                    self.message("info", "FOOOF aperiodic step is disabled")
+                    self.message("info", "specparam aperiodic step is disabled")
                 else:
-                    print("INFO: FOOOF aperiodic step is disabled")
+                    print("INFO: specparam aperiodic step is disabled")
                 return None, None
 
             # Get parameters from config if available
@@ -152,13 +152,13 @@ class FOOOFAnalysisMixin:
         try:
             # Log start
             if hasattr(self, "message"):
-                self.message("header", "Calculating FOOOF aperiodic parameters")
+                self.message("header", "Calculating specparam aperiodic parameters")
                 self.message(
                     "info",
                     f"Frequency range: {fmin}-{fmax} Hz, mode: {aperiodic_mode}, n_jobs: {n_jobs}",
                 )
             else:
-                print("=== Calculating FOOOF Aperiodic Parameters ===")
+                print("=== Calculating specparam Aperiodic Parameters ===")
                 print(
                     f"Frequency range: {fmin}-{fmax} Hz, mode: {aperiodic_mode}, n_jobs: {n_jobs}"
                 )
@@ -216,11 +216,11 @@ class FOOOFAnalysisMixin:
                 subject_id=subject_id,
             )
 
-            # Step 2: Calculate FOOOF aperiodic parameters
+            # Step 2: Calculate specparam aperiodic parameters
             if hasattr(self, "message"):
-                self.message("info", "Step 2: Fitting FOOOF models...")
+                self.message("info", "Step 2: Fitting specparam models...")
             else:
-                print("Step 2: Fitting FOOOF models...")
+                print("Step 2: Fitting specparam models...")
 
             aperiodic_df, file_path = calculate_fooof_aperiodic(
                 stc_psd=stc_psd,
@@ -238,12 +238,12 @@ class FOOOFAnalysisMixin:
             if hasattr(self, "message"):
                 self.message(
                     "success",
-                    f"FOOOF aperiodic complete: {n_vertices} vertices, {success_rate:.1f}% success",
+                    f"specparam aperiodic complete: {n_vertices} vertices, {success_rate:.1f}% success",
                 )
                 self.message("info", f"Saved to: {file_path}")
             else:
                 print(
-                    f"SUCCESS: FOOOF aperiodic complete: {n_vertices} vertices, {success_rate:.1f}% success"
+                    f"SUCCESS: specparam aperiodic complete: {n_vertices} vertices, {success_rate:.1f}% success"
                 )
                 print(f"Saved to: {file_path}")
 
@@ -270,12 +270,12 @@ class FOOOFAnalysisMixin:
             return aperiodic_df, file_path
 
         except Exception as e:
-            error_msg = f"Error during FOOOF aperiodic analysis: {str(e)}"
+            error_msg = f"Error during specparam aperiodic analysis: {str(e)}"
             if hasattr(self, "message"):
                 self.message("error", error_msg)
             else:
                 print(f"ERROR: {error_msg}")
-            raise RuntimeError(f"Failed to calculate FOOOF aperiodic: {str(e)}") from e
+            raise RuntimeError(f"Failed to calculate specparam aperiodic: {str(e)}") from e
 
     def apply_fooof_periodic(
         self,
@@ -285,10 +285,10 @@ class FOOOFAnalysisMixin:
         aperiodic_mode: str = "knee",
         stage_name: str = "apply_fooof_periodic",
     ) -> tuple:
-        """Calculate FOOOF periodic (oscillatory) parameters from source estimates.
+        """Calculate specparam periodic (oscillatory) parameters from source estimates.
 
         This method extracts oscillatory peaks from source-localized EEG data using
-        FOOOF. For each frequency band, it identifies the dominant peak and returns:
+        specparam. For each frequency band, it identifies the dominant peak and returns:
         - Center frequency: Peak frequency in Hz
         - Power: Peak power/amplitude
         - Bandwidth: Width of the peak
@@ -310,12 +310,12 @@ class FOOOFAnalysisMixin:
 
         Raises:
             AttributeError: If no PSD source estimates found
-            ImportError: If FOOOF library not available
-            RuntimeError: If FOOOF fitting fails
+            ImportError: If specparam library not available
+            RuntimeError: If specparam fitting fails
 
         Example:
             ```python
-            # Apply FOOOF periodic analysis (after aperiodic)
+            # Apply specparam periodic analysis (after aperiodic)
             df, file_path = task.apply_fooof_periodic()
 
             # Apply with custom frequency bands
@@ -346,9 +346,9 @@ class FOOOFAnalysisMixin:
 
             if not is_enabled:
                 if hasattr(self, "message"):
-                    self.message("info", "FOOOF periodic step is disabled")
+                    self.message("info", "specparam periodic step is disabled")
                 else:
-                    print("INFO: FOOOF periodic step is disabled")
+                    print("INFO: specparam periodic step is disabled")
                 return None, None
 
             # Get parameters from config if available
@@ -371,13 +371,13 @@ class FOOOFAnalysisMixin:
         try:
             # Log start
             if hasattr(self, "message"):
-                self.message("header", "Calculating FOOOF periodic parameters")
+                self.message("header", "Calculating specparam periodic parameters")
                 self.message(
                     "info",
                     f"Mode: {aperiodic_mode}, n_jobs: {n_jobs}",
                 )
             else:
-                print("=== Calculating FOOOF Periodic Parameters ===")
+                print("=== Calculating specparam Periodic Parameters ===")
                 print(f"Mode: {aperiodic_mode}, n_jobs: {n_jobs}")
 
             # Prepare parameters - get from task config
@@ -418,7 +418,7 @@ class FOOOFAnalysisMixin:
             if subject_id is None and hasattr(self, "file_path"):
                 subject_id = Path(self.file_path).stem
 
-            # Calculate FOOOF periodic parameters
+            # Calculate specparam periodic parameters
             periodic_df, file_path = calculate_fooof_periodic(
                 stc=stc_psd,
                 freq_bands=freq_bands,
@@ -435,12 +435,12 @@ class FOOOFAnalysisMixin:
             if hasattr(self, "message"):
                 self.message(
                     "success",
-                    f"FOOOF periodic complete: {n_vertices} vertices, {n_bands} bands",
+                    f"specparam periodic complete: {n_vertices} vertices, {n_bands} bands",
                 )
                 self.message("info", f"Saved to: {file_path}")
             else:
                 print(
-                    f"SUCCESS: FOOOF periodic complete: {n_vertices} vertices, {n_bands} bands"
+                    f"SUCCESS: specparam periodic complete: {n_vertices} vertices, {n_bands} bands"
                 )
                 print(f"Saved to: {file_path}")
 
@@ -464,9 +464,9 @@ class FOOOFAnalysisMixin:
             return periodic_df, file_path
 
         except Exception as e:
-            error_msg = f"Error during FOOOF periodic analysis: {str(e)}"
+            error_msg = f"Error during specparam periodic analysis: {str(e)}"
             if hasattr(self, "message"):
                 self.message("error", error_msg)
             else:
                 print(f"ERROR: {error_msg}")
-            raise RuntimeError(f"Failed to calculate FOOOF periodic: {str(e)}") from e
+            raise RuntimeError(f"Failed to calculate specparam periodic: {str(e)}") from e

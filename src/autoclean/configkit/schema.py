@@ -357,7 +357,7 @@ def _build_task_settings_schema() -> Schema:
                     Optional("n_jobs"): int,
                 },
             },
-            # FOOOF Aperiodic
+            # Specparam Aperiodic
             Optional("apply_fooof_aperiodic"): {
                 "enabled": bool,
                 "value": {
@@ -367,7 +367,7 @@ def _build_task_settings_schema() -> Schema:
                     Optional("aperiodic_mode"): str,
                 },
             },
-            # FOOOF Periodic
+            # Specparam Periodic
             Optional("apply_fooof_periodic"): {
                 "enabled": bool,
                 "value": {
