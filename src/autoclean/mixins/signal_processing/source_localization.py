@@ -333,9 +333,10 @@ class SourceLocalizationMixin:
                         self.epochs = epochs_eeg
 
                         # Explicitly save .set file to numbered derivatives folder
-                        # Decrement counter so .set file goes into same folder as STC
+                        # Decrement counter by number of STC epochs saved (min 3)
                         if hasattr(self, "config") and hasattr(self, "flagged"):
-                            self.config["_export_counter"] -= 1
+                            n_stc_saved = min(3, len(stc))
+                            self.config["_export_counter"] -= n_stc_saved
                             save_epochs_to_set(
                                 epochs=epochs_eeg,
                                 autoclean_dict=self.config,
