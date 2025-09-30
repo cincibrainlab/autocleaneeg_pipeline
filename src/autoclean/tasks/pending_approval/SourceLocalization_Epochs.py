@@ -38,7 +38,7 @@ config = {
     "ICA": {"enabled": False, "value": {"method": "infomax"}},
     "component_rejection": {
         "enabled": False,
-        "method": "icvision",
+        "method": "iclabel",
         "value": {
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
             "ic_rejection_threshold": 0.3,

@@ -38,13 +38,19 @@ config = {
     "ICA": {"enabled": False, "value": {"method": "infomax"}},
     "component_rejection": {
         "enabled": False,
-        "method": "icvision",
+        "method": "iclabel",
         "value": {
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
             "ic_rejection_threshold": 0.3,
         },
     },
-    "epoch_settings": {"enabled": False, "value": {}},
+    "epoch_settings": {
+        "enabled": False,
+        "value": {"tmin": -1, "tmax": 1},
+        "event_id": None,
+        "remove_baseline": {"enabled": False, "window": [None, 0]},
+        "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 0.000125}},
+    },
     "apply_source_localization": {
         "enabled": True,
         "value": {
