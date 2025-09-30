@@ -2412,7 +2412,7 @@ def cmd_list_tasks(args) -> int:
             summary_line = (
                 f"[info]Task Library version:[/info] {commit} [muted](last checked {synced_at})[/muted]"
             )
-            console.print(_Align.center(_Text(summary_line)))
+            console.print(_Align.center(_Text.from_markup(summary_line)))
             if isinstance(last_error, dict):
                 err_msg = last_error.get("message", "connection problem")
                 err_time = _pretty_timestamp(
@@ -2420,7 +2420,7 @@ def cmd_list_tasks(args) -> int:
                 )
                 console.print(
                     _Align.center(
-                        _Text(
+                        _Text.from_markup(
                             f"[warning]Last online check failed:[/warning] {err_msg} [muted]{err_time}[/muted]"
                         )
                     )
