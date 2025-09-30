@@ -730,11 +730,19 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     attach_rich_help(process_parser)
 
     # Positional arguments for simple usage: autocleaneeg-pipeline process TaskName FilePath
+    # Both are optional - if omitted, uses active task and active input from persistent state
+    # Zero-argument usage: autocleaneeg-pipeline process (when task and input are configured)
     process_parser.add_argument(
-        "task_name", nargs="?", type=str, help="Task name (e.g., RestingEyesOpen)"
+        "task_name",
+        nargs="?",
+        type=str,
+        help="Task name (optional if active task is set with 'task set')",
     )
     process_parser.add_argument(
-        "input_path", nargs="?", type=Path, help="EEG file or directory to process"
+        "input_path",
+        nargs="?",
+        type=Path,
+        help="EEG file or directory (optional if active input is set with 'input set')",
     )
 
     # Optional named arguments (for advanced usage)
@@ -1886,11 +1894,19 @@ def validate_args(args) -> bool:
 
                 console.print("[header]Process EEG[/header]")
                 console.print(
-                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options][/accent]"
+                    "[muted]Usage:[/muted] [accent]autocleaneeg-pipeline process [TASK] [FILE] [OPTIONS][/accent]"
+                )
+                console.print()
+                console.print(
+                    "[success]💡 Quick Start:[/success] Run with no arguments when task and input are configured:"
                 )
                 console.print(
-                    "[dim]Note: Task is optional if you have set an active task with 'task set'[/dim]"
+                    "   [accent]autocleaneeg-pipeline task set MyTask[/accent]"
                 )
+                console.print(
+                    "   [accent]autocleaneeg-pipeline input set[/accent]  [dim]# choose your data folder[/dim]"
+                )
+                console.print("   [accent]autocleaneeg-pipeline process[/accent]")
                 console.print()
 
                 tbl = _Table(show_header=False, box=None, padding=(0, 1))
@@ -1916,11 +1932,15 @@ def validate_args(args) -> bool:
                 console.print()
             except Exception:
                 console.print(
-                    "Usage: autocleaneeg-pipeline process [TaskName|--task-file FILE] <file|--dir DIR> [options]"
+                    "Usage: autocleaneeg-pipeline process [TASK] [FILE] [OPTIONS]"
                 )
                 console.print(
-                    "Note: Task is optional if you have set an active task with 'task set'"
+                    "Quick Start: Run with no arguments when task and input are configured"
                 )
+                console.print(
+                    "  autocleaneeg-pipeline task set MyTask && autocleaneeg-pipeline input set"
+                )
+                console.print("  autocleaneeg-pipeline process")
             return False
 
         if task_name and args.task_file:

@@ -45,13 +45,31 @@ uv tool install -e --upgrade .
 
 ## Quick Start
 
-Process a file using a built-in task:
+The fastest way to work with AutoCleanEEG is to configure your task and input once, then simply run `process`:
 
 ```bash
+# One-time setup
+autocleaneeg-pipeline task set RestingEyesOpen
+autocleaneeg-pipeline input set   # interactive picker for your data folder
+
+# Daily usage - just run process with no arguments!
+autocleaneeg-pipeline process
+```
+
+This zero-argument workflow uses your configured task and input path. You can override either at any time:
+
+```bash
+# Override task only
+autocleaneeg-pipeline process DifferentTask
+
+# Override input only
+autocleaneeg-pipeline process /path/to/specific/file.raw
+
+# Override both (explicit arguments)
 autocleaneeg-pipeline process RestingEyesOpen /path/to/data.raw
 ```
 
-List tasks and show overrides:
+List available tasks:
 
 ```bash
 autocleaneeg-pipeline task list
@@ -155,10 +173,22 @@ This release removes the old locations and naming used during development:
 
 ## CLI Tips
 
-- Process a single file:
+- Process with configured settings (zero-argument workflow):
+
+```bash
+autocleaneeg-pipeline process
+```
+
+- Process with explicit arguments:
 
 ```bash
 autocleaneeg-pipeline process RestingEyesOpen /path/to/file.set
+```
+
+- Run non-interactively (for automation, AI agents, scripts):
+
+```bash
+autocleaneeg-pipeline process --yes
 ```
 
 - Open the review GUI for an output directory:
@@ -171,7 +201,6 @@ autocleaneeg-pipeline review --output /path/to/output
 
 ```bash
 autocleaneeg-pipeline process ica --metadata-dir /path/to/task/reports
-```
 ```
 
 
