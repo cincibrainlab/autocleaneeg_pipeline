@@ -1,12 +1,12 @@
 from autoclean.core.task import Task
 
 # =============================================================================
-#  FOOOF SPECTRAL PARAMETERIZATION TEST
+#  specparam SPECTRAL PARAMETERIZATION TEST
 # =============================================================================
-# This task tests FOOOF (Fitting Oscillations & One Over F) analysis:
+# This task tests specparam (Fitting Oscillations & One Over F) analysis:
 # 1. Source localization (MNE inverse)
-# 2. FOOOF aperiodic parameters (1/f background)
-# 3. FOOOF periodic parameters (oscillatory peaks)
+# 2. specparam aperiodic parameters (1/f background)
+# 3. specparam periodic parameters (oscillatory peaks)
 #
 # Tests:
 # - apply_source_localization()
@@ -94,11 +94,11 @@ config = {
 }
 
 
-class FOOOFAnalysisTest(Task):
-    """Test FOOOF spectral parameterization pipeline.
+class specparamAnalysisTest(Task):
+    """Test specparam spectral parameterization pipeline.
 
     This task performs complete spectral parameterization of source-localized
-    EEG data using the FOOOF algorithm. It separates neural power spectra into:
+    EEG data using the specparam algorithm. It separates neural power spectra into:
 
     1. Aperiodic component (1/f background):
        - Offset: Overall power level
@@ -113,7 +113,7 @@ class FOOOFAnalysisTest(Task):
     The pipeline uses vertex-level analysis for high spatial resolution across
     the cortical surface (20,484 vertices).
 
-    Note: FOOOF requires continuous data (self.stc), not epochs. Source
+    Note: specparam requires continuous data (self.stc), not epochs. Source
     localization processes Raw data to create self.stc.
     """
 
@@ -125,7 +125,7 @@ class FOOOFAnalysisTest(Task):
         self.crop_duration()
         self.rereference_data()
 
-        # Source analysis pipeline (no epochs - FOOOF needs continuous data)
+        # Source analysis pipeline (no epochs - specparam needs continuous data)
         self.apply_source_localization()  # Creates self.stc from Raw
         self.apply_fooof_aperiodic()      # Extracts 1/f parameters
         self.apply_fooof_periodic()       # Extracts oscillatory peaks
