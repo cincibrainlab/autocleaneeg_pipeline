@@ -35,7 +35,7 @@ config = {
     "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
     "reference_step": {"enabled": True, "value": "average"},
     "crop_step": {"enabled": True, "value": {"start": 0, "end": 60}},  # Limit to 60s for speed
-    "ICA": {"enabled": False, "value": {}},
+    "ICA": {"enabled": False, "value": {"method": "infomax"}},
     "component_rejection": {"enabled": False, "method": "none", "value": {}},
     "epoch_settings": {"enabled": False, "value": {}},
     "apply_source_localization": {
