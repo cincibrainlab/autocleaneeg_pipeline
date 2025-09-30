@@ -299,6 +299,9 @@ class SourceLocalizationMixin:
                         self.source_eeg = raw_eeg
                         self.source_eeg_file = eeg_file
 
+                        # Update self.raw to trigger automatic .set export in numbered derivatives
+                        self.raw = raw_eeg
+
                         if hasattr(self, "message"):
                             self.message("success", f"Converted to EEG: {eeg_file}")
                     else:
@@ -313,6 +316,9 @@ class SourceLocalizationMixin:
                         )
                         self.source_eeg = epochs_eeg
                         self.source_eeg_file = eeg_file
+
+                        # Update self.epochs to trigger automatic .set export in numbered derivatives
+                        self.epochs = epochs_eeg
 
                         if hasattr(self, "message"):
                             self.message("success", f"Converted {len(stc)} epochs to EEG: {eeg_file}")
