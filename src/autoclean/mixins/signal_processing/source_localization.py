@@ -122,6 +122,7 @@ class SourceLocalizationMixin:
         # Check if this step is enabled in the configuration
         config_value = None
         convert_to_eeg = False  # Initialize at function level
+        save_stc = False  # Initialize at function level - default: don't save huge STC files
 
         if hasattr(self, "_check_step_enabled"):
             is_enabled, config_value = self._check_step_enabled(
@@ -144,6 +145,7 @@ class SourceLocalizationMixin:
                 pick_ori = params.get("pick_ori", pick_ori)
                 n_jobs = params.get("n_jobs", n_jobs)
                 convert_to_eeg = params.get("convert_to_eeg", False)
+                save_stc = params.get("save_stc", False)  # Default: don't save huge STC files
 
         # Determine which data to use
         if data is None:
@@ -188,7 +190,7 @@ class SourceLocalizationMixin:
 
             # Call appropriate algorithm function
             if is_raw:
-                stc = estimate_source_function_raw(data, config=save_config)
+                stc = estimate_source_function_raw(data, config=save_config, save_stc=save_stc)
                 stc_type = "continuous"
                 n_sources = stc.data.shape[0]
                 n_times = stc.data.shape[1]
@@ -333,10 +335,8 @@ class SourceLocalizationMixin:
                         self.epochs = epochs_eeg
 
                         # Explicitly save .set file to numbered derivatives folder
-                        # Decrement counter by number of STC epochs saved (min 3)
+                        # No decrement needed - individual STC epochs are not saved
                         if hasattr(self, "config") and hasattr(self, "flagged"):
-                            n_stc_saved = min(3, len(stc))
-                            self.config["_export_counter"] -= n_stc_saved
                             save_epochs_to_set(
                                 epochs=epochs_eeg,
                                 autoclean_dict=self.config,

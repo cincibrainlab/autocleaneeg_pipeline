@@ -46,10 +46,15 @@ except ImportError:
 from autoclean.io.export import save_stc_to_file
 
 
-def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):
+def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None, save_stc: bool = False):
     """
     Perform source localization on continuous resting-state EEG data using an identity matrix
     for noise covariance, keeping it as raw data.
+
+    Args:
+        raw: MNE Raw object
+        config: Configuration dictionary
+        save_stc: If True, save vertex-level STC file (default: False)
     """
     # --------------------------------------------------------------------------
     # Preprocessing for Source Localization
@@ -95,7 +100,7 @@ def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None):
         "Computed continuous source estimates using MNE with identity noise covariance"
     )
 
-    if config is not None:
+    if config is not None and save_stc:
         save_stc_to_file(stc, config, stage="post_source_localization")
 
     matplotlib.use("Agg")
@@ -143,15 +148,12 @@ def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None):
     )
 
     if config is not None:
-        # For epochs, we get a list of STCs, so we might need to handle this differently
-        # or save each epoch separately
+        # For epochs, we get a list of STCs
+        # Don't save individual epoch STCs - the .set file will contain all epochs
+        # Just save metadata about the source localization
         if isinstance(stc, list):
             print(f"Generated {len(stc)} source estimates for epochs")
-            # Optionally save the first few as examples
-            for i, stc_epoch in enumerate(stc[: min(3, len(stc))]):
-                save_stc_to_file(
-                    stc_epoch, config, stage=f"post_source_localization_epoch_{i}"
-                )
+            # Note: Individual STCs not saved - use .set file for epoch data
         else:
             save_stc_to_file(stc, config, stage="post_source_localization")
 
