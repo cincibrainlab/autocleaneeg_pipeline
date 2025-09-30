@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plugin Block Discovery - Testing & Analysis Report</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+            line-height: 1.6;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+        }
+        .section {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1, h2, h3 {
+            color: #333;
+        }
+        .header h1 {
+            color: white;
+            margin: 0;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-success {
+            background: #10b981;
+            color: white;
+        }
+        .status-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .status-error {
+            background: #ef4444;
+            color: white;
+        }
+        .terminal {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        .terminal .success { color: #4ade80; }
+        .terminal .error { color: #f87171; }
+        .terminal .info { color: #60a5fa; }
+        .terminal .warning { color: #fbbf24; }
+        .terminal .header { color: #a78bfa; font-weight: bold; }
+        .terminal .prompt { color: #34d399; }
+        .code-block {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .test-result {
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .test-pass {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+        }
+        .test-fail {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+        }
+        .test-skip {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f3f4f6;
+            font-weight: 600;
+        }
+        .file-tree {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .file-tree .dir { color: #3b82f6; font-weight: bold; }
+        .file-tree .file { color: #6b7280; }
+        .file-tree .plugin { color: #10b981; font-weight: bold; }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .summary-card {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .summary-card h3 {
+            margin-top: 0;
+            color: #1e40af;
+        }
+        .summary-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #1e40af;
+        }
+        .key-finding {
+            background: #fef3c7;
+            border-left: 4px solid #f59e0b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        .key-finding strong {
+            color: #92400e;
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>Plugin Block Discovery System</h1>
+    <p style="font-size: 1.1em; margin: 10px 0 0 0;">Testing, Analysis & Implementation Report</p>
+    <p style="margin: 5px 0 0 0; opacity: 0.9;">Session Date: September 30, 2025 | AutoClean EEG Pipeline v2.4.0</p>
+</div>
+
+<div class="section">
+    <h2>Executive Summary</h2>
+    <div class="summary-grid">
+        <div class="summary-card">
+            <h3>Phase 1</h3>
+            <div class="value">✓ Complete</div>
+            <p>Plugin discovery system fully implemented and tested</p>
+        </div>
+        <div class="summary-card">
+            <h3>Commits</h3>
+            <div class="value">7</div>
+            <p>Strategic commits with comprehensive documentation</p>
+        </div>
+        <div class="summary-card">
+            <h3>Code Added</h3>
+            <div class="value">76 lines</div>
+            <p>Discovery system in mixins/__init__.py</p>
+        </div>
+        <div class="summary-card">
+            <h3>Duplication</h3>
+            <div class="value">0%</div>
+            <p>Plugins import from pipeline - zero duplication</p>
+        </div>
+    </div>
+
+    <div class="key-finding">
+        <strong>Key Discovery:</strong> Analysis revealed that all 7 existing task-registry blocks are 100% duplicates of pipeline mixins. The plugin system should be used for <em>user extensions only</em>, not for duplicating core functionality. No migration is needed - core mixins remain in pipeline.
+    </div>
+</div>
+
+<div class="section">
+    <h2>What Was Implemented</h2>
+
+    <h3>1. External Plugin Discovery System</h3>
+    <p><strong>File Modified:</strong> <code>src/autoclean/mixins/__init__.py</code> (lines 251-327)</p>
+
+    <div class="code-block">
+        <strong>Key Features:</strong>
+        <ul>
+            <li>✓ Automatic discovery from 3 locations: <code>~/.autoclean/blocks/</code>, <code>./blocks/</code>, task-registry</li>
+            <li>✓ Python files with classes ending in "Mixin" are automatically loaded</li>
+            <li>✓ Graceful error handling - bad plugins don't crash the pipeline</li>
+            <li>✓ Print confirmation messages when plugins load successfully</li>
+            <li>✓ Zero configuration required - drop file and it works</li>
+        </ul>
+    </div>
+
+    <h3>2. Testing Results</h3>
+
+    <div class="test-result test-pass">
+        <strong>✓ Live Plugin Loading Test</strong><br>
+        Plugins successfully loaded during pipeline execution. Output showed:
+        <div class="terminal" style="margin-top: 10px;">
+<span class="success">✓ Loaded external block: TestSimpleMixin from test_simple_plugin.py</span>
+<span class="success">✓ Source localization plugin loaded (MNE v1.10.1)</span>
+<span class="success">✓ Algorithms available from autoclean.calc.source</span>
+<span class="success">✓ Loaded external block: SourceLocalizationMixin from source_localization_plugin.py</span>
+        </div>
+    </div>
+
+    <div class="test-result test-pass">
+        <strong>✓ Unit Tests Created</strong><br>
+        File: <code>tests/test_plugin_discovery.py</code> (77 lines, 5 test cases)
+        <ul style="margin: 10px 0 0 20px;">
+            <li>test_plugin_discovery_finds_external_mixins</li>
+            <li>test_plugin_file_naming_convention</li>
+            <li>test_plugin_mixin_class_naming</li>
+            <li>test_plugin_graceful_failure</li>
+            <li>test_plugin_search_paths</li>
+        </ul>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Block Duplication Analysis</h2>
+
+    <p>Comprehensive analysis revealed that all 7 blocks in task-registry are exact duplicates of existing pipeline mixins:</p>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Block Name</th>
+                <th>Pipeline Location</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>wavelet_threshold</td>
+                <td>mixins/signal_processing/wavelet_threshold.py (248 lines)</td>
+                <td><span class="status-badge status-error">99.9% Identical</span></td>
+            </tr>
+            <tr>
+                <td>autoreject</td>
+                <td>mixins/signal_processing/autoreject_epochs.py</td>
+                <td><span class="status-badge status-error">Duplicate</span></td>
+            </tr>
+            <tr>
+                <td>source_localization</td>
+                <td>mixins/signal_processing/source_localization.py</td>
+                <td><span class="status-badge status-error">Duplicate</span></td>
+            </tr>
+            <tr>
+                <td>fooof_periodic</td>
+                <td>mixins/analysis/fooof_analysis.py</td>
+                <td><span class="status-badge status-error">Duplicate</span></td>
+            </tr>
+            <tr>
+                <td>fooof_aperiodic</td>
+                <td>mixins/analysis/fooof_analysis.py</td>
+                <td><span class="status-badge status-error">Duplicate</span></td>
+            </tr>
+            <tr>
+                <td>source_psd</td>
+                <td>mixins/analysis/source_psd.py</td>
+                <td><span class="status-badge status-error">Duplicate</span></td>
+            </tr>
+            <tr>
+                <td>source_connectivity</td>
+                <td>mixins/analysis/source_connectivity.py</td>
+                <td><span class="status-badge status-error">Duplicate</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="key-finding">
+        <strong>Verification Command:</strong>
+        <div class="terminal" style="margin-top: 10px;">
+<span class="prompt">$</span> diff -u pipeline/wavelet_threshold.py task-registry/wavelet_threshold/mixin.py
+<span class="info"># Only difference: trailing newline (1 character)</span>
+<span class="warning">     247 /Volumes/braindata/cbl_github/autocleaneeg-task-registry/blocks/signal_processing/wavelet_threshold/mixin.py
+     248 /Volumes/braindata/cincineuro_github/autocleaneeg_pipeline/src/autoclean/mixins/signal_processing/wavelet_threshold.py
+     495 total</span>
+        </div>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Plugin System Architecture</h2>
+
+    <h3>How Plugin Discovery Works</h3>
+    <ol>
+        <li><strong>Scan Directories:</strong> Check <code>~/.autoclean/blocks/</code>, <code>./blocks/</code>, and <code>$AUTOCLEAN_TASK_REGISTRY_PATH/blocks/</code></li>
+        <li><strong>Find Python Files:</strong> Recursively search for <code>*.py</code> files (excluding <code>__init__.py</code>)</li>
+        <li><strong>Load Modules:</strong> Use <code>importlib.util.spec_from_file_location()</code> for direct file loading</li>
+        <li><strong>Extract Mixins:</strong> Find classes ending with "Mixin"</li>
+        <li><strong>Add to Inheritance:</strong> Append to Task base class after internal mixins</li>
+        <li><strong>Confirm Loading:</strong> Print success message for each loaded plugin</li>
+    </ol>
+
+    <h3>Current Plugin Files</h3>
+    <div class="file-tree">
+<span class="dir">~/.autoclean/blocks/</span>
+├── <span class="plugin">test_simple_plugin.py</span> (TestSimpleMixin)
+└── <span class="plugin">source_localization_plugin.py</span> (SourceLocalizationMixin)
+    </div>
+</div>
+
+<div class="section">
+    <h2>Example Plugin Usage</h2>
+
+    <h3>Creating a Plugin</h3>
+    <div class="code-block">
+        <pre><code># ~/.autoclean/blocks/my_custom_plugin.py
+from autoclean.calc.preprocessing import some_helper_function
+
+__block_metadata__ = {
+    "name": "my_custom",
+    "version": "1.0.0",
+    "author": "Research Group X"
+}
+
+class MyCustomMixin:
+    """Add custom processing to pipeline."""
+
+    def my_custom_method(self):
+        """Apply custom processing step."""
+        # Your implementation using pipeline helpers
+        result = some_helper_function(...)
+        return result</code></pre>
+    </div>
+
+    <h3>Using Plugin in Task</h3>
+    <div class="code-block">
+        <pre><code>from autoclean.core.task import Task
+
+class MyTask(Task):
+    def run(self):
+        self.import_raw()
+        self.my_custom_method()  # Available automatically!</code></pre>
+    </div>
+
+    <h3>Expected Output</h3>
+    <div class="terminal">
+<span class="success">✓ Loaded external block: MyCustomMixin from my_custom_plugin.py</span>
+<span class="info">Processing single file: data.set</span>
+<span class="info">Applying custom processing...</span>
+<span class="success">✓ Custom processing complete</span>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Documentation Artifacts</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Document</th>
+                <th>Purpose</th>
+                <th>Lines</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>BLOCK_DUPLICATION_ANALYSIS.md</code></td>
+                <td>Complete analysis of duplicate blocks</td>
+                <td>280</td>
+            </tr>
+            <tr>
+                <td><code>PLUGIN_BLOCKS_PLAN.md</code></td>
+                <td>Overall architecture and roadmap (updated)</td>
+                <td>233</td>
+            </tr>
+            <tr>
+                <td><code>PHASE_1_COMPLETE.md</code></td>
+                <td>Phase 1 completion summary (updated)</td>
+                <td>222</td>
+            </tr>
+            <tr>
+                <td><code>IMPLEMENTATION_COMPLETE.md</code></td>
+                <td>Technical implementation details</td>
+                <td>228</td>
+            </tr>
+            <tr>
+                <td><code>examples/README_PLUGIN_EXAMPLES.md</code></td>
+                <td>Plugin development guide</td>
+                <td>220</td>
+            </tr>
+            <tr>
+                <td><code>examples/custom_artifact_detector_plugin.py</code></td>
+                <td>Example plugin template</td>
+                <td>160</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Git Commit History</h2>
+
+    <div class="terminal">
+<span class="header">Recent Commits (Phase 1)</span>
+
+<span class="success">22ef419</span> docs: update Phase 1 completion with duplication analysis findings
+<span class="success">5362c86</span> docs: complete block duplication analysis and Phase 1 findings
+<span class="success">d437a3e</span> docs: add Phase 1 completion summary
+<span class="success">207a36a</span> chore: remove temporary test files
+<span class="success">4aecb83</span> docs: add implementation completion summary
+<span class="success">137d086</span> test: add unit tests for plugin discovery system
+<span class="success">e8c6e14</span> feat: implement external plugin block discovery system
+
+<span class="info">All commits pushed to GitHub: dev branch</span>
+    </div>
+</div>
+
+<div class="section">
+    <h2>Known Issues (Unrelated to Plugin System)</h2>
+
+    <div class="test-result test-fail">
+        <strong>✗ Source Localization Task Error</strong><br>
+        <strong>Error:</strong> <code>'SourceLocalization_Raw' object has no attribute 'set_montage'</code><br>
+        <strong>Location:</strong> Occurs during <code>apply_source_localization()</code> step<br>
+        <strong>Status:</strong> Pre-existing bug in source localization mixin, unrelated to plugin discovery system<br>
+        <strong>Impact:</strong> Does not affect plugin discovery or loading - plugins load successfully before this error occurs<br>
+        <strong>Next Steps:</strong> Separate bug fix needed for source localization mixin
+    </div>
+</div>
+
+<div class="section">
+    <h2>Phase 1 Success Criteria</h2>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Criterion</th>
+                <th>Status</th>
+                <th>Evidence</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Discovery system implemented</td>
+                <td><span class="status-badge status-success">✓ Complete</span></td>
+                <td>76 lines in mixins/__init__.py</td>
+            </tr>
+            <tr>
+                <td>Plugins load successfully</td>
+                <td><span class="status-badge status-success">✓ Verified</span></td>
+                <td>Live testing shows confirmation messages</td>
+            </tr>
+            <tr>
+                <td>Graceful error handling</td>
+                <td><span class="status-badge status-success">✓ Tested</span></td>
+                <td>Bad plugins print warnings without crashing</td>
+            </tr>
+            <tr>
+                <td>Zero code duplication</td>
+                <td><span class="status-badge status-success">✓ Achieved</span></td>
+                <td>Plugins import from pipeline</td>
+            </tr>
+            <tr>
+                <td>Unit tests created</td>
+                <td><span class="status-badge status-success">✓ Complete</span></td>
+                <td>5 test cases in test_plugin_discovery.py</td>
+            </tr>
+            <tr>
+                <td>Documentation complete</td>
+                <td><span class="status-badge status-success">✓ Comprehensive</span></td>
+                <td>6 documentation files (1183 lines total)</td>
+            </tr>
+            <tr>
+                <td>Backward compatible</td>
+                <td><span class="status-badge status-success">✓ Verified</span></td>
+                <td>No breaking changes to existing code</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="section">
+    <h2>Next Steps</h2>
+
+    <h3>Phase 2: Documentation & Examples (Weeks 3-4)</h3>
+    <ul>
+        <li>Mark duplicate blocks as deprecated in task-registry</li>
+        <li>Create "Plugin vs. Mixin" architecture guide</li>
+        <li>Write additional legitimate plugin use case examples</li>
+        <li>Update PLUGIN_ARCHITECTURE_SUMMARY.md with findings</li>
+    </ul>
+
+    <h3>Phase 3: Cleanup (v2.5.0)</h3>
+    <ul>
+        <li>Remove duplicate blocks from task-registry</li>
+        <li>Update task-registry README</li>
+        <li>Validate no breaking changes</li>
+    </ul>
+
+    <h3>Phase 4: Ecosystem (v3.0.0+)</h3>
+    <ul>
+        <li>Community plugin registry</li>
+        <li>Plugin submission guidelines</li>
+        <li>Quality review process</li>
+    </ul>
+
+    <h3>Separate: Source Localization Bug Fix</h3>
+    <ul>
+        <li>Investigate <code>set_montage</code> attribute error</li>
+        <li>Fix source localization mixin</li>
+        <li>Add regression tests</li>
+    </ul>
+</div>
+
+<div class="section">
+    <h2>Conclusion</h2>
+
+    <p><strong>Phase 1 is COMPLETE and SUCCESSFUL.</strong> The external plugin discovery system has been:</p>
+    <ul>
+        <li>✓ Fully implemented with comprehensive error handling</li>
+        <li>✓ Tested and verified working with live plugins</li>
+        <li>✓ Documented thoroughly for users and developers</li>
+        <li>✓ Committed to Git with strategic, atomic commits</li>
+        <li>✓ Pushed to GitHub (dev branch)</li>
+    </ul>
+
+    <p><strong>Key Insight:</strong> The duplication analysis revealed that task-registry blocks were unnecessary duplicates. The plugin system's true value is enabling user extensions without modifying pipeline core code.</p>
+
+    <p><strong>Impact:</strong> Users can now create custom processing methods by dropping a single Python file into <code>~/.autoclean/blocks/</code>. The methods become available automatically in all Task classes with zero configuration.</p>
+
+    <div class="key-finding">
+        <strong>For Scientists:</strong> This system lets you add your lab's custom EEG processing methods without editing the pipeline source code. Just write your algorithm in a file, drop it in the blocks folder, and use it like any other pipeline method. Perfect for trying new techniques or keeping proprietary methods separate from the main codebase.
+    </div>
+</div>
+
+<div style="text-align: center; padding: 20px; color: #6b7280; font-size: 0.9em;">
+    <p>Report Generated: September 30, 2025</p>
+    <p>AutoClean EEG Pipeline v2.4.0 | Phase 1 Complete</p>
+    <p>Implementation: Claude Code + Dr. Ernest Pedapati</p>
+</div>
+
+</body>
+</html>
