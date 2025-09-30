@@ -7,7 +7,7 @@ name = "autocleaneeg-pipeline"
 version = "3.0.0"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.11,<3.14"
 license = {file = "LICENSE"}
 keywords = ["eeg", "neuroscience", "signal-processing", "preprocessing", "mne-python", "bids", "electrophysiology"]
 authors = [
@@ -49,7 +49,7 @@ dependencies = [
     "mne-connectivity==0.7.0",
     "networkx==3.5",
     "bctpy==0.6.1",
-    "fooof==1.1.1",
+    "specparam>=2.0.0rc3",
     # Machine learning
     "torch==2.8.0", 
     # Utilities and data handling

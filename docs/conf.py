@@ -206,7 +206,7 @@ autodoc_mock_imports = [
     "python_ulid",
     "networkx",
     "bctpy",
-    "fooof",
+    "specparam",
     "mne_connectivity",
     "fastparquet",
     "python_picard",
