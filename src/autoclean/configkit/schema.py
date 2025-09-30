@@ -131,6 +131,29 @@ def _source_connectivity_descriptor() -> dict:
     }
 
 
+def _fooof_aperiodic_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "fmin": "number (minimum frequency in Hz)",
+            "fmax": "number (maximum frequency in Hz)",
+            "n_jobs": "integer (parallel jobs)",
+            "aperiodic_mode": "string ('fixed' or 'knee')",
+        },
+    }
+
+
+def _fooof_periodic_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "freq_bands": "dict|None (e.g., {'alpha': (8, 13)})",
+            "n_jobs": "integer (parallel jobs)",
+            "aperiodic_mode": "string ('fixed' or 'knee')",
+        },
+    }
+
+
 def _ica_descriptor() -> dict:
     return {
         "enabled": "bool",
@@ -334,6 +357,25 @@ def _build_task_settings_schema() -> Schema:
                     Optional("n_jobs"): int,
                 },
             },
+            # FOOOF Aperiodic
+            Optional("apply_fooof_aperiodic"): {
+                "enabled": bool,
+                "value": {
+                    Optional("fmin"): Or(int, float),
+                    Optional("fmax"): Or(int, float),
+                    Optional("n_jobs"): int,
+                    Optional("aperiodic_mode"): str,
+                },
+            },
+            # FOOOF Periodic
+            Optional("apply_fooof_periodic"): {
+                "enabled": bool,
+                "value": {
+                    Optional("freq_bands"): Or(dict, None),
+                    Optional("n_jobs"): int,
+                    Optional("aperiodic_mode"): str,
+                },
+            },
         }
     )
 
@@ -374,6 +416,8 @@ def export_task_schema_layout() -> dict:
             "apply_source_localization": _source_localization_descriptor(),
             "apply_source_psd": _source_psd_descriptor(),
             "apply_source_connectivity": _source_connectivity_descriptor(),
+            "apply_fooof_aperiodic": _fooof_aperiodic_descriptor(),
+            "apply_fooof_periodic": _fooof_periodic_descriptor(),
         },
     }
 
