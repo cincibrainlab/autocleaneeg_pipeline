@@ -29,6 +29,7 @@ from autoclean.calc.source import (
     convert_stc_to_eeg,
     convert_stc_list_to_eeg,
 )
+from autoclean.io.export import save_raw_to_set, save_epochs_to_set
 
 
 class SourceLocalizationMixin:
@@ -299,8 +300,19 @@ class SourceLocalizationMixin:
                         self.source_eeg = raw_eeg
                         self.source_eeg_file = eeg_file
 
-                        # Update self.raw to trigger automatic .set export in numbered derivatives
+                        # Update self.raw and save to numbered derivatives
                         self.raw = raw_eeg
+
+                        # Explicitly save .set file to numbered derivatives folder
+                        # Decrement counter so .set file goes into same folder as STC
+                        if hasattr(self, "config") and hasattr(self, "flagged"):
+                            self.config["_export_counter"] -= 1
+                            save_raw_to_set(
+                                raw=raw_eeg,
+                                autoclean_dict=self.config,
+                                stage="post_source_localization",
+                                flagged=self.flagged,
+                            )
 
                         if hasattr(self, "message"):
                             self.message("success", f"Converted to EEG: {eeg_file}")
@@ -317,8 +329,19 @@ class SourceLocalizationMixin:
                         self.source_eeg = epochs_eeg
                         self.source_eeg_file = eeg_file
 
-                        # Update self.epochs to trigger automatic .set export in numbered derivatives
+                        # Update self.epochs and save to numbered derivatives
                         self.epochs = epochs_eeg
+
+                        # Explicitly save .set file to numbered derivatives folder
+                        # Decrement counter so .set file goes into same folder as STC
+                        if hasattr(self, "config") and hasattr(self, "flagged"):
+                            self.config["_export_counter"] -= 1
+                            save_epochs_to_set(
+                                epochs=epochs_eeg,
+                                autoclean_dict=self.config,
+                                stage="post_source_localization",
+                                flagged=self.flagged,
+                            )
 
                         if hasattr(self, "message"):
                             self.message("success", f"Converted {len(stc)} epochs to EEG: {eeg_file}")
