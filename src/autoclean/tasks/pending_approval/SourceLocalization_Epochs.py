@@ -29,9 +29,14 @@ config = {
             "notch_widths": 5,
         },
     },
+    "drop_outerlayer": {"enabled": False, "value": []},
+    "eog_step": {"enabled": False, "value": []},
+    "trim_step": {"enabled": False, "value": 0},
     "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
     "reference_step": {"enabled": True, "value": "average"},
     "crop_step": {"enabled": True, "value": {"start": 0, "end": 60}},  # Limit to 60s for speed
+    "ICA": {"enabled": False, "value": {}},
+    "component_rejection": {"enabled": False, "method": "none", "value": {}},
     "epoch_settings": {
         "enabled": True,
         "value": {"tmin": -1, "tmax": 1},  # 2-second epochs
