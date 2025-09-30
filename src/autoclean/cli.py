@@ -795,6 +795,12 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         metavar="N",
         help="Process files in parallel (default: 3 concurrent files, max: 8)",
     )
+    process_parser.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompts (non-interactive mode for automation)",
+    )
 
     process_subparsers = process_parser.add_subparsers(
         dest="process_action", help="Process subcommands"
@@ -2040,6 +2046,10 @@ def validate_args(args) -> bool:
 
         # Don't show guard for dry run (already shows what would be processed)
         if hasattr(args, "dry_run") and args.dry_run:
+            show_guard = False
+
+        # Don't show guard if --yes/-y flag is set (non-interactive mode)
+        if hasattr(args, "yes") and args.yes:
             show_guard = False
 
         # Show the guard if needed
