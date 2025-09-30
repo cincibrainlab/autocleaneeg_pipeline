@@ -96,6 +96,19 @@ def _wavelet_descriptor() -> dict:
     }
 
 
+def _source_localization_descriptor() -> dict:
+    return {
+        "enabled": "bool",
+        "value": {
+            "method": "string (MNE|dSPM|sLORETA)",
+            "lambda2": "number (regularization parameter)",
+            "pick_ori": "string|null (normal|None)",
+            "n_jobs": "integer (parallel jobs)",
+            "convert_to_eeg": "bool (convert to 68-channel EEG format)",
+        },
+    }
+
+
 def _ica_descriptor() -> dict:
     return {
         "enabled": "bool",
@@ -270,6 +283,17 @@ def _build_task_settings_schema() -> Schema:
                     Optional("thresh_method"): str,
                 },
             },
+            # Source Localization
+            Optional("apply_source_localization"): {
+                "enabled": bool,
+                "value": {
+                    Optional("method"): str,
+                    Optional("lambda2"): Or(int, float),
+                    Optional("pick_ori"): Or(str, None),
+                    Optional("n_jobs"): int,
+                    Optional("convert_to_eeg"): bool,
+                },
+            },
         }
     )
 
@@ -307,6 +331,7 @@ def export_task_schema_layout() -> dict:
             "component_rejection": _component_rejection_descriptor(),
             "epoch_settings": _epoch_descriptor(),
             "apply_autoreject": _autoreject_descriptor(),
+            "apply_source_localization": _source_localization_descriptor(),
         },
     }
 
