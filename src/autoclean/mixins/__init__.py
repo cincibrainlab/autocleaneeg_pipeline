@@ -248,17 +248,81 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
             print("=" * 80)
             raise SystemExit(f"Critical module error: {full_item_name} - {e}")
 
+# --- External Block Discovery ---
+# Discover plugin blocks from external directories
+_discovered_external_mixins: List[Type[Any]] = []
+
+# Define search paths for external blocks (in priority order)
+_EXTERNAL_BLOCK_PATHS = [
+    Path.home() / ".autoclean" / "blocks",  # User blocks
+    Path.cwd() / "blocks",  # Project-local blocks
+]
+
+# Add task-registry blocks if env var is set
+import os
+if os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH"):
+    _registry_path = Path(os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH")) / "blocks"
+    if _registry_path.exists():
+        _EXTERNAL_BLOCK_PATHS.append(_registry_path)
+
+for external_path in _EXTERNAL_BLOCK_PATHS:
+    if not external_path.exists():
+        continue
+
+    # Find all Python files in the blocks directory
+    for block_file in external_path.rglob("*.py"):
+        # Skip private files and __init__.py
+        if block_file.name.startswith("_"):
+            continue
+
+        # Create a module name from the file path
+        relative_path = block_file.relative_to(external_path)
+        module_parts = list(relative_path.parts[:-1]) + [relative_path.stem]
+        module_name = f"autoclean_external_blocks.{'.'.join(module_parts)}"
+
+        try:
+            # Load the module directly from file path
+            import importlib.util
+            spec = importlib.util.spec_from_file_location(module_name, block_file)
+            if spec and spec.loader:
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+
+                # Look for Mixin classes
+                for class_name, class_obj in inspect.getmembers(module, inspect.isclass):
+                    if (
+                        class_obj.__module__ == module_name
+                        and class_name.endswith("Mixin")
+                        and class_obj is not _BASE_MIXIN_CLASS
+                    ):
+                        if class_obj not in _discovered_external_mixins:
+                            _discovered_external_mixins.append(class_obj)
+                            print(f"✓ Loaded external block: {class_name} from {block_file.name}")
+        except Exception as e:
+            # Don't fail on external block errors - just warn
+            print(f"Warning: Could not load external block from {block_file}: {e}")
+            continue
+
 # --- Assemble the Final Tuple of Mixins for Task Inheritance ---
 
-# Sort the discovered other mixins alphabetically by class name for a consistent MRO.
+# Sort the discovered internal mixins alphabetically by class name for a consistent MRO.
 _discovered_other_mixins.sort(key=lambda cls: cls.__name__)
 
-# The final list of mixins starts with BaseMixin (if found and real), then the others.
+# Sort external mixins alphabetically as well
+_discovered_external_mixins.sort(key=lambda cls: cls.__name__)
+
+# The final list of mixins starts with BaseMixin (if found and real), then internal mixins, then external mixins.
 _final_mixins_list: List[Type[Any]] = []
 if _base_mixin_found:  # Add the real BaseMixin if it was successfully imported
     _final_mixins_list.append(_BASE_MIXIN_CLASS)
 
+# Add internal mixins
 for mixin_cls in _discovered_other_mixins:
+    if mixin_cls not in _final_mixins_list:
+        _final_mixins_list.append(mixin_cls)
+
+# Add external mixins
+for mixin_cls in _discovered_external_mixins:
     if mixin_cls not in _final_mixins_list:
         _final_mixins_list.append(mixin_cls)
 

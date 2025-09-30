@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoClean EEG - Analysis Blocks Review Checklist</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        header p {
+            font-size: 1.2em;
+            opacity: 0.95;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+            border-left: 4px solid #667eea;
+            padding-left: 20px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+
+        .section h2::before {
+            content: "📋";
+            margin-right: 10px;
+        }
+
+        .subsection {
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+
+        .subsection h3 {
+            color: #495057;
+            font-size: 1.4em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        .task-item {
+            margin: 15px 0;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #dee2e6;
+            transition: all 0.2s;
+        }
+
+        .task-item:hover {
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+            border-color: #667eea;
+        }
+
+        .task-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 12px;
+            cursor: pointer;
+            vertical-align: middle;
+        }
+
+        .task-item label {
+            cursor: pointer;
+            font-size: 1.05em;
+            vertical-align: middle;
+        }
+
+        .task-description {
+            margin-left: 32px;
+            margin-top: 8px;
+            color: #6c757d;
+            font-size: 0.95em;
+        }
+
+        .code-path {
+            background: #282c34;
+            color: #61dafb;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            display: inline-block;
+            margin: 8px 0;
+        }
+
+        .command {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 12px 16px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 10px 0;
+            overflow-x: auto;
+            border-left: 4px solid #00ff00;
+        }
+
+        .feedback-area {
+            width: 100%;
+            min-height: 80px;
+            padding: 12px;
+            border: 2px solid #ced4da;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.95em;
+            margin-top: 10px;
+            transition: border-color 0.2s;
+        }
+
+        .feedback-area:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .priority-high {
+            border-left-color: #dc3545;
+        }
+
+        .priority-medium {
+            border-left-color: #ffc107;
+        }
+
+        .priority-low {
+            border-left-color: #28a745;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .badge-high {
+            background: #dc3545;
+            color: white;
+        }
+
+        .badge-medium {
+            background: #ffc107;
+            color: #000;
+        }
+
+        .badge-low {
+            background: #28a745;
+            color: white;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .success-box {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background: #e9ecef;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            color: #6c757d;
+            border-top: 1px solid #dee2e6;
+        }
+
+        .emoji {
+            font-size: 1.3em;
+            margin-right: 8px;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🔬 AutoClean EEG Analysis Blocks</h1>
+            <p>Comprehensive Review & Testing Checklist</p>
+            <p style="font-size: 0.9em; margin-top: 10px; opacity: 0.8;">Date: 2025-09-30 | Session: Analysis Blocks Implementation</p>
+        </header>
+
+        <div class="content">
+            <div class="info-box">
+                <strong>📝 Instructions:</strong> Work through each section, checking off items as you complete them.
+                Add your feedback in the text areas. When done, save this file and share your notes.
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar">0% Complete</div>
+            </div>
+
+            <!-- SECTION 1: OVERVIEW -->
+            <div class="section">
+                <h2>Overview & Context</h2>
+
+                <div class="subsection">
+                    <h3>🎯 What We Built</h3>
+                    <p>This session implemented 5 new analysis blocks for source-level EEG analysis:</p>
+                    <ul style="margin-left: 40px; margin-top: 10px;">
+                        <li><strong>source_localization</strong> - MNE minimum norm estimation</li>
+                        <li><strong>source_psd</strong> - Regional power spectral density</li>
+                        <li><strong>source_connectivity</strong> - Functional connectivity + graph metrics</li>
+                        <li><strong>fooof_aperiodic</strong> - 1/f background parameters</li>
+                        <li><strong>fooof_periodic</strong> - Oscillatory peak detection</li>
+                    </ul>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="overview-1" onchange="updateProgress()">
+                        <label for="overview-1">Read and understand the 5 new analysis blocks</label>
+                        <div class="task-description">Review the list above and familiarize yourself with what each block does</div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="overview-2" onchange="updateProgress()">
+                        <label for="overview-2">Review the previous session summary in the conversation</label>
+                        <div class="task-description">Check the detailed summary at the top of the conversation</div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Your Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Initial thoughts, questions, or concerns about the implementation..."></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 2: REPOSITORY CHANGES -->
+            <div class="section priority-high">
+                <h2>Repository Changes <span class="badge badge-high">HIGH PRIORITY</span></h2>
+
+                <div class="subsection">
+                    <h3>📦 1. Task Registry (Source of Truth)</h3>
+                    <div class="info-box">
+                        <strong>Location:</strong> /Volumes/braindata/cbl_github/autocleaneeg-task-registry/
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-1" onchange="updateProgress()">
+                        <label for="repo-1">Review source_localization block updates</label>
+                        <div class="task-description">
+                            <strong>Files to review:</strong><br>
+                            <div class="code-path">blocks/analysis/source_localization/algorithm.py</div>
+                            <div class="code-path">blocks/analysis/source_localization/mixin.py</div>
+                            <strong>Key changes:</strong>
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>Added <code>save_stc</code> parameter (default: False)</li>
+                                <li>Updated subject ID extraction to use config["unprocessed_file"]</li>
+                                <li>Made STC file saving conditional (huge file size)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-2" onchange="updateProgress()">
+                        <label for="repo-2">Review FOOOF blocks updates</label>
+                        <div class="task-description">
+                            <strong>Files to review:</strong><br>
+                            <div class="code-path">blocks/analysis/fooof_aperiodic/mixin.py</div>
+                            <div class="code-path">blocks/analysis/fooof_periodic/mixin.py</div>
+                            <strong>Key changes:</strong> Standardized subject ID extraction (fixes "unknown_subject" issue)
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-3" onchange="updateProgress()">
+                        <label for="repo-3">Review examples directory structure</label>
+                        <div class="task-description">
+                            <strong>New directory:</strong><br>
+                            <div class="code-path">examples/</div>
+                            <strong>Contents:</strong>
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>examples/README.md - Main documentation</li>
+                                <li>examples/analysis/source_localization/ - 2 example tasks + README</li>
+                                <li>examples/analysis/fooof/ - 1 example task + README</li>
+                                <li>examples/analysis/complete_pipeline/ - 1 example task + README</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-4" onchange="updateProgress()">
+                        <label for="repo-4">Read through example task files</label>
+                        <div class="task-description">
+                            <strong>Files to read:</strong><br>
+                            <div class="code-path">examples/analysis/source_localization/SourceLocalization_Raw.py</div>
+                            <div class="code-path">examples/analysis/source_localization/SourceLocalization_Epochs.py</div>
+                            <div class="code-path">examples/analysis/fooof/FOOOFAnalysisTest.py</div>
+                            <div class="code-path">examples/analysis/complete_pipeline/SourceAnalysisPipeline.py</div>
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Task Registry Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Comments on task-registry changes, block structure, examples quality..."></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>📚 2. Documentation Repository</h3>
+                    <div class="info-box">
+                        <strong>Location:</strong> /Volumes/braindata/cbl_github/autocleaneeg_docs/
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-5" onchange="updateProgress()">
+                        <label for="repo-5">Review updated available-blocks.mdx</label>
+                        <div class="task-description">
+                            <strong>File:</strong><br>
+                            <div class="code-path">processing-blocks/available-blocks.mdx</div>
+                            <strong>Updates:</strong>
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>New "Analysis Blocks" section (lines 123-408)</li>
+                                <li>Detailed cards for each of the 5 blocks</li>
+                                <li>Configuration examples with explanations</li>
+                                <li>Scientific references</li>
+                                <li>Updated decision tree (mermaid diagram)</li>
+                                <li>Updated comparison tables</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-6" onchange="updateProgress()">
+                        <label for="repo-6">Check if documentation renders correctly online</label>
+                        <div class="task-description">
+                            Visit the docs site and verify the new analysis blocks section displays properly
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Documentation Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Comments on documentation quality, clarity, completeness..."></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>⚙️ 3. Pipeline Repository</h3>
+                    <div class="info-box">
+                        <strong>Location:</strong> /Volumes/braindata/cincineuro_github/autocleaneeg_pipeline/
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-7" onchange="updateProgress()">
+                        <label for="repo-7">Review source localization mixin updates</label>
+                        <div class="task-description">
+                            <strong>File:</strong><br>
+                            <div class="code-path">src/autoclean/mixins/signal_processing/source_localization.py</div>
+                            <strong>Changes:</strong> Added save_stc parameter, updated subject ID extraction
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-8" onchange="updateProgress()">
+                        <label for="repo-8">Review FOOOF mixin updates</label>
+                        <div class="task-description">
+                            <strong>File:</strong><br>
+                            <div class="code-path">src/autoclean/mixins/analysis/fooof_analysis.py</div>
+                            <strong>Changes:</strong> Standardized subject ID extraction
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="repo-9" onchange="updateProgress()">
+                        <label for="repo-9">Review calculation modules</label>
+                        <div class="task-description">
+                            <strong>Files:</strong><br>
+                            <div class="code-path">src/autoclean/calc/source.py</div>
+                            <div class="code-path">src/autoclean/calc/fooof_analysis.py</div>
+                            <strong>Changes:</strong> Updated subject ID extraction patterns
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Pipeline Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Comments on pipeline code changes, integration with blocks..."></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 3: CODE DEEP DIVE -->
+            <div class="section priority-high">
+                <h2>Code Deep Dive <span class="badge badge-high">HIGH PRIORITY</span></h2>
+
+                <div class="subsection">
+                    <h3>🔍 Understanding Subject ID Extraction Pattern</h3>
+                    <div class="warning-box">
+                        <strong>⚠️ Critical Pattern:</strong> This was the key fix that resolved the "unknown_subject" naming issue
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="code-1" onchange="updateProgress()">
+                        <label for="code-1">Study the subject ID extraction pattern</label>
+                        <div class="task-description">
+                            <strong>Location:</strong> Look for this pattern in any mixin file<br>
+                            <div class="command" style="color: #61dafb;">
+# Standard pattern (copy this!)
+subject_id = None
+if hasattr(self, "config"):
+    config = self.config
+    if "unprocessed_file" in config:
+        subject_id = Path(config["unprocessed_file"]).stem
+    elif "subject_id" in config:
+        subject_id = config["subject_id"]
+    elif "base_fname" in config:
+        subject_id = config["base_fname"]
+    elif "original_fname" in config:
+        subject_id = Path(config["original_fname"]).stem
+
+# Fallback
+if subject_id is None and hasattr(self, "file_path"):
+    subject_id = Path(self.file_path).stem
+
+if subject_id is None:
+    subject_id = "unknown"
+                            </div>
+                            <strong>Why this works:</strong> Uses config["unprocessed_file"] as primary key, which is reliably set during import
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="code-2" onchange="updateProgress()">
+                        <label for="code-2">Find where config["unprocessed_file"] is set</label>
+                        <div class="task-description">
+                            Search the codebase for where this config key gets populated (likely during import_raw())
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Subject ID Pattern Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Is this pattern clear? Should it be documented elsewhere? Any edge cases?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>💾 Understanding save_stc Parameter</h3>
+                    <div class="info-box">
+                        <strong>Background:</strong> STC files are HUGE (2.3GB for Raw, 78MB per epoch). We made saving them optional.
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="code-3" onchange="updateProgress()">
+                        <label for="code-3">Review save_stc implementation in algorithm.py</label>
+                        <div class="task-description">
+                            <strong>File:</strong> blocks/analysis/source_localization/algorithm.py<br>
+                            <strong>Look for:</strong> Lines 82-83 where STC saving is conditional:<br>
+                            <div class="command" style="color: #61dafb;">
+if config is not None and save_stc:
+    save_stc_to_file(stc, config, stage="post_source_localization")
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="code-4" onchange="updateProgress()">
+                        <label for="code-4">Review save_stc parameter in mixin.py</label>
+                        <div class="task-description">
+                            <strong>File:</strong> blocks/analysis/source_localization/mixin.py<br>
+                            <strong>Check:</strong> Parameter default (line 58), config extraction (line 136), and passing to algorithm (line 182)
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="code-5" onchange="updateProgress()">
+                        <label for="code-5">Understand the tradeoff: STC files vs ROI .set files</label>
+                        <div class="task-description">
+                            <strong>STC files:</strong> 2.3GB, 20,484 vertices, full spatial resolution<br>
+                            <strong>ROI files:</strong> 3.9MB, 68 channels, regional averages<br>
+                            <strong>Decision:</strong> Default save_stc=False, recommend convert_to_eeg=True for most use cases
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">save_stc Parameter Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Is the default appropriate? Should this be configurable elsewhere? Documentation clear?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>🧩 Understanding Block Architecture</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="code-6" onchange="updateProgress()">
+                        <label for="code-6">Study the block structure pattern</label>
+                        <div class="task-description">
+                            Each block has:<br>
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li><strong>manifest.json</strong> - Metadata, version, references</li>
+                                <li><strong>mixin.py</strong> - User-facing interface (inherits into Task)</li>
+                                <li><strong>algorithm.py</strong> - Core implementation (stateless functions)</li>
+                                <li><strong>schema.py</strong> - Config validation (Pydantic models)</li>
+                                <li><strong>README.md</strong> - User documentation</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="code-7" onchange="updateProgress()">
+                        <label for="code-7">Trace a method call from Task → Mixin → Algorithm</label>
+                        <div class="task-description">
+                            Pick source_localization and follow:<br>
+                            1. User calls <code>self.apply_source_localization()</code> in task<br>
+                            2. Method defined in mixin.py extracts config<br>
+                            3. Mixin calls function in algorithm.py<br>
+                            4. Algorithm returns SourceEstimate object<br>
+                            5. Mixin sets <code>self.stc</code> for downstream blocks
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Block Architecture Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Is the separation of concerns clear? Any confusion about the flow?"></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 4: TESTING -->
+            <div class="section priority-high">
+                <h2>Sanity Testing <span class="badge badge-high">HIGH PRIORITY</span></h2>
+
+                <div class="subsection">
+                    <h3>🧪 Test 1: Source Localization (Raw Data)</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-1" onchange="updateProgress()">
+                        <label for="test-1">Run SourceLocalization_Raw example task</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline process --task SourceLocalization_Raw --file /path/to/your/test.set
+                            </div>
+                            <strong>Expected outputs:</strong>
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>derivatives/source_localization_eeg/subject_dk_regions.set (68 channels)</li>
+                                <li>derivatives/source_localization_eeg/subject_dk_montage.fif</li>
+                                <li>derivatives/source_localization_eeg/subject_region_info.csv</li>
+                                <li>NO .h5 STC file (save_stc=False by default)</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-2" onchange="updateProgress()">
+                        <label for="test-2">Verify subject ID in output filenames</label>
+                        <div class="task-description">
+                            Check that output files use the actual subject name (e.g., "101001_C1D1BL_EO")
+                            NOT "unknown_subject" or "unknown"
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-3" onchange="updateProgress()">
+                        <label for="test-3">Load the .set file in EEGLAB</label>
+                        <div class="task-description">
+                            Open MATLAB/EEGLAB and verify:
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>68 channels (ROI labels)</li>
+                                <li>Correct sampling rate</li>
+                                <li>Data looks reasonable</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Test 1 Results:</label>
+                    <textarea class="feedback-area" placeholder="Did it work? Any errors? File sizes? Processing time?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>🧪 Test 2: Source Localization (Epoched Data)</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-4" onchange="updateProgress()">
+                        <label for="test-4">Run SourceLocalization_Epochs example task</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline process --task SourceLocalization_Epochs --file /path/to/your/test.set
+                            </div>
+                            <strong>Expected:</strong> Same outputs as Raw test, but with epoched .set file
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-5" onchange="updateProgress()">
+                        <label for="test-5">Verify epochs structure in output</label>
+                        <div class="task-description">
+                            Load in EEGLAB and confirm epochs are preserved (should see epoch count, not continuous)
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Test 2 Results:</label>
+                    <textarea class="feedback-area" placeholder="Epoched processing results, any differences from Raw?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>🧪 Test 3: FOOOF Analysis</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-6" onchange="updateProgress()">
+                        <label for="test-6">Run FOOOFAnalysisTest example task</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline process --task FOOOFAnalysisTest --file /path/to/your/test.set
+                            </div>
+                            <strong>Expected outputs:</strong>
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>derivatives/fooof/subject_psd-stc.h5</li>
+                                <li>derivatives/fooof/subject_fooof_aperiodic.parquet</li>
+                                <li>derivatives/fooof/subject_fooof_aperiodic.csv</li>
+                                <li>derivatives/fooof/subject_fooof_periodic.parquet</li>
+                                <li>derivatives/fooof/subject_fooof_periodic.csv</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-7" onchange="updateProgress()">
+                        <label for="test-7">Inspect FOOOF results CSV files</label>
+                        <div class="task-description">
+                            Open the CSV files and verify:
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>Aperiodic: Check exponent, offset, knee, r_squared columns</li>
+                                <li>Periodic: Check center_frequency, power, bandwidth for each band</li>
+                                <li>Subject ID in filenames is correct</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Test 3 Results:</label>
+                    <textarea class="feedback-area" placeholder="FOOOF results quality, parameter values reasonable?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>🧪 Test 4: Complete Pipeline</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-8" onchange="updateProgress()">
+                        <label for="test-8">Run SourceAnalysisPipeline example task</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline process --task SourceAnalysisPipeline --file /path/to/your/test.set
+                            </div>
+                            <strong>This runs:</strong> source_localization → source_psd → source_connectivity
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-9" onchange="updateProgress()">
+                        <label for="test-9">Verify all derivative outputs created</label>
+                        <div class="task-description">
+                            Check for:
+                            <ul style="margin-left: 20px; margin-top: 5px;">
+                                <li>derivatives/source_psd/ - PSD parquet, CSV, and heatmap PNG</li>
+                                <li>derivatives/source_connectivity/ - Connectivity parquet, NPY matrix, network PNG, graph metrics CSV</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-10" onchange="updateProgress()">
+                        <label for="test-10">Inspect connectivity network visualization</label>
+                        <div class="task-description">
+                            Open the connectivity PNG and verify it shows a brain network graph
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Test 4 Results:</label>
+                    <textarea class="feedback-area" placeholder="Complete pipeline results, processing time, any bottlenecks?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>🧪 Test 5: Edge Cases</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-11" onchange="updateProgress()">
+                        <label for="test-11">Test with save_stc=True</label>
+                        <div class="task-description">
+                            Modify a task config to set save_stc=True and verify large .h5 files are created
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-12" onchange="updateProgress()">
+                        <label for="test-12">Test with short data duration</label>
+                        <div class="task-description">
+                            Try processing with crop_step set to 30 seconds - verify warnings or errors are informative
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="test-13" onchange="updateProgress()">
+                        <label for="test-13">Test with different montages</label>
+                        <div class="task-description">
+                            Try with GSN-HydroCel-129 and standard_1020 to verify compatibility
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Edge Case Results:</label>
+                    <textarea class="feedback-area" placeholder="Edge case testing results, any failures or unexpected behavior?"></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 5: CLI TOUR -->
+            <div class="section priority-medium">
+                <h2>CLI Feature Tour <span class="badge badge-medium">MEDIUM PRIORITY</span></h2>
+
+                <div class="subsection">
+                    <h3>💻 Basic Commands</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="cli-1" onchange="updateProgress()">
+                        <label for="cli-1">List all available tasks</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline list-tasks
+                            </div>
+                            Verify the 4 new example tasks appear in the list
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="cli-2" onchange="updateProgress()">
+                        <label for="cli-2">Check task details</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline list-tasks --verbose
+                            </div>
+                            Look for detailed information about each task
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="cli-3" onchange="updateProgress()">
+                        <label for="cli-3">Export task schema</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline task schema export -o schema.json
+                            </div>
+                            Review the exported JSON schema
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">CLI Feedback:</label>
+                    <textarea class="feedback-area" placeholder="CLI usability, output clarity, any missing features?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>📊 Processing & Monitoring</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="cli-4" onchange="updateProgress()">
+                        <label for="cli-4">Run with verbose logging</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline process --task SourceLocalization_Raw --file test.set -vv
+                            </div>
+                            Observe detailed logging output
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="cli-5" onchange="updateProgress()">
+                        <label for="cli-5">Monitor log file during processing</label>
+                        <div class="task-description">
+                            <div class="command">
+tail -f ~/.autoclean/logs/pipeline.log
+                            </div>
+                            Watch real-time processing updates
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="cli-6" onchange="updateProgress()">
+                        <label for="cli-6">Review processing with GUI</label>
+                        <div class="task-description">
+                            <div class="command">
+autocleaneeg-pipeline review --output /path/to/derivatives/
+                            </div>
+                            Explore the review GUI for inspecting outputs
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Monitoring Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Logging quality, GUI usability, information overload?"></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 6: DOCUMENTATION REVIEW -->
+            <div class="section priority-medium">
+                <h2>Documentation Review <span class="badge badge-medium">MEDIUM PRIORITY</span></h2>
+
+                <div class="subsection">
+                    <h3>📖 Example READMEs</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="doc-1" onchange="updateProgress()">
+                        <label for="doc-1">Read examples/README.md</label>
+                        <div class="task-description">
+                            <div class="code-path">examples/README.md</div>
+                            Evaluate: clarity, completeness, ease of following
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="doc-2" onchange="updateProgress()">
+                        <label for="doc-2">Read examples/analysis/source_localization/README.md</label>
+                        <div class="task-description">
+                            <div class="code-path">examples/analysis/source_localization/README.md</div>
+                            Check: technical accuracy, helpful for users?
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="doc-3" onchange="updateProgress()">
+                        <label for="doc-3">Read examples/analysis/fooof/README.md</label>
+                        <div class="task-description">
+                            <div class="code-path">examples/analysis/fooof/README.md</div>
+                            Check: FOOOF concepts explained well?
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="doc-4" onchange="updateProgress()">
+                        <label for="doc-4">Read examples/analysis/complete_pipeline/README.md</label>
+                        <div class="task-description">
+                            <div class="code-path">examples/analysis/complete_pipeline/README.md</div>
+                            Check: pipeline architecture clear, workflow logical?
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">README Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Documentation quality, missing information, areas for improvement?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>🌐 Online Documentation</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="doc-5" onchange="updateProgress()">
+                        <label for="doc-5">Visit docs site and review analysis blocks section</label>
+                        <div class="task-description">
+                            Navigate to the processing blocks page and review the new Analysis Blocks section
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="doc-6" onchange="updateProgress()">
+                        <label for="doc-6">Check decision tree renders correctly</label>
+                        <div class="task-description">
+                            Verify the mermaid diagram displays and flows logically
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="doc-7" onchange="updateProgress()">
+                        <label for="doc-7">Test configuration examples</label>
+                        <div class="task-description">
+                            Copy a config example from docs and verify it works
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Online Docs Feedback:</label>
+                    <textarea class="feedback-area" placeholder="Website usability, rendering issues, navigation clarity?"></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 7: PERFORMANCE & OPTIMIZATION -->
+            <div class="section priority-low">
+                <h2>Performance & Optimization <span class="badge badge-low">LOW PRIORITY</span></h2>
+
+                <div class="subsection">
+                    <h3>⚡ Benchmarking</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="perf-1" onchange="updateProgress()">
+                        <label for="perf-1">Measure source localization processing time</label>
+                        <div class="task-description">
+                            Note the time for different data durations (30s, 60s, 300s)
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="perf-2" onchange="updateProgress()">
+                        <label for="perf-2">Monitor memory usage during processing</label>
+                        <div class="task-description">
+                            Use Activity Monitor / htop to watch RAM consumption
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="perf-3" onchange="updateProgress()">
+                        <label for="perf-3">Test different n_jobs settings</label>
+                        <div class="task-description">
+                            Compare processing time with n_jobs=1, 4, 8, 10
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Performance Notes:</label>
+                    <textarea class="feedback-area" placeholder="Performance observations, bottlenecks, optimization opportunities?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>💾 Storage Analysis</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="perf-4" onchange="updateProgress()">
+                        <label for="perf-4">Compare file sizes: STC vs ROI .set</label>
+                        <div class="task-description">
+                            Run with save_stc=True and convert_to_eeg=True, compare output sizes
+                        </div>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="perf-5" onchange="updateProgress()">
+                        <label for="perf-5">Estimate storage needs for typical study</label>
+                        <div class="task-description">
+                            Calculate: 100 subjects × file sizes = total storage needed
+                        </div>
+                    </div>
+
+                    <label style="display: block; margin-top: 15px; font-weight: 600;">Storage Notes:</label>
+                    <textarea class="feedback-area" placeholder="Storage concerns, recommendations for users, compression options?"></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 8: FINAL ASSESSMENT -->
+            <div class="section priority-high">
+                <h2>Final Assessment <span class="badge badge-high">HIGH PRIORITY</span></h2>
+
+                <div class="subsection">
+                    <h3>✅ Overall Quality Check</h3>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="final-1" onchange="updateProgress()">
+                        <label for="final-1">Code quality: Readable, maintainable, follows patterns?</label>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="final-2" onchange="updateProgress()">
+                        <label for="final-2">Documentation: Complete, clear, helpful for users?</label>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="final-3" onchange="updateProgress()">
+                        <label for="final-3">Testing: Examples work, outputs are correct?</label>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="final-4" onchange="updateProgress()">
+                        <label for="final-4">Integration: Blocks work together, no conflicts?</label>
+                    </div>
+
+                    <div class="task-item">
+                        <input type="checkbox" id="final-5" onchange="updateProgress()">
+                        <label for="final-5">Usability: Intuitive for researchers, reasonable defaults?</label>
+                    </div>
+                </div>
+
+                <div class="subsection">
+                    <h3>🚨 Issues Found</h3>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">List any bugs, errors, or problems:</label>
+                    <textarea class="feedback-area" style="min-height: 120px;" placeholder="Describe issues in detail..."></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>💡 Suggestions & Improvements</h3>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">Ideas for enhancement:</label>
+                    <textarea class="feedback-area" style="min-height: 120px;" placeholder="What could be better? What's missing?"></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>🎯 Priority Actions</h3>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">What needs immediate attention?</label>
+                    <textarea class="feedback-area" style="min-height: 100px;" placeholder="Critical fixes, blocking issues, must-haves..."></textarea>
+                </div>
+
+                <div class="subsection">
+                    <h3>👍 Final Verdict</h3>
+                    <label style="display: block; margin-bottom: 10px; font-weight: 600;">Ready for production?</label>
+                    <div style="margin: 20px 0;">
+                        <input type="radio" id="verdict-yes" name="verdict" style="width: auto; margin-right: 10px;">
+                        <label for="verdict-yes" style="margin-right: 30px;">✅ Yes, ship it!</label>
+
+                        <input type="radio" id="verdict-minor" name="verdict" style="width: auto; margin-right: 10px;">
+                        <label for="verdict-minor" style="margin-right: 30px;">⚠️ Minor fixes needed</label>
+
+                        <input type="radio" id="verdict-major" name="verdict" style="width: auto; margin-right: 10px;">
+                        <label for="verdict-major">🚨 Major issues to address</label>
+                    </div>
+                    <textarea class="feedback-area" placeholder="Explain your verdict..."></textarea>
+                </div>
+            </div>
+
+            <!-- SECTION 9: NEXT STEPS -->
+            <div class="section">
+                <h2>Next Steps & Follow-up</h2>
+
+                <div class="success-box">
+                    <strong>🎉 Great work reviewing!</strong> Your feedback is invaluable for improving the system.
+                </div>
+
+                <div class="subsection">
+                    <h3>📬 Sharing Your Feedback</h3>
+                    <ol style="margin-left: 40px; margin-top: 10px; line-height: 2;">
+                        <li>Save this HTML file (File → Save or Cmd/Ctrl+S)</li>
+                        <li>Locate the saved file on your computer</li>
+                        <li>Open it in a browser to verify your inputs saved</li>
+                        <li>Share via email, Slack, or upload to shared drive</li>
+                    </ol>
+                </div>
+
+                <div class="subsection">
+                    <h3>🔄 Future Development</h3>
+                    <p>Based on this review, we may need to:</p>
+                    <ul style="margin-left: 40px; margin-top: 10px;">
+                        <li>Fix any critical bugs identified</li>
+                        <li>Improve documentation where unclear</li>
+                        <li>Add more examples or use cases</li>
+                        <li>Optimize performance bottlenecks</li>
+                        <li>Enhance error messages and user guidance</li>
+                    </ul>
+                </div>
+
+                <div class="task-item">
+                    <input type="checkbox" id="next-1" onchange="updateProgress()">
+                    <label for="next-1">Schedule follow-up meeting to discuss findings</label>
+                </div>
+
+                <div class="task-item">
+                    <input type="checkbox" id="next-2" onchange="updateProgress()">
+                    <label for="next-2">Create GitHub issues for identified problems</label>
+                </div>
+
+                <div class="task-item">
+                    <input type="checkbox" id="next-3" onchange="updateProgress()">
+                    <label for="next-3">Plan sprint for addressing feedback</label>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p><strong>AutoClean EEG Pipeline</strong> - Analysis Blocks Review</p>
+            <p>Generated: 2025-09-30 | Session: Source Analysis Implementation</p>
+            <p style="margin-top: 10px; font-size: 0.9em;">
+                Questions? Issues? Contact the development team or open a GitHub issue.
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        // Progress tracking
+        function updateProgress() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const checked = document.querySelectorAll('input[type="checkbox"]:checked').length;
+            const total = checkboxes.length;
+            const percentage = Math.round((checked / total) * 100);
+
+            const progressBar = document.getElementById('progressBar');
+            progressBar.style.width = percentage + '%';
+            progressBar.textContent = percentage + '% Complete (' + checked + '/' + total + ')';
+
+            // Save to localStorage
+            saveProgress();
+        }
+
+        // Save progress to localStorage
+        function saveProgress() {
+            const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+            const textareas = document.querySelectorAll('textarea');
+            const radios = document.querySelectorAll('input[type="radio"]:checked');
+
+            const state = {
+                checkboxes: Array.from(checkboxes).map(cb => ({id: cb.id, checked: cb.checked})),
+                textareas: Array.from(textareas).map(ta => ({html: ta.parentElement.innerHTML.substring(0, 100), value: ta.value})),
+                radios: Array.from(radios).map(r => ({id: r.id, checked: true}))
+            };
+
+            localStorage.setItem('autocleaneeg_review_progress', JSON.stringify(state));
+        }
+
+        // Load progress from localStorage
+        function loadProgress() {
+            const saved = localStorage.getItem('autocleaneeg_review_progress');
+            if (!saved) return;
+
+            try {
+                const state = JSON.parse(saved);
+
+                // Restore checkboxes
+                state.checkboxes.forEach(item => {
+                    const checkbox = document.getElementById(item.id);
+                    if (checkbox) checkbox.checked = item.checked;
+                });
+
+                // Restore textareas (match by parent HTML prefix)
+                state.textareas.forEach(item => {
+                    const textareas = document.querySelectorAll('textarea');
+                    textareas.forEach(ta => {
+                        const parentHTML = ta.parentElement.innerHTML.substring(0, 100);
+                        if (parentHTML === item.html) {
+                            ta.value = item.value;
+                        }
+                    });
+                });
+
+                // Restore radios
+                state.radios.forEach(item => {
+                    const radio = document.getElementById(item.id);
+                    if (radio) radio.checked = true;
+                });
+
+                updateProgress();
+            } catch (e) {
+                console.error('Failed to load progress:', e);
+            }
+        }
+
+        // Auto-save on changes
+        document.addEventListener('change', saveProgress);
+        document.addEventListener('input', saveProgress);
+
+        // Load on page load
+        window.addEventListener('load', loadProgress);
+
+        // Initial progress update
+        updateProgress();
+    </script>
+</body>
+</html>

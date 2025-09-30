@@ -16,9 +16,12 @@ AutoClean EEG is a sophisticated modular framework for automated EEG data proces
 ### Dynamic Mixin System
 The codebase uses an innovative mixin discovery system that automatically finds and combines all "*Mixin" classes:
 - **Auto-discovery**: Scans `src/autoclean/mixins/` subdirectories for mixin classes
+- **External blocks**: Also discovers plugin blocks from `~/.autoclean/blocks/`, `./blocks/`, and task-registry
 - **Dynamic combination**: Creates a single CombinedAutocleanMixins class via multiple inheritance
 - **MRO conflict detection**: Advanced error handling for method resolution order issues
 - **Collision warnings**: Detects method name conflicts between mixins
+
+**Plugin Blocks (v2.4.0+)**: Single-file Python modules that extend Task with custom methods. Drop `*_plugin.py` files in `~/.autoclean/blocks/` to add functionality without modifying pipeline code. See `PLUGIN_BLOCKS_PLAN.md` for architecture details.
 
 ### Key Components
 1. **Pipeline** (`src/autoclean/core/pipeline.py`) - Central orchestrator managing workflow
