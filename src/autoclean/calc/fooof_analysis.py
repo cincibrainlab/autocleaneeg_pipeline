@@ -32,7 +32,7 @@ from scipy import signal
 # Optional FOOOF/SpecParam dependency (try new package first)
 try:
     from specparam import SpectralModel as FOOOF, SpectralGroupModel as FOOOFGroup
-    from specparam.analysis import get_band_peak as get_band_peak_fm
+    from specparam.data.periodic import get_band_peak as get_band_peak_fm
 
     FOOOF_AVAILABLE = True
 except ImportError:
