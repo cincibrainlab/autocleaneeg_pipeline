@@ -22,7 +22,7 @@ import mne
 import pandas as pd
 
 # Import algorithm function (exact copy from source.py)
-from .algorithm import calculate_source_connectivity
+from autoclean.calc.source_connectivity import calculate_source_connectivity
 
 
 class SourceConnectivityMixin:

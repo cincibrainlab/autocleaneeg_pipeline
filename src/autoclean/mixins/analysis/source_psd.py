@@ -23,7 +23,7 @@ import mne
 import pandas as pd
 
 # Import algorithm functions (exact copies from source.py)
-from .algorithm import calculate_source_psd_list, visualize_psd_results
+from autoclean.calc.source_psd import calculate_source_psd_list, visualize_psd_results
 
 
 class SourcePSDMixin:
