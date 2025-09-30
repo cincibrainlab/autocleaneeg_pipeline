@@ -36,7 +36,14 @@ config = {
     "reference_step": {"enabled": True, "value": "average"},
     "crop_step": {"enabled": True, "value": {"start": 0, "end": 60}},  # Limit to 60s for speed
     "ICA": {"enabled": False, "value": {"method": "infomax"}},
-    "component_rejection": {"enabled": False, "method": "none", "value": {}},
+    "component_rejection": {
+        "enabled": False,
+        "method": "icvision",
+        "value": {
+            "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
+            "ic_rejection_threshold": 0.3,
+        },
+    },
     "epoch_settings": {
         "enabled": True,
         "value": {"tmin": -1, "tmax": 1},  # 2-second epochs
