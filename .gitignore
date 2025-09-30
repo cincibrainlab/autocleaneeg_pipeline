@@ -81,3 +81,6 @@ examples/single_file.py
 src/.DS_Store
 .# coverage artifacts
 .coverage*
+
+# Archived planning documents
+docs/archive/
