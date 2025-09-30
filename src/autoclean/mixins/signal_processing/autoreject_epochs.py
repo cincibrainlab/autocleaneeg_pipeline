@@ -15,12 +15,14 @@ reduces the need for manual inspection and rejection of artifacts, while maintai
 the quality of the data for subsequent analysis.
 """
 
+from pathlib import Path
 from typing import List, Optional, Union
 
 import mne
-from autoreject import AutoReject
 
+from autoclean.functions.advanced.autoreject_reporting import generate_autoreject_report
 from autoclean.utils.logging import message
+from autoreject import AutoReject
 
 
 class AutoRejectEpochsMixin:
@@ -107,7 +109,8 @@ class AutoRejectEpochsMixin:
             n_jobs = config_value.get("n_jobs", n_jobs)
 
         # Determine which data to use
-        epochs = self._get_epochs_object(epochs)
+        if epochs is None:
+            epochs = self.epochs
 
         # Type checking
         if not isinstance(
@@ -118,6 +121,9 @@ class AutoRejectEpochsMixin:
         try:
             message("header", "Applying AutoReject for artifact rejection")
 
+            # Store copy of original epochs for reporting
+            epochs_before = epochs.copy()
+
             # Create AutoReject object with parameters if provided
             if n_interpolate is not None and consensus is not None:
                 ar = AutoReject(
@@ -127,7 +133,7 @@ class AutoRejectEpochsMixin:
                 ar = AutoReject(n_jobs=n_jobs)
 
             # Fit and transform epochs
-            epochs_clean = ar.fit_transform(epochs)
+            epochs_clean, rejection_log = ar.fit_transform(epochs, return_log=True)
 
             # Calculate statistics
             rejected_epochs = len(epochs) - len(epochs_clean)
@@ -168,6 +174,55 @@ class AutoRejectEpochsMixin:
 
             # Save epochs
             self._save_epochs_result(epochs_clean, stage_name)
+
+            # Generate comprehensive PDF report
+            report_path: Optional[Path] = None
+            report_relative: Optional[Path] = None
+            try:
+                # Determine report location
+                base_name = getattr(self, "base_name", "autoreject_report")
+                filename = f"{base_name}_autoreject.pdf"
+
+                if hasattr(self, "_resolve_report_path"):
+                    report_path = self._resolve_report_path("autoreject", filename)
+                elif hasattr(self, "directories") and "derivatives" in self.directories:
+                    derivatives_dir = Path(self.directories["derivatives"])
+                    if not derivatives_dir.exists():
+                        raise ValueError("No derivatives directory available for autoreject report")
+                    report_path = derivatives_dir / filename
+
+                if report_path:
+                    # Generate report with rejection log
+                    ar_params = {
+                        "n_interpolate": n_interpolate,
+                        "consensus": consensus,
+                        "n_jobs": n_jobs,
+                    }
+                    report_result = generate_autoreject_report(
+                        epochs_before=epochs_before,
+                        epochs_after=epochs_clean,
+                        output_pdf=report_path,
+                        rejection_log=rejection_log.labels if hasattr(rejection_log, "labels") else None,
+                        ar_params=ar_params,
+                    )
+
+                    message("success", f"AutoReject report saved to {report_path}")
+
+                    # Try to get relative path for metadata
+                    if hasattr(self, "_report_relative_path"):
+                        try:
+                            report_relative = self._report_relative_path(report_path)
+                        except Exception:
+                            report_relative = None
+
+            except Exception as exc:
+                message("warning", f"AutoReject report generation skipped: {exc}")
+                report_path = None
+                report_relative = None
+
+            # Update metadata with report path
+            if report_path:
+                metadata["report_path"] = str(report_relative or report_path)
 
             return epochs_clean
 
