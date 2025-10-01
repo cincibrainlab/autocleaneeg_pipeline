@@ -475,6 +475,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         rows = [
             ("🧱 blocks list", "List available processing blocks"),
             ("🔎 blocks info <name>", "Show metadata for a block"),
+            ("📦 blocks deps <name>", "Show dependencies for a block"),
             ("🔄 blocks update", "Refresh blocks from the task registry"),
             ("💾 blocks install <name>", "Install block to cache"),
             ("🔒 blocks lock", "Generate lock file for reproducibility"),
