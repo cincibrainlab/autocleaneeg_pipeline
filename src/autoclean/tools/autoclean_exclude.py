@@ -3812,6 +3812,10 @@ class ExclusionFileSelector(ReviewBase):
             if isinstance(record, dict) and record.get('bad_epochs_count', 0) > 0
         ]
 
+        print(f"[QA EXPORT] Found {len(files_to_export)} files to export")
+        for key, record in files_to_export:
+            print(f"[QA EXPORT]   {key}: type={type(record)}, bad_epochs={record.get('bad_epochs_count', 'N/A') if isinstance(record, dict) else 'NOT DICT'}")
+
         if not files_to_export:
             QMessageBox.information(
                 self,
@@ -3853,6 +3857,13 @@ class ExclusionFileSelector(ReviewBase):
                 break
 
             progress.setValue(idx)
+
+            # Debug: verify record type
+            if not isinstance(record, dict):
+                print(f"[QA EXPORT] ERROR: record is {type(record)} not dict for {file_key}")
+                error_count += 1
+                continue
+
             relative_path = record.get('relative_path', '')
             progress.setLabelText(f"Processing {relative_path}...")
 
@@ -3904,7 +3915,9 @@ class ExclusionFileSelector(ReviewBase):
                 exported_count += 1
 
             except Exception as e:
+                import traceback
                 print(f"[QA EXPORT] Error exporting {file_key}: {e}")
+                print(f"[QA EXPORT] Traceback: {traceback.format_exc()}")
                 error_count += 1
 
         progress.setValue(len(files_to_export))
