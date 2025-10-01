@@ -3184,7 +3184,13 @@ class ExclusionFileSelector(ReviewBase):
         if self.current_epochs is not None:
             try:
                 # Read from browser's live bad_epochs list if plot is open
-                if self.plot_widget and hasattr(self.plot_widget, 'mne') and hasattr(self.plot_widget.mne, 'bad_epochs'):
+                has_plot = self.plot_widget is not None
+                has_mne = hasattr(self.plot_widget, 'mne') if has_plot else False
+                has_bad_epochs = hasattr(self.plot_widget.mne, 'bad_epochs') if has_mne else False
+
+                print(f"[EPOCH DEBUG] Plot widget check: has_plot={has_plot}, has_mne={has_mne}, has_bad_epochs={has_bad_epochs}")
+
+                if has_plot and has_mne and has_bad_epochs:
                     bad_epochs = list(self.plot_widget.mne.bad_epochs)
                     print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from browser: {bad_epochs}")
                 else:
