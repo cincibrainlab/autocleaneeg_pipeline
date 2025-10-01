@@ -329,10 +329,30 @@ class BlockRegistry:
             raise
 
     def _load_index(self) -> Dict[str, object]:
-        cache_index = self._cache_index_path()
-        if cache_index.exists():
-            return json.loads(cache_index.read_text(encoding="utf-8"))
-        return json.loads(self._pkg_index_text())
+        """Load registry by merging bundled and cache (cache overlays bundled)."""
+        # Always start with bundled blocks (guaranteed to have all shipped blocks)
+        bundled_index = json.loads(self._pkg_index_text())
+        bundled_blocks = {b["name"]: b for b in bundled_index.get("blocks", [])}
+
+        # Overlay cache blocks if available (may have updates from remote)
+        cache_index_path = self._cache_index_path()
+        if cache_index_path.exists():
+            try:
+                cache_index = json.loads(cache_index_path.read_text(encoding="utf-8"))
+                cache_blocks = {b["name"]: b for b in cache_index.get("blocks", [])}
+                # Merge: bundled + cache (cache wins for same name)
+                bundled_blocks.update(cache_blocks)
+                # Use cache metadata (commit, version)
+                return {
+                    "version": cache_index.get("version", bundled_index.get("version")),
+                    "commit": cache_index.get("commit", bundled_index.get("commit")),
+                    "blocks": list(bundled_blocks.values()),
+                }
+            except (json.JSONDecodeError, OSError):
+                # Corrupt cache - use bundled
+                pass
+
+        return bundled_index
 
     # ---------------- Query helpers -----------------
     def list_blocks(self) -> List[ProcessingBlock]:
