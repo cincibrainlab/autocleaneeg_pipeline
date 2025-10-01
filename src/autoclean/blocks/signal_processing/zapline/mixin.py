@@ -110,11 +110,12 @@ class ZaplineMixin:
             return inst
 
         # Extract parameters from config
-        params = (settings or {}).get("value", {})
-        fline = float(params.get("fline", 60.0))
-        nkeep = int(params.get("nkeep", 1))
-        use_iter = bool(params.get("use_iter", False))
-        max_iter = int(params.get("max_iter", 10))
+        # Handle case where settings["value"] might be None
+        params = (settings or {}).get("value") or {}
+        fline = float(params.get("fline") or 60.0)
+        nkeep = int(params.get("nkeep") or 1)
+        use_iter = bool(params.get("use_iter") or False)
+        max_iter = int(params.get("max_iter") or 10)
 
         # Validate parameters
         if fline not in [50.0, 60.0]:
