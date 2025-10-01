@@ -865,7 +865,7 @@ class ReviewBase(QWidget):
         if not is_raw and self.current_epochs is not None:
             # Restore previously marked bad epochs before plotting
             self._restore_bad_epochs_to_plot()
-            
+
             self.plot_widget = self.current_epochs.plot(
                 n_epochs=10,
                 show=False,
@@ -876,6 +876,10 @@ class ReviewBase(QWidget):
                 scalings={"eeg": 25e-6},
                 n_channels=self.current_epochs.info["nchan"],
             )
+
+            # Sync browser's bad_epochs list from drop_log and update visuals
+            self._sync_browser_bad_epochs()
+
         elif self.current_raw is not None:
             self.plot_widget = self.current_raw.plot(
                 show=False,
@@ -900,6 +904,31 @@ class ReviewBase(QWidget):
         """Restore previously marked bad epochs to the current epochs before plotting."""
         # This method will be overridden in ExclusionFileSelector to restore bad epochs
         pass
+
+    def _sync_browser_bad_epochs(self) -> None:
+        """Sync browser's bad_epochs list from drop_log and update visuals."""
+        if not self.plot_widget or not hasattr(self.plot_widget, 'mne'):
+            return
+
+        # Extract bad epoch numbers from drop_log
+        bad_epoch_nums = []
+        if hasattr(self.current_epochs, 'drop_log') and hasattr(self.current_epochs, 'selection'):
+            for idx, log in enumerate(self.current_epochs.drop_log):
+                # Check if this epoch is marked as USER-rejected
+                if log and any(isinstance(entry, str) and entry.upper() == 'USER' for entry in log):
+                    # Get the actual epoch number from selection
+                    if idx < len(self.current_epochs.selection):
+                        bad_epoch_nums.append(self.current_epochs.selection[idx])
+
+        # Update browser's bad_epochs list
+        self.plot_widget.mne.bad_epochs = sorted(bad_epoch_nums)
+        print(f"[EPOCH DEBUG] Synced {len(bad_epoch_nums)} bad epochs to browser: {bad_epoch_nums}")
+
+        # Trigger visual updates
+        if hasattr(self.plot_widget.mne, 'overview_bar'):
+            self.plot_widget.mne.overview_bar.update_bad_epochs()
+        if hasattr(self.plot_widget, 'update_bad_epoch_highlights'):
+            self.plot_widget.update_bad_epoch_highlights()
 
     def closePlot(self) -> None:  # noqa: N802 - legacy public API
         if self.plot_widget is None:
