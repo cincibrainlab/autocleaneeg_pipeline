@@ -477,6 +477,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🔎 blocks info <name>", "Show metadata for a block"),
             ("🔄 blocks update", "Refresh blocks from the task registry"),
             ("💾 blocks install <name>", "Install block to cache"),
+            ("🔒 blocks lock", "Generate lock file for reproducibility"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -1320,13 +1321,38 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     blocks_install_parser.add_argument(
         "block_name",
         type=str,
-        help="Name of the block to install",
+        nargs="?",
+        default=None,
+        help="Name of the block to install (not needed with --locked)",
     )
     blocks_install_parser.add_argument(
         "--commit",
         type=str,
         default=None,
         help="Git commit hash to install (for reproducibility). Browse GitHub registry to find commit hashes.",
+    )
+    blocks_install_parser.add_argument(
+        "--locked",
+        action="store_true",
+        help="Install all blocks from blocks.lock file",
+    )
+    blocks_install_parser.add_argument(
+        "--lock-file",
+        type=str,
+        default="blocks.lock",
+        help="Path to lock file (default: blocks.lock)",
+    )
+
+    blocks_lock_parser = blocks_subparsers.add_parser(
+        "lock", help="Generate lock file from current block state", add_help=False
+    )
+    attach_rich_help(blocks_lock_parser)
+    blocks_lock_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="blocks.lock",
+        help="Output file path (default: blocks.lock)",
     )
 
     # Source management commands (deprecated alias)
@@ -2825,6 +2851,8 @@ def cmd_blocks(args) -> int:
         return cli_blocks.cmd_blocks_update(args)
     if action == "install":
         return cli_blocks.cmd_blocks_install(args)
+    if action == "lock":
+        return cli_blocks.cmd_blocks_lock(args)
 
     message("error", f"Unknown blocks action: {action}")
     return 1

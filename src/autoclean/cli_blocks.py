@@ -9,6 +9,7 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from autoclean.utils.block_lock import BlockLockFile
 from autoclean.utils.block_registry import BlockRegistry
 from autoclean.utils.console import get_console
 
@@ -261,6 +262,12 @@ def cmd_blocks_install(args) -> int:
     """Install/download a specific block to cache."""
     console = get_console(args.theme if hasattr(args, "theme") else None)
 
+    # Check if --locked flag is set
+    locked = getattr(args, "locked", False)
+
+    if locked:
+        return cmd_blocks_install_locked(args)
+
     block_name = args.block_name
     commit_hash = getattr(args, "commit", None)
     registry = BlockRegistry()
@@ -288,4 +295,106 @@ def cmd_blocks_install(args) -> int:
         return 0
     except Exception as exc:
         console.print(f"[error]Failed to install block: {exc}[/error]")
+        return 1
+
+
+def cmd_blocks_install_locked(args) -> int:
+    """Install all blocks from lock file."""
+    console = get_console(args.theme if hasattr(args, "theme") else None)
+
+    lock_file_path = Path(getattr(args, "lock_file", "blocks.lock"))
+    lock = BlockLockFile(lock_file_path)
+
+    if not lock_file_path.exists():
+        console.print(f"[error]Lock file not found: {lock_file_path}[/error]")
+        console.print("[dim]Run 'blocks lock' to create one[/dim]")
+        return 1
+
+    console.print(f"→ Installing blocks from lock file: [accent]{lock_file_path}[/accent]\n")
+
+    try:
+        lock_data = lock.load()
+        blocks_data = lock_data.get("blocks", {})
+
+        if not blocks_data:
+            console.print("[warning]Lock file contains no blocks[/warning]")
+            return 0
+
+        console.print(f"[dim]Registry commit: {lock_data.get('registry_commit', 'unknown')}[/dim]")
+        console.print(f"[dim]Locked at: {lock_data.get('locked_at', 'unknown')}[/dim]\n")
+
+        registry = BlockRegistry()
+        installed = lock.install_from_lock(registry)
+
+        console.print(f"\n[success]✓[/success] Installed {len(installed)}/{len(blocks_data)} blocks")
+        for block_name in installed:
+            console.print(f"  • {block_name}")
+
+        if len(installed) < len(blocks_data):
+            failed = set(blocks_data.keys()) - set(installed)
+            console.print(f"\n[warning]Failed to install {len(failed)} blocks:[/warning]")
+            for block_name in failed:
+                console.print(f"  • {block_name}")
+
+        console.print()
+        return 0 if installed else 1
+
+    except Exception as exc:
+        console.print(f"[error]Failed to install from lock file: {exc}[/error]")
+        return 1
+
+
+def cmd_blocks_lock(args) -> int:
+    """Generate lock file from current block state."""
+    console = get_console(args.theme if hasattr(args, "theme") else None)
+
+    lock_file_path = Path(getattr(args, "output", "blocks.lock"))
+    lock = BlockLockFile(lock_file_path)
+
+    console.print("→ Generating lock file from current block state...\n")
+
+    try:
+        registry = BlockRegistry()
+        lock_data = lock.generate(registry)
+
+        blocks_data = lock_data.get("blocks", {})
+        if not blocks_data:
+            console.print("[warning]No blocks found to lock[/warning]")
+            console.print("[dim]Run 'blocks update' to fetch blocks first[/dim]")
+            return 1
+
+        lock.save(lock_data)
+
+        console.print(f"[success]✓[/success] Lock file created: [accent]{lock_file_path}[/accent]\n")
+        console.print(f"[dim]Registry commit: {lock_data.get('registry_commit', 'unknown')}[/dim]")
+        console.print(f"[dim]Blocks locked: {len(blocks_data)}[/dim]\n")
+
+        # Show locked blocks
+        table = Table(
+            title="Locked Blocks",
+            show_header=True,
+            header_style="bold cyan",
+            border_style="dim",
+        )
+        table.add_column("Block", style="cyan")
+        table.add_column("Commit", style="yellow")
+        table.add_column("Source", style="green")
+
+        for block_name, info in sorted(blocks_data.items()):
+            commit = info.get("commit", "unknown")
+            commit_short = commit[:8] if len(commit) > 8 else commit
+            source = info.get("source", "unknown")
+            table.add_row(block_name, commit_short, source)
+
+        console.print(table)
+        console.print()
+
+        console.print("[dim]Commit this file to your repository for reproducibility:[/dim]")
+        console.print(f"[dim]  git add {lock_file_path}[/dim]")
+        console.print(f"[dim]  git commit -m 'Lock analysis environment'[/dim]\n")
+
+        return 0
+
+    except Exception as exc:
+        console.print(f"[error]Failed to generate lock file: {exc}[/error]")
         return 1
