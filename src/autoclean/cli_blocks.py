@@ -242,18 +242,19 @@ def cmd_blocks_deps(args) -> int:
         console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
         return 1
 
-    # Find manifest path
-    manifest_path = None
-    if block.cache_path and (block.cache_path / "manifest.json").exists():
-        manifest_path = block.cache_path / "manifest.json"
-    else:
-        # Try bundled
-        bundled_path = Path(__file__).parent / "blocks" / block.category / block.name / "manifest.json"
-        if bundled_path.exists():
-            manifest_path = bundled_path
-
-    if not manifest_path:
+    # Load manifest using existing helper
+    manifest_dict = load_block_manifest(block.category, block_name)
+    if not manifest_dict:
         console.print(f"[error]No manifest found for block: {block_name}[/error]")
+        return 1
+
+    # Find actual manifest file path for dependency checker
+    cache_path = Path.home() / ".config" / "autocleaneeg" / ".block_cache" / block.category / block_name / "manifest.json"
+    bundled_path = Path(__file__).parent / "blocks" / block.category / block_name / "manifest.json"
+
+    manifest_path = cache_path if cache_path.exists() else bundled_path
+    if not manifest_path.exists():
+        console.print(f"[error]No manifest file found for block: {block_name}[/error]")
         return 1
 
     # Get dependency status
