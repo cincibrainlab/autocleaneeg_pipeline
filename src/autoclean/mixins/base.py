@@ -215,6 +215,48 @@ class BaseMixin:
         elif data is getattr(self, "epochs", None):
             self.epochs = result_data
 
+    def _get_block_info(self, block_name: str) -> Dict[str, Any]:
+        """Get block information from cache manifest for reproducibility logging.
+
+        Args:
+            block_name: Name of the block to get info for
+
+        Returns:
+            Dictionary containing block info (source_commit, hashes, source, etc.)
+            Returns empty dict if info cannot be retrieved
+        """
+        try:
+            from autoclean.utils.block_registry import BlockRegistry, CACHE_ROOT
+
+            registry = BlockRegistry(cache_root=CACHE_ROOT)
+            block_record = registry.manifest.block_record(block_name)
+
+            if block_record:
+                # Extract relevant fields for logging
+                info = {
+                    "source_commit": block_record.get("source_commit"),
+                    "source": block_record.get("source"),
+                    "fetched_at": block_record.get("fetched_at"),
+                }
+
+                # Compute combined hash of all block files
+                hashes = block_record.get("hashes")
+                if hashes and isinstance(hashes, dict):
+                    # Create a combined hash for simpler logging
+                    import hashlib
+
+                    combined = "|".join(f"{k}:{v}" for k, v in sorted(hashes.items()))
+                    info["directory_hash"] = hashlib.sha256(
+                        combined.encode()
+                    ).hexdigest()[:16]
+
+                return {k: v for k, v in info.items() if v is not None}
+        except Exception:
+            # Fail silently - block info is nice-to-have, not required
+            pass
+
+        return {}
+
     def _update_metadata(self, operation: str, metadata_dict: Dict[str, Any]) -> None:
         """Update the database with metadata about an operation.
 

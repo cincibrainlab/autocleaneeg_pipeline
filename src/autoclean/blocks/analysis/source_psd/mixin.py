@@ -262,7 +262,11 @@ class SourcePSDMixin:
 
             # Update metadata
             if hasattr(self, "_update_metadata"):
+                # Get block info for reproducibility
+                block_info = self._get_block_info("source_psd")
+
                 metadata = {
+                    "block_name": "source_psd",
                     "segment_duration": segment_duration,
                     "n_jobs": n_jobs,
                     "generate_plots": generate_plots,
@@ -272,6 +276,10 @@ class SourcePSDMixin:
                     "freq_max": float(psd_df["frequency"].max()),
                     "output_file": file_path,
                 }
+
+                # Add block version/commit info for reproducibility
+                if block_info:
+                    metadata.update(block_info)
 
                 if is_single_stc:
                     metadata["stc_type"] = "single"

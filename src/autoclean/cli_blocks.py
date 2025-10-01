@@ -262,6 +262,7 @@ def cmd_blocks_install(args) -> int:
     console = get_console(args.theme if hasattr(args, "theme") else None)
 
     block_name = args.block_name
+    commit_hash = getattr(args, "commit", None)
     registry = BlockRegistry()
 
     # Check if block exists
@@ -271,11 +272,16 @@ def cmd_blocks_install(args) -> int:
         console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
         return 1
 
-    console.print(f"→ Installing block [accent]{block_name}[/accent]...")
+    if commit_hash:
+        console.print(f"→ Installing block [accent]{block_name}[/accent] from commit [yellow]{commit_hash[:8]}[/yellow]...")
+    else:
+        console.print(f"→ Installing block [accent]{block_name}[/accent]...")
 
     try:
-        dest_path = registry.materialize_block_to(block_name, registry.cache_root)
+        dest_path = registry.materialize_block_to(block_name, registry.cache_root, commit=commit_hash)
         console.print(f"[success]✓[/success] Block installed to cache: {dest_path}")
+        if commit_hash:
+            console.print(f"[dim]Installed from commit: {commit_hash}[/dim]")
         console.print()
         console.print("[dim]The block will be automatically discovered on next pipeline run.[/dim]")
         console.print()

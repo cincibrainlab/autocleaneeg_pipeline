@@ -179,8 +179,12 @@ class ZaplineMixin:
         self._update_instance_data(inst, cleaned)
         self._save_raw_result(cleaned, stage_name)
 
+        # Get block info for reproducibility
+        block_info = self._get_block_info("zapline")
+
         # Store metadata
         metadata = {
+            "block_name": "zapline",
             "fline": fline,
             "nkeep": nkeep,
             "use_iter": use_iter,
@@ -189,6 +193,10 @@ class ZaplineMixin:
             "iterations": info.get("iterations"),
             "n_channels": n_channels,
         }
+
+        # Add block version/commit info for reproducibility
+        if block_info:
+            metadata.update(block_info)
 
         if power_before is not None:
             metadata["power_before_db"] = float(power_before)

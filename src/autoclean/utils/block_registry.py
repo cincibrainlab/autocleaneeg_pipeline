@@ -113,15 +113,25 @@ class CacheManifest:
         path: str,
         cache_path: Path,
         source: str = "cache",
+        source_commit: Optional[str] = None,
     ) -> None:
         blocks: Dict[str, object] = self.data.setdefault("blocks", {})  # type: ignore[assignment]
-        blocks[block_name] = {
+        block_data: Dict[str, object] = {
             "category": category,
             "path": path,
             "hashes": _hash_directory(cache_path),
             "fetched_at": _timestamp(),
             "source": source,
         }
+
+        # Store the commit hash this block came from (for reproducibility)
+        if source_commit:
+            block_data["source_commit"] = source_commit
+        elif source == "cache":
+            # Use registry commit if available
+            block_data["source_commit"] = self.data.get("registry_commit")
+
+        blocks[block_name] = block_data
         self.save()
 
     def update_block_remote(
@@ -232,6 +242,14 @@ class BlockRegistry:
         resource = self._pkg_root().joinpath("registry.json")
         with resource.open("r", encoding="utf-8") as fh:
             return fh.read()
+
+    def _pkg_registry_commit(self) -> str:
+        """Get the commit hash from the bundled registry."""
+        try:
+            index = json.loads(self._pkg_index_text())
+            return index.get("commit", "bundled-unknown")
+        except Exception:
+            return "bundled-unknown"
 
     def update_cache(self, *, allow_network: bool = True) -> str:
         """Fetch the registry index from GitHub into the local cache."""
@@ -449,8 +467,20 @@ class BlockRegistry:
         return "missing"
 
     # ---------------- Materialization -----------------
-    def materialize_block_to(self, block_name: str, dest_dir: Path) -> Path:
-        """Download and cache a block from the remote registry."""
+    def materialize_block_to(self, block_name: str, dest_dir: Path, commit: Optional[str] = None) -> Path:
+        """Download and cache a block from the remote registry.
+
+        Parameters
+        ----------
+        block_name : str
+            Name of the block to download
+        dest_dir : Path
+            Destination directory for the block
+        commit : str, optional
+            Specific git commit hash to fetch from. If provided, overrides
+            the default (registry HEAD). For reproducibility: browse GitHub
+            to find the commit you want, then specify it here.
+        """
         block = self.get_block(block_name)
         if not block:
             raise ValueError(f"Processing block '{block_name}' not found in registry.")
@@ -458,11 +488,29 @@ class BlockRegistry:
         dest_dir.mkdir(parents=True, exist_ok=True)
         dest_path = dest_dir / block.category / block.name
 
+        # Determine which commit to use
+        fetch_commit = commit if commit else self.manifest.registry_commit
+
+        # Build base URL with commit (if fetching from GitHub)
+        # Format: https://raw.githubusercontent.com/org/repo/COMMIT_HASH/path
+        if commit:
+            # User specified exact commit - construct URL with that commit
+            base_parts = self.raw_base.split("/")
+            # raw_base format: https://raw.githubusercontent.com/org/repo/branch
+            # We want: https://raw.githubusercontent.com/org/repo/COMMIT_HASH
+            if len(base_parts) >= 5:
+                base_url = "/".join(base_parts[:5]) + f"/{commit}"
+            else:
+                base_url = f"{self.raw_base}/{commit}"
+        else:
+            # Use default (main/HEAD)
+            base_url = self.raw_base
+
         # Try to download from remote
         block_files = ["mixin.py", "manifest.json", "README.md"]
         # Check for algorithm.py
         try:
-            test_url = f"{self.raw_base}/{block.path}/algorithm.py"
+            test_url = f"{base_url}/{block.path}/algorithm.py"
             self._fetch_bytes(test_url)
             block_files.append("algorithm.py")
         except (URLError, HTTPError):
@@ -474,13 +522,13 @@ class BlockRegistry:
         try:
             dest_path.mkdir(parents=True, exist_ok=True)
             for filename in block_files:
-                file_url = f"{self.raw_base}/{block.path}/{filename}"
+                file_url = f"{base_url}/{block.path}/{filename}"
                 self._download_to(file_url, dest_path / filename)
 
             # Try optional files
             for filename in optional_files:
                 try:
-                    file_url = f"{self.raw_base}/{block.path}/{filename}"
+                    file_url = f"{base_url}/{block.path}/{filename}"
                     self._download_to(file_url, dest_path / filename)
                 except (URLError, HTTPError):
                     pass  # Optional file doesn't exist
@@ -491,6 +539,7 @@ class BlockRegistry:
                 path=block.path,
                 cache_path=dest_path,
                 source="cache",
+                source_commit=fetch_commit,
             )
             return dest_path
         except (URLError, HTTPError):
@@ -501,12 +550,15 @@ class BlockRegistry:
         if bundled_path.exists() and bundled_path.is_dir():
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(bundled_path, dest_path, dirs_exist_ok=True)
+            # Bundled blocks don't have a specific commit - they're versioned with the package
+            bundled_commit = self._pkg_registry_commit()
             self.manifest.update_block(
                 block.name,
                 category=block.category,
                 path=block.path,
                 cache_path=dest_path,
                 source="bundled",
+                source_commit=bundled_commit,
             )
             return dest_path
 

@@ -1322,6 +1322,12 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         type=str,
         help="Name of the block to install",
     )
+    blocks_install_parser.add_argument(
+        "--commit",
+        type=str,
+        default=None,
+        help="Git commit hash to install (for reproducibility). Browse GitHub registry to find commit hashes.",
+    )
 
     # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(

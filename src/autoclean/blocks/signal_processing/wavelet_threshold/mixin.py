@@ -217,7 +217,11 @@ class WaveletThresholdMixin:
         self._update_instance_data(original_data, cleaned)
         self._save_raw_result(cleaned, stage_name)
 
+        # Get block info for reproducibility
+        block_info = self._get_block_info("wavelet_threshold")
+
         metadata = {
+            "block_name": "wavelet_threshold",
             "wavelet": wavelet_name,
             "level_requested": level if isinstance(level, str) else int(level),
             "level_effective": effective_level,
@@ -230,6 +234,11 @@ class WaveletThresholdMixin:
             "n_channels": int(cleaned_data.shape[0]),
             "report_path": str(report_relative or report_path) if report_path else None,
         }
+
+        # Add block version/commit info for reproducibility
+        if block_info:
+            metadata.update(block_info)
+
         if psd_fmax_value is not None:
             metadata["psd_fmax"] = psd_fmax_value
         metadata["threshold_scale"] = threshold_scale
