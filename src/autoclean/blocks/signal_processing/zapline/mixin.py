@@ -175,10 +175,15 @@ class ZaplineMixin:
                 use_iter=use_iter,
                 max_iter=max_iter,
             )
-        except ImportError as exc:
-            message("error", f"Zapline requires meegkit: {exc}")
-            return inst
-        except Exception as exc:
+        except (ImportError, Exception) as exc:
+            # Check if it's a BlockDependencyError (which is a subclass of Exception)
+            # These need to propagate to pipeline level for user-friendly handling
+            from autoclean.utils.block_errors import BlockDependencyError
+
+            if isinstance(exc, BlockDependencyError):
+                raise
+
+            # For other exceptions, log and return original data
             message("error", f"Zapline failed: {exc}")
             return inst
 

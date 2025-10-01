@@ -86,6 +86,7 @@ from autoclean.utils.auth import (
     get_current_user_for_audit,
     require_authentication,
 )
+from autoclean.utils.block_errors import BlockDependencyError
 from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
@@ -639,6 +640,63 @@ class Pipeline:
                     },
                 )
 
+        except BlockDependencyError as e:
+            # Handle missing block dependencies with user-friendly messages
+            from rich.console import Console
+
+            console = Console()
+
+            # Show detailed user-friendly help message first
+            console.print()
+            e.print_detailed_help(console)
+            console.print()
+
+            # Update status marker if available
+            if task_root is not None:
+                update_status_marker(
+                    task_root,
+                    "failed",
+                    run_id=run_id,
+                    details={
+                        "task": task,
+                        "unprocessed_file": str(unprocessed_file),
+                        "error": "missing_dependency",
+                        "block": e.block_name,
+                    },
+                )
+
+            # Try to update database with failure status (may fail if already marked completed)
+            try:
+                manage_database(
+                    operation="update",
+                    update_record={
+                        "run_id": run_record["run_id"],
+                        "status": "failed",
+                        "error": f"Missing dependencies for {e.block_name} block",
+                        "success": False,
+                    },
+                )
+            except Exception:  # pylint: disable=broad-except
+                pass  # Silently ignore database errors during cleanup
+
+            # Create minimal JSON summary for record keeping
+            try:
+                json_summary = create_json_summary(run_id, [])
+                if json_summary:
+                    manage_database(
+                        operation="update",
+                        update_record={
+                            "run_id": run_record["run_id"],
+                            "metadata": {"json_summary": json_summary},
+                        },
+                    )
+            except Exception:  # pylint: disable=broad-except
+                pass  # Silently ignore database errors during cleanup
+
+            # Re-raise with a marker attribute so calling code knows it was already handled
+            e._already_displayed = True  # pylint: disable=protected-access
+            raise
+
         except Exception as e:
             if task_root is not None:
                 update_status_marker(
@@ -904,6 +962,13 @@ class Pipeline:
         for file_path in files:
             try:
                 self._entrypoint(file_path, task)
+            except BlockDependencyError as e:
+                # Dependency error already displayed with detailed help
+                # Just note the failure and continue to next file
+                if not getattr(e, "_already_displayed", False):
+                    # Safety fallback if error wasn't already displayed
+                    message("error", f"Missing dependencies for {e.block_name} block")
+                continue
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
@@ -1022,6 +1087,12 @@ class Pipeline:
                     # but the lock is mainly for the bids step itself)
                     await self._entrypoint_async(file_path, task)
                     pbar.write(f"✓ Completed: {file_path.name}")
+                except BlockDependencyError as e:
+                    # Dependency error already displayed with detailed help
+                    if not getattr(e, "_already_displayed", False):
+                        pbar.write(f"✗ Failed: {file_path.name} - Missing dependencies for {e.block_name}")
+                    else:
+                        pbar.write(f"✗ Failed: {file_path.name} - Missing dependencies")
                 except Exception as e:  # pylint: disable=broad-except
                     pbar.write(f"✗ Failed: {file_path.name} - {str(e)}")
                 finally:

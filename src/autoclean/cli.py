@@ -2352,6 +2352,15 @@ def cmd_process(args) -> int:
         return 0
 
     except Exception as e:
+        # Check if this is a BlockDependencyError (already displayed with details)
+        from autoclean.utils.block_errors import BlockDependencyError
+
+        if isinstance(e, BlockDependencyError):
+            # Error already displayed with user-friendly help
+            # Exit cleanly without additional error message
+            return 1
+
+        # For other exceptions, show error message
         message("error", f"Processing failed: {str(e)}")
         return 1
 

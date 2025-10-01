@@ -84,12 +84,20 @@ def apply_zapline_dss(
     .. [2] de Cheveigné, A., & Simon, J. Z. (2008). Denoising based on spatial
        filtering. Journal of Neuroscience Methods, 171(2), 331-339.
     """
-    # Import meegkit (raise informative error if not installed)
+    # Import meegkit (raise user-friendly error if not installed)
     try:
         from meegkit import dss
     except ImportError:
-        raise ImportError(
-            "meegkit is required for Zapline. Install with: pip install meegkit"
+        from autoclean.utils.block_errors import raise_dependency_error
+
+        raise_dependency_error(
+            block_name="zapline",
+            missing_packages=[("meegkit", ">=0.1.9")],
+            what_it_does=(
+                "Zapline removes electrical noise (like the hum from power outlets) "
+                "from your EEG recordings. This makes your brain signals cleaner "
+                "and easier to analyze."
+            )
         )
 
     # Validate input
