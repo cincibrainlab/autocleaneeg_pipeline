@@ -7,7 +7,9 @@ from typing import Optional
 
 from rich.panel import Panel
 from rich.table import Table
+from rich.text import Text
 
+from autoclean.utils.block_registry import BlockRegistry
 from autoclean.utils.console import get_console
 
 
@@ -17,7 +19,7 @@ def get_blocks_dir() -> Path:
 
 
 def load_registry() -> dict:
-    """Load the block registry."""
+    """Load the block registry (legacy function for backwards compatibility)."""
     registry_path = get_blocks_dir() / "registry.json"
     if not registry_path.exists():
         return {"blocks": [], "total_blocks": 0}
@@ -27,7 +29,17 @@ def load_registry() -> dict:
 
 
 def load_block_manifest(category: str, block_name: str) -> Optional[dict]:
-    """Load manifest for a specific block."""
+    """Load manifest for a specific block (from bundled or cache)."""
+    # Try cache first
+    cache_path = Path.home() / ".config" / "autocleaneeg" / ".block_cache" / category / block_name / "manifest.json"
+    if cache_path.exists():
+        try:
+            with open(cache_path) as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    # Fallback to bundled
     manifest_path = get_blocks_dir() / category / block_name / "manifest.json"
     if not manifest_path.exists():
         return None
@@ -37,25 +49,33 @@ def load_block_manifest(category: str, block_name: str) -> Optional[dict]:
 
 
 def cmd_blocks_list(args) -> int:
-    """List all bundled blocks."""
+    """List all available blocks (from cache/bundled)."""
     console = get_console(args.theme if hasattr(args, "theme") else None)
 
-    registry = load_registry()
-    blocks = registry.get("blocks", [])
+    registry = BlockRegistry()
+    blocks = registry.list_blocks()
 
     if not blocks:
-        console.print("[warning]No blocks found in bundle[/warning]")
+        console.print("[warning]No blocks found[/warning]")
         return 0
 
     # Group by category
     categories = {}
     for block in blocks:
-        cat = block.get("category", "unknown")
+        cat = block.category
         if cat not in categories:
             categories[cat] = []
         categories[cat].append(block)
 
-    console.print(f"\n[success]Bundled Blocks ({len(blocks)} total)[/success]\n")
+    # Get registry status
+    registry_info = registry.registry_status()
+    commit_raw = registry_info.get("commit")
+    commit = commit_raw or "not yet synced"
+    if commit in {"unknown", ""}:
+        commit = "not yet synced"
+
+    console.print(f"\n[success]Processing Blocks ({len(blocks)} total)[/success]")
+    console.print(f"[dim]Registry version: {commit}[/dim]\n")
 
     for category in sorted(categories.keys()):
         # Create table for this category
@@ -68,26 +88,46 @@ def cmd_blocks_list(args) -> int:
 
         table.add_column("Name", style="cyan", no_wrap=True)
         table.add_column("Version", style="green")
+        table.add_column("Source", style="yellow", no_wrap=True)
         table.add_column("Description", style="white")
 
-        for block in sorted(categories[category], key=lambda b: b.get("name", "")):
+        for block in sorted(categories[category], key=lambda b: b.name):
+            source = registry.block_source(block.name)
+            # Get sync status
+            status_info = registry.block_sync_status(block.name)
+            status = status_info.get("status", "unknown")
+
+            # Format source display
+            if status == "synced":
+                source_display = f"{source}"
+            elif status == "outdated":
+                source_display = f"{source} (outdated)"
+            elif status == "cache_only":
+                source_display = "cache"
+            else:
+                source_display = source
+
             table.add_row(
-                block.get("name", "unknown"),
-                block.get("version", "?"),
-                block.get("description", "")[:80],
+                block.name,
+                block.version,
+                source_display,
+                block.description[:80],
             )
 
         console.print(table)
         console.print()
 
-    # Show registry metadata
-    console.print(
-        f"[dim]Registry generated: {registry.get('generated_at', 'unknown')}[/dim]"
-    )
-    console.print(
-        f"[dim]Source: {registry.get('source', 'unknown')}[/dim]"
-    )
-    console.print()
+    # Show last update summary if available
+    update_summary = registry.last_update_summary()
+    if any(update_summary.values()):
+        console.print("[dim]Last update:[/dim]")
+        if update_summary["new"]:
+            console.print(f"  [success]New:[/success] {', '.join(update_summary['new'])}")
+        if update_summary["updated"]:
+            console.print(f"  [accent]Updated:[/accent] {', '.join(update_summary['updated'])}")
+        if update_summary["removed"]:
+            console.print(f"  [warning]Removed:[/warning] {', '.join(update_summary['removed'])}")
+        console.print()
 
     return 0
 
@@ -99,35 +139,43 @@ def cmd_blocks_info(args) -> int:
     block_name = args.block_name
 
     # Find block in registry
-    registry = load_registry()
-    blocks = registry.get("blocks", [])
-    block_entry = next((b for b in blocks if b.get("name") == block_name), None)
+    registry = BlockRegistry()
+    block = registry.get_block(block_name)
 
-    if not block_entry:
+    if not block:
         console.print(f"[error]Block not found: {block_name}[/error]")
         console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
         return 1
 
+    # Get sync status
+    status_info = registry.block_sync_status(block.name)
+    status = status_info.get("status", "unknown")
+    source = status_info.get("source", "unknown")
+
     # Load full manifest
-    category = block_entry.get("category", "unknown")
-    manifest = load_block_manifest(category, block_name)
+    manifest = load_block_manifest(block.category, block_name)
 
     if not manifest:
         console.print(f"[error]Manifest not found for: {block_name}[/error]")
         return 1
 
-    # Display block info
+    # Display block info with sync status
     console.print()
+    title_text = Text()
+    title_text.append("Block Information", style="bold")
+
     console.print(
         Panel(
             f"[accent bold]{manifest.get('name', 'Unknown')}[/accent bold] [dim]v{manifest.get('version', '?')}[/dim]",
-            title="Block Information",
+            title=title_text,
             border_style="cyan",
         )
     )
 
     console.print(f"\n[bold]Description:[/bold] {manifest.get('description', 'N/A')}")
     console.print(f"[bold]Category:[/bold] {manifest.get('category', 'N/A')}")
+    console.print(f"[bold]Source:[/bold] {source}")
+    console.print(f"[bold]Status:[/bold] {status}")
     console.print(f"[bold]Author:[/bold] {manifest.get('author', 'N/A')}")
     console.print(f"[bold]License:[/bold] {manifest.get('license', 'N/A')}")
 
@@ -175,19 +223,63 @@ def cmd_blocks_info(args) -> int:
 
 
 def cmd_blocks_update(args) -> int:
-    """Update blocks from task-registry (placeholder for now)."""
+    """Update blocks from task-registry GitHub."""
     console = get_console(args.theme if hasattr(args, "theme") else None)
 
-    console.print("[warning]Block update functionality coming in v2.5.0[/warning]")
-    console.print()
-    console.print("[dim]Planned functionality:[/dim]")
-    console.print("  - Fetch latest blocks from task-registry")
-    console.print("  - Compare versions and show updates available")
-    console.print("  - Allow selective block updates")
-    console.print()
-    console.print(
-        "[info]For now, blocks are bundled with pipeline releases.[/info]"
-    )
-    console.print()
+    console.print("→ Updating blocks from GitHub registry...\n")
 
+    registry = BlockRegistry()
+    allow_network = not getattr(args, "no_network", False)
+    msg = registry.update_cache(allow_network=allow_network)
+
+    console.print(msg)
+
+    # Show update summary if available
+    update_summary = registry.last_update_summary()
+    if any(update_summary.values()):
+        console.print()
+        if update_summary["new"]:
+            console.print("[success]New blocks:[/success]")
+            for name in update_summary["new"]:
+                console.print(f"  + {name}")
+
+        if update_summary["updated"]:
+            console.print("[accent]Updated blocks:[/accent]")
+            for name in update_summary["updated"]:
+                console.print(f"  ↻ {name}")
+
+        if update_summary["removed"]:
+            console.print("[warning]Removed blocks:[/warning]")
+            for name in update_summary["removed"]:
+                console.print(f"  - {name}")
+
+    console.print()
     return 0
+
+
+def cmd_blocks_install(args) -> int:
+    """Install/download a specific block to cache."""
+    console = get_console(args.theme if hasattr(args, "theme") else None)
+
+    block_name = args.block_name
+    registry = BlockRegistry()
+
+    # Check if block exists
+    block = registry.get_block(block_name)
+    if not block:
+        console.print(f"[error]Block not found: {block_name}[/error]")
+        console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
+        return 1
+
+    console.print(f"→ Installing block [accent]{block_name}[/accent]...")
+
+    try:
+        dest_path = registry.materialize_block_to(block_name, registry.cache_root)
+        console.print(f"[success]✓[/success] Block installed to cache: {dest_path}")
+        console.print()
+        console.print("[dim]The block will be automatically discovered on next pipeline run.[/dim]")
+        console.print()
+        return 0
+    except Exception as exc:
+        console.print(f"[error]Failed to install block: {exc}[/error]")
+        return 1

@@ -117,6 +117,12 @@ autocleaneeg-pipeline review --output results/
 autocleaneeg-pipeline task schema export -o schema.json
 autocleaneeg-pipeline task schema export --bundle
 
+# Block management (v3.0.0+)
+autocleaneeg-pipeline blocks list                    # List available processing blocks
+autocleaneeg-pipeline blocks info wavelet_threshold  # Show block metadata
+autocleaneeg-pipeline blocks update                  # Fetch latest blocks from GitHub
+autocleaneeg-pipeline blocks install autoreject      # Download block to cache
+
 # Audit log export
 autocleaneeg-pipeline export-access-log --output audit.jsonl
 autocleaneeg-pipeline export-access-log --format csv --output audit.csv
@@ -140,6 +146,66 @@ The system maintains tamper-proof audit logging with cryptographic integrity:
 - **Task file tracking**: SHA256 hash and full source code captured for reproducibility
 - **Database protection**: SQL triggers prevent modification of completed runs
 - **Export formats**: JSONL, CSV, human-readable reports
+
+## Block Update System (v3.0.0+)
+
+Processing blocks use a **three-tier cache system** (mirrors task library architecture):
+
+### Architecture
+```
+1. Cache (Priority 1): ~/.config/autocleaneeg/.block_cache/
+   - Downloaded via 'blocks update' command
+   - Fetched from autocleaneeg-task-registry GitHub repo
+   - SHA256 hash tracking for integrity
+
+2. Bundled (Priority 2): src/autoclean/blocks/
+   - Shipped with pipeline releases
+   - Offline fallback when network unavailable
+
+3. External (Priority 3): ~/.autoclean/blocks/ or ./blocks/
+   - User-created custom blocks (plugin system)
+```
+
+### Workflow
+
+**Update blocks from GitHub:**
+```bash
+autocleaneeg-pipeline blocks update
+# Output:
+# → Updating blocks from GitHub registry...
+# Block Library refreshed (version abc1234).
+#   New: fooof_aperiodic
+#   Updated: wavelet_threshold
+```
+
+**List available blocks:**
+```bash
+autocleaneeg-pipeline blocks list
+# Shows: name, version, source (cache/bundled/external), description
+```
+
+**View block details:**
+```bash
+autocleaneeg-pipeline blocks info wavelet_threshold
+# Shows: metadata, API, dependencies, references, sync status
+```
+
+**Install specific block:**
+```bash
+autocleaneeg-pipeline blocks install autoreject
+# Downloads to cache, auto-discovered on next pipeline run
+```
+
+### Discovery System
+Blocks are automatically loaded at import time in this order:
+1. Cache blocks (if updated)
+2. Bundled blocks (shipped with pipeline)
+3. External user blocks (for custom extensions)
+
+All discovered blocks become methods on the `Task` class via mixin inheritance.
+
+### Offline Operation
+If GitHub is unreachable, the system gracefully falls back to bundled blocks. No network connection required for normal operation.
 
 ## API Migration (v1.x → v2.0.0+)
 ```python

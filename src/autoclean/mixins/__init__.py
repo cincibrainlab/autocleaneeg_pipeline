@@ -248,22 +248,41 @@ for module_info in pkgutil.iter_modules([str(_current_package_path)]):
             print("=" * 80)
             raise SystemExit(f"Critical module error: {full_item_name} - {e}")
 
-# --- Bundled Block Discovery ---
-# Discover blocks bundled with the pipeline from src/autoclean/blocks/
+# --- Bundled Block Discovery (Three-Tier System) ---
+# Discover blocks from cache → bundled → task-registry (mirrors task library pattern)
 _discovered_bundled_mixins: List[Type[Any]] = []
-_bundled_blocks_path = Path(__file__).parent.parent / "blocks"
+_loaded_block_names: set = set()  # Track which blocks we've already loaded
 
-if _bundled_blocks_path.exists():
-    # Find all mixin.py files in bundled blocks
-    for mixin_file in _bundled_blocks_path.rglob("mixin.py"):
-        # Get the block structure: blocks/{category}/{block_name}/mixin.py
+# Three-tier priority system (like task library)
+_BLOCK_SEARCH_PATHS = [
+    Path.home() / ".config" / "autocleaneeg" / ".block_cache",  # 1. Cache (from updates)
+    Path(__file__).parent.parent / "blocks",                     # 2. Bundled (fallback)
+]
+
+# Add task-registry blocks if env var is set
+import os
+if os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH"):
+    _registry_path = Path(os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH")) / "blocks"
+    _BLOCK_SEARCH_PATHS.append(_registry_path)  # 3. Task-registry (dev mode)
+
+for search_path in _BLOCK_SEARCH_PATHS:
+    if not search_path.exists():
+        continue
+
+    # Find all mixin.py files in block directories
+    for mixin_file in search_path.rglob("mixin.py"):
+        # Get the block structure: {path}/{category}/{block_name}/mixin.py
         try:
-            relative_path = mixin_file.relative_to(_bundled_blocks_path)
+            relative_path = mixin_file.relative_to(search_path)
             if len(relative_path.parts) >= 3:  # category/block_name/mixin.py
                 category = relative_path.parts[0]
                 block_name = relative_path.parts[1]
 
-                # Create a module name for the bundled block
+                # Skip if we've already loaded this block (from higher priority source)
+                if block_name in _loaded_block_names:
+                    continue
+
+                # Create a module name for the block
                 module_name = f"autoclean_bundled_blocks.{category}.{block_name}.mixin"
 
                 # Load the module directly from file path
@@ -282,10 +301,13 @@ if _bundled_blocks_path.exists():
                         ):
                             if class_obj not in _discovered_bundled_mixins:
                                 _discovered_bundled_mixins.append(class_obj)
-                                # print(f"✓ Loaded bundled block: {class_name} from {category}/{block_name}")
+                                _loaded_block_names.add(block_name)
+                                # Uncomment for debugging:
+                                # source = "cache" if search_path.name == ".block_cache" else "bundled"
+                                # print(f"✓ Loaded {source} block: {class_name} from {category}/{block_name}")
         except Exception as e:
-            # Don't fail on bundled block errors - just warn
-            print(f"Warning: Could not load bundled block from {mixin_file}: {e}")
+            # Don't fail on block errors - just warn
+            print(f"Warning: Could not load block from {mixin_file}: {e}")
             continue
 
 # --- External Block Discovery ---

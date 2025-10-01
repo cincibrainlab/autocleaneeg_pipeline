@@ -467,6 +467,27 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
+    if topic in {"block", "blocks"}:
+        console.print("[header]Block Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        rows = [
+            ("🧱 blocks list", "List available processing blocks"),
+            ("🔎 blocks info <name>", "Show metadata for a block"),
+            ("🔄 blocks update", "Refresh blocks from the task registry"),
+            ("💾 blocks install <name>", "Install block to cache"),
+        ]
+        for c, d in rows:
+            tbl.add_row(c, d)
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
+        console.print()
+        return
+
     if topic in {"montage", "montages"}:
         console.print("[header]Montage Commands[/header]")
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
@@ -582,28 +603,43 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
-    console.print("[header]Commands[/header]")
-    tbl = _Table(show_header=False, box=None, padding=(0, 1))
-    tbl.add_column("Command", style="accent", no_wrap=True)
-    tbl.add_column("Description", style="muted")
+    console.print("[muted]Tip: use 'help <topic>' to see focused command groups.[/muted]")
+    console.print()
+    console.print("[header]Main Commands[/header]")
 
-    rows = [
-        ("❓ help", "Show help and topics (alias for -h/--help)"),
+    grid = _Table.grid(expand=True, padding=(0, 3))
+    columns = 6
+    for _ in range(columns):
+        grid.add_column(ratio=1)
+
+    def _format_entry(command: str, description: str) -> str:
+        return f"[accent]{command}[/accent]\n[muted]{description}[/muted]"
+
+    entries = [
         ("✨ wizard", "Guided first-run setup"),
         ("🗂\u00a0 workspace", "Configure workspace folder"),
-        ("👁\u00a0 view", "View EEG file (MNE-QT)"),
         ("🗂\u00a0 task", "Manage tasks (list, explore)"),
-        ("🧭\u00a0 montage", "List montages and update active task"),
+        ("🧱 blocks", "Manage bundled processing blocks"),
         ("📁\u00a0 input", "Manage active input path"),
         ("▶\u00a0 process", "Process EEG data"),
+        ("👁\u00a0 view", "View EEG file (MNE-QT)"),
+        ("🧭\u00a0 montage", "List montages and update active task"),
         ("📝 review", "Start review GUI"),
         ("🚫 exclude", "Start inclusion/exclusion GUI"),
-        ("🎨 settings", "Manage persistent CLI settings (theme, etc.)"),
+        ("🎨 settings", "Customize CLI defaults and theme"),
         ("🔐 auth", "Authentication & Part-11 commands"),
     ]
-    for c, d in rows:
-        tbl.add_row(c, d)
-    console.print(tbl)
+
+    for idx in range(0, len(entries), columns):
+        row_entries = [
+            _format_entry(command, description)
+            for command, description in entries[idx : idx + columns]
+        ]
+        while len(row_entries) < columns:
+            row_entries.append("")
+        grid.add_row(*row_entries)
+
+    console.print(grid)
     console.print()
     console.print("[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]")
     console.print()
@@ -1271,6 +1307,21 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "update", help="Update blocks from task-registry", add_help=False
     )
     attach_rich_help(blocks_update_parser)
+    blocks_update_parser.add_argument(
+        "--no-network",
+        action="store_true",
+        help="Skip online check (offline mode)",
+    )
+
+    blocks_install_parser = blocks_subparsers.add_parser(
+        "install", help="Install a block to cache", add_help=False
+    )
+    attach_rich_help(blocks_install_parser)
+    blocks_install_parser.add_argument(
+        "block_name",
+        type=str,
+        help="Name of the block to install",
+    )
 
     # Source management commands (deprecated alias)
     source_parser = subparsers.add_parser(
@@ -2766,6 +2817,8 @@ def cmd_blocks(args) -> int:
         return cli_blocks.cmd_blocks_info(args)
     if action == "update":
         return cli_blocks.cmd_blocks_update(args)
+    if action == "install":
+        return cli_blocks.cmd_blocks_install(args)
 
     message("error", f"Unknown blocks action: {action}")
     return 1
