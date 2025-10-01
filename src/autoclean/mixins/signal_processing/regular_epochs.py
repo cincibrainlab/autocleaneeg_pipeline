@@ -87,7 +87,7 @@ class RegularEpochsMixin:
         # Get parameters from config if available
         if config_value and isinstance(config_value, dict):
             # Get epoch settings
-            epoch_value = config_value.get("value", {})
+            epoch_value = config_value.get("value") or {}
             if isinstance(epoch_value, dict):
                 tmin = epoch_value.get("tmin", tmin)
                 tmax = epoch_value.get("tmax", tmax)

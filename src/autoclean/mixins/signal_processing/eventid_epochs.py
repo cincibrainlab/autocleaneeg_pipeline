@@ -82,7 +82,7 @@ class EventIDEpochsMixin:
 
         # Get epoch settings
         if epoch_config and isinstance(epoch_config, dict):
-            epoch_value = epoch_config.get("value", {})
+            epoch_value = epoch_config.get("value") or {}
             if isinstance(epoch_value, dict):
                 tmin = epoch_value.get("tmin", tmin)
                 tmax = epoch_value.get("tmax", tmax)

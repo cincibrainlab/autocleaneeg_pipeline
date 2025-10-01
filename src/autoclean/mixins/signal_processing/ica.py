@@ -82,7 +82,7 @@ class IcaMixin:
         # Run ICA using standalone function
         if is_enabled:
             # Get ICA parameters from config
-            ica_kwargs = config_value.get("value", {})
+            ica_kwargs = config_value.get("value") or {}
 
             # Check for temp_highpass_for_ica in config if not provided
             if temp_highpass_for_ica is None:
@@ -245,7 +245,7 @@ class IcaMixin:
 
             if is_enabled and step_config_main_dict:
                 # Check nested value dict first (common pattern)
-                config_params_nested = step_config_main_dict.get("value", {})
+                config_params_nested = step_config_main_dict.get("value") or {}
 
                 if psd_fmax is None:
                     psd_fmax = config_params_nested.get("psd_fmax")
@@ -398,7 +398,7 @@ class IcaMixin:
             return
 
         # Attempt to get parameters from a nested "value" dictionary first (common pattern)
-        config_params_nested = step_config_main_dict.get("value", {})
+        config_params_nested = step_config_main_dict.get("value") or {}
 
         flags_to_reject = config_params_nested.get("ic_flags_to_reject")
         rejection_threshold = config_params_nested.get("ic_rejection_threshold")

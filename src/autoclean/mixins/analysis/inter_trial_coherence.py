@@ -105,7 +105,7 @@ class InterTrialCoherenceMixin:
 
         # Get parameters from config if available
         if config_value and isinstance(config_value, dict):
-            itc_value = config_value.get("value", {})
+            itc_value = config_value.get("value") or {}
             if isinstance(itc_value, dict):
                 freqs = itc_value.get("freqs", freqs)
                 n_cycles = itc_value.get("n_cycles", n_cycles)

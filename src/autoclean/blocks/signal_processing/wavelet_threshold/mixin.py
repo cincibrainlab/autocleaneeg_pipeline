@@ -50,9 +50,10 @@ class WaveletThresholdMixin:
             message("info", "Wavelet thresholding disabled in configuration")
             return inst
 
-        params = (settings or {}).get("value", {})
-        wavelet_name = params.get("wavelet", "sym4")
-        level_cfg = params.get("level", 5)
+        # Handle case where settings["value"] might be None
+        params = (settings or {}).get("value") or {}
+        wavelet_name = params.get("wavelet") or "sym4"
+        level_cfg = params.get("level") or 5
         if isinstance(level_cfg, str):
             if level_cfg.lower() != "auto":
                 raise ValueError(
@@ -63,11 +64,11 @@ class WaveletThresholdMixin:
             level = int(level_cfg)
             if level < 0:
                 raise ValueError("wavelet_threshold level must be non-negative")
-        threshold_mode = params.get("threshold_mode", "soft")
-        is_erp = bool(params.get("is_erp", False))
-        bandpass_cfg = params.get("bandpass", (1.0, 30.0))
-        filter_kwargs_cfg = params.get("filter_kwargs")
-        threshold_scale_cfg = params.get("threshold_scale", 1.0)
+        threshold_mode = params.get("threshold_mode") or "soft"
+        is_erp = bool(params.get("is_erp") or False)
+        bandpass_cfg = params.get("bandpass") or (1.0, 30.0)
+        filter_kwargs_cfg = params.get("filter_kwargs")  # Can be None intentionally
+        threshold_scale_cfg = params.get("threshold_scale") or 1.0
         picks_cfg = params.get("picks")
         psd_fmax_cfg = params.get("psd_fmax")
 
