@@ -3804,7 +3804,6 @@ class ExclusionFileSelector(ReviewBase):
         from PyQt6.QtWidgets import QProgressDialog, QMessageBox
         from datetime import datetime
         import mne
-        from ..io.export import save_epochs_to_set
 
         # Find all files with bad epochs marked
         files_to_export = [
@@ -3903,9 +3902,9 @@ class ExclusionFileSelector(ReviewBase):
                     if bad_selection_indices:
                         epochs.drop(bad_selection_indices, reason='USER', verbose=False)
 
-                # Save to qa/ with same filename
+                # Save to qa/ with same filename using MNE's native save
                 dest_file = qa_dir / source_file.name
-                save_epochs_to_set(epochs, str(dest_file))
+                epochs.save(str(dest_file), overwrite=True, verbose=False)
 
                 # Update CSV record with export metadata
                 record['qa_export_hash'] = current_hash
