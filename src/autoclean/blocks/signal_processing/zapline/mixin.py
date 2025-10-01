@@ -2,12 +2,37 @@
 
 from __future__ import annotations
 
+import importlib.util
+from pathlib import Path
 from typing import Optional
 
 import mne
 
-from .algorithm import apply_zapline_dss, compute_line_noise_power
 from autoclean.utils.logging import message
+
+
+# Dynamically load algorithm module to support block portability
+# (blocks are loaded with synthetic module names, so relative imports fail)
+def _load_algorithm_module():
+    """Load algorithm.py from the same directory as this mixin file."""
+    mixin_path = Path(__file__).parent
+    algorithm_path = mixin_path / "algorithm.py"
+
+    spec = importlib.util.spec_from_file_location(
+        "zapline_algorithm", algorithm_path
+    )
+    if spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    raise ImportError(f"Could not load algorithm module from {algorithm_path}")
+
+
+# Load algorithm functions at module import time
+_algorithm = _load_algorithm_module()
+apply_zapline_dss = _algorithm.apply_zapline_dss
+compute_line_noise_power = _algorithm.compute_line_noise_power
 
 
 class ZaplineMixin:
