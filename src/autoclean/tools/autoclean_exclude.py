@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ast
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -865,7 +866,7 @@ class ReviewBase(QWidget):
         if not is_raw and self.current_epochs is not None:
             # Restore previously marked bad epochs before plotting
             self._restore_bad_epochs_to_plot()
-            
+
             self.plot_widget = self.current_epochs.plot(
                 n_epochs=10,
                 show=False,
@@ -876,6 +877,10 @@ class ReviewBase(QWidget):
                 scalings={"eeg": 25e-6},
                 n_channels=self.current_epochs.info["nchan"],
             )
+
+            # Sync browser's bad_epochs list from drop_log and update visuals
+            self._sync_browser_bad_epochs()
+
         elif self.current_raw is not None:
             self.plot_widget = self.current_raw.plot(
                 show=False,
@@ -900,6 +905,31 @@ class ReviewBase(QWidget):
         """Restore previously marked bad epochs to the current epochs before plotting."""
         # This method will be overridden in ExclusionFileSelector to restore bad epochs
         pass
+
+    def _sync_browser_bad_epochs(self) -> None:
+        """Sync browser's bad_epochs list from drop_log and update visuals."""
+        if not self.plot_widget or not hasattr(self.plot_widget, 'mne'):
+            return
+
+        # Extract bad epoch numbers from drop_log
+        bad_epoch_nums = []
+        if hasattr(self.current_epochs, 'drop_log') and hasattr(self.current_epochs, 'selection'):
+            for idx, log in enumerate(self.current_epochs.drop_log):
+                # Check if this epoch is marked as USER-rejected
+                if log and any(isinstance(entry, str) and entry.upper() == 'USER' for entry in log):
+                    # Get the actual epoch number from selection
+                    if idx < len(self.current_epochs.selection):
+                        bad_epoch_nums.append(self.current_epochs.selection[idx])
+
+        # Update browser's bad_epochs list
+        self.plot_widget.mne.bad_epochs = sorted(bad_epoch_nums)
+        print(f"[EPOCH DEBUG] Synced {len(bad_epoch_nums)} bad epochs to browser: {bad_epoch_nums}")
+
+        # Trigger visual updates
+        if hasattr(self.plot_widget.mne, 'overview_bar'):
+            self.plot_widget.mne.overview_bar.update_bad_epochs()
+        if hasattr(self.plot_widget, 'update_bad_epoch_highlights'):
+            self.plot_widget.update_bad_epoch_highlights()
 
     def closePlot(self) -> None:  # noqa: N802 - legacy public API
         if self.plot_widget is None:
@@ -1103,8 +1133,20 @@ class ProcessingMetricsWidget(QWidget):
         self.rows_container.setSpacing(0)
         layout.addLayout(self.rows_container)
 
+        # Add button row
+        button_row = QHBoxLayout()
+        button_row.setContentsMargins(6, 6, 6, 6)
+        button_row.setSpacing(8)
+
+        self.export_to_qa_btn = QPushButton("Export to QA")
+        self.export_to_qa_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        button_row.addWidget(self.export_to_qa_btn)
+        button_row.addStretch(1)
+
+        layout.addLayout(button_row)
+
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setMaximumHeight(140)
+        self.setMaximumHeight(180)
 
         self._render_no_data("No processing metrics available.")
 
@@ -1851,6 +1893,7 @@ class ExclusionFileSelector(ReviewBase):
         detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.metrics_widget = ProcessingMetricsWidget()
+        self.metrics_widget.export_to_qa_btn.clicked.connect(self._batch_export_to_qa)
         detail_tabs.addTab(self.metrics_widget, "Processing Metrics")
         detail_tabs.addTab(notes_group, "Notes")
         detail_tabs.addTab(related_group, "Related")
@@ -2704,6 +2747,11 @@ class ExclusionFileSelector(ReviewBase):
             print(f"[EPOCH DEBUG] Writing CSV to: {self.decisions_csv_path}")
             rows = []
             for key, record in sorted(self.decisions.items()):
+                # Skip invalid records that are strings instead of dicts
+                if not isinstance(record, dict):
+                    print(f"[WARNING] Skipping invalid record for {key}: {type(record)}")
+                    continue
+
                 row_data = {
                     "entry": key,
                     "status": record.get("status", "UNSET"),
@@ -2717,6 +2765,9 @@ class ExclusionFileSelector(ReviewBase):
                     "bad_epoch_events": record.get("bad_epoch_events", ""),
                     "total_epochs": record.get("total_epochs", 0),
                     "epoch_rejection_rate": record.get("epoch_rejection_rate", 0.0),
+                    "qa_export_hash": record.get("qa_export_hash", ""),
+                    "qa_export_timestamp": record.get("qa_export_timestamp", ""),
+                    "qa_export_path": record.get("qa_export_path", ""),
                 }
                 rows.append(row_data)
                 
@@ -2728,8 +2779,9 @@ class ExclusionFileSelector(ReviewBase):
                 writer = csv.DictWriter(
                     fp, fieldnames=[
                         "entry", "status", "notes", "relative_path", "last_updated",
-                        "epochs_reviewed", "bad_epochs_count", "bad_epoch_indices", 
-                        "bad_epoch_times", "bad_epoch_events", "total_epochs", "epoch_rejection_rate"
+                        "epochs_reviewed", "bad_epochs_count", "bad_epoch_indices",
+                        "bad_epoch_times", "bad_epoch_events", "total_epochs", "epoch_rejection_rate",
+                        "qa_export_hash", "qa_export_timestamp", "qa_export_path"
                     ]
                 )
                 writer.writeheader()
@@ -3099,6 +3151,9 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
         record["status"] = status
@@ -3141,9 +3196,12 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
-        
+
         # Check if we have epochs available
         bad_epochs = []
         total_epochs = 0
@@ -3154,10 +3212,22 @@ class ExclusionFileSelector(ReviewBase):
 
         if self.current_epochs is not None:
             try:
-                bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
-                total_epochs = len(self.current_epochs)
+                # Read from browser's live bad_epochs list if plot is open
+                has_plot = self.plot_widget is not None
+                has_mne = hasattr(self.plot_widget, 'mne') if has_plot else False
+                has_bad_epochs = hasattr(self.plot_widget.mne, 'bad_epochs') if has_mne else False
 
-                print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from drop_log: {bad_epochs}")
+                print(f"[EPOCH DEBUG] Plot widget check: has_plot={has_plot}, has_mne={has_mne}, has_bad_epochs={has_bad_epochs}")
+
+                if has_plot and has_mne and has_bad_epochs:
+                    bad_epochs = list(self.plot_widget.mne.bad_epochs)
+                    print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from browser: {bad_epochs}")
+                else:
+                    # Fall back to drop_log if no plot widget
+                    bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
+                    print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from drop_log: {bad_epochs}")
+
+                total_epochs = len(self.current_epochs)
                 print(f"[EPOCH DEBUG] Total epochs: {total_epochs}")
 
                 # Extract timing and event information for bad epochs
@@ -3232,9 +3302,12 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
-        
+
         # Check if we have epochs available
         bad_epochs = []
         total_epochs = 0
@@ -3450,9 +3523,12 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
-        
+
         # Update record with current epoch information
         bad_epochs_list = sorted(list(bad_epochs))
         total_epochs = len(self.current_epochs) if self.current_epochs else 0
@@ -3691,6 +3767,259 @@ class ExclusionFileSelector(ReviewBase):
             next_item = self.file_tree.topLevelItem(current_index + 1)
             if next_item is not None:
                 self.file_tree.setCurrentItem(next_item)
+
+    # ------------------------------------------------------------------
+    # QA Export functionality
+    # ------------------------------------------------------------------
+    def _calculate_export_hash(self, file_key: str) -> str:
+        """Calculate fast hash using bad_epoch_indices from CSV metadata.
+
+        This avoids reading large .set files by hashing only the metadata
+        that defines which epochs should be dropped.
+
+        Args:
+            file_key: The CSV record key for the file
+
+        Returns:
+            SHA256 hash of the export configuration
+        """
+        record = self.decisions.get(file_key, {})
+        if not isinstance(record, dict):
+            record = {}
+        metadata = {
+            'bad_epoch_indices': record.get('bad_epoch_indices', ''),
+            'total_epochs': record.get('total_epochs', 0),
+            'file_key': file_key
+        }
+        hash_str = json.dumps(metadata, sort_keys=True)
+        return hashlib.sha256(hash_str.encode()).hexdigest()
+
+    def _batch_export_to_qa(self) -> None:
+        """Export cleaned .set files (bad epochs removed) to qa/ folder.
+
+        Only exports files where bad_epochs_count > 0 (modified files).
+        Uses hash checking to avoid redundant writes.
+        Progress is shown via QProgressDialog.
+        """
+        from PyQt6.QtWidgets import QProgressDialog, QMessageBox
+        from datetime import datetime
+        import mne
+
+        # Find all files with bad epochs marked
+        files_to_export = [
+            (key, record) for key, record in self.decisions.items()
+            if isinstance(record, dict) and record.get('bad_epochs_count', 0) > 0
+        ]
+
+        print(f"[QA EXPORT] Found {len(files_to_export)} files to export")
+        for key, record in files_to_export:
+            print(f"[QA EXPORT]   {key}: type={type(record)}, bad_epochs={record.get('bad_epochs_count', 'N/A') if isinstance(record, dict) else 'NOT DICT'}")
+
+        if not files_to_export:
+            QMessageBox.information(
+                self,
+                "No Files to Export",
+                "No files have bad epochs marked for export."
+            )
+            return
+
+        # Create qa/ directory if it doesn't exist
+        qa_dir = self.task_root / "qa" if self.task_root else None
+        if not qa_dir:
+            QMessageBox.warning(
+                self,
+                "Task Root Not Found",
+                "Cannot determine task root directory for QA exports."
+            )
+            return
+
+        qa_dir.mkdir(exist_ok=True)
+
+        # Create progress dialog
+        progress = QProgressDialog(
+            "Exporting cleaned files to QA...",
+            "Cancel",
+            0,
+            len(files_to_export),
+            self
+        )
+        progress.setWindowTitle("Batch Export to QA")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+
+        exported_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for idx, (file_key, record) in enumerate(files_to_export):
+            if progress.wasCanceled():
+                break
+
+            progress.setValue(idx)
+
+            # Debug: verify record type
+            if not isinstance(record, dict):
+                print(f"[QA EXPORT] ERROR: record is {type(record)} not dict for {file_key}")
+                error_count += 1
+                continue
+
+            relative_path = record.get('relative_path', '')
+            progress.setLabelText(f"Processing {relative_path}...")
+
+            try:
+                # Calculate current hash
+                current_hash = self._calculate_export_hash(file_key)
+
+                # Check if already exported with same hash
+                existing_hash = record.get('qa_export_hash', '')
+                if existing_hash == current_hash:
+                    skipped_count += 1
+                    continue
+
+                # Load original file from exports/
+                source_file = self.exports_dir / relative_path
+                if not source_file.exists():
+                    print(f"[QA EXPORT] Source file not found: {source_file}")
+                    error_count += 1
+                    continue
+
+                # Load epochs
+                epochs = mne.read_epochs_eeglab(str(source_file), verbose=False)
+
+                # Get bad epoch indices from CSV
+                bad_indices_str = record.get('bad_epoch_indices', '')
+                if bad_indices_str:
+                    bad_indices = [int(idx.strip()) for idx in bad_indices_str.split(',') if idx.strip()]
+
+                    # Map back to selection indices (in case some epochs were already dropped)
+                    bad_selection_indices = []
+                    for bad_num in bad_indices:
+                        if bad_num in epochs.selection:
+                            sel_idx = epochs.selection.tolist().index(bad_num)
+                            bad_selection_indices.append(sel_idx)
+
+                    # Drop bad epochs
+                    if bad_selection_indices:
+                        epochs.drop(bad_selection_indices, reason='USER', verbose=False)
+
+                # Save to qa/ with same filename using MNE's native save
+                dest_file = qa_dir / source_file.name
+                epochs.save(str(dest_file), overwrite=True, verbose=False)
+
+                # Update CSV record with export metadata
+                record['qa_export_hash'] = current_hash
+                record['qa_export_timestamp'] = datetime.now().isoformat()
+                record['qa_export_path'] = f"qa/{source_file.name}"
+
+                exported_count += 1
+
+            except Exception as e:
+                import traceback
+                print(f"[QA EXPORT] Error exporting {file_key}: {e}")
+                print(f"[QA EXPORT] Traceback: {traceback.format_exc()}")
+                error_count += 1
+
+        progress.setValue(len(files_to_export))
+
+        # Save updated CSV
+        self._commit_decisions()
+
+        # Create unified QA preprocessing log
+        qa_log_path = self._create_qa_preprocessing_log()
+
+        # Show summary
+        summary = f"Export complete:\n\n"
+        summary += f"Exported: {exported_count}\n"
+        summary += f"Skipped (unchanged): {skipped_count}\n"
+        if error_count > 0:
+            summary += f"Errors: {error_count}\n"
+        if qa_log_path:
+            summary += f"\n✓ QA preprocessing log created"
+
+        QMessageBox.information(self, "Export Complete", summary)
+
+    def _create_qa_preprocessing_log(self) -> Optional[Path]:
+        """Create unified QA preprocessing log merging auto and manual metrics.
+
+        Combines preprocessing_log.csv with exclusion decisions to create
+        a comprehensive qa_preprocessing_log.csv in the qa/ folder.
+
+        Returns:
+            Path to generated QA log, or None if preprocessing_log unavailable
+        """
+        import pandas as pd
+
+        # Check if we have preprocessing log
+        if self.preprocessing_log_df is None or self.preprocessing_log_df.empty:
+            print("[QA LOG] No preprocessing log available, skipping QA log generation")
+            return None
+
+        # Check if qa directory exists
+        qa_dir = self.task_root / "qa" if self.task_root else None
+        if not qa_dir or not qa_dir.exists():
+            print("[QA LOG] QA directory not found, skipping QA log generation")
+            return None
+
+        print(f"[QA LOG] Creating QA preprocessing log from {len(self.preprocessing_log_df)} records")
+
+        # Start with copy of preprocessing log
+        qa_log = self.preprocessing_log_df.copy()
+
+        # Get key column from config
+        config = _load_config()
+        key_column = config.get("logfile", {}).get("key_column", "subj_basename") if config else "subj_basename"
+
+        if key_column not in qa_log.columns:
+            print(f"[QA LOG] Warning: key column '{key_column}' not found in preprocessing log")
+            key_column = qa_log.columns[0]  # Fallback to first column
+
+        # Create mapping from entry to manual review data
+        manual_data = {}
+        for entry, record in self.decisions.items():
+            if not isinstance(record, dict):
+                continue
+
+            # Strip suffixes to get subj_basename
+            subj_basename = strip_suffixes(entry, config=config)
+
+            manual_data[subj_basename] = {
+                'qa_status': record.get('status', ''),
+                'manual_bad_epochs': record.get('bad_epochs_count', 0),
+                'manual_bad_epoch_indices': record.get('bad_epoch_indices', ''),
+                'manual_review_timestamp': record.get('last_updated', ''),
+                'manual_review_notes': record.get('notes', ''),
+                'qa_exported': record.get('qa_export_timestamp', ''),
+            }
+
+        # Add new QA columns
+        qa_log['qa_status'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('qa_status', ''))
+        qa_log['manual_bad_epochs'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_bad_epochs', 0))
+        qa_log['manual_bad_epoch_indices'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_bad_epoch_indices', ''))
+        qa_log['manual_review_timestamp'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_review_timestamp', ''))
+        qa_log['manual_review_notes'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_review_notes', ''))
+        qa_log['qa_exported'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('qa_exported', ''))
+
+        # Update original epoch_badtrials to include manual bad epochs
+        if 'epoch_badtrials' in qa_log.columns:
+            qa_log['epoch_badtrials'] = qa_log['epoch_badtrials'].fillna(0) + qa_log['manual_bad_epochs'].fillna(0)
+
+            # Recalculate epoch_percent with updated bad epochs count
+            if 'epoch_trials' in qa_log.columns:
+                qa_log['epoch_percent'] = (
+                    (qa_log['epoch_trials'] - qa_log['epoch_badtrials']) / qa_log['epoch_trials']
+                ).fillna(1.0)
+        else:
+            print("[QA LOG] Warning: 'epoch_badtrials' column not found, cannot update metrics")
+
+        # Save to qa/ folder
+        qa_log_path = qa_dir / "qa_preprocessing_log.csv"
+        qa_log.to_csv(qa_log_path, index=False)
+
+        print(f"[QA LOG] Created QA preprocessing log: {qa_log_path}")
+        print(f"[QA LOG]   - {len(qa_log)} total records")
+        print(f"[QA LOG]   - {len([k for k in manual_data if manual_data[k]['qa_status']])} manually reviewed")
+
+        return qa_log_path
 
 
 def determine_paths(args: argparse.Namespace) -> tuple[Path, Optional[Path]]:
