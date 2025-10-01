@@ -74,7 +74,7 @@ def _filtering_descriptor() -> dict:
             "l_freq": "number|null",
             "h_freq": "number|null",
             "notch_freqs": "number|list[number]|None",
-            "notch_widths": "number|list[number]|None",
+            "notch_widths": "number|list[number]|None (optional, defaults to 0.5)",
         },
     }
 
@@ -247,7 +247,7 @@ def _build_task_settings_schema() -> Schema:
                     "l_freq": Or(int, float, None),
                     "h_freq": Or(int, float, None),
                     "notch_freqs": Or(float, int, list[float], list[int], None),
-                    "notch_widths": Or(float, int, list[float], list[int], None),
+                    Optional("notch_widths"): Or(float, int, list[float], list[int], None),
                 },
             },
             "drop_outerlayer": step_value_list,
