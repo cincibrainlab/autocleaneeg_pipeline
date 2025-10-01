@@ -47,6 +47,17 @@ class ZaplineMixin:
         - max_iter : int
             Maximum iterations for iterative mode
 
+        **When to use Zapline vs Notch Filtering**:
+
+        Zapline is preferred over traditional notch filters because it removes line
+        noise while preserving signal at nearby frequencies. Notch filters create
+        spectral holes that can distort oscillatory activity (e.g., alpha band near
+        line noise harmonics). Zapline uses spatial information to specifically
+        target the noise component, making it ideal for high-density EEG arrays.
+
+        For datasets with <32 channels, consider traditional notch filtering as
+        Zapline's spatial decomposition may be less effective.
+
         Examples
         --------
         In task config:
