@@ -646,54 +646,29 @@ class Pipeline:
 
             console = Console()
 
-            # Show detailed user-friendly help message first
+            # Show detailed user-friendly help message
             console.print()
             e.print_detailed_help(console)
             console.print()
 
-            # Update status marker if available
+            # Update status marker if available (lightweight, non-DB operation)
             if task_root is not None:
-                update_status_marker(
-                    task_root,
-                    "failed",
-                    run_id=run_id,
-                    details={
-                        "task": task,
-                        "unprocessed_file": str(unprocessed_file),
-                        "error": "missing_dependency",
-                        "block": e.block_name,
-                    },
-                )
-
-            # Try to update database with failure status (may fail if already marked completed)
-            try:
-                manage_database(
-                    operation="update",
-                    update_record={
-                        "run_id": run_record["run_id"],
-                        "status": "failed",
-                        "error": f"Missing dependencies for {e.block_name} block",
-                        "success": False,
-                    },
-                )
-            except Exception:  # pylint: disable=broad-except
-                pass  # Silently ignore database errors during cleanup
-
-            # Create minimal JSON summary for record keeping
-            try:
-                json_summary = create_json_summary(run_id, [])
-                if json_summary:
-                    manage_database(
-                        operation="update",
-                        update_record={
-                            "run_id": run_record["run_id"],
-                            "metadata": {"json_summary": json_summary},
+                try:
+                    update_status_marker(
+                        task_root,
+                        "failed",
+                        run_id=run_id,
+                        details={
+                            "task": task,
+                            "unprocessed_file": str(unprocessed_file),
+                            "error": "missing_dependency",
+                            "block": e.block_name,
                         },
                     )
-            except Exception:  # pylint: disable=broad-except
-                pass  # Silently ignore database errors during cleanup
+                except Exception:  # pylint: disable=broad-except
+                    pass  # Status markers are nice-to-have, don't block on errors
 
-            # Re-raise with a marker attribute so calling code knows it was already handled
+            # Re-raise with marker - batch processing will stop immediately
             e._already_displayed = True  # pylint: disable=protected-access
             raise
 
@@ -959,16 +934,25 @@ class Pipeline:
         message("info", f"Found {len(files)} files to process")
 
         # Process each file
-        for file_path in files:
+        for idx, file_path in enumerate(files):
             try:
                 self._entrypoint(file_path, task)
             except BlockDependencyError as e:
                 # Dependency error already displayed with detailed help
-                # Just note the failure and continue to next file
-                if not getattr(e, "_already_displayed", False):
-                    # Safety fallback if error wasn't already displayed
-                    message("error", f"Missing dependencies for {e.block_name} block")
-                continue
+                # Stop processing - missing dependencies affect all files
+                from rich.console import Console
+
+                console = Console()
+                console.print()
+                console.print("[yellow]⚠ Stopping batch processing[/yellow]")
+                console.print(f"[dim]  Processed: {idx} of {len(files)} files[/dim]")
+                console.print(f"[dim]  Remaining: {len(files) - idx - 1} files skipped[/dim]")
+                console.print()
+                console.print(
+                    "[dim]Fix the dependency issue above and re-run to process all files.[/dim]"
+                )
+                console.print()
+                return  # Exit immediately - don't process more files
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
@@ -1076,11 +1060,20 @@ class Pipeline:
         # Create semaphore to prevent resource exhaustion
         sem = asyncio.Semaphore(max_concurrent)
 
+        # Shared flag to stop processing on dependency errors
+        stop_processing = {"flag": False}
+
         # Initialize progress tracking
         pbar = tqdm(total=len(files), desc="Processing files", unit="file")
 
         async def process_with_semaphore(file_path: Path) -> None:
             """Process a single file with semaphore control."""
+            # Check if we should skip due to previous dependency error
+            if stop_processing["flag"]:
+                pbar.write(f"⊘ Skipped: {file_path.name} - Missing dependencies")
+                pbar.update(1)
+                return
+
             async with sem:  # Limit overall concurrent processing
                 try:
                     # Pass the acquired lock information (implicitly via self if needed later,
@@ -1088,11 +1081,10 @@ class Pipeline:
                     await self._entrypoint_async(file_path, task)
                     pbar.write(f"✓ Completed: {file_path.name}")
                 except BlockDependencyError as e:
-                    # Dependency error already displayed with detailed help
-                    if not getattr(e, "_already_displayed", False):
-                        pbar.write(f"✗ Failed: {file_path.name} - Missing dependencies for {e.block_name}")
-                    else:
-                        pbar.write(f"✗ Failed: {file_path.name} - Missing dependencies")
+                    # Set flag to skip remaining files
+                    stop_processing["flag"] = True
+                    pbar.write(f"✗ Failed: {file_path.name} - Missing dependencies")
+                    pbar.write("⚠ Stopping batch - fix dependencies and re-run")
                 except Exception as e:  # pylint: disable=broad-except
                     pbar.write(f"✗ Failed: {file_path.name} - {str(e)}")
                 finally:
