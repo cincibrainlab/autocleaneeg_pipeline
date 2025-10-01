@@ -2747,6 +2747,11 @@ class ExclusionFileSelector(ReviewBase):
             print(f"[EPOCH DEBUG] Writing CSV to: {self.decisions_csv_path}")
             rows = []
             for key, record in sorted(self.decisions.items()):
+                # Skip invalid records that are strings instead of dicts
+                if not isinstance(record, dict):
+                    print(f"[WARNING] Skipping invalid record for {key}: {type(record)}")
+                    continue
+
                 row_data = {
                     "entry": key,
                     "status": record.get("status", "UNSET"),
@@ -2760,6 +2765,9 @@ class ExclusionFileSelector(ReviewBase):
                     "bad_epoch_events": record.get("bad_epoch_events", ""),
                     "total_epochs": record.get("total_epochs", 0),
                     "epoch_rejection_rate": record.get("epoch_rejection_rate", 0.0),
+                    "qa_export_hash": record.get("qa_export_hash", ""),
+                    "qa_export_timestamp": record.get("qa_export_timestamp", ""),
+                    "qa_export_path": record.get("qa_export_path", ""),
                 }
                 rows.append(row_data)
                 
@@ -3776,6 +3784,8 @@ class ExclusionFileSelector(ReviewBase):
             SHA256 hash of the export configuration
         """
         record = self.decisions.get(file_key, {})
+        if not isinstance(record, dict):
+            record = {}
         metadata = {
             'bad_epoch_indices': record.get('bad_epoch_indices', ''),
             'total_epochs': record.get('total_epochs', 0),
@@ -3799,7 +3809,7 @@ class ExclusionFileSelector(ReviewBase):
         # Find all files with bad epochs marked
         files_to_export = [
             (key, record) for key, record in self.decisions.items()
-            if record.get('bad_epochs_count', 0) > 0
+            if isinstance(record, dict) and record.get('bad_epochs_count', 0) > 0
         ]
 
         if not files_to_export:
@@ -3900,7 +3910,7 @@ class ExclusionFileSelector(ReviewBase):
         progress.setValue(len(files_to_export))
 
         # Save updated CSV
-        self._write_csv()
+        self._commit_decisions()
 
         # Show summary
         summary = f"Export complete:\n\n"
