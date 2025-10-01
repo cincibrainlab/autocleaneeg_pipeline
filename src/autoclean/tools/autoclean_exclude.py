@@ -11,6 +11,7 @@ from __future__ import annotations
 import argparse
 import ast
 import csv
+import hashlib
 import json
 import os
 import subprocess
@@ -656,6 +657,11 @@ class ReviewBase(QWidget):
         self.view_record_btn.clicked.connect(self.viewRunRecord)
         self.view_record_btn.setEnabled(False)
         action_bar.addWidget(self.view_record_btn)
+
+        self.export_to_qa_btn = QPushButton("Export to QA")
+        self.export_to_qa_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.export_to_qa_btn.clicked.connect(self._batch_export_to_qa)
+        action_bar.addWidget(self.export_to_qa_btn)
 
         self.exit_btn = QPushButton("Exit")
         self.exit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -2757,8 +2763,9 @@ class ExclusionFileSelector(ReviewBase):
                 writer = csv.DictWriter(
                     fp, fieldnames=[
                         "entry", "status", "notes", "relative_path", "last_updated",
-                        "epochs_reviewed", "bad_epochs_count", "bad_epoch_indices", 
-                        "bad_epoch_times", "bad_epoch_events", "total_epochs", "epoch_rejection_rate"
+                        "epochs_reviewed", "bad_epochs_count", "bad_epoch_indices",
+                        "bad_epoch_times", "bad_epoch_events", "total_epochs", "epoch_rejection_rate",
+                        "qa_export_hash", "qa_export_timestamp", "qa_export_path"
                     ]
                 )
                 writer.writeheader()
@@ -3128,6 +3135,9 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
         record["status"] = status
@@ -3170,9 +3180,12 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
-        
+
         # Check if we have epochs available
         bad_epochs = []
         total_epochs = 0
@@ -3273,9 +3286,12 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
-        
+
         # Check if we have epochs available
         bad_epochs = []
         total_epochs = 0
@@ -3491,9 +3507,12 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_epoch_events": "",
                 "total_epochs": 0,
                 "epoch_rejection_rate": 0.0,
+                "qa_export_hash": "",
+                "qa_export_timestamp": "",
+                "qa_export_path": "",
             },
         )
-        
+
         # Update record with current epoch information
         bad_epochs_list = sorted(list(bad_epochs))
         total_epochs = len(self.current_epochs) if self.current_epochs else 0
@@ -3732,6 +3751,157 @@ class ExclusionFileSelector(ReviewBase):
             next_item = self.file_tree.topLevelItem(current_index + 1)
             if next_item is not None:
                 self.file_tree.setCurrentItem(next_item)
+
+    # ------------------------------------------------------------------
+    # QA Export functionality
+    # ------------------------------------------------------------------
+    def _calculate_export_hash(self, file_key: str) -> str:
+        """Calculate fast hash using bad_epoch_indices from CSV metadata.
+
+        This avoids reading large .set files by hashing only the metadata
+        that defines which epochs should be dropped.
+
+        Args:
+            file_key: The CSV record key for the file
+
+        Returns:
+            SHA256 hash of the export configuration
+        """
+        record = self.decisions.get(file_key, {})
+        metadata = {
+            'bad_epoch_indices': record.get('bad_epoch_indices', ''),
+            'total_epochs': record.get('total_epochs', 0),
+            'file_key': file_key
+        }
+        hash_str = json.dumps(metadata, sort_keys=True)
+        return hashlib.sha256(hash_str.encode()).hexdigest()
+
+    def _batch_export_to_qa(self) -> None:
+        """Export cleaned .set files (bad epochs removed) to qa/ folder.
+
+        Only exports files where bad_epochs_count > 0 (modified files).
+        Uses hash checking to avoid redundant writes.
+        Progress is shown via QProgressDialog.
+        """
+        from PyQt6.QtWidgets import QProgressDialog, QMessageBox
+        from datetime import datetime
+        import mne
+        from ..io.export import save_epochs_to_set
+
+        # Find all files with bad epochs marked
+        files_to_export = [
+            (key, record) for key, record in self.decisions.items()
+            if record.get('bad_epochs_count', 0) > 0
+        ]
+
+        if not files_to_export:
+            QMessageBox.information(
+                self,
+                "No Files to Export",
+                "No files have bad epochs marked for export."
+            )
+            return
+
+        # Create qa/ directory if it doesn't exist
+        qa_dir = self.task_root / "qa" if self.task_root else None
+        if not qa_dir:
+            QMessageBox.warning(
+                self,
+                "Task Root Not Found",
+                "Cannot determine task root directory for QA exports."
+            )
+            return
+
+        qa_dir.mkdir(exist_ok=True)
+
+        # Create progress dialog
+        progress = QProgressDialog(
+            "Exporting cleaned files to QA...",
+            "Cancel",
+            0,
+            len(files_to_export),
+            self
+        )
+        progress.setWindowTitle("Batch Export to QA")
+        progress.setWindowModality(Qt.WindowModality.WindowModal)
+        progress.setMinimumDuration(0)
+
+        exported_count = 0
+        skipped_count = 0
+        error_count = 0
+
+        for idx, (file_key, record) in enumerate(files_to_export):
+            if progress.wasCanceled():
+                break
+
+            progress.setValue(idx)
+            relative_path = record.get('relative_path', '')
+            progress.setLabelText(f"Processing {relative_path}...")
+
+            try:
+                # Calculate current hash
+                current_hash = self._calculate_export_hash(file_key)
+
+                # Check if already exported with same hash
+                existing_hash = record.get('qa_export_hash', '')
+                if existing_hash == current_hash:
+                    skipped_count += 1
+                    continue
+
+                # Load original file from exports/
+                source_file = self.exports_dir / relative_path
+                if not source_file.exists():
+                    print(f"[QA EXPORT] Source file not found: {source_file}")
+                    error_count += 1
+                    continue
+
+                # Load epochs
+                epochs = mne.read_epochs_eeglab(str(source_file), verbose=False)
+
+                # Get bad epoch indices from CSV
+                bad_indices_str = record.get('bad_epoch_indices', '')
+                if bad_indices_str:
+                    bad_indices = [int(idx.strip()) for idx in bad_indices_str.split(',') if idx.strip()]
+
+                    # Map back to selection indices (in case some epochs were already dropped)
+                    bad_selection_indices = []
+                    for bad_num in bad_indices:
+                        if bad_num in epochs.selection:
+                            sel_idx = epochs.selection.tolist().index(bad_num)
+                            bad_selection_indices.append(sel_idx)
+
+                    # Drop bad epochs
+                    if bad_selection_indices:
+                        epochs.drop(bad_selection_indices, reason='USER', verbose=False)
+
+                # Save to qa/ with same filename
+                dest_file = qa_dir / source_file.name
+                save_epochs_to_set(epochs, str(dest_file))
+
+                # Update CSV record with export metadata
+                record['qa_export_hash'] = current_hash
+                record['qa_export_timestamp'] = datetime.now().isoformat()
+                record['qa_export_path'] = f"qa/{source_file.name}"
+
+                exported_count += 1
+
+            except Exception as e:
+                print(f"[QA EXPORT] Error exporting {file_key}: {e}")
+                error_count += 1
+
+        progress.setValue(len(files_to_export))
+
+        # Save updated CSV
+        self._write_csv()
+
+        # Show summary
+        summary = f"Export complete:\n\n"
+        summary += f"Exported: {exported_count}\n"
+        summary += f"Skipped (unchanged): {skipped_count}\n"
+        if error_count > 0:
+            summary += f"Errors: {error_count}"
+
+        QMessageBox.information(self, "Export Complete", summary)
 
 
 def determine_paths(args: argparse.Namespace) -> tuple[Path, Optional[Path]]:
