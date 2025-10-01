@@ -111,6 +111,18 @@ def apply_zapline_dss(
     data = raw.get_data().T  # Convert to (n_samples, n_channels)
     sfreq = raw.info['sfreq']
 
+    # Defensive validation of all parameters before passing to meegkit
+    if fline is None:
+        raise ValueError("fline cannot be None")
+    if nkeep is None:
+        raise ValueError("nkeep cannot be None")
+    if sfreq is None:
+        raise ValueError("sfreq cannot be None (check raw.info['sfreq'])")
+
+    fline = float(fline)
+    nkeep = int(nkeep)
+    sfreq = float(sfreq)
+
     # Validate frequency parameters
     nyquist = sfreq / 2
     if fline >= nyquist:
@@ -126,6 +138,10 @@ def apply_zapline_dss(
         'nkeep': nkeep,
     }
 
+    # Calculate appropriate nfft (should be power of 2, at least 1 second of data)
+    # Using None can cause issues in some meegkit versions
+    nfft = int(2 ** np.ceil(np.log2(sfreq)))  # Next power of 2 >= sfreq
+
     if use_iter:
         # Iterative removal - automatically determines convergence
         out, iterations = dss.dss_line_iter(
@@ -133,7 +149,7 @@ def apply_zapline_dss(
             fline=fline,
             sfreq=sfreq,
             nkeep=nkeep,
-            nfft=None,  # Auto-determine FFT length
+            nfft=nfft,
         )
         info['iterations'] = iterations
     else:
@@ -143,7 +159,7 @@ def apply_zapline_dss(
             fline=fline,
             sfreq=sfreq,
             nkeep=nkeep,
-            nfft=None,  # Auto-determine FFT length
+            nfft=nfft,
         )
         info['iterations'] = 1
 
