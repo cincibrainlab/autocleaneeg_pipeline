@@ -3999,17 +3999,17 @@ class ExclusionFileSelector(ReviewBase):
         qa_log['manual_review_notes'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_review_notes', ''))
         qa_log['qa_exported'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('qa_exported', ''))
 
-        # Calculate combined bad epochs (auto + manual)
+        # Update original epoch_badtrials to include manual bad epochs
         if 'epoch_badtrials' in qa_log.columns:
-            qa_log['combined_bad_epochs'] = qa_log['epoch_badtrials'].fillna(0) + qa_log['manual_bad_epochs'].fillna(0)
+            qa_log['epoch_badtrials'] = qa_log['epoch_badtrials'].fillna(0) + qa_log['manual_bad_epochs'].fillna(0)
 
-            # Recalculate combined epoch percent
+            # Recalculate epoch_percent with updated bad epochs count
             if 'epoch_trials' in qa_log.columns:
-                qa_log['combined_epoch_percent'] = (
-                    (qa_log['epoch_trials'] - qa_log['combined_bad_epochs']) / qa_log['epoch_trials']
+                qa_log['epoch_percent'] = (
+                    (qa_log['epoch_trials'] - qa_log['epoch_badtrials']) / qa_log['epoch_trials']
                 ).fillna(1.0)
         else:
-            print("[QA LOG] Warning: 'epoch_badtrials' column not found, skipping combined metrics")
+            print("[QA LOG] Warning: 'epoch_badtrials' column not found, cannot update metrics")
 
         # Save to qa/ folder
         qa_log_path = qa_dir / "qa_preprocessing_log.csv"
