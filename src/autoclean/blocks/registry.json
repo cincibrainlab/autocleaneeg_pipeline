@@ -18,6 +18,13 @@
       "description": "Data-driven automated artifact rejection and channel interpolation for EEG epochs using machine learning-based cross-validation"
     },
     {
+      "name": "zapline",
+      "category": "signal_processing",
+      "path": "blocks/signal_processing/zapline",
+      "version": "1.0.0",
+      "description": "Zapline DSS-based line noise removal using Denoising Source Separation for removing power line artifacts from EEG/MEG data"
+    },
+    {
       "name": "fooof_analysis",
       "category": "analysis",
       "path": "blocks/analysis/fooof_analysis",

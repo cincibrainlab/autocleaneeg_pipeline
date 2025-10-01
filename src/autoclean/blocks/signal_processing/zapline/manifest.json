@@ -1,0 +1,161 @@
+{
+  "name": "zapline",
+  "version": "1.0.0",
+  "description": "Zapline DSS-based line noise removal using Denoising Source Separation for removing power line artifacts from EEG/MEG data",
+  "author": "AutoCleanEEG Team",
+  "maintainer": "ernest.pedapati@cchmc.org",
+  "license": "MIT",
+  "category": "signal_processing",
+
+  "api": {
+    "mixin_class": "ZaplineMixin",
+    "mixin_method": "apply_zapline",
+    "config_key": "apply_zapline",
+    "schema_function": "zapline_descriptor"
+  },
+
+  "dependencies": {
+    "python": ">=3.10",
+    "packages": {
+      "mne": ">=1.10.0",
+      "numpy": ">=2.0.0",
+      "scipy": ">=1.16.0",
+      "meegkit": ">=0.1.9"
+    },
+    "autocleaneeg-pipeline": ">=3.0.0"
+  },
+
+  "compatibility": {
+    "data_types": ["raw"],
+    "processing_stages": ["post_filtering", "pre_ica", "post_ica"],
+    "min_channels": 1,
+    "requires_montage": false,
+    "requires_reference": false
+  },
+
+  "computational_requirements": {
+    "memory_gb": 2,
+    "estimated_time_minutes": "1-3 per subject",
+    "cpu_intensive": false,
+    "supports_parallel": false
+  },
+
+  "outputs": {
+    "primary": {
+      "type": "Raw",
+      "format": "MNE Raw object",
+      "saved_to": "derivatives/zapline/",
+      "description": "Raw data with line noise removed via DSS"
+    }
+  },
+
+  "parameters": {
+    "fline": {
+      "type": "float",
+      "default": 60,
+      "description": "Line noise frequency (Hz): 60 for US/Americas, 50 for Europe/Asia",
+      "options": [50, 60]
+    },
+    "nkeep": {
+      "type": "int",
+      "default": 1,
+      "description": "Number of noise components to keep (remove). Use 1 for strongest component.",
+      "range": [1, 5]
+    },
+    "use_iter": {
+      "type": "boolean",
+      "default": false,
+      "description": "Use iterative removal (dss_line_iter) for thorough noise reduction"
+    },
+    "max_iter": {
+      "type": "int",
+      "default": 10,
+      "description": "Maximum iterations for iterative mode (only if use_iter=True)",
+      "range": [1, 50]
+    }
+  },
+
+  "references": [
+    {
+      "name": "ZapLine: A simple and effective method to remove power line artifacts",
+      "authors": "de Cheveigné A",
+      "journal": "NeuroImage",
+      "year": 2020,
+      "volume": 207,
+      "doi": "10.1016/j.neuroimage.2019.116356",
+      "pmid": "31786224",
+      "url": "https://www.sciencedirect.com/science/article/pii/S1053811919309474",
+      "citation": "de Cheveigné, A. (2020). ZapLine: A simple and effective method to remove power line artifacts. NeuroImage, 207, 116356."
+    },
+    {
+      "name": "Denoising based on spatial filtering",
+      "authors": "de Cheveigné A, Simon JZ",
+      "journal": "Journal of Neuroscience Methods",
+      "year": 2008,
+      "volume": 171,
+      "issue": 2,
+      "pages": "331-339",
+      "doi": "10.1016/j.jneumeth.2008.03.015",
+      "description": "Original DSS method paper"
+    },
+    {
+      "name": "MEEGkit Python toolbox",
+      "url": "https://github.com/nbara/python-meegkit",
+      "description": "Python implementation of DSS and ZapLine"
+    }
+  ],
+
+  "use_cases": {
+    "recommended": [
+      "Removing 50/60 Hz power line noise and harmonics",
+      "Cleaning data recorded near electrical equipment",
+      "Preprocessing for frequency analysis sensitive to line noise",
+      "Alternative to notch filtering (preserves signal better)"
+    ],
+    "advantages": [
+      "Better signal preservation than notch filters",
+      "Removes noise spatially (exploits multi-channel structure)",
+      "Can remove harmonics automatically",
+      "Adaptive to noise characteristics"
+    ],
+    "limitations": [
+      "Requires multi-channel data (works best with >32 channels)",
+      "Assumes spatial consistency of noise",
+      "May not work well with very non-stationary noise"
+    ]
+  },
+
+  "quality_metrics": {
+    "evaluation": "Visual inspection of power spectrum before/after",
+    "expected_reduction": "10-30 dB reduction at line frequency",
+    "check_signal_preservation": "Compare ERP/evoked responses before/after"
+  },
+
+  "performance": {
+    "computation_time_minutes": "1-3",
+    "memory_usage_gb": "1-2",
+    "scales_with": ["n_channels", "n_samples", "iterations"]
+  },
+
+  "tags": [
+    "line-noise",
+    "power-line",
+    "50Hz",
+    "60Hz",
+    "zapline",
+    "dss",
+    "denoising",
+    "artifact-removal",
+    "spatial-filtering",
+    "meegkit"
+  ],
+
+  "registry": {
+    "url": "https://registry.autocleaneeg.org/blocks/zapline",
+    "documentation_url": "https://docs.autocleaneeg.org/blocks/zapline",
+    "source_url": "https://github.com/cincibrainlab/autocleaneeg-task-registry/tree/main/blocks/signal_processing/zapline"
+  },
+
+  "created_at": "2025-10-01T07:45:00Z",
+  "updated_at": "2025-10-01T07:45:00Z"
+}
