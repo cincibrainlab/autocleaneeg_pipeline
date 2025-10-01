@@ -658,11 +658,6 @@ class ReviewBase(QWidget):
         self.view_record_btn.setEnabled(False)
         action_bar.addWidget(self.view_record_btn)
 
-        self.export_to_qa_btn = QPushButton("Export to QA")
-        self.export_to_qa_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.export_to_qa_btn.clicked.connect(self._batch_export_to_qa)
-        action_bar.addWidget(self.export_to_qa_btn)
-
         self.exit_btn = QPushButton("Exit")
         self.exit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.exit_btn.clicked.connect(self.close)
@@ -1138,8 +1133,20 @@ class ProcessingMetricsWidget(QWidget):
         self.rows_container.setSpacing(0)
         layout.addLayout(self.rows_container)
 
+        # Add button row
+        button_row = QHBoxLayout()
+        button_row.setContentsMargins(6, 6, 6, 6)
+        button_row.setSpacing(8)
+
+        self.export_to_qa_btn = QPushButton("Export to QA")
+        self.export_to_qa_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        button_row.addWidget(self.export_to_qa_btn)
+        button_row.addStretch(1)
+
+        layout.addLayout(button_row)
+
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setMaximumHeight(140)
+        self.setMaximumHeight(180)
 
         self._render_no_data("No processing metrics available.")
 
@@ -1886,6 +1893,7 @@ class ExclusionFileSelector(ReviewBase):
         detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.metrics_widget = ProcessingMetricsWidget()
+        self.metrics_widget.export_to_qa_btn.clicked.connect(self._batch_export_to_qa)
         detail_tabs.addTab(self.metrics_widget, "Processing Metrics")
         detail_tabs.addTab(notes_group, "Notes")
         detail_tabs.addTab(related_group, "Related")
