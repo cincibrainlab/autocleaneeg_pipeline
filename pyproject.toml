@@ -92,6 +92,24 @@ dependencies = [
     "onnxruntime==1.22.1",
 ]
 
+[project.optional-dependencies]
+# Optional dependencies for processing blocks
+# Install with: uv tool install "autocleaneeg-pipeline[blocks-all]"
+# Or individual groups: uv tool install "autocleaneeg-pipeline[blocks-signal]"
+
+# Signal processing blocks
+blocks-signal = [
+    "meegkit>=0.1.9",  # Required for zapline DSS-based line noise removal
+]
+
+# Analysis blocks (currently all dependencies in main package)
+blocks-analysis = []
+
+# All optional block dependencies
+blocks-all = [
+    "meegkit>=0.1.9",
+]
+
 [tool.uv.sources]
 #autocleaneeg-mne-qt-browser-fork = { path = "/home/ernie/Documents/Github/autocleaneeg-mne-qt-browser-fork", editable = true }
 autocleaneeg-mne-qt-browser-fork = { path = "/Volumes/braindata/cincineuro_github/mne-qt-browser", editable = true }

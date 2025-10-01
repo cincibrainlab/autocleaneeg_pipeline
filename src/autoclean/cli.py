@@ -1304,6 +1304,16 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Name of the block to inspect",
     )
 
+    blocks_deps_parser = blocks_subparsers.add_parser(
+        "deps", help="Show dependencies for a block", add_help=False
+    )
+    attach_rich_help(blocks_deps_parser)
+    blocks_deps_parser.add_argument(
+        "block_name",
+        type=str,
+        help="Name of the block to check dependencies for",
+    )
+
     blocks_update_parser = blocks_subparsers.add_parser(
         "update", help="Update blocks from task-registry", add_help=False
     )
@@ -2847,6 +2857,8 @@ def cmd_blocks(args) -> int:
         return cli_blocks.cmd_blocks_list(args)
     if action == "info":
         return cli_blocks.cmd_blocks_info(args)
+    if action == "deps":
+        return cli_blocks.cmd_blocks_deps(args)
     if action == "update":
         return cli_blocks.cmd_blocks_update(args)
     if action == "install":

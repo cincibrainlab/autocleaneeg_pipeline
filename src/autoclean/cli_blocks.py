@@ -223,6 +223,95 @@ def cmd_blocks_info(args) -> int:
     return 0
 
 
+def cmd_blocks_deps(args) -> int:
+    """Show dependencies for a specific block."""
+    from autoclean.utils.block_dependencies import (
+        get_block_dependency_status,
+        generate_install_command,
+        is_uv_tool_install,
+    )
+
+    console = get_console(args.theme if hasattr(args, "theme") else None)
+    block_name = args.block_name
+    registry = BlockRegistry()
+
+    # Get block info
+    block = registry.get_block(block_name)
+    if not block:
+        console.print(f"[error]Block not found: {block_name}[/error]")
+        console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
+        return 1
+
+    # Find manifest path
+    manifest_path = None
+    if block.cache_path and (block.cache_path / "manifest.json").exists():
+        manifest_path = block.cache_path / "manifest.json"
+    else:
+        # Try bundled
+        bundled_path = Path(__file__).parent / "blocks" / block.category / block.name / "manifest.json"
+        if bundled_path.exists():
+            manifest_path = bundled_path
+
+    if not manifest_path:
+        console.print(f"[error]No manifest found for block: {block_name}[/error]")
+        return 1
+
+    # Get dependency status
+    dep_status = get_block_dependency_status(block_name, manifest_path)
+
+    # Display block header
+    console.print()
+    console.print(f"[bold]Block:[/bold] {block.name}")
+    console.print(f"[bold]Version:[/bold] {block.version}")
+    console.print(f"[bold]Category:[/bold] {block.category}")
+    console.print()
+
+    # Display dependencies
+    if not dep_status["all_deps"]:
+        console.print("[success]✓ This block has no additional dependencies[/success]")
+        console.print()
+        return 0
+
+    console.print("[bold]Dependencies:[/bold]")
+    for pkg, version in dep_status["all_deps"].items():
+        if (pkg, version) in dep_status["missing"]:
+            console.print(f"  [error]✗[/error] {pkg}{version} [dim](missing)[/dim]")
+        else:
+            console.print(f"  [success]✓[/success] {pkg}{version} [dim](installed)[/dim]")
+    console.print()
+
+    # Show installation instructions if there are missing deps
+    if dep_status["has_issues"]:
+        console.print("[yellow]Installation:[/yellow]")
+
+        if is_uv_tool_install():
+            console.print("[dim]You installed via 'uv tool install'. To enable this block:[/dim]")
+            console.print()
+
+            # Option 1: Use blocks enable (future feature)
+            console.print(f"  [accent]autocleaneeg-pipeline blocks enable {block_name}[/accent]")
+            console.print()
+
+            # Option 2: Manual reinstall
+            console.print("[dim]Or manually reinstall with dependencies:[/dim]")
+            cmd = generate_install_command(dep_status["missing"])
+            console.print(f"  [accent]{cmd}[/accent]")
+            console.print()
+
+            # Option 3: Install all blocks
+            console.print("[dim]Or install all block dependencies at once:[/dim]")
+            console.print('  [accent]uv tool install "autocleaneeg-pipeline[blocks-all]"[/accent]')
+        else:
+            console.print("[dim]Install with pip:[/dim]")
+            for pkg, version in dep_status["missing"]:
+                console.print(f"  [accent]pip install '{pkg}{version}'[/accent]")
+    else:
+        console.print("[success]✓ All dependencies are installed[/success]")
+
+    console.print()
+    return 0
+
+
 def cmd_blocks_update(args) -> int:
     """Update blocks from task-registry GitHub."""
     console = get_console(args.theme if hasattr(args, "theme") else None)
