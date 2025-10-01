@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 from typing import Optional
 
@@ -252,6 +253,19 @@ class ZaplineMixin:
             metadata["snr_after"] = float(snr_after)
 
         self._update_metadata("step_zapline", metadata)
+
+        # Also save metadata as JSON file in reports/zapline/
+        try:
+            if hasattr(self, '_resolve_report_path') and hasattr(self, 'config'):
+                basename = self.config.get("unprocessed_file", Path("zapline")).stem
+                json_path = self._resolve_report_path("zapline", f"{basename}_zapline_metadata.json")
+
+                with open(json_path, 'w') as f:
+                    json.dump(metadata, f, indent=2)
+
+                message("info", f"Zapline metadata saved to: {json_path}")
+        except Exception as e:
+            message("debug", f"Could not save zapline JSON: {e}")
 
         message("success", f"Zapline complete ({info.get('iterations')} iterations)")
         return cleaned
