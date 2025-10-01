@@ -3183,10 +3183,16 @@ class ExclusionFileSelector(ReviewBase):
 
         if self.current_epochs is not None:
             try:
-                bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
-                total_epochs = len(self.current_epochs)
+                # Read from browser's live bad_epochs list if plot is open
+                if self.plot_widget and hasattr(self.plot_widget, 'mne') and hasattr(self.plot_widget.mne, 'bad_epochs'):
+                    bad_epochs = list(self.plot_widget.mne.bad_epochs)
+                    print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from browser: {bad_epochs}")
+                else:
+                    # Fall back to drop_log if no plot widget
+                    bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
+                    print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from drop_log: {bad_epochs}")
 
-                print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from drop_log: {bad_epochs}")
+                total_epochs = len(self.current_epochs)
                 print(f"[EPOCH DEBUG] Total epochs: {total_epochs}")
 
                 # Extract timing and event information for bad epochs
