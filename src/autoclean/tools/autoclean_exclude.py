@@ -1133,20 +1133,65 @@ class ProcessingMetricsWidget(QWidget):
         self.rows_container.setSpacing(0)
         layout.addLayout(self.rows_container)
 
-        # Add button row
-        button_row = QHBoxLayout()
-        button_row.setContentsMargins(6, 6, 6, 6)
-        button_row.setSpacing(8)
+        # Add styled button toolbar
+        button_toolbar = QWidget()
+        button_toolbar.setObjectName("qaButtonToolbar")
+        button_toolbar_layout = QHBoxLayout()
+        button_toolbar_layout.setContentsMargins(8, 8, 8, 8)
+        button_toolbar_layout.setSpacing(8)
 
         self.export_to_qa_btn = QPushButton("Export to QA")
         self.export_to_qa_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        button_row.addWidget(self.export_to_qa_btn)
-        button_row.addStretch(1)
+        self.export_to_qa_btn.setMinimumHeight(34)
+        self.export_to_qa_btn.setMaximumWidth(180)
+        self.export_to_qa_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+        self.export_to_qa_btn.setToolTip("Export cleaned .set files (bad epochs removed) to qa/ folder with unified preprocessing log")
+        button_toolbar_layout.addWidget(self.export_to_qa_btn)
 
-        layout.addLayout(button_row)
+        self.open_qa_folder_btn = QPushButton("Open QA Folder")
+        self.open_qa_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.open_qa_folder_btn.setMinimumHeight(34)
+        self.open_qa_folder_btn.setMaximumWidth(180)
+        self.open_qa_folder_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+        self.open_qa_folder_btn.setToolTip("Open the QA folder in your file browser")
+        button_toolbar_layout.addWidget(self.open_qa_folder_btn)
+
+        button_toolbar_layout.addStretch(1)
+
+        button_toolbar.setLayout(button_toolbar_layout)
+        button_toolbar.setStyleSheet(
+            """
+            #qaButtonToolbar {
+                background-color: #f7f9fc;
+                border: 1px solid #d9e2ec;
+                border-radius: 8px;
+            }
+            #qaButtonToolbar QPushButton {
+                background-color: #ffffff;
+                border: 1px solid #d9e2ec;
+                border-radius: 6px;
+                padding: 6px 14px;
+                font-weight: 600;
+                color: #1f2d3d;
+            }
+            #qaButtonToolbar QPushButton:hover {
+                border-color: #3a7bd5;
+                color: #1a4fa3;
+            }
+            #qaButtonToolbar QPushButton:pressed {
+                background-color: #ecf2fb;
+            }
+            #qaButtonToolbar QPushButton:disabled {
+                background-color: #f1f3f6;
+                color: #9aa5b1;
+                border-color: #dfe4ea;
+            }
+            """
+        )
+        layout.addWidget(button_toolbar)
 
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.setMaximumHeight(180)
+        self.setMaximumHeight(200)
 
         self._render_no_data("No processing metrics available.")
 
@@ -1893,7 +1938,21 @@ class ExclusionFileSelector(ReviewBase):
         detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.metrics_widget = ProcessingMetricsWidget()
+
+        # Connect and style Export to QA button
         self.metrics_widget.export_to_qa_btn.clicked.connect(self._batch_export_to_qa)
+        export_icon = self.style().standardIcon(QStyle.SP_DialogSaveButton)
+        if not export_icon.isNull():
+            self.metrics_widget.export_to_qa_btn.setIcon(export_icon)
+            self.metrics_widget.export_to_qa_btn.setIconSize(QSize(18, 18))
+
+        # Connect and style Open QA Folder button
+        self.metrics_widget.open_qa_folder_btn.clicked.connect(self._open_qa_folder)
+        folder_icon = self.style().standardIcon(QStyle.SP_DirIcon)
+        if not folder_icon.isNull():
+            self.metrics_widget.open_qa_folder_btn.setIcon(folder_icon)
+            self.metrics_widget.open_qa_folder_btn.setIconSize(QSize(18, 18))
+
         detail_tabs.addTab(self.metrics_widget, "Processing Metrics")
         detail_tabs.addTab(notes_group, "Notes")
         detail_tabs.addTab(related_group, "Related")
@@ -4020,6 +4079,27 @@ class ExclusionFileSelector(ReviewBase):
         print(f"[QA LOG]   - {len([k for k in manual_data if manual_data[k]['qa_status']])} manually reviewed")
 
         return qa_log_path
+
+    def _open_qa_folder(self) -> None:
+        """Open the QA folder in the system file browser."""
+        if not self.task_root:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(
+                self,
+                "QA Folder Not Found",
+                "Cannot open QA folder: task root directory not set."
+            )
+            return
+
+        qa_dir = self.task_root / "qa"
+        if not qa_dir.exists():
+            from PyQt6.QtWidgets import QMessageBox
+            # Create the qa directory if it doesn't exist
+            qa_dir.mkdir(exist_ok=True)
+            print(f"[QA FOLDER] Created QA directory: {qa_dir}")
+
+        _open_path(qa_dir)
+        print(f"[QA FOLDER] Opened QA folder: {qa_dir}")
 
 
 def determine_paths(args: argparse.Namespace) -> tuple[Path, Optional[Path]]:
