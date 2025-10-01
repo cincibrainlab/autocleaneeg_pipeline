@@ -3924,14 +3924,102 @@ class ExclusionFileSelector(ReviewBase):
         # Save updated CSV
         self._commit_decisions()
 
+        # Create unified QA preprocessing log
+        qa_log_path = self._create_qa_preprocessing_log()
+
         # Show summary
         summary = f"Export complete:\n\n"
         summary += f"Exported: {exported_count}\n"
         summary += f"Skipped (unchanged): {skipped_count}\n"
         if error_count > 0:
-            summary += f"Errors: {error_count}"
+            summary += f"Errors: {error_count}\n"
+        if qa_log_path:
+            summary += f"\n✓ QA preprocessing log created"
 
         QMessageBox.information(self, "Export Complete", summary)
+
+    def _create_qa_preprocessing_log(self) -> Optional[Path]:
+        """Create unified QA preprocessing log merging auto and manual metrics.
+
+        Combines preprocessing_log.csv with exclusion decisions to create
+        a comprehensive qa_preprocessing_log.csv in the qa/ folder.
+
+        Returns:
+            Path to generated QA log, or None if preprocessing_log unavailable
+        """
+        import pandas as pd
+
+        # Check if we have preprocessing log
+        if self.preprocessing_log_df is None or self.preprocessing_log_df.empty:
+            print("[QA LOG] No preprocessing log available, skipping QA log generation")
+            return None
+
+        # Check if qa directory exists
+        qa_dir = self.task_root / "qa" if self.task_root else None
+        if not qa_dir or not qa_dir.exists():
+            print("[QA LOG] QA directory not found, skipping QA log generation")
+            return None
+
+        print(f"[QA LOG] Creating QA preprocessing log from {len(self.preprocessing_log_df)} records")
+
+        # Start with copy of preprocessing log
+        qa_log = self.preprocessing_log_df.copy()
+
+        # Get key column from config
+        config = _load_config()
+        key_column = config.get("logfile", {}).get("key_column", "subj_basename") if config else "subj_basename"
+
+        if key_column not in qa_log.columns:
+            print(f"[QA LOG] Warning: key column '{key_column}' not found in preprocessing log")
+            key_column = qa_log.columns[0]  # Fallback to first column
+
+        # Create mapping from entry to manual review data
+        manual_data = {}
+        for entry, record in self.decisions.items():
+            if not isinstance(record, dict):
+                continue
+
+            # Strip suffixes to get subj_basename
+            subj_basename = strip_suffixes(entry, config=config)
+
+            manual_data[subj_basename] = {
+                'qa_status': record.get('status', ''),
+                'manual_bad_epochs': record.get('bad_epochs_count', 0),
+                'manual_bad_epoch_indices': record.get('bad_epoch_indices', ''),
+                'manual_review_timestamp': record.get('last_updated', ''),
+                'manual_review_notes': record.get('notes', ''),
+                'qa_exported': record.get('qa_export_timestamp', ''),
+            }
+
+        # Add new QA columns
+        qa_log['qa_status'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('qa_status', ''))
+        qa_log['manual_bad_epochs'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_bad_epochs', 0))
+        qa_log['manual_bad_epoch_indices'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_bad_epoch_indices', ''))
+        qa_log['manual_review_timestamp'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_review_timestamp', ''))
+        qa_log['manual_review_notes'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_review_notes', ''))
+        qa_log['qa_exported'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('qa_exported', ''))
+
+        # Calculate combined bad epochs (auto + manual)
+        if 'epoch_badtrials' in qa_log.columns:
+            qa_log['combined_bad_epochs'] = qa_log['epoch_badtrials'].fillna(0) + qa_log['manual_bad_epochs'].fillna(0)
+
+            # Recalculate combined epoch percent
+            if 'epoch_trials' in qa_log.columns:
+                qa_log['combined_epoch_percent'] = (
+                    (qa_log['epoch_trials'] - qa_log['combined_bad_epochs']) / qa_log['epoch_trials']
+                ).fillna(1.0)
+        else:
+            print("[QA LOG] Warning: 'epoch_badtrials' column not found, skipping combined metrics")
+
+        # Save to qa/ folder
+        qa_log_path = qa_dir / "qa_preprocessing_log.csv"
+        qa_log.to_csv(qa_log_path, index=False)
+
+        print(f"[QA LOG] Created QA preprocessing log: {qa_log_path}")
+        print(f"[QA LOG]   - {len(qa_log)} total records")
+        print(f"[QA LOG]   - {len([k for k in manual_data if manual_data[k]['qa_status']])} manually reviewed")
+
+        return qa_log_path
 
 
 def determine_paths(args: argparse.Namespace) -> tuple[Path, Optional[Path]]:
