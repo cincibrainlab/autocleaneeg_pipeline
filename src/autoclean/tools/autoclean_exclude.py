@@ -64,6 +64,7 @@ from qtpy.QtCore import (  # noqa: E402
 from qtpy.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
 from qtpy.QtWidgets import (  # noqa: E402
     QApplication,
+    QComboBox,
     QFileDialog,
     QFrame,
     QGroupBox,
@@ -76,6 +77,7 @@ from qtpy.QtWidgets import (  # noqa: E402
     QPushButton,
     QScrollArea,
     QShortcut,
+    QSpinBox,
     QSplitter,
     QSizePolicy,
     QStackedLayout,
@@ -1365,6 +1367,224 @@ class JsonMetadataViewer(QWidget):
         pass
 
 
+class ReprocessWidget(QWidget):
+    """Widget for editing bad channels and rejected ICA components for reprocessing."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(12)
+        self.setLayout(layout)
+
+        # Store current state
+        self.valid_channels: list[str] = []
+        self.max_components: int = 0
+        self.original_bad_channels: list[str] = []
+        self.original_rejected_ica: list[int] = []
+
+        # Bad Channels Section
+        channels_group = QGroupBox("Bad Channels")
+        channels_layout = QVBoxLayout()
+        channels_layout.setSpacing(6)
+
+        self.channels_list = QListWidget()
+        self.channels_list.setMaximumHeight(120)
+        self.channels_list.setStyleSheet("font-size: 12px;")
+        channels_layout.addWidget(self.channels_list)
+
+        channels_controls = QHBoxLayout()
+        self.channel_combo = QComboBox()
+        self.channel_combo.setEditable(True)
+        self.channel_combo.setPlaceholderText("Select channel...")
+        channels_controls.addWidget(self.channel_combo, 1)
+
+        self.add_channel_btn = QPushButton("Add")
+        self.add_channel_btn.clicked.connect(self._add_channel)
+        self.add_channel_btn.setMaximumWidth(60)
+        channels_controls.addWidget(self.add_channel_btn)
+
+        self.remove_channel_btn = QPushButton("Remove")
+        self.remove_channel_btn.clicked.connect(self._remove_channel)
+        self.remove_channel_btn.setMaximumWidth(80)
+        channels_controls.addWidget(self.remove_channel_btn)
+
+        channels_layout.addLayout(channels_controls)
+        channels_group.setLayout(channels_layout)
+        layout.addWidget(channels_group)
+
+        # Rejected ICA Components Section
+        ica_group = QGroupBox("Rejected ICA Components")
+        ica_layout = QVBoxLayout()
+        ica_layout.setSpacing(6)
+
+        self.ica_list = QListWidget()
+        self.ica_list.setMaximumHeight(120)
+        self.ica_list.setStyleSheet("font-size: 12px;")
+        ica_layout.addWidget(self.ica_list)
+
+        ica_controls = QHBoxLayout()
+        self.ica_spinbox = QSpinBox()
+        self.ica_spinbox.setMinimum(0)
+        self.ica_spinbox.setMaximum(0)
+        self.ica_spinbox.setPrefix("Component ")
+        ica_controls.addWidget(self.ica_spinbox, 1)
+
+        self.add_ica_btn = QPushButton("Add")
+        self.add_ica_btn.clicked.connect(self._add_ica_component)
+        self.add_ica_btn.setMaximumWidth(60)
+        ica_controls.addWidget(self.add_ica_btn)
+
+        self.remove_ica_btn = QPushButton("Remove")
+        self.remove_ica_btn.clicked.connect(self._remove_ica_component)
+        self.remove_ica_btn.setMaximumWidth(80)
+        ica_controls.addWidget(self.remove_ica_btn)
+
+        ica_layout.addLayout(ica_controls)
+        ica_group.setLayout(ica_layout)
+        layout.addWidget(ica_group)
+
+        # Reset button
+        reset_btn = QPushButton("Reset to Original")
+        reset_btn.clicked.connect(self._reset_to_original)
+        reset_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f0f4f8;
+                border: 1px solid #cbd5e0;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #e2e8f0;
+                border-color: #a0aec0;
+            }
+        """)
+        layout.addWidget(reset_btn)
+
+        layout.addStretch(1)
+
+        # Message label for empty state
+        self.message_label = QLabel("Select a file to edit reprocessing parameters")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+        layout.addWidget(self.message_label)
+
+    def load_from_metadata(self, metadata: dict) -> None:
+        """Load bad channels and ICA components from metadata."""
+        # Clear current state
+        self.channels_list.clear()
+        self.ica_list.clear()
+        self.channel_combo.clear()
+
+        # Extract data from metadata
+        bad_channels = metadata.get("bad_channels", [])
+        rejected_ica = metadata.get("rejected_ica", [])
+        valid_channels = metadata.get("valid_channels", [])
+        max_components = metadata.get("max_components", 0)
+
+        # Store original values and validation data
+        self.original_bad_channels = bad_channels.copy()
+        self.original_rejected_ica = rejected_ica.copy()
+        self.valid_channels = valid_channels
+        self.max_components = max_components
+
+        # Populate channel combo
+        self.channel_combo.addItems(valid_channels)
+
+        # Set ICA spinbox range
+        if max_components > 0:
+            self.ica_spinbox.setMaximum(max_components - 1)
+
+        # Populate lists
+        for channel in bad_channels:
+            self.channels_list.addItem(channel)
+
+        for component in rejected_ica:
+            self.ica_list.addItem(f"Component {component}")
+
+        # Show/hide message
+        if valid_channels:
+            self.message_label.hide()
+        else:
+            self.message_label.show()
+
+    def _add_channel(self) -> None:
+        """Add selected channel to bad channels list."""
+        channel = self.channel_combo.currentText().strip().upper()
+        if not channel:
+            return
+
+        # Validate channel
+        if channel not in self.valid_channels:
+            QMessageBox.warning(
+                self,
+                "Invalid Channel",
+                f"'{channel}' is not a valid channel.\nValid channels: {', '.join(self.valid_channels[:10])}..."
+            )
+            return
+
+        # Check if already in list
+        items = [self.channels_list.item(i).text() for i in range(self.channels_list.count())]
+        if channel in items:
+            return
+
+        self.channels_list.addItem(channel)
+        self.channel_combo.setCurrentIndex(-1)
+
+    def _remove_channel(self) -> None:
+        """Remove selected channel from list."""
+        current_item = self.channels_list.currentItem()
+        if current_item:
+            self.channels_list.takeItem(self.channels_list.row(current_item))
+
+    def _add_ica_component(self) -> None:
+        """Add ICA component to rejected list."""
+        component = self.ica_spinbox.value()
+        component_text = f"Component {component}"
+
+        # Check if already in list
+        items = [self.ica_list.item(i).text() for i in range(self.ica_list.count())]
+        if component_text in items:
+            return
+
+        self.ica_list.addItem(component_text)
+
+    def _remove_ica_component(self) -> None:
+        """Remove selected ICA component from list."""
+        current_item = self.ica_list.currentItem()
+        if current_item:
+            self.ica_list.takeItem(self.ica_list.row(current_item))
+
+    def _reset_to_original(self) -> None:
+        """Reset to original values from metadata."""
+        self.channels_list.clear()
+        self.ica_list.clear()
+
+        for channel in self.original_bad_channels:
+            self.channels_list.addItem(channel)
+
+        for component in self.original_rejected_ica:
+            self.ica_list.addItem(f"Component {component}")
+
+    def get_current_values(self) -> dict:
+        """Get current bad channels and rejected ICA components."""
+        bad_channels = [
+            self.channels_list.item(i).text()
+            for i in range(self.channels_list.count())
+        ]
+
+        rejected_ica = [
+            int(self.ica_list.item(i).text().replace("Component ", ""))
+            for i in range(self.ica_list.count())
+        ]
+
+        return {
+            "bad_channels": bad_channels,
+            "rejected_ica": rejected_ica
+        }
+
+
 def _open_path(path: Path) -> None:
     """Open *path* using the default OS handler."""
 
@@ -1401,6 +1621,7 @@ class ExclusionFileSelector(ReviewBase):
         self.summary_chip_labels: Dict[str, QLabel] = {}
         self.notes_edit: Optional[QTextEdit] = None
         self.related_list: Optional[QListWidget] = None
+        self.reprocess_widget: Optional[ReprocessWidget] = None
         self.detail_panel: Optional[QFrame] = None
         self.save_timer: Optional[QTimer] = None
         self._status_buttons: dict[str, QPushButton] = {}
@@ -2077,6 +2298,10 @@ class ExclusionFileSelector(ReviewBase):
         detail_tabs.addTab(notes_group, "Notes")
         detail_tabs.addTab(related_group, "Related")
 
+        # Reprocess tab
+        self.reprocess_widget = ReprocessWidget()
+        detail_tabs.addTab(self.reprocess_widget, "Reprocess")
+
         detail_layout.addWidget(detail_tabs)
         detail_layout.addStretch(1)
 
@@ -2470,6 +2695,7 @@ class ExclusionFileSelector(ReviewBase):
         self._update_run_report_preview_for_file(None)
         self._update_ica_preview_for_file(None)
         self._update_json_metadata_for_file(None)
+        self._update_reprocess_for_file(None)
         self._update_run_report_preview_for_file(None)
 
     def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
@@ -2878,6 +3104,55 @@ class ExclusionFileSelector(ReviewBase):
         else:
             self.json_metadata_viewer.load_json(None)
 
+    def _update_reprocess_for_file(self, file_path: Optional[Path]) -> None:
+        """Update reprocess widget with file's metadata."""
+        if self.reprocess_widget is None:
+            return
+
+        if file_path is None:
+            return
+
+        # Get the normalized stem and construct JSON path
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        if not self.task_root:
+            return
+
+        json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+        if not json_path.exists():
+            return
+
+        try:
+            # Load JSON and extract reprocessing parameters
+            data = json.loads(json_path.read_text())
+            metadata_section = data.get("metadata", {})
+
+            # Extract bad channels
+            bad_channels = metadata_section.get("step_clean_bad_channels", {}).get("bads", [])
+
+            # Extract rejected ICA components
+            ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
+            rejected_ica = ica_rejection.get("ica", {}).get("rejected_indices_this_step", [])
+
+            # Extract valid channels for validation
+            gfp_section = metadata_section.get("step_gfp_clean_epochs", {})
+            valid_channels = gfp_section.get("scalp_channels_used", [])
+
+            # Extract total ICA components
+            ica_section = metadata_section.get("step_run_ica", {})
+            ica_components_str = ica_section.get("ica", {}).get("ica_components", "0")
+            max_components = int(ica_components_str) if ica_components_str else 0
+
+            # Load data into widget
+            self.reprocess_widget.load_from_metadata({
+                "bad_channels": bad_channels,
+                "rejected_ica": rejected_ica,
+                "valid_channels": valid_channels,
+                "max_components": max_components
+            })
+
+        except Exception as e:
+            print(f"Warning: Could not load reprocess data from {json_path}: {e}")
+
     def _handle_plot_tab_changed(self, index: int) -> None:
         if self.plot_tabs is None:
             return
@@ -3218,6 +3493,7 @@ class ExclusionFileSelector(ReviewBase):
         self._update_ica_preview_for_file(file_path)
         self._update_processing_metrics_for_file(file_path)
         self._update_json_metadata_for_file(file_path)
+        self._update_reprocess_for_file(file_path)
 
         if self.status_bar is not None and self.current_display_name:
             self.status_bar.showMessage(f"Queued · {self.current_display_name}")
