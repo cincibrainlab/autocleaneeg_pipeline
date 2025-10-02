@@ -178,21 +178,6 @@ def _safe_float(value: Optional[str]) -> float:
         return 0.0
 
 
-def _longest_common_prefix_length(a: str, b: str) -> int:
-    length = 0
-    for char_a, char_b in zip(a, b):
-        if char_a != char_b:
-            break
-        length += 1
-    return length
-
-
-def _normalized_prefix_score(a: str, b: str) -> int:
-    def normalize(s: str) -> str:
-        return "".join(ch for ch in s if ch.isalnum()).lower()
-
-    return _longest_common_prefix_length(normalize(a), normalize(b))
-
 def _enum_name(value: object) -> str:
     """Return the Enum name if available, otherwise string form."""
     if value is None:
@@ -2750,50 +2735,7 @@ class ExclusionFileSelector(ReviewBase):
         except Exception as e:
             print(f"Warning: Error resolving processing log for {file_path}: {e}")
         
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_processing_log_for_file_legacy(file_path)
-    
-    def _find_processing_log_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy processing log finding method (kept as fallback)."""
-        parent = file_path.parent
-        candidates = list(parent.glob("*_processing_log.csv"))
-        if not candidates:
-            return None
-
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        if len(parts) >= 3:
-            variants.add("_".join(parts[:3]))
-        if len(parts) >= 2:
-            variants.add("_".join(parts[:2]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for log_path in candidates:
-            log_stem = log_path.stem
-            if "_processing_log" in log_stem:
-                log_prefix = log_stem.rsplit("_processing_log", 1)[0]
-            else:
-                log_prefix = log_stem
-
-            score = max(_normalized_prefix_score(log_prefix, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = log_path
-
-        if best_score <= 0:
-            return None
-        return best_path
+        return None
 
     def _psd_reports_dir(self) -> Optional[Path]:
         if self.task_root and (self.task_root / "reports" / "psd_topo").exists():
@@ -2831,48 +2773,7 @@ class ExclusionFileSelector(ReviewBase):
         except Exception as e:
             print(f"Warning: Error resolving PSD overview for {file_path}: {e}")
         
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_psd_overview_for_file_legacy(file_path)
-    
-    def _find_psd_overview_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy PSD overview finding method (kept as fallback)."""
-        psd_dir = self._psd_reports_dir()
-        if psd_dir is None:
-            return None
-
-        candidates = list(psd_dir.glob("*_psd_topo_figure.png"))
-        if not candidates:
-            return None
-
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        for length in range(len(parts), 1, -1):
-            variants.add("_".join(parts[:length]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for candidate in candidates:
-            c_stem = candidate.stem
-            if "_psd_topo" in c_stem:
-                c_stem = c_stem.split("_psd_topo", 1)[0]
-            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = candidate
-
-        if best_score <= 0:
-            return None
-        return best_path
+        return None
 
     def _find_run_report_for_file(self, file_path: Path) -> Optional[Path]:
         """Find run report for a file using configuration-based resolution."""
@@ -2883,70 +2784,7 @@ class ExclusionFileSelector(ReviewBase):
         except Exception as e:
             print(f"Warning: Error resolving run report for {file_path}: {e}")
         
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_run_report_for_file_legacy(file_path)
-    
-    def _find_run_report_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy run report finding method (kept as fallback)."""
-        reports_dir = self._run_reports_dir()
-        if reports_dir is None:
-            log_warning(
-                f"[{_human_timestamp()}] Run report directory missing for {file_path}."
-            )
-            return None
-
-        log_debug(
-            f"[{_human_timestamp()}] Searching run reports in {reports_dir}."
-        )
-        candidates = list(reports_dir.glob("*_autoclean_report.pdf"))
-        if not candidates:
-            candidates = list(reports_dir.glob("*.pdf"))
-        if not candidates:
-            log_info(
-                f"[{_human_timestamp()}] No run report PDFs found in {reports_dir}."
-            )
-            return None
-
-        log_debug(
-            f"[{_human_timestamp()}] Evaluating {len(candidates)} run report candidates for {file_path}."
-        )
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        for length in range(len(parts), 1, -1):
-            variants.add("_".join(parts[:length]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for candidate in candidates:
-            c_stem = candidate.stem
-            for needle in ("_autoclean_report", "_report"):
-                if needle in c_stem:
-                    c_stem = c_stem.split(needle, 1)[0]
-                    break
-            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = candidate
-
-        if best_score <= 0:
-            log_info(
-                f"[{_human_timestamp()}] No suitable run report match for {file_path}."
-            )
-            return None
-        log_debug(
-            f"[{_human_timestamp()}] Best run report match for {file_path}: {best_path} (score={best_score})."
-        )
-        return best_path
+        return None
 
     def _find_ica_overview_for_file(self, file_path: Path) -> Optional[Path]:
         """Find ICA overview for a file using configuration-based resolution."""
@@ -2957,66 +2795,7 @@ class ExclusionFileSelector(ReviewBase):
         except Exception as e:
             print(f"Warning: Error resolving ICA overview for {file_path}: {e}")
         
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_ica_overview_for_file_legacy(file_path)
-    
-    def _find_ica_overview_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy ICA overview finding method (kept as fallback)."""
-        ica_dir = self._ica_reports_dir()
-        if ica_dir is None:
-            log_warning(
-                f"[{_human_timestamp()}] ICA report directory missing for {file_path}."
-            )
-            return None
-
-        log_debug(
-            f"[{_human_timestamp()}] Searching ICA reports in {ica_dir}."
-        )
-        candidates = list(ica_dir.glob("*.pdf"))
-        if not candidates:
-            log_info(f"[{_human_timestamp()}] No ICA PDFs found in {ica_dir}.")
-            return None
-
-        log_debug(
-            f"[{_human_timestamp()}] Evaluating {len(candidates)} ICA report candidates for {file_path}."
-        )
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        for length in range(len(parts), 1, -1):
-            variants.add("_".join(parts[:length]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for candidate in candidates:
-            c_stem = candidate.stem
-            for needle in ("_ica_components", "_components", "_report"):
-                if needle in c_stem:
-                    c_stem = c_stem.split(needle, 1)[0]
-                    break
-            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = candidate
-
-        if best_score <= 0:
-            log_info(
-                f"[{_human_timestamp()}] No suitable ICA report match for {file_path}."
-            )
-            return None
-        log_debug(
-            f"[{_human_timestamp()}] Best ICA report match for {file_path}: {best_path} (score={best_score})."
-        )
-        return best_path
+        return None
 
     def _update_psd_preview_for_file(self, file_path: Optional[Path]) -> None:
         if self.psd_message_label is None or self.psd_image_label is None or self.psd_scroll is None:
