@@ -69,6 +69,7 @@ from qtpy.QtWidgets import (  # noqa: E402
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
@@ -1250,6 +1251,119 @@ class ProcessingMetricsWidget(QWidget):
         self.rows_container.addWidget(spacer)
 
 
+class JsonMetadataViewer(QWidget):
+    """Interactive JSON metadata viewer with tree display and search."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+        self.setLayout(layout)
+
+        # Toolbar with controls
+        toolbar = QWidget()
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(8)
+        toolbar.setLayout(toolbar_layout)
+
+        # Search bar
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search keys...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.textChanged.connect(self._on_search_changed)
+        toolbar_layout.addWidget(self.search_input, 1)
+
+        # Expand/Collapse buttons
+        self.expand_btn = QPushButton("Expand All")
+        self.expand_btn.clicked.connect(self._expand_all)
+        self.expand_btn.setMaximumWidth(100)
+        toolbar_layout.addWidget(self.expand_btn)
+
+        self.collapse_btn = QPushButton("Collapse All")
+        self.collapse_btn.clicked.connect(self._collapse_all)
+        self.collapse_btn.setMaximumWidth(100)
+        toolbar_layout.addWidget(self.collapse_btn)
+
+        layout.addWidget(toolbar)
+
+        # Tree view for JSON
+        self.tree_view = QTreeView()
+        self.tree_view.setAlternatingRowColors(True)
+        self.tree_view.setHeaderHidden(False)
+        self.tree_view.setSortingEnabled(False)
+        self.tree_view.setStyleSheet("""
+            QTreeView {
+                background-color: #ffffff;
+                border: 1px solid #d9e2ec;
+                border-radius: 6px;
+                font-size: 12px;
+            }
+            QTreeView::item {
+                padding: 4px;
+            }
+            QTreeView::item:selected {
+                background-color: #e3f2fd;
+                color: #1565c0;
+            }
+            QTreeView::branch:has-children:closed {
+                image: url(none);
+            }
+            QTreeView::branch:has-children:open {
+                image: url(none);
+            }
+        """)
+        layout.addWidget(self.tree_view)
+
+        # Message label for empty state
+        self.message_label = QLabel("Select a file to view JSON metadata")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setStyleSheet("color: #95a5a6; font-size: 14px;")
+        layout.addWidget(self.message_label)
+
+        self.tree_view.hide()
+        self._current_data = None
+
+    def load_json(self, json_path: Optional[Path]) -> None:
+        """Load and display JSON from file."""
+        if not json_path or not json_path.exists():
+            self.message_label.setText("JSON metadata not found")
+            self.tree_view.hide()
+            self.message_label.show()
+            self._current_data = None
+            return
+
+        try:
+            data = json.loads(json_path.read_text())
+            self._current_data = data
+            model = _JsonTreeModel(data)
+            self.tree_view.setModel(model)
+            self.tree_view.expandToDepth(1)  # Expand first level by default
+            self.tree_view.resizeColumnToContents(0)
+            self.tree_view.show()
+            self.message_label.hide()
+        except Exception as e:
+            self.message_label.setText(f"Error loading JSON: {e}")
+            self.tree_view.hide()
+            self.message_label.show()
+            self._current_data = None
+
+    def _expand_all(self) -> None:
+        """Expand all tree nodes."""
+        if self.tree_view.model():
+            self.tree_view.expandAll()
+
+    def _collapse_all(self) -> None:
+        """Collapse all tree nodes."""
+        if self.tree_view.model():
+            self.tree_view.collapseAll()
+
+    def _on_search_changed(self, text: str) -> None:
+        """Filter tree view based on search text."""
+        # TODO: Implement search/filter functionality
+        pass
+
 
 def _open_path(path: Path) -> None:
     """Open *path* using the default OS handler."""
@@ -1303,10 +1417,12 @@ class ExclusionFileSelector(ReviewBase):
         self.psd_original_pixmap: Optional[QPixmap] = None
         self.run_report_preview: Optional[PdfPreviewWidget] = None
         self.ica_preview: Optional[PdfPreviewWidget] = None
+        self.json_metadata_viewer: Optional[JsonMetadataViewer] = None
         self.time_series_tab_index: Optional[int] = None
         self.psd_tab_index: Optional[int] = None
         self.run_report_tab_index: Optional[int] = None
         self.ica_tab_index: Optional[int] = None
+        self.json_tab_index: Optional[int] = None
 
         self._updating_notes = False
         self._suppress_selection_autoload = False
@@ -1429,6 +1545,10 @@ class ExclusionFileSelector(ReviewBase):
         self.ica_preview.setObjectName("icaOverviewPreview")
         ica_layout.addWidget(self.ica_preview, 1)
         self.ica_tab_index = self.plot_tabs.addTab(ica_tab_container, "ICA Components")
+
+        # JSON Metadata tab
+        self.json_metadata_viewer = JsonMetadataViewer()
+        self.json_tab_index = self.plot_tabs.addTab(self.json_metadata_viewer, "Metadata")
 
         container_layout = self.right_container.layout()
         if container_layout is None:
@@ -2349,6 +2469,7 @@ class ExclusionFileSelector(ReviewBase):
         self._update_psd_preview_for_file(None)
         self._update_run_report_preview_for_file(None)
         self._update_ica_preview_for_file(None)
+        self._update_json_metadata_for_file(None)
         self._update_run_report_preview_for_file(None)
 
     def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
@@ -2740,6 +2861,22 @@ class ExclusionFileSelector(ReviewBase):
             self.ica_preview.clear()
             self.ica_preview.show_message("Failed to load ICA overview")
 
+    def _update_json_metadata_for_file(self, file_path: Optional[Path]) -> None:
+        """Update JSON metadata viewer with file's metadata."""
+        if self.json_metadata_viewer is None:
+            return
+
+        if file_path is None:
+            self.json_metadata_viewer.load_json(None)
+            return
+
+        # Get the normalized stem and construct JSON path
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        if self.task_root:
+            json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            self.json_metadata_viewer.load_json(json_path)
+        else:
+            self.json_metadata_viewer.load_json(None)
 
     def _handle_plot_tab_changed(self, index: int) -> None:
         if self.plot_tabs is None:
@@ -3080,6 +3217,7 @@ class ExclusionFileSelector(ReviewBase):
         self._update_run_report_preview_for_file(file_path)
         self._update_ica_preview_for_file(file_path)
         self._update_processing_metrics_for_file(file_path)
+        self._update_json_metadata_for_file(file_path)
 
         if self.status_bar is not None and self.current_display_name:
             self.status_bar.showMessage(f"Queued · {self.current_display_name}")
