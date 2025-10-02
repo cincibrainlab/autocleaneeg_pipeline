@@ -2765,36 +2765,39 @@ class ExclusionFileSelector(ReviewBase):
         return None
 
     def _find_psd_overview_for_file(self, file_path: Path) -> Optional[Path]:
-        """Find PSD overview for a file using configuration-based resolution."""
-        try:
-            asset_path = resolve_asset(file_path, "psd_overview", self.preprocessing_log_df, self.config)
-            if asset_path and asset_path.exists():
-                return asset_path
-        except Exception as e:
-            print(f"Warning: Error resolving PSD overview for {file_path}: {e}")
-        
+        """Find PSD overview for a file using task root."""
+        if not self.task_root:
+            return None
+
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        psd_path = self.task_root / "reports" / "psd_topo" / f"{stem}_psd_topo_figure.png"
+
+        if psd_path.exists():
+            return psd_path
         return None
 
     def _find_run_report_for_file(self, file_path: Path) -> Optional[Path]:
-        """Find run report for a file using configuration-based resolution."""
-        try:
-            asset_path = resolve_asset(file_path, "run_report", self.preprocessing_log_df, self.config)
-            if asset_path and asset_path.exists():
-                return asset_path
-        except Exception as e:
-            print(f"Warning: Error resolving run report for {file_path}: {e}")
-        
+        """Find run report for a file using task root."""
+        if not self.task_root:
+            return None
+
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        report_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_report.pdf"
+
+        if report_path.exists():
+            return report_path
         return None
 
     def _find_ica_overview_for_file(self, file_path: Path) -> Optional[Path]:
-        """Find ICA overview for a file using configuration-based resolution."""
-        try:
-            asset_path = resolve_asset(file_path, "ica_report", self.preprocessing_log_df, self.config)
-            if asset_path and asset_path.exists():
-                return asset_path
-        except Exception as e:
-            print(f"Warning: Error resolving ICA overview for {file_path}: {e}")
-        
+        """Find ICA overview for a file using task root."""
+        if not self.task_root:
+            return None
+
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        ica_path = self.task_root / "reports" / "ica_components" / f"{stem}_ica_components.pdf"
+
+        if ica_path.exists():
+            return ica_path
         return None
 
     def _update_psd_preview_for_file(self, file_path: Optional[Path]) -> None:
