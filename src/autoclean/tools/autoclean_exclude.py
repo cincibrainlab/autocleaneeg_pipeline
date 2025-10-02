@@ -3174,7 +3174,7 @@ class ExclusionFileSelector(ReviewBase):
 
             # Extract rejected ICA components
             ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
-            rejected_ica = ica_rejection.get("ica", {}).get("rejected_indices_this_step", [])
+            rejected_ica = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
 
             # Extract valid channels for validation
             gfp_section = metadata_section.get("step_gfp_clean_epochs", {})
@@ -4219,7 +4219,7 @@ class ExclusionFileSelector(ReviewBase):
 
             # Extract rejected ICA components
             ica_rejection = data.get("metadata", {}).get("step_apply_ica_component_rejection", {})
-            rejected_comps = ica_rejection.get("ica", {}).get("rejected_indices_this_step", [])
+            rejected_comps = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
             if isinstance(rejected_comps, list):
                 result["rejected_ica"] = rejected_comps
 
