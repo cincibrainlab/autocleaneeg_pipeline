@@ -633,11 +633,31 @@ class ReviewBase(QWidget):
         self.refresh_btn.clicked.connect(self.refreshFileTree)
         self.left_layout.addWidget(self.refresh_btn)
 
+        # Create tabs for file list and reprocess
+        left_tabs = QTabWidget()
+        left_tabs.setObjectName("leftPanelTabs")
+
+        # File List Tab
+        file_list_container = QWidget()
+        file_list_layout = QVBoxLayout()
+        file_list_layout.setContentsMargins(0, 0, 0, 0)
+        file_list_layout.setSpacing(0)
+        file_list_container.setLayout(file_list_layout)
+
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderHidden(True)
         self.file_tree.itemClicked.connect(self.onFileSelect)
         self.file_tree.setObjectName("fileTree")
-        self.left_layout.addWidget(self.file_tree, 1)
+        file_list_layout.addWidget(self.file_tree, 1)
+
+        left_tabs.addTab(file_list_container, "File List")
+
+        # Reprocess Tab
+        self.reprocess_widget = ReprocessWidget()
+        left_tabs.addTab(self.reprocess_widget, "Reprocess")
+
+        self._apply_light_palette(left_tabs)
+        self.left_layout.addWidget(left_tabs, 1)
 
         action_bar = QHBoxLayout()
         action_bar.setContentsMargins(0, 0, 0, 0)
@@ -2204,6 +2224,30 @@ class ExclusionFileSelector(ReviewBase):
             QTabWidget#decisionInfoTabs QTabBar::tab:hover {
                 color: #1a56db;
             }
+            QTabWidget#leftPanelTabs::pane {
+                border: 1px solid #dde4ef;
+                background-color: #ffffff;
+                border-radius: 4px;
+            }
+            QTabWidget#leftPanelTabs QTabBar::tab {
+                background-color: transparent;
+                border: 1px solid transparent;
+                padding: 6px 12px;
+                margin-right: 4px;
+                color: #5b6c7c;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            QTabWidget#leftPanelTabs QTabBar::tab:selected {
+                background-color: #eef3ff;
+                border: 1px solid #a5b9d5;
+                border-radius: 6px 6px 0 0;
+                border-bottom: none;
+                color: #1f2d3d;
+            }
+            QTabWidget#leftPanelTabs QTabBar::tab:hover {
+                color: #1a56db;
+            }
             #decisionEmptyState {
                 background-color: #f8fafc;
                 border: 1px dashed #d0d7e2;
@@ -2297,10 +2341,6 @@ class ExclusionFileSelector(ReviewBase):
         detail_tabs.addTab(self.metrics_widget, "Processing Metrics")
         detail_tabs.addTab(notes_group, "Notes")
         detail_tabs.addTab(related_group, "Related")
-
-        # Reprocess tab
-        self.reprocess_widget = ReprocessWidget()
-        detail_tabs.addTab(self.reprocess_widget, "Reprocess")
 
         detail_layout.addWidget(detail_tabs)
         detail_layout.addStretch(1)
