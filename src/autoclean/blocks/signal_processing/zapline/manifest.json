@@ -1,6 +1,6 @@
 {
   "name": "zapline",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Zapline DSS-based line noise removal using Denoising Source Separation for removing power line artifacts from EEG/MEG data",
   "author": "AutoCleanEEG Team",
   "maintainer": "ernest.pedapati@cchmc.org",
@@ -157,5 +157,5 @@
   },
 
   "created_at": "2025-10-01T07:45:00Z",
-  "updated_at": "2025-10-01T20:00:00Z"
+  "updated_at": "2025-10-02T03:15:00Z"
 }

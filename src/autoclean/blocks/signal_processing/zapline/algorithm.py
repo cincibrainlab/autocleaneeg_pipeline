@@ -148,8 +148,8 @@ def apply_zapline_dss(
             data,
             fline=fline,
             sfreq=sfreq,
-            nkeep=nkeep,
             nfft=nfft,
+            n_iter_max=max_iter,
         )
         info['iterations'] = iterations
     else:
