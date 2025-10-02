@@ -1403,15 +1403,18 @@ class ReprocessWidget(QWidget):
         self.original_bad_channels: list[str] = []
         self.original_rejected_ica: list[int] = []
 
+        # Create horizontal layout for side-by-side groups
+        groups_layout = QHBoxLayout()
+        groups_layout.setSpacing(12)
+
         # Bad Channels Section
         channels_group = QGroupBox("Bad Channels")
         channels_layout = QVBoxLayout()
         channels_layout.setSpacing(6)
 
         self.channels_list = QListWidget()
-        self.channels_list.setMaximumHeight(120)
         self.channels_list.setStyleSheet("font-size: 12px;")
-        channels_layout.addWidget(self.channels_list)
+        channels_layout.addWidget(self.channels_list, 1)
 
         channels_controls = QHBoxLayout()
         self.channel_combo = QComboBox()
@@ -1431,7 +1434,7 @@ class ReprocessWidget(QWidget):
 
         channels_layout.addLayout(channels_controls)
         channels_group.setLayout(channels_layout)
-        layout.addWidget(channels_group)
+        groups_layout.addWidget(channels_group, 1)
 
         # Rejected ICA Components Section
         ica_group = QGroupBox("Rejected ICA Components")
@@ -1439,9 +1442,8 @@ class ReprocessWidget(QWidget):
         ica_layout.setSpacing(6)
 
         self.ica_list = QListWidget()
-        self.ica_list.setMaximumHeight(120)
         self.ica_list.setStyleSheet("font-size: 12px;")
-        ica_layout.addWidget(self.ica_list)
+        ica_layout.addWidget(self.ica_list, 1)
 
         ica_controls = QHBoxLayout()
         self.ica_spinbox = QSpinBox()
@@ -1462,7 +1464,10 @@ class ReprocessWidget(QWidget):
 
         ica_layout.addLayout(ica_controls)
         ica_group.setLayout(ica_layout)
-        layout.addWidget(ica_group)
+        groups_layout.addWidget(ica_group, 1)
+
+        # Add side-by-side groups to main layout
+        layout.addLayout(groups_layout, 1)
 
         # Reset button
         reset_btn = QPushButton("Reset to Original")
@@ -1481,8 +1486,6 @@ class ReprocessWidget(QWidget):
             }
         """)
         layout.addWidget(reset_btn)
-
-        layout.addStretch(1)
 
         # Message label for empty state
         self.message_label = QLabel("Select a file to edit reprocessing parameters")
