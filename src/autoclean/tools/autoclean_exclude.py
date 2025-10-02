@@ -3738,38 +3738,142 @@ class ExclusionFileSelector(ReviewBase):
     # ------------------------------------------------------------------
     # Related files + helpers
     # ------------------------------------------------------------------
+    def _parse_metadata_json(self, json_path: Path) -> dict[str, list]:
+        """Parse metadata JSON and extract bad channels and rejected ICA components.
+
+        Args:
+            json_path: Path to the JSON metadata file
+
+        Returns:
+            Dict with 'bad_channels' and 'rejected_ica' keys
+        """
+        result = {"bad_channels": [], "rejected_ica": []}
+
+        if not json_path or not json_path.exists():
+            return result
+
+        try:
+            data = json.loads(json_path.read_text())
+
+            # Extract bad channels
+            bad_channels = data.get("metadata", {}).get("step_clean_bad_channels", {}).get("bads", [])
+            if isinstance(bad_channels, list):
+                result["bad_channels"] = bad_channels
+
+            # Extract rejected ICA components
+            ica_rejection = data.get("metadata", {}).get("step_apply_ica_component_rejection", {})
+            rejected_comps = ica_rejection.get("ica", {}).get("rejected_indices_this_step", [])
+            if isinstance(rejected_comps, list):
+                result["rejected_ica"] = rejected_comps
+
+        except Exception as e:
+            print(f"Warning: Could not parse metadata JSON {json_path}: {e}")
+
+        return result
+
     def _refresh_related_list(self, file_path: Path) -> None:
         if self.related_list is None:
             return
         self.related_list.clear()
-        for related in self._gather_related_files(file_path):
-            item = QListWidgetItem(related.name)
-            item.setToolTip(str(related))
-            item.setData(Qt.UserRole, str(related))
+
+        json_path = None  # Track JSON path for parsing
+
+        for asset_type, asset_path, exists in self._gather_related_files(file_path):
+            if exists and asset_path:
+                # File exists - show with checkmark and green color
+                display_name = f"✓ {asset_type}: {asset_path.name}"
+                item = QListWidgetItem(display_name)
+                item.setForeground(QColor("#27ae60"))  # Green
+                item.setToolTip(str(asset_path))
+                item.setData(Qt.UserRole, str(asset_path))
+            else:
+                # File missing - show with X and gray color
+                display_name = f"✗ {asset_type}: not found"
+                item = QListWidgetItem(display_name)
+                item.setForeground(QColor("#95a5a6"))  # Gray
+                item.setToolTip(f"Expected: {asset_path}" if asset_path else "Path could not be resolved")
+                item.setData(Qt.UserRole, "")  # No path to open
+
             self.related_list.addItem(item)
+
+            # Track JSON path for parsing metadata
+            if asset_type == "Metadata (JSON)" and exists and asset_path:
+                json_path = asset_path
+
+        # Parse and display metadata if JSON exists
+        if json_path:
+            metadata = self._parse_metadata_json(json_path)
+
+            # Add separator
+            separator = QListWidgetItem("─────────────────")
+            separator.setForeground(QColor("#95a5a6"))
+            separator.setData(Qt.UserRole, "")  # Non-clickable
+            self.related_list.addItem(separator)
+
+            # Display bad channels
+            if metadata["bad_channels"]:
+                channels_str = ", ".join(metadata["bad_channels"])
+                bad_ch_item = QListWidgetItem(f"Bad Channels: {channels_str}")
+                bad_ch_item.setForeground(QColor("#e67e22"))  # Orange
+            else:
+                bad_ch_item = QListWidgetItem("Bad Channels: None")
+                bad_ch_item.setForeground(QColor("#95a5a6"))  # Gray
+            bad_ch_item.setData(Qt.UserRole, "")  # Non-clickable
+            self.related_list.addItem(bad_ch_item)
+
+            # Display rejected ICA components
+            if metadata["rejected_ica"]:
+                ica_str = ", ".join(map(str, metadata["rejected_ica"]))
+                ica_item = QListWidgetItem(f"Rejected ICA: [{ica_str}]")
+                ica_item.setForeground(QColor("#e67e22"))  # Orange
+            else:
+                ica_item = QListWidgetItem("Rejected ICA: None")
+                ica_item.setForeground(QColor("#95a5a6"))  # Gray
+            ica_item.setData(Qt.UserRole, "")  # Non-clickable
+            self.related_list.addItem(ica_item)
 
     def _open_related_item(self, item: QListWidgetItem) -> None:
         data = item.data(Qt.UserRole)
-        if data:
-            _open_path(Path(str(data)))
+        if not data or data == "":
+            # File is missing, show tooltip info instead
+            QMessageBox.warning(
+                self,
+                "File Not Found",
+                f"This file is not available.\n\n{item.toolTip()}"
+            )
+            return
 
-    def _gather_related_files(self, file_path: Path) -> Iterable[Path]:
-        base_stem = file_path.stem
-        results: list[Path] = []
+        file_path = Path(str(data))
+        if not file_path.exists():
+            QMessageBox.warning(
+                self,
+                "File Not Found",
+                f"File no longer exists:\n{file_path}"
+            )
+            return
 
-        for sibling in sorted(file_path.parent.iterdir()):
-            if sibling == file_path:
-                continue
-            if sibling.name.startswith(base_stem):
-                results.append(sibling)
+        _open_path(file_path)
 
-        if self.task_root and self.task_root.exists():
-            reports_root = self.task_root / "reports"
-            if reports_root.exists():
-                for report in sorted(reports_root.rglob("*")):
-                    if report.is_file() and base_stem in report.stem:
-                        if report not in results and report != file_path:
-                            results.append(report)
+    def _gather_related_files(self, file_path: Path) -> list[tuple[str, Optional[Path], bool]]:
+        """Gather related files using asset resolution system.
+
+        Returns:
+            List of tuples: (asset_type, file_path, exists)
+        """
+        results: list[tuple[str, Optional[Path], bool]] = []
+
+        # Strip suffixes to get normalized stem
+        stem = strip_suffixes(file_path.stem, config=self.config)
+
+        # Resolve ICA file
+        if self.task_root:
+            ica_path = self.task_root / "ica" / f"{stem}-ica.fif"
+            results.append(("ICA Components", ica_path, ica_path.exists()))
+
+        # Resolve JSON metadata - construct path from task root
+        if self.task_root:
+            json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            results.append(("Metadata (JSON)", json_path, json_path.exists()))
 
         return results
 
