@@ -2794,7 +2794,7 @@ class ExclusionFileSelector(ReviewBase):
             return None
 
         stem = strip_suffixes(file_path.stem, config=self.config)
-        ica_path = self.task_root / "reports" / "ica_components" / f"{stem}_ica_components.pdf"
+        ica_path = self.task_root / "reports" / "ica_components" / f"{stem}_ica_components_all.pdf"
 
         if ica_path.exists():
             return ica_path
