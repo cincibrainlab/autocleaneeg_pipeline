@@ -64,17 +64,20 @@ from qtpy.QtCore import (  # noqa: E402
 from qtpy.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
 from qtpy.QtWidgets import (  # noqa: E402
     QApplication,
+    QComboBox,
     QFileDialog,
     QFrame,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QListWidget,
     QListWidgetItem,
     QMessageBox,
     QPushButton,
     QScrollArea,
     QShortcut,
+    QSpinBox,
     QSplitter,
     QSizePolicy,
     QStackedLayout,
@@ -174,21 +177,6 @@ def _safe_float(value: Optional[str]) -> float:
     except (ValueError, TypeError):
         return 0.0
 
-
-def _longest_common_prefix_length(a: str, b: str) -> int:
-    length = 0
-    for char_a, char_b in zip(a, b):
-        if char_a != char_b:
-            break
-        length += 1
-    return length
-
-
-def _normalized_prefix_score(a: str, b: str) -> int:
-    def normalize(s: str) -> str:
-        return "".join(ch for ch in s if ch.isalnum()).lower()
-
-    return _longest_common_prefix_length(normalize(a), normalize(b))
 
 def _enum_name(value: object) -> str:
     """Return the Enum name if available, otherwise string form."""
@@ -630,11 +618,31 @@ class ReviewBase(QWidget):
         self.refresh_btn.clicked.connect(self.refreshFileTree)
         self.left_layout.addWidget(self.refresh_btn)
 
+        # Create tabs for file list and reprocess
+        left_tabs = QTabWidget()
+        left_tabs.setObjectName("leftPanelTabs")
+
+        # File List Tab
+        file_list_container = QWidget()
+        file_list_layout = QVBoxLayout()
+        file_list_layout.setContentsMargins(0, 0, 0, 0)
+        file_list_layout.setSpacing(0)
+        file_list_container.setLayout(file_list_layout)
+
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderHidden(True)
         self.file_tree.itemClicked.connect(self.onFileSelect)
         self.file_tree.setObjectName("fileTree")
-        self.left_layout.addWidget(self.file_tree, 1)
+        file_list_layout.addWidget(self.file_tree, 1)
+
+        left_tabs.addTab(file_list_container, "File List")
+
+        # Reprocess Tab
+        self.reprocess_widget = ReprocessWidget()
+        left_tabs.addTab(self.reprocess_widget, "Reprocess")
+
+        self._apply_light_palette(left_tabs)
+        self.left_layout.addWidget(left_tabs, 1)
 
         action_bar = QHBoxLayout()
         action_bar.setContentsMargins(0, 0, 0, 0)
@@ -1250,6 +1258,340 @@ class ProcessingMetricsWidget(QWidget):
         self.rows_container.addWidget(spacer)
 
 
+class JsonMetadataViewer(QWidget):
+    """Interactive JSON metadata viewer with tree display and search."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(8)
+        self.setLayout(layout)
+
+        # Toolbar with controls
+        toolbar = QWidget()
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setContentsMargins(0, 0, 0, 0)
+        toolbar_layout.setSpacing(8)
+        toolbar.setLayout(toolbar_layout)
+
+        # Search bar
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("Search keys...")
+        self.search_input.setClearButtonEnabled(True)
+        self.search_input.textChanged.connect(self._on_search_changed)
+        toolbar_layout.addWidget(self.search_input, 1)
+
+        # Expand/Collapse buttons
+        self.expand_btn = QPushButton("Expand All")
+        self.expand_btn.clicked.connect(self._expand_all)
+        self.expand_btn.setMaximumWidth(100)
+        toolbar_layout.addWidget(self.expand_btn)
+
+        self.collapse_btn = QPushButton("Collapse All")
+        self.collapse_btn.clicked.connect(self._collapse_all)
+        self.collapse_btn.setMaximumWidth(100)
+        toolbar_layout.addWidget(self.collapse_btn)
+
+        layout.addWidget(toolbar)
+
+        # Tree view for JSON
+        self.tree_view = QTreeView()
+        self.tree_view.setAlternatingRowColors(True)
+        self.tree_view.setHeaderHidden(False)
+        self.tree_view.setSortingEnabled(False)
+        self.tree_view.setStyleSheet("""
+            QTreeView {
+                background-color: #ffffff;
+                border: 1px solid #d9e2ec;
+                border-radius: 6px;
+                font-size: 12px;
+            }
+            QTreeView::item {
+                padding: 4px;
+            }
+            QTreeView::item:selected {
+                background-color: #e3f2fd;
+                color: #1565c0;
+            }
+            QTreeView::branch:has-children:closed {
+                image: url(none);
+            }
+            QTreeView::branch:has-children:open {
+                image: url(none);
+            }
+        """)
+        layout.addWidget(self.tree_view)
+
+        # Message label for empty state
+        self.message_label = QLabel("Select a file to view JSON metadata")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setStyleSheet("color: #95a5a6; font-size: 14px;")
+        layout.addWidget(self.message_label)
+
+        self.tree_view.hide()
+        self._current_data = None
+
+    def load_json(self, json_path: Optional[Path]) -> None:
+        """Load and display JSON from file."""
+        if not json_path or not json_path.exists():
+            self.message_label.setText("JSON metadata not found")
+            self.tree_view.hide()
+            self.message_label.show()
+            self._current_data = None
+            return
+
+        try:
+            data = json.loads(json_path.read_text())
+            self._current_data = data
+            model = _JsonTreeModel(data)
+            self.tree_view.setModel(model)
+            self.tree_view.expandToDepth(1)  # Expand first level by default
+            self.tree_view.resizeColumnToContents(0)
+            self.tree_view.show()
+            self.message_label.hide()
+        except Exception as e:
+            self.message_label.setText(f"Error loading JSON: {e}")
+            self.tree_view.hide()
+            self.message_label.show()
+            self._current_data = None
+
+    def _expand_all(self) -> None:
+        """Expand all tree nodes."""
+        if self.tree_view.model():
+            self.tree_view.expandAll()
+
+    def _collapse_all(self) -> None:
+        """Collapse all tree nodes."""
+        if self.tree_view.model():
+            self.tree_view.collapseAll()
+
+    def _on_search_changed(self, text: str) -> None:
+        """Filter tree view based on search text."""
+        # TODO: Implement search/filter functionality
+        pass
+
+
+class ReprocessWidget(QWidget):
+    """Widget for editing bad channels and rejected ICA components for reprocessing."""
+
+    def __init__(self, parent: Optional[QWidget] = None) -> None:
+        super().__init__(parent)
+        layout = QVBoxLayout()
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(12)
+        self.setLayout(layout)
+
+        # Store current state
+        self.valid_channels: list[str] = []
+        self.max_components: int = 0
+        self.original_bad_channels: list[str] = []
+        self.original_rejected_ica: list[int] = []
+
+        # Create horizontal layout for side-by-side groups
+        groups_layout = QHBoxLayout()
+        groups_layout.setSpacing(12)
+
+        # Bad Channels Section
+        channels_group = QGroupBox("Bad Channels")
+        channels_layout = QVBoxLayout()
+        channels_layout.setSpacing(6)
+
+        self.channels_list = QListWidget()
+        self.channels_list.setStyleSheet("font-size: 12px;")
+        channels_layout.addWidget(self.channels_list, 1)
+
+        channels_controls = QHBoxLayout()
+        self.channel_combo = QComboBox()
+        self.channel_combo.setEditable(True)
+        self.channel_combo.setPlaceholderText("Select channel...")
+        channels_controls.addWidget(self.channel_combo, 1)
+
+        self.add_channel_btn = QPushButton("Add")
+        self.add_channel_btn.clicked.connect(self._add_channel)
+        self.add_channel_btn.setMaximumWidth(60)
+        channels_controls.addWidget(self.add_channel_btn)
+
+        self.remove_channel_btn = QPushButton("Remove")
+        self.remove_channel_btn.clicked.connect(self._remove_channel)
+        self.remove_channel_btn.setMaximumWidth(80)
+        channels_controls.addWidget(self.remove_channel_btn)
+
+        channels_layout.addLayout(channels_controls)
+        channels_group.setLayout(channels_layout)
+        groups_layout.addWidget(channels_group, 1)
+
+        # Rejected ICA Components Section
+        ica_group = QGroupBox("Rejected ICA Components")
+        ica_layout = QVBoxLayout()
+        ica_layout.setSpacing(6)
+
+        self.ica_list = QListWidget()
+        self.ica_list.setStyleSheet("font-size: 12px;")
+        ica_layout.addWidget(self.ica_list, 1)
+
+        ica_controls = QHBoxLayout()
+        self.ica_spinbox = QSpinBox()
+        self.ica_spinbox.setMinimum(0)
+        self.ica_spinbox.setMaximum(0)
+        self.ica_spinbox.setPrefix("Component ")
+        ica_controls.addWidget(self.ica_spinbox, 1)
+
+        self.add_ica_btn = QPushButton("Add")
+        self.add_ica_btn.clicked.connect(self._add_ica_component)
+        self.add_ica_btn.setMaximumWidth(60)
+        ica_controls.addWidget(self.add_ica_btn)
+
+        self.remove_ica_btn = QPushButton("Remove")
+        self.remove_ica_btn.clicked.connect(self._remove_ica_component)
+        self.remove_ica_btn.setMaximumWidth(80)
+        ica_controls.addWidget(self.remove_ica_btn)
+
+        ica_layout.addLayout(ica_controls)
+        ica_group.setLayout(ica_layout)
+        groups_layout.addWidget(ica_group, 1)
+
+        # Add side-by-side groups to main layout
+        layout.addLayout(groups_layout, 1)
+
+        # Reset button
+        reset_btn = QPushButton("Reset to Original")
+        reset_btn.clicked.connect(self._reset_to_original)
+        reset_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f0f4f8;
+                border: 1px solid #cbd5e0;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #e2e8f0;
+                border-color: #a0aec0;
+            }
+        """)
+        layout.addWidget(reset_btn)
+
+        # Message label for empty state
+        self.message_label = QLabel("Select a file to edit reprocessing parameters")
+        self.message_label.setAlignment(Qt.AlignCenter)
+        self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+        layout.addWidget(self.message_label)
+
+    def load_from_metadata(self, metadata: dict) -> None:
+        """Load bad channels and ICA components from metadata."""
+        # Clear current state
+        self.channels_list.clear()
+        self.ica_list.clear()
+        self.channel_combo.clear()
+
+        # Extract data from metadata
+        bad_channels = metadata.get("bad_channels", [])
+        rejected_ica = metadata.get("rejected_ica", [])
+        valid_channels = metadata.get("valid_channels", [])
+        max_components = metadata.get("max_components", 0)
+
+        # Store original values and validation data
+        self.original_bad_channels = bad_channels.copy()
+        self.original_rejected_ica = rejected_ica.copy()
+        self.valid_channels = valid_channels
+        self.max_components = max_components
+
+        # Populate channel combo
+        self.channel_combo.addItems(valid_channels)
+
+        # Set ICA spinbox range
+        if max_components > 0:
+            self.ica_spinbox.setMaximum(max_components - 1)
+
+        # Populate lists
+        for channel in bad_channels:
+            self.channels_list.addItem(channel)
+
+        for component in rejected_ica:
+            self.ica_list.addItem(f"Component {component}")
+
+        # Show/hide message
+        if valid_channels:
+            self.message_label.hide()
+        else:
+            self.message_label.show()
+
+    def _add_channel(self) -> None:
+        """Add selected channel to bad channels list."""
+        channel = self.channel_combo.currentText().strip().upper()
+        if not channel:
+            return
+
+        # Validate channel
+        if channel not in self.valid_channels:
+            QMessageBox.warning(
+                self,
+                "Invalid Channel",
+                f"'{channel}' is not a valid channel.\nValid channels: {', '.join(self.valid_channels[:10])}..."
+            )
+            return
+
+        # Check if already in list
+        items = [self.channels_list.item(i).text() for i in range(self.channels_list.count())]
+        if channel in items:
+            return
+
+        self.channels_list.addItem(channel)
+        self.channel_combo.setCurrentIndex(-1)
+
+    def _remove_channel(self) -> None:
+        """Remove selected channel from list."""
+        current_item = self.channels_list.currentItem()
+        if current_item:
+            self.channels_list.takeItem(self.channels_list.row(current_item))
+
+    def _add_ica_component(self) -> None:
+        """Add ICA component to rejected list."""
+        component = self.ica_spinbox.value()
+        component_text = f"Component {component}"
+
+        # Check if already in list
+        items = [self.ica_list.item(i).text() for i in range(self.ica_list.count())]
+        if component_text in items:
+            return
+
+        self.ica_list.addItem(component_text)
+
+    def _remove_ica_component(self) -> None:
+        """Remove selected ICA component from list."""
+        current_item = self.ica_list.currentItem()
+        if current_item:
+            self.ica_list.takeItem(self.ica_list.row(current_item))
+
+    def _reset_to_original(self) -> None:
+        """Reset to original values from metadata."""
+        self.channels_list.clear()
+        self.ica_list.clear()
+
+        for channel in self.original_bad_channels:
+            self.channels_list.addItem(channel)
+
+        for component in self.original_rejected_ica:
+            self.ica_list.addItem(f"Component {component}")
+
+    def get_current_values(self) -> dict:
+        """Get current bad channels and rejected ICA components."""
+        bad_channels = [
+            self.channels_list.item(i).text()
+            for i in range(self.channels_list.count())
+        ]
+
+        rejected_ica = [
+            int(self.ica_list.item(i).text().replace("Component ", ""))
+            for i in range(self.ica_list.count())
+        ]
+
+        return {
+            "bad_channels": bad_channels,
+            "rejected_ica": rejected_ica
+        }
+
 
 def _open_path(path: Path) -> None:
     """Open *path* using the default OS handler."""
@@ -1287,6 +1629,7 @@ class ExclusionFileSelector(ReviewBase):
         self.summary_chip_labels: Dict[str, QLabel] = {}
         self.notes_edit: Optional[QTextEdit] = None
         self.related_list: Optional[QListWidget] = None
+        self.reprocess_widget: Optional[ReprocessWidget] = None
         self.detail_panel: Optional[QFrame] = None
         self.save_timer: Optional[QTimer] = None
         self._status_buttons: dict[str, QPushButton] = {}
@@ -1303,10 +1646,12 @@ class ExclusionFileSelector(ReviewBase):
         self.psd_original_pixmap: Optional[QPixmap] = None
         self.run_report_preview: Optional[PdfPreviewWidget] = None
         self.ica_preview: Optional[PdfPreviewWidget] = None
+        self.json_metadata_viewer: Optional[JsonMetadataViewer] = None
         self.time_series_tab_index: Optional[int] = None
         self.psd_tab_index: Optional[int] = None
         self.run_report_tab_index: Optional[int] = None
         self.ica_tab_index: Optional[int] = None
+        self.json_tab_index: Optional[int] = None
 
         self._updating_notes = False
         self._suppress_selection_autoload = False
@@ -1429,6 +1774,10 @@ class ExclusionFileSelector(ReviewBase):
         self.ica_preview.setObjectName("icaOverviewPreview")
         ica_layout.addWidget(self.ica_preview, 1)
         self.ica_tab_index = self.plot_tabs.addTab(ica_tab_container, "ICA Components")
+
+        # JSON Metadata tab
+        self.json_metadata_viewer = JsonMetadataViewer()
+        self.json_tab_index = self.plot_tabs.addTab(self.json_metadata_viewer, "Metadata")
 
         container_layout = self.right_container.layout()
         if container_layout is None:
@@ -1861,6 +2210,30 @@ class ExclusionFileSelector(ReviewBase):
                 border-radius: 6px 6px 0 0;
             }
             QTabWidget#decisionInfoTabs QTabBar::tab:hover {
+                color: #1a56db;
+            }
+            QTabWidget#leftPanelTabs::pane {
+                border: 1px solid #dde4ef;
+                background-color: #ffffff;
+                border-radius: 4px;
+            }
+            QTabWidget#leftPanelTabs QTabBar::tab {
+                background-color: transparent;
+                border: 1px solid transparent;
+                padding: 6px 12px;
+                margin-right: 4px;
+                color: #5b6c7c;
+                font-size: 11px;
+                font-weight: 600;
+            }
+            QTabWidget#leftPanelTabs QTabBar::tab:selected {
+                background-color: #eef3ff;
+                border: 1px solid #a5b9d5;
+                border-radius: 6px 6px 0 0;
+                border-bottom: none;
+                color: #1f2d3d;
+            }
+            QTabWidget#leftPanelTabs QTabBar::tab:hover {
                 color: #1a56db;
             }
             #decisionEmptyState {
@@ -2349,6 +2722,8 @@ class ExclusionFileSelector(ReviewBase):
         self._update_psd_preview_for_file(None)
         self._update_run_report_preview_for_file(None)
         self._update_ica_preview_for_file(None)
+        self._update_json_metadata_for_file(None)
+        self._update_reprocess_for_file(None)
         self._update_run_report_preview_for_file(None)
 
     def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
@@ -2360,50 +2735,7 @@ class ExclusionFileSelector(ReviewBase):
         except Exception as e:
             print(f"Warning: Error resolving processing log for {file_path}: {e}")
         
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_processing_log_for_file_legacy(file_path)
-    
-    def _find_processing_log_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy processing log finding method (kept as fallback)."""
-        parent = file_path.parent
-        candidates = list(parent.glob("*_processing_log.csv"))
-        if not candidates:
-            return None
-
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        if len(parts) >= 3:
-            variants.add("_".join(parts[:3]))
-        if len(parts) >= 2:
-            variants.add("_".join(parts[:2]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for log_path in candidates:
-            log_stem = log_path.stem
-            if "_processing_log" in log_stem:
-                log_prefix = log_stem.rsplit("_processing_log", 1)[0]
-            else:
-                log_prefix = log_stem
-
-            score = max(_normalized_prefix_score(log_prefix, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = log_path
-
-        if best_score <= 0:
-            return None
-        return best_path
+        return None
 
     def _psd_reports_dir(self) -> Optional[Path]:
         if self.task_root and (self.task_root / "reports" / "psd_topo").exists():
@@ -2433,200 +2765,40 @@ class ExclusionFileSelector(ReviewBase):
         return None
 
     def _find_psd_overview_for_file(self, file_path: Path) -> Optional[Path]:
-        """Find PSD overview for a file using configuration-based resolution."""
-        try:
-            asset_path = resolve_asset(file_path, "psd_overview", self.preprocessing_log_df, self.config)
-            if asset_path and asset_path.exists():
-                return asset_path
-        except Exception as e:
-            print(f"Warning: Error resolving PSD overview for {file_path}: {e}")
-        
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_psd_overview_for_file_legacy(file_path)
-    
-    def _find_psd_overview_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy PSD overview finding method (kept as fallback)."""
-        psd_dir = self._psd_reports_dir()
-        if psd_dir is None:
+        """Find PSD overview for a file using task root."""
+        if not self.task_root:
             return None
 
-        candidates = list(psd_dir.glob("*_psd_topo_figure.png"))
-        if not candidates:
-            return None
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        psd_path = self.task_root / "reports" / "psd_topo" / f"{stem}_psd_topo_figure.png"
 
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        for length in range(len(parts), 1, -1):
-            variants.add("_".join(parts[:length]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for candidate in candidates:
-            c_stem = candidate.stem
-            if "_psd_topo" in c_stem:
-                c_stem = c_stem.split("_psd_topo", 1)[0]
-            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = candidate
-
-        if best_score <= 0:
-            return None
-        return best_path
+        if psd_path.exists():
+            return psd_path
+        return None
 
     def _find_run_report_for_file(self, file_path: Path) -> Optional[Path]:
-        """Find run report for a file using configuration-based resolution."""
-        try:
-            asset_path = resolve_asset(file_path, "run_report", self.preprocessing_log_df, self.config)
-            if asset_path and asset_path.exists():
-                return asset_path
-        except Exception as e:
-            print(f"Warning: Error resolving run report for {file_path}: {e}")
-        
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_run_report_for_file_legacy(file_path)
-    
-    def _find_run_report_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy run report finding method (kept as fallback)."""
-        reports_dir = self._run_reports_dir()
-        if reports_dir is None:
-            log_warning(
-                f"[{_human_timestamp()}] Run report directory missing for {file_path}."
-            )
+        """Find run report for a file using task root."""
+        if not self.task_root:
             return None
 
-        log_debug(
-            f"[{_human_timestamp()}] Searching run reports in {reports_dir}."
-        )
-        candidates = list(reports_dir.glob("*_autoclean_report.pdf"))
-        if not candidates:
-            candidates = list(reports_dir.glob("*.pdf"))
-        if not candidates:
-            log_info(
-                f"[{_human_timestamp()}] No run report PDFs found in {reports_dir}."
-            )
-            return None
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        report_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_report.pdf"
 
-        log_debug(
-            f"[{_human_timestamp()}] Evaluating {len(candidates)} run report candidates for {file_path}."
-        )
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        for length in range(len(parts), 1, -1):
-            variants.add("_".join(parts[:length]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for candidate in candidates:
-            c_stem = candidate.stem
-            for needle in ("_autoclean_report", "_report"):
-                if needle in c_stem:
-                    c_stem = c_stem.split(needle, 1)[0]
-                    break
-            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = candidate
-
-        if best_score <= 0:
-            log_info(
-                f"[{_human_timestamp()}] No suitable run report match for {file_path}."
-            )
-            return None
-        log_debug(
-            f"[{_human_timestamp()}] Best run report match for {file_path}: {best_path} (score={best_score})."
-        )
-        return best_path
+        if report_path.exists():
+            return report_path
+        return None
 
     def _find_ica_overview_for_file(self, file_path: Path) -> Optional[Path]:
-        """Find ICA overview for a file using configuration-based resolution."""
-        try:
-            asset_path = resolve_asset(file_path, "ica_report", self.preprocessing_log_df, self.config)
-            if asset_path and asset_path.exists():
-                return asset_path
-        except Exception as e:
-            print(f"Warning: Error resolving ICA overview for {file_path}: {e}")
-        
-        # Fallback to legacy method if configuration-based approach fails
-        return self._find_ica_overview_for_file_legacy(file_path)
-    
-    def _find_ica_overview_for_file_legacy(self, file_path: Path) -> Optional[Path]:
-        """Legacy ICA overview finding method (kept as fallback)."""
-        ica_dir = self._ica_reports_dir()
-        if ica_dir is None:
-            log_warning(
-                f"[{_human_timestamp()}] ICA report directory missing for {file_path}."
-            )
+        """Find ICA overview for a file using task root."""
+        if not self.task_root:
             return None
 
-        log_debug(
-            f"[{_human_timestamp()}] Searching ICA reports in {ica_dir}."
-        )
-        candidates = list(ica_dir.glob("*.pdf"))
-        if not candidates:
-            log_info(f"[{_human_timestamp()}] No ICA PDFs found in {ica_dir}.")
-            return None
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        ica_path = self.task_root / "reports" / "ica_components" / f"{stem}_ica_components_all.pdf"
 
-        log_debug(
-            f"[{_human_timestamp()}] Evaluating {len(candidates)} ICA report candidates for {file_path}."
-        )
-        stem = file_path.stem
-        variants = {stem}
-        suffixes = ["_comp_epo", "_comp", "_epo", "_postedit", "_preproc", "_raw", "_clean"]
-        for suffix in suffixes:
-            if stem.endswith(suffix):
-                variants.add(stem[: -len(suffix)])
-
-        parts = stem.split("_")
-        for length in range(len(parts), 1, -1):
-            variants.add("_".join(parts[:length]))
-        if parts:
-            variants.add(parts[0])
-            variants.add(f"sub-{parts[0]}")
-            variants.add(f"sub_{parts[0]}")
-
-        best_score = -1
-        best_path: Optional[Path] = None
-        for candidate in candidates:
-            c_stem = candidate.stem
-            for needle in ("_ica_components", "_components", "_report"):
-                if needle in c_stem:
-                    c_stem = c_stem.split(needle, 1)[0]
-                    break
-            score = max(_normalized_prefix_score(c_stem, variant) for variant in variants)
-            if score > best_score:
-                best_score = score
-                best_path = candidate
-
-        if best_score <= 0:
-            log_info(
-                f"[{_human_timestamp()}] No suitable ICA report match for {file_path}."
-            )
-            return None
-        log_debug(
-            f"[{_human_timestamp()}] Best ICA report match for {file_path}: {best_path} (score={best_score})."
-        )
-        return best_path
+        if ica_path.exists():
+            return ica_path
+        return None
 
     def _update_psd_preview_for_file(self, file_path: Optional[Path]) -> None:
         if self.psd_message_label is None or self.psd_image_label is None or self.psd_scroll is None:
@@ -2740,6 +2912,71 @@ class ExclusionFileSelector(ReviewBase):
             self.ica_preview.clear()
             self.ica_preview.show_message("Failed to load ICA overview")
 
+    def _update_json_metadata_for_file(self, file_path: Optional[Path]) -> None:
+        """Update JSON metadata viewer with file's metadata."""
+        if self.json_metadata_viewer is None:
+            return
+
+        if file_path is None:
+            self.json_metadata_viewer.load_json(None)
+            return
+
+        # Get the normalized stem and construct JSON path
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        if self.task_root:
+            json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            self.json_metadata_viewer.load_json(json_path)
+        else:
+            self.json_metadata_viewer.load_json(None)
+
+    def _update_reprocess_for_file(self, file_path: Optional[Path]) -> None:
+        """Update reprocess widget with file's metadata."""
+        if self.reprocess_widget is None:
+            return
+
+        if file_path is None:
+            return
+
+        # Get the normalized stem and construct JSON path
+        stem = strip_suffixes(file_path.stem, config=self.config)
+        if not self.task_root:
+            return
+
+        json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+        if not json_path.exists():
+            return
+
+        try:
+            # Load JSON and extract reprocessing parameters
+            data = json.loads(json_path.read_text())
+            metadata_section = data.get("metadata", {})
+
+            # Extract bad channels
+            bad_channels = metadata_section.get("step_clean_bad_channels", {}).get("bads", [])
+
+            # Extract rejected ICA components
+            ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
+            rejected_ica = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
+
+            # Extract valid channels for validation
+            gfp_section = metadata_section.get("step_gfp_clean_epochs", {})
+            valid_channels = gfp_section.get("scalp_channels_used", [])
+
+            # Extract total ICA components
+            ica_section = metadata_section.get("step_run_ica", {})
+            ica_components_str = ica_section.get("ica", {}).get("ica_components", "0")
+            max_components = int(ica_components_str) if ica_components_str else 0
+
+            # Load data into widget
+            self.reprocess_widget.load_from_metadata({
+                "bad_channels": bad_channels,
+                "rejected_ica": rejected_ica,
+                "valid_channels": valid_channels,
+                "max_components": max_components
+            })
+
+        except Exception as e:
+            print(f"Warning: Could not load reprocess data from {json_path}: {e}")
 
     def _handle_plot_tab_changed(self, index: int) -> None:
         if self.plot_tabs is None:
@@ -3080,6 +3317,8 @@ class ExclusionFileSelector(ReviewBase):
         self._update_run_report_preview_for_file(file_path)
         self._update_ica_preview_for_file(file_path)
         self._update_processing_metrics_for_file(file_path)
+        self._update_json_metadata_for_file(file_path)
+        self._update_reprocess_for_file(file_path)
 
         if self.status_bar is not None and self.current_display_name:
             self.status_bar.showMessage(f"Queued · {self.current_display_name}")
@@ -3738,38 +3977,142 @@ class ExclusionFileSelector(ReviewBase):
     # ------------------------------------------------------------------
     # Related files + helpers
     # ------------------------------------------------------------------
+    def _parse_metadata_json(self, json_path: Path) -> dict[str, list]:
+        """Parse metadata JSON and extract bad channels and rejected ICA components.
+
+        Args:
+            json_path: Path to the JSON metadata file
+
+        Returns:
+            Dict with 'bad_channels' and 'rejected_ica' keys
+        """
+        result = {"bad_channels": [], "rejected_ica": []}
+
+        if not json_path or not json_path.exists():
+            return result
+
+        try:
+            data = json.loads(json_path.read_text())
+
+            # Extract bad channels
+            bad_channels = data.get("metadata", {}).get("step_clean_bad_channels", {}).get("bads", [])
+            if isinstance(bad_channels, list):
+                result["bad_channels"] = bad_channels
+
+            # Extract rejected ICA components
+            ica_rejection = data.get("metadata", {}).get("step_apply_ica_component_rejection", {})
+            rejected_comps = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
+            if isinstance(rejected_comps, list):
+                result["rejected_ica"] = rejected_comps
+
+        except Exception as e:
+            print(f"Warning: Could not parse metadata JSON {json_path}: {e}")
+
+        return result
+
     def _refresh_related_list(self, file_path: Path) -> None:
         if self.related_list is None:
             return
         self.related_list.clear()
-        for related in self._gather_related_files(file_path):
-            item = QListWidgetItem(related.name)
-            item.setToolTip(str(related))
-            item.setData(Qt.UserRole, str(related))
+
+        json_path = None  # Track JSON path for parsing
+
+        for asset_type, asset_path, exists in self._gather_related_files(file_path):
+            if exists and asset_path:
+                # File exists - show with checkmark and green color
+                display_name = f"✓ {asset_type}: {asset_path.name}"
+                item = QListWidgetItem(display_name)
+                item.setForeground(QColor("#27ae60"))  # Green
+                item.setToolTip(str(asset_path))
+                item.setData(Qt.UserRole, str(asset_path))
+            else:
+                # File missing - show with X and gray color
+                display_name = f"✗ {asset_type}: not found"
+                item = QListWidgetItem(display_name)
+                item.setForeground(QColor("#95a5a6"))  # Gray
+                item.setToolTip(f"Expected: {asset_path}" if asset_path else "Path could not be resolved")
+                item.setData(Qt.UserRole, "")  # No path to open
+
             self.related_list.addItem(item)
+
+            # Track JSON path for parsing metadata
+            if asset_type == "Metadata (JSON)" and exists and asset_path:
+                json_path = asset_path
+
+        # Parse and display metadata if JSON exists
+        if json_path:
+            metadata = self._parse_metadata_json(json_path)
+
+            # Add separator
+            separator = QListWidgetItem("─────────────────")
+            separator.setForeground(QColor("#95a5a6"))
+            separator.setData(Qt.UserRole, "")  # Non-clickable
+            self.related_list.addItem(separator)
+
+            # Display bad channels
+            if metadata["bad_channels"]:
+                channels_str = ", ".join(metadata["bad_channels"])
+                bad_ch_item = QListWidgetItem(f"Bad Channels: {channels_str}")
+                bad_ch_item.setForeground(QColor("#e67e22"))  # Orange
+            else:
+                bad_ch_item = QListWidgetItem("Bad Channels: None")
+                bad_ch_item.setForeground(QColor("#95a5a6"))  # Gray
+            bad_ch_item.setData(Qt.UserRole, "")  # Non-clickable
+            self.related_list.addItem(bad_ch_item)
+
+            # Display rejected ICA components
+            if metadata["rejected_ica"]:
+                ica_str = ", ".join(map(str, metadata["rejected_ica"]))
+                ica_item = QListWidgetItem(f"Rejected ICA: [{ica_str}]")
+                ica_item.setForeground(QColor("#e67e22"))  # Orange
+            else:
+                ica_item = QListWidgetItem("Rejected ICA: None")
+                ica_item.setForeground(QColor("#95a5a6"))  # Gray
+            ica_item.setData(Qt.UserRole, "")  # Non-clickable
+            self.related_list.addItem(ica_item)
 
     def _open_related_item(self, item: QListWidgetItem) -> None:
         data = item.data(Qt.UserRole)
-        if data:
-            _open_path(Path(str(data)))
+        if not data or data == "":
+            # File is missing, show tooltip info instead
+            QMessageBox.warning(
+                self,
+                "File Not Found",
+                f"This file is not available.\n\n{item.toolTip()}"
+            )
+            return
 
-    def _gather_related_files(self, file_path: Path) -> Iterable[Path]:
-        base_stem = file_path.stem
-        results: list[Path] = []
+        file_path = Path(str(data))
+        if not file_path.exists():
+            QMessageBox.warning(
+                self,
+                "File Not Found",
+                f"File no longer exists:\n{file_path}"
+            )
+            return
 
-        for sibling in sorted(file_path.parent.iterdir()):
-            if sibling == file_path:
-                continue
-            if sibling.name.startswith(base_stem):
-                results.append(sibling)
+        _open_path(file_path)
 
-        if self.task_root and self.task_root.exists():
-            reports_root = self.task_root / "reports"
-            if reports_root.exists():
-                for report in sorted(reports_root.rglob("*")):
-                    if report.is_file() and base_stem in report.stem:
-                        if report not in results and report != file_path:
-                            results.append(report)
+    def _gather_related_files(self, file_path: Path) -> list[tuple[str, Optional[Path], bool]]:
+        """Gather related files using asset resolution system.
+
+        Returns:
+            List of tuples: (asset_type, file_path, exists)
+        """
+        results: list[tuple[str, Optional[Path], bool]] = []
+
+        # Strip suffixes to get normalized stem
+        stem = strip_suffixes(file_path.stem, config=self.config)
+
+        # Resolve ICA file
+        if self.task_root:
+            ica_path = self.task_root / "ica" / f"{stem}-ica.fif"
+            results.append(("ICA Components", ica_path, ica_path.exists()))
+
+        # Resolve JSON metadata - construct path from task root
+        if self.task_root:
+            json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            results.append(("Metadata (JSON)", json_path, json_path.exists()))
 
         return results
 
