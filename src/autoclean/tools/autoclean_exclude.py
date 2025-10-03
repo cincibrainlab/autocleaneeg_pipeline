@@ -4654,12 +4654,10 @@ class ExclusionFileSelector(ReviewBase):
             if reply != QMessageBox.StandardButton.Yes:
                 return
 
-            # Generate reprocessing task file
-            # Sanitize stem for valid Python class name
+            # Generate reprocessing task file with sanitized class name
+            # This creates a temporary task folder that we'll copy from later
             sanitized = stem.replace('-', '_').replace(' ', '_')
-            # Remove invalid characters and ensure it doesn't start with a digit
             sanitized = ''.join(c if c.isalnum() or c == '_' else '_' for c in sanitized)
-            # Prefix with 'Task_' if it starts with a digit
             if sanitized and sanitized[0].isdigit():
                 class_name = f"Task_{sanitized}_Reprocess"
             else:
@@ -4691,6 +4689,29 @@ class ExclusionFileSelector(ReviewBase):
     def _start_reprocess(self, stem: str, task_path: Path, raw_path: Path) -> None:
         """Start reprocessing in background with simple status dialog."""
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+        import shutil
+        from datetime import datetime
+
+        # Extract reprocess task name from task file
+        reprocess_class_name = task_path.stem
+        if reprocess_class_name and reprocess_class_name[0].isdigit():
+            reprocess_class_name = f"Task_{reprocess_class_name}"
+
+        # Store reprocess info for post-processing
+        original_task_root = self.task_root
+        output_dir = original_task_root.parent if original_task_root else None
+
+        # Backup original comp file to exports/backups/ before reprocessing
+        exports_dir = original_task_root / "exports"
+        backups_dir = exports_dir / "backups"
+        comp_file = exports_dir / f"{stem}_comp_epo.fif"
+
+        if comp_file.exists():
+            backups_dir.mkdir(exist_ok=True)
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_file = backups_dir / f"{stem}_comp_epo_{timestamp}.fif"
+            shutil.copy2(comp_file, backup_file)
+            print(f"[REPROCESS] Backed up {comp_file.name} to {backup_file}")
 
         # Create simple non-modal dialog
         dialog = QDialog(self)
@@ -4719,12 +4740,19 @@ class ExclusionFileSelector(ReviewBase):
             lambda: output_lines.append(process.readAllStandardError().data().decode('utf-8', errors='ignore'))
         )
 
-        process.finished.connect(lambda code, status: self._on_reprocess_done(code, stem, dialog, output_lines))
+        # Pass reprocess info to completion handler
+        reprocess_info = {
+            'stem': stem,
+            'original_task_root': original_task_root,
+            'reprocess_class_name': reprocess_class_name,
+            'output_dir': output_dir
+        }
+
+        process.finished.connect(
+            lambda code, status: self._on_reprocess_done(code, dialog, output_lines, reprocess_info)
+        )
 
         cancel_btn.clicked.connect(lambda: (process.kill(), dialog.close()))
-
-        # Use same output directory to avoid creating new folder
-        output_dir = self.task_root.parent if self.task_root else None
 
         cmd_args = [
             "process",
@@ -4738,21 +4766,98 @@ class ExclusionFileSelector(ReviewBase):
             cmd_args.extend(["--output", str(output_dir)])
 
         print(f"[REPROCESS] Starting: autocleaneeg-pipeline {' '.join(cmd_args)}")
+        print(f"[REPROCESS] Temp folder: {reprocess_class_name}")
         process.start("autocleaneeg-pipeline", cmd_args)
 
         dialog.show()
 
-    def _on_reprocess_done(self, exit_code: int, stem: str, dialog, output_lines: list = None) -> None:
-        """Handle reprocess completion."""
+    def _on_reprocess_done(
+        self,
+        exit_code: int,
+        dialog,
+        output_lines: list,
+        reprocess_info: dict
+    ) -> None:
+        """Handle reprocess completion and copy results to original folder."""
+        import shutil
+
         dialog.close()
 
+        stem = reprocess_info['stem']
+        original_task_root = reprocess_info['original_task_root']
+        reprocess_class_name = reprocess_info['reprocess_class_name']
+        output_dir = reprocess_info['output_dir']
+
         if exit_code == 0:
-            QMessageBox.information(self, "Success", f"Reprocessed {stem} successfully!")
-            self.refreshFileTree()
+            # Copy reprocessed files from temp folder to original folder
+            try:
+                reprocess_folder = output_dir / reprocess_class_name
+
+                if not reprocess_folder.exists():
+                    QMessageBox.warning(
+                        self,
+                        "Reprocess Warning",
+                        f"Reprocess completed but output folder not found:\n{reprocess_folder}\n\n"
+                        f"Files may be in a different location."
+                    )
+                    return
+
+                # Copy exports folder contents
+                reprocess_exports = reprocess_folder / "exports"
+                original_exports = original_task_root / "exports"
+
+                if reprocess_exports.exists():
+                    for file_path in reprocess_exports.glob("*"):
+                        if file_path.is_file():
+                            dest_path = original_exports / file_path.name
+                            shutil.copy2(file_path, dest_path)
+                            print(f"[REPROCESS] Copied {file_path.name} to original exports")
+
+                # Copy reports folder contents (preserving structure)
+                reprocess_reports = reprocess_folder / "reports"
+                original_reports = original_task_root / "reports"
+
+                if reprocess_reports.exists():
+                    for item in reprocess_reports.rglob("*"):
+                        if item.is_file():
+                            rel_path = item.relative_to(reprocess_reports)
+                            dest_path = original_reports / rel_path
+                            dest_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(item, dest_path)
+                            print(f"[REPROCESS] Copied {rel_path} to original reports")
+
+                # Copy ICA folder contents
+                reprocess_ica = reprocess_folder / "ica"
+                original_ica = original_task_root / "ica"
+
+                if reprocess_ica.exists():
+                    for file_path in reprocess_ica.glob("*"):
+                        if file_path.is_file():
+                            dest_path = original_ica / file_path.name
+                            shutil.copy2(file_path, dest_path)
+                            print(f"[REPROCESS] Copied {file_path.name} to original ica")
+
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Reprocessed {stem} successfully!\n\n"
+                    f"Results copied to original task folder.\n"
+                    f"Original files backed up to exports/backups/\n\n"
+                    f"Temp folder can be deleted: {reprocess_class_name}"
+                )
+                self.refreshFileTree()
+
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "Copy Error",
+                    f"Reprocessing completed but failed to copy results:\n\n{str(e)}\n\n"
+                    f"You can manually copy from:\n{reprocess_folder}"
+                )
         else:
             # Show error with captured output
             output = ''.join(output_lines) if output_lines else "No output captured"
-            error_msg = f"Reprocessing failed with exit code {exit_code}.\n\nOutput:\n{output[-1000:]}"  # Last 1000 chars
+            error_msg = f"Reprocessing failed with exit code {exit_code}.\n\nOutput:\n{output[-1000:]}"
             QMessageBox.warning(self, "Reprocessing Failed", error_msg)
 
     def _update_decision_controls(self, record: Optional[dict[str, str]]) -> None:
