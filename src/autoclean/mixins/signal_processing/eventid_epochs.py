@@ -32,6 +32,7 @@ class EventIDEpochsMixin:
         self,
         data: Union[mne.io.Raw, None] = None,
         show_config_example: bool = True,
+        exclude_patterns: Optional[list] = None,
     ) -> Optional[Dict[str, int]]:
         """Discover and print all events found in the raw data annotations.
 
@@ -46,6 +47,10 @@ class EventIDEpochsMixin:
             The raw data to extract events from. If None, uses self.raw.
         show_config_example : bool, Optional
             Whether to print example JSON config snippets, by default True.
+        exclude_patterns : list, Optional
+            List of string patterns to exclude from likely stimuli
+            (e.g., ["BAD", "artifact"]). Events starting with these patterns
+            will be filtered out. Default is ["BAD", "artifact"].
 
         Returns
         -------
@@ -145,11 +150,20 @@ class EventIDEpochsMixin:
             if show_config_example:
                 message("header", "\nConfiguration Guide")
                 
-                # Filter out likely artifact markers (BAD, etc.)
+                # Set default exclusion patterns if not provided
+                if exclude_patterns is None:
+                    exclude_patterns = ["BAD", "artifact"]
+                
+                # Filter out likely artifact markers
+                def should_exclude(event_name):
+                    """Check if event name matches any exclusion pattern."""
+                    upper_name = event_name.upper()
+                    return any(upper_name.startswith(pattern.upper()) for pattern in exclude_patterns)
+                
                 likely_stimuli = {
                     k: v["code"]
                     for k, v in event_counts.items()
-                    if not k.upper().startswith("BAD")
+                    if not should_exclude(k)
                     and v["count"] >= 5  # Exclude rare events
                 }
 
@@ -269,19 +283,28 @@ class EventIDEpochsMixin:
             ch_types = epochs.get_channel_types()
             n_epochs = len(epochs)
 
-            # Compute peak-to-peak amplitudes per channel per epoch
-            message("info", "Computing peak-to-peak amplitudes across epochs...")
+            # Compute amplitudes per channel per epoch
+            method_desc = "maximum absolute values" if method == "max_abs" else "peak-to-peak amplitudes"
+            message("info", f"Computing {method_desc} across epochs...")
             
             report_rows = []
             channels_by_type = {}  # For type-level summaries
 
             for ch_idx, (ch_name, ch_type) in enumerate(zip(ch_names, ch_types)):
-                # Peak-to-peak amplitude for this channel across all epochs
-                ptp_amplitudes = np.ptp(data[:, ch_idx, :], axis=1)  # (n_epochs,)
+                # Compute amplitudes based on method
+                if method == "max_abs":
+                    # Maximum absolute value (matches MNE's reject behavior)
+                    amplitudes = np.max(np.abs(data[:, ch_idx, :]), axis=1)  # (n_epochs,)
+                elif method == "ptp":
+                    # Peak-to-peak range (max - min)
+                    amplitudes = np.ptp(data[:, ch_idx, :], axis=1)  # (n_epochs,)
+                else:
+                    message("warning", f"Unknown method '{method}', defaulting to 'max_abs'")
+                    amplitudes = np.max(np.abs(data[:, ch_idx, :]), axis=1)
 
-                mean_amp = ptp_amplitudes.mean()
-                max_amp = ptp_amplitudes.max()
-                min_amp = ptp_amplitudes.min()
+                mean_amp = amplitudes.mean()
+                max_amp = amplitudes.max()
+                min_amp = amplitudes.min()
 
                 # Check against threshold if provided
                 flagged_count = 0
@@ -290,7 +313,7 @@ class EventIDEpochsMixin:
 
                 if volt_threshold and ch_type in volt_threshold:
                     thresh_value = volt_threshold[ch_type]
-                    flagged_count = (ptp_amplitudes > thresh_value).sum()
+                    flagged_count = (amplitudes > thresh_value).sum()
                     flagged_pct = (flagged_count / n_epochs) * 100
 
                 report_rows.append({
@@ -541,13 +564,20 @@ class EventIDEpochsMixin:
 
             message("header", f"Creating epochs based on event IDs: {event_id}")
 
-            # Always show discovered events to help users verify their configuration
-            message("info", "\nDiscovering available events in data for verification...")
-            discovered_events = self.print_discovered_events(data=data, show_config_example=True)
+            # Optionally show discovered events (can be disabled via config)
+            auto_discover = True
+            if hasattr(self, "config") and isinstance(self.config, dict):
+                auto_discover = self.config.get("auto_discover_events", True)
             
-            if discovered_events is None:
-                message("error", "Failed to discover events in data")
-                return None
+            if auto_discover:
+                message("info", "\nDiscovering available events in data for verification...")
+                discovered_events = self.print_discovered_events(data=data, show_config_example=True)
+                
+                if discovered_events is None:
+                    message("error", "Failed to discover events in data")
+                    return None
+            else:
+                message("debug", "Auto-discovery disabled via config (auto_discover_events=False)")
 
             # Get all events from annotations for epoching
             try:
