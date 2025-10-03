@@ -29,22 +29,16 @@ import yaml
 def check_gui_dependencies() -> None:
     """Fail fast if the optional GUI stack is missing."""
 
-    missing: list[str] = []
     try:  # pragma: no cover - import guard only
         import PyQt6  # noqa: F401
-    except ImportError:  # pragma: no cover - runtime dependency guard
-        missing.append("PyQt6")
-
-    try:  # pragma: no cover - import guard only
         from PyQt6 import QtPdf  # noqa: F401
-    except ImportError:  # pragma: no cover - runtime dependency guard
-        missing.append("QtPdf")
-
-    if missing:
+    except ImportError as e:  # pragma: no cover - runtime dependency guard
         print("Error: Missing required GUI dependencies for the exclusion tool.")
-        print("Install the extras bundle first:")
-        print("    pip install autocleaneeg-pipeline[gui]")
-        print(f"Missing packages: {', '.join(missing)}")
+        print("Reinstall the package to get all dependencies:")
+        print("    uv tool install --force autocleaneeg-pipeline")
+        print("Or with pip:")
+        print("    pip install --force-reinstall autocleaneeg-pipeline")
+        print(f"Import error: {e}")
         sys.exit(1)
 
 
@@ -57,6 +51,7 @@ from qtpy.QtCore import (  # noqa: E402
     QObject,
     QEvent,
     QPointF,
+    QProcess,
     QSize,
     Qt,
     QTimer,
@@ -1562,6 +1557,10 @@ class ReprocessWidget(QWidget):
         """)
         self.ica_overlay.hide()
 
+        # Button bar for reset and reprocess
+        button_bar = QHBoxLayout()
+        button_bar.setSpacing(8)
+
         # Reset button
         reset_btn = QPushButton("Reset to Original")
         reset_btn.clicked.connect(self._reset_to_original)
@@ -1578,7 +1577,34 @@ class ReprocessWidget(QWidget):
                 border-color: #a0aec0;
             }
         """)
-        layout.addWidget(reset_btn)
+        button_bar.addWidget(reset_btn)
+
+        # Reprocess button
+        self.reprocess_btn = QPushButton("Reprocess with Overrides")
+        self.reprocess_btn.clicked.connect(self._handle_reprocess_clicked)
+        self.reprocess_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: 1px solid #2980b9;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+                border-color: #21618c;
+            }
+            QPushButton:disabled {
+                background-color: #bdc3c7;
+                border-color: #95a5a6;
+                color: #7f8c8d;
+            }
+        """)
+        self.reprocess_btn.setEnabled(False)  # Disabled until changes are made
+        button_bar.addWidget(self.reprocess_btn)
+
+        layout.addLayout(button_bar)
 
         # Changes summary widget
         self.changes_summary_widget = QWidget()
@@ -1913,6 +1939,7 @@ class ReprocessWidget(QWidget):
         if not self.valid_channels:
             # No file loaded - show message
             self.bottom_stack.setCurrentWidget(self.message_label)
+            self.reprocess_btn.setEnabled(False)
             return
 
         diff = self.get_changes_diff()
@@ -1923,10 +1950,12 @@ class ReprocessWidget(QWidget):
             self.bottom_stack.setCurrentWidget(self.message_label)
             self.message_label.setText("No modifications yet")
             self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+            self.reprocess_btn.setEnabled(False)
             return
 
-        # Show changes summary
+        # Show changes summary and enable reprocess button
         self.bottom_stack.setCurrentWidget(self.changes_summary_widget)
+        self.reprocess_btn.setEnabled(True)
 
         # Update channels section
         ch_added = diff["bad_channels"]["added"]
@@ -2043,6 +2072,24 @@ class ReprocessWidget(QWidget):
         if not self._suppress_change_signal:
             self.values_changed.emit()
             self._update_changes_summary()
+
+    def _handle_reprocess_clicked(self) -> None:
+        """Handle reprocess button click - trigger reprocessing with current overrides."""
+        # Get parent ExclusionFileSelector instance
+        parent = self.parent()
+        while parent and not isinstance(parent, ExclusionFileSelector):
+            parent = parent.parent()
+
+        if not parent:
+            QMessageBox.warning(
+                self,
+                "Error",
+                "Could not access parent window for reprocessing."
+            )
+            return
+
+        # Trigger reprocessing through parent
+        parent._trigger_reprocess_with_overrides()
 
 
 def _open_path(path: Path) -> None:
@@ -3024,6 +3071,12 @@ class ExclusionFileSelector(ReviewBase):
         self.current_dir = str(root)
         self.decisions_path = root / "autoclean_exclusion_decisions.json"
         self.decisions_csv_path = root / "autoclean_exclusion_decisions.csv"
+
+        # Update task_root to point to parent directory (task output folder)
+        # exports_dir is typically: /path/to/output/TaskName/exports
+        # task_root should be: /path/to/output/TaskName
+        self.task_root = root.parent
+
         # Update the workspace path label whenever directory changes
         self._refresh_workspace_path_label()
 
@@ -4513,6 +4566,194 @@ class ExclusionFileSelector(ReviewBase):
             print(f"[REPROCESS]   Task file hash: {task_file_hash[:16]}...")
         else:
             print(f"[REPROCESS]   WARNING: Task file not found in status/ directory")
+
+    def _trigger_reprocess_with_overrides(self) -> None:
+        """Trigger reprocessing with manual overrides from the current file's payload."""
+        from autoclean.utils.template_renderer import render_reprocess_task_from_json
+
+        if not self.task_root or not hasattr(self, "selected_file_path"):
+            QMessageBox.warning(
+                self,
+                "Reprocess Error",
+                "No file selected or task root not configured."
+            )
+            return
+
+        # Get file stem
+        file_path = Path(self.selected_file_path)
+        stem = strip_suffixes(file_path.stem, config=self.config)
+
+        # Check if manual fix payload exists
+        payload_path = self.task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
+        if not payload_path.exists():
+            QMessageBox.warning(
+                self,
+                "Reprocess Error",
+                f"Manual fix payload not found:\n{payload_path}\n\n"
+                "Please make changes in the Reprocess tab first."
+            )
+            return
+
+        try:
+            # Load manual fix payload
+            payload = json.loads(payload_path.read_text())
+
+            # Load metadata to get original raw file path
+            metadata_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            if not metadata_path.exists():
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    f"Metadata file not found:\n{metadata_path}"
+                )
+                return
+
+            metadata = json.loads(metadata_path.read_text())
+            original_raw_file = metadata.get("unprocessed_file")
+            if not original_raw_file:
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    "Could not find original raw file path in metadata."
+                )
+                return
+
+            # Verify raw file exists
+            raw_file_path = Path(original_raw_file)
+            if not raw_file_path.exists():
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    f"Original raw file not found:\n{raw_file_path}"
+                )
+                return
+
+            # Show confirmation dialog
+            fix_type = payload.get("fix_type", "unknown")
+            bad_ch_count = len(payload["modifications"]["bad_channels"]["modified"])
+            ica_count = len(payload["modifications"]["rejected_ica"]["modified"])
+
+            confirm_msg = (
+                f"<b>Reprocess: {stem}</b><br><br>"
+                f"<b>Fix Type:</b> {fix_type}<br>"
+                f"<b>Bad Channels:</b> {bad_ch_count}<br>"
+                f"<b>ICA Components:</b> {ica_count}<br><br>"
+                f"<b>Raw File:</b><br>{raw_file_path}<br><br>"
+                "This will generate a new reprocessing task and run the pipeline.<br>"
+                "Do you want to continue?"
+            )
+
+            reply = QMessageBox.question(
+                self,
+                "Confirm Reprocessing",
+                confirm_msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+            # Generate reprocessing task file
+            # Sanitize stem for valid Python class name
+            sanitized = stem.replace('-', '_').replace(' ', '_')
+            # Remove invalid characters and ensure it doesn't start with a digit
+            sanitized = ''.join(c if c.isalnum() or c == '_' else '_' for c in sanitized)
+            # Prefix with 'Task_' if it starts with a digit
+            if sanitized and sanitized[0].isdigit():
+                class_name = f"Task_{sanitized}_Reprocess"
+            else:
+                class_name = f"{sanitized}_Reprocess"
+
+            task_output_path = self.task_root / "status" / f"{stem}_Reprocess.py"
+
+            # Render task file from template
+            rendered_task = render_reprocess_task_from_json(
+                json_data=payload,
+                class_name=class_name,
+                output_path=task_output_path
+            )
+
+            print(f"[REPROCESS] Generated task file: {task_output_path}")
+
+            # Start non-blocking reprocess
+            self._start_reprocess(stem, task_output_path, raw_file_path)
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Reprocessing Error",
+                f"An error occurred during reprocessing:\n\n{str(e)}"
+            )
+            import traceback
+            traceback.print_exc()
+
+    def _start_reprocess(self, stem: str, task_path: Path, raw_path: Path) -> None:
+        """Start reprocessing in background with simple status dialog."""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+
+        # Create simple non-modal dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Reprocessing")
+        dialog.setModal(False)  # Non-blocking
+        dialog.resize(350, 120)
+
+        layout = QVBoxLayout()
+        label = QLabel(f"Reprocessing {stem}...\n\nThis may take several minutes.\nYou can continue using the GUI.")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        cancel_btn = QPushButton("Cancel")
+        layout.addWidget(cancel_btn)
+        dialog.setLayout(layout)
+
+        # Start process
+        process = QProcess(self)
+
+        # Capture output for error reporting
+        output_lines = []
+        process.readyReadStandardOutput.connect(
+            lambda: output_lines.append(process.readAllStandardOutput().data().decode('utf-8', errors='ignore'))
+        )
+        process.readyReadStandardError.connect(
+            lambda: output_lines.append(process.readAllStandardError().data().decode('utf-8', errors='ignore'))
+        )
+
+        process.finished.connect(lambda code, status: self._on_reprocess_done(code, stem, dialog, output_lines))
+
+        cancel_btn.clicked.connect(lambda: (process.kill(), dialog.close()))
+
+        # Use same output directory to avoid creating new folder
+        output_dir = self.task_root.parent if self.task_root else None
+
+        cmd_args = [
+            "process",
+            "--task-file",
+            str(task_path),
+            "--file",
+            str(raw_path)
+        ]
+
+        if output_dir:
+            cmd_args.extend(["--output", str(output_dir)])
+
+        print(f"[REPROCESS] Starting: autocleaneeg-pipeline {' '.join(cmd_args)}")
+        process.start("autocleaneeg-pipeline", cmd_args)
+
+        dialog.show()
+
+    def _on_reprocess_done(self, exit_code: int, stem: str, dialog, output_lines: list = None) -> None:
+        """Handle reprocess completion."""
+        dialog.close()
+
+        if exit_code == 0:
+            QMessageBox.information(self, "Success", f"Reprocessed {stem} successfully!")
+            self.refreshFileTree()
+        else:
+            # Show error with captured output
+            output = ''.join(output_lines) if output_lines else "No output captured"
+            error_msg = f"Reprocessing failed with exit code {exit_code}.\n\nOutput:\n{output[-1000:]}"  # Last 1000 chars
+            QMessageBox.warning(self, "Reprocessing Failed", error_msg)
 
     def _update_decision_controls(self, record: Optional[dict[str, str]]) -> None:
         status = record.get("status") if record else "UNSET"
