@@ -315,6 +315,15 @@ class EventIDEpochsMixin:
                         # (from which epochs.metadata was derived)
                         original_event_samples = epochs.events[:, 0]
 
+                        # Check for duplicate event sample indices upfront
+                        if len(np.unique(original_event_samples)) != len(
+                            original_event_samples
+                        ):
+                            message(
+                                "warning",
+                                "Duplicate event sample indices detected; using sorted matching",
+                            )
+
                         # Find the indices in 'original_event_samples' that match 'surviving_event_samples'.
                         # This effectively maps the surviving events in epochs_clean back to their
                         # corresponding rows in the original (and fully augmented) epochs.metadata.
@@ -328,12 +337,33 @@ class EventIDEpochsMixin:
                                 "error",
                                 f"Mismatch when aligning surviving events to original metadata. "
                                 f"Expected {len(epochs_clean.events)} matches, found {len(kept_original_indices)}. "
-                                f"Metadata might be incorrect.",
+                                f"Attempting fallback with sorted matching.",
                             )
-                            # If there's a mismatch, it indicates a deeper issue, perhaps non-unique event samples
-                            # or an unexpected state. For now, we proceed with potentially incorrect metadata
-                            # or let MNE raise an error if lengths still don't match later.
-                            # A more robust solution might involve raising an error here.
+
+                            # Fallback: use searchsorted for 1:1 matching
+                            # This handles duplicate event samples by matching in order
+                            surviving_sorted_idx = np.argsort(surviving_event_samples)
+                            original_sorted_idx = np.argsort(original_event_samples)
+
+                            surviving_sorted = surviving_event_samples[
+                                surviving_sorted_idx
+                            ]
+                            original_sorted = original_event_samples[original_sorted_idx]
+
+                            # Find positions of surviving events in the sorted original array
+                            positions = np.searchsorted(original_sorted, surviving_sorted)
+
+                            # Map back to original indices
+                            kept_original_indices = original_sorted_idx[positions]
+
+                            # Validate alignment
+                            if len(kept_original_indices) != len(epochs_clean.events):
+                                raise ValueError(
+                                    f"Cannot align metadata after fallback. "
+                                    f"Expected {len(epochs_clean.events)} matches, "
+                                    f"found {len(kept_original_indices)}. "
+                                    f"Duplicate event samples may have caused alignment failure."
+                                )
 
                         # Slice the augmented epochs.metadata using these derived indices.
                         # The resulting DataFrame will have the same number of rows as len(epochs_clean.events).
