@@ -128,7 +128,27 @@ class EventIDEpochsMixin:
             message("header", f"Creating epochs based on event IDs: {event_id}")
 
             # Get all events from annotations
-            events_all, event_id_all = mne.events_from_annotations(data)
+            try:
+                events_all, event_id_all = mne.events_from_annotations(data)
+            except ValueError as e:
+                message(
+                    "error",
+                    f"Failed to parse annotations from data: {str(e)}. "
+                    "Check that annotations are properly formatted.",
+                )
+                return None
+            except RuntimeError as e:
+                message(
+                    "error",
+                    f"MNE runtime error while extracting events from annotations: {str(e)}",
+                )
+                return None
+            except Exception as e:
+                message(
+                    "error",
+                    f"Unexpected error extracting events from annotations: {str(e)}",
+                )
+                return None
 
             # Find all event types that match our event_id values
             event_patterns = {}  # Name and code of events to epoch by
