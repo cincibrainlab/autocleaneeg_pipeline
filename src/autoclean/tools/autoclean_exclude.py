@@ -1580,11 +1580,78 @@ class ReprocessWidget(QWidget):
         """)
         layout.addWidget(reset_btn)
 
+        # Changes summary widget
+        self.changes_summary_widget = QWidget()
+        self.changes_summary_layout = QVBoxLayout()
+        self.changes_summary_layout.setContentsMargins(12, 12, 12, 12)
+        self.changes_summary_layout.setSpacing(8)
+        self.changes_summary_widget.setLayout(self.changes_summary_layout)
+
+        # Summary title
+        self.summary_title = QLabel("Changes Summary")
+        self.summary_title.setAlignment(Qt.AlignCenter)
+        self.summary_title.setStyleSheet("""
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #ecf0f1;
+        """)
+        self.changes_summary_layout.addWidget(self.summary_title)
+
+        # Channels changes section
+        self.channels_changes_widget = QWidget()
+        self.channels_changes_layout = QVBoxLayout()
+        self.channels_changes_layout.setContentsMargins(0, 4, 0, 4)
+        self.channels_changes_layout.setSpacing(4)
+        self.channels_changes_widget.setLayout(self.channels_changes_layout)
+
+        self.channels_summary_label = QLabel()
+        self.channels_summary_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #34495e;")
+        self.channels_changes_layout.addWidget(self.channels_summary_label)
+
+        self.channels_chips_widget = QWidget()
+        self.channels_chips_layout = QHBoxLayout()
+        self.channels_chips_layout.setContentsMargins(0, 0, 0, 0)
+        self.channels_chips_layout.setSpacing(4)
+        self.channels_chips_layout.setAlignment(Qt.AlignLeft)
+        self.channels_chips_widget.setLayout(self.channels_chips_layout)
+        self.channels_changes_layout.addWidget(self.channels_chips_widget)
+
+        self.changes_summary_layout.addWidget(self.channels_changes_widget)
+
+        # ICA changes section
+        self.ica_changes_widget = QWidget()
+        self.ica_changes_layout = QVBoxLayout()
+        self.ica_changes_layout.setContentsMargins(0, 4, 0, 4)
+        self.ica_changes_layout.setSpacing(4)
+        self.ica_changes_widget.setLayout(self.ica_changes_layout)
+
+        self.ica_summary_label = QLabel()
+        self.ica_summary_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #34495e;")
+        self.ica_changes_layout.addWidget(self.ica_summary_label)
+
+        self.ica_chips_widget = QWidget()
+        self.ica_chips_layout = QHBoxLayout()
+        self.ica_chips_layout.setContentsMargins(0, 0, 0, 0)
+        self.ica_chips_layout.setSpacing(4)
+        self.ica_chips_layout.setAlignment(Qt.AlignLeft)
+        self.ica_chips_widget.setLayout(self.ica_chips_layout)
+        self.ica_changes_layout.addWidget(self.ica_chips_widget)
+
+        self.changes_summary_layout.addWidget(self.ica_changes_widget)
+
         # Message label for empty state
         self.message_label = QLabel("Select a file to edit reprocessing parameters")
         self.message_label.setAlignment(Qt.AlignCenter)
         self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
-        layout.addWidget(self.message_label)
+
+        # Stack to switch between summary and message
+        self.bottom_stack = QStackedLayout()
+        self.bottom_stack.addWidget(self.message_label)
+        self.bottom_stack.addWidget(self.changes_summary_widget)
+        self.bottom_stack.setCurrentWidget(self.message_label)
+        layout.addLayout(self.bottom_stack)
 
     def resizeEvent(self, event) -> None:
         """Handle resize events to position overlays correctly."""
@@ -1679,18 +1746,15 @@ class ReprocessWidget(QWidget):
         for component in rejected_ica:
             self.ica_list.addItem(f"Component {component}")
 
-        # Show/hide message
-        if valid_channels:
-            self.message_label.hide()
-        else:
-            self.message_label.show()
-
         # Clear modification mode and re-enable both sections when loading new file
         self._modification_mode = None
         self._update_section_states()
 
         # Re-enable change signals
         self._suppress_change_signal = False
+
+        # Update changes summary display
+        self._update_changes_summary()
 
     def _add_channel(self) -> None:
         """Add selected channel to bad channels list."""
@@ -1844,10 +1908,141 @@ class ReprocessWidget(QWidget):
             "has_ica_changes": current_ica != original_ica,
         }
 
+    def _update_changes_summary(self) -> None:
+        """Update the changes summary widget with current additions/deletions."""
+        if not self.valid_channels:
+            # No file loaded - show message
+            self.bottom_stack.setCurrentWidget(self.message_label)
+            return
+
+        diff = self.get_changes_diff()
+        has_any_changes = diff["has_channel_changes"] or diff["has_ica_changes"]
+
+        if not has_any_changes:
+            # No changes - show message
+            self.bottom_stack.setCurrentWidget(self.message_label)
+            self.message_label.setText("No modifications yet")
+            self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+            return
+
+        # Show changes summary
+        self.bottom_stack.setCurrentWidget(self.changes_summary_widget)
+
+        # Update channels section
+        ch_added = diff["bad_channels"]["added"]
+        ch_removed = diff["bad_channels"]["removed"]
+
+        if ch_added or ch_removed:
+            self.channels_summary_label.setText(
+                f"Channels:  +{len(ch_added)}  -{len(ch_removed)}"
+            )
+            self.channels_changes_widget.show()
+
+            # Clear existing chips
+            while self.channels_chips_layout.count():
+                child = self.channels_chips_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+
+            # Add chips for added channels
+            for ch in ch_added[:10]:  # Limit to 10 to avoid overflow
+                chip = QLabel(f"+ {ch}")
+                chip.setStyleSheet("""
+                    background-color: #d4edda;
+                    color: #155724;
+                    border: 1px solid #c3e6cb;
+                    border-radius: 4px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: 600;
+                """)
+                self.channels_chips_layout.addWidget(chip)
+
+            # Add chips for removed channels
+            for ch in ch_removed[:10]:  # Limit to 10 to avoid overflow
+                chip = QLabel(f"− {ch}")
+                chip.setStyleSheet("""
+                    background-color: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                    border-radius: 4px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: 600;
+                """)
+                self.channels_chips_layout.addWidget(chip)
+
+            # Add ellipsis if there are more items
+            total_shown = min(len(ch_added), 10) + min(len(ch_removed), 10)
+            total_items = len(ch_added) + len(ch_removed)
+            if total_items > total_shown:
+                more_label = QLabel(f"... +{total_items - total_shown} more")
+                more_label.setStyleSheet("color: #7f8c8d; font-size: 11px; padding: 3px 8px;")
+                self.channels_chips_layout.addWidget(more_label)
+
+        else:
+            self.channels_changes_widget.hide()
+
+        # Update ICA section
+        ica_added = diff["rejected_ica"]["added"]
+        ica_removed = diff["rejected_ica"]["removed"]
+
+        if ica_added or ica_removed:
+            self.ica_summary_label.setText(
+                f"ICA Components:  +{len(ica_added)}  -{len(ica_removed)}"
+            )
+            self.ica_changes_widget.show()
+
+            # Clear existing chips
+            while self.ica_chips_layout.count():
+                child = self.ica_chips_layout.takeAt(0)
+                if child.widget():
+                    child.widget().deleteLater()
+
+            # Add chips for added components
+            for ic in ica_added[:10]:  # Limit to 10 to avoid overflow
+                chip = QLabel(f"+ IC{ic}")
+                chip.setStyleSheet("""
+                    background-color: #d4edda;
+                    color: #155724;
+                    border: 1px solid #c3e6cb;
+                    border-radius: 4px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: 600;
+                """)
+                self.ica_chips_layout.addWidget(chip)
+
+            # Add chips for removed components
+            for ic in ica_removed[:10]:  # Limit to 10 to avoid overflow
+                chip = QLabel(f"− IC{ic}")
+                chip.setStyleSheet("""
+                    background-color: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                    border-radius: 4px;
+                    padding: 3px 8px;
+                    font-size: 11px;
+                    font-weight: 600;
+                """)
+                self.ica_chips_layout.addWidget(chip)
+
+            # Add ellipsis if there are more items
+            total_shown = min(len(ica_added), 10) + min(len(ica_removed), 10)
+            total_items = len(ica_added) + len(ica_removed)
+            if total_items > total_shown:
+                more_label = QLabel(f"... +{total_items - total_shown} more")
+                more_label.setStyleSheet("color: #7f8c8d; font-size: 11px; padding: 3px 8px;")
+                self.ica_chips_layout.addWidget(more_label)
+
+        else:
+            self.ica_changes_widget.hide()
+
     def _emit_change_signal(self) -> None:
         """Emit values_changed signal if not suppressed."""
         if not self._suppress_change_signal:
             self.values_changed.emit()
+            self._update_changes_summary()
 
 
 def _open_path(path: Path) -> None:
