@@ -3423,9 +3423,20 @@ class ExclusionFileSelector(ReviewBase):
             ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
             rejected_ica = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
 
-            # Extract valid channels for validation
-            gfp_section = metadata_section.get("step_gfp_clean_epochs", {})
-            valid_channels = gfp_section.get("scalp_channels_used", [])
+            # Extract original channel names from import (BEFORE any removals)
+            # This allows users to select ANY original channel to mark as bad
+            import_details = data.get("import_details", {})
+            valid_channels = import_details.get("original_channel_names", [])
+
+            # Fallback to legacy methods if original_channel_names not available
+            if not valid_channels:
+                # Try metadata.import_eeg.originalChannelNames
+                valid_channels = metadata_section.get("import_eeg", {}).get("originalChannelNames", [])
+
+            if not valid_channels:
+                # Final fallback: use scalp_channels_used (old behavior)
+                gfp_section = metadata_section.get("step_gfp_clean_epochs", {})
+                valid_channels = gfp_section.get("scalp_channels_used", [])
 
             # Extract total ICA components
             ica_section = metadata_section.get("step_run_ica", {})
