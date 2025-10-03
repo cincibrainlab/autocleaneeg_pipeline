@@ -619,6 +619,7 @@ class EventIDEpochsMixin:
                 reject_by_annotation=(reject_by_annotation and not keep_all_epochs),
                 preload=True,
                 on_missing="ignore",  # Don't error if no events
+                verbose="WARNING",  # Suppress verbose epoch-by-epoch rejection logs
             )
 
             # Step 5: Filter other events to keep only those that fall *within the kept epochs*
