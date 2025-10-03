@@ -60,6 +60,7 @@ from qtpy.QtCore import (  # noqa: E402
     QSize,
     Qt,
     QTimer,
+    Signal,
 )
 from qtpy.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
 from qtpy.QtWidgets import (  # noqa: E402
@@ -1430,6 +1431,9 @@ class JsonMetadataViewer(QWidget):
 class ReprocessWidget(QWidget):
     """Widget for editing bad channels and rejected ICA components for reprocessing."""
 
+    # Signal emitted when reprocess values change
+    values_changed = Signal()
+
     def __init__(self, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout()
@@ -1442,6 +1446,7 @@ class ReprocessWidget(QWidget):
         self.max_components: int = 0
         self.original_bad_channels: list[str] = []
         self.original_rejected_ica: list[int] = []
+        self._suppress_change_signal: bool = False
 
         # Create horizontal layout for side-by-side groups
         groups_layout = QHBoxLayout()
@@ -1535,6 +1540,9 @@ class ReprocessWidget(QWidget):
 
     def load_from_metadata(self, metadata: dict) -> None:
         """Load bad channels and ICA components from metadata."""
+        # Suppress change signals during loading
+        self._suppress_change_signal = True
+
         # Clear current state
         self.channels_list.clear()
         self.ica_list.clear()
@@ -1572,6 +1580,9 @@ class ReprocessWidget(QWidget):
         else:
             self.message_label.show()
 
+        # Re-enable change signals
+        self._suppress_change_signal = False
+
     def _add_channel(self) -> None:
         """Add selected channel to bad channels list."""
         channel = self.channel_combo.currentText().strip().upper()
@@ -1594,12 +1605,14 @@ class ReprocessWidget(QWidget):
 
         self.channels_list.addItem(channel)
         self.channel_combo.setCurrentIndex(-1)
+        self._emit_change_signal()
 
     def _remove_channel(self) -> None:
         """Remove selected channel from list."""
         current_item = self.channels_list.currentItem()
         if current_item:
             self.channels_list.takeItem(self.channels_list.row(current_item))
+            self._emit_change_signal()
 
     def _add_ica_component(self) -> None:
         """Add ICA component to rejected list."""
@@ -1612,12 +1625,14 @@ class ReprocessWidget(QWidget):
             return
 
         self.ica_list.addItem(component_text)
+        self._emit_change_signal()
 
     def _remove_ica_component(self) -> None:
         """Remove selected ICA component from list."""
         current_item = self.ica_list.currentItem()
         if current_item:
             self.ica_list.takeItem(self.ica_list.row(current_item))
+            self._emit_change_signal()
 
     def _reset_to_original(self) -> None:
         """Reset to original values from metadata."""
@@ -1629,6 +1644,8 @@ class ReprocessWidget(QWidget):
 
         for component in self.original_rejected_ica:
             self.ica_list.addItem(f"Component {component}")
+
+        self._emit_change_signal()
 
     def get_current_values(self) -> dict:
         """Get current bad channels and rejected ICA components."""
@@ -1646,6 +1663,54 @@ class ReprocessWidget(QWidget):
             "bad_channels": bad_channels,
             "rejected_ica": rejected_ica
         }
+
+    def has_changes(self) -> bool:
+        """Check if current values differ from original values."""
+        current = self.get_current_values()
+        return (
+            set(current["bad_channels"]) != set(self.original_bad_channels)
+            or set(current["rejected_ica"]) != set(self.original_rejected_ica)
+        )
+
+    def get_changes_diff(self) -> dict:
+        """Get a diff of changes from original values.
+
+        Returns
+        -------
+        dict
+            Dictionary containing:
+            - bad_channels: {original, modified, added, removed}
+            - rejected_ica: {original, modified, added, removed}
+            - has_channel_changes: bool
+            - has_ica_changes: bool
+        """
+        current = self.get_current_values()
+        current_channels = set(current["bad_channels"])
+        original_channels = set(self.original_bad_channels)
+        current_ica = set(current["rejected_ica"])
+        original_ica = set(self.original_rejected_ica)
+
+        return {
+            "bad_channels": {
+                "original": sorted(self.original_bad_channels),
+                "modified": sorted(current["bad_channels"]),
+                "added": sorted(current_channels - original_channels),
+                "removed": sorted(original_channels - current_channels),
+            },
+            "rejected_ica": {
+                "original": sorted(self.original_rejected_ica),
+                "modified": sorted(current["rejected_ica"]),
+                "added": sorted(current_ica - original_ica),
+                "removed": sorted(original_ica - current_ica),
+            },
+            "has_channel_changes": current_channels != original_channels,
+            "has_ica_changes": current_ica != original_ica,
+        }
+
+    def _emit_change_signal(self) -> None:
+        """Emit values_changed signal if not suppressed."""
+        if not self._suppress_change_signal:
+            self.values_changed.emit()
 
 
 def _open_path(path: Path) -> None:
@@ -1858,6 +1923,13 @@ class ExclusionFileSelector(ReviewBase):
         if hasattr(self, "file_tree") and self.file_tree is not None:
             try:
                 self.file_tree.itemSelectionChanged.connect(self._handle_tree_selection_changed)
+            except Exception:
+                pass
+
+        # Connect reprocess widget signal
+        if hasattr(self, "reprocess_widget") and self.reprocess_widget is not None:
+            try:
+                self.reprocess_widget.values_changed.connect(self._handle_reprocess_changed)
             except Exception:
                 pass
 
@@ -3126,20 +3198,24 @@ class ExclusionFileSelector(ReviewBase):
                     "qa_export_hash": record.get("qa_export_hash", ""),
                     "qa_export_timestamp": record.get("qa_export_timestamp", ""),
                     "qa_export_path": record.get("qa_export_path", ""),
+                    "reprocess_modified": record.get("reprocess_modified", False),
+                    "reprocess_fix_type": record.get("reprocess_fix_type", ""),
+                    "reprocess_timestamp": record.get("reprocess_timestamp", ""),
                 }
                 rows.append(row_data)
-                
+
                 # Log epoch data for CSV rows
                 if row_data["epochs_reviewed"]:
                     print(f"[EPOCH DEBUG] CSV row {key}: {row_data['bad_epochs_count']} bad epochs, indices={row_data['bad_epoch_indices']}")
-            
+
             with self.decisions_csv_path.open("w", newline="", encoding="utf-8") as fp:
                 writer = csv.DictWriter(
                     fp, fieldnames=[
                         "entry", "status", "notes", "relative_path", "last_updated",
                         "epochs_reviewed", "bad_epochs_count", "bad_epoch_indices",
                         "bad_epoch_times", "bad_epoch_events", "total_epochs", "epoch_rejection_rate",
-                        "qa_export_hash", "qa_export_timestamp", "qa_export_path"
+                        "qa_export_hash", "qa_export_timestamp", "qa_export_path",
+                        "reprocess_modified", "reprocess_fix_type", "reprocess_timestamp"
                     ]
                 )
                 writer.writeheader()
@@ -3940,6 +4016,160 @@ class ExclusionFileSelector(ReviewBase):
         record["notes"] = self.notes_edit.toPlainText().strip()
         record["last_updated"] = _human_timestamp()
         self._schedule_save()
+
+    def _handle_reprocess_changed(self) -> None:
+        """Handle changes to reprocess widget values."""
+        if not self.current_key or self.reprocess_widget is None:
+            return
+
+        if not hasattr(self, "selected_file_path"):
+            return
+
+        # Check if there are actual changes
+        if not self.reprocess_widget.has_changes():
+            # No changes - clear reprocess fields if they exist
+            record = self.decisions.get(self.current_key)
+            if record and record.get("reprocess_modified"):
+                record["reprocess_modified"] = False
+                record["reprocess_fix_type"] = ""
+                record["reprocess_timestamp"] = ""
+                self._schedule_save()
+            return
+
+        # Get changes diff
+        diff = self.reprocess_widget.get_changes_diff()
+        has_channel_changes = diff["has_channel_changes"]
+        has_ica_changes = diff["has_ica_changes"]
+
+        # Determine fix type
+        if has_channel_changes and has_ica_changes:
+            fix_type = "both"
+        elif has_channel_changes:
+            fix_type = "channel"
+        elif has_ica_changes:
+            fix_type = "ica"
+        else:
+            fix_type = ""
+
+        # Update decisions record
+        record = self.decisions.setdefault(
+            self.current_key,
+            {
+                "status": "UNSET",
+                "notes": "",
+                "relative_path": self._relative_path(Path(self.selected_file_path)),
+                "last_updated": "",
+            },
+        )
+
+        record["reprocess_modified"] = True
+        record["reprocess_fix_type"] = fix_type
+        record["reprocess_timestamp"] = _human_timestamp()
+        record["last_updated"] = _human_timestamp()
+
+        # Save the detailed payload to QA directory
+        self._save_reprocess_payload(diff)
+
+        # Schedule save of decisions JSON
+        self._schedule_save()
+
+    def _save_reprocess_payload(self, diff: dict) -> None:
+        """Save reprocess payload JSON to QA directory.
+
+        Parameters
+        ----------
+        diff : dict
+            Changes diff from reprocess widget
+        """
+        if not self.task_root or not hasattr(self, "selected_file_path"):
+            return
+
+        from datetime import datetime
+
+        # Get normalized file stem
+        file_path = Path(self.selected_file_path)
+        stem = strip_suffixes(file_path.stem, config=self.config)
+
+        # Create qa/manual_fixes directory
+        qa_fixes_dir = self.task_root / "qa" / "manual_fixes"
+        qa_fixes_dir.mkdir(parents=True, exist_ok=True)
+
+        # Determine fix type
+        has_channel_changes = diff["has_channel_changes"]
+        has_ica_changes = diff["has_ica_changes"]
+
+        if has_channel_changes and has_ica_changes:
+            fix_type = "both"
+        elif has_channel_changes:
+            fix_type = "channel"
+        elif has_ica_changes:
+            fix_type = "ica"
+        else:
+            return  # No changes, shouldn't happen
+
+        # Check if ICA file exists
+        ica_file_path = self.task_root / "ica" / f"{stem}-ica.fif"
+        ica_file_exists = ica_file_path.exists()
+        ica_file_relative = f"ica/{stem}-ica.fif" if ica_file_exists else None
+
+        # Validation: can we apply ICA-only fix?
+        # Only if no channel changes and ICA file exists
+        can_apply_ica_fix = (not has_channel_changes) and ica_file_exists
+
+        # Requires full reprocess if channels changed
+        requires_full_reprocess = has_channel_changes
+
+        # Find task file in status directory
+        task_file_path = None
+        task_file_relative = None
+        task_file_hash = None
+        status_dir = self.task_root / "status"
+        if status_dir.exists():
+            # Find .py files in status directory
+            py_files = list(status_dir.glob("*.py"))
+            if py_files:
+                # Use the first .py file found (typically only one task file)
+                task_file_path = py_files[0]
+                task_file_relative = f"status/{task_file_path.name}"
+                # Calculate SHA256 hash of task file for integrity
+                if task_file_path.exists():
+                    task_file_hash = hashlib.sha256(task_file_path.read_bytes()).hexdigest()
+
+        # Build payload
+        payload = {
+            "file_key": self.current_key,
+            "file_stem": stem,
+            "fix_type": fix_type,
+            "timestamp": datetime.now().isoformat(),
+            "modifications": {
+                "bad_channels": diff["bad_channels"],
+                "rejected_ica": diff["rejected_ica"],
+            },
+            "ica_file_path": ica_file_relative,
+            "metadata_source": f"reports/run_reports/{stem}_autoclean_metadata.json",
+            "task_file_path": task_file_relative,
+            "task_file_hash": task_file_hash,
+            "validation": {
+                "can_apply_ica_fix": can_apply_ica_fix,
+                "requires_full_reprocess": requires_full_reprocess,
+                "ica_file_exists": ica_file_exists,
+                "task_file_exists": task_file_path.exists() if task_file_path else False,
+            },
+        }
+
+        # Save payload to JSON
+        payload_path = qa_fixes_dir / f"{stem}_manual_fix.json"
+        payload_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+
+        print(f"[REPROCESS] Saved manual fix payload: {payload_path}")
+        print(f"[REPROCESS]   Fix type: {fix_type}")
+        print(f"[REPROCESS]   Can apply ICA-only: {can_apply_ica_fix}")
+        print(f"[REPROCESS]   Requires full reprocess: {requires_full_reprocess}")
+        if task_file_relative:
+            print(f"[REPROCESS]   Task file: {task_file_relative}")
+            print(f"[REPROCESS]   Task file hash: {task_file_hash[:16]}...")
+        else:
+            print(f"[REPROCESS]   WARNING: Task file not found in status/ directory")
 
     def _update_decision_controls(self, record: Optional[dict[str, str]]) -> None:
         status = record.get("status") if record else "UNSET"
