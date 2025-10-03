@@ -24,8 +24,10 @@ An automatic coaching system that:
 
 ### Key Features
 
-#### 1. **Always-On Analysis**
-Runs automatically after every epoch creation, providing immediate feedback without requiring user action.
+#### 1. **Always-On Analysis with Preview-Then-Validate**
+Runs automatically in two stages during epoch creation:
+- **Preview Mode (Before Rejection)**: Shows impact of thresholds on all epochs with actionable coaching
+- **Validation Mode (After Rejection)**: Confirms final data quality with descriptive statistics
 
 #### 2. **Per-Channel-Type Statistics**
 ```
@@ -79,10 +81,14 @@ Overall rejection rate: 12.3% (2460/20000 channel-epoch pairs)
 
 ## Example Output
 
+### Stage 1: Preview Mode (Before Rejection)
+
 ```
 ================================================================================
-Amplitude Quality Analysis
+Amplitude Quality Preview (Before Rejection)
 ================================================================================
+Analyzing impact of configured thresholds on your data...
+
 Computing peak-to-peak amplitudes across epochs...
 ================================================================================
 Analyzed 100 epochs across 64 channels
@@ -92,6 +98,7 @@ EEG Channels:
 --------------------------------------------------------------------------------
   Average mean amplitude: 0.000085 V
   Maximum mean amplitude: 0.000320 V
+  Number of channels:     64
   Configured threshold:   0.000200 V
 
   ⚠️  Channels exceeding threshold in >20% of epochs:
@@ -106,6 +113,7 @@ EOG Channels:
 --------------------------------------------------------------------------------
   Average mean amplitude: 0.000180 V
   Maximum mean amplitude: 0.000520 V
+  Number of channels:     2
   ✓ All channels within acceptable limits
 
 ================================================================================
@@ -116,6 +124,51 @@ Overall max amplitude (across all channels):  0.000520 V
 Overall min amplitude (across all channels):  0.000012 V
 Overall rejection rate: 8.5% (544/6400 channel-epoch pairs)
 ================================================================================
+
+📊 Impact Preview:
+  • With current thresholds, 8.5% of channel-epoch pairs will be flagged
+  • Proceeding with rejection of flagged epochs...
+```
+
+### Stage 2: Validation Mode (After Rejection)
+
+```
+Epoch Drop Log Summary:
+  Total epochs: 100
+  Good epochs: 92
+  Epochs with EEG: 8
+
+================================================================================
+Final Data Quality Validation
+================================================================================
+Computing peak-to-peak amplitudes across epochs...
+================================================================================
+Analyzed 92 epochs across 64 channels
+================================================================================
+
+EEG Channels:
+--------------------------------------------------------------------------------
+  Average mean amplitude: 0.000068 V
+  Maximum mean amplitude: 0.000185 V
+  Number of channels:     64
+
+EOG Channels:
+--------------------------------------------------------------------------------
+  Average mean amplitude: 0.000165 V
+  Maximum mean amplitude: 0.000480 V
+  Number of channels:     2
+
+================================================================================
+Quality Summary Statistics:
+--------------------------------------------------------------------------------
+Overall mean amplitude (across all channels): 0.000072 V
+Overall max amplitude (across all channels):  0.000480 V
+Overall min amplitude (across all channels):  0.000008 V
+================================================================================
+
+✓ Final Dataset Quality:
+  • Mean amplitude: 0.000072 V
+  • Data retained: 92/100 epochs (92.0%)
 ```
 
 ## Usage

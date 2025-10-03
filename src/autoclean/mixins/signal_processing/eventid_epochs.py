@@ -217,13 +217,14 @@ class EventIDEpochsMixin:
         self,
         epochs: mne.Epochs,
         volt_threshold: Optional[Dict[str, float]] = None,
+        method: str = "max_abs",
     ) -> Optional[pd.DataFrame]:
         """Analyze and summarize amplitude quality across epochs and channels.
 
         This coaching method provides interpretable diagnostics on data quality
-        by computing peak-to-peak amplitudes and comparing them to configured
-        rejection thresholds. It helps users understand which channels or epochs
-        are problematic and whether thresholds need adjustment.
+        by computing amplitudes and comparing them to configured rejection thresholds.
+        It helps users understand which channels or epochs are problematic and whether
+        thresholds need adjustment.
 
         Parameters
         ----------
@@ -232,6 +233,11 @@ class EventIDEpochsMixin:
         volt_threshold : dict, Optional
             Dictionary of channel types and voltage thresholds (e.g., {"eeg": 0.0002}).
             If None, only descriptive statistics are provided.
+        method : str, Optional
+            Method for computing amplitudes. Options:
+            - "max_abs": Maximum absolute value (matches MNE's reject behavior)
+            - "ptp": Peak-to-peak range (max - min)
+            Default is "max_abs" for accurate rejection simulation.
 
         Returns
         -------
@@ -329,6 +335,9 @@ class EventIDEpochsMixin:
 
                 message("info", f"  Average mean amplitude: {avg_mean_amp:.6f} V")
                 message("info", f"  Maximum mean amplitude: {max_mean_amp:.6f} V")
+                
+                # Show number of channels for context
+                message("info", f"  Number of channels:     {len(channels)}")
 
                 # Threshold info if available
                 if volt_threshold and ch_type in volt_threshold:
@@ -766,6 +775,30 @@ class EventIDEpochsMixin:
                 # Save epochs with bad epochs marked but not dropped
                 self._save_epochs_result(result_data=epochs, stage_name=stage_name)
 
+                # Run amplitude quality coach BEFORE dropping to preview impact
+                if volt_threshold is not None:
+                    message("info", "\n")
+                    message("header", "Amplitude Quality Preview (Before Rejection)")
+                    message("info", "Analyzing impact of configured thresholds on your data...\n")
+                    quality_df_preview = self.summarize_amplitude_quality(
+                        epochs=epochs,  # Analyze ALL epochs before dropping
+                        volt_threshold=volt_threshold
+                    )
+                    
+                    if quality_df_preview is not None:
+                        # Calculate what will be rejected
+                        total_flagged = quality_df_preview["flagged_count"].sum()
+                        total_possible = len(epochs) * len(epochs.ch_names)
+                        overall_flag_pct = (total_flagged / total_possible) * 100
+                        
+                        message("info", "\n📊 Impact Preview:")
+                        message("info", f"  • With current thresholds, {overall_flag_pct:.1f}% of channel-epoch pairs will be flagged")
+                        if not keep_all_epochs:
+                            message("info", f"  • Proceeding with rejection of flagged epochs...")
+                        else:
+                            message("info", f"  • Epochs will be marked but kept (keep_all_epochs=True)")
+                        message("info", "")
+
                 # Drop bad epochs only if not keeping all epochs
                 if not keep_all_epochs:
                     epochs_clean.drop(bad_epochs, reason="BAD_ANNOTATION")
@@ -871,31 +904,58 @@ class EventIDEpochsMixin:
                             annotation_types.get(annotation, 0) + 1
                         )
 
-            message("info", "\nEpoch Drop Log Summary:")
-            message("info", f"Total epochs: {total_epochs}")
-            message("info", f"Good epochs: {good_epochs}")
-            for annotation, count in annotation_types.items():
-                message("info", f"Epochs with {annotation}: {count}")
+            # Create beautiful concise summary for INFO, detailed breakdown for DEBUG
+            message("info", "\n" + "="*80)
+            message("info", "📊 Epoch Rejection Summary")
+            message("info", "="*80)
+            message("info", f"Total epochs:    {total_epochs}")
+            message("info", f"Kept epochs:     {good_epochs} ({good_epochs/total_epochs*100:.1f}%)")
+            message("info", f"Rejected epochs: {total_epochs - good_epochs} ({(total_epochs - good_epochs)/total_epochs*100:.1f}%)")
+            
+            if annotation_types:
+                # Sort by count (most problematic first)
+                sorted_annotations = sorted(annotation_types.items(), key=lambda x: x[1], reverse=True)
+                
+                # Show top 5 most problematic at INFO level
+                top_n = min(5, len(sorted_annotations))
+                if top_n > 0:
+                    message("info", f"\nTop rejection reasons:")
+                    for annotation, count in sorted_annotations[:top_n]:
+                        message("info", f"  • {annotation}: {count} epochs")
+                
+                # Show all details at DEBUG level
+                message("debug", "\nDetailed rejection breakdown (all channels):")
+                for annotation, count in sorted_annotations:
+                    message("debug", f"  {annotation}: {count} epochs")
+            
+            message("info", "="*80)
 
-            # Run amplitude quality coach to provide interpretable diagnostics
+            # Brief quality validation after dropping (without full coaching)
             message("info", "\n")
-            quality_df = self.summarize_amplitude_quality(
-                epochs=epochs_clean, volt_threshold=volt_threshold
+            message("header", "Final Data Quality Validation")
+            quality_df_final = self.summarize_amplitude_quality(
+                epochs=epochs_clean,
+                volt_threshold=None  # No threshold comparison, just descriptive stats
             )
             
-            # Optionally save quality report to metadata for later analysis
-            if quality_df is not None and hasattr(self, "_update_metadata"):
-                # Store summary statistics in metadata
+            # Store quality metrics in metadata
+            amplitude_quality_stats = {}
+            if quality_df_final is not None:
                 amplitude_quality_stats = {
-                    "overall_mean_amplitude": float(quality_df["mean_amp"].mean()),
-                    "overall_max_amplitude": float(quality_df["max_amp"].max()),
-                    "channels_analyzed": len(quality_df),
+                    "overall_mean_amplitude": float(quality_df_final["mean_amp"].mean()),
+                    "overall_max_amplitude": float(quality_df_final["max_amp"].max()),
+                    "overall_min_amplitude": float(quality_df_final["min_amp"].min()),
+                    "channels_analyzed": len(quality_df_final),
                 }
-                if volt_threshold:
-                    amplitude_quality_stats["threshold_config"] = volt_threshold
-                    amplitude_quality_stats["total_flagged_pairs"] = int(
-                        quality_df["flagged_count"].sum()
-                    )
+                
+                message("info", "\n✓ Final Dataset Quality:")
+                message("info", f"  • Mean amplitude: {amplitude_quality_stats['overall_mean_amplitude']:.6f} V")
+                message("info", f"  • Data retained: {good_epochs}/{total_epochs} epochs ({good_epochs/total_epochs*100:.1f}%)")
+                message("info", "")
+            
+            # Add threshold config if it was used in preview
+            if volt_threshold:
+                amplitude_quality_stats["threshold_config"] = volt_threshold
 
             # Add flags if needed (only if not keeping all epochs)
             if (
@@ -936,7 +996,7 @@ class EventIDEpochsMixin:
             }
             
             # Add amplitude quality stats to metadata if available
-            if quality_df is not None:
+            if amplitude_quality_stats:
                 metadata["amplitude_quality"] = amplitude_quality_stats
 
             self._update_metadata("step_create_eventid_epochs", metadata)
