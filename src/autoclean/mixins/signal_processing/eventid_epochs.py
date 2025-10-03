@@ -14,6 +14,7 @@ processing and analysis, such as event-related potentials (ERPs) or time-frequen
 analysis.
 """
 
+import json
 from typing import Dict, Optional, Union
 
 import mne
@@ -26,6 +27,191 @@ from autoclean.utils.logging import message
 
 class EventIDEpochsMixin:
     """Mixin class providing event ID based epochs creation functionality for EEG data."""
+
+    def print_discovered_events(
+        self,
+        data: Union[mne.io.Raw, None] = None,
+        show_config_example: bool = True,
+    ) -> Optional[Dict[str, int]]:
+        """Discover and print all events found in the raw data annotations.
+
+        This is a helper method to assist users in understanding what events are
+        available in their EEG data and how to configure the event_id parameter
+        for epoching. It prints a formatted table of events with counts and
+        provides example JSON configuration snippets.
+
+        Parameters
+        ----------
+        data : mne.io.Raw, Optional
+            The raw data to extract events from. If None, uses self.raw.
+        show_config_example : bool, Optional
+            Whether to print example JSON config snippets, by default True.
+
+        Returns
+        -------
+        event_id_all : dict | None
+            Dictionary mapping event descriptions to event codes found in the data.
+            Returns None if no events are found or an error occurs.
+
+        Examples
+        --------
+        >>> # Discover events in your data
+        >>> processor.print_discovered_events()
+        
+        >>> # Use in a script to see available events
+        >>> available_events = processor.print_discovered_events(show_config_example=False)
+        >>> if available_events:
+        >>>     # Select specific events for your analysis
+        >>>     my_event_id = {"target": available_events["DIN4"]}
+
+        Notes
+        -----
+        This method is particularly useful when:
+        - You're working with new EEG data and don't know the event codes
+        - Your epoching is producing empty results (no matching events)
+        - You need to update your configuration file with correct event mappings
+        """
+        # Determine which data to use
+        data = self._get_data_object(data)
+
+        # Type checking
+        if not isinstance(data, mne.io.Raw) and not isinstance(
+            data, mne.io.base.BaseRaw
+        ):
+            message("error", "Data must be an MNE Raw object for event discovery")
+            return None
+
+        try:
+            message("header", "Discovering Events in EEG Data")
+            message("info", "Extracting events from annotations...")
+
+            # Get all events from annotations
+            try:
+                events_all, event_id_all = mne.events_from_annotations(data)
+            except Exception as e:
+                message(
+                    "error",
+                    f"Failed to extract events from annotations: {str(e)}. "
+                    "Check that your data has valid annotations.",
+                )
+                return None
+
+            if not event_id_all:
+                message("warning", "No events found in the data annotations.")
+                message(
+                    "info",
+                    "Tip: Events might need to be added manually using mne.Annotations or mne.add_events",
+                )
+                return None
+
+            # Count occurrences of each event
+            event_counts = {}
+            for event_desc, event_code in event_id_all.items():
+                count = np.sum(events_all[:, 2] == event_code)
+                event_counts[event_desc] = {
+                    "code": event_code,
+                    "count": count,
+                    "percentage": (count / len(events_all) * 100) if len(events_all) > 0 else 0,
+                }
+
+            # Sort by count (most frequent first)
+            sorted_events = sorted(
+                event_counts.items(), key=lambda x: x[1]["count"], reverse=True
+            )
+
+            # Print formatted table
+            message("info", f"\nFound {len(event_id_all)} unique event types:")
+            message("info", "=" * 80)
+            
+            # Header
+            header = f"{'Event Name':<25} {'Code':<10} {'Count':<12} {'% of Total':<15}"
+            message("info", header)
+            message("info", "-" * 80)
+
+            # Rows
+            for event_name, event_info in sorted_events:
+                row = (
+                    f"{event_name:<25} "
+                    f"{event_info['code']:<10} "
+                    f"{event_info['count']:<12} "
+                    f"{event_info['percentage']:>6.1f}%"
+                )
+                message("info", row)
+
+            message("info", "=" * 80)
+            message("info", f"Total events: {len(events_all)}")
+
+            # Provide configuration guidance
+            if show_config_example:
+                message("header", "\nConfiguration Guide")
+                
+                # Filter out likely artifact markers (BAD, etc.)
+                likely_stimuli = {
+                    k: v["code"]
+                    for k, v in event_counts.items()
+                    if not k.upper().startswith("BAD")
+                    and v["count"] >= 5  # Exclude rare events
+                }
+
+                if likely_stimuli:
+                    message(
+                        "info",
+                        "\nTo use these events for epoching, add to your config.json:",
+                    )
+                    
+                    # Example 1: Simple config
+                    simple_config = {
+                        "epoch_settings": {
+                            "enabled": True,
+                            "value": {"tmin": -0.2, "tmax": 0.8},
+                            "event_id": likely_stimuli,
+                        }
+                    }
+                    
+                    message("info", "\nBasic Example (uses all available events):")
+                    message("info", json.dumps(simple_config, indent=2))
+                    
+                    # Example 2: Custom naming
+                    if len(likely_stimuli) >= 2:
+                        first_event = list(likely_stimuli.items())[0]
+                        second_event = list(likely_stimuli.items())[1]
+                        
+                        custom_config = {
+                            "epoch_settings": {
+                                "enabled": True,
+                                "value": {"tmin": -0.5, "tmax": 2.0},
+                                "event_id": {
+                                    "target": first_event[1],  # Use descriptive names
+                                    "standard": second_event[1],
+                                },
+                            }
+                        }
+                        
+                        message("info", "\nCustom Naming Example (recommended for clarity):")
+                        message("info", json.dumps(custom_config, indent=2))
+                        message(
+                            "info",
+                            f"\nNote: Replace 'target' and 'standard' with meaningful names for your experiment",
+                        )
+                    
+                    message("info", "\n" + "=" * 80)
+                    message("info", "Pro Tips:")
+                    message("info", "  • Event codes must match EXACTLY (integers)")
+                    message("info", "  • Use descriptive names instead of 'DIN4' for better readability")
+                    message("info", "  • Adjust tmin/tmax based on your experimental design")
+                    message("info", "  • If epochs are empty, verify codes match what's shown above")
+                    message("info", "=" * 80)
+                else:
+                    message(
+                        "warning",
+                        "Only artifact markers found. Check if stimulus events are present.",
+                    )
+
+            return event_id_all
+
+        except Exception as e:
+            message("error", f"Error during event discovery: {str(e)}")
+            return None
 
     def create_eventid_epochs(
         self,
@@ -121,13 +307,28 @@ class EventIDEpochsMixin:
 
         try:
             # Check if event_id is provided
-            if event_id is None:
+            if event_id is None or len(event_id) == 0:
                 message("warning", "No event_id provided for event-based epoching")
+                message(
+                    "info",
+                    "Tip: Call print_discovered_events() to see available events in your data",
+                )
+                # Automatically show available events to help the user
+                message("info", "Automatically discovering events to help you configure...")
+                self.print_discovered_events(data=data)
                 return None
 
             message("header", f"Creating epochs based on event IDs: {event_id}")
 
-            # Get all events from annotations
+            # Always show discovered events to help users verify their configuration
+            message("info", "\nDiscovering available events in data for verification...")
+            discovered_events = self.print_discovered_events(data=data, show_config_example=True)
+            
+            if discovered_events is None:
+                message("error", "Failed to discover events in data")
+                return None
+
+            # Get all events from annotations for epoching
             try:
                 events_all, event_id_all = mne.events_from_annotations(data)
             except ValueError as e:
@@ -164,13 +365,31 @@ class EventIDEpochsMixin:
                 "info",
                 f"Looking for events matching patterns: {list(event_patterns.keys())}",
             )
+            
+            # If no patterns matched, provide helpful debugging info
+            if len(event_patterns) == 0:
+                message(
+                    "error",
+                    f"No events in data match the configured event_id codes: {event_id}",
+                )
+                message(
+                    "info",
+                    f"Available events in data: {event_id_all}",
+                )
+                message(
+                    "info",
+                    "Showing all discovered events to help you fix the configuration...",
+                )
+                self.print_discovered_events(data=data)
+                return None
+            
             # Filter events to include only those with matching trigger codes
             trigger_codes = list(event_patterns.values())
 
             events_trig = events_all[np.isin(events_all[:, 2], trigger_codes)]
 
             if len(events_trig) == 0:
-                message("warning", "No matching events found")
+                message("warning", "No matching events found in the data")
                 return None
 
             message("info", f"Found {len(events_trig)} events matching the patterns")
