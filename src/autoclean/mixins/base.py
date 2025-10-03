@@ -278,6 +278,74 @@ class BaseMixin:
             operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
 
+    def _track_channel_removal(
+        self,
+        channels: Union[str, list],
+        reason: str,
+        source_step: str,
+    ) -> None:
+        """Track channel removal in unified metadata.
+
+        This method appends channel removal entries to the centralized
+        channel_removals list in metadata, ensuring all removal pathways
+        are captured for accurate reporting.
+
+        Args:
+            channels: Channel name(s) to track - string or list of strings
+            reason: Standardized reason code (e.g., 'EOG_DROPPED', 'OUTER_LAYER',
+                   'NOISY', 'UNCORRELATED', 'DEVIATION', 'RANSAC', 'BRIDGED',
+                   'RANK', 'MANUAL_EXCLUDE', 'TEMPLATE_EXCLUDE')
+            source_step: Name of the step that removed the channel(s)
+                        (e.g., 'drop_eog_channels', 'drop_outer_layer')
+        """
+        if not hasattr(self, "config") or not self.config.get("run_id"):
+            return
+
+        # Normalize to list
+        if isinstance(channels, str):
+            channels = [channels]
+
+        if not channels:
+            return
+
+        # Get or create channel_removals list from database
+        run_id = self.config.get("run_id")
+
+        # Fetch current metadata to get existing removals
+        try:
+            record = manage_database_conditionally(
+                operation="get_record", run_record={"run_id": run_id}
+            )
+            existing_metadata = record.get("metadata", {})
+        except Exception:
+            # Record doesn't exist yet, will be created on update
+            existing_metadata = {}
+
+        # Initialize or get existing removals list
+        channel_removals = existing_metadata.get("channel_removals", [])
+
+        # Add new removal entries with deduplication
+        timestamp = datetime.now().isoformat()
+        for channel in channels:
+            # Check if this channel+reason combo already exists
+            if not any(
+                r["channel"] == channel and r["reason"] == reason
+                for r in channel_removals
+            ):
+                channel_removals.append({
+                    "channel": channel,
+                    "reason": reason,
+                    "source_step": source_step,
+                    "timestamp": timestamp,
+                })
+
+        # Update metadata with complete removals list
+        metadata = {"channel_removals": channel_removals}
+        manage_database_conditionally(
+            operation="update",
+            update_record={"run_id": run_id, "metadata": metadata}
+        )
+
     def _update_flagged_status(self, flagged: bool, reason: str) -> None:
         """Update the flagged status and reasons.
 

@@ -585,6 +585,13 @@ class BasicStepsMixin:
         processed_data = data.copy().drop_channels(channels_to_drop)
         message("info", f"Channels dropped: {', '.join(channels_to_drop)}")
 
+        # Track channel removals in unified metadata
+        self._track_channel_removal(
+            channels=channels_to_drop,
+            reason="OUTER_LAYER",
+            source_step="drop_outer_layer",
+        )
+
         if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
             self._save_raw_result(processed_data, stage_name)
 

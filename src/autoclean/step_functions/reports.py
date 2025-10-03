@@ -1337,16 +1337,26 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
                         channel_dict[label] = []
                     channel_dict[label].append(channel)
 
-    # Get all bad channels
-    bad_channels = [
-        channel for channels in channel_dict.values() for channel in channels
-    ]
-    # Remove duplicates while preserving order
-    unique_bad_channels = []
-    for channel in bad_channels:
-        if channel not in unique_bad_channels:
-            unique_bad_channels.append(channel)
-    channel_dict["removed_channels"] = unique_bad_channels
+    # Get all removed channels from unified metadata (preferred) or legacy sources
+    if "channel_removals" in metadata:
+        # Use unified channel removals for accurate tracking
+        unified_removals = metadata["channel_removals"]
+        unique_bad_channels = []
+        for removal in unified_removals:
+            if removal["channel"] not in unique_bad_channels:
+                unique_bad_channels.append(removal["channel"])
+        channel_dict["removed_channels"] = unique_bad_channels
+    else:
+        # Fallback: legacy method using channel_dict values
+        bad_channels = [
+            channel for channels in channel_dict.values() for channel in channels
+        ]
+        # Remove duplicates while preserving order
+        unique_bad_channels = []
+        for channel in bad_channels:
+            if channel not in unique_bad_channels:
+                unique_bad_channels.append(channel)
+        channel_dict["removed_channels"] = unique_bad_channels
 
     output_dir = Path(metadata["step_prepare_directories"]["bids"]).parent
 
@@ -1455,19 +1465,39 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
             and "n_channels" in metadata["save_epochs_to_set"]
         ):
             # Use actual channel count from exported file (true QC verification)
-            export_details["net_nbchan_post"] = metadata["save_epochs_to_set"][
-                "n_channels"
-            ]
+            actual_count = metadata["save_epochs_to_set"]["n_channels"]
+            export_details["net_nbchan_post"] = actual_count
+
+            # Verify against removal tracking for consistency
+            if original_channel_count and unique_bad_channels:
+                expected_count = original_channel_count - len(unique_bad_channels)
+                if actual_count != expected_count:
+                    message(
+                        "warning",
+                        f"Channel count mismatch: actual={actual_count}, "
+                        f"expected={expected_count} (original={original_channel_count}, "
+                        f"removed={len(unique_bad_channels)}). Check unified metadata.",
+                    )
+                    export_details["channel_count_mismatch"] = True
         elif original_channel_count and unique_bad_channels:
             # Fallback: calculate based on removed channels (mark as calculated)
             export_details["net_nbchan_post"] = original_channel_count - len(
                 unique_bad_channels
             )
             export_details["net_nbchan_post_calculated"] = True
+            message(
+                "info",
+                f"Channel count calculated from removals: {original_channel_count} - "
+                f"{len(unique_bad_channels)} = {export_details['net_nbchan_post']}",
+            )
         else:
             # Last resort: use original count (mark as unverified)
             export_details["net_nbchan_post"] = original_channel_count
             export_details["net_nbchan_post_unverified"] = True
+            message(
+                "warning",
+                "Channel count using original (unverified). Export metadata missing.",
+            )
 
     if "step_create_regular_epochs" in metadata:
         epoch_metadata = metadata["step_create_regular_epochs"]
@@ -1621,6 +1651,7 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         "proc_state": proc_state,
         "exclude_category": exclude_category,
         "flagged_reasons": flagged_reasons,  # Add flagged reasons to the summary
+        "metadata": metadata,  # Include full metadata for unified channel removals
         "import_details": import_details,
         "processing_details": processing_details,
         "export_details": export_details,
@@ -1662,12 +1693,17 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
         return
 
     try:
+        # Legacy detection categories (for backward compatibility)
         noisy_channels = channel_dict.get("noisy_channels", [])
         uncorrelated_channels = channel_dict.get("uncorrelated_channels", [])
         deviation_channels = channel_dict.get("deviation_channels", [])
         bridged_channels = channel_dict.get("bridged_channels", [])
         rank_channels = channel_dict.get("rank_channels", [])
         ransac_channels = channel_dict.get("ransac_channels", [])
+
+        # Get unified channel removals from metadata
+        metadata = summary_dict.get("metadata", {})
+        unified_removals = metadata.get("channel_removals", [])
     except Exception as e:  # pylint: disable=broad-except
         message(
             "warning",
@@ -1690,20 +1726,48 @@ def generate_bad_channels_tsv(summary_dict: Dict[str, Any]) -> None:
     flagged_filename = f"{base_stem}_flagged_channels.tsv"
     flagged_path = run_reports_dir / flagged_filename
 
+    # Build comprehensive channel removal list
+    # Priority: unified removals > legacy detection lists
+    channels_to_write = []
+
+    if unified_removals:
+        # Use unified removals (includes all sources)
+        for removal in unified_removals:
+            # Map reason codes to TSV labels (backward compatible)
+            reason_map = {
+                "NOISY": "Noisy",
+                "UNCORRELATED": "Uncorrelated",
+                "DEVIATION": "Deviation",
+                "RANSAC": "Ransac",
+                "BRIDGED": "Bridged",
+                "RANK": "Rank",
+                "EOG_DROPPED": "EOG",
+                "OUTER_LAYER": "OuterLayer",
+                "MANUAL_EXCLUDE": "Manual",
+                "TEMPLATE_EXCLUDE": "Template",
+            }
+            label = reason_map.get(removal["reason"], removal["reason"])
+            channels_to_write.append((label, removal["channel"]))
+    else:
+        # Fallback: use legacy detection lists
+        for channel in noisy_channels:
+            channels_to_write.append(("Noisy", channel))
+        for channel in uncorrelated_channels:
+            channels_to_write.append(("Uncorrelated", channel))
+        for channel in deviation_channels:
+            channels_to_write.append(("Deviation", channel))
+        for channel in ransac_channels:
+            channels_to_write.append(("Ransac", channel))
+        for channel in bridged_channels:
+            channels_to_write.append(("Bridged", channel))
+        for channel in rank_channels:
+            channels_to_write.append(("Rank", channel))
+
+    # Write TSV file (backward compatible format)
     with flagged_path.open("w", encoding="utf8") as f:
         f.write("label\tchannel\n")
-        for channel in noisy_channels:
-            f.write("Noisy\t" + channel + "\n")
-        for channel in uncorrelated_channels:
-            f.write("Uncorrelated\t" + channel + "\n")
-        for channel in deviation_channels:
-            f.write("Deviation\t" + channel + "\n")
-        for channel in ransac_channels:
-            f.write("Ransac\t" + channel + "\n")
-        for channel in bridged_channels:
-            f.write("Bridged\t" + channel + "\n")
-        for channel in rank_channels:
-            f.write("Rank\t" + channel + "\n")
+        for label, channel in channels_to_write:
+            f.write(f"{label}\t{channel}\n")
 
     summary_dict["flagged_channels_file"] = str(flagged_path)
 

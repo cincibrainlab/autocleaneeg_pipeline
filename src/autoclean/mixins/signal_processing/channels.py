@@ -185,6 +185,26 @@ class ChannelsMixin:
 
             message("info", f"Detected {len(bads)} bad channels: {bads}")
 
+            # Track channel removals in unified metadata by detection method
+            for channel in uncorrelated_channels:
+                self._track_channel_removal(
+                    channels=channel,
+                    reason="UNCORRELATED",
+                    source_step="clean_bad_channels",
+                )
+            for channel in deviation_channels:
+                self._track_channel_removal(
+                    channels=channel,
+                    reason="DEVIATION",
+                    source_step="clean_bad_channels",
+                )
+            for channel in ransac_channels:
+                self._track_channel_removal(
+                    channels=channel,
+                    reason="RANSAC",
+                    source_step="clean_bad_channels",
+                )
+
             # Update metadata
             metadata = {
                 "method": "NoisyChannels",
@@ -274,6 +294,13 @@ class ChannelsMixin:
             message("header", "Dropping channels...")
             result_data = data.copy().drop_channels(channels)
             message("info", f"Dropped {len(channels)} channels: {channels}")
+
+            # Track channel removals in unified metadata
+            self._track_channel_removal(
+                channels=channels,
+                reason="MANUAL_EXCLUDE",
+                source_step=stage_name,
+            )
 
             # Update metadata
             metadata = {
@@ -422,6 +449,13 @@ class ChannelsMixin:
             # Drop the EOG channels
             result_data = data.copy()
             result_data.drop_channels(eog_ch_names, on_missing="ignore")
+
+            # Track channel removals in unified metadata
+            self._track_channel_removal(
+                channels=eog_ch_names,
+                reason="EOG_DROPPED",
+                source_step=stage_name,
+            )
 
             # Export the result using standard pipeline saving
             if use_epochs:
