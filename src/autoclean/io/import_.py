@@ -373,6 +373,7 @@ def import_eeg(
                 "eegSystem": autoclean_dict["eeg_system"],
                 "sampleRate": eeg_data.info["sfreq"],
                 "channelCount": len(eeg_data.ch_names),
+                "originalChannelNames": list(eeg_data.ch_names),  # Store original channel names before any removals
                 "data_type": "epochs" if is_epochs else "raw",
                 **plugin_metadata,  # Include any plugin-specific metadata
             }

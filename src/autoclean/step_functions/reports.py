@@ -272,12 +272,19 @@ def create_run_report(
                 f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "N/A"
             )
 
+            # Get original channel names if available
+            original_channels = import_details.get("original_channel_names", [])
+            channel_display = str(import_details.get("net_nbchan_orig", "N/A"))
+            if original_channels:
+                # Add count and abbreviated list
+                channel_display = f"{len(original_channels)} channels"
+            
             import_info.extend(
                 [
                     ["File", import_details.get("basename", "N/A")],
                     ["Duration", duration_str],
                     ["Sample Rate", sample_rate_str],
-                    ["Channels", str(import_details.get("net_nbchan_orig", "N/A"))],
+                    ["Channels", channel_display],
                 ]
             )
         else:
@@ -297,12 +304,19 @@ def create_run_report(
                 f"{sample_rate} Hz" if isinstance(sample_rate, (int, float)) else "N/A"
             )
 
+            # Get original channel names if available
+            original_channels = raw_info.get("originalChannelNames", [])
+            channel_display = str(raw_info.get("channelCount", "N/A"))
+            if original_channels:
+                # Add count and abbreviated list
+                channel_display = f"{len(original_channels)} channels"
+
             import_info.extend(
                 [
                     ["File", raw_info.get("unprocessedFile", "N/A")],
                     ["Duration", duration_str],
                     ["Sample Rate", sample_rate_str],
-                    ["Channels", str(raw_info.get("channelCount", "N/A"))],
+                    ["Channels", channel_display],
                 ]
             )
 
@@ -677,6 +691,68 @@ def create_run_report(
     )
 
     story.append(bad_channels_table)
+    story.append(Spacer(1, 0.2 * inch))
+
+    # Original Channels Section
+    story.append(Paragraph("Original Channels (at Import)", heading_style))
+
+    # Get original channel names from metadata
+    original_channels_data = []
+    try:
+        # First try to get from JSON summary
+        if json_summary and "import_details" in json_summary:
+            original_channels = json_summary["import_details"].get("original_channel_names", [])
+            if original_channels:
+                # Format as comma-separated list in rows of ~10 channels each for readability
+                channels_per_row = 10
+                for i in range(0, len(original_channels), channels_per_row):
+                    chunk = original_channels[i:i+channels_per_row]
+                    original_channels_data.append([", ".join(chunk)])
+            else:
+                original_channels_data = [["Original channel names not available"]]
+        else:
+            # Fall back to metadata
+            raw_info = run_record["metadata"].get("import_eeg", {})
+            original_channels = raw_info.get("originalChannelNames", [])
+            if original_channels:
+                # Format as comma-separated list in rows of ~10 channels each for readability
+                channels_per_row = 10
+                for i in range(0, len(original_channels), channels_per_row):
+                    chunk = original_channels[i:i+channels_per_row]
+                    original_channels_data.append([", ".join(chunk)])
+            else:
+                original_channels_data = [["Original channel names not available"]]
+    except Exception as e:  # pylint: disable=broad-except
+        message("warning", f"Error processing original channels data: {str(e)}")
+        original_channels_data = [["Error processing original channels"]]
+
+    if not original_channels_data:
+        original_channels_data = [["No original channels data available"]]
+
+    # Create original channels table with background styling
+    original_channels_table = ReportLabTable(
+        [[Paragraph("Channel Names", heading_style)]] + original_channels_data,
+        colWidths=[6 * inch],
+    )
+    original_channels_table.setStyle(
+        TableStyle(
+            [
+                ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#BDC3C7")),
+                ("FONTSIZE", (0, 0), (-1, -1), 7),
+                ("ALIGN", (0, 0), (-1, -1), "LEFT"),
+                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#F5F6FA")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F0F8FF")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#2C3E50")),
+                ("TOPPADDING", (0, 0), (-1, -1), 2),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+
+    story.append(original_channels_table)
     story.append(Spacer(1, 0.2 * inch))
 
     # Results Summary Section
@@ -1379,6 +1455,9 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         import_details["net_nbchan_orig"] = metadata["import_eeg"]["channelCount"]
         import_details["duration"] = metadata["import_eeg"]["durationSec"]
         import_details["basename"] = metadata["import_eeg"]["unprocessedFile"]
+        # Store original channel names if available
+        if "originalChannelNames" in metadata["import_eeg"]:
+            import_details["original_channel_names"] = metadata["import_eeg"]["originalChannelNames"]
         original_channel_count = int(metadata["import_eeg"]["channelCount"]) - int(
             len(dropped_channels)
         )
