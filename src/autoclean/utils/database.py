@@ -974,3 +974,415 @@ def manage_database(
             }
             message("error", f"Database operation failed: {error_context}")
             raise DatabaseError(f"Operation '{operation}' failed: {e}") from e
+
+
+def create_isolated_database(run_id: str, task_root: Path) -> Optional[Path]:
+    """Create an isolated database containing only data for a specific run.
+
+    This creates a self-contained SQLite database in the task folder with:
+    - The specific run record from pipeline_runs
+    - Related audit logs from update_audit_log
+    - Related electronic signatures (if any)
+    - The authenticated user record (if in compliance mode)
+    - A new genesis entry + run-specific access logs
+
+    Parameters
+    ----------
+    run_id : str
+        The unique run identifier for the data to isolate
+    task_root : Path
+        The root directory for the task (where the isolated DB will be saved)
+
+    Returns
+    -------
+    Path or None
+        Path to the created isolated database, or None if creation failed
+
+    Notes
+    -----
+    The isolated database is saved as {task_root}/run_database.db
+
+    This function handles the cryptographic hash chain in database_access_log
+    by creating a fresh genesis entry and only copying run-specific logs.
+    """
+    if DB_PATH is None:
+        message("error", "Database path not set, cannot create isolated database")
+        return None
+
+    main_db_path = DB_PATH / "pipeline.db"
+    if not main_db_path.exists():
+        message("error", f"Main database not found: {main_db_path}")
+        return None
+
+    # Create isolated database path
+    isolated_db_path = task_root / "run_database.db"
+
+    try:
+        # Connect to both databases
+        main_conn = _get_db_connection(main_db_path)
+        isolated_conn = _get_db_connection(isolated_db_path)
+
+        # Create schema in isolated database
+        _create_isolated_schema(isolated_conn)
+
+        # Copy run-specific data
+        _copy_run_data(main_conn, isolated_conn, run_id)
+
+        # Close connections
+        main_conn.close()
+        isolated_conn.close()
+
+        message("success", f"✓ Isolated database created: {isolated_db_path}")
+        return isolated_db_path
+
+    except Exception as e:
+        message("warning", f"Failed to create isolated database: {e}")
+        # Don't fail the pipeline if isolation fails
+        return None
+
+
+def _create_isolated_schema(conn: sqlite3.Connection) -> None:
+    """Create the full database schema in an isolated database.
+
+    Parameters
+    ----------
+    conn : sqlite3.Connection
+        Connection to the isolated database
+    """
+    cursor = conn.cursor()
+
+    # Create pipeline_runs table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pipeline_runs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT UNIQUE NOT NULL,
+            created_at TEXT NOT NULL,
+            task TEXT,
+            unprocessed_file TEXT,
+            status TEXT,
+            success BOOLEAN,
+            json_file TEXT,
+            report_file TEXT,
+            user_context TEXT,
+            metadata TEXT,
+            task_file_info TEXT,
+            error TEXT,
+            auth0_user_id TEXT
+        )
+        """
+    )
+
+    # Create update_audit_log table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS update_audit_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            run_id TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            old_status TEXT,
+            new_status TEXT,
+            operation_type TEXT,
+            user_context TEXT,
+            FOREIGN KEY (run_id) REFERENCES pipeline_runs (run_id)
+        )
+        """
+    )
+
+    # Create database_access_log table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS database_access_log (
+            log_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            user_context TEXT NOT NULL,
+            details TEXT,
+            log_hash TEXT NOT NULL,
+            previous_hash TEXT,
+            auth0_user_id TEXT
+        )
+        """
+    )
+
+    # Create authenticated_users table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS authenticated_users (
+            auth0_user_id TEXT PRIMARY KEY,
+            email TEXT NOT NULL,
+            name TEXT,
+            first_login TEXT,
+            last_login TEXT,
+            token_expires TEXT,
+            user_metadata TEXT
+        )
+        """
+    )
+
+    # Create electronic_signatures table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS electronic_signatures (
+            signature_id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            auth0_user_id TEXT NOT NULL,
+            signature_data TEXT NOT NULL,
+            signature_type TEXT NOT NULL,
+            timestamp TEXT NOT NULL,
+            FOREIGN KEY (run_id) REFERENCES pipeline_runs(run_id),
+            FOREIGN KEY (auth0_user_id) REFERENCES authenticated_users(auth0_user_id)
+        )
+        """
+    )
+
+    # Add triggers for data integrity (read-only after completion)
+    cursor.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS prevent_completed_record_updates
+        BEFORE UPDATE ON pipeline_runs
+        FOR EACH ROW
+        WHEN (
+            OLD.status IN ('completed', 'failed')
+        )
+        BEGIN
+            SELECT RAISE(ABORT,
+                'Cannot modify audit record - run already completed'
+            );
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS prevent_all_deletions
+        BEFORE DELETE ON pipeline_runs
+        BEGIN
+            SELECT RAISE(ABORT,
+                'Audit records cannot be deleted'
+            );
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS log_record_updates
+        AFTER UPDATE ON pipeline_runs
+        FOR EACH ROW
+        BEGIN
+            INSERT INTO update_audit_log (
+                run_id,
+                timestamp,
+                old_status,
+                new_status,
+                operation_type,
+                user_context
+            ) VALUES (
+                NEW.run_id,
+                datetime('now'),
+                OLD.status,
+                NEW.status,
+                CASE
+                    WHEN OLD.status != NEW.status THEN 'status_change'
+                    WHEN OLD.metadata != NEW.metadata THEN 'metadata_update'
+                    ELSE 'general_update'
+                END,
+                COALESCE(NEW.user_context, OLD.user_context)
+            );
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS prevent_access_log_updates
+        BEFORE UPDATE ON database_access_log
+        BEGIN
+            SELECT RAISE(ABORT,
+                'Access log records are immutable - no updates allowed'
+            );
+        END
+        """
+    )
+
+    cursor.execute(
+        """
+        CREATE TRIGGER IF NOT EXISTS prevent_access_log_deletions
+        BEFORE DELETE ON database_access_log
+        BEGIN
+            SELECT RAISE(ABORT,
+                'Access log records cannot be deleted'
+            );
+        END
+        """
+    )
+
+    conn.commit()
+
+
+def _copy_run_data(
+    main_conn: sqlite3.Connection, isolated_conn: sqlite3.Connection, run_id: str
+) -> None:
+    """Copy run-specific data from main database to isolated database.
+
+    Parameters
+    ----------
+    main_conn : sqlite3.Connection
+        Connection to the main database
+    isolated_conn : sqlite3.Connection
+        Connection to the isolated database
+    run_id : str
+        The run ID to copy data for
+    """
+    main_cursor = main_conn.cursor()
+    isolated_cursor = isolated_conn.cursor()
+
+    # 1. Copy the specific run from pipeline_runs
+    main_cursor.execute("SELECT * FROM pipeline_runs WHERE run_id = ?", (run_id,))
+    run_record = main_cursor.fetchone()
+
+    if run_record:
+        columns = [desc[0] for desc in main_cursor.description]
+        placeholders = ", ".join(["?" for _ in columns])
+        isolated_cursor.execute(
+            f"INSERT INTO pipeline_runs ({', '.join(columns)}) VALUES ({placeholders})",
+            run_record,
+        )
+    else:
+        message("warning", f"No run record found for run_id: {run_id}")
+        return
+
+    # 2. Copy related audit logs from update_audit_log
+    main_cursor.execute("SELECT * FROM update_audit_log WHERE run_id = ?", (run_id,))
+    audit_logs = main_cursor.fetchall()
+
+    if audit_logs:
+        columns = [desc[0] for desc in main_cursor.description]
+        placeholders = ", ".join(["?" for _ in columns])
+        for log in audit_logs:
+            isolated_cursor.execute(
+                f"INSERT INTO update_audit_log ({', '.join(columns)}) VALUES ({placeholders})",
+                log,
+            )
+
+    # 3. Copy electronic signatures (if any)
+    main_cursor.execute(
+        "SELECT * FROM electronic_signatures WHERE run_id = ?", (run_id,)
+    )
+    signatures = main_cursor.fetchall()
+
+    if signatures:
+        columns = [desc[0] for desc in main_cursor.description]
+        placeholders = ", ".join(["?" for _ in columns])
+        for sig in signatures:
+            isolated_cursor.execute(
+                f"INSERT INTO electronic_signatures ({', '.join(columns)}) VALUES ({placeholders})",
+                sig,
+            )
+
+    # 4. Copy authenticated user (if in compliance mode)
+    # Get auth0_user_id from run record
+    run_dict = dict(zip([desc[0] for desc in main_cursor.description], run_record))
+    auth0_user_id = run_dict.get("auth0_user_id")
+
+    if auth0_user_id:
+        main_cursor.execute(
+            "SELECT * FROM authenticated_users WHERE auth0_user_id = ?",
+            (auth0_user_id,),
+        )
+        user_record = main_cursor.fetchone()
+
+        if user_record:
+            columns = [desc[0] for desc in main_cursor.description]
+            placeholders = ", ".join(["?" for _ in columns])
+            isolated_cursor.execute(
+                f"INSERT INTO authenticated_users ({', '.join(columns)}) VALUES ({placeholders})",
+                user_record,
+            )
+
+    # 5. Handle database_access_log with new genesis entry
+    # Create genesis entry for isolated database
+    genesis_timestamp = datetime.now().isoformat()
+    genesis_user_context = get_user_context()
+    genesis_operation = "isolated_database_creation"
+    genesis_details = {
+        "action": "genesis_entry",
+        "isolated_for_run_id": run_id,
+        "created_at": genesis_timestamp,
+    }
+    genesis_previous_hash = "genesis_hash_isolated_db"
+
+    # Calculate hash for genesis entry
+    genesis_hash = calculate_access_log_hash(
+        genesis_timestamp,
+        genesis_operation,
+        genesis_user_context,
+        "",
+        genesis_details,
+        genesis_previous_hash,
+    )
+
+    # Insert genesis entry
+    isolated_cursor.execute(
+        """
+        INSERT INTO database_access_log (
+            timestamp, operation, user_context,
+            details, log_hash, previous_hash
+        ) VALUES (?, ?, ?, ?, ?, ?)
+        """,
+        (
+            genesis_timestamp,
+            genesis_operation,
+            json.dumps(genesis_user_context),
+            json.dumps(genesis_details),
+            genesis_hash,
+            genesis_previous_hash,
+        ),
+    )
+
+    # Copy run-specific access logs (those that mention this run_id in details)
+    main_cursor.execute(
+        "SELECT * FROM database_access_log WHERE details LIKE ?", (f"%{run_id}%",)
+    )
+    access_logs = main_cursor.fetchall()
+
+    if access_logs:
+        previous_hash = genesis_hash
+        for log in access_logs:
+            log_dict = dict(zip([desc[0] for desc in main_cursor.description], log))
+
+            # Recalculate hash with new previous_hash for chain integrity
+            new_hash = calculate_access_log_hash(
+                log_dict["timestamp"],
+                log_dict["operation"],
+                (
+                    json.loads(log_dict["user_context"])
+                    if log_dict["user_context"]
+                    else {}
+                ),
+                "",
+                json.loads(log_dict["details"]) if log_dict["details"] else {},
+                previous_hash,
+            )
+
+            isolated_cursor.execute(
+                """
+                INSERT INTO database_access_log (
+                    timestamp, operation, user_context,
+                    details, log_hash, previous_hash, auth0_user_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    log_dict["timestamp"],
+                    log_dict["operation"],
+                    log_dict["user_context"],
+                    log_dict["details"],
+                    new_hash,
+                    previous_hash,
+                    log_dict.get("auth0_user_id"),
+                ),
+            )
+            previous_hash = new_hash
+
+    isolated_conn.commit()

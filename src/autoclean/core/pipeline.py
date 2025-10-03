@@ -91,6 +91,7 @@ from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
 from autoclean.utils.database import (
+    create_isolated_database,
     get_run_record,
     manage_database_conditionally,
     set_database_path,
@@ -358,7 +359,9 @@ class Pipeline:
                         },
                     )
                 except Exception as e:  # pylint: disable=broad-except
-                    message("warning", f"Failed to write backup info to DB metadata: {e}")
+                    message(
+                        "warning", f"Failed to write backup info to DB metadata: {e}"
+                    )
                 # Also add an audit/access log entry
                 try:
                     manage_database(
@@ -536,11 +539,15 @@ class Pipeline:
                     generated_exports = True
 
                 # Generate fastplot summary from exported data when available
-                if generated_exports and hasattr(task_object, "generate_fastplot_summary"):
+                if generated_exports and hasattr(
+                    task_object, "generate_fastplot_summary"
+                ):
                     try:
                         fastplot_path = task_object.generate_fastplot_summary()
                         if fastplot_path:
-                            message("info", f"Fastplot QA image created: {fastplot_path}")
+                            message(
+                                "info", f"Fastplot QA image created: {fastplot_path}"
+                            )
                     except Exception as fastplot_err:  # pragma: no cover - defensive
                         message(
                             "warning",
@@ -626,6 +633,10 @@ class Pipeline:
             with open(json_file, "w", encoding="utf8") as f:
                 json.dump(run_record, f, indent=4)
             message("success", f"✓ Run record exported to {json_file}")
+
+            # Create isolated database for this run in the task folder
+            if task_root is not None:
+                create_isolated_database(run_id, task_root)
 
             if task_root is not None:
                 update_status_marker(
@@ -937,7 +948,7 @@ class Pipeline:
         for idx, file_path in enumerate(files):
             try:
                 self._entrypoint(file_path, task)
-            except BlockDependencyError as e:
+            except BlockDependencyError:
                 # Dependency error already displayed with detailed help
                 # Stop processing - missing dependencies affect all files
                 from rich.console import Console
@@ -946,7 +957,9 @@ class Pipeline:
                 console.print()
                 console.print("[yellow]⚠ Stopping batch processing[/yellow]")
                 console.print(f"[dim]  Processed: {idx} of {len(files)} files[/dim]")
-                console.print(f"[dim]  Remaining: {len(files) - idx - 1} files skipped[/dim]")
+                console.print(
+                    f"[dim]  Remaining: {len(files) - idx - 1} files skipped[/dim]"
+                )
                 console.print()
                 console.print(
                     "[dim]Fix the dependency issue above and re-run to process all files.[/dim]"
@@ -1080,7 +1093,7 @@ class Pipeline:
                     # but the lock is mainly for the bids step itself)
                     await self._entrypoint_async(file_path, task)
                     pbar.write(f"✓ Completed: {file_path.name}")
-                except BlockDependencyError as e:
+                except BlockDependencyError:
                     # Set flag to skip remaining files
                     stop_processing["flag"] = True
                     pbar.write(f"✗ Failed: {file_path.name} - Missing dependencies")
@@ -1350,5 +1363,7 @@ class Pipeline:
 
         message("success", f"✓ File '{file_path}' found")
         return path
+
+
 # Backward compatibility: expose manage_database for test patches
 manage_database = manage_database_conditionally
