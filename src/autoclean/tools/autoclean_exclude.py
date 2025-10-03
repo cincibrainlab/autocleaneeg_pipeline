@@ -1447,13 +1447,14 @@ class ReprocessWidget(QWidget):
         self.original_bad_channels: list[str] = []
         self.original_rejected_ica: list[int] = []
         self._suppress_change_signal: bool = False
+        self._modification_mode: Optional[str] = None  # 'channels', 'components', or None
 
         # Create horizontal layout for side-by-side groups
         groups_layout = QHBoxLayout()
         groups_layout.setSpacing(12)
 
         # Bad Channels Section
-        channels_group = QGroupBox("Bad Channels")
+        self.channels_group = QGroupBox("Bad Channels")
         channels_layout = QVBoxLayout()
         channels_layout.setSpacing(6)
 
@@ -1478,11 +1479,11 @@ class ReprocessWidget(QWidget):
         channels_controls.addWidget(self.remove_channel_btn)
 
         channels_layout.addLayout(channels_controls)
-        channels_group.setLayout(channels_layout)
-        groups_layout.addWidget(channels_group, 1)
+        self.channels_group.setLayout(channels_layout)
+        groups_layout.addWidget(self.channels_group, 1)
 
         # Rejected ICA Components Section
-        ica_group = QGroupBox("Rejected ICA Components")
+        self.ica_group = QGroupBox("Rejected ICA Components")
         ica_layout = QVBoxLayout()
         ica_layout.setSpacing(6)
 
@@ -1508,11 +1509,58 @@ class ReprocessWidget(QWidget):
         ica_controls.addWidget(self.remove_ica_btn)
 
         ica_layout.addLayout(ica_controls)
-        ica_group.setLayout(ica_layout)
-        groups_layout.addWidget(ica_group, 1)
+        self.ica_group.setLayout(ica_layout)
+        groups_layout.addWidget(self.ica_group, 1)
 
         # Add side-by-side groups to main layout
         layout.addLayout(groups_layout, 1)
+
+        # Create overlay labels for mutual exclusivity feedback
+        # Channels overlay (shown when ICA is being modified)
+        self.channels_overlay = QLabel(self.channels_group)
+        self.channels_overlay.setAlignment(Qt.AlignCenter)
+        self.channels_overlay.setWordWrap(True)
+        self.channels_overlay.setText(
+            "⚠️ Channel Selection Disabled\n\n"
+            "ICA component changes are active.\n"
+            "Channel modifications are unavailable\n"
+            "until you reset."
+        )
+        self.channels_overlay.setStyleSheet("""
+            QLabel {
+                background-color: rgba(255, 255, 255, 0.92);
+                border: 2px solid #e67e22;
+                border-radius: 6px;
+                padding: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #d35400;
+            }
+        """)
+        self.channels_overlay.hide()
+
+        # ICA overlay (shown when channels are being modified)
+        self.ica_overlay = QLabel(self.ica_group)
+        self.ica_overlay.setAlignment(Qt.AlignCenter)
+        self.ica_overlay.setWordWrap(True)
+        self.ica_overlay.setText(
+            "⚠️ ICA Components Disabled\n\n"
+            "Channel modifications require new\n"
+            "ICA decomposition. ICA component\n"
+            "selection is unavailable until you reset."
+        )
+        self.ica_overlay.setStyleSheet("""
+            QLabel {
+                background-color: rgba(255, 255, 255, 0.92);
+                border: 2px solid #e67e22;
+                border-radius: 6px;
+                padding: 20px;
+                font-size: 13px;
+                font-weight: 600;
+                color: #d35400;
+            }
+        """)
+        self.ica_overlay.hide()
 
         # Reset button
         reset_btn = QPushButton("Reset to Original")
@@ -1537,6 +1585,63 @@ class ReprocessWidget(QWidget):
         self.message_label.setAlignment(Qt.AlignCenter)
         self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
         layout.addWidget(self.message_label)
+
+    def resizeEvent(self, event) -> None:
+        """Handle resize events to position overlays correctly."""
+        super().resizeEvent(event)
+        # Position overlays to cover their respective group boxes
+        if hasattr(self, 'channels_overlay'):
+            self.channels_overlay.setGeometry(self.channels_group.rect())
+        if hasattr(self, 'ica_overlay'):
+            self.ica_overlay.setGeometry(self.ica_group.rect())
+
+    def _update_section_states(self) -> None:
+        """Update enabled/disabled state of sections based on modification mode."""
+        if self._modification_mode == 'channels':
+            # Channels being modified - disable ICA section
+            self.ica_spinbox.setEnabled(False)
+            self.add_ica_btn.setEnabled(False)
+            self.remove_ica_btn.setEnabled(False)
+            self.ica_list.setEnabled(False)
+            self.ica_overlay.show()
+            self.ica_overlay.raise_()
+
+            # Enable channels section
+            self.channel_combo.setEnabled(True)
+            self.add_channel_btn.setEnabled(True)
+            self.remove_channel_btn.setEnabled(True)
+            self.channels_list.setEnabled(True)
+            self.channels_overlay.hide()
+
+        elif self._modification_mode == 'components':
+            # Components being modified - disable channels section
+            self.channel_combo.setEnabled(False)
+            self.add_channel_btn.setEnabled(False)
+            self.remove_channel_btn.setEnabled(False)
+            self.channels_list.setEnabled(False)
+            self.channels_overlay.show()
+            self.channels_overlay.raise_()
+
+            # Enable ICA section
+            self.ica_spinbox.setEnabled(True)
+            self.add_ica_btn.setEnabled(True)
+            self.remove_ica_btn.setEnabled(True)
+            self.ica_list.setEnabled(True)
+            self.ica_overlay.hide()
+
+        else:
+            # No modifications - enable both sections
+            self.channel_combo.setEnabled(True)
+            self.add_channel_btn.setEnabled(True)
+            self.remove_channel_btn.setEnabled(True)
+            self.channels_list.setEnabled(True)
+            self.channels_overlay.hide()
+
+            self.ica_spinbox.setEnabled(True)
+            self.add_ica_btn.setEnabled(True)
+            self.remove_ica_btn.setEnabled(True)
+            self.ica_list.setEnabled(True)
+            self.ica_overlay.hide()
 
     def load_from_metadata(self, metadata: dict) -> None:
         """Load bad channels and ICA components from metadata."""
@@ -1580,6 +1685,10 @@ class ReprocessWidget(QWidget):
         else:
             self.message_label.show()
 
+        # Clear modification mode and re-enable both sections when loading new file
+        self._modification_mode = None
+        self._update_section_states()
+
         # Re-enable change signals
         self._suppress_change_signal = False
 
@@ -1605,6 +1714,12 @@ class ReprocessWidget(QWidget):
 
         self.channels_list.addItem(channel)
         self.channel_combo.setCurrentIndex(-1)
+
+        # Set modification mode to channels and update UI states
+        if self._modification_mode is None:
+            self._modification_mode = 'channels'
+            self._update_section_states()
+
         self._emit_change_signal()
 
     def _remove_channel(self) -> None:
@@ -1612,6 +1727,12 @@ class ReprocessWidget(QWidget):
         current_item = self.channels_list.currentItem()
         if current_item:
             self.channels_list.takeItem(self.channels_list.row(current_item))
+
+            # Set modification mode to channels and update UI states
+            if self._modification_mode is None:
+                self._modification_mode = 'channels'
+                self._update_section_states()
+
             self._emit_change_signal()
 
     def _add_ica_component(self) -> None:
@@ -1625,6 +1746,12 @@ class ReprocessWidget(QWidget):
             return
 
         self.ica_list.addItem(component_text)
+
+        # Set modification mode to components and update UI states
+        if self._modification_mode is None:
+            self._modification_mode = 'components'
+            self._update_section_states()
+
         self._emit_change_signal()
 
     def _remove_ica_component(self) -> None:
@@ -1632,6 +1759,12 @@ class ReprocessWidget(QWidget):
         current_item = self.ica_list.currentItem()
         if current_item:
             self.ica_list.takeItem(self.ica_list.row(current_item))
+
+            # Set modification mode to components and update UI states
+            if self._modification_mode is None:
+                self._modification_mode = 'components'
+                self._update_section_states()
+
             self._emit_change_signal()
 
     def _reset_to_original(self) -> None:
@@ -1644,6 +1777,10 @@ class ReprocessWidget(QWidget):
 
         for component in self.original_rejected_ica:
             self.ica_list.addItem(f"Component {component}")
+
+        # Clear modification mode and re-enable both sections
+        self._modification_mode = None
+        self._update_section_states()
 
         self._emit_change_signal()
 
