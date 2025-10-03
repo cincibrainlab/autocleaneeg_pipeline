@@ -294,7 +294,7 @@ class BaseMixin:
             channels: Channel name(s) to track - string or list of strings
             reason: Standardized reason code (e.g., 'EOG_DROPPED', 'OUTER_LAYER',
                    'NOISY', 'UNCORRELATED', 'DEVIATION', 'RANSAC', 'BRIDGED',
-                   'RANK', 'MANUAL_EXCLUDE', 'TEMPLATE_EXCLUDE')
+                   'RANK', 'MANUAL_EXCLUDE', 'MANUAL_OVERRIDE', 'TEMPLATE_EXCLUDE')
             source_step: Name of the step that removed the channel(s)
                         (e.g., 'drop_eog_channels', 'drop_outer_layer')
         """

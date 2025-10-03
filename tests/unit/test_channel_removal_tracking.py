@@ -190,6 +190,7 @@ class TestChannelRemovalTracking:
             "EOG_DROPPED",
             "OUTER_LAYER",
             "MANUAL_EXCLUDE",
+            "MANUAL_OVERRIDE",
             "TEMPLATE_EXCLUDE",
         }
 

@@ -24,6 +24,7 @@ class ChannelsMixin:
         cleaning_method: Union[str, None] = "interpolate",
         reset_bads: bool = True,
         stage_name: str = "post_bad_channels",
+        manual_bad_channels: Union[List[str], None] = None,
     ) -> mne.io.Raw:
         """Detect and mark bad channels using various methods.
 
@@ -55,6 +56,9 @@ class ChannelsMixin:
             Whether to reset bad channels.
         stage_name : str, Optional
             Name for saving and metadata.
+        manual_bad_channels : List[str], Optional
+            Explicit list of bad channels to apply. When provided, automatic
+            detection is skipped and this list takes precedence.
 
         Returns
         -------
@@ -97,6 +101,12 @@ class ChannelsMixin:
             # Create a copy of the data
             result_raw = data.copy()
 
+            manual_bad_channels = (
+                [str(ch) for ch in manual_bad_channels]
+                if manual_bad_channels is not None
+                else None
+            )
+
             # Setup options
             options = {
                 "random_state": random_state,
@@ -108,27 +118,40 @@ class ChannelsMixin:
                 "ransac_channel_wise": ransac_channel_wise,
             }
 
-            # Call standalone function for bad channel detection
-            bad_channels = detect_bad_channels(
-                data=result_raw,
-                correlation_thresh=options["correlation_thresh"],
-                deviation_thresh=options["deviation_thresh"],
-                ransac_sample_prop=options["ransac_sample_prop"],
-                ransac_corr_thresh=options["ransac_corr_thresh"],
-                ransac_frac_bad=options["ransac_frac_bad"],
-                ransac_channel_wise=options["ransac_channel_wise"],
-                random_state=options["random_state"],
-                return_by_method=True,
-                verbose=False,
-            )
+            manual_override = bool(manual_bad_channels)
 
-            # Extract individual method results for compatibility
-            uncorrelated_channels = bad_channels["correlation"]
-            deviation_channels = bad_channels["deviation"]
-            ransac_channels = bad_channels["ransac"]
+            if manual_override:
+                message(
+                    "info",
+                    "Applying manual bad channel override: "
+                    f"{manual_bad_channels}",
+                )
+                uncorrelated_channels: List[str] = []
+                deviation_channels: List[str] = []
+                ransac_channels: List[str] = []
+                all_bad_channels = manual_bad_channels
+            else:
+                # Call standalone function for bad channel detection
+                bad_channels = detect_bad_channels(
+                    data=result_raw,
+                    correlation_thresh=options["correlation_thresh"],
+                    deviation_thresh=options["deviation_thresh"],
+                    ransac_sample_prop=options["ransac_sample_prop"],
+                    ransac_corr_thresh=options["ransac_corr_thresh"],
+                    ransac_frac_bad=options["ransac_frac_bad"],
+                    ransac_channel_wise=options["ransac_channel_wise"],
+                    random_state=options["random_state"],
+                    return_by_method=True,
+                    verbose=False,
+                )
 
-            # Get the overall bad channels list for backward compatibility
-            all_bad_channels = bad_channels.get("combined", [])
+                # Extract individual method results for compatibility
+                uncorrelated_channels = bad_channels["correlation"]
+                deviation_channels = bad_channels["deviation"]
+                ransac_channels = bad_channels["ransac"]
+
+                # Get the overall bad channels list for backward compatibility
+                all_bad_channels = bad_channels.get("combined", [])
 
             # Check for reference channels to exclude from bad channels
             ref_channels = []
@@ -183,32 +206,46 @@ class ChannelsMixin:
                 self.flagged_reasons.append(warning)
                 message("warning", f"Flagging: {warning}")
 
-            message("info", f"Detected {len(bads)} bad channels: {bads}")
+            if manual_override:
+                message(
+                    "info",
+                    f"Applied manual bad channels ({len(bads)}): {bads}",
+                )
+                for channel in bads:
+                    self._track_channel_removal(
+                        channels=channel,
+                        reason="MANUAL_OVERRIDE",
+                        source_step="clean_bad_channels",
+                    )
+            else:
+                message("info", f"Detected {len(bads)} bad channels: {bads}")
 
-            # Track channel removals in unified metadata by detection method
-            for channel in uncorrelated_channels:
-                self._track_channel_removal(
-                    channels=channel,
-                    reason="UNCORRELATED",
-                    source_step="clean_bad_channels",
-                )
-            for channel in deviation_channels:
-                self._track_channel_removal(
-                    channels=channel,
-                    reason="DEVIATION",
-                    source_step="clean_bad_channels",
-                )
-            for channel in ransac_channels:
-                self._track_channel_removal(
-                    channels=channel,
-                    reason="RANSAC",
-                    source_step="clean_bad_channels",
-                )
+                # Track channel removals in unified metadata by detection method
+                for channel in uncorrelated_channels:
+                    self._track_channel_removal(
+                        channels=channel,
+                        reason="UNCORRELATED",
+                        source_step="clean_bad_channels",
+                    )
+                for channel in deviation_channels:
+                    self._track_channel_removal(
+                        channels=channel,
+                        reason="DEVIATION",
+                        source_step="clean_bad_channels",
+                    )
+                for channel in ransac_channels:
+                    self._track_channel_removal(
+                        channels=channel,
+                        reason="RANSAC",
+                        source_step="clean_bad_channels",
+                    )
 
             # Update metadata
             metadata = {
-                "method": "NoisyChannels",
-                "options": options,
+                "method": "ManualOverride" if manual_override else "NoisyChannels",
+                "options": options
+                if not manual_override
+                else {"manual_bad_channels": manual_bad_channels},
                 "channelCount": len(result_raw.ch_names),
                 "durationSec": int(result_raw.n_times) / result_raw.info["sfreq"],
                 "numberSamples": int(result_raw.n_times),
