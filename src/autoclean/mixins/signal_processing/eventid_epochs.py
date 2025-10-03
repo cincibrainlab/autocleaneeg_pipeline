@@ -135,7 +135,7 @@ class EventIDEpochsMixin:
             for event_key in event_id.keys():
                 # Match the event_id values with the actual event codes in the file
                 matching_events = [
-                    k for k in event_id_all.keys() if str(event_id[event_key]) == str(k)
+                    k for k in event_id_all if event_id_all[k] == event_id[event_key]
                 ]
                 for match in matching_events:
                     event_patterns[match] = event_id_all[match]
