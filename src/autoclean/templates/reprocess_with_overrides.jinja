@@ -1,0 +1,158 @@
+from autoclean.core.task import Task
+
+# =============================================================================
+#  REPROCESSING TASK WITH MANUAL OVERRIDES
+# =============================================================================
+# This task was automatically generated to reprocess EEG data with manual
+# bad channel and ICA component overrides from the review GUI.
+#
+# Generated: {{ timestamp }}
+# Original file: {{ original_file }}
+# Fix type: {{ fix_type }}
+#
+# Manual Overrides:
+# - Bad channels: {{ bad_channels|length }} channels
+# - ICA components: {{ rejected_ica|length }} components
+# =============================================================================
+
+config = {
+    "schema_version": "2025.09",
+    "montage": {"enabled": True, "value": "{{ montage|default('GSN-HydroCel-129') }}"},
+    "move_flagged_files": False,
+    {% if dataset_name is defined and dataset_name %}
+    "dataset_name": "{{ dataset_name }}",
+    {% endif %}
+    {% if input_path is defined and input_path %}
+    "input_path": "{{ input_path }}",
+    {% endif %}
+    "resample_step": {"enabled": True, "value": {{ resample_freq|default(250) }}},
+    "filtering": {
+        "enabled": True,
+        "value": {
+            "l_freq": {{ filter_l_freq|default(1) }},
+            "h_freq": {{ filter_h_freq|default(100) }},
+            "notch_freqs": {{ filter_notch_freqs|default('[60, 120]') }},
+            "notch_widths": {{ filter_notch_widths|default(5) }},
+        },
+    },
+    "drop_outerlayer": {"enabled": False, "value": []},
+    "eog_step": {
+        "enabled": {{ eog_enabled|default('False') }},
+        "value": {{ eog_channels|default('[]') }},
+    },
+    "trim_step": {"enabled": True, "value": {{ trim_seconds|default(4) }}},
+    "crop_step": {"enabled": False, "value": {"start": 0, "end": 60}},
+    "reference_step": {"enabled": True, "value": "{{ reference_type|default('average') }}"},
+    "ICA": {
+        "enabled": True,
+        "value": {
+            "method": "{{ ica_method|default('infomax') }}",
+            "n_components": {{ ica_n_components|default('None') }},
+            "fit_params": {{ ica_fit_params|default('{"extended": True}') }},
+            "temp_highpass_for_ica": {{ ica_temp_highpass|default(1.0) }},
+        },
+    },
+    "component_rejection": {
+        "enabled": True,
+        "method": "{{ ica_classification_method|default('icvision') }}",
+        "value": {
+            "ic_flags_to_reject": {{ ic_flags_to_reject|default('["muscle", "heart", "eog", "ch_noise", "line_noise"]') }},
+            "ic_rejection_threshold": {{ ic_rejection_threshold|default(0.3) }},
+        },
+    },
+    "epoch_settings": {
+        "enabled": True,
+        "value": {"tmin": {{ epoch_tmin|default(-1) }}, "tmax": {{ epoch_tmax|default(1) }}},
+        "event_id": {{ epoch_event_id|default('None') }},
+        "remove_baseline": {"enabled": False, "window": [None, 0]},
+        "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 0.000125}},
+    },
+    "ai_reporting": False
+}
+
+
+class {{ class_name }}(Task):
+    """
+    Reprocessing task with manual bad channel and ICA component overrides.
+
+    This task reprocesses the original raw data from the beginning with:
+    - Manual bad channel list: {{ bad_channels }}
+    - Manual ICA component rejection: {{ rejected_ica }}
+    """
+
+    def run(self) -> None:
+        """
+        Reprocess EEG data from beginning to end with manual overrides.
+        """
+        # Import raw EEG data
+        self.import_raw()
+
+        # Basic preprocessing steps
+        self.resample_data()
+        self.filter_data()
+        self.drop_outer_layer()
+        self.assign_eog_channels()
+        self.trim_edges()
+        self.crop_duration()
+
+        # Store original data for comparison
+        self.original_raw = self.raw.copy()
+
+        # ===== MANUAL BAD CHANNEL OVERRIDE =====
+        {% if bad_channels is defined and bad_channels %}
+        # Apply manual bad channel list from review GUI
+        self.clean_bad_channels(
+            manual_bad_channels={{ bad_channels }}
+        )
+        {% else %}
+        # No bad channel overrides - use automatic detection
+        self.clean_bad_channels()
+        {% endif %}
+
+        # Re-referencing
+        self.rereference_data()
+
+        # Artifact detection
+        self.annotate_noisy_epochs()
+        self.annotate_uncorrelated_epochs()
+        self.detect_dense_oscillatory_artifacts()
+
+        # ICA processing
+        self.run_ica()
+
+        # ===== MANUAL ICA COMPONENT OVERRIDE =====
+        {% if rejected_ica is defined and rejected_ica %}
+        # Classify components but don't auto-reject
+        self.classify_ica_components(method="{{ ica_classification_method|default('iclabel') }}", reject=False)
+
+        # Apply manual ICA component rejection from review GUI
+        self.apply_ica_component_rejection(
+            manual_rejected_components={{ rejected_ica }}
+        )
+        {% else %}
+        # No ICA overrides - use automatic classification and rejection
+        self.classify_ica_components(method="{{ ica_classification_method|default('iclabel') }}", reject=True)
+        {% endif %}
+
+        # Epoching with export
+        self.create_regular_epochs(export=True)
+
+        # Detect outlier epochs
+        self.detect_outlier_epochs()
+
+        # Clean epochs using GFP
+        self.gfp_clean_epochs()
+
+        # Generate visualization reports
+        self.generate_reports()
+
+    def generate_reports(self) -> None:
+        """Generate quality control visualizations and reports."""
+        if self.raw is None or self.original_raw is None:
+            return
+
+        # Plot raw vs cleaned overlay
+        self.plot_raw_vs_cleaned_overlay(self.original_raw, self.raw)
+
+        # Plot PSD topography
+        self.step_psd_topo_figure(self.original_raw, self.raw)
