@@ -737,7 +737,6 @@ class VisualizationMixin:
         raw_original: mne.io.Raw,
         raw_cleaned: mne.io.Raw,
         bands: Optional[List[Tuple[str, float, float]]] = None,
-        report_subdir: str = "psd_topo",
     ) -> None:
         """Generate and save a single high-resolution image that includes:
 
@@ -755,9 +754,6 @@ class VisualizationMixin:
         bands : list of tuple, optional
             List of frequency bands to plot. Each tuple should contain
             (band_name, lower_freq, upper_freq).
-        report_subdir : str, optional
-            Subdirectory under reports/ where the figure will be saved.
-            Default is "psd_topo". For block-specific reports, pass the block name.
 
         Returns
         -------
@@ -779,7 +775,7 @@ class VisualizationMixin:
         # Create Artifact Report
         basename = self.config["unprocessed_file"].stem
         basename = f"{basename}_psd_topo_figure"
-        target_figure = self._resolve_report_path(report_subdir, f"{basename}.png")
+        target_figure = self._resolve_report_path("psd_topo", f"{basename}.png")
 
         # Count number of EEG channels
         channel_types = raw_original.get_channel_types()
