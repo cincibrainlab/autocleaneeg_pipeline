@@ -240,23 +240,43 @@ class EventIDEpochsMixin:
             if keep_all_epochs:
                 # 1. Mark epochs that would have been rejected by voltage threshold
                 if volt_threshold is not None:
-                    # Use MNE's built-in functionality to detect which epochs exceed thresholds
-                    # but don't actually drop them
-                    drop_log_thresh = mne.preprocessing.compute_thresholds(
-                        epochs, volt_threshold
-                    )
+                    # Manually compute threshold violations since MNE has no built-in
+                    # dry-run threshold detection
                     bad_epochs_thresh = []
-
-                    for idx, log in enumerate(drop_log_thresh):
-                        if len(log) > 0:  # If epoch would have been dropped
+                    
+                    # Map channel names to their types
+                    ch_types_list = epochs.get_channel_types()
+                    ch_type_map = {}
+                    for ch_name, ch_type in zip(epochs.ch_names, ch_types_list):
+                        if ch_type not in ch_type_map:
+                            ch_type_map[ch_type] = []
+                        ch_type_map[ch_type].append(ch_name)
+                    
+                    # Check each epoch for threshold violations
+                    for idx in range(len(epochs)):
+                        this_epoch = epochs[idx].get_data()[0]  # Shape: (n_chans, n_times)
+                        drop_reasons = []
+                        
+                        for ch_type, thresh in volt_threshold.items():
+                            if ch_type in ch_type_map:
+                                # Get indices of channels of this type
+                                ch_names_of_type = ch_type_map[ch_type]
+                                mask = np.isin(epochs.ch_names, ch_names_of_type)
+                                epoch_type_data = this_epoch[mask]
+                                
+                                # Check if any sample exceeds threshold
+                                if np.any(np.abs(epoch_type_data) > thresh):
+                                    drop_reasons.append(ch_type)
+                        
+                        if drop_reasons:
                             bad_epochs_thresh.append(idx)
-                            # Add to metadata which channels exceeded threshold
-                            for ch_type in log:
+                            # Mark which channel types exceeded threshold
+                            for ch_type in drop_reasons:
                                 col_name = f"THRESHOLD_{ch_type.upper()}"
                                 if col_name not in epochs.metadata.columns:
                                     epochs.metadata[col_name] = False
                                 epochs.metadata.loc[idx, col_name] = True
-
+                    
                     message(
                         "info",
                         f"Marked {len(bad_epochs_thresh)} epochs exceeding voltage thresholds (not dropped)",
