@@ -916,7 +916,7 @@ class FastPlotReportMixin:
             message("info", "✗ Fastplot summary disabled in task settings")
             return None
 
-        value_cfg = step_settings.get("value", {}) if isinstance(step_settings.get("value"), dict) else {}
+        value_cfg = step_settings.get("value") or {} if isinstance(step_settings.get("value"), dict) else {}
 
         gap = float(
             gap_seconds

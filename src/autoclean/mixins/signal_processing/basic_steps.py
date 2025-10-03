@@ -224,7 +224,7 @@ class BasicStepsMixin:
             return data
 
         # Get config defaults
-        filter_args = config_value.get("value", {})
+        filter_args = config_value.get("value") or {}
 
         # Apply parameter overrides (only if explicitly provided)
         final_l_freq = l_freq if l_freq is not None else filter_args.get("l_freq")
@@ -815,7 +815,7 @@ class BasicStepsMixin:
             message("info", "Duration Cropping step is disabled in configuration")
             return data
 
-        crop_times = config_value.get("value", {})
+        crop_times = config_value.get("value") or {}
         start_time_sec = crop_times.get("start", None)
         end_time_sec = crop_times.get("end", None)
 

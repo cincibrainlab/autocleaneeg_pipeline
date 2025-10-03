@@ -149,8 +149,12 @@ class AutoRejectEpochsMixin:
                 f"AutoReject ({rejection_percent}%)",
             )
 
+            # Get block info for reproducibility
+            block_info = self._get_block_info("autoreject")
+
             # Update metadata
             metadata = {
+                "block_name": "autoreject",
                 "initial_epochs": len(epochs),
                 "final_epochs": len(epochs_clean),
                 "rejected_epochs": rejected_epochs,
@@ -165,6 +169,10 @@ class AutoRejectEpochsMixin:
                 "consensus": consensus,
                 "n_jobs": n_jobs,
             }
+
+            # Add block version/commit info for reproducibility
+            if block_info:
+                metadata.update(block_info)
 
             self._update_metadata("step_apply_autoreject", metadata)
 

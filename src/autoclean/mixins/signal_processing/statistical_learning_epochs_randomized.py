@@ -81,7 +81,7 @@ class StatisticalLearningRandomizedEpochsMixin:
 
         # Get parameters from config if available
         if config_value and isinstance(config_value, dict):
-            epoch_value = config_value.get("value", {})
+            epoch_value = config_value.get("value") or {}
             if isinstance(epoch_value, dict):
                 tmin = epoch_value.get("tmin", tmin)
                 num_syllables = epoch_value.get("num_syllables", num_syllables)

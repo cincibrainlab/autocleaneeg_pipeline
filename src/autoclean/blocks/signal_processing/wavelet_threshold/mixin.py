@@ -50,9 +50,10 @@ class WaveletThresholdMixin:
             message("info", "Wavelet thresholding disabled in configuration")
             return inst
 
-        params = (settings or {}).get("value", {})
-        wavelet_name = params.get("wavelet", "sym4")
-        level_cfg = params.get("level", 5)
+        # Handle case where settings["value"] might be None
+        params = (settings or {}).get("value") or {}
+        wavelet_name = params.get("wavelet") or "sym4"
+        level_cfg = params.get("level") or 5
         if isinstance(level_cfg, str):
             if level_cfg.lower() != "auto":
                 raise ValueError(
@@ -63,11 +64,11 @@ class WaveletThresholdMixin:
             level = int(level_cfg)
             if level < 0:
                 raise ValueError("wavelet_threshold level must be non-negative")
-        threshold_mode = params.get("threshold_mode", "soft")
-        is_erp = bool(params.get("is_erp", False))
-        bandpass_cfg = params.get("bandpass", (1.0, 30.0))
-        filter_kwargs_cfg = params.get("filter_kwargs")
-        threshold_scale_cfg = params.get("threshold_scale", 1.0)
+        threshold_mode = params.get("threshold_mode") or "soft"
+        is_erp = bool(params.get("is_erp") or False)
+        bandpass_cfg = params.get("bandpass") or (1.0, 30.0)
+        filter_kwargs_cfg = params.get("filter_kwargs")  # Can be None intentionally
+        threshold_scale_cfg = params.get("threshold_scale") or 1.0
         picks_cfg = params.get("picks")
         psd_fmax_cfg = params.get("psd_fmax")
 
@@ -217,7 +218,11 @@ class WaveletThresholdMixin:
         self._update_instance_data(original_data, cleaned)
         self._save_raw_result(cleaned, stage_name)
 
+        # Get block info for reproducibility
+        block_info = self._get_block_info("wavelet_threshold")
+
         metadata = {
+            "block_name": "wavelet_threshold",
             "wavelet": wavelet_name,
             "level_requested": level if isinstance(level, str) else int(level),
             "level_effective": effective_level,
@@ -230,6 +235,11 @@ class WaveletThresholdMixin:
             "n_channels": int(cleaned_data.shape[0]),
             "report_path": str(report_relative or report_path) if report_path else None,
         }
+
+        # Add block version/commit info for reproducibility
+        if block_info:
+            metadata.update(block_info)
+
         if psd_fmax_value is not None:
             metadata["psd_fmax"] = psd_fmax_value
         metadata["threshold_scale"] = threshold_scale

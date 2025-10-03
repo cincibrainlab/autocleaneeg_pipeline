@@ -227,7 +227,11 @@ class SourceLocalizationMixin:
 
             # Update metadata
             if hasattr(self, "_update_metadata"):
+                # Get block info for reproducibility
+                block_info = self._get_block_info("source_localization")
+
                 metadata = {
+                    "block_name": "source_localization",
                     "method": method,
                     "lambda2": lambda2,
                     "pick_ori": pick_ori,
@@ -235,6 +239,10 @@ class SourceLocalizationMixin:
                     "stc_type": stc_type,
                     "n_vertices": n_sources,
                 }
+
+                # Add block version/commit info for reproducibility
+                if block_info:
+                    metadata.update(block_info)
 
                 if is_raw:
                     metadata.update(

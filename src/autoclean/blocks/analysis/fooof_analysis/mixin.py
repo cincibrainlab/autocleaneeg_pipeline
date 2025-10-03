@@ -249,7 +249,11 @@ class specparamAnalysisMixin:
 
             # Update metadata
             if hasattr(self, "_update_metadata"):
+                # Get block info for reproducibility
+                block_info = self._get_block_info("fooof_analysis")
+
                 metadata = {
+                    "block_name": "fooof_analysis",
                     "fmin": fmin,
                     "fmax": fmax,
                     "n_jobs": n_jobs,
@@ -259,6 +263,10 @@ class specparamAnalysisMixin:
                     "success_rate": float(success_rate),
                     "output_file": file_path,
                 }
+
+                # Add block version/commit info for reproducibility
+                if block_info:
+                    metadata.update(block_info)
 
                 self._update_metadata("step_apply_fooof_aperiodic", metadata)
 
@@ -446,7 +454,11 @@ class specparamAnalysisMixin:
 
             # Update metadata
             if hasattr(self, "_update_metadata"):
+                # Get block info for reproducibility
+                block_info = self._get_block_info("fooof_analysis")
+
                 metadata = {
+                    "block_name": "fooof_analysis",
                     "n_jobs": n_jobs,
                     "aperiodic_mode": aperiodic_mode,
                     "n_vertices": n_vertices,
@@ -454,6 +466,10 @@ class specparamAnalysisMixin:
                     "bands": list(periodic_df["band"].unique()),
                     "output_file": file_path,
                 }
+
+                # Add block version/commit info for reproducibility
+                if block_info:
+                    metadata.update(block_info)
 
                 self._update_metadata("step_apply_fooof_periodic", metadata)
 

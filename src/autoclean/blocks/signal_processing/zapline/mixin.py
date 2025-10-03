@@ -2,12 +2,38 @@
 
 from __future__ import annotations
 
+import importlib.util
+import json
+from pathlib import Path
 from typing import Optional
 
 import mne
 
-from .algorithm import apply_zapline_dss, compute_line_noise_power
 from autoclean.utils.logging import message
+
+
+# Dynamically load algorithm module to support block portability
+# (blocks are loaded with synthetic module names, so relative imports fail)
+def _load_algorithm_module():
+    """Load algorithm.py from the same directory as this mixin file."""
+    mixin_path = Path(__file__).parent
+    algorithm_path = mixin_path / "algorithm.py"
+
+    spec = importlib.util.spec_from_file_location(
+        "zapline_algorithm", algorithm_path
+    )
+    if spec and spec.loader:
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    raise ImportError(f"Could not load algorithm module from {algorithm_path}")
+
+
+# Load algorithm functions at module import time
+_algorithm = _load_algorithm_module()
+apply_zapline_dss = _algorithm.apply_zapline_dss
+compute_line_noise_power = _algorithm.compute_line_noise_power
 
 
 class ZaplineMixin:
@@ -47,6 +73,17 @@ class ZaplineMixin:
         - max_iter : int
             Maximum iterations for iterative mode
 
+        **When to use Zapline vs Notch Filtering**:
+
+        Zapline is preferred over traditional notch filters because it removes line
+        noise while preserving signal at nearby frequencies. Notch filters create
+        spectral holes that can distort oscillatory activity (e.g., alpha band near
+        line noise harmonics). Zapline uses spatial information to specifically
+        target the noise component, making it ideal for high-density EEG arrays.
+
+        For datasets with <32 channels, consider traditional notch filtering as
+        Zapline's spatial decomposition may be less effective.
+
         Examples
         --------
         In task config:
@@ -74,11 +111,12 @@ class ZaplineMixin:
             return inst
 
         # Extract parameters from config
-        params = (settings or {}).get("value", {})
-        fline = float(params.get("fline", 60.0))
-        nkeep = int(params.get("nkeep", 1))
-        use_iter = bool(params.get("use_iter", False))
-        max_iter = int(params.get("max_iter", 10))
+        # Handle case where settings["value"] might be None
+        params = (settings or {}).get("value") or {}
+        fline = float(params.get("fline") or 60.0)
+        nkeep = int(params.get("nkeep") or 1)
+        use_iter = bool(params.get("use_iter") or False)
+        max_iter = int(params.get("max_iter") or 10)
 
         # Validate parameters
         if fline not in [50.0, 60.0]:
@@ -139,10 +177,15 @@ class ZaplineMixin:
                 use_iter=use_iter,
                 max_iter=max_iter,
             )
-        except ImportError as exc:
-            message("error", f"Zapline requires meegkit: {exc}")
-            return inst
-        except Exception as exc:
+        except (ImportError, Exception) as exc:
+            # Check if it's a BlockDependencyError (which is a subclass of Exception)
+            # These need to propagate to pipeline level for user-friendly handling
+            from autoclean.utils.block_errors import BlockDependencyError
+
+            if isinstance(exc, BlockDependencyError):
+                raise
+
+            # For other exceptions, log and return original data
             message("error", f"Zapline failed: {exc}")
             return inst
 
@@ -179,8 +222,12 @@ class ZaplineMixin:
         self._update_instance_data(inst, cleaned)
         self._save_raw_result(cleaned, stage_name)
 
+        # Get block info for reproducibility
+        block_info = self._get_block_info("zapline")
+
         # Store metadata
         metadata = {
+            "block_name": "zapline",
             "fline": fline,
             "nkeep": nkeep,
             "use_iter": use_iter,
@@ -189,6 +236,10 @@ class ZaplineMixin:
             "iterations": info.get("iterations"),
             "n_channels": n_channels,
         }
+
+        # Add block version/commit info for reproducibility
+        if block_info:
+            metadata.update(block_info)
 
         if power_before is not None:
             metadata["power_before_db"] = float(power_before)
@@ -202,6 +253,19 @@ class ZaplineMixin:
             metadata["snr_after"] = float(snr_after)
 
         self._update_metadata("step_zapline", metadata)
+
+        # Also save metadata as JSON file in reports/zapline/
+        try:
+            if hasattr(self, '_resolve_report_path') and hasattr(self, 'config'):
+                basename = self.config.get("unprocessed_file", Path("zapline")).stem
+                json_path = self._resolve_report_path("zapline", f"{basename}_zapline_metadata.json")
+
+                with open(json_path, 'w') as f:
+                    json.dump(metadata, f, indent=2)
+
+                message("info", f"Zapline metadata saved to: {json_path}")
+        except Exception as e:
+            message("debug", f"Could not save zapline JSON: {e}")
 
         message("success", f"Zapline complete ({info.get('iterations')} iterations)")
         return cleaned

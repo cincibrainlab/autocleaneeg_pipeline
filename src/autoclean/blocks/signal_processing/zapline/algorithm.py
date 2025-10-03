@@ -84,12 +84,20 @@ def apply_zapline_dss(
     .. [2] de Cheveigné, A., & Simon, J. Z. (2008). Denoising based on spatial
        filtering. Journal of Neuroscience Methods, 171(2), 331-339.
     """
-    # Import meegkit (raise informative error if not installed)
+    # Import meegkit (raise user-friendly error if not installed)
     try:
         from meegkit import dss
     except ImportError:
-        raise ImportError(
-            "meegkit is required for Zapline. Install with: pip install meegkit"
+        from autoclean.utils.block_errors import raise_dependency_error
+
+        raise_dependency_error(
+            block_name="zapline",
+            missing_packages=[("meegkit", ">=0.1.9")],
+            what_it_does=(
+                "Zapline removes electrical noise (like the hum from power outlets) "
+                "from your EEG recordings. This makes your brain signals cleaner "
+                "and easier to analyze."
+            )
         )
 
     # Validate input
@@ -102,6 +110,18 @@ def apply_zapline_dss(
     # Extract data and parameters
     data = raw.get_data().T  # Convert to (n_samples, n_channels)
     sfreq = raw.info['sfreq']
+
+    # Defensive validation of all parameters before passing to meegkit
+    if fline is None:
+        raise ValueError("fline cannot be None")
+    if nkeep is None:
+        raise ValueError("nkeep cannot be None")
+    if sfreq is None:
+        raise ValueError("sfreq cannot be None (check raw.info['sfreq'])")
+
+    fline = float(fline)
+    nkeep = int(nkeep)
+    sfreq = float(sfreq)
 
     # Validate frequency parameters
     nyquist = sfreq / 2
@@ -118,14 +138,18 @@ def apply_zapline_dss(
         'nkeep': nkeep,
     }
 
+    # Calculate appropriate nfft (should be power of 2, at least 1 second of data)
+    # Using None can cause issues in some meegkit versions
+    nfft = int(2 ** np.ceil(np.log2(sfreq)))  # Next power of 2 >= sfreq
+
     if use_iter:
         # Iterative removal - automatically determines convergence
         out, iterations = dss.dss_line_iter(
             data,
             fline=fline,
             sfreq=sfreq,
-            nkeep=nkeep,
-            nfft=None,  # Auto-determine FFT length
+            nfft=nfft,
+            n_iter_max=max_iter,
         )
         info['iterations'] = iterations
     else:
@@ -135,7 +159,7 @@ def apply_zapline_dss(
             fline=fline,
             sfreq=sfreq,
             nkeep=nkeep,
-            nfft=None,  # Auto-determine FFT length
+            nfft=nfft,
         )
         info['iterations'] = 1
 

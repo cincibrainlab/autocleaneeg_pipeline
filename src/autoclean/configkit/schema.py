@@ -59,6 +59,26 @@ def _ic_flags_valid(flags: list) -> bool:
         return False
 
 
+def _is_processing_block_key(key: str) -> bool:
+    """Check if a key looks like a processing block configuration key.
+
+    Processing blocks are dynamically discovered and can add their own
+    config keys. This allows the schema to be flexible about block keys
+    while still validating core pipeline config.
+
+    Matches patterns like:
+    - apply_*  (e.g., apply_zapline, apply_autoreject)
+    - clean_*  (e.g., clean_bad_channels)
+    - Other block-like patterns
+    """
+    if not isinstance(key, str):
+        return False
+
+    # Known processing block prefixes
+    block_prefixes = ("apply_", "clean_", "run_")
+    return key.startswith(block_prefixes)
+
+
 def _step_bool_descriptor() -> dict:
     return {"enabled": "bool"}
 
@@ -74,7 +94,7 @@ def _filtering_descriptor() -> dict:
             "l_freq": "number|null",
             "h_freq": "number|null",
             "notch_freqs": "number|list[number]|None",
-            "notch_widths": "number|list[number]|None",
+            "notch_widths": "number|list[number]|None (optional, defaults to 0.5)",
         },
     }
 
@@ -247,7 +267,7 @@ def _build_task_settings_schema() -> Schema:
                     "l_freq": Or(int, float, None),
                     "h_freq": Or(int, float, None),
                     "notch_freqs": Or(float, int, list[float], list[int], None),
-                    "notch_widths": Or(float, int, list[float], list[int], None),
+                    Optional("notch_widths"): Or(float, int, list[float], list[int], None),
                 },
             },
             "drop_outerlayer": step_value_list,
@@ -375,6 +395,12 @@ def _build_task_settings_schema() -> Schema:
                     Optional("n_jobs"): int,
                     Optional("aperiodic_mode"): str,
                 },
+            },
+            # Flexible processing block keys (apply_*, clean_*, run_*)
+            # Allows dynamically discovered blocks to add their own config keys
+            Optional(_is_processing_block_key): {
+                "enabled": bool,
+                "value": object,  # Block-specific, don't validate internal structure
             },
         }
     )

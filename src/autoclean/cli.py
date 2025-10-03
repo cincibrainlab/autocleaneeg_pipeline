@@ -475,8 +475,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         rows = [
             ("🧱 blocks list", "List available processing blocks"),
             ("🔎 blocks info <name>", "Show metadata for a block"),
+            ("📦 blocks deps <name>", "Show dependencies for a block"),
             ("🔄 blocks update", "Refresh blocks from the task registry"),
             ("💾 blocks install <name>", "Install block to cache"),
+            ("🔒 blocks lock", "Generate lock file for reproducibility"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -1303,6 +1305,16 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Name of the block to inspect",
     )
 
+    blocks_deps_parser = blocks_subparsers.add_parser(
+        "deps", help="Show dependencies for a block", add_help=False
+    )
+    attach_rich_help(blocks_deps_parser)
+    blocks_deps_parser.add_argument(
+        "block_name",
+        type=str,
+        help="Name of the block to check dependencies for",
+    )
+
     blocks_update_parser = blocks_subparsers.add_parser(
         "update", help="Update blocks from task-registry", add_help=False
     )
@@ -1320,7 +1332,38 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     blocks_install_parser.add_argument(
         "block_name",
         type=str,
-        help="Name of the block to install",
+        nargs="?",
+        default=None,
+        help="Name of the block to install (not needed with --locked)",
+    )
+    blocks_install_parser.add_argument(
+        "--commit",
+        type=str,
+        default=None,
+        help="Git commit hash to install (for reproducibility). Browse GitHub registry to find commit hashes.",
+    )
+    blocks_install_parser.add_argument(
+        "--locked",
+        action="store_true",
+        help="Install all blocks from blocks.lock file",
+    )
+    blocks_install_parser.add_argument(
+        "--lock-file",
+        type=str,
+        default="blocks.lock",
+        help="Path to lock file (default: blocks.lock)",
+    )
+
+    blocks_lock_parser = blocks_subparsers.add_parser(
+        "lock", help="Generate lock file from current block state", add_help=False
+    )
+    attach_rich_help(blocks_lock_parser)
+    blocks_lock_parser.add_argument(
+        "-o",
+        "--output",
+        type=str,
+        default="blocks.lock",
+        help="Output file path (default: blocks.lock)",
     )
 
     # Source management commands (deprecated alias)
@@ -2309,6 +2352,15 @@ def cmd_process(args) -> int:
         return 0
 
     except Exception as e:
+        # Check if this is a BlockDependencyError (already displayed with details)
+        from autoclean.utils.block_errors import BlockDependencyError
+
+        if isinstance(e, BlockDependencyError):
+            # Error already displayed with user-friendly help
+            # Exit cleanly without additional error message
+            return 1
+
+        # For other exceptions, show error message
         message("error", f"Processing failed: {str(e)}")
         return 1
 
@@ -2815,10 +2867,14 @@ def cmd_blocks(args) -> int:
         return cli_blocks.cmd_blocks_list(args)
     if action == "info":
         return cli_blocks.cmd_blocks_info(args)
+    if action == "deps":
+        return cli_blocks.cmd_blocks_deps(args)
     if action == "update":
         return cli_blocks.cmd_blocks_update(args)
     if action == "install":
         return cli_blocks.cmd_blocks_install(args)
+    if action == "lock":
+        return cli_blocks.cmd_blocks_lock(args)
 
     message("error", f"Unknown blocks action: {action}")
     return 1

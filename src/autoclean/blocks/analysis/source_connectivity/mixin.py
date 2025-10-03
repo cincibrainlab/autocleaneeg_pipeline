@@ -242,7 +242,11 @@ class SourceConnectivityMixin:
 
                 # Update metadata
                 if hasattr(self, "_update_metadata"):
+                    # Get block info for reproducibility
+                    block_info = self._get_block_info("source_connectivity")
+
                     metadata = {
+                        "block_name": "source_connectivity",
                         "epoch_length": epoch_length,
                         "n_epochs": n_epochs,
                         "n_jobs": n_jobs,
@@ -253,6 +257,11 @@ class SourceConnectivityMixin:
                         "bands": list(conn_df["band"].unique()),
                         "output_file": summary_path,
                     }
+
+                    # Add block version/commit info for reproducibility
+                    if block_info:
+                        metadata.update(block_info)
+
                     self._update_metadata("step_apply_source_connectivity", metadata)
 
                 # Store in task object for downstream use

@@ -86,6 +86,7 @@ from autoclean.utils.auth import (
     get_current_user_for_audit,
     require_authentication,
 )
+from autoclean.utils.block_errors import BlockDependencyError
 from autoclean.utils.config import (
     hash_and_encode_yaml,
 )
@@ -639,6 +640,38 @@ class Pipeline:
                     },
                 )
 
+        except BlockDependencyError as e:
+            # Handle missing block dependencies with user-friendly messages
+            from rich.console import Console
+
+            console = Console()
+
+            # Show detailed user-friendly help message
+            console.print()
+            e.print_detailed_help(console)
+            console.print()
+
+            # Update status marker if available (lightweight, non-DB operation)
+            if task_root is not None:
+                try:
+                    update_status_marker(
+                        task_root,
+                        "failed",
+                        run_id=run_id,
+                        details={
+                            "task": task,
+                            "unprocessed_file": str(unprocessed_file),
+                            "error": "missing_dependency",
+                            "block": e.block_name,
+                        },
+                    )
+                except Exception:  # pylint: disable=broad-except
+                    pass  # Status markers are nice-to-have, don't block on errors
+
+            # Re-raise with marker - batch processing will stop immediately
+            e._already_displayed = True  # pylint: disable=protected-access
+            raise
+
         except Exception as e:
             if task_root is not None:
                 update_status_marker(
@@ -901,9 +934,25 @@ class Pipeline:
         message("info", f"Found {len(files)} files to process")
 
         # Process each file
-        for file_path in files:
+        for idx, file_path in enumerate(files):
             try:
                 self._entrypoint(file_path, task)
+            except BlockDependencyError as e:
+                # Dependency error already displayed with detailed help
+                # Stop processing - missing dependencies affect all files
+                from rich.console import Console
+
+                console = Console()
+                console.print()
+                console.print("[yellow]⚠ Stopping batch processing[/yellow]")
+                console.print(f"[dim]  Processed: {idx} of {len(files)} files[/dim]")
+                console.print(f"[dim]  Remaining: {len(files) - idx - 1} files skipped[/dim]")
+                console.print()
+                console.print(
+                    "[dim]Fix the dependency issue above and re-run to process all files.[/dim]"
+                )
+                console.print()
+                return  # Exit immediately - don't process more files
             except Exception as e:  # pylint: disable=broad-except
                 message("error", f"Failed to process {file_path}: {str(e)}")
                 continue
@@ -1011,17 +1060,31 @@ class Pipeline:
         # Create semaphore to prevent resource exhaustion
         sem = asyncio.Semaphore(max_concurrent)
 
+        # Shared flag to stop processing on dependency errors
+        stop_processing = {"flag": False}
+
         # Initialize progress tracking
         pbar = tqdm(total=len(files), desc="Processing files", unit="file")
 
         async def process_with_semaphore(file_path: Path) -> None:
             """Process a single file with semaphore control."""
+            # Check if we should skip due to previous dependency error
+            if stop_processing["flag"]:
+                pbar.write(f"⊘ Skipped: {file_path.name} - Missing dependencies")
+                pbar.update(1)
+                return
+
             async with sem:  # Limit overall concurrent processing
                 try:
                     # Pass the acquired lock information (implicitly via self if needed later,
                     # but the lock is mainly for the bids step itself)
                     await self._entrypoint_async(file_path, task)
                     pbar.write(f"✓ Completed: {file_path.name}")
+                except BlockDependencyError as e:
+                    # Set flag to skip remaining files
+                    stop_processing["flag"] = True
+                    pbar.write(f"✗ Failed: {file_path.name} - Missing dependencies")
+                    pbar.write("⚠ Stopping batch - fix dependencies and re-run")
                 except Exception as e:  # pylint: disable=broad-except
                     pbar.write(f"✗ Failed: {file_path.name} - {str(e)}")
                 finally:
