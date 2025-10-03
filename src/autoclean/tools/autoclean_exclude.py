@@ -188,6 +188,61 @@ def _enum_name(value: object) -> str:
     return str(value)
 
 
+def _group_channel_removals(channel_removals: List[Dict]) -> Dict[str, List[str]]:
+    """Group channel removals by reason code.
+
+    Parameters
+    ----------
+    channel_removals : list of dict
+        List of channel removal entries from metadata["channel_removals"]
+        Each entry has: {"channel": str, "reason": str, "source_step": str, "timestamp": str}
+
+    Returns
+    -------
+    dict
+        Dictionary mapping reason codes to lists of channel names
+        Example: {"EOG_DROPPED": ["E1", "E8"], "UNCORRELATED": ["E34"]}
+    """
+    grouped = {}
+    for removal in channel_removals:
+        reason = removal.get("reason", "UNKNOWN")
+        channel = removal.get("channel", "")
+        if channel:
+            if reason not in grouped:
+                grouped[reason] = []
+            grouped[reason].append(channel)
+    return grouped
+
+
+def _get_removal_reason_display(reason_code: str) -> Tuple[str, str]:
+    """Get human-readable label and color for a removal reason code.
+
+    Parameters
+    ----------
+    reason_code : str
+        Reason code from channel_removals (e.g., "EOG_DROPPED", "UNCORRELATED")
+
+    Returns
+    -------
+    tuple of (label, color)
+        label: Human-readable string (e.g., "EOG")
+        color: Hex color code for display (e.g., "#9b59b6")
+    """
+    reason_map = {
+        "EOG_DROPPED": ("EOG", "#9b59b6"),          # Purple
+        "OUTER_LAYER": ("Outer Layer", "#3498db"),  # Blue
+        "UNCORRELATED": ("Uncorrelated", "#e67e22"), # Orange
+        "DEVIATION": ("Deviation", "#e74c3c"),       # Red
+        "RANSAC": ("RANSAC", "#d35400"),            # Dark Orange
+        "BRIDGED": ("Bridged", "#c0392b"),          # Dark Red
+        "RANK": ("Rank", "#8e44ad"),                # Purple
+        "MANUAL_EXCLUDE": ("Manual", "#7f8c8d"),    # Gray
+        "TEMPLATE_EXCLUDE": ("Template", "#95a5a6"), # Light Gray
+        "NOISY": ("Noisy", "#e74c3c"),              # Red
+    }
+    return reason_map.get(reason_code, (reason_code, "#95a5a6"))
+
+
 # --- Configuration and Asset Resolution ---
 
 def _load_config() -> dict:
@@ -2951,8 +3006,14 @@ class ExclusionFileSelector(ReviewBase):
             data = json.loads(json_path.read_text())
             metadata_section = data.get("metadata", {})
 
-            # Extract bad channels
-            bad_channels = metadata_section.get("step_clean_bad_channels", {}).get("bads", [])
+            # Extract unified channel removals (preferred)
+            channel_removals = metadata_section.get("channel_removals", [])
+            if channel_removals:
+                # Build bad_channels list from unified removals
+                bad_channels = [r["channel"] for r in channel_removals]
+            else:
+                # Fallback to legacy bad channels extraction
+                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get("bads", [])
 
             # Extract rejected ICA components
             ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
@@ -2972,7 +3033,8 @@ class ExclusionFileSelector(ReviewBase):
                 "bad_channels": bad_channels,
                 "rejected_ica": rejected_ica,
                 "valid_channels": valid_channels,
-                "max_components": max_components
+                "max_components": max_components,
+                "channel_removals": channel_removals  # Pass unified metadata
             })
 
         except Exception as e:
@@ -3993,14 +4055,22 @@ class ExclusionFileSelector(ReviewBase):
 
         try:
             data = json.loads(json_path.read_text())
+            metadata_section = data.get("metadata", {})
 
-            # Extract bad channels
-            bad_channels = data.get("metadata", {}).get("step_clean_bad_channels", {}).get("bads", [])
-            if isinstance(bad_channels, list):
-                result["bad_channels"] = bad_channels
+            # Extract unified channel removals (preferred)
+            channel_removals = metadata_section.get("channel_removals", [])
+            if channel_removals and isinstance(channel_removals, list):
+                result["channel_removals"] = channel_removals
+                # Build bad_channels list from removals for backward compatibility
+                result["bad_channels"] = [r["channel"] for r in channel_removals]
+            else:
+                # Fallback to legacy bad channels extraction
+                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get("bads", [])
+                if isinstance(bad_channels, list):
+                    result["bad_channels"] = bad_channels
 
             # Extract rejected ICA components
-            ica_rejection = data.get("metadata", {}).get("step_apply_ica_component_rejection", {})
+            ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
             rejected_comps = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
             if isinstance(rejected_comps, list):
                 result["rejected_ica"] = rejected_comps
@@ -4049,16 +4119,40 @@ class ExclusionFileSelector(ReviewBase):
             separator.setData(Qt.UserRole, "")  # Non-clickable
             self.related_list.addItem(separator)
 
-            # Display bad channels
-            if metadata["bad_channels"]:
+            # Display bad channels with removal reasons (enhanced)
+            channel_removals = metadata.get("channel_removals", [])
+            if channel_removals:
+                # Enhanced display: group by removal reason
+                grouped = _group_channel_removals(channel_removals)
+                total_count = len(metadata.get("bad_channels", []))
+
+                # Header showing total
+                header_item = QListWidgetItem(f"Bad Channels ({total_count}):")
+                header_item.setForeground(QColor("#e67e22"))  # Orange
+                header_item.setData(Qt.UserRole, "")  # Non-clickable
+                self.related_list.addItem(header_item)
+
+                # Display each group with color-coded reason
+                for reason, channels in grouped.items():
+                    label, color = _get_removal_reason_display(reason)
+                    channels_str = ", ".join(channels)
+                    reason_item = QListWidgetItem(f"  [{label}] {channels_str}")
+                    reason_item.setForeground(QColor(color))
+                    reason_item.setData(Qt.UserRole, "")  # Non-clickable
+                    self.related_list.addItem(reason_item)
+            elif metadata["bad_channels"]:
+                # Fallback: legacy flat display
                 channels_str = ", ".join(metadata["bad_channels"])
                 bad_ch_item = QListWidgetItem(f"Bad Channels: {channels_str}")
                 bad_ch_item.setForeground(QColor("#e67e22"))  # Orange
+                bad_ch_item.setData(Qt.UserRole, "")  # Non-clickable
+                self.related_list.addItem(bad_ch_item)
             else:
+                # No bad channels
                 bad_ch_item = QListWidgetItem("Bad Channels: None")
                 bad_ch_item.setForeground(QColor("#95a5a6"))  # Gray
-            bad_ch_item.setData(Qt.UserRole, "")  # Non-clickable
-            self.related_list.addItem(bad_ch_item)
+                bad_ch_item.setData(Qt.UserRole, "")  # Non-clickable
+                self.related_list.addItem(bad_ch_item)
 
             # Display rejected ICA components
             if metadata["rejected_ica"]:
