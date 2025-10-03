@@ -213,6 +213,218 @@ class EventIDEpochsMixin:
             message("error", f"Error during event discovery: {str(e)}")
             return None
 
+    def summarize_amplitude_quality(
+        self,
+        epochs: mne.Epochs,
+        volt_threshold: Optional[Dict[str, float]] = None,
+    ) -> Optional[pd.DataFrame]:
+        """Analyze and summarize amplitude quality across epochs and channels.
+
+        This coaching method provides interpretable diagnostics on data quality
+        by computing peak-to-peak amplitudes and comparing them to configured
+        rejection thresholds. It helps users understand which channels or epochs
+        are problematic and whether thresholds need adjustment.
+
+        Parameters
+        ----------
+        epochs : mne.Epochs
+            The epochs object to analyze.
+        volt_threshold : dict, Optional
+            Dictionary of channel types and voltage thresholds (e.g., {"eeg": 0.0002}).
+            If None, only descriptive statistics are provided.
+
+        Returns
+        -------
+        quality_df : pd.DataFrame | None
+            DataFrame with per-channel amplitude statistics and threshold violations.
+            Columns: channel, ch_type, mean_amp, max_amp, min_amp, flagged_count, flagged_pct
+            Returns None if analysis fails.
+
+        Examples
+        --------
+        >>> # After creating epochs, check amplitude quality
+        >>> quality_df = processor.summarize_amplitude_quality(epochs, volt_threshold={"eeg": 0.0002})
+        >>> print(quality_df)
+
+        Notes
+        -----
+        This method helps with:
+        - Identifying systematically noisy channels (high mean amplitude)
+        - Detecting channels that frequently exceed thresholds
+        - Tuning volt_threshold based on actual data distribution
+        - Deciding which channels need interpolation before ICA
+        """
+        try:
+            message("header", "Amplitude Quality Analysis")
+
+            # Get epoch data and info
+            data = epochs.get_data()  # shape: (n_epochs, n_channels, n_times)
+            ch_names = epochs.ch_names
+            ch_types = epochs.get_channel_types()
+            n_epochs = len(epochs)
+
+            # Compute peak-to-peak amplitudes per channel per epoch
+            message("info", "Computing peak-to-peak amplitudes across epochs...")
+            
+            report_rows = []
+            channels_by_type = {}  # For type-level summaries
+
+            for ch_idx, (ch_name, ch_type) in enumerate(zip(ch_names, ch_types)):
+                # Peak-to-peak amplitude for this channel across all epochs
+                ptp_amplitudes = np.ptp(data[:, ch_idx, :], axis=1)  # (n_epochs,)
+
+                mean_amp = ptp_amplitudes.mean()
+                max_amp = ptp_amplitudes.max()
+                min_amp = ptp_amplitudes.min()
+
+                # Check against threshold if provided
+                flagged_count = 0
+                flagged_pct = 0.0
+                thresh_value = None
+
+                if volt_threshold and ch_type in volt_threshold:
+                    thresh_value = volt_threshold[ch_type]
+                    flagged_count = (ptp_amplitudes > thresh_value).sum()
+                    flagged_pct = (flagged_count / n_epochs) * 100
+
+                report_rows.append({
+                    "channel": ch_name,
+                    "ch_type": ch_type,
+                    "mean_amp": mean_amp,
+                    "max_amp": max_amp,
+                    "min_amp": min_amp,
+                    "flagged_count": flagged_count,
+                    "flagged_pct": flagged_pct,
+                    "threshold": thresh_value,
+                })
+
+                # Aggregate by channel type
+                if ch_type not in channels_by_type:
+                    channels_by_type[ch_type] = []
+                channels_by_type[ch_type].append({
+                    "name": ch_name,
+                    "mean_amp": mean_amp,
+                    "flagged_pct": flagged_pct,
+                })
+
+            quality_df = pd.DataFrame(report_rows)
+
+            # Print summary statistics
+            message("info", "=" * 80)
+            message("info", f"Analyzed {n_epochs} epochs across {len(ch_names)} channels")
+            message("info", "=" * 80)
+
+            # Per-type summary
+            for ch_type, channels in channels_by_type.items():
+                if not channels:
+                    continue
+
+                message("info", f"\n{ch_type.upper()} Channels:")
+                message("info", "-" * 80)
+
+                # Overall stats for this type
+                mean_amps = [ch["mean_amp"] for ch in channels]
+                avg_mean_amp = np.mean(mean_amps)
+                max_mean_amp = np.max(mean_amps)
+
+                message("info", f"  Average mean amplitude: {avg_mean_amp:.6f} V")
+                message("info", f"  Maximum mean amplitude: {max_mean_amp:.6f} V")
+
+                # Threshold info if available
+                if volt_threshold and ch_type in volt_threshold:
+                    thresh = volt_threshold[ch_type]
+                    message("info", f"  Configured threshold:   {thresh:.6f} V")
+
+                    # Channels exceeding threshold frequently
+                    problem_channels = [
+                        ch for ch in channels if ch["flagged_pct"] > 20.0
+                    ]
+
+                    if problem_channels:
+                        message("info", f"\n  ⚠️  Channels exceeding threshold in >20% of epochs:")
+                        for ch in sorted(
+                            problem_channels, key=lambda x: x["flagged_pct"], reverse=True
+                        ):
+                            message(
+                                "info",
+                                f"    • {ch['name']}: {ch['flagged_pct']:.1f}% of epochs "
+                                f"(mean: {ch['mean_amp']:.6f} V)",
+                            )
+
+                        # Actionable suggestions
+                        message("info", "\n  💡 Suggestions:")
+                        if len(problem_channels) > len(channels) * 0.3:
+                            # Many channels problematic - likely threshold too strict
+                            suggested_thresh = avg_mean_amp * 2.5
+                            message(
+                                "info",
+                                f"    • >30% of channels flagged - threshold may be too strict",
+                            )
+                            message(
+                                "info",
+                                f"    • Consider increasing threshold to ~{suggested_thresh:.6f} V",
+                            )
+                        elif len(problem_channels) <= 3:
+                            # Few channels - likely bad electrode contact
+                            message(
+                                "info",
+                                f"    • Few channels flagged - likely bad electrode contact",
+                            )
+                            message(
+                                "info",
+                                f"    • Consider interpolating: {', '.join([ch['name'] for ch in problem_channels])}",
+                            )
+                        else:
+                            message(
+                                "info",
+                                f"    • Review electrode placement for flagged channels",
+                            )
+                    else:
+                        message("info", "  ✓ All channels within acceptable limits")
+
+                        # Check if threshold might be too loose
+                        if avg_mean_amp < thresh * 0.3:
+                            suggested_thresh = avg_mean_amp * 1.5
+                            message(
+                                "info",
+                                f"\n  💡 Threshold may be too loose for this data",
+                            )
+                            message(
+                                "info",
+                                f"    • Consider tightening to ~{suggested_thresh:.6f} V for better artifact detection",
+                            )
+
+            message("info", "\n" + "=" * 80)
+            message("info", "Quality Summary Statistics:")
+            message("info", "-" * 80)
+
+            # Overall summary stats
+            overall_mean = quality_df["mean_amp"].mean()
+            overall_max = quality_df["max_amp"].max()
+            overall_min = quality_df["min_amp"].min()
+
+            message("info", f"Overall mean amplitude (across all channels): {overall_mean:.6f} V")
+            message("info", f"Overall max amplitude (across all channels):  {overall_max:.6f} V")
+            message("info", f"Overall min amplitude (across all channels):  {overall_min:.6f} V")
+
+            if volt_threshold:
+                total_flagged = quality_df["flagged_count"].sum()
+                total_possible = n_epochs * len(ch_names)
+                overall_flag_pct = (total_flagged / total_possible) * 100
+                message(
+                    "info",
+                    f"Overall rejection rate: {overall_flag_pct:.1f}% "
+                    f"({total_flagged}/{total_possible} channel-epoch pairs)",
+                )
+
+            message("info", "=" * 80)
+
+            return quality_df
+
+        except Exception as e:
+            message("error", f"Error during amplitude quality analysis: {str(e)}")
+            return None
+
     def create_eventid_epochs(
         self,
         data: Union[mne.io.Raw, None] = None,
@@ -664,6 +876,26 @@ class EventIDEpochsMixin:
             for annotation, count in annotation_types.items():
                 message("info", f"Epochs with {annotation}: {count}")
 
+            # Run amplitude quality coach to provide interpretable diagnostics
+            message("info", "\n")
+            quality_df = self.summarize_amplitude_quality(
+                epochs=epochs_clean, volt_threshold=volt_threshold
+            )
+            
+            # Optionally save quality report to metadata for later analysis
+            if quality_df is not None and hasattr(self, "_update_metadata"):
+                # Store summary statistics in metadata
+                amplitude_quality_stats = {
+                    "overall_mean_amplitude": float(quality_df["mean_amp"].mean()),
+                    "overall_max_amplitude": float(quality_df["max_amp"].max()),
+                    "channels_analyzed": len(quality_df),
+                }
+                if volt_threshold:
+                    amplitude_quality_stats["threshold_config"] = volt_threshold
+                    amplitude_quality_stats["total_flagged_pairs"] = int(
+                        quality_df["flagged_count"].sum()
+                    )
+
             # Add flags if needed (only if not keeping all epochs)
             if (
                 not keep_all_epochs
@@ -701,6 +933,10 @@ class EventIDEpochsMixin:
                 "tmax": tmax,
                 "event_id": event_id,
             }
+            
+            # Add amplitude quality stats to metadata if available
+            if quality_df is not None:
+                metadata["amplitude_quality"] = amplitude_quality_stats
 
             self._update_metadata("step_create_eventid_epochs", metadata)
 
