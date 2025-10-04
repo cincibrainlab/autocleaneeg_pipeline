@@ -79,8 +79,11 @@ scripts/
 examples/single_file.py
 /autoclean_icvision_results
 src/.DS_Store
-.# coverage artifacts
+# coverage artifacts
 .coverage*
 
 # Archived planning documents
 docs/archive/
+
+# Test outputs
+test_outputs/
