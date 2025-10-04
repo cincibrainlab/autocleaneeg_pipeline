@@ -38,7 +38,7 @@ config = {
     "drop_outerlayer": {"enabled": False, "value": []},
     "eog_step": {
         "enabled": {{ eog_enabled|default('False') }},
-        "value": {{ eog_channels|default('[]') }},
+        "value": {{ eog_channels|default('{}') }},
     },
     "trim_step": {"enabled": True, "value": {{ trim_seconds|default(4) }}},
     "crop_step": {"enabled": False, "value": {"start": 0, "end": 60}},

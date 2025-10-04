@@ -255,6 +255,117 @@ def _load_config() -> dict:
         return {}
 
 
+def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
+    """Parse a task file and extract its config dictionary.
+
+    Parameters
+    ----------
+    task_file_path : Path
+        Path to the task file to parse
+
+    Returns
+    -------
+    dict or None
+        The config dictionary from the task file, or None if parsing fails
+    """
+    try:
+        with open(task_file_path, 'r', encoding='utf-8') as f:
+            file_content = f.read()
+
+        # Parse the file as AST
+        tree = ast.parse(file_content)
+
+        # Look for 'config = {...}' assignment
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == 'config':
+                        # Found the config assignment - evaluate it safely
+                        return ast.literal_eval(node.value)
+
+        print(f"Warning: No 'config' dictionary found in {task_file_path}")
+        return None
+
+    except Exception as e:
+        print(f"Warning: Failed to parse task file {task_file_path}: {e}")
+        return None
+
+
+def _map_config_to_template_vars(config: dict) -> dict:
+    """Map task config dictionary to Jinja template variable names.
+
+    Parameters
+    ----------
+    config : dict
+        Task configuration dictionary
+
+    Returns
+    -------
+    dict
+        Dictionary mapping template variable names to their values
+    """
+    template_vars = {}
+
+    # Montage
+    if config.get('montage', {}).get('enabled'):
+        template_vars['montage'] = config['montage'].get('value', 'GSN-HydroCel-129')
+
+    # Resample
+    if config.get('resample_step', {}).get('enabled'):
+        template_vars['resample_freq'] = config['resample_step'].get('value', 250)
+
+    # Filtering
+    if config.get('filtering', {}).get('enabled'):
+        filter_cfg = config['filtering'].get('value', {})
+        template_vars['filter_l_freq'] = filter_cfg.get('l_freq', 1)
+        template_vars['filter_h_freq'] = filter_cfg.get('h_freq', 100)
+        template_vars['filter_notch_freqs'] = filter_cfg.get('notch_freqs', [60, 120])
+        template_vars['filter_notch_widths'] = filter_cfg.get('notch_widths', 5)
+
+    # EOG
+    if config.get('eog_step', {}).get('enabled'):
+        eog_cfg = config['eog_step'].get('value', {})
+        template_vars['eog_enabled'] = 'True'
+        # Pass the full dict structure, not just the indices
+        template_vars['eog_channels'] = eog_cfg if isinstance(eog_cfg, dict) else {}
+    else:
+        template_vars['eog_enabled'] = 'False'
+        template_vars['eog_channels'] = {}
+
+    # Trim
+    if config.get('trim_step', {}).get('enabled'):
+        template_vars['trim_seconds'] = config['trim_step'].get('value', 4)
+
+    # Reference
+    if config.get('reference_step', {}).get('enabled'):
+        template_vars['reference_type'] = config['reference_step'].get('value', 'average')
+
+    # ICA
+    if config.get('ICA', {}).get('enabled'):
+        ica_cfg = config['ICA'].get('value', {})
+        template_vars['ica_method'] = ica_cfg.get('method', 'infomax')
+        template_vars['ica_n_components'] = ica_cfg.get('n_components', None)
+        template_vars['ica_fit_params'] = ica_cfg.get('fit_params', {'extended': True})
+        template_vars['ica_temp_highpass'] = ica_cfg.get('temp_highpass_for_ica', 1.0)
+
+    # Component rejection
+    if config.get('component_rejection', {}).get('enabled'):
+        comp_cfg = config['component_rejection'].get('value', {})
+        template_vars['ica_classification_method'] = config['component_rejection'].get('method', 'iclabel')
+        template_vars['ic_flags_to_reject'] = comp_cfg.get('ic_flags_to_reject',
+                                                           ['muscle', 'heart', 'eog', 'ch_noise', 'line_noise'])
+        template_vars['ic_rejection_threshold'] = comp_cfg.get('ic_rejection_threshold', 0.3)
+
+    # Epoch settings
+    if config.get('epoch_settings', {}).get('enabled'):
+        epoch_cfg = config['epoch_settings'].get('value', {})
+        template_vars['epoch_tmin'] = epoch_cfg.get('tmin', -1)
+        template_vars['epoch_tmax'] = epoch_cfg.get('tmax', 1)
+        template_vars['epoch_event_id'] = config['epoch_settings'].get('event_id', None)
+
+    return template_vars
+
+
 def strip_suffixes(stem: str, asset_type: str = None, config: dict = None) -> str:
     """Strip suffixes from filename stem based on configuration.
     
@@ -4665,11 +4776,30 @@ class ExclusionFileSelector(ReviewBase):
 
             task_output_path = self.task_root / "status" / f"{stem}_Reprocess.py"
 
-            # Render task file from template
+            # Parse original task file to get configuration
+            additional_context = {}
+            task_file_path = payload.get("task_file_path")
+            if task_file_path:
+                # Resolve path relative to task_root
+                original_task_path = self.task_root / task_file_path
+                if original_task_path.exists():
+                    original_config = _parse_task_file_config(original_task_path)
+                    if original_config:
+                        additional_context = _map_config_to_template_vars(original_config)
+                        print(f"[REPROCESS] Loaded config from original task: {task_file_path}")
+                    else:
+                        print(f"[REPROCESS] Warning: Could not parse config from {task_file_path}")
+                else:
+                    print(f"[REPROCESS] Warning: Original task file not found: {original_task_path}")
+            else:
+                print(f"[REPROCESS] Warning: No task_file_path in payload - using template defaults")
+
+            # Render task file from template with original configuration
             rendered_task = render_reprocess_task_from_json(
                 json_data=payload,
                 class_name=class_name,
-                output_path=task_output_path
+                output_path=task_output_path,
+                additional_context=additional_context
             )
 
             print(f"[REPROCESS] Generated task file: {task_output_path}")
