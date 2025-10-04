@@ -30,8 +30,7 @@ This creates a workspace directory (typically ``~/Documents/AutoClean-EEG``) wit
 
    AutoClean-EEG/
    ├── tasks/                    # Drop custom task files here
-   ├── output/                   # All processing results
-   └── example_basic_usage.py    # Example Python script
+   └── output/                   # All processing results
 
 Python API Workflow
 --------------------
@@ -106,8 +105,7 @@ Simply save the downloaded file to your ``tasks`` folder:
    AutoClean-EEG/
    ├── tasks/
    │   └── MyCustomTask.py    # <-- Drop your task file here
-   ├── output/
-   └── example_basic_usage.py
+   └── output/
 
 **Step 3: Use Immediately**
 

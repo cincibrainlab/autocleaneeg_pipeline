@@ -947,7 +947,6 @@ class UserConfigManager:
 
         # Setup completion
         setup_display.setup_complete_summary(chosen_dir)
-        self._create_example_script(chosen_dir)
 
         # Update instance
         self.config_dir = chosen_dir
@@ -1185,63 +1184,6 @@ class UserConfigManager:
         # Update instance
         self.config_dir = new_dir
         self.tasks_dir = new_dir / "tasks"
-
-    def _create_example_script(self, workspace_dir: Path) -> None:
-        """Create example script in workspace."""
-        try:
-            dest_file = workspace_dir / "example_basic_usage.py"
-
-            # Try to copy from package
-            if AUTOCLEAN_AVAILABLE:
-                try:
-                    package_dir = Path(autoclean.__file__).parent.parent.parent
-                    source_file = package_dir / "examples" / "basic_usage.py"
-
-                    if source_file.exists():
-                        shutil.copy2(source_file, dest_file)
-                    else:
-                        self._create_fallback_example(dest_file)
-                except Exception:
-                    self._create_fallback_example(dest_file)
-            else:
-                self._create_fallback_example(dest_file)
-
-            if RICH_AVAILABLE:
-                from autoclean.utils.cli_display import setup_display
-
-                setup_display.success("Example script created", str(dest_file))
-
-        except Exception as e:
-            print(f"Warning: Could not create example script: {e}")
-
-    def _create_fallback_example(self, dest_file: Path) -> None:
-        """Create fallback example script."""
-        content = """import asyncio
-from pathlib import Path
-
-from autoclean import Pipeline
-
-# Example usage of AutoClean Pipeline
-def main():
-    # Create pipeline (uses your workspace output by default)
-    pipeline = Pipeline()
-
-    # Process a single file
-    pipeline.process_file("path/to/your/data.raw", "RestingEyesOpen")
-
-    # Process multiple files
-    asyncio.run(pipeline.process_directory_async(
-        directory_path="path/to/your/data/",
-        task="RestingEyesOpen",
-        pattern="*.raw"
-    ))
-
-if __name__ == "__main__":
-    main()
-"""
-
-        with open(dest_file, "w", encoding="utf-8") as f:
-            f.write(content)
 
     def _create_template_task(self, tasks_dir: Path) -> None:
         """Create template task file in tasks directory."""
