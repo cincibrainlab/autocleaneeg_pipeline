@@ -294,7 +294,8 @@ def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
 def _generate_reprocess_task_from_original(
     original_task_path: Path,
     payload: dict,
-    new_class_name: str
+    new_class_name: str,
+    timestamp: str
 ) -> str:
     """Generate reprocess task by modifying the original task file's AST.
 
@@ -306,6 +307,8 @@ def _generate_reprocess_task_from_original(
         Manual fix payload with modifications and metadata
     new_class_name : str
         Name for the reprocess task class
+    timestamp : str
+        Timestamp string to use for dataset_name
 
     Returns
     -------
@@ -323,6 +326,31 @@ def _generate_reprocess_task_from_original(
     fix_type = payload.get('fix_type', 'both')
     bad_channels = payload['modifications']['bad_channels']['modified']
     rejected_ica = payload['modifications']['rejected_ica']['modified']
+    file_stem = payload.get('file_stem', 'unknown')
+
+    print(f"[AST DEBUG] fix_type from payload: '{fix_type}'")
+    print(f"[AST DEBUG] bad_channels: {bad_channels}")
+    print(f"[AST DEBUG] rejected_ica: {rejected_ica}")
+
+    # Use provided timestamp to create dataset_name
+    dataset_name = f"{file_stem}_{timestamp}"
+    print(f"[AST DEBUG] Setting dataset_name in config: {dataset_name}")
+
+    # Add dataset_name to config dictionary
+    class ConfigModifier(ast.NodeTransformer):
+        def visit_Assign(self, node):
+            # Look for 'config = {...}' assignment
+            if (len(node.targets) == 1 and
+                isinstance(node.targets[0], ast.Name) and
+                node.targets[0].id == 'config' and
+                isinstance(node.value, ast.Dict)):
+                # Add dataset_name to the config dict
+                node.value.keys.append(ast.Constant(value='dataset_name'))
+                node.value.values.append(ast.Constant(value=dataset_name))
+                print(f"[AST DEBUG] Added dataset_name to config dict")
+            return node
+
+    tree = ConfigModifier().visit(tree)
 
     # Find and rename class, update docstring
     class ClassRenamer(ast.NodeTransformer):
@@ -352,54 +380,64 @@ def _generate_reprocess_task_from_original(
 
         def visit_FunctionDef(self, node):
             if node.name == 'run':
+                print(f"[AST DEBUG] Entering run() method, setting in_run_method=True")
                 self.in_run_method = True
-                self.generic_visit(node)
 
-                # If ICA fix, ensure we add apply_ica_component_rejection after classify
-                if fix_type in ('ica', 'both') and self.ica_classify_modified:
-                    # Find classify_ica_components call and insert apply after it
-                    new_body = []
-                    for i, stmt in enumerate(node.body):
-                        new_body.append(stmt)
-                        # Check if this is the classify_ica_components call
-                        if (isinstance(stmt, ast.Expr) and
-                            isinstance(stmt.value, ast.Call) and
-                            isinstance(stmt.value.func, ast.Attribute) and
-                            stmt.value.func.attr == 'classify_ica_components'):
-                            # Insert apply_ica_component_rejection call after this
-                            apply_call = ast.Expr(
-                                value=ast.Call(
-                                    func=ast.Attribute(
-                                        value=ast.Name(id='self', ctx=ast.Load()),
-                                        attr='apply_ica_component_rejection',
-                                        ctx=ast.Load()
-                                    ),
-                                    args=[],
-                                    keywords=[
-                                        ast.keyword(
-                                            arg='manual_rejected_components',
-                                            value=ast.List(
-                                                elts=[ast.Constant(value=comp) for comp in rejected_ica],
-                                                ctx=ast.Load()
-                                            )
+                # Manually visit each statement and build new body with modifications
+                new_body = []
+                for i, stmt in enumerate(node.body):
+                    print(f"[AST DEBUG] Visiting statement {i}: {type(stmt).__name__}")
+                    # Visit the statement to apply modifications from visit_Call
+                    modified_stmt = self.visit(stmt)
+                    new_body.append(modified_stmt)
+
+                    # If ICA fix and this is the classify_ica_components call, insert apply after it
+                    if (fix_type in ('ica', 'both') and
+                        isinstance(modified_stmt, ast.Expr) and
+                        isinstance(modified_stmt.value, ast.Call) and
+                        isinstance(modified_stmt.value.func, ast.Attribute) and
+                        modified_stmt.value.func.attr == 'classify_ica_components'):
+                        # Insert apply_ica_component_rejection call after this
+                        print(f"[AST DEBUG] Inserting apply_ica_component_rejection after classify_ica_components")
+                        apply_call = ast.Expr(
+                            value=ast.Call(
+                                func=ast.Attribute(
+                                    value=ast.Name(id='self', ctx=ast.Load()),
+                                    attr='apply_ica_component_rejection',
+                                    ctx=ast.Load()
+                                ),
+                                args=[],
+                                keywords=[
+                                    ast.keyword(
+                                        arg='manual_rejected_components',
+                                        value=ast.List(
+                                            elts=[ast.Constant(value=comp) for comp in rejected_ica],
+                                            ctx=ast.Load()
                                         )
-                                    ]
-                                )
+                                    )
+                                ]
                             )
-                            new_body.append(apply_call)
-                    node.body = new_body
+                        )
+                        new_body.append(apply_call)
 
+                node.body = new_body
                 self.in_run_method = False
             return node
 
         def visit_Call(self, node):
+            func_name = node.func.attr if isinstance(node.func, ast.Attribute) else '?'
+            print(f"[AST DEBUG] visit_Call: func={func_name}, in_run_method={self.in_run_method}")
+
             if not self.in_run_method:
+                print(f"[AST DEBUG] Skipping {func_name} (not in run method)")
                 return node
 
             # Modify clean_bad_channels() for channel fixes
-            if (fix_type in ('channels', 'both') and
+            # Support both 'channel' and 'channels' variants
+            if (fix_type in ('channel', 'channels', 'both') and
                 isinstance(node.func, ast.Attribute) and
                 node.func.attr == 'clean_bad_channels'):
+                print(f"[AST DEBUG] Adding manual_bad_channels parameter: {bad_channels}")
                 # Add manual_bad_channels parameter
                 node.keywords.append(
                     ast.keyword(
@@ -415,6 +453,7 @@ def _generate_reprocess_task_from_original(
             if (fix_type in ('ica', 'both') and
                 isinstance(node.func, ast.Attribute) and
                 node.func.attr == 'classify_ica_components'):
+                print(f"[AST DEBUG] Modifying classify_ica_components to reject=False")
                 self.ica_classify_modified = True
                 # Set reject=False
                 found_reject = False
@@ -4904,12 +4943,17 @@ class ExclusionFileSelector(ReviewBase):
                 )
                 return
 
+            # Generate timestamp for consistent folder naming
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
             # Generate reprocess task by modifying original task's AST
             print(f"[REPROCESS] Generating task from original: {task_file_path}")
             rendered_task = _generate_reprocess_task_from_original(
                 original_task_path=original_task_path,
                 payload=payload,
-                new_class_name=class_name
+                new_class_name=class_name,
+                timestamp=timestamp
             )
 
             # Write generated task to file
@@ -4919,7 +4963,7 @@ class ExclusionFileSelector(ReviewBase):
             print(f"[REPROCESS] Generated task file: {task_output_path}")
 
             # Start non-blocking reprocess
-            self._start_reprocess(stem, task_output_path, raw_file_path)
+            self._start_reprocess(stem, task_output_path, raw_file_path, payload, timestamp)
 
         except Exception as e:
             QMessageBox.critical(
@@ -4930,34 +4974,312 @@ class ExclusionFileSelector(ReviewBase):
             import traceback
             traceback.print_exc()
 
-    def _start_reprocess(self, stem: str, task_path: Path, raw_path: Path) -> None:
+    def _merge_reprocess_database(
+        self,
+        original_db_path: Path,
+        reprocess_db_path: Path,
+        stem: str,
+        manifest_path: Optional[Path] = None
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Merge reprocess database into original task database.
+
+        Parameters
+        ----------
+        original_db_path : Path
+            Path to the original task's run_database.db
+        reprocess_db_path : Path
+            Path to the reprocess run's run_database.db
+        stem : str
+            File stem (e.g., '101001_C1D1BL_EO')
+        manifest_path : Path, optional
+            Path to backup manifest JSON to update with run IDs
+
+        Returns
+        -------
+        tuple[str | None, str | None]
+            (original_run_id, reprocess_run_id) if successful, (None, None) otherwise
+        """
+        import sqlite3
+        import json
+        from autoclean.utils.audit import calculate_access_log_hash, get_user_context
+
+        try:
+            print(f"[REPROCESS] Merging databases...")
+
+            # Connect to both databases
+            original_conn = sqlite3.connect(str(original_db_path))
+            original_conn.row_factory = sqlite3.Row
+            reprocess_conn = sqlite3.connect(str(reprocess_db_path))
+            reprocess_conn.row_factory = sqlite3.Row
+
+            original_cursor = original_conn.cursor()
+            reprocess_cursor = reprocess_conn.cursor()
+
+            # 1. Add supersession columns if they don't exist
+            try:
+                original_cursor.execute("ALTER TABLE pipeline_runs ADD COLUMN superseded_by TEXT")
+                print("[REPROCESS] Added superseded_by column")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            try:
+                original_cursor.execute("ALTER TABLE pipeline_runs ADD COLUMN supersedes_run_id TEXT")
+                print("[REPROCESS] Added supersedes_run_id column")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            # 2. Find the original run for this file in original database
+            original_cursor.execute(
+                "SELECT run_id FROM pipeline_runs WHERE unprocessed_file LIKE ? ORDER BY created_at DESC LIMIT 1",
+                (f"%{stem}%",)
+            )
+            original_run = original_cursor.fetchone()
+            original_run_id = original_run['run_id'] if original_run else None
+
+            if not original_run_id:
+                print(f"[REPROCESS] Warning: No original run found for {stem}")
+
+            # 3. Get the reprocess run from reprocess database
+            reprocess_cursor.execute("SELECT * FROM pipeline_runs LIMIT 1")
+            reprocess_run = reprocess_cursor.fetchone()
+
+            if not reprocess_run:
+                print("[REPROCESS] Error: No run found in reprocess database")
+                return None, None
+
+            reprocess_run_id = reprocess_run['run_id']
+
+            # 4. Insert reprocess run into original database
+            columns = [desc[0] for desc in reprocess_cursor.description]
+            placeholders = ", ".join(["?" for _ in columns])
+
+            # Add supersedes_run_id to the insert
+            if 'supersedes_run_id' in columns:
+                values = list(reprocess_run)
+                supersedes_idx = columns.index('supersedes_run_id')
+                values[supersedes_idx] = original_run_id
+            else:
+                columns.append('supersedes_run_id')
+                values = list(reprocess_run) + [original_run_id]
+                placeholders += ", ?"
+
+            original_cursor.execute(
+                f"INSERT INTO pipeline_runs ({', '.join(columns)}) VALUES ({placeholders})",
+                values
+            )
+            print(f"[REPROCESS] Inserted reprocess run: {reprocess_run_id}")
+
+            # 5. Mark original run as superseded (if found)
+            if original_run_id:
+                original_cursor.execute(
+                    "UPDATE pipeline_runs SET superseded_by = ? WHERE run_id = ?",
+                    (reprocess_run_id, original_run_id)
+                )
+                print(f"[REPROCESS] Marked original run as superseded: {original_run_id}")
+
+            # 6. Copy update_audit_log entries
+            reprocess_cursor.execute("SELECT * FROM update_audit_log")
+            audit_logs = reprocess_cursor.fetchall()
+
+            if audit_logs:
+                columns = [desc[0] for desc in reprocess_cursor.description]
+                placeholders = ", ".join(["?" for _ in columns])
+                for log in audit_logs:
+                    original_cursor.execute(
+                        f"INSERT INTO update_audit_log ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(log)
+                    )
+                print(f"[REPROCESS] Copied {len(audit_logs)} audit log entries")
+
+            # 7. Re-chain and copy database_access_log entries
+            # Get last hash from original database
+            original_cursor.execute(
+                "SELECT log_hash FROM database_access_log ORDER BY log_id DESC LIMIT 1"
+            )
+            last_hash_row = original_cursor.fetchone()
+            previous_hash = last_hash_row['log_hash'] if last_hash_row else "genesis_hash_empty_log"
+
+            # Get access logs from reprocess database (skip genesis entry)
+            reprocess_cursor.execute(
+                "SELECT * FROM database_access_log WHERE operation != 'isolated_database_creation' ORDER BY log_id"
+            )
+            access_logs = reprocess_cursor.fetchall()
+
+            if access_logs:
+                for log in access_logs:
+                    log_dict = dict(log)
+
+                    # Recalculate hash with new previous_hash for chain integrity
+                    new_hash = calculate_access_log_hash(
+                        log_dict['timestamp'],
+                        log_dict['operation'],
+                        json.loads(log_dict['user_context']) if log_dict.get('user_context') else {},
+                        "",
+                        json.loads(log_dict['details']) if log_dict.get('details') else {},
+                        previous_hash
+                    )
+
+                    # Insert with recalculated hash
+                    original_cursor.execute(
+                        """
+                        INSERT INTO database_access_log (
+                            timestamp, operation, user_context, details,
+                            log_hash, previous_hash, auth0_user_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            log_dict['timestamp'],
+                            log_dict['operation'],
+                            log_dict['user_context'],
+                            log_dict['details'],
+                            new_hash,
+                            previous_hash,
+                            log_dict.get('auth0_user_id')
+                        )
+                    )
+                    previous_hash = new_hash
+
+                print(f"[REPROCESS] Copied {len(access_logs)} access log entries (re-chained)")
+
+            # 8. Copy electronic_signatures if any
+            reprocess_cursor.execute("SELECT * FROM electronic_signatures")
+            signatures = reprocess_cursor.fetchall()
+
+            if signatures:
+                columns = [desc[0] for desc in reprocess_cursor.description]
+                placeholders = ", ".join(["?" for _ in columns])
+                for sig in signatures:
+                    original_cursor.execute(
+                        f"INSERT INTO electronic_signatures ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(sig)
+                    )
+                print(f"[REPROCESS] Copied {len(signatures)} electronic signatures")
+
+            # 9. Copy authenticated_users if any
+            reprocess_cursor.execute("SELECT * FROM authenticated_users")
+            users = reprocess_cursor.fetchall()
+
+            if users:
+                for user in users:
+                    user_dict = dict(user)
+                    auth0_user_id = user_dict['auth0_user_id']
+
+                    # Check if user already exists
+                    original_cursor.execute(
+                        "SELECT auth0_user_id FROM authenticated_users WHERE auth0_user_id = ?",
+                        (auth0_user_id,)
+                    )
+                    if original_cursor.fetchone():
+                        continue  # Skip existing users
+
+                    columns = [desc[0] for desc in reprocess_cursor.description]
+                    placeholders = ", ".join(["?" for _ in columns])
+                    original_cursor.execute(
+                        f"INSERT INTO authenticated_users ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(user)
+                    )
+                print(f"[REPROCESS] Copied {len(users)} authenticated users")
+
+            # 10. Commit and close
+            original_conn.commit()
+            original_conn.close()
+            reprocess_conn.close()
+
+            # 11. Update backup manifest with run IDs
+            if manifest_path and manifest_path.exists():
+                try:
+                    with open(manifest_path, 'r', encoding='utf-8') as f:
+                        manifest = json.load(f)
+
+                    manifest['original_run_id'] = original_run_id
+                    manifest['superseded_by_run_id'] = reprocess_run_id
+
+                    with open(manifest_path, 'w', encoding='utf-8') as f:
+                        json.dump(manifest, f, indent=2)
+
+                    print(f"[REPROCESS] Updated backup manifest with run IDs")
+                except Exception as e:
+                    print(f"[REPROCESS] Warning: Failed to update manifest: {e}")
+
+            print(f"[REPROCESS] Database merge successful")
+            return original_run_id, reprocess_run_id
+
+        except Exception as e:
+            print(f"[REPROCESS] Error merging databases: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None
+
+    def _start_reprocess(self, stem: str, task_path: Path, raw_path: Path, payload: dict, timestamp: str) -> None:
         """Start reprocessing in background with simple status dialog."""
         from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
         import shutil
-        from datetime import datetime
+        import json
 
         # Store reprocess info for post-processing
         original_task_root = self.task_root
 
-        # Create timestamped folder name for this reprocess attempt
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Use provided timestamp for consistent folder naming
         reprocess_folder_name = f"{stem}_{timestamp}"
+        print(f"[REPROCESS] Using folder name: {reprocess_folder_name}")
 
         # Create nested reprocess directory structure
         reprocess_dir = original_task_root / "reprocess"
         reprocess_dir.mkdir(exist_ok=True)
         output_dir = reprocess_dir
 
-        # Backup original comp file to exports/backups/ before reprocessing
+        # Backup original files to exports/backups/ before reprocessing
         exports_dir = original_task_root / "exports"
         backups_dir = exports_dir / "backups"
+        backups_dir.mkdir(exist_ok=True)
+
+        # Backup epoch file
         comp_file = exports_dir / f"{stem}_comp_epo.fif"
+        backed_up_files = []
 
         if comp_file.exists():
-            backups_dir.mkdir(exist_ok=True)
             backup_file = backups_dir / f"{stem}_comp_epo_{timestamp}.fif"
             shutil.copy2(comp_file, backup_file)
+            backed_up_files.append({
+                "filename": comp_file.name,
+                "original_path": str(comp_file.relative_to(original_task_root)),
+                "backup_path": str(backup_file.relative_to(original_task_root)),
+                "size_bytes": comp_file.stat().st_size
+            })
             print(f"[REPROCESS] Backed up {comp_file.name} to {backup_file}")
+
+        # Backup database file
+        db_file = original_task_root / "run_database.db"
+        if db_file.exists():
+            db_backup_file = backups_dir / f"run_database_{timestamp}.db"
+            shutil.copy2(db_file, db_backup_file)
+            backed_up_files.append({
+                "filename": db_file.name,
+                "original_path": str(db_file.relative_to(original_task_root)),
+                "backup_path": str(db_backup_file.relative_to(original_task_root)),
+                "size_bytes": db_file.stat().st_size
+            })
+            print(f"[REPROCESS] Backed up {db_file.name} to {db_backup_file}")
+
+        # Create backup manifest for provenance tracking
+        if backed_up_files:
+            manifest_path = backups_dir / f"{stem}_backup_manifest_{timestamp}.json"
+            manifest = {
+                "backup_timestamp": datetime.now().isoformat(),
+                "backup_reason": "manual_override_reprocess",
+                "original_run_id": None,  # Will be populated after merge
+                "superseded_by_run_id": None,  # Will be populated after merge
+                "backed_up_files": backed_up_files,
+                "manual_overrides": payload.get("modifications", {}),
+                "reprocess_task_file": str(task_path.relative_to(original_task_root)),
+                "reprocess_task_hash": payload.get("task_file_hash", ""),
+                "fix_type": payload.get("fix_type", "unknown")
+            }
+
+            with open(manifest_path, 'w', encoding='utf-8') as f:
+                json.dump(manifest, f, indent=2)
+
+            print(f"[REPROCESS] Created backup manifest: {manifest_path.name}")
 
         # Create simple non-modal dialog
         dialog = QDialog(self)
@@ -4991,7 +5313,10 @@ class ExclusionFileSelector(ReviewBase):
             'stem': stem,
             'original_task_root': original_task_root,
             'reprocess_folder_name': reprocess_folder_name,
-            'output_dir': output_dir
+            'output_dir': output_dir,
+            'manifest_path': manifest_path if backed_up_files else None,
+            'timestamp': timestamp,
+            'backups_dir': backups_dir
         }
 
         process.finished.connect(
@@ -5027,6 +5352,7 @@ class ExclusionFileSelector(ReviewBase):
         """Handle reprocess completion and copy results to original folder."""
         import shutil
 
+        print(f"[REPROCESS DEBUG] _on_reprocess_done called with exit_code={exit_code}")
         dialog.close()
 
         stem = reprocess_info['stem']
@@ -5034,7 +5360,11 @@ class ExclusionFileSelector(ReviewBase):
         reprocess_folder_name = reprocess_info['reprocess_folder_name']
         output_dir = reprocess_info['output_dir']
 
+        print(f"[REPROCESS DEBUG] stem={stem}, reprocess_folder_name={reprocess_folder_name}")
+        print(f"[REPROCESS DEBUG] original_task_root={original_task_root}")
+
         if exit_code == 0:
+            print(f"[REPROCESS DEBUG] Process completed successfully, starting file copy...")
             # Copy reprocessed files from temp folder to original folder
             try:
                 reprocess_folder = (original_task_root / "reprocess" / reprocess_folder_name).resolve()
@@ -5087,6 +5417,28 @@ class ExclusionFileSelector(ReviewBase):
                             dest_path = original_ica / file_path.name
                             shutil.copy2(file_path, dest_path)
                             print(f"[REPROCESS] Copied {file_path.name} to original ica")
+
+                # Merge databases to consolidate run records
+                original_db_path = original_task_root / "run_database.db"
+                reprocess_db_path = reprocess_folder / "run_database.db"
+                manifest_path = reprocess_info.get('manifest_path')
+
+                if original_db_path.exists() and reprocess_db_path.exists():
+                    original_run_id, reprocess_run_id = self._merge_reprocess_database(
+                        original_db_path,
+                        reprocess_db_path,
+                        stem,
+                        manifest_path
+                    )
+
+                    if original_run_id and reprocess_run_id:
+                        print(f"[REPROCESS] Database merge completed successfully")
+                        print(f"[REPROCESS]   Original run: {original_run_id}")
+                        print(f"[REPROCESS]   Reprocess run: {reprocess_run_id}")
+                    else:
+                        print(f"[REPROCESS] Warning: Database merge failed - see logs above")
+                else:
+                    print(f"[REPROCESS] Warning: Database files not found, skipping merge")
 
                 QMessageBox.information(
                     self,
