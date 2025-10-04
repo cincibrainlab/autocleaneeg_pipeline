@@ -1889,18 +1889,6 @@ class ReprocessWidget(QWidget):
         self.changes_summary_layout.setSpacing(8)
         self.changes_summary_widget.setLayout(self.changes_summary_layout)
 
-        # Summary title
-        self.summary_title = QLabel("Changes Summary")
-        self.summary_title.setAlignment(Qt.AlignCenter)
-        self.summary_title.setStyleSheet("""
-            font-size: 14px;
-            font-weight: 600;
-            color: #2c3e50;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #ecf0f1;
-        """)
-        self.changes_summary_layout.addWidget(self.summary_title)
-
         # Channels changes section
         self.channels_changes_widget = QWidget()
         self.channels_changes_layout = QVBoxLayout()
