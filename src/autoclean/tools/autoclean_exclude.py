@@ -5099,12 +5099,11 @@ class ExclusionFileSelector(ReviewBase):
             print(f"[REPROCESS] Inserted reprocess run: {reprocess_run_id}")
 
             # 5. Mark original run as superseded (if found)
+            # NOTE: We can't UPDATE the original run because it's completed and protected by audit triggers
+            # The supersession relationship is stored in the reprocess run via supersedes_run_id
             if original_run_id:
-                original_cursor.execute(
-                    "UPDATE pipeline_runs SET superseded_by = ? WHERE run_id = ?",
-                    (reprocess_run_id, original_run_id)
-                )
-                print(f"[REPROCESS] Marked original run as superseded: {original_run_id}")
+                print(f"[REPROCESS] Supersession link established: reprocess {reprocess_run_id} supersedes original {original_run_id}")
+                print(f"[REPROCESS] Original run remains immutable per audit trail requirements")
 
             # 6. Copy update_audit_log entries
             reprocess_cursor.execute("SELECT * FROM update_audit_log")
