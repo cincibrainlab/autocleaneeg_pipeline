@@ -48,6 +48,7 @@ logs/
 
 # Test data
 tests/fixtures/data/*.fif
+tests/fixtures/data/*.eve
 tests/fixtures/data/corrupted/*.fif
 
 # EEGLAB temporary files
