@@ -109,7 +109,7 @@ Example (per task):
   logs/
     pipeline.log      # Single consolidated log for all runs in this task
   qa/
-    *_fastplot_summary.(tiff|png)
+    # QA-ready images or attachments generated during processing
   reports/
     run_reports/
       *_autoclean_report.pdf
@@ -157,8 +157,8 @@ Key points:
 
 ## QA Visualizations
 
-- Fastplot summary images go to `<task>/qa/`.
-- The review GUI auto‑discovers images from `reports/` and `qa/`.
+- The QA directory (`<task>/qa/`) is reserved for quick-look artifacts produced during processing.
+- The review GUI auto-discovers images from `reports/` and `qa/`.
 
 
 ## Removed Legacy Folders

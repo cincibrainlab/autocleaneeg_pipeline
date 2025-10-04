@@ -552,8 +552,8 @@ class BaseMixin:
         Resolution order and rationale
         ------------------------------
         1) qa_dir (task_root/qa):
-           - Fast QA images are anchored here by design; using this first keeps
-             short, readable paths (e.g., "subject_fastplot.png").
+           - QA images are anchored here by design; using this first keeps
+             short, readable paths (e.g., "subject_qa.png").
         2) reports_dir (task_root/reports):
            - Most report artifacts are under reports/run_reports; resolving
              relative to reports keeps references local to the task root.
