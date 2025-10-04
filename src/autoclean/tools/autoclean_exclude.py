@@ -2022,8 +2022,20 @@ class ReprocessWidget(QWidget):
         self.valid_channels = valid_channels
         self.max_components = max_components
 
-        # Populate channel combo
-        self.channel_combo.addItems(valid_channels)
+        # Extract EOG channels from channel_removals and filter them out
+        # These channels are dropped early in pipeline and can't be marked as bad
+        channel_removals = metadata.get("channel_removals", [])
+        eog_channels = {
+            removal["channel"]
+            for removal in channel_removals
+            if removal.get("reason") == "EOG_DROPPED"
+        }
+
+        # Filter out EOG channels from combo box (but keep in valid_channels for validation)
+        valid_channels_for_combo = [ch for ch in valid_channels if ch not in eog_channels]
+
+        # Populate channel combo with filtered list
+        self.channel_combo.addItems(valid_channels_for_combo)
 
         # Set ICA spinbox range
         if max_components > 0:
