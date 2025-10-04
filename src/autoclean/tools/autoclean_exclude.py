@@ -324,12 +324,22 @@ def _generate_reprocess_task_from_original(
 
     # Extract override data from payload
     fix_type = payload.get('fix_type', 'both')
-    bad_channels = payload['modifications']['bad_channels']['modified']
+    bad_channels_raw = payload['modifications']['bad_channels']['modified']
     rejected_ica = payload['modifications']['rejected_ica']['modified']
     file_stem = payload.get('file_stem', 'unknown')
 
+    # Filter out EOG channels that will be dropped before clean_bad_channels runs
+    # Common EOG channel names that are typically dropped early in pipeline
+    eog_channel_patterns = ['EOG', 'HEOG', 'VEOG', 'hEOG', 'vEOG', 'REOG', 'LEOG']
+    bad_channels = [ch for ch in bad_channels_raw if ch not in eog_channel_patterns]
+
+    if len(bad_channels) != len(bad_channels_raw):
+        filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
+        print(f"[AST DEBUG] Filtered out EOG channels from bad channel list: {filtered_out}")
+        print(f"[AST DEBUG] These channels are dropped earlier in the pipeline and cannot be marked as bad")
+
     print(f"[AST DEBUG] fix_type from payload: '{fix_type}'")
-    print(f"[AST DEBUG] bad_channels: {bad_channels}")
+    print(f"[AST DEBUG] bad_channels (after EOG filter): {bad_channels}")
     print(f"[AST DEBUG] rejected_ica: {rejected_ica}")
 
     # Use provided timestamp to create dataset_name
@@ -359,7 +369,16 @@ def _generate_reprocess_task_from_original(
             node.name = new_class_name
 
             # Update docstring with override info
-            docstring = f'''
+            if len(bad_channels) != len(bad_channels_raw):
+                docstring = f'''
+    Reprocessing task with manual bad channel and ICA component overrides.
+
+    This task reprocesses the original raw data from the beginning with:
+    - Manual bad channel list: {bad_channels} (EOG channels excluded, dropped earlier in pipeline)
+    - Manual ICA component rejection: {rejected_ica}
+    '''
+            else:
+                docstring = f'''
     Reprocessing task with manual bad channel and ICA component overrides.
 
     This task reprocesses the original raw data from the beginning with:
@@ -437,17 +456,21 @@ def _generate_reprocess_task_from_original(
             if (fix_type in ('channel', 'channels', 'both') and
                 isinstance(node.func, ast.Attribute) and
                 node.func.attr == 'clean_bad_channels'):
-                print(f"[AST DEBUG] Adding manual_bad_channels parameter: {bad_channels}")
-                # Add manual_bad_channels parameter
-                node.keywords.append(
-                    ast.keyword(
-                        arg='manual_bad_channels',
-                        value=ast.List(
-                            elts=[ast.Constant(value=ch) for ch in bad_channels],
-                            ctx=ast.Load()
+                # Only add parameter if there are non-EOG bad channels
+                if bad_channels:
+                    print(f"[AST DEBUG] Adding manual_bad_channels parameter: {bad_channels}")
+                    # Add manual_bad_channels parameter
+                    node.keywords.append(
+                        ast.keyword(
+                            arg='manual_bad_channels',
+                            value=ast.List(
+                                elts=[ast.Constant(value=ch) for ch in bad_channels],
+                                ctx=ast.Load()
+                            )
                         )
                     )
-                )
+                else:
+                    print(f"[AST DEBUG] Skipping manual_bad_channels parameter (empty after filtering EOG channels)")
 
             # Modify classify_ica_components() for ICA fixes
             if (fix_type in ('ica', 'both') and
@@ -481,6 +504,12 @@ def _generate_reprocess_task_from_original(
     timestamp = payload.get('timestamp', '')
     file_stem = payload.get('file_stem', 'unknown')
 
+    # Build header with EOG filter note if applicable
+    eog_note = ""
+    if len(bad_channels) != len(bad_channels_raw):
+        filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
+        eog_note = f"\n# Note: EOG channels {filtered_out} excluded (dropped earlier in pipeline)"
+
     header = f'''# =============================================================================
 #  REPROCESSING TASK WITH MANUAL OVERRIDES
 # =============================================================================
@@ -492,7 +521,7 @@ def _generate_reprocess_task_from_original(
 # Fix type: {fix_type}
 #
 # Manual Overrides:
-# - Bad channels: {len(bad_channels)} channels
+# - Bad channels: {len(bad_channels)} channels{eog_note}
 # - ICA components: {len(rejected_ica)} components
 # =============================================================================
 
