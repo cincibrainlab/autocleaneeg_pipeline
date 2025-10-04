@@ -291,79 +291,175 @@ def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
         return None
 
 
-def _map_config_to_template_vars(config: dict) -> dict:
-    """Map task config dictionary to Jinja template variable names.
+def _generate_reprocess_task_from_original(
+    original_task_path: Path,
+    payload: dict,
+    new_class_name: str
+) -> str:
+    """Generate reprocess task by modifying the original task file's AST.
 
     Parameters
     ----------
-    config : dict
-        Task configuration dictionary
+    original_task_path : Path
+        Path to the original task file
+    payload : dict
+        Manual fix payload with modifications and metadata
+    new_class_name : str
+        Name for the reprocess task class
 
     Returns
     -------
-    dict
-        Dictionary mapping template variable names to their values
+    str
+        Complete reprocess task file content
     """
-    template_vars = {}
+    # Read original task file
+    with open(original_task_path, 'r', encoding='utf-8') as f:
+        original_source = f.read()
 
-    # Montage
-    if config.get('montage', {}).get('enabled'):
-        template_vars['montage'] = config['montage'].get('value', 'GSN-HydroCel-129')
+    # Parse AST
+    tree = ast.parse(original_source)
 
-    # Resample
-    if config.get('resample_step', {}).get('enabled'):
-        template_vars['resample_freq'] = config['resample_step'].get('value', 250)
+    # Extract override data from payload
+    fix_type = payload.get('fix_type', 'both')
+    bad_channels = payload['modifications']['bad_channels']['modified']
+    rejected_ica = payload['modifications']['rejected_ica']['modified']
 
-    # Filtering
-    if config.get('filtering', {}).get('enabled'):
-        filter_cfg = config['filtering'].get('value', {})
-        template_vars['filter_l_freq'] = filter_cfg.get('l_freq', 1)
-        template_vars['filter_h_freq'] = filter_cfg.get('h_freq', 100)
-        template_vars['filter_notch_freqs'] = filter_cfg.get('notch_freqs', [60, 120])
-        template_vars['filter_notch_widths'] = filter_cfg.get('notch_widths', 5)
+    # Find and rename class, update docstring
+    class ClassRenamer(ast.NodeTransformer):
+        def visit_ClassDef(self, node):
+            # Rename class
+            node.name = new_class_name
 
-    # EOG
-    if config.get('eog_step', {}).get('enabled'):
-        eog_cfg = config['eog_step'].get('value', {})
-        template_vars['eog_enabled'] = 'True'
-        # Pass the full dict structure, not just the indices
-        template_vars['eog_channels'] = eog_cfg if isinstance(eog_cfg, dict) else {}
-    else:
-        template_vars['eog_enabled'] = 'False'
-        template_vars['eog_channels'] = {}
+            # Update docstring with override info
+            docstring = f'''
+    Reprocessing task with manual bad channel and ICA component overrides.
 
-    # Trim
-    if config.get('trim_step', {}).get('enabled'):
-        template_vars['trim_seconds'] = config['trim_step'].get('value', 4)
+    This task reprocesses the original raw data from the beginning with:
+    - Manual bad channel list: {bad_channels}
+    - Manual ICA component rejection: {rejected_ica}
+    '''
+            node.body[0] = ast.Expr(value=ast.Constant(value=docstring.strip()))
 
-    # Reference
-    if config.get('reference_step', {}).get('enabled'):
-        template_vars['reference_type'] = config['reference_step'].get('value', 'average')
+            return node
 
-    # ICA
-    if config.get('ICA', {}).get('enabled'):
-        ica_cfg = config['ICA'].get('value', {})
-        template_vars['ica_method'] = ica_cfg.get('method', 'infomax')
-        template_vars['ica_n_components'] = ica_cfg.get('n_components', None)
-        template_vars['ica_fit_params'] = ica_cfg.get('fit_params', {'extended': True})
-        template_vars['ica_temp_highpass'] = ica_cfg.get('temp_highpass_for_ica', 1.0)
+    tree = ClassRenamer().visit(tree)
 
-    # Component rejection
-    if config.get('component_rejection', {}).get('enabled'):
-        comp_cfg = config['component_rejection'].get('value', {})
-        template_vars['ica_classification_method'] = config['component_rejection'].get('method', 'iclabel')
-        template_vars['ic_flags_to_reject'] = comp_cfg.get('ic_flags_to_reject',
-                                                           ['muscle', 'heart', 'eog', 'ch_noise', 'line_noise'])
-        template_vars['ic_rejection_threshold'] = comp_cfg.get('ic_rejection_threshold', 0.3)
+    # Modify run() method based on fix_type
+    class MethodModifier(ast.NodeTransformer):
+        def __init__(self):
+            self.in_run_method = False
+            self.ica_classify_modified = False
 
-    # Epoch settings
-    if config.get('epoch_settings', {}).get('enabled'):
-        epoch_cfg = config['epoch_settings'].get('value', {})
-        template_vars['epoch_tmin'] = epoch_cfg.get('tmin', -1)
-        template_vars['epoch_tmax'] = epoch_cfg.get('tmax', 1)
-        template_vars['epoch_event_id'] = config['epoch_settings'].get('event_id', None)
+        def visit_FunctionDef(self, node):
+            if node.name == 'run':
+                self.in_run_method = True
+                self.generic_visit(node)
 
-    return template_vars
+                # If ICA fix, ensure we add apply_ica_component_rejection after classify
+                if fix_type in ('ica', 'both') and self.ica_classify_modified:
+                    # Find classify_ica_components call and insert apply after it
+                    new_body = []
+                    for i, stmt in enumerate(node.body):
+                        new_body.append(stmt)
+                        # Check if this is the classify_ica_components call
+                        if (isinstance(stmt, ast.Expr) and
+                            isinstance(stmt.value, ast.Call) and
+                            isinstance(stmt.value.func, ast.Attribute) and
+                            stmt.value.func.attr == 'classify_ica_components'):
+                            # Insert apply_ica_component_rejection call after this
+                            apply_call = ast.Expr(
+                                value=ast.Call(
+                                    func=ast.Attribute(
+                                        value=ast.Name(id='self', ctx=ast.Load()),
+                                        attr='apply_ica_component_rejection',
+                                        ctx=ast.Load()
+                                    ),
+                                    args=[],
+                                    keywords=[
+                                        ast.keyword(
+                                            arg='manual_rejected_components',
+                                            value=ast.List(
+                                                elts=[ast.Constant(value=comp) for comp in rejected_ica],
+                                                ctx=ast.Load()
+                                            )
+                                        )
+                                    ]
+                                )
+                            )
+                            new_body.append(apply_call)
+                    node.body = new_body
+
+                self.in_run_method = False
+            return node
+
+        def visit_Call(self, node):
+            if not self.in_run_method:
+                return node
+
+            # Modify clean_bad_channels() for channel fixes
+            if (fix_type in ('channels', 'both') and
+                isinstance(node.func, ast.Attribute) and
+                node.func.attr == 'clean_bad_channels'):
+                # Add manual_bad_channels parameter
+                node.keywords.append(
+                    ast.keyword(
+                        arg='manual_bad_channels',
+                        value=ast.List(
+                            elts=[ast.Constant(value=ch) for ch in bad_channels],
+                            ctx=ast.Load()
+                        )
+                    )
+                )
+
+            # Modify classify_ica_components() for ICA fixes
+            if (fix_type in ('ica', 'both') and
+                isinstance(node.func, ast.Attribute) and
+                node.func.attr == 'classify_ica_components'):
+                self.ica_classify_modified = True
+                # Set reject=False
+                found_reject = False
+                for kw in node.keywords:
+                    if kw.arg == 'reject':
+                        kw.value = ast.Constant(value=False)
+                        found_reject = True
+                        break
+                if not found_reject:
+                    node.keywords.append(
+                        ast.keyword(arg='reject', value=ast.Constant(value=False))
+                    )
+
+            return node
+
+    tree = MethodModifier().visit(tree)
+
+    # Fix missing locations in AST
+    ast.fix_missing_locations(tree)
+
+    # Unparse back to Python code
+    modified_code = ast.unparse(tree)
+
+    # Create header comment
+    timestamp = payload.get('timestamp', '')
+    file_stem = payload.get('file_stem', 'unknown')
+
+    header = f'''# =============================================================================
+#  REPROCESSING TASK WITH MANUAL OVERRIDES
+# =============================================================================
+# This task was automatically generated to reprocess EEG data with manual
+# bad channel and ICA component overrides from the review GUI.
+#
+# Generated: {timestamp}
+# Original file: {file_stem}
+# Fix type: {fix_type}
+#
+# Manual Overrides:
+# - Bad channels: {len(bad_channels)} channels
+# - ICA components: {len(rejected_ica)} components
+# =============================================================================
+
+'''
+
+    return header + modified_code
 
 
 def strip_suffixes(stem: str, asset_type: str = None, config: dict = None) -> str:
@@ -4680,8 +4776,6 @@ class ExclusionFileSelector(ReviewBase):
 
     def _trigger_reprocess_with_overrides(self) -> None:
         """Trigger reprocessing with manual overrides from the current file's payload."""
-        from autoclean.utils.template_renderer import render_reprocess_task_from_json
-
         if not self.task_root or not hasattr(self, "selected_file_path"):
             QMessageBox.warning(
                 self,
@@ -4776,31 +4870,37 @@ class ExclusionFileSelector(ReviewBase):
 
             task_output_path = self.task_root / "status" / f"{stem}_Reprocess.py"
 
-            # Parse original task file to get configuration
-            additional_context = {}
+            # Get original task file path
             task_file_path = payload.get("task_file_path")
-            if task_file_path:
-                # Resolve path relative to task_root
-                original_task_path = self.task_root / task_file_path
-                if original_task_path.exists():
-                    original_config = _parse_task_file_config(original_task_path)
-                    if original_config:
-                        additional_context = _map_config_to_template_vars(original_config)
-                        print(f"[REPROCESS] Loaded config from original task: {task_file_path}")
-                    else:
-                        print(f"[REPROCESS] Warning: Could not parse config from {task_file_path}")
-                else:
-                    print(f"[REPROCESS] Warning: Original task file not found: {original_task_path}")
-            else:
-                print(f"[REPROCESS] Warning: No task_file_path in payload - using template defaults")
+            if not task_file_path:
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    "No original task file reference in payload. Cannot generate reprocess task."
+                )
+                return
 
-            # Render task file from template with original configuration
-            rendered_task = render_reprocess_task_from_json(
-                json_data=payload,
-                class_name=class_name,
-                output_path=task_output_path,
-                additional_context=additional_context
+            # Resolve path relative to task_root
+            original_task_path = self.task_root / task_file_path
+            if not original_task_path.exists():
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    f"Original task file not found:\n{original_task_path}"
+                )
+                return
+
+            # Generate reprocess task by modifying original task's AST
+            print(f"[REPROCESS] Generating task from original: {task_file_path}")
+            rendered_task = _generate_reprocess_task_from_original(
+                original_task_path=original_task_path,
+                payload=payload,
+                new_class_name=class_name
             )
+
+            # Write generated task to file
+            with open(task_output_path, 'w', encoding='utf-8') as f:
+                f.write(rendered_task)
 
             print(f"[REPROCESS] Generated task file: {task_output_path}")
 
