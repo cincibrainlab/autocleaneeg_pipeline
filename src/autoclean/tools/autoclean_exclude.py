@@ -60,6 +60,7 @@ from qtpy.QtCore import (  # noqa: E402
 from qtpy.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
 from qtpy.QtWidgets import (  # noqa: E402
     QApplication,
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -2433,6 +2434,7 @@ class ExclusionFileSelector(ReviewBase):
         self._pending_plot_refresh = False
         self._pending_selection_item: Optional[QTreeWidgetItem] = None
         self._selection_timer: Optional[QTimer] = None
+        self.show_backup_folders = False  # Toggle for showing backup/reprocess folders
 
         super().__init__(
             str(self.exports_dir) if self.exports_dir is not None else None
@@ -3239,12 +3241,27 @@ class ExclusionFileSelector(ReviewBase):
         self.left_layout.insertWidget(0, header_container)
         self.directory_toolbar_container = header_container
 
-        # Add folder path label on its own row under the toolbar rows
+        # Add folder path label with backup toggle on its own row under the toolbar rows
+        path_row = QHBoxLayout()
+        path_row.setContentsMargins(0, 0, 0, 0)
+
         path_label = QLabel()
         path_label.setObjectName("directoryPathLabel")
         path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         path_label.setWordWrap(True)
-        self.left_layout.insertWidget(1, path_label)
+        path_row.addWidget(path_label, stretch=1)
+
+        # Compact checkbox for showing backup folders
+        backup_toggle = QCheckBox("Show backups")
+        backup_toggle.setChecked(self.show_backup_folders)
+        backup_toggle.setToolTip("Show or hide backup and reprocess folders")
+        backup_toggle.toggled.connect(self._on_backup_toggle_changed)
+        path_row.addWidget(backup_toggle, stretch=0)
+
+        # Insert the horizontal layout
+        path_container = QWidget()
+        path_container.setLayout(path_row)
+        self.left_layout.insertWidget(1, path_container)
         self._workspace_path_label = path_label
         self._refresh_workspace_path_label()
 
@@ -3976,7 +3993,18 @@ class ExclusionFileSelector(ReviewBase):
                 folder = "/".join(relative.parts[:-1])
                 return (folder.lower(), relative.name.lower())
 
-            set_files = sorted(root_path.rglob("*.set"), key=_sort_key)
+            all_set_files = list(root_path.rglob("*.set"))
+
+            # Filter backup and reprocess folders if toggle is off
+            if not self.show_backup_folders:
+                set_files = [
+                    f for f in all_set_files
+                    if not any(part in ["backups", "reprocess"] for part in f.parts)
+                ]
+            else:
+                set_files = all_set_files
+
+            set_files = sorted(set_files, key=_sort_key)
 
             for file_path in set_files:
                 relative_path = file_path.relative_to(root_path)
@@ -4009,12 +4037,14 @@ class ExclusionFileSelector(ReviewBase):
                     except Exception:
                         pass  # Silently ignore JSON read errors
 
-                # Add reprocess badge to label
-                if is_reprocessed:
-                    base_label = f"🔄 {base_label}"
-
                 item = QTreeWidgetItem([base_label])
-                if not file_icon.isNull():
+
+                # Use refresh icon for reprocessed files instead of emoji (cross-platform compatibility)
+                if is_reprocessed:
+                    reprocess_icon = self.style().standardIcon(QStyle.SP_BrowserReload)
+                    if not reprocess_icon.isNull():
+                        item.setIcon(0, reprocess_icon)
+                elif not file_icon.isNull():
                     item.setIcon(0, file_icon)
                 item.setData(0, Qt.UserRole, str(file_path))
                 key = self._record_key(file_path)
@@ -4096,6 +4126,11 @@ class ExclusionFileSelector(ReviewBase):
         text = self.current_dir or ""
         label.setToolTip(text)
         label.setText(text)
+
+    def _on_backup_toggle_changed(self, checked: bool) -> None:
+        """Handle backup folder visibility toggle."""
+        self.show_backup_folders = checked
+        self.loadFiles()  # Refresh file tree with new filter
 
     def onFileSelect(self, item):  # noqa: N802 - inherited public API
         file_path_str = item.data(0, Qt.UserRole)
