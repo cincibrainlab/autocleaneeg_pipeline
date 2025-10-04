@@ -151,8 +151,13 @@ class UserConfigManager:
             return Path(custom_tasks[task_name]["file_path"])
         return None
 
-    def get_active_task(self) -> Optional[str]:
-        """Get the currently active task name."""
+    def get_active_task(self, *, ensure_exists: bool = True) -> Optional[str]:
+        """Get the currently active task name.
+
+        When ``ensure_exists`` is True (default), the stored active task is
+        validated against the current workspace tasks. If the associated task file
+        is missing, the active task is cleared and ``None`` is returned.
+        """
         global_config = (
             Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
         )
@@ -163,9 +168,29 @@ class UserConfigManager:
         try:
             with open(global_config, "r", encoding="utf-8") as f:
                 config = json.load(f)
-                return config.get("active_task")
-        except (json.JSONDecodeError, KeyError, FileNotFoundError):
+        except (json.JSONDecodeError, FileNotFoundError):
             return None
+
+        active_task = config.get("active_task")
+        if not isinstance(active_task, str):
+            return None
+
+        active_task = active_task.strip()
+        if not active_task:
+            return None
+
+        if ensure_exists:
+            try:
+                custom_tasks = self.list_custom_tasks()
+            except Exception:
+                custom_tasks = {}
+
+            if active_task not in custom_tasks:
+                # Clear out stale configuration so future calls reflect reality.
+                self.set_active_task(None)
+                return None
+
+        return active_task
 
     def get_active_source(self) -> Optional[str]:
         """Get the currently active source path."""

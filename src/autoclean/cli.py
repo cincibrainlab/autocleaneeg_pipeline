@@ -1993,7 +1993,7 @@ def validate_args(args) -> bool:
         # If no task specified, check for active task first
         if not task_name and not args.task_file:
             # Try to use active task
-            active_task = user_config.get_active_task()
+            active_task = user_config.get_active_task(ensure_exists=False)
             if active_task:
                 # Validate that the active task still exists
                 custom_tasks = user_config.list_custom_tasks()
@@ -2009,6 +2009,8 @@ def validate_args(args) -> bool:
                         "info",
                         "Please set a new active task with: autocleaneeg-pipeline task set",
                     )
+                    user_config.set_active_task(None)
+                    active_task = None
 
             # If still no task, show help
         if not task_name and not args.task_file:
@@ -5733,7 +5735,7 @@ def cmd_task_unset(_args) -> int:
 def cmd_task_show(_args) -> int:
     """Show the current active task."""
     try:
-        active_task = user_config.get_active_task()
+        active_task = user_config.get_active_task(ensure_exists=False)
 
         if active_task is None:
             message("info", "No active task is currently set.")
@@ -5758,6 +5760,11 @@ def cmd_task_show(_args) -> int:
                 message(
                     "info",
                     "Consider setting a different active task or adding the missing task file.",
+                )
+                user_config.set_active_task(None)
+                message(
+                    "info",
+                    "Cleared stale active task reference from workspace settings.",
                 )
 
         return 0

@@ -17,6 +17,7 @@ The functions generate clear, publication-ready figures and detailed
 HTML reports documenting the processing pipeline results.
 """
 
+import getpass
 import os
 import shutil
 import traceback
@@ -51,6 +52,18 @@ __all__ = [
 
 # Force matplotlib to use non-interactive backend for async operations
 matplotlib.use("Agg")
+
+
+def _resolve_study_user() -> str:
+    for var in ("AUTOCLEAN_USER", "USER", "USERNAME", "LOGNAME"):
+        value = os.getenv(var)
+        if value:
+            return value
+
+    try:
+        return getpass.getuser()
+    except Exception:  # pylint: disable=broad-except
+        return "autocleaneeg_user"
 
 
 def create_run_report(
@@ -1132,7 +1145,7 @@ def update_task_processing_log(
         # Extract details from summary_dict with safe access
         details = {
             "timestamp": summary_dict.get("timestamp", ""),
-            "study_user": os.getenv("USERNAME", "unknown"),
+            "study_user": _resolve_study_user(),
             "run_id": summary_dict.get("run_id", ""),
             "proc_state": summary_dict.get("proc_state", ""),
             "subj_basename": base_name,
