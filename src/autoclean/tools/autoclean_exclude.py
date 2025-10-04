@@ -3985,6 +3985,34 @@ class ExclusionFileSelector(ReviewBase):
                 if file_path.name in self.modified_files:
                     base_label = f"{base_label} *"
 
+                # Check if file was reprocessed
+                is_reprocessed = False
+                reprocess_details = None
+                stem = file_path.stem.replace('_comp_epo', '').replace('_epo', '')
+
+                # Look for metadata JSON in task root
+                task_root = root_path if root_path.name != "exports" else root_path.parent
+                metadata_json = task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+
+                if metadata_json.exists():
+                    try:
+                        import json
+                        with open(metadata_json, 'r') as f:
+                            metadata = json.load(f)
+                            if metadata.get('reprocessed'):
+                                is_reprocessed = True
+                                reprocess_details = {
+                                    'timestamp': metadata.get('reprocessed_timestamp', 'Unknown'),
+                                    'reason': metadata.get('reprocess_reason', 'manual_override'),
+                                    'original_run_id': metadata.get('reprocessed_from_run_id', 'Unknown')
+                                }
+                    except Exception:
+                        pass  # Silently ignore JSON read errors
+
+                # Add reprocess badge to label
+                if is_reprocessed:
+                    base_label = f"🔄 {base_label}"
+
                 item = QTreeWidgetItem([base_label])
                 if not file_icon.isNull():
                     item.setIcon(0, file_icon)
@@ -3992,6 +4020,15 @@ class ExclusionFileSelector(ReviewBase):
                 key = self._record_key(file_path)
                 item.setData(0, Qt.UserRole + 1, key)
                 item.setData(0, Qt.UserRole + 2, base_label)
+
+                # Add tooltip if reprocessed
+                if is_reprocessed and reprocess_details:
+                    tooltip = (f"Reprocessed File\n"
+                              f"Timestamp: {reprocess_details['timestamp']}\n"
+                              f"Reason: {reprocess_details['reason']}\n"
+                              f"Original Run: {reprocess_details['original_run_id'][:16]}...")
+                    item.setToolTip(0, tooltip)
+
                 if self.file_tree is not None:
                     self.file_tree.addTopLevelItem(item)
                 self.row_lookup[key] = item
@@ -5406,10 +5443,56 @@ class ExclusionFileSelector(ReviewBase):
                     )
                     return
 
-                # Copy exports folder contents
+                # Backup existing files before overwriting
+                from datetime import datetime
+                backup_timestamp = reprocess_info.get('timestamp', datetime.now().strftime("%Y%m%d_%H%M%S"))
+                backups_dir = original_task_root / "exports" / "backups"
+                file_backup_dir = backups_dir / f"{stem}_{backup_timestamp}"
+
                 reprocess_exports = reprocess_folder / "exports"
                 original_exports = original_task_root / "exports"
 
+                backed_up_files = []
+
+                # Identify and backup files that will be overwritten
+                if reprocess_exports.exists():
+                    for file_path in reprocess_exports.glob("*"):
+                        if file_path.is_file():
+                            if file_path.name == "autoclean_exclusion_decisions.json":
+                                continue  # Skip GUI state files
+
+                            dest_path = original_exports / file_path.name
+
+                            # Backup original file if it exists
+                            if dest_path.exists():
+                                file_backup_dir.mkdir(parents=True, exist_ok=True)
+                                backup_path = file_backup_dir / file_path.name
+                                shutil.copy2(dest_path, backup_path)
+                                backed_up_files.append({
+                                    "filename": file_path.name,
+                                    "original_path": f"exports/{file_path.name}",
+                                    "backup_path": f"exports/backups/{stem}_{backup_timestamp}/{file_path.name}",
+                                    "size_bytes": dest_path.stat().st_size
+                                })
+                                print(f"[REPROCESS] Backed up {file_path.name} before overwrite")
+
+                # Update backup manifest if files were backed up
+                manifest_path = reprocess_info.get('manifest_path')
+                if backed_up_files and manifest_path and manifest_path.exists():
+                    import json
+                    with open(manifest_path, 'r') as f:
+                        manifest = json.load(f)
+
+                    # Add pre-copy backup files to manifest
+                    if 'backed_up_files' not in manifest:
+                        manifest['backed_up_files'] = []
+                    manifest['backed_up_files'].extend(backed_up_files)
+
+                    with open(manifest_path, 'w') as f:
+                        json.dump(manifest, f, indent=2)
+                    print(f"[REPROCESS] Updated backup manifest with {len(backed_up_files)} pre-copy backups")
+
+                # Now copy reprocessed files (overwriting originals)
                 if reprocess_exports.exists():
                     for file_path in reprocess_exports.glob("*"):
                         if file_path.is_file():
@@ -5463,6 +5546,65 @@ class ExclusionFileSelector(ReviewBase):
                         print(f"[REPROCESS] Database merge completed successfully")
                         print(f"[REPROCESS]   Original run: {original_run_id}")
                         print(f"[REPROCESS]   Reprocess run: {reprocess_run_id}")
+
+                        # Inject reprocess metadata into copied JSON
+                        metadata_json_path = original_reports / "run_reports" / f"{stem}_autoclean_metadata.json"
+                        if metadata_json_path.exists():
+                            import json
+                            from datetime import datetime
+
+                            with open(metadata_json_path, 'r') as f:
+                                metadata = json.load(f)
+
+                            # Read manual fix payload for details
+                            manual_fix_path = original_task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
+                            manual_overrides = {}
+                            reprocess_reason = "manual_override"
+                            if manual_fix_path.exists():
+                                with open(manual_fix_path, 'r') as f:
+                                    fix_payload = json.load(f)
+                                    manual_overrides = fix_payload.get('modifications', {})
+                                    reprocess_reason = f"manual_override_{fix_payload.get('fix_type', 'unknown')}"
+
+                            # Inject reprocess metadata
+                            metadata['reprocessed'] = True
+                            metadata['reprocessed_timestamp'] = datetime.now().isoformat()
+                            metadata['reprocessed_from_run_id'] = original_run_id
+                            metadata['reprocess_run_id'] = reprocess_run_id
+                            metadata['reprocess_reason'] = reprocess_reason
+                            metadata['manual_overrides'] = manual_overrides
+                            metadata['original_backup'] = f"exports/backups/{stem}_{backup_timestamp}/"
+
+                            with open(metadata_json_path, 'w') as f:
+                                json.dump(metadata, f, indent=2)
+                            print(f"[REPROCESS] Injected reprocess metadata into {metadata_json_path.name}")
+
+                        # Add reprocessed flag to processing_log.csv
+                        processing_log_path = original_exports / f"{stem}_processing_log.csv"
+                        if processing_log_path.exists():
+                            import csv
+
+                            # Read CSV
+                            with open(processing_log_path, 'r', newline='') as f:
+                                reader = csv.DictReader(f)
+                                rows = list(reader)
+                                fieldnames = reader.fieldnames
+
+                            # Add reprocessed_flag column if not present
+                            if fieldnames and 'reprocessed_flag' not in fieldnames:
+                                fieldnames = list(fieldnames) + ['reprocessed_flag']
+
+                            # Set flag for latest row
+                            if rows:
+                                rows[-1]['reprocessed_flag'] = f"REPROCESSED_{backup_timestamp}"
+
+                            # Write back
+                            with open(processing_log_path, 'w', newline='') as f:
+                                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                                writer.writeheader()
+                                writer.writerows(rows)
+                            print(f"[REPROCESS] Added reprocessed flag to {processing_log_path.name}")
+
                     else:
                         print(f"[REPROCESS] Warning: Database merge failed - see logs above")
                 else:
