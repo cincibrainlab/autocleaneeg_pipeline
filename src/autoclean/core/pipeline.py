@@ -238,6 +238,9 @@ class Pipeline:
         # Create session-specific task registry (copy of built-in + user tasks)
         self.session_task_registry: Dict[str, Type[Task]] = task_registry.copy()
 
+        # Create session-specific config registry for tasks loaded via --task-file
+        self.session_task_configs: Dict[str, dict] = {}
+
         message("header", "Welcome to AutoClean!")
 
         # All configuration now comes from task files directly
@@ -327,9 +330,18 @@ class Pipeline:
             self._validate_file(unprocessed_file)
 
             # Extract dataset_name from task configuration if available
-            from autoclean.utils.task_discovery import extract_config_from_task
+            # First check session configs (for tasks loaded via --task-file)
+            dataset_name = None
+            if task.lower() in self.session_task_configs:
+                task_config = self.session_task_configs[task.lower()]
+                dataset_name = task_config.get('dataset_name')
+                if dataset_name:
+                    message("info", f"Using dataset_name from loaded task config: {dataset_name}")
 
-            dataset_name = extract_config_from_task(task, "dataset_name")
+            # Fall back to discovery-based extraction if not found in session
+            if not dataset_name:
+                from autoclean.utils.task_discovery import extract_config_from_task
+                dataset_name = extract_config_from_task(task, "dataset_name")
 
             # Prepare directory structure for processing outputs
             (
@@ -1209,11 +1221,14 @@ class Pipeline:
             raise FileNotFoundError(f"Task file not found: {task_file_path}")
 
         message("info", f"Loading Python task file: {task_file_path}")
-        task_class = self._load_python_task(task_file_path)
+        task_class, task_config = self._load_python_task(task_file_path)
 
         # Register in session registry (case-insensitive key)
         task_name = task_class.__name__.lower()
         self.session_task_registry[task_name] = task_class
+
+        # Also store config for dataset_name extraction
+        self.session_task_configs[task_name] = task_config
 
         message(
             "success",
@@ -1221,7 +1236,7 @@ class Pipeline:
         )
         return task_class.__name__  # Return original case class name
 
-    def _load_python_task(self, task_file_path: Path) -> Type[Task]:
+    def _load_python_task(self, task_file_path: Path) -> tuple[Type[Task], dict]:
         """Dynamically load a Task class from a Python file.
 
         Parameters
@@ -1231,8 +1246,8 @@ class Pipeline:
 
         Returns
         -------
-        Type[Task]
-            The loaded Task class.
+        tuple[Type[Task], dict]
+            The loaded Task class and its config dictionary.
 
         Raises
         ------
@@ -1282,7 +1297,12 @@ class Pipeline:
                 f"Multiple Task classes found in {task_file_path}, using first: {task_classes[0].__name__}",
             )
 
-        return task_classes[0]
+        # Extract config dict from module if available
+        task_config = {}
+        if hasattr(module, 'config') and isinstance(module.config, dict):
+            task_config = module.config
+
+        return task_classes[0], task_config
 
     def _validate_task(self, task: str) -> str:
         """Validate that a task type is supported and properly configured.

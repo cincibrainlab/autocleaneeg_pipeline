@@ -29,22 +29,16 @@ import yaml
 def check_gui_dependencies() -> None:
     """Fail fast if the optional GUI stack is missing."""
 
-    missing: list[str] = []
     try:  # pragma: no cover - import guard only
         import PyQt6  # noqa: F401
-    except ImportError:  # pragma: no cover - runtime dependency guard
-        missing.append("PyQt6")
-
-    try:  # pragma: no cover - import guard only
         from PyQt6 import QtPdf  # noqa: F401
-    except ImportError:  # pragma: no cover - runtime dependency guard
-        missing.append("QtPdf")
-
-    if missing:
+    except ImportError as e:  # pragma: no cover - runtime dependency guard
         print("Error: Missing required GUI dependencies for the exclusion tool.")
-        print("Install the extras bundle first:")
-        print("    pip install autocleaneeg-pipeline[gui]")
-        print(f"Missing packages: {', '.join(missing)}")
+        print("Reinstall the package to get all dependencies:")
+        print("    uv tool install --force autocleaneeg-pipeline")
+        print("Or with pip:")
+        print("    pip install --force-reinstall autocleaneeg-pipeline")
+        print(f"Import error: {e}")
         sys.exit(1)
 
 
@@ -57,6 +51,7 @@ from qtpy.QtCore import (  # noqa: E402
     QObject,
     QEvent,
     QPointF,
+    QProcess,
     QSize,
     Qt,
     QTimer,
@@ -65,6 +60,7 @@ from qtpy.QtCore import (  # noqa: E402
 from qtpy.QtGui import QColor, QKeySequence, QPalette, QPixmap  # noqa: E402
 from qtpy.QtWidgets import (  # noqa: E402
     QApplication,
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -258,6 +254,281 @@ def _load_config() -> dict:
     except yaml.YAMLError as e:
         print(f"Warning: Error parsing configuration file: {e}")
         return {}
+
+
+def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
+    """Parse a task file and extract its config dictionary.
+
+    Parameters
+    ----------
+    task_file_path : Path
+        Path to the task file to parse
+
+    Returns
+    -------
+    dict or None
+        The config dictionary from the task file, or None if parsing fails
+    """
+    try:
+        with open(task_file_path, 'r', encoding='utf-8') as f:
+            file_content = f.read()
+
+        # Parse the file as AST
+        tree = ast.parse(file_content)
+
+        # Look for 'config = {...}' assignment
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id == 'config':
+                        # Found the config assignment - evaluate it safely
+                        return ast.literal_eval(node.value)
+
+        print(f"Warning: No 'config' dictionary found in {task_file_path}")
+        return None
+
+    except Exception as e:
+        print(f"Warning: Failed to parse task file {task_file_path}: {e}")
+        return None
+
+
+def _generate_reprocess_task_from_original(
+    original_task_path: Path,
+    payload: dict,
+    new_class_name: str,
+    timestamp: str
+) -> str:
+    """Generate reprocess task by modifying the original task file's AST.
+
+    Parameters
+    ----------
+    original_task_path : Path
+        Path to the original task file
+    payload : dict
+        Manual fix payload with modifications and metadata
+    new_class_name : str
+        Name for the reprocess task class
+    timestamp : str
+        Timestamp string to use for dataset_name
+
+    Returns
+    -------
+    str
+        Complete reprocess task file content
+    """
+    # Read original task file
+    with open(original_task_path, 'r', encoding='utf-8') as f:
+        original_source = f.read()
+
+    # Parse AST
+    tree = ast.parse(original_source)
+
+    # Extract override data from payload
+    fix_type = payload.get('fix_type', 'both')
+    bad_channels_raw = payload['modifications']['bad_channels']['modified']
+    rejected_ica = payload['modifications']['rejected_ica']['modified']
+    file_stem = payload.get('file_stem', 'unknown')
+
+    # Filter out EOG channels that will be dropped before clean_bad_channels runs
+    # Common EOG channel names that are typically dropped early in pipeline
+    eog_channel_patterns = ['EOG', 'HEOG', 'VEOG', 'hEOG', 'vEOG', 'REOG', 'LEOG']
+    bad_channels = [ch for ch in bad_channels_raw if ch not in eog_channel_patterns]
+
+    if len(bad_channels) != len(bad_channels_raw):
+        filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
+        print(f"[AST DEBUG] Filtered out EOG channels from bad channel list: {filtered_out}")
+        print(f"[AST DEBUG] These channels are dropped earlier in the pipeline and cannot be marked as bad")
+
+    print(f"[AST DEBUG] fix_type from payload: '{fix_type}'")
+    print(f"[AST DEBUG] bad_channels (after EOG filter): {bad_channels}")
+    print(f"[AST DEBUG] rejected_ica: {rejected_ica}")
+
+    # Use provided timestamp to create dataset_name
+    dataset_name = f"{file_stem}_{timestamp}"
+    print(f"[AST DEBUG] Setting dataset_name in config: {dataset_name}")
+
+    # Add dataset_name to config dictionary
+    class ConfigModifier(ast.NodeTransformer):
+        def visit_Assign(self, node):
+            # Look for 'config = {...}' assignment
+            if (len(node.targets) == 1 and
+                isinstance(node.targets[0], ast.Name) and
+                node.targets[0].id == 'config' and
+                isinstance(node.value, ast.Dict)):
+                # Add dataset_name to the config dict
+                node.value.keys.append(ast.Constant(value='dataset_name'))
+                node.value.values.append(ast.Constant(value=dataset_name))
+                print(f"[AST DEBUG] Added dataset_name to config dict")
+            return node
+
+    tree = ConfigModifier().visit(tree)
+
+    # Find and rename class, update docstring
+    class ClassRenamer(ast.NodeTransformer):
+        def visit_ClassDef(self, node):
+            # Rename class
+            node.name = new_class_name
+
+            # Update docstring with override info
+            if len(bad_channels) != len(bad_channels_raw):
+                docstring = f'''
+    Reprocessing task with manual bad channel and ICA component overrides.
+
+    This task reprocesses the original raw data from the beginning with:
+    - Manual bad channel list: {bad_channels} (EOG channels excluded, dropped earlier in pipeline)
+    - Manual ICA component rejection: {rejected_ica}
+    '''
+            else:
+                docstring = f'''
+    Reprocessing task with manual bad channel and ICA component overrides.
+
+    This task reprocesses the original raw data from the beginning with:
+    - Manual bad channel list: {bad_channels}
+    - Manual ICA component rejection: {rejected_ica}
+    '''
+            node.body[0] = ast.Expr(value=ast.Constant(value=docstring.strip()))
+
+            return node
+
+    tree = ClassRenamer().visit(tree)
+
+    # Modify run() method based on fix_type
+    class MethodModifier(ast.NodeTransformer):
+        def __init__(self):
+            self.in_run_method = False
+            self.ica_classify_modified = False
+
+        def visit_FunctionDef(self, node):
+            if node.name == 'run':
+                print(f"[AST DEBUG] Entering run() method, setting in_run_method=True")
+                self.in_run_method = True
+
+                # Manually visit each statement and build new body with modifications
+                new_body = []
+                for i, stmt in enumerate(node.body):
+                    print(f"[AST DEBUG] Visiting statement {i}: {type(stmt).__name__}")
+                    # Visit the statement to apply modifications from visit_Call
+                    modified_stmt = self.visit(stmt)
+                    new_body.append(modified_stmt)
+
+                    # If ICA fix and this is the classify_ica_components call, insert apply after it
+                    if (fix_type in ('ica', 'both') and
+                        isinstance(modified_stmt, ast.Expr) and
+                        isinstance(modified_stmt.value, ast.Call) and
+                        isinstance(modified_stmt.value.func, ast.Attribute) and
+                        modified_stmt.value.func.attr == 'classify_ica_components'):
+                        # Insert apply_ica_component_rejection call after this
+                        print(f"[AST DEBUG] Inserting apply_ica_component_rejection after classify_ica_components")
+                        apply_call = ast.Expr(
+                            value=ast.Call(
+                                func=ast.Attribute(
+                                    value=ast.Name(id='self', ctx=ast.Load()),
+                                    attr='apply_ica_component_rejection',
+                                    ctx=ast.Load()
+                                ),
+                                args=[],
+                                keywords=[
+                                    ast.keyword(
+                                        arg='manual_rejected_components',
+                                        value=ast.List(
+                                            elts=[ast.Constant(value=comp) for comp in rejected_ica],
+                                            ctx=ast.Load()
+                                        )
+                                    )
+                                ]
+                            )
+                        )
+                        new_body.append(apply_call)
+
+                node.body = new_body
+                self.in_run_method = False
+            return node
+
+        def visit_Call(self, node):
+            func_name = node.func.attr if isinstance(node.func, ast.Attribute) else '?'
+            print(f"[AST DEBUG] visit_Call: func={func_name}, in_run_method={self.in_run_method}")
+
+            if not self.in_run_method:
+                print(f"[AST DEBUG] Skipping {func_name} (not in run method)")
+                return node
+
+            # Modify clean_bad_channels() for channel fixes
+            # Support both 'channel' and 'channels' variants
+            if (fix_type in ('channel', 'channels', 'both') and
+                isinstance(node.func, ast.Attribute) and
+                node.func.attr == 'clean_bad_channels'):
+                # Only add parameter if there are non-EOG bad channels
+                if bad_channels:
+                    print(f"[AST DEBUG] Adding manual_bad_channels parameter: {bad_channels}")
+                    # Add manual_bad_channels parameter
+                    node.keywords.append(
+                        ast.keyword(
+                            arg='manual_bad_channels',
+                            value=ast.List(
+                                elts=[ast.Constant(value=ch) for ch in bad_channels],
+                                ctx=ast.Load()
+                            )
+                        )
+                    )
+                else:
+                    print(f"[AST DEBUG] Skipping manual_bad_channels parameter (empty after filtering EOG channels)")
+
+            # Modify classify_ica_components() for ICA fixes
+            if (fix_type in ('ica', 'both') and
+                isinstance(node.func, ast.Attribute) and
+                node.func.attr == 'classify_ica_components'):
+                print(f"[AST DEBUG] Modifying classify_ica_components to reject=False")
+                self.ica_classify_modified = True
+                # Set reject=False
+                found_reject = False
+                for kw in node.keywords:
+                    if kw.arg == 'reject':
+                        kw.value = ast.Constant(value=False)
+                        found_reject = True
+                        break
+                if not found_reject:
+                    node.keywords.append(
+                        ast.keyword(arg='reject', value=ast.Constant(value=False))
+                    )
+
+            return node
+
+    tree = MethodModifier().visit(tree)
+
+    # Fix missing locations in AST
+    ast.fix_missing_locations(tree)
+
+    # Unparse back to Python code
+    modified_code = ast.unparse(tree)
+
+    # Create header comment
+    timestamp = payload.get('timestamp', '')
+    file_stem = payload.get('file_stem', 'unknown')
+
+    # Build header with EOG filter note if applicable
+    eog_note = ""
+    if len(bad_channels) != len(bad_channels_raw):
+        filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
+        eog_note = f"\n# Note: EOG channels {filtered_out} excluded (dropped earlier in pipeline)"
+
+    header = f'''# =============================================================================
+#  REPROCESSING TASK WITH MANUAL OVERRIDES
+# =============================================================================
+# This task was automatically generated to reprocess EEG data with manual
+# bad channel and ICA component overrides from the review GUI.
+#
+# Generated: {timestamp}
+# Original file: {file_stem}
+# Fix type: {fix_type}
+#
+# Manual Overrides:
+# - Bad channels: {len(bad_channels)} channels{eog_note}
+# - ICA components: {len(rejected_ica)} components
+# =============================================================================
+
+'''
+
+    return header + modified_code
 
 
 def strip_suffixes(stem: str, asset_type: str = None, config: dict = None) -> str:
@@ -1438,7 +1709,7 @@ class ReprocessWidget(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout()
         layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
         self.setLayout(layout)
 
         # Store current state
@@ -1451,7 +1722,7 @@ class ReprocessWidget(QWidget):
 
         # Create horizontal layout for side-by-side groups
         groups_layout = QHBoxLayout()
-        groups_layout.setSpacing(12)
+        groups_layout.setSpacing(8)
 
         # Bad Channels Section
         self.channels_group = QGroupBox("Bad Channels")
@@ -1531,7 +1802,7 @@ class ReprocessWidget(QWidget):
                 background-color: rgba(255, 255, 255, 0.92);
                 border: 2px solid #e67e22;
                 border-radius: 6px;
-                padding: 20px;
+                padding: 12px;
                 font-size: 13px;
                 font-weight: 600;
                 color: #d35400;
@@ -1554,13 +1825,17 @@ class ReprocessWidget(QWidget):
                 background-color: rgba(255, 255, 255, 0.92);
                 border: 2px solid #e67e22;
                 border-radius: 6px;
-                padding: 20px;
+                padding: 12px;
                 font-size: 13px;
                 font-weight: 600;
                 color: #d35400;
             }
         """)
         self.ica_overlay.hide()
+
+        # Button bar for reset and reprocess
+        button_bar = QHBoxLayout()
+        button_bar.setSpacing(8)
 
         # Reset button
         reset_btn = QPushButton("Reset to Original")
@@ -1578,32 +1853,47 @@ class ReprocessWidget(QWidget):
                 border-color: #a0aec0;
             }
         """)
-        layout.addWidget(reset_btn)
+        button_bar.addWidget(reset_btn)
+
+        # Reprocess button
+        self.reprocess_btn = QPushButton("Reprocess with Overrides")
+        self.reprocess_btn.clicked.connect(self._handle_reprocess_clicked)
+        self.reprocess_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #3498db;
+                color: white;
+                border: 1px solid #2980b9;
+                border-radius: 4px;
+                padding: 6px 12px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background-color: #2980b9;
+                border-color: #21618c;
+            }
+            QPushButton:disabled {
+                background-color: #bdc3c7;
+                border-color: #95a5a6;
+                color: #7f8c8d;
+            }
+        """)
+        self.reprocess_btn.setEnabled(False)  # Disabled until changes are made
+        button_bar.addWidget(self.reprocess_btn)
+
+        layout.addLayout(button_bar)
 
         # Changes summary widget
         self.changes_summary_widget = QWidget()
         self.changes_summary_layout = QVBoxLayout()
-        self.changes_summary_layout.setContentsMargins(12, 12, 12, 12)
-        self.changes_summary_layout.setSpacing(8)
+        self.changes_summary_layout.setContentsMargins(4, 4, 4, 4)
+        self.changes_summary_layout.setSpacing(4)
         self.changes_summary_widget.setLayout(self.changes_summary_layout)
-
-        # Summary title
-        self.summary_title = QLabel("Changes Summary")
-        self.summary_title.setAlignment(Qt.AlignCenter)
-        self.summary_title.setStyleSheet("""
-            font-size: 14px;
-            font-weight: 600;
-            color: #2c3e50;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #ecf0f1;
-        """)
-        self.changes_summary_layout.addWidget(self.summary_title)
 
         # Channels changes section
         self.channels_changes_widget = QWidget()
         self.channels_changes_layout = QVBoxLayout()
-        self.channels_changes_layout.setContentsMargins(0, 4, 0, 4)
-        self.channels_changes_layout.setSpacing(4)
+        self.channels_changes_layout.setContentsMargins(0, 2, 0, 2)
+        self.channels_changes_layout.setSpacing(2)
         self.channels_changes_widget.setLayout(self.channels_changes_layout)
 
         self.channels_summary_label = QLabel()
@@ -1623,8 +1913,8 @@ class ReprocessWidget(QWidget):
         # ICA changes section
         self.ica_changes_widget = QWidget()
         self.ica_changes_layout = QVBoxLayout()
-        self.ica_changes_layout.setContentsMargins(0, 4, 0, 4)
-        self.ica_changes_layout.setSpacing(4)
+        self.ica_changes_layout.setContentsMargins(0, 2, 0, 2)
+        self.ica_changes_layout.setSpacing(2)
         self.ica_changes_widget.setLayout(self.ica_changes_layout)
 
         self.ica_summary_label = QLabel()
@@ -1644,7 +1934,7 @@ class ReprocessWidget(QWidget):
         # Message label for empty state
         self.message_label = QLabel("Select a file to edit reprocessing parameters")
         self.message_label.setAlignment(Qt.AlignCenter)
-        self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+        self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 12px;")
 
         # Stack to switch between summary and message
         self.bottom_stack = QStackedLayout()
@@ -1732,8 +2022,20 @@ class ReprocessWidget(QWidget):
         self.valid_channels = valid_channels
         self.max_components = max_components
 
-        # Populate channel combo
-        self.channel_combo.addItems(valid_channels)
+        # Extract EOG channels from channel_removals and filter them out
+        # These channels are dropped early in pipeline and can't be marked as bad
+        channel_removals = metadata.get("channel_removals", [])
+        eog_channels = {
+            removal["channel"]
+            for removal in channel_removals
+            if removal.get("reason") == "EOG_DROPPED"
+        }
+
+        # Filter out EOG channels from combo box (but keep in valid_channels for validation)
+        valid_channels_for_combo = [ch for ch in valid_channels if ch not in eog_channels]
+
+        # Populate channel combo with filtered list
+        self.channel_combo.addItems(valid_channels_for_combo)
 
         # Set ICA spinbox range
         if max_components > 0:
@@ -1913,6 +2215,7 @@ class ReprocessWidget(QWidget):
         if not self.valid_channels:
             # No file loaded - show message
             self.bottom_stack.setCurrentWidget(self.message_label)
+            self.reprocess_btn.setEnabled(False)
             return
 
         diff = self.get_changes_diff()
@@ -1923,10 +2226,12 @@ class ReprocessWidget(QWidget):
             self.bottom_stack.setCurrentWidget(self.message_label)
             self.message_label.setText("No modifications yet")
             self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+            self.reprocess_btn.setEnabled(False)
             return
 
-        # Show changes summary
+        # Show changes summary and enable reprocess button
         self.bottom_stack.setCurrentWidget(self.changes_summary_widget)
+        self.reprocess_btn.setEnabled(True)
 
         # Update channels section
         ch_added = diff["bad_channels"]["added"]
@@ -2044,6 +2349,24 @@ class ReprocessWidget(QWidget):
             self.values_changed.emit()
             self._update_changes_summary()
 
+    def _handle_reprocess_clicked(self) -> None:
+        """Handle reprocess button click - trigger reprocessing with current overrides."""
+        # Get parent ExclusionFileSelector instance
+        parent = self.parent()
+        while parent and not isinstance(parent, ExclusionFileSelector):
+            parent = parent.parent()
+
+        if not parent:
+            QMessageBox.warning(
+                self,
+                "Error",
+                "Could not access parent window for reprocessing."
+            )
+            return
+
+        # Trigger reprocessing through parent
+        parent._trigger_reprocess_with_overrides()
+
 
 def _open_path(path: Path) -> None:
     """Open *path* using the default OS handler."""
@@ -2111,6 +2434,7 @@ class ExclusionFileSelector(ReviewBase):
         self._pending_plot_refresh = False
         self._pending_selection_item: Optional[QTreeWidgetItem] = None
         self._selection_timer: Optional[QTimer] = None
+        self.show_backup_folders = False  # Toggle for showing backup/reprocess folders
 
         super().__init__(
             str(self.exports_dir) if self.exports_dir is not None else None
@@ -2917,12 +3241,27 @@ class ExclusionFileSelector(ReviewBase):
         self.left_layout.insertWidget(0, header_container)
         self.directory_toolbar_container = header_container
 
-        # Add folder path label on its own row under the toolbar rows
+        # Add folder path label with backup toggle on its own row under the toolbar rows
+        path_row = QHBoxLayout()
+        path_row.setContentsMargins(0, 0, 0, 0)
+
         path_label = QLabel()
         path_label.setObjectName("directoryPathLabel")
         path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
         path_label.setWordWrap(True)
-        self.left_layout.insertWidget(1, path_label)
+        path_row.addWidget(path_label, stretch=1)
+
+        # Compact checkbox for showing backup folders
+        backup_toggle = QCheckBox("Show backups")
+        backup_toggle.setChecked(self.show_backup_folders)
+        backup_toggle.setToolTip("Show or hide backup and reprocess folders")
+        backup_toggle.toggled.connect(self._on_backup_toggle_changed)
+        path_row.addWidget(backup_toggle, stretch=0)
+
+        # Insert the horizontal layout
+        path_container = QWidget()
+        path_container.setLayout(path_row)
+        self.left_layout.insertWidget(1, path_container)
         self._workspace_path_label = path_label
         self._refresh_workspace_path_label()
 
@@ -3024,6 +3363,12 @@ class ExclusionFileSelector(ReviewBase):
         self.current_dir = str(root)
         self.decisions_path = root / "autoclean_exclusion_decisions.json"
         self.decisions_csv_path = root / "autoclean_exclusion_decisions.csv"
+
+        # Update task_root to point to parent directory (task output folder)
+        # exports_dir is typically: /path/to/output/TaskName/exports
+        # task_root should be: /path/to/output/TaskName
+        self.task_root = root.parent
+
         # Update the workspace path label whenever directory changes
         self._refresh_workspace_path_label()
 
@@ -3648,7 +3993,18 @@ class ExclusionFileSelector(ReviewBase):
                 folder = "/".join(relative.parts[:-1])
                 return (folder.lower(), relative.name.lower())
 
-            set_files = sorted(root_path.rglob("*.set"), key=_sort_key)
+            all_set_files = list(root_path.rglob("*.set"))
+
+            # Filter backup and reprocess folders if toggle is off
+            if not self.show_backup_folders:
+                set_files = [
+                    f for f in all_set_files
+                    if not any(part in ["backups", "reprocess"] for part in f.parts)
+                ]
+            else:
+                set_files = all_set_files
+
+            set_files = sorted(set_files, key=_sort_key)
 
             for file_path in set_files:
                 relative_path = file_path.relative_to(root_path)
@@ -3657,13 +4013,52 @@ class ExclusionFileSelector(ReviewBase):
                 if file_path.name in self.modified_files:
                     base_label = f"{base_label} *"
 
+                # Check if file was reprocessed
+                is_reprocessed = False
+                reprocess_details = None
+                stem = file_path.stem.replace('_comp_epo', '').replace('_epo', '')
+
+                # Look for metadata JSON in task root
+                task_root = root_path if root_path.name != "exports" else root_path.parent
+                metadata_json = task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+
+                if metadata_json.exists():
+                    try:
+                        import json
+                        with open(metadata_json, 'r') as f:
+                            metadata = json.load(f)
+                            if metadata.get('reprocessed'):
+                                is_reprocessed = True
+                                reprocess_details = {
+                                    'timestamp': metadata.get('reprocessed_timestamp', 'Unknown'),
+                                    'reason': metadata.get('reprocess_reason', 'manual_override'),
+                                    'original_run_id': metadata.get('reprocessed_from_run_id', 'Unknown')
+                                }
+                    except Exception:
+                        pass  # Silently ignore JSON read errors
+
                 item = QTreeWidgetItem([base_label])
-                if not file_icon.isNull():
+
+                # Use refresh icon for reprocessed files instead of emoji (cross-platform compatibility)
+                if is_reprocessed:
+                    reprocess_icon = self.style().standardIcon(QStyle.SP_BrowserReload)
+                    if not reprocess_icon.isNull():
+                        item.setIcon(0, reprocess_icon)
+                elif not file_icon.isNull():
                     item.setIcon(0, file_icon)
                 item.setData(0, Qt.UserRole, str(file_path))
                 key = self._record_key(file_path)
                 item.setData(0, Qt.UserRole + 1, key)
                 item.setData(0, Qt.UserRole + 2, base_label)
+
+                # Add tooltip if reprocessed
+                if is_reprocessed and reprocess_details:
+                    tooltip = (f"Reprocessed File\n"
+                              f"Timestamp: {reprocess_details['timestamp']}\n"
+                              f"Reason: {reprocess_details['reason']}\n"
+                              f"Original Run: {reprocess_details['original_run_id'][:16]}...")
+                    item.setToolTip(0, tooltip)
+
                 if self.file_tree is not None:
                     self.file_tree.addTopLevelItem(item)
                 self.row_lookup[key] = item
@@ -3731,6 +4126,11 @@ class ExclusionFileSelector(ReviewBase):
         text = self.current_dir or ""
         label.setToolTip(text)
         label.setText(text)
+
+    def _on_backup_toggle_changed(self, checked: bool) -> None:
+        """Handle backup folder visibility toggle."""
+        self.show_backup_folders = checked
+        self.loadFiles()  # Refresh file tree with new filter
 
     def onFileSelect(self, item):  # noqa: N802 - inherited public API
         file_path_str = item.data(0, Qt.UserRole)
@@ -4513,6 +4913,760 @@ class ExclusionFileSelector(ReviewBase):
             print(f"[REPROCESS]   Task file hash: {task_file_hash[:16]}...")
         else:
             print(f"[REPROCESS]   WARNING: Task file not found in status/ directory")
+
+    def _trigger_reprocess_with_overrides(self) -> None:
+        """Trigger reprocessing with manual overrides from the current file's payload."""
+        if not self.task_root or not hasattr(self, "selected_file_path"):
+            QMessageBox.warning(
+                self,
+                "Reprocess Error",
+                "No file selected or task root not configured."
+            )
+            return
+
+        # Check if we're in a reprocess subfolder (not the original task folder)
+        if "reprocess" in self.task_root.parts:
+            QMessageBox.warning(
+                self,
+                "Reprocess Error",
+                f"Cannot reprocess from a reprocess subfolder.\n\n"
+                f"Current folder: {self.task_root}\n\n"
+                f"Please open the exclude GUI on the original task folder "
+                f"(e.g., 'BiotrialResting1020'), not the reprocess temp subfolder.\n\n"
+                f"Reprocess temp folders are automatically created under reprocess/ "
+                f"and can be deleted after results are copied."
+            )
+            return
+
+        # Get file stem
+        file_path = Path(self.selected_file_path)
+        stem = strip_suffixes(file_path.stem, config=self.config)
+
+        # Check if manual fix payload exists
+        payload_path = self.task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
+        if not payload_path.exists():
+            QMessageBox.warning(
+                self,
+                "Reprocess Error",
+                f"Manual fix payload not found:\n{payload_path}\n\n"
+                "Please make changes in the Reprocess tab first."
+            )
+            return
+
+        try:
+            # Load manual fix payload
+            payload = json.loads(payload_path.read_text())
+
+            # Load metadata to get original raw file path
+            metadata_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            if not metadata_path.exists():
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    f"Metadata file not found:\n{metadata_path}"
+                )
+                return
+
+            metadata = json.loads(metadata_path.read_text())
+            original_raw_file = metadata.get("unprocessed_file")
+            if not original_raw_file:
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    "Could not find original raw file path in metadata."
+                )
+                return
+
+            # Verify raw file exists
+            raw_file_path = Path(original_raw_file)
+            if not raw_file_path.exists():
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    f"Original raw file not found:\n{raw_file_path}"
+                )
+                return
+
+            # Show confirmation dialog
+            fix_type = payload.get("fix_type", "unknown")
+            bad_ch_count = len(payload["modifications"]["bad_channels"]["modified"])
+            ica_count = len(payload["modifications"]["rejected_ica"]["modified"])
+
+            confirm_msg = (
+                f"<b>Reprocess: {stem}</b><br><br>"
+                f"<b>Fix Type:</b> {fix_type}<br>"
+                f"<b>Bad Channels:</b> {bad_ch_count}<br>"
+                f"<b>ICA Components:</b> {ica_count}<br><br>"
+                f"<b>Raw File:</b><br>{raw_file_path}<br><br>"
+                "This will generate a new reprocessing task and run the pipeline.<br>"
+                "Do you want to continue?"
+            )
+
+            reply = QMessageBox.question(
+                self,
+                "Confirm Reprocessing",
+                confirm_msg,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No
+            )
+
+            if reply != QMessageBox.StandardButton.Yes:
+                return
+
+            # Generate reprocessing task file with sanitized class name
+            # This creates a temporary task folder that we'll copy from later
+            sanitized = stem.replace('-', '_').replace(' ', '_')
+            sanitized = ''.join(c if c.isalnum() or c == '_' else '_' for c in sanitized)
+            if sanitized and sanitized[0].isdigit():
+                class_name = f"Task_{sanitized}_Reprocess"
+            else:
+                class_name = f"{sanitized}_Reprocess"
+
+            task_output_path = self.task_root / "status" / f"{stem}_Reprocess.py"
+
+            # Get original task file path
+            task_file_path = payload.get("task_file_path")
+            if not task_file_path:
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    "No original task file reference in payload. Cannot generate reprocess task."
+                )
+                return
+
+            # Resolve path relative to task_root
+            original_task_path = self.task_root / task_file_path
+            if not original_task_path.exists():
+                QMessageBox.warning(
+                    self,
+                    "Reprocess Error",
+                    f"Original task file not found:\n{original_task_path}"
+                )
+                return
+
+            # Generate timestamp for consistent folder naming
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            # Generate reprocess task by modifying original task's AST
+            print(f"[REPROCESS] Generating task from original: {task_file_path}")
+            rendered_task = _generate_reprocess_task_from_original(
+                original_task_path=original_task_path,
+                payload=payload,
+                new_class_name=class_name,
+                timestamp=timestamp
+            )
+
+            # Write generated task to file
+            with open(task_output_path, 'w', encoding='utf-8') as f:
+                f.write(rendered_task)
+
+            print(f"[REPROCESS] Generated task file: {task_output_path}")
+
+            # Start non-blocking reprocess
+            self._start_reprocess(stem, task_output_path, raw_file_path, payload, timestamp)
+
+        except Exception as e:
+            QMessageBox.critical(
+                self,
+                "Reprocessing Error",
+                f"An error occurred during reprocessing:\n\n{str(e)}"
+            )
+            import traceback
+            traceback.print_exc()
+
+    def _merge_reprocess_database(
+        self,
+        original_db_path: Path,
+        reprocess_db_path: Path,
+        stem: str,
+        manifest_path: Optional[Path] = None
+    ) -> tuple[Optional[str], Optional[str]]:
+        """Merge reprocess database into original task database.
+
+        Parameters
+        ----------
+        original_db_path : Path
+            Path to the original task's run_database.db
+        reprocess_db_path : Path
+            Path to the reprocess run's run_database.db
+        stem : str
+            File stem (e.g., '101001_C1D1BL_EO')
+        manifest_path : Path, optional
+            Path to backup manifest JSON to update with run IDs
+
+        Returns
+        -------
+        tuple[str | None, str | None]
+            (original_run_id, reprocess_run_id) if successful, (None, None) otherwise
+        """
+        import sqlite3
+        import json
+        from autoclean.utils.audit import calculate_access_log_hash, get_user_context
+
+        try:
+            print(f"[REPROCESS] Merging databases...")
+
+            # Connect to both databases
+            original_conn = sqlite3.connect(str(original_db_path))
+            original_conn.row_factory = sqlite3.Row
+            reprocess_conn = sqlite3.connect(str(reprocess_db_path))
+            reprocess_conn.row_factory = sqlite3.Row
+
+            original_cursor = original_conn.cursor()
+            reprocess_cursor = reprocess_conn.cursor()
+
+            # 1. Add supersession columns if they don't exist
+            try:
+                original_cursor.execute("ALTER TABLE pipeline_runs ADD COLUMN superseded_by TEXT")
+                print("[REPROCESS] Added superseded_by column")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            try:
+                original_cursor.execute("ALTER TABLE pipeline_runs ADD COLUMN supersedes_run_id TEXT")
+                print("[REPROCESS] Added supersedes_run_id column")
+            except sqlite3.OperationalError:
+                pass  # Column already exists
+
+            # 2. Find the original run for this file in original database
+            original_cursor.execute(
+                "SELECT run_id FROM pipeline_runs WHERE unprocessed_file LIKE ? ORDER BY created_at DESC LIMIT 1",
+                (f"%{stem}%",)
+            )
+            original_run = original_cursor.fetchone()
+            original_run_id = original_run['run_id'] if original_run else None
+
+            if not original_run_id:
+                print(f"[REPROCESS] Warning: No original run found for {stem}")
+
+            # 3. Get the reprocess run from reprocess database
+            reprocess_cursor.execute("SELECT * FROM pipeline_runs LIMIT 1")
+            reprocess_run = reprocess_cursor.fetchone()
+
+            if not reprocess_run:
+                print("[REPROCESS] Error: No run found in reprocess database")
+                return None, None
+
+            reprocess_run_id = reprocess_run['run_id']
+
+            # 4. Insert reprocess run into original database
+            columns = [desc[0] for desc in reprocess_cursor.description]
+            placeholders = ", ".join(["?" for _ in columns])
+
+            # Add supersedes_run_id to the insert
+            if 'supersedes_run_id' in columns:
+                values = list(reprocess_run)
+                supersedes_idx = columns.index('supersedes_run_id')
+                values[supersedes_idx] = original_run_id
+            else:
+                columns.append('supersedes_run_id')
+                values = list(reprocess_run) + [original_run_id]
+                placeholders += ", ?"
+
+            original_cursor.execute(
+                f"INSERT INTO pipeline_runs ({', '.join(columns)}) VALUES ({placeholders})",
+                values
+            )
+            print(f"[REPROCESS] Inserted reprocess run: {reprocess_run_id}")
+
+            # 5. Mark original run as superseded (if found)
+            # NOTE: We can't UPDATE the original run because it's completed and protected by audit triggers
+            # The supersession relationship is stored in the reprocess run via supersedes_run_id
+            if original_run_id:
+                print(f"[REPROCESS] Supersession link established: reprocess {reprocess_run_id} supersedes original {original_run_id}")
+                print(f"[REPROCESS] Original run remains immutable per audit trail requirements")
+
+            # 6. Copy update_audit_log entries
+            reprocess_cursor.execute("SELECT * FROM update_audit_log")
+            audit_logs = reprocess_cursor.fetchall()
+
+            if audit_logs:
+                columns = [desc[0] for desc in reprocess_cursor.description]
+                placeholders = ", ".join(["?" for _ in columns])
+                for log in audit_logs:
+                    original_cursor.execute(
+                        f"INSERT INTO update_audit_log ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(log)
+                    )
+                print(f"[REPROCESS] Copied {len(audit_logs)} audit log entries")
+
+            # 7. Re-chain and copy database_access_log entries
+            # Get last hash from original database
+            original_cursor.execute(
+                "SELECT log_hash FROM database_access_log ORDER BY log_id DESC LIMIT 1"
+            )
+            last_hash_row = original_cursor.fetchone()
+            previous_hash = last_hash_row['log_hash'] if last_hash_row else "genesis_hash_empty_log"
+
+            # Get access logs from reprocess database (skip genesis entry)
+            reprocess_cursor.execute(
+                "SELECT * FROM database_access_log WHERE operation != 'isolated_database_creation' ORDER BY log_id"
+            )
+            access_logs = reprocess_cursor.fetchall()
+
+            if access_logs:
+                for log in access_logs:
+                    log_dict = dict(log)
+
+                    # Recalculate hash with new previous_hash for chain integrity
+                    new_hash = calculate_access_log_hash(
+                        log_dict['timestamp'],
+                        log_dict['operation'],
+                        json.loads(log_dict['user_context']) if log_dict.get('user_context') else {},
+                        "",
+                        json.loads(log_dict['details']) if log_dict.get('details') else {},
+                        previous_hash
+                    )
+
+                    # Insert with recalculated hash
+                    original_cursor.execute(
+                        """
+                        INSERT INTO database_access_log (
+                            timestamp, operation, user_context, details,
+                            log_hash, previous_hash, auth0_user_id
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            log_dict['timestamp'],
+                            log_dict['operation'],
+                            log_dict['user_context'],
+                            log_dict['details'],
+                            new_hash,
+                            previous_hash,
+                            log_dict.get('auth0_user_id')
+                        )
+                    )
+                    previous_hash = new_hash
+
+                print(f"[REPROCESS] Copied {len(access_logs)} access log entries (re-chained)")
+
+            # 8. Copy electronic_signatures if any
+            reprocess_cursor.execute("SELECT * FROM electronic_signatures")
+            signatures = reprocess_cursor.fetchall()
+
+            if signatures:
+                columns = [desc[0] for desc in reprocess_cursor.description]
+                placeholders = ", ".join(["?" for _ in columns])
+                for sig in signatures:
+                    original_cursor.execute(
+                        f"INSERT INTO electronic_signatures ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(sig)
+                    )
+                print(f"[REPROCESS] Copied {len(signatures)} electronic signatures")
+
+            # 9. Copy authenticated_users if any
+            reprocess_cursor.execute("SELECT * FROM authenticated_users")
+            users = reprocess_cursor.fetchall()
+
+            if users:
+                for user in users:
+                    user_dict = dict(user)
+                    auth0_user_id = user_dict['auth0_user_id']
+
+                    # Check if user already exists
+                    original_cursor.execute(
+                        "SELECT auth0_user_id FROM authenticated_users WHERE auth0_user_id = ?",
+                        (auth0_user_id,)
+                    )
+                    if original_cursor.fetchone():
+                        continue  # Skip existing users
+
+                    columns = [desc[0] for desc in reprocess_cursor.description]
+                    placeholders = ", ".join(["?" for _ in columns])
+                    original_cursor.execute(
+                        f"INSERT INTO authenticated_users ({', '.join(columns)}) VALUES ({placeholders})",
+                        tuple(user)
+                    )
+                print(f"[REPROCESS] Copied {len(users)} authenticated users")
+
+            # 10. Commit and close
+            original_conn.commit()
+            original_conn.close()
+            reprocess_conn.close()
+
+            # 11. Update backup manifest with run IDs
+            if manifest_path and manifest_path.exists():
+                try:
+                    with open(manifest_path, 'r', encoding='utf-8') as f:
+                        manifest = json.load(f)
+
+                    manifest['original_run_id'] = original_run_id
+                    manifest['superseded_by_run_id'] = reprocess_run_id
+
+                    with open(manifest_path, 'w', encoding='utf-8') as f:
+                        json.dump(manifest, f, indent=2)
+
+                    print(f"[REPROCESS] Updated backup manifest with run IDs")
+                except Exception as e:
+                    print(f"[REPROCESS] Warning: Failed to update manifest: {e}")
+
+            print(f"[REPROCESS] Database merge successful")
+            return original_run_id, reprocess_run_id
+
+        except Exception as e:
+            print(f"[REPROCESS] Error merging databases: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None
+
+    def _start_reprocess(self, stem: str, task_path: Path, raw_path: Path, payload: dict, timestamp: str) -> None:
+        """Start reprocessing in background with simple status dialog."""
+        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
+        import shutil
+        import json
+
+        # Store reprocess info for post-processing
+        original_task_root = self.task_root
+
+        # Use provided timestamp for consistent folder naming
+        reprocess_folder_name = f"{stem}_{timestamp}"
+        print(f"[REPROCESS] Using folder name: {reprocess_folder_name}")
+
+        # Create nested reprocess directory structure
+        reprocess_dir = original_task_root / "reprocess"
+        reprocess_dir.mkdir(exist_ok=True)
+        output_dir = reprocess_dir
+
+        # Backup original files to exports/backups/ before reprocessing
+        exports_dir = original_task_root / "exports"
+        backups_dir = exports_dir / "backups"
+        backups_dir.mkdir(exist_ok=True)
+
+        # Backup epoch file
+        comp_file = exports_dir / f"{stem}_comp_epo.fif"
+        backed_up_files = []
+
+        if comp_file.exists():
+            backup_file = backups_dir / f"{stem}_comp_epo_{timestamp}.fif"
+            shutil.copy2(comp_file, backup_file)
+            backed_up_files.append({
+                "filename": comp_file.name,
+                "original_path": str(comp_file.relative_to(original_task_root)),
+                "backup_path": str(backup_file.relative_to(original_task_root)),
+                "size_bytes": comp_file.stat().st_size
+            })
+            print(f"[REPROCESS] Backed up {comp_file.name} to {backup_file}")
+
+        # Backup database file
+        db_file = original_task_root / "run_database.db"
+        if db_file.exists():
+            db_backup_file = backups_dir / f"run_database_{timestamp}.db"
+            shutil.copy2(db_file, db_backup_file)
+            backed_up_files.append({
+                "filename": db_file.name,
+                "original_path": str(db_file.relative_to(original_task_root)),
+                "backup_path": str(db_backup_file.relative_to(original_task_root)),
+                "size_bytes": db_file.stat().st_size
+            })
+            print(f"[REPROCESS] Backed up {db_file.name} to {db_backup_file}")
+
+        # Create backup manifest for provenance tracking
+        if backed_up_files:
+            manifest_path = backups_dir / f"{stem}_backup_manifest_{timestamp}.json"
+            manifest = {
+                "backup_timestamp": datetime.now().isoformat(),
+                "backup_reason": "manual_override_reprocess",
+                "original_run_id": None,  # Will be populated after merge
+                "superseded_by_run_id": None,  # Will be populated after merge
+                "backed_up_files": backed_up_files,
+                "manual_overrides": payload.get("modifications", {}),
+                "reprocess_task_file": str(task_path.relative_to(original_task_root)),
+                "reprocess_task_hash": payload.get("task_file_hash", ""),
+                "fix_type": payload.get("fix_type", "unknown")
+            }
+
+            with open(manifest_path, 'w', encoding='utf-8') as f:
+                json.dump(manifest, f, indent=2)
+
+            print(f"[REPROCESS] Created backup manifest: {manifest_path.name}")
+
+        # Create simple non-modal dialog
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Reprocessing")
+        dialog.setModal(False)  # Non-blocking
+        dialog.resize(350, 120)
+
+        layout = QVBoxLayout()
+        label = QLabel(f"Reprocessing {stem}...\n\nThis may take several minutes.\nYou can continue using the GUI.")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+
+        cancel_btn = QPushButton("Cancel")
+        layout.addWidget(cancel_btn)
+        dialog.setLayout(layout)
+
+        # Start process
+        process = QProcess(self)
+
+        # Capture output for error reporting
+        output_lines = []
+        process.readyReadStandardOutput.connect(
+            lambda: output_lines.append(process.readAllStandardOutput().data().decode('utf-8', errors='ignore'))
+        )
+        process.readyReadStandardError.connect(
+            lambda: output_lines.append(process.readAllStandardError().data().decode('utf-8', errors='ignore'))
+        )
+
+        # Pass reprocess info to completion handler
+        reprocess_info = {
+            'stem': stem,
+            'original_task_root': original_task_root,
+            'reprocess_folder_name': reprocess_folder_name,
+            'output_dir': output_dir,
+            'manifest_path': manifest_path if backed_up_files else None,
+            'timestamp': timestamp,
+            'backups_dir': backups_dir
+        }
+
+        process.finished.connect(
+            lambda code, status: self._on_reprocess_done(code, dialog, output_lines, reprocess_info)
+        )
+
+        cancel_btn.clicked.connect(lambda: (process.kill(), dialog.close()))
+
+        cmd_args = [
+            "process",
+            "--task-file",
+            str(task_path),
+            "--file",
+            str(raw_path)
+        ]
+
+        if output_dir:
+            cmd_args.extend(["--output", str(output_dir)])
+
+        print(f"[REPROCESS] Starting: autocleaneeg-pipeline {' '.join(cmd_args)}")
+        print(f"[REPROCESS] Reprocess folder: reprocess/{reprocess_folder_name}")
+        process.start("autocleaneeg-pipeline", cmd_args)
+
+        dialog.show()
+
+    def _on_reprocess_done(
+        self,
+        exit_code: int,
+        dialog,
+        output_lines: list,
+        reprocess_info: dict
+    ) -> None:
+        """Handle reprocess completion and copy results to original folder."""
+        import shutil
+
+        print(f"[REPROCESS DEBUG] _on_reprocess_done called with exit_code={exit_code}")
+        dialog.close()
+
+        stem = reprocess_info['stem']
+        original_task_root = reprocess_info['original_task_root']
+        reprocess_folder_name = reprocess_info['reprocess_folder_name']
+        output_dir = reprocess_info['output_dir']
+
+        print(f"[REPROCESS DEBUG] stem={stem}, reprocess_folder_name={reprocess_folder_name}")
+        print(f"[REPROCESS DEBUG] original_task_root={original_task_root}")
+
+        if exit_code == 0:
+            print(f"[REPROCESS DEBUG] Process completed successfully, starting file copy...")
+            # Copy reprocessed files from temp folder to original folder
+            try:
+                reprocess_folder = (original_task_root / "reprocess" / reprocess_folder_name).resolve()
+
+                if not reprocess_folder.exists():
+                    QMessageBox.warning(
+                        self,
+                        "Reprocess Warning",
+                        f"Reprocess completed but output folder not found:\n{reprocess_folder}\n\n"
+                        f"Files may be in a different location."
+                    )
+                    return
+
+                # Backup existing files before overwriting
+                from datetime import datetime
+                backup_timestamp = reprocess_info.get('timestamp', datetime.now().strftime("%Y%m%d_%H%M%S"))
+                backups_dir = original_task_root / "exports" / "backups"
+                file_backup_dir = backups_dir / f"{stem}_{backup_timestamp}"
+
+                reprocess_exports = reprocess_folder / "exports"
+                original_exports = original_task_root / "exports"
+
+                backed_up_files = []
+
+                # Identify and backup files that will be overwritten
+                if reprocess_exports.exists():
+                    for file_path in reprocess_exports.glob("*"):
+                        if file_path.is_file():
+                            if file_path.name == "autoclean_exclusion_decisions.json":
+                                continue  # Skip GUI state files
+
+                            dest_path = original_exports / file_path.name
+
+                            # Backup original file if it exists
+                            if dest_path.exists():
+                                file_backup_dir.mkdir(parents=True, exist_ok=True)
+                                backup_path = file_backup_dir / file_path.name
+                                shutil.copy2(dest_path, backup_path)
+                                backed_up_files.append({
+                                    "filename": file_path.name,
+                                    "original_path": f"exports/{file_path.name}",
+                                    "backup_path": f"exports/backups/{stem}_{backup_timestamp}/{file_path.name}",
+                                    "size_bytes": dest_path.stat().st_size
+                                })
+                                print(f"[REPROCESS] Backed up {file_path.name} before overwrite")
+
+                # Update backup manifest if files were backed up
+                manifest_path = reprocess_info.get('manifest_path')
+                if backed_up_files and manifest_path and manifest_path.exists():
+                    import json
+                    with open(manifest_path, 'r') as f:
+                        manifest = json.load(f)
+
+                    # Add pre-copy backup files to manifest
+                    if 'backed_up_files' not in manifest:
+                        manifest['backed_up_files'] = []
+                    manifest['backed_up_files'].extend(backed_up_files)
+
+                    with open(manifest_path, 'w') as f:
+                        json.dump(manifest, f, indent=2)
+                    print(f"[REPROCESS] Updated backup manifest with {len(backed_up_files)} pre-copy backups")
+
+                # Now copy reprocessed files (overwriting originals)
+                if reprocess_exports.exists():
+                    for file_path in reprocess_exports.glob("*"):
+                        if file_path.is_file():
+                            # Skip GUI state files (not processing artifacts)
+                            if file_path.name == "autoclean_exclusion_decisions.json":
+                                print(f"[REPROCESS] Skipped GUI state file: {file_path.name}")
+                                continue
+
+                            dest_path = original_exports / file_path.name
+                            shutil.copy2(file_path, dest_path)
+                            print(f"[REPROCESS] Copied {file_path.name} to original exports")
+
+                # Copy reports folder contents (preserving structure)
+                reprocess_reports = reprocess_folder / "reports"
+                original_reports = original_task_root / "reports"
+
+                if reprocess_reports.exists():
+                    for item in reprocess_reports.rglob("*"):
+                        if item.is_file():
+                            rel_path = item.relative_to(reprocess_reports)
+                            dest_path = original_reports / rel_path
+                            dest_path.parent.mkdir(parents=True, exist_ok=True)
+                            shutil.copy2(item, dest_path)
+                            print(f"[REPROCESS] Copied {rel_path} to original reports")
+
+                # Copy ICA folder contents
+                reprocess_ica = reprocess_folder / "ica"
+                original_ica = original_task_root / "ica"
+
+                if reprocess_ica.exists():
+                    for file_path in reprocess_ica.glob("*"):
+                        if file_path.is_file():
+                            dest_path = original_ica / file_path.name
+                            shutil.copy2(file_path, dest_path)
+                            print(f"[REPROCESS] Copied {file_path.name} to original ica")
+
+                # Merge databases to consolidate run records
+                original_db_path = original_task_root / "run_database.db"
+                reprocess_db_path = reprocess_folder / "run_database.db"
+                manifest_path = reprocess_info.get('manifest_path')
+
+                if original_db_path.exists() and reprocess_db_path.exists():
+                    original_run_id, reprocess_run_id = self._merge_reprocess_database(
+                        original_db_path,
+                        reprocess_db_path,
+                        stem,
+                        manifest_path
+                    )
+
+                    if original_run_id and reprocess_run_id:
+                        print(f"[REPROCESS] Database merge completed successfully")
+                        print(f"[REPROCESS]   Original run: {original_run_id}")
+                        print(f"[REPROCESS]   Reprocess run: {reprocess_run_id}")
+
+                        # Inject reprocess metadata into copied JSON
+                        metadata_json_path = original_reports / "run_reports" / f"{stem}_autoclean_metadata.json"
+                        if metadata_json_path.exists():
+                            import json
+                            from datetime import datetime
+
+                            with open(metadata_json_path, 'r') as f:
+                                metadata = json.load(f)
+
+                            # Read manual fix payload for details
+                            manual_fix_path = original_task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
+                            manual_overrides = {}
+                            reprocess_reason = "manual_override"
+                            if manual_fix_path.exists():
+                                with open(manual_fix_path, 'r') as f:
+                                    fix_payload = json.load(f)
+                                    manual_overrides = fix_payload.get('modifications', {})
+                                    reprocess_reason = f"manual_override_{fix_payload.get('fix_type', 'unknown')}"
+
+                            # Inject reprocess metadata
+                            metadata['reprocessed'] = True
+                            metadata['reprocessed_timestamp'] = datetime.now().isoformat()
+                            metadata['reprocessed_from_run_id'] = original_run_id
+                            metadata['reprocess_run_id'] = reprocess_run_id
+                            metadata['reprocess_reason'] = reprocess_reason
+                            metadata['manual_overrides'] = manual_overrides
+                            metadata['original_backup'] = f"exports/backups/{stem}_{backup_timestamp}/"
+
+                            with open(metadata_json_path, 'w') as f:
+                                json.dump(metadata, f, indent=2)
+                            print(f"[REPROCESS] Injected reprocess metadata into {metadata_json_path.name}")
+
+                        # Add reprocessed flag to processing_log.csv
+                        processing_log_path = original_exports / f"{stem}_processing_log.csv"
+                        if processing_log_path.exists():
+                            import csv
+
+                            # Read CSV
+                            with open(processing_log_path, 'r', newline='') as f:
+                                reader = csv.DictReader(f)
+                                rows = list(reader)
+                                fieldnames = reader.fieldnames
+
+                            # Add reprocessed_flag column if not present
+                            if fieldnames and 'reprocessed_flag' not in fieldnames:
+                                fieldnames = list(fieldnames) + ['reprocessed_flag']
+
+                            # Set flag for latest row
+                            if rows:
+                                rows[-1]['reprocessed_flag'] = f"REPROCESSED_{backup_timestamp}"
+
+                            # Write back
+                            with open(processing_log_path, 'w', newline='') as f:
+                                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                                writer.writeheader()
+                                writer.writerows(rows)
+                            print(f"[REPROCESS] Added reprocessed flag to {processing_log_path.name}")
+
+                    else:
+                        print(f"[REPROCESS] Warning: Database merge failed - see logs above")
+                else:
+                    print(f"[REPROCESS] Warning: Database files not found, skipping merge")
+
+                QMessageBox.information(
+                    self,
+                    "Success",
+                    f"Reprocessed {stem} successfully!\n\n"
+                    f"Results copied to original task folder.\n"
+                    f"Original files backed up to exports/backups/\n\n"
+                    f"Temp folder can be deleted: reprocess/{reprocess_folder_name}"
+                )
+                self.refreshFileTree()
+
+            except Exception as e:
+                QMessageBox.warning(
+                    self,
+                    "Copy Error",
+                    f"Reprocessing completed but failed to copy results:\n\n{str(e)}\n\n"
+                    f"You can manually copy from:\n{reprocess_folder}"
+                )
+        else:
+            # Show error with captured output
+            output = ''.join(output_lines) if output_lines else "No output captured"
+            error_msg = f"Reprocessing failed with exit code {exit_code}.\n\nOutput:\n{output[-1000:]}"
+            QMessageBox.warning(self, "Reprocessing Failed", error_msg)
 
     def _update_decision_controls(self, record: Optional[dict[str, str]]) -> None:
         status = record.get("status") if record else "UNSET"

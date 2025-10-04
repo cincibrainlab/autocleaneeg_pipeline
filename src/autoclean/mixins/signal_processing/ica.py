@@ -333,7 +333,11 @@ class IcaMixin:
 
         return self.ica_flags
 
-    def apply_ica_component_rejection(self, data_to_clean=None):
+    def apply_ica_component_rejection(
+        self,
+        data_to_clean=None,
+        manual_rejected_components: list[int] | None = None,
+    ):
         """
         Apply ICA component rejection based on component classifications and configuration.
 
@@ -352,6 +356,10 @@ class IcaMixin:
             The data to apply the ICA to. If None, defaults to `self.raw`.
             This should ideally be the same data object that classification was
             performed on, or is compatible with `self.final_ica`.
+        manual_rejected_components : list[int], optional
+            Explicit component indices to reject. When provided (even an empty
+            list), automatic thresholds and control sheet processing are
+            skipped in favor of these indices.
 
         Returns
         -------
@@ -361,8 +369,9 @@ class IcaMixin:
         Raises
         ------
         RuntimeError
-            If `self.final_ica` or `self.ica_flags` are not available (i.e.,
-            `run_ica` and `classify_ica_components` have not been run successfully).
+            If `self.final_ica` is not available. When running in automatic
+            mode (no manual override), `self.ica_flags` must also be present,
+            meaning both `run_ica` and `classify_ica_components` have run.
         """
         message("header", "Applying ICA component rejection")
 
@@ -374,82 +383,95 @@ class IcaMixin:
                 "ICA (self.final_ica) not found. Please run `run_ica` first."
             )
 
-        if not hasattr(self, "ica_flags") or self.ica_flags is None:
-            message(
-                "error",
-                "ICA results (self.ica_flags) not found. Skipping component rejection.",
+        manual_override = manual_rejected_components is not None
+
+        if manual_override:
+            # Normalize and deduplicate while preserving deterministic ordering
+            manual_rejected_components = sorted(
+                {int(component) for component in manual_rejected_components}
             )
-            raise RuntimeError(
-                "ICA results (self.ica_flags) not found. Please run `classify_ica_components` first."
-            )
+
+        if not manual_override:
+            if not hasattr(self, "ica_flags") or self.ica_flags is None:
+                message(
+                    "error",
+                    "ICA results (self.ica_flags) not found. Skipping component rejection.",
+                )
+                raise RuntimeError(
+                    "ICA results (self.ica_flags) not found. Please run `classify_ica_components` first."
+                )
 
         # Get component_rejection config
-        is_enabled, step_config_main_dict = self._check_step_enabled(
-            "component_rejection"
-        )
-        config_source = "component_rejection"
-
-        if not is_enabled:
-            message(
-                "warning",
-                "component_rejection config not enabled. "
-                "Rejection parameters might be missing. Skipping.",
+        if not manual_override:
+            is_enabled, step_config_main_dict = self._check_step_enabled(
+                "component_rejection"
             )
-            return
+            config_source = "component_rejection"
 
-        # Attempt to get parameters from a nested "value" dictionary first (common pattern)
-        config_params_nested = step_config_main_dict.get("value") or {}
+            if not is_enabled:
+                message(
+                    "warning",
+                    "component_rejection config not enabled. "
+                    "Rejection parameters might be missing. Skipping.",
+                )
+                return
 
-        flags_to_reject = config_params_nested.get("ic_flags_to_reject")
-        rejection_threshold = config_params_nested.get("ic_rejection_threshold")
-        threshold_overrides = config_params_nested.get("ic_rejection_overrides", {})
+            # Attempt to get parameters from a nested "value" dictionary first (common pattern)
+            config_params_nested = step_config_main_dict.get("value") or {}
 
-        # If not found in "value", try to get them from the main step config dict directly
-        if flags_to_reject is None and "ic_flags_to_reject" in step_config_main_dict:
-            flags_to_reject = step_config_main_dict.get("ic_flags_to_reject")
-        if (
-            rejection_threshold is None
-            and "ic_rejection_threshold" in step_config_main_dict
-        ):
-            rejection_threshold = step_config_main_dict.get("ic_rejection_threshold")
-        if (
-            not threshold_overrides
-            and "ic_rejection_overrides" in step_config_main_dict
-        ):
-            threshold_overrides = step_config_main_dict.get(
+            flags_to_reject = config_params_nested.get("ic_flags_to_reject")
+            rejection_threshold = config_params_nested.get("ic_rejection_threshold")
+            threshold_overrides = config_params_nested.get(
                 "ic_rejection_overrides", {}
             )
 
-        if flags_to_reject is None or rejection_threshold is None:
-            message(
-                "warning",
-                f"ICA rejection parameters (ic_flags_to_reject or ic_rejection_threshold) "
-                f"not found in the '{config_source}' step configuration. Skipping component rejection.",
-            )
-            return
-
-        # Warn about unused overrides
-        if threshold_overrides:
-            unused_overrides = set(threshold_overrides.keys()) - set(flags_to_reject)
-            if unused_overrides:
-                message(
-                    "warning",
-                    f"Threshold overrides specified for types not in rejection list: {unused_overrides}",
+            # If not found in "value", try to get them from the main step config dict directly
+            if flags_to_reject is None and "ic_flags_to_reject" in step_config_main_dict:
+                flags_to_reject = step_config_main_dict.get("ic_flags_to_reject")
+            if (
+                rejection_threshold is None
+                and "ic_rejection_threshold" in step_config_main_dict
+            ):
+                rejection_threshold = step_config_main_dict.get("ic_rejection_threshold")
+            if (
+                not threshold_overrides
+                and "ic_rejection_overrides" in step_config_main_dict
+            ):
+                threshold_overrides = step_config_main_dict.get(
+                    "ic_rejection_overrides", {}
                 )
 
-            # Show per-type thresholds when overrides are present
-            threshold_info = {
-                ic_type: rejection_threshold for ic_type in flags_to_reject
-            }
-            threshold_info.update(threshold_overrides)
-            message(
-                "info", f"Will reject ICs with per-type thresholds: {threshold_info}"
-            )
-        else:
-            message(
-                "info",
-                f"Will reject ICs of types: {flags_to_reject} with confidence > {rejection_threshold}",
-            )
+            if flags_to_reject is None or rejection_threshold is None:
+                message(
+                    "warning",
+                    f"ICA rejection parameters (ic_flags_to_reject or ic_rejection_threshold) "
+                    f"not found in the '{config_source}' step configuration. Skipping component rejection.",
+                )
+                return
+
+        if not manual_override:
+            # Warn about unused overrides
+            if threshold_overrides:
+                unused_overrides = set(threshold_overrides.keys()) - set(flags_to_reject)
+                if unused_overrides:
+                    message(
+                        "warning",
+                        f"Threshold overrides specified for types not in rejection list: {unused_overrides}",
+                    )
+
+                # Show per-type thresholds when overrides are present
+                threshold_info = {
+                    ic_type: rejection_threshold for ic_type in flags_to_reject
+                }
+                threshold_info.update(threshold_overrides)
+                message(
+                    "info", f"Will reject ICs with per-type thresholds: {threshold_info}"
+                )
+            else:
+                message(
+                    "info",
+                    f"Will reject ICs of types: {flags_to_reject} with confidence > {rejection_threshold}",
+                )
 
         # Determine data to clean
         target_data = data_to_clean if data_to_clean is not None else self.raw
@@ -458,59 +480,89 @@ class IcaMixin:
         )
         message("debug", f"Applying ICA to {data_source_name}")
 
-        # Run automatic rejection on a copy to get suggested components
-        temp_raw = target_data.copy()
-        _, rejected_ic_indices_this_step = apply_ica_component_rejection(
-            raw=temp_raw,
-            ica=self.final_ica,
-            labels_df=self.ica_flags,
-            ic_flags_to_reject=flags_to_reject,
-            ic_rejection_threshold=rejection_threshold,
-            ic_rejection_overrides=threshold_overrides,
-            verbose=True,
-        )
+        if manual_override:
+            old_exclude = self.final_ica.exclude.copy() if self.final_ica.exclude else []
+            self.final_ica.exclude = manual_rejected_components
 
-        auto_exclude = sorted(self.final_ica.exclude)
+            if CACHE_AVAILABLE and old_exclude != manual_rejected_components:
+                invalidate_ica_cache(self.final_ica)
+                message("debug", "Cache invalidated due to manual ICA exclude list change")
 
-        if not rejected_ic_indices_this_step:
-            message("info", "No new components met rejection criteria in this step.")
-        else:
-            message(
-                "info",
-                f"Identified {len(rejected_ic_indices_this_step)} components for rejection: "
-                f"{rejected_ic_indices_this_step}",
-            )
+            if manual_rejected_components:
+                self.final_ica.apply(target_data)
+                message(
+                    "info",
+                    "Applied manual ICA exclusions: "
+                    f"{manual_rejected_components}",
+                )
+            else:
+                message("info", "Manual ICA override provided no components to remove.")
 
-        # Use control sheet to finalize exclusions
-        final_exclude = update_ica_control_sheet(self.config, auto_exclude)
-        old_exclude = self.final_ica.exclude.copy() if self.final_ica.exclude else []
-        self.final_ica.exclude = final_exclude
-
-        # Invalidate cache if exclude list changed
-        if CACHE_AVAILABLE and old_exclude != final_exclude:
-            invalidate_ica_cache(self.final_ica)
-            message("debug", "Cache invalidated due to ICA exclude list change")
-
-        if not final_exclude:
-            message(
-                "info",
-                "No ICA components marked for exclusion after control sheet processing.",
-            )
-        else:
-            self.final_ica.apply(target_data)
-            message("info", f"Applied ICA, removing components: {final_exclude}")
-
-        # Update metadata
-        metadata = {
-            "ica": {
-                "configured_flags_to_reject": flags_to_reject,
-                "configured_rejection_threshold": rejection_threshold,
-                "configured_threshold_overrides": threshold_overrides,
-                "rejected_indices_this_step": rejected_ic_indices_this_step,
-                "auto_excluded_indices": auto_exclude,
-                "final_excluded_indices": final_exclude,
+            metadata = {
+                "ica": {
+                    "method": "ManualOverride",
+                    "configured_flags_to_reject": None,
+                    "configured_rejection_threshold": None,
+                    "configured_threshold_overrides": {},
+                    "rejected_indices_this_step": [],
+                    "auto_excluded_indices": [],
+                    "final_excluded_indices": manual_rejected_components,
+                }
             }
-        }
+        else:
+            # Run automatic rejection on a copy to get suggested components
+            temp_raw = target_data.copy()
+            _, rejected_ic_indices_this_step = apply_ica_component_rejection(
+                raw=temp_raw,
+                ica=self.final_ica,
+                labels_df=self.ica_flags,
+                ic_flags_to_reject=flags_to_reject,
+                ic_rejection_threshold=rejection_threshold,
+                ic_rejection_overrides=threshold_overrides,
+                verbose=True,
+            )
+
+            auto_exclude = sorted(self.final_ica.exclude)
+
+            if not rejected_ic_indices_this_step:
+                message("info", "No new components met rejection criteria in this step.")
+            else:
+                message(
+                    "info",
+                    f"Identified {len(rejected_ic_indices_this_step)} components for rejection: "
+                    f"{rejected_ic_indices_this_step}",
+                )
+
+            # Use control sheet to finalize exclusions
+            final_exclude = update_ica_control_sheet(self.config, auto_exclude)
+            old_exclude = self.final_ica.exclude.copy() if self.final_ica.exclude else []
+            self.final_ica.exclude = final_exclude
+
+            # Invalidate cache if exclude list changed
+            if CACHE_AVAILABLE and old_exclude != final_exclude:
+                invalidate_ica_cache(self.final_ica)
+                message("debug", "Cache invalidated due to ICA exclude list change")
+
+            if not final_exclude:
+                message(
+                    "info",
+                    "No ICA components marked for exclusion after control sheet processing.",
+                )
+            else:
+                self.final_ica.apply(target_data)
+                message("info", f"Applied ICA, removing components: {final_exclude}")
+
+            # Update metadata
+            metadata = {
+                "ica": {
+                    "configured_flags_to_reject": flags_to_reject,
+                    "configured_rejection_threshold": rejection_threshold,
+                    "configured_threshold_overrides": threshold_overrides,
+                    "rejected_indices_this_step": rejected_ic_indices_this_step,
+                    "auto_excluded_indices": auto_exclude,
+                    "final_excluded_indices": final_exclude,
+                }
+            }
         # Assuming _update_metadata is available in the class using this mixin
         if hasattr(self, "_update_metadata") and callable(self._update_metadata):
             self._update_metadata("step_apply_ica_component_rejection", metadata)
