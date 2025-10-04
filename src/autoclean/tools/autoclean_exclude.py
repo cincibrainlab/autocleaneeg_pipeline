@@ -1709,7 +1709,7 @@ class ReprocessWidget(QWidget):
         super().__init__(parent)
         layout = QVBoxLayout()
         layout.setContentsMargins(8, 8, 8, 8)
-        layout.setSpacing(12)
+        layout.setSpacing(8)
         self.setLayout(layout)
 
         # Store current state
@@ -1722,7 +1722,7 @@ class ReprocessWidget(QWidget):
 
         # Create horizontal layout for side-by-side groups
         groups_layout = QHBoxLayout()
-        groups_layout.setSpacing(12)
+        groups_layout.setSpacing(8)
 
         # Bad Channels Section
         self.channels_group = QGroupBox("Bad Channels")
@@ -1802,7 +1802,7 @@ class ReprocessWidget(QWidget):
                 background-color: rgba(255, 255, 255, 0.92);
                 border: 2px solid #e67e22;
                 border-radius: 6px;
-                padding: 20px;
+                padding: 12px;
                 font-size: 13px;
                 font-weight: 600;
                 color: #d35400;
@@ -1825,7 +1825,7 @@ class ReprocessWidget(QWidget):
                 background-color: rgba(255, 255, 255, 0.92);
                 border: 2px solid #e67e22;
                 border-radius: 6px;
-                padding: 20px;
+                padding: 12px;
                 font-size: 13px;
                 font-weight: 600;
                 color: #d35400;
@@ -1885,15 +1885,15 @@ class ReprocessWidget(QWidget):
         # Changes summary widget
         self.changes_summary_widget = QWidget()
         self.changes_summary_layout = QVBoxLayout()
-        self.changes_summary_layout.setContentsMargins(12, 12, 12, 12)
-        self.changes_summary_layout.setSpacing(8)
+        self.changes_summary_layout.setContentsMargins(4, 4, 4, 4)
+        self.changes_summary_layout.setSpacing(4)
         self.changes_summary_widget.setLayout(self.changes_summary_layout)
 
         # Channels changes section
         self.channels_changes_widget = QWidget()
         self.channels_changes_layout = QVBoxLayout()
-        self.channels_changes_layout.setContentsMargins(0, 4, 0, 4)
-        self.channels_changes_layout.setSpacing(4)
+        self.channels_changes_layout.setContentsMargins(0, 2, 0, 2)
+        self.channels_changes_layout.setSpacing(2)
         self.channels_changes_widget.setLayout(self.channels_changes_layout)
 
         self.channels_summary_label = QLabel()
@@ -1913,8 +1913,8 @@ class ReprocessWidget(QWidget):
         # ICA changes section
         self.ica_changes_widget = QWidget()
         self.ica_changes_layout = QVBoxLayout()
-        self.ica_changes_layout.setContentsMargins(0, 4, 0, 4)
-        self.ica_changes_layout.setSpacing(4)
+        self.ica_changes_layout.setContentsMargins(0, 2, 0, 2)
+        self.ica_changes_layout.setSpacing(2)
         self.ica_changes_widget.setLayout(self.ica_changes_layout)
 
         self.ica_summary_label = QLabel()
@@ -1934,7 +1934,7 @@ class ReprocessWidget(QWidget):
         # Message label for empty state
         self.message_label = QLabel("Select a file to edit reprocessing parameters")
         self.message_label.setAlignment(Qt.AlignCenter)
-        self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+        self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 12px;")
 
         # Stack to switch between summary and message
         self.bottom_stack = QStackedLayout()
