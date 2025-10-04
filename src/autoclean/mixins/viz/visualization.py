@@ -313,8 +313,8 @@ class VisualizationMixin:
         message("info", f"Number of Good Channels: {len(good_channels)}")
 
         # Extract Data for Bad Channels
-        picks_bad_original = mne.pick_channels(raw_original.ch_names, bad_channels)
-        picks_bad_cleaned = mne.pick_channels(raw_cleaned.ch_names, bad_channels)
+        picks_bad_original = [raw_original.ch_names.index(ch) for ch in bad_channels if ch in raw_original.ch_names]
+        picks_bad_cleaned = [raw_cleaned.ch_names.index(ch) for ch in bad_channels if ch in raw_cleaned.ch_names]
 
         if len(picks_bad_original) == 0:
             message("info", "No bad channels found in original data.")

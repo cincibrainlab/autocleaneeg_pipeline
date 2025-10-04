@@ -393,7 +393,7 @@ def analyze_itc_bands(
 
     # Set channel picks
     if picks is not None:
-        pick_indices = mne.pick_channels(itc.ch_names, picks)
+        pick_indices = [itc.ch_names.index(ch) for ch in picks if ch in itc.ch_names]
     else:
         pick_indices = slice(None)
 
@@ -649,7 +649,7 @@ def calculate_word_learning_index(
 
     # Set channel picks
     if picks is not None:
-        pick_indices = mne.pick_channels(itc.ch_names, picks)
+        pick_indices = [itc.ch_names.index(ch) for ch in picks if ch in itc.ch_names]
         channel_names = [itc.ch_names[i] for i in pick_indices]
     else:
         pick_indices = slice(None)
@@ -761,7 +761,7 @@ def extract_itc_at_frequencies(
 
     # Set channel picks
     if picks is not None:
-        pick_indices = mne.pick_channels(itc.ch_names, picks)
+        pick_indices = [itc.ch_names.index(ch) for ch in picks if ch in itc.ch_names]
     else:
         pick_indices = slice(None)
 

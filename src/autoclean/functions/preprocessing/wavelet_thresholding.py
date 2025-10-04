@@ -106,10 +106,11 @@ def _resolve_pick_indices(
         if key in {"all", "everything"}:
             return np.arange(n_channels, dtype=int)
         if key == "eeg":
-            picked = mne.pick_types(inst.info, eeg=True, meg=False, ref_meg=False, exclude=[])
+            indices_dict = mne.channel_indices_by_type(inst.info, picks='eeg', exclude=[])
+            picked = np.array(indices_dict.get('eeg', []), dtype=int)
             if picked.size == 0:
                 raise ValueError("No EEG channels available for picks='eeg'")
-            return picked.astype(int)
+            return picked
         if picks in inst.ch_names:
             return np.array([inst.ch_names.index(picks)], dtype=int)
         raise ValueError(f"Unknown picks value '{picks}'")

@@ -453,7 +453,7 @@ class ICAReportingMixin:
                         "warning",
                         "Channel count mismatch between ICA and raw. Using ICA channels only for overlay.",
                     )
-                    raw_copy.pick_channels(ica_ch_names)
+                    raw_copy.pick(ica_ch_names)
 
                 fig_overlay = self.final_ica.plot_overlay(
                     raw_copy,

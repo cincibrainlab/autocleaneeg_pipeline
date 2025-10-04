@@ -94,7 +94,8 @@ class ChannelsMixin:
                     .get("enabled", True)
                 ):
                     # If EOG step is disabled, temporarily set EOG channels to EEG type
-                    eog_picks = mne.pick_types(data.info, eog=True)
+                    indices_dict = mne.channel_indices_by_type(data.info, picks='eog')
+                    eog_picks = indices_dict.get('eog', [])
                     eog_ch_names = [data.ch_names[idx] for idx in eog_picks]
                     data.set_channel_types({ch: "eeg" for ch in eog_ch_names})
 
@@ -472,7 +473,8 @@ class ChannelsMixin:
                     raise ValueError("No data available to process")
 
             # Detect EOG channels
-            eog_picks = mne.pick_types(data.info, eog=True)
+            indices_dict = mne.channel_indices_by_type(data.info, picks='eog')
+            eog_picks = indices_dict.get('eog', [])
             eog_ch_names = [data.ch_names[idx] for idx in eog_picks]
 
             if not eog_ch_names:
