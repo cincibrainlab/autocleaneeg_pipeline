@@ -4784,18 +4784,17 @@ class ExclusionFileSelector(ReviewBase):
             )
             return
 
-        # Check if we're in a reprocess folder (not the original task folder)
-        task_folder_name = self.task_root.name
-        if "_Reprocess" in task_folder_name or task_folder_name.startswith("Task_"):
+        # Check if we're in a reprocess subfolder (not the original task folder)
+        if "reprocess" in self.task_root.parts:
             QMessageBox.warning(
                 self,
                 "Reprocess Error",
-                f"Cannot reprocess from a reprocess folder.\n\n"
-                f"Current folder: {task_folder_name}\n\n"
+                f"Cannot reprocess from a reprocess subfolder.\n\n"
+                f"Current folder: {self.task_root}\n\n"
                 f"Please open the exclude GUI on the original task folder "
-                f"(e.g., 'BiotrialResting1020'), not the reprocess temp folder.\n\n"
-                f"The reprocess temp folders are meant to be temporary and should be "
-                f"deleted after copying results to the original folder."
+                f"(e.g., 'BiotrialResting1020'), not the reprocess temp subfolder.\n\n"
+                f"Reprocess temp folders are automatically created under reprocess/ "
+                f"and can be deleted after results are copied."
             )
             return
 
@@ -4937,14 +4936,17 @@ class ExclusionFileSelector(ReviewBase):
         import shutil
         from datetime import datetime
 
-        # Extract reprocess task name from task file
-        reprocess_class_name = task_path.stem
-        if reprocess_class_name and reprocess_class_name[0].isdigit():
-            reprocess_class_name = f"Task_{reprocess_class_name}"
-
         # Store reprocess info for post-processing
         original_task_root = self.task_root
-        output_dir = original_task_root.parent if original_task_root else None
+
+        # Create timestamped folder name for this reprocess attempt
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        reprocess_folder_name = f"{stem}_{timestamp}"
+
+        # Create nested reprocess directory structure
+        reprocess_dir = original_task_root / "reprocess"
+        reprocess_dir.mkdir(exist_ok=True)
+        output_dir = reprocess_dir
 
         # Backup original comp file to exports/backups/ before reprocessing
         exports_dir = original_task_root / "exports"
@@ -4953,7 +4955,6 @@ class ExclusionFileSelector(ReviewBase):
 
         if comp_file.exists():
             backups_dir.mkdir(exist_ok=True)
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             backup_file = backups_dir / f"{stem}_comp_epo_{timestamp}.fif"
             shutil.copy2(comp_file, backup_file)
             print(f"[REPROCESS] Backed up {comp_file.name} to {backup_file}")
@@ -4989,7 +4990,7 @@ class ExclusionFileSelector(ReviewBase):
         reprocess_info = {
             'stem': stem,
             'original_task_root': original_task_root,
-            'reprocess_class_name': reprocess_class_name,
+            'reprocess_folder_name': reprocess_folder_name,
             'output_dir': output_dir
         }
 
@@ -5011,7 +5012,7 @@ class ExclusionFileSelector(ReviewBase):
             cmd_args.extend(["--output", str(output_dir)])
 
         print(f"[REPROCESS] Starting: autocleaneeg-pipeline {' '.join(cmd_args)}")
-        print(f"[REPROCESS] Temp folder: {reprocess_class_name}")
+        print(f"[REPROCESS] Reprocess folder: reprocess/{reprocess_folder_name}")
         process.start("autocleaneeg-pipeline", cmd_args)
 
         dialog.show()
@@ -5030,13 +5031,13 @@ class ExclusionFileSelector(ReviewBase):
 
         stem = reprocess_info['stem']
         original_task_root = reprocess_info['original_task_root']
-        reprocess_class_name = reprocess_info['reprocess_class_name']
+        reprocess_folder_name = reprocess_info['reprocess_folder_name']
         output_dir = reprocess_info['output_dir']
 
         if exit_code == 0:
             # Copy reprocessed files from temp folder to original folder
             try:
-                reprocess_folder = output_dir / reprocess_class_name
+                reprocess_folder = (original_task_root / "reprocess" / reprocess_folder_name).resolve()
 
                 if not reprocess_folder.exists():
                     QMessageBox.warning(
@@ -5093,7 +5094,7 @@ class ExclusionFileSelector(ReviewBase):
                     f"Reprocessed {stem} successfully!\n\n"
                     f"Results copied to original task folder.\n"
                     f"Original files backed up to exports/backups/\n\n"
-                    f"Temp folder can be deleted: {reprocess_class_name}"
+                    f"Temp folder can be deleted: reprocess/{reprocess_folder_name}"
                 )
                 self.refreshFileTree()
 
