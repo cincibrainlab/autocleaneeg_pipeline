@@ -44,7 +44,6 @@ dependencies = [
     "eeglabio==0.1.1",
     "pybv==0.7.6",
     "fastparquet==2024.11.0",
-    "fastplotlib==0.5.1",
     # Connectivity analysis
     "mne-connectivity==0.7.0",
     "networkx==3.5",
@@ -63,7 +62,6 @@ dependencies = [
     "cython==3.1.4",
     "loguru==0.7.3",
     "pydantic==2.11.9",
-    "Pillow==11.3.0",
     "reportlab==4.4.4",
     "nibabel==5.3.2",
     "platformdirs==4.4.0",
