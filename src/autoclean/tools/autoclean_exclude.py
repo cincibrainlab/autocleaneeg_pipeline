@@ -4784,6 +4784,21 @@ class ExclusionFileSelector(ReviewBase):
             )
             return
 
+        # Check if we're in a reprocess folder (not the original task folder)
+        task_folder_name = self.task_root.name
+        if "_Reprocess" in task_folder_name or task_folder_name.startswith("Task_"):
+            QMessageBox.warning(
+                self,
+                "Reprocess Error",
+                f"Cannot reprocess from a reprocess folder.\n\n"
+                f"Current folder: {task_folder_name}\n\n"
+                f"Please open the exclude GUI on the original task folder "
+                f"(e.g., 'BiotrialResting1020'), not the reprocess temp folder.\n\n"
+                f"The reprocess temp folders are meant to be temporary and should be "
+                f"deleted after copying results to the original folder."
+            )
+            return
+
         # Get file stem
         file_path = Path(self.selected_file_path)
         stem = strip_suffixes(file_path.stem, config=self.config)
@@ -5039,6 +5054,11 @@ class ExclusionFileSelector(ReviewBase):
                 if reprocess_exports.exists():
                     for file_path in reprocess_exports.glob("*"):
                         if file_path.is_file():
+                            # Skip GUI state files (not processing artifacts)
+                            if file_path.name == "autoclean_exclusion_decisions.json":
+                                print(f"[REPROCESS] Skipped GUI state file: {file_path.name}")
+                                continue
+
                             dest_path = original_exports / file_path.name
                             shutil.copy2(file_path, dest_path)
                             print(f"[REPROCESS] Copied {file_path.name} to original exports")
