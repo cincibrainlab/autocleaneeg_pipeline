@@ -8,6 +8,7 @@ Any class ending with 'Mixin' in a .py file within a subdirectory of this packag
 import importlib
 import inspect
 import pkgutil
+import sys
 import traceback
 import types
 from pathlib import Path
@@ -282,14 +283,25 @@ for search_path in _BLOCK_SEARCH_PATHS:
                 if block_name in _loaded_block_names:
                     continue
 
+                # Load algorithm.py first if it exists (for relative imports in mixin.py)
+                import importlib.util
+                algorithm_file = mixin_file.parent / "algorithm.py"
+                if algorithm_file.exists():
+                    alg_module_name = f"autoclean_bundled_blocks.{category}.{block_name}.algorithm"
+                    alg_spec = importlib.util.spec_from_file_location(alg_module_name, algorithm_file)
+                    if alg_spec and alg_spec.loader:
+                        alg_module = importlib.util.module_from_spec(alg_spec)
+                        sys.modules[alg_module_name] = alg_module  # Register so mixin can import it
+                        alg_spec.loader.exec_module(alg_module)
+
                 # Create a module name for the block
                 module_name = f"autoclean_bundled_blocks.{category}.{block_name}.mixin"
 
                 # Load the module directly from file path
-                import importlib.util
                 spec = importlib.util.spec_from_file_location(module_name, mixin_file)
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)
+                    sys.modules[module_name] = module  # Register so relative imports work
                     spec.loader.exec_module(module)
 
                     # Look for Mixin classes
