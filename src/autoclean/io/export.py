@@ -617,6 +617,10 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
         if not file_path.is_file():
             continue
 
+        # Filter to only process files for the current subject
+        if not file_path.stem.startswith(basename):
+            continue
+
         dest_path = final_files_dir / file_path.name
 
         if file_path.suffix.lower() == ".set":

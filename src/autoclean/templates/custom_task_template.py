@@ -147,6 +147,13 @@ class CustomTask(Task):
         # Import raw EEG data
         self.import_raw()
 
+        # Optional: Drop reference electrodes if using average reference
+        # For standard_1020 montage with A1/A2 (mastoid) references:
+        # If your recording used A1 or A2 as reference, and you're re-referencing
+        # to average, you can drop them as they don't contain independent brain signals.
+        # Example:
+        #   self.set_channel_types({'A1': 'misc', 'A2': 'misc'}, drop=True)
+
         # Basic preprocessing steps
         self.resample_data()
         self.filter_data()

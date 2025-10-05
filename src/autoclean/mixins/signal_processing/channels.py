@@ -365,19 +365,28 @@ class ChannelsMixin:
         self,
         data: Union[mne.io.Raw, mne.Epochs, None] = None,
         ch_types_dict: Dict[str, str] = None,
+        drop: bool = False,
         stage_name: str = "set_channel_types",
         use_epochs: bool = False,
     ) -> Union[mne.io.Raw, mne.Epochs]:
-        """Set channel types for specific channels.
+        """Set channel types for specific channels, or optionally drop them.
 
-        This method sets the type of specific channels (e.g., marking channels as EOG).
+        This method sets the type of specific channels (e.g., marking channels as EOG),
+        or drops them entirely if drop=True. Dropping is useful for reference electrodes
+        (A1/A2) that should not be included in analysis when using average reference.
 
         Parameters
         ----------
         data : mne.io.Raw or mne.Epochs, Optional
             The data object to set channel types for. If None, uses self.raw or self.epochs.
         ch_types_dict : dict, Optional
-            Dictionary mapping channel names to types (e.g., {'E1': 'eog'})
+            Dictionary mapping channel names to types (e.g., {'E1': 'eog'}).
+            When drop=True, the types are ignored and channels are dropped instead.
+        drop : bool, Optional (default: False)
+            If True, drop the specified channels instead of changing their type.
+            Useful for removing reference electrodes (A1/A2) or other channels
+            that should not be included in analysis. Channels not present in data
+            are silently skipped.
         stage_name : str, Optional
             Name for saving and metadata.
         use_epochs : bool, Optional
@@ -386,7 +395,7 @@ class ChannelsMixin:
         Returns
         -------
         result_data : instance of mne.io.Raw or mne.Epochs
-            The data object with updated channel types
+            The data object with updated channel types (or channels dropped)
 
         """
         # Check if ch_types_dict is provided
@@ -417,13 +426,46 @@ class ChannelsMixin:
             )
 
         try:
-            # Set channel types
-            message("header", "Setting channel types...")
-            result_data = data.copy().set_channel_types(ch_types_dict)
-            message("info", f"Set types for {len(ch_types_dict)} channels")
+            result_data = data.copy()
 
-            # Update metadata
-            metadata = {"channel_types": ch_types_dict}
+            if drop:
+                # Drop specified channels instead of setting their type
+                message("header", "Dropping channels...")
+                channels_to_drop = [
+                    ch for ch in ch_types_dict.keys() if ch in result_data.ch_names
+                ]
+
+                if channels_to_drop:
+                    result_data.drop_channels(channels_to_drop)
+                    message(
+                        "info",
+                        f"Dropped {len(channels_to_drop)} channels: {channels_to_drop}"
+                    )
+
+                    # Update metadata
+                    metadata = {
+                        "dropped_channels": channels_to_drop,
+                        "reason": "Reference electrodes excluded from analysis",
+                        "original_dict": ch_types_dict,
+                    }
+                else:
+                    message(
+                        "info",
+                        "No matching channels found to drop (channels may already be absent)"
+                    )
+                    metadata = {
+                        "dropped_channels": [],
+                        "reason": "No matching channels present",
+                        "original_dict": ch_types_dict,
+                    }
+            else:
+                # Original behavior: Set channel types
+                message("header", "Setting channel types...")
+                result_data.set_channel_types(ch_types_dict)
+                message("info", f"Set types for {len(ch_types_dict)} channels")
+
+                # Update metadata
+                metadata = {"channel_types": ch_types_dict}
 
             self._update_metadata("set_channel_types", metadata)
 

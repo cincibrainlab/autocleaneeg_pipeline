@@ -191,7 +191,7 @@ class SourceLocalizationMixin:
                 n_times = stc.data.shape[1]
                 duration = stc.times[-1] - stc.times[0]
             else:  # is_epochs
-                stc_list = estimate_source_function_epochs(data, config=save_config)
+                stc_list = estimate_source_function_epochs(data, config=save_config, save_stc=save_stc)
                 stc = stc_list  # For consistency
                 stc_type = "epoched"
                 n_sources = stc_list[0].data.shape[0]
