@@ -137,12 +137,18 @@ def calculate_roi_psd(
 
     # Determine optimal window length for Welch's method
     if is_raw:
+        # For Raw data, use the full available duration and ensure enough windows for averaging
         available_duration = data_to_use.times[-1] - data_to_use.times[0]
+        # Prefer 4-second windows, but ensure at least 8 windows fit in available duration
+        window_length = int(min(4 * sfreq, available_duration * sfreq / 8))
     else:
-        available_duration = len(data_to_use) * (data_to_use.times[-1] - data_to_use.times[0])
-
-    # Prefer 4-second windows for good frequency resolution
-    window_length = int(min(4 * sfreq, available_duration * sfreq / 8))
+        # For Epochs, MNE's compute_psd() processes each epoch independently
+        # We average PSDs across epochs, so we just need the window to fit within one epoch
+        # Use the maximum window that fits in a single epoch for best frequency resolution
+        epoch_duration = data_to_use.times[-1] - data_to_use.times[0]
+        epoch_samples = int(epoch_duration * sfreq)
+        # Prefer 4-second windows, but can't exceed epoch length
+        window_length = int(min(4 * sfreq, epoch_samples))
     n_overlap = window_length // 2  # 50% overlap
 
     print(f"Using {window_length / sfreq:.2f}s windows with 50% overlap")
