@@ -1,149 +1,71 @@
-# Source Localization Block
+# Source Localization Block (v2.0.0)
 
-**Version:** 1.0.0
-**Category:** Analysis
-**Status:** Stable
+**Category:** Analysis  \
+**Status:** Stable  \
+**Package dependency:** [`autocleaneeg-eeg2source`](https://pypi.org/project/autocleaneeg-eeg2source/)
 
 ## Overview
 
-The Source Localization block estimates cortical sources from sensor-space EEG data using Minimum Norm Estimation (MNE). This fundamental analysis step projects scalp-recorded electrical activity to the cortical surface, enabling region-of-interest (ROI) analyses, connectivity studies, and spatially localized power analyses.
+This block performs EEG source localization by delegating to the `autocleaneeg-eeg2source` PyPI package. It applies MNE minimum-norm estimation using the `fsaverage` template brain, converts the results to 68 Desikan–Killiany (DK) atlas regions, and saves the derived EEG file directly to the task’s derivatives directory.
 
-## What It Does
+Unlike the legacy v1 block, the new implementation does **not** expose raw `SourceEstimate` (STC) objects. Every run produces ROI-level EEG data that is ready for downstream power, connectivity, and spectral parameterisation analyses.
 
-Source localization solves the EEG inverse problem by:
-1. Creating a forward model linking cortical sources to scalp sensors
-2. Computing an inverse operator with regularization
-3. Applying the inverse to sensor data to estimate source activations
-4. Producing source estimates (STCs) with 10,242 cortical vertices
+## Key Features
 
-The block uses the **fsaverage** template brain with ico-5 source space and an identity noise covariance matrix, making it suitable for group studies and resting-state analyses without requiring individual anatomical MRI scans.
+- Guarantees 68 ROI channels (DK atlas)
+- Handles both continuous (`Raw`) and epoched (`Epochs`) inputs
+- Writes `{subject}_dk_regions.set/.fdt` and `{subject}_region_info.csv` under `derivatives/source_localization/`
+- Uses `MemoryManager` to cap RAM usage during processing
+- Automatically strips EOG channels prior to localization
+- Compatible with downstream ROI-based PSD, connectivity, and FOOOF blocks
 
-## When to Use
+## Requirements
 
-**Use source localization when you need:**
-- Region-of-interest (ROI) power analyses
-- Functional connectivity between brain regions
-- Spatially localized spectral analyses
-- Network analyses of brain dynamics
-- Source-level event-related potentials (ERPs)
-
-**Requirements:**
-- Minimum 19 EEG channels (64+ recommended for best spatial resolution)
-- Standard 10-20 montage or compatible electrode layout
-- Data after artifact rejection (ICA, AutoReject)
-- Adequate SNR (signal-to-noise ratio)
-
-## How It Works
-
-### Algorithm
-
-```
-Sensor Data (n_channels × n_times)
-         ↓
-Forward Solution (fsaverage template)
-         ↓
-Inverse Operator (identity noise covariance)
-         ↓
-Source Estimates (n_vertices × n_times)
-    10,242 cortical vertices
-```
-
-### Technical Details
-
-- **Method:** Minimum Norm Estimation (MNE)
-- **Source Space:** fsaverage ico-5 (10,242 vertices)
-- **BEM:** 3-layer (skin, skull, brain)
-- **Regularization:** λ² = 1/9 (default)
-- **Orientation:** Normal to cortical surface
-- **Noise Covariance:** Identity matrix
+- `autocleaneeg-eeg2source >= 0.3.7` (installed automatically when using the bundled pipeline)
+- Access to `fsaverage` FreeSurfer data (downloaded on first use by MNE)
+- At least 19 EEG channels with a recognised montage (e.g., `GSN-HydroCel-129`)
+- Artifact-cleaned data (post-ICA/AutoReject recommended)
 
 ## Configuration
 
-### Basic Configuration
-
 ```python
 config = {
     "apply_source_localization": {
         "enabled": True,
         "value": {
-            "method": "MNE",
-            "lambda2": 0.111,  # 1/9
-            "pick_ori": "normal",
-            "n_jobs": 10
+            "method": "MNE",          # Currently only MNE is supported
+            "lambda2": 0.111,          # Regularisation (1 / SNR^2)
+            "montage": "GSN-HydroCel-129",
+            "resample_freq": None,     # Optional downsample target (Hz)
+            "max_memory_gb": 8.0       # Memory cap for processing
         }
     }
 }
 ```
 
-### Advanced Configuration
+### Parameter Reference
 
-```python
-# For higher spatial resolution (dSPM)
-config = {
-    "apply_source_localization": {
-        "enabled": True,
-        "value": {
-            "method": "dSPM",           # Depth-weighted
-            "lambda2": 0.111,
-            "pick_ori": "normal",
-            "n_jobs": 10
-        }
-    }
-}
+| Parameter        | Type    | Default               | Description |
+|------------------|---------|-----------------------|-------------|
+| `method`         | string  | `"MNE"`              | Inverse solution; only MNE supported by the package |
+| `lambda2`        | float   | `0.111`               | Regularisation (1 / SNR²) |
+| `montage`        | string  | `"GSN-HydroCel-129"` | Input montage name passed to the package |
+| `resample_freq`  | float   | `None`                | Optional resampling frequency before localization |
+| `max_memory_gb`  | float   | `8.0`                 | Memory cap enforced by `MemoryManager` |
 
-# For connectivity analyses (unconstrained orientation)
-config = {
-    "apply_source_localization": {
-        "enabled": True,
-        "value": {
-            "method": "MNE",
-            "lambda2": 0.111,
-            "pick_ori": None,            # Free orientation
-            "n_jobs": 10
-        }
-    }
-}
-```
+All parameters are optional—omitting the `value` block will use the defaults.
 
-### Parameters
+## Outputs
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `method` | str | `"MNE"` | Inverse method: `"MNE"`, `"dSPM"`, `"sLORETA"` |
-| `lambda2` | float | `0.111` | Regularization parameter (1/SNR²) |
-| `pick_ori` | str | `"normal"` | Source orientation: `"normal"` (constrained), `None` (free) |
-| `n_jobs` | int | `10` | Number of parallel jobs for forward solution |
-| `convert_to_eeg` | bool | `False` | Convert STCs to 68-channel EEG (Desikan-Killiany ROIs) |
+When the block completes, the following files are written:
 
-### EEG Conversion Feature
+- `derivatives/source_localization/{subject}_dk_regions.set`
+- `derivatives/source_localization/{subject}_dk_regions.fdt` (binary companion file)
+- `derivatives/source_localization/{subject}_region_info.csv`
 
-Optionally convert source estimates (10,242 vertices) to standardized 68-channel EEG format using Desikan-Killiany atlas ROIs. This enables:
-- Analysis with standard EEG software (EEGLAB, FieldTrip, etc.)
-- BIDS-compatible derivatives
-- Simplified ROI-based analyses
-- Compatibility with existing EEG pipelines
+In-memory, the mixin stores the ROI data in `self.source_eeg` and the file path in `self.source_eeg_file`. Legacy attributes (`self.stc`, `self.stc_list`) are set to `None` to flag the absence of raw STCs.
 
-```python
-config = {
-    "apply_source_localization": {
-        "enabled": True,
-        "value": {
-            "method": "MNE",
-            "lambda2": 0.111,
-            "convert_to_eeg": True  # Enable conversion
-        }
-    }
-}
-```
-
-**Outputs when `convert_to_eeg=True`:**
-- `{subject}_dk_regions.set` - EEGLAB file with 68 ROI time courses
-- `{subject}_dk_montage.fif` - MNE montage with ROI centroid positions
-- `{subject}_region_info.csv` - ROI metadata (names, hemispheres, coordinates)
-
-## Usage in Tasks
-
-### Resting-State Example
+## Usage Example
 
 ```python
 from autoclean.core.task import Task
@@ -153,189 +75,39 @@ config = {
     "apply_source_localization": {
         "enabled": True,
         "value": {
-            "method": "MNE",
-            "lambda2": 0.111,
-            "n_jobs": 10
+            "montage": "GSN-HydroCel-129"
         }
     }
 }
 
 class RestingStateSource(Task):
     def run(self):
-        # Preprocessing
         self.import_raw()
         self.resample_data()
         self.filter_data()
         self.rereference_data()
         self.run_ica()
-
-        # Create epochs for source analysis
         self.create_regular_epochs()
 
-        # Apply source localization
-        stc_list = self.apply_source_localization()
-
-        # stc_list is now available for downstream analyses
-        # Each STC: (10242 vertices × time_points)
+        roi_epochs = self.apply_source_localization()
+        print(f"ROI channels: {roi_epochs.info['nchan']}")  # -> 68
+        print(f"Saved file: {self.source_eeg_file}")
 ```
 
-### Event-Related Example
+## Migration Notes
 
-```python
-class ERPSource(Task):
-    def run(self):
-        # Preprocessing
-        self.import_raw()
-        self.resample_data()
-        self.filter_data()
-        self.rereference_data()
+- Replace any usage of `self.stc`/`self.stc_list` in downstream code with `self.source_eeg` (ROI `Raw`/`Epochs`).
+- PSD, connectivity, and FOOOF blocks must consume ROI data after adopting this version.
+- For workflows that require high-density vertex data, call the `autocleaneeg-eeg2source` package directly outside the block.
 
-        # Epoch around events
-        self.epoch_data()
-
-        # Source localization on epochs
-        stc_list = self.apply_source_localization()
-
-        # Average across epochs for ERP
-        if stc_list:
-            stc_avg = sum(stc_list) / len(stc_list)
-```
-
-## Outputs
-
-### Source Estimate Objects (STCs)
-
-For **Raw** input:
-- `self.stc`: Single SourceEstimate object
-- Shape: (n_vertices, n_times)
-- Saved to: `derivatives/source_localization/`
-
-For **Epochs** input:
-- `self.stc_list`: List of SourceEstimate objects
-- Length: n_epochs
-- Each STC shape: (n_vertices, n_times_per_epoch)
-- First 3 epochs saved as examples
-
-### STC Properties
-
-```python
-stc.data              # (10242, n_times) array of source activations
-stc.vertices          # [lh_vertices, rh_vertices] vertex indices
-stc.times             # Time vector
-stc.sfreq             # Sampling frequency
-stc.tmin              # Start time
-```
-
-### Metadata
-
-Stored in run database:
-- `method`: Inverse method used
-- `lambda2`: Regularization parameter
-- `n_vertices`: Number of source vertices
-- `sfreq`: Sampling frequency
-- `duration_sec` or `n_epochs`: Data duration/count
-
-## Downstream Analyses
-
-Source estimates enable:
-
-1. **ROI Power Analysis** (Source PSD block)
-   ```python
-   self.apply_source_localization()
-   self.apply_source_psd()
-   ```
-
-2. **Functional Connectivity** (Source Connectivity block)
-   ```python
-   self.apply_source_localization()
-   self.apply_source_connectivity()
-   ```
-
-3. **Custom ROI Extraction**
-   ```python
-   stc_list = self.apply_source_localization()
-   labels = mne.read_labels_from_annot('fsaverage', 'aparc')
-   roi_tc = stc_list[0].extract_label_time_course(labels[0], mode='mean')
-   ```
-
-## Performance
-
-**Computational Cost:**
-- Forward solution: ~30-60 seconds (first time)
-- Inverse operator: ~10-20 seconds
-- Apply inverse (Raw): ~30-90 seconds per minute of data
-- Apply inverse (Epochs): ~1-3 seconds per epoch
-
-**Memory Requirements:**
-- Forward solution: ~500 MB
-- Source estimates (Raw, 5 min): ~2 GB
-- Source estimates (Epochs, 100): ~500 MB
-
-**Optimization Tips:**
-- Increase `n_jobs` for parallel processing (default: 10)
-- Process shorter segments for memory-constrained systems
-- Cache fsaverage data locally (auto-downloaded first run)
-
-## Limitations
-
-1. **Spatial Resolution**
-   - Limited by number of electrodes (64+ recommended)
-   - Deep sources less accurately localized than surface sources
-   - Cannot distinguish nearby sources (point-spread function)
-
-2. **Inverse Problem**
-   - Non-unique solution (regularization required)
-   - Assumptions: sources normal to cortex, distributed
-   - Identity noise covariance may not be optimal for all cases
-
-3. **Template Brain**
-   - fsaverage is an average brain (may not fit individual anatomy)
-   - No individual head modeling or MRI co-registration
-   - Best for group studies and relative comparisons
-
-4. **Data Requirements**
-   - Requires adequate SNR after preprocessing
-   - Montage information must be accurate
-   - Reference must be consistent
+See `MIGRATION_GUIDE.md` for detailed upgrade instructions.
 
 ## Troubleshooting
 
-### "fsaverage data not found"
-**Solution:** MNE will automatically download fsaverage (~200 MB) on first run. Ensure internet connection.
+| Issue | Remedy |
+|-------|--------|
+| `ImportError: autocleaneeg-eeg2source not found` | Install with `pip install autocleaneeg-eeg2source` |
+| ROI file missing in derivatives | Ensure the task config exposes `derivatives_dir` or the task has a valid `file_path`; the block defaults to `<cwd>/derivatives/source_localization/` otherwise |
+| Output shape unexpected | Confirm the input data have a valid montage and minimum channel count |
 
-### "Forward solution failed"
-**Solution:** Check montage is set correctly. Use `self.set_montage()` before source localization.
-
-### High memory usage
-**Solution:** Reduce data length, increase swap space, or process in segments.
-
-### Unrealistic source patterns
-**Solution:**
-- Verify preprocessing quality (ICA, artifact rejection)
-- Check electrode locations are accurate
-- Consider adjusting lambda2 (lower = less smoothing, higher = more)
-
-## Scientific References
-
-1. **Minimum Norm Estimation**
-   - Hämäläinen MS & Ilmoniemi RJ (1994). Interpreting magnetic fields of the brain: minimum norm estimates. *Medical & Biological Engineering & Computing*, 32(1), 35-42.
-
-2. **MNE-Python Software**
-   - Gramfort A, et al. (2013). MEG and EEG data analysis with MNE-Python. *Frontiers in Neuroscience*, 7, 267.
-
-3. **fsaverage Template**
-   - Fischl B, et al. (1999). High-resolution intersubject averaging and a coordinate system for the cortical surface. *Human Brain Mapping*, 8(4), 272-284.
-
-4. **Inverse Methods Comparison**
-   - Grech R, et al. (2008). Review on solving the inverse problem in EEG source analysis. *Journal of NeuroEngineering and Rehabilitation*, 5(1), 25.
-
-5. **Desikan-Killiany Atlas**
-   - Desikan RS, et al. (2006). An automated labeling system for subdividing the human cerebral cortex on MRI scans into gyral based regions of interest. *NeuroImage*, 31(3), 968-980.
-
-## Version History
-
-- **1.0.0** (2025-09-29): Initial release
-  - MNE source localization for Raw and Epochs
-  - fsaverage template brain
-  - Identity noise covariance
-  - Automatic saving and metadata tracking
+For additional support, contact the AutoCleanEEG maintainers or open an issue in the registry.

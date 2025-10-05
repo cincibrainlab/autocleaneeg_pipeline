@@ -1,7 +1,7 @@
 {
   "version": 1,
   "commit": "bundled-v3.0.0",
-  "updated_at": "2025-10-01T00:00:00Z",
+  "updated_at": "2025-10-05T21:00:00Z",
   "blocks": [
     {
       "name": "wavelet_threshold",
@@ -35,8 +35,8 @@
       "name": "source_localization",
       "category": "analysis",
       "path": "blocks/analysis/source_localization",
-      "version": "1.0.0",
-      "description": "MNE source localization for projecting sensor-space EEG to cortical sources using minimum norm estimation"
+      "version": "2.0.1",
+      "description": "MNE source localization using autocleaneeg-eeg2source package - always outputs 68 Desikan-Killiany atlas regions"
     },
     {
       "name": "source_psd",

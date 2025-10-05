@@ -1,7 +1,7 @@
 {
   "name": "source_localization",
-  "version": "1.0.0",
-  "description": "MNE source localization for projecting sensor-space EEG to cortical sources using minimum norm estimation",
+  "version": "2.0.1",
+  "description": "MNE source localization using autocleaneeg-eeg2source package - always outputs 68 Desikan-Killiany atlas regions",
   "author": "AutoCleanEEG Team",
   "maintainer": "ernest.pedapati@cchmc.org",
   "license": "MIT",
@@ -15,12 +15,11 @@
   },
 
   "dependencies": {
-    "python": ">=3.10",
+    "python": ">=3.9,<3.13",
     "packages": {
-      "mne": ">=1.10.0",
-      "numpy": ">=2.0.0",
-      "scipy": ">=1.16.0",
-      "matplotlib": ">=3.10.0"
+      "mne": ">=1.6.0",
+      "numpy": ">1.24.4",
+      "autocleaneeg-eeg2source": ">=0.3.7"
     },
     "autocleaneeg-pipeline": ">=3.0.0",
     "fsaverage_data": "required"
@@ -30,7 +29,7 @@
     "data_types": ["raw", "epochs"],
     "processing_stages": ["post_ica", "post_filtering", "post_epoching"],
     "min_channels": 19,
-    "requires_montage": true,
+    "requires_montage": false,
     "requires_reference": false
   },
 
@@ -38,31 +37,28 @@
     "memory_gb": 4,
     "estimated_time_minutes": "2-5 per subject",
     "cpu_intensive": true,
-    "supports_parallel": true
+    "supports_parallel": false
   },
 
   "outputs": {
     "primary": {
-      "type": "SourceEstimate",
-      "format": "STC object",
-      "saved_to": "derivatives/source_localization/"
-    },
-    "optional_eeg_conversion": {
       "type": "Raw or Epochs",
-      "format": "EEGLAB .set file",
-      "saved_to": "derivatives/source_localization_eeg/",
-      "description": "68-channel EEG (Desikan-Killiany ROIs) when convert_to_eeg=True",
+      "format": "EEGLAB .set file with 68 channels",
+      "saved_to": "derivatives/source_localization/",
+      "description": "68-channel EEG data representing Desikan-Killiany atlas regions",
       "includes": [
-        "{subject}_dk_regions.set: EEGLAB file with ROI time courses",
-        "{subject}_dk_montage.fif: MNE montage with ROI centroids",
+        "{subject}_dk_regions.set: EEGLAB file with 68 ROI time courses",
         "{subject}_region_info.csv: ROI metadata (names, hemispheres, positions)"
       ]
     },
     "metadata": {
-      "n_vertices": "integer (typically 10,242)",
-      "method": "string (MNE, dSPM, sLORETA)",
+      "n_roi_channels": "integer (always 68)",
+      "atlas": "string (Desikan-Killiany)",
+      "method": "string (MNE)",
       "lambda2": "float (regularization parameter)",
-      "sfreq": "float (sampling frequency)"
+      "montage": "string (EEG montage used)",
+      "sfreq": "float (sampling frequency)",
+      "package": "string (autocleaneeg-eeg2source)"
     }
   },
 
@@ -70,29 +66,28 @@
     "method": {
       "type": "string",
       "default": "MNE",
-      "options": ["MNE", "dSPM", "sLORETA"],
-      "description": "Inverse solution method"
+      "options": ["MNE"],
+      "description": "Inverse solution method (only MNE currently supported)"
     },
     "lambda2": {
       "type": "float",
       "default": 0.111,
       "description": "Regularization parameter (1/SNR²)"
     },
-    "pick_ori": {
+    "montage": {
       "type": "string",
-      "default": "normal",
-      "options": ["normal", null],
-      "description": "Source orientation constraint"
+      "default": null,
+      "description": "EEG montage name (null = auto-detect from data)"
     },
-    "n_jobs": {
-      "type": "integer",
-      "default": 10,
-      "description": "Number of parallel jobs"
+    "resample_freq": {
+      "type": "float",
+      "default": null,
+      "description": "Target sampling frequency (null = keep original)"
     },
-    "convert_to_eeg": {
-      "type": "boolean",
-      "default": false,
-      "description": "Convert source estimates to 68-channel EEG format (Desikan-Killiany ROIs) for BIDS derivatives"
+    "max_memory_gb": {
+      "type": "float",
+      "default": 8.0,
+      "description": "Maximum memory usage in GB"
     }
   },
 
@@ -109,13 +104,18 @@
       "doi": "10.3389/fnins.2013.00267"
     },
     {
-      "name": "fsaverage template",
-      "citation": "Fischl B, et al. (1999). High-resolution intersubject averaging and a coordinate system for the cortical surface. Human Brain Mapping, 8(4), 272-284.",
-      "doi": "10.1002/(SICI)1097-0193(1999)8:4<272::AID-HBM10>3.0.CO;2-4"
+      "name": "Desikan-Killiany Atlas",
+      "citation": "Desikan RS, et al. (2006). An automated labeling system for subdividing the human cerebral cortex on MRI scans into gyral based regions of interest. NeuroImage, 31(3), 968-980.",
+      "doi": "10.1016/j.neuroimage.2006.01.021"
+    },
+    {
+      "name": "autocleaneeg-eeg2source package",
+      "url": "https://pypi.org/project/autocleaneeg-eeg2source/",
+      "citation": "AutoClean EEG2Source - EEG source localization with DK atlas regions"
     }
   ],
 
-  "tags": ["source-localization", "inverse-solution", "cortical-mapping", "mne", "fsaverage", "minimum-norm"],
+  "tags": ["source-localization", "inverse-solution", "cortical-mapping", "mne", "fsaverage", "minimum-norm", "desikan-killiany"],
 
   "registry": {
     "url": "https://registry.autocleaneeg.org/blocks/source_localization",
@@ -123,6 +123,34 @@
     "source_url": "https://github.com/cincibrainlab/autocleaneeg-task-registry/tree/main/blocks/analysis/source_localization"
   },
 
+  "changelog": {
+    "2.0.1": {
+      "date": "2025-10-05",
+      "changes": [
+        "Fix: Make montage parameter optional (auto-detects from data)",
+        "Fix: Prevent re-applying montage when data already has positions",
+        "Compatible with data that already has montage set in preprocessing"
+      ]
+    },
+    "2.0.0": {
+      "date": "2025-10-05",
+      "changes": [
+        "Migrated to autocleaneeg-eeg2source PyPI package",
+        "Now always outputs 68 DK atlas regions (no raw STCs)",
+        "Removed convert_to_eeg parameter (always enabled)",
+        "Improved memory management via MemoryManager",
+        "Better EOG channel handling",
+        "Simplified API - seamless drop-in replacement"
+      ]
+    },
+    "1.0.0": {
+      "date": "2025-09-29",
+      "changes": [
+        "Initial release with custom implementation"
+      ]
+    }
+  },
+
   "created_at": "2025-09-29T23:55:00Z",
-  "updated_at": "2025-09-29T23:55:00Z"
+  "updated_at": "2025-10-05T18:40:00Z"
 }
