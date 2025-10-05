@@ -373,16 +373,19 @@ class BlockRegistry:
         return bundled_index
 
     # ---------------- Query helpers -----------------
-    def _get_actual_block_version(self, block_path: str) -> str:
+    def _get_actual_block_version(self, block_name: str, category: str, block_path: str) -> str:
         """Get the version from the actual manifest.json file that will be used at runtime.
 
         Checks in priority order: cache first, then bundled (matching mixin loading priority).
 
         Args:
-            block_path: Relative path to block directory (e.g., "blocks/analysis/fooof_analysis")
+            block_name: Block name (e.g., "fooof_periodic")
+            category: Block category (e.g., "analysis")
+            block_path: Relative path to bundled block (e.g., "blocks/analysis/fooof_analysis")
         """
         # Check cache first (highest priority, like mixin loading)
-        cache_manifest = self.cache_root / block_path / "manifest.json"
+        # Cache uses category/name structure
+        cache_manifest = self.cache_root / category / block_name / "manifest.json"
         if cache_manifest.exists():
             try:
                 with cache_manifest.open("r", encoding="utf-8") as f:
@@ -392,6 +395,7 @@ class BlockRegistry:
                 pass
 
         # Fallback to bundled
+        # Bundled uses path from registry (includes "blocks/" prefix)
         bundled_manifest = Path(__file__).parent.parent / block_path / "manifest.json"
         if bundled_manifest.exists():
             try:
@@ -412,7 +416,7 @@ class BlockRegistry:
             path = entry["path"]
 
             # Get actual version from the file that will be used at runtime
-            actual_version = self._get_actual_block_version(path)
+            actual_version = self._get_actual_block_version(name, category, path)
 
             blocks.append(ProcessingBlock(
                 name=name,
@@ -493,14 +497,15 @@ class BlockRegistry:
             return "missing"
 
         # Check cache first (highest priority, like mixin loading)
-        # Use block.path from registry instead of constructing from category/name
-        cache_dir = self.cache_root / block.path
+        # Cache uses category/name structure
+        cache_dir = self.cache_root / block.category / block.name
         if cache_dir.exists() and cache_dir.is_dir():
             # Verify it has a mixin.py file (actually loadable)
             if (cache_dir / "mixin.py").exists():
                 return "cache"
 
         # Check bundled second (fallback)
+        # Bundled uses path from registry
         bundled_dir = Path(__file__).parent.parent / block.path
         if bundled_dir.exists() and bundled_dir.is_dir():
             # Verify it has a mixin.py file (actually loadable)
