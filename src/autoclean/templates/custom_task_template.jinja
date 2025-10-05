@@ -147,7 +147,7 @@ class {{ class_name }}(Task):
         # If your recording used A1 or A2 as reference, and you're re-referencing
         # to average, you can drop them as they don't contain independent brain signals.
         # Example:
-        #   self.set_channel_types({'A1': 'misc', 'A2': 'misc'}, drop=True)
+        #   self.set_channel_types(ch_types_dict={'A1': 'misc', 'A2': 'misc'}, drop=True)
 
         # Basic preprocessing steps
         self.resample_data()
