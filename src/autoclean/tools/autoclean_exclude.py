@@ -3164,6 +3164,20 @@ class ExclusionFileSelector(ReviewBase):
         toolbar_layout.setSpacing(10)
         toolbar_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
+        # Branding label
+        branding = QLabel("AutocleanEEG Exclude")
+        branding.setObjectName("appBrandingLabel")
+        branding.setStyleSheet(
+            "font-size: 11px; letter-spacing: 0.5px; "
+            "color: #3a7bd5; font-weight: 700;"
+        )
+        toolbar_layout.addWidget(branding)
+
+        # Separator
+        separator = QLabel("·")
+        separator.setStyleSheet("color: #cbd5e0; font-size: 14px; margin: 0 4px;")
+        toolbar_layout.addWidget(separator)
+
         # Choose folder button
         index = self.left_layout.indexOf(self.select_dir_btn)
         if index >= 0:
