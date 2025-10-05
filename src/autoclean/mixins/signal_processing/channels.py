@@ -442,6 +442,13 @@ class ChannelsMixin:
                         f"Dropped {len(channels_to_drop)} channels: {channels_to_drop}"
                     )
 
+                    # Track channel removals in unified metadata
+                    self._track_channel_removal(
+                        channels=channels_to_drop,
+                        reason="REFERENCE_DROPPED",
+                        source_step=stage_name,
+                    )
+
                     # Update metadata
                     metadata = {
                         "dropped_channels": channels_to_drop,
