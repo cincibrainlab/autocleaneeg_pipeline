@@ -72,7 +72,8 @@ def create_statistical_learning_randomized_epochs(
     - Creating epochs every 30 syllables regardless of word boundaries (randomized baseline)
     """
 
-    if not isinstance(data, (mne.io.Raw, mne.io.base.BaseRaw)):
+    # Type checking - use BaseRaw to support all file formats (FIFF, EEGLAB, etc.)
+    if not isinstance(data, mne.io.base.BaseRaw):
         raise TypeError(
             "Data must be an MNE Raw object for SL randomized epoch creation"
         )

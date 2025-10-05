@@ -592,7 +592,8 @@ class BasicStepsMixin:
             source_step="drop_outer_layer",
         )
 
-        if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
+        # Save result if it's a Raw object (use BaseRaw for all file formats)
+        if isinstance(processed_data, mne.io.base.BaseRaw):
             self._save_raw_result(processed_data, stage_name)
 
         metadata = {
@@ -771,7 +772,8 @@ class BasicStepsMixin:
         new_duration = processed_data.times[-1] - processed_data.times[0]
         message("info", f"Data trimmed. New duration: {new_duration:.3f}s")
 
-        if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
+        # Save result if it's a Raw object (use BaseRaw for all file formats)
+        if isinstance(processed_data, mne.io.base.BaseRaw):
             self._save_raw_result(processed_data, stage_name)
 
         metadata = {
@@ -859,7 +861,8 @@ class BasicStepsMixin:
         new_duration = processed_data.times[-1] - processed_data.times[0]
         message("info", f"Data cropped. New duration: {new_duration:.3f}s")
 
-        if isinstance(processed_data, (mne.io.Raw, mne.io.base.BaseRaw)):
+        # Save result if it's a Raw object (use BaseRaw for all file formats)
+        if isinstance(processed_data, mne.io.base.BaseRaw):
             self._save_raw_result(processed_data, stage_name)
 
         metadata = {

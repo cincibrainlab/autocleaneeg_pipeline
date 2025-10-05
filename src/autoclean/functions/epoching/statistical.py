@@ -69,7 +69,8 @@ def create_statistical_learning_epochs(
     - Adding metadata for events within epochs
     """
 
-    if not isinstance(data, (mne.io.Raw, mne.io.base.BaseRaw)):
+    # Type checking - use BaseRaw to support all file formats (FIFF, EEGLAB, etc.)
+    if not isinstance(data, mne.io.base.BaseRaw):
         raise TypeError("Data must be an MNE Raw object for SL epoch creation")
 
     # Calculate tmax from num_syllables

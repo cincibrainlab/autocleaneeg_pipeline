@@ -72,10 +72,8 @@ class ChannelsMixin:
         # Determine which data to use
         data = self._get_data_object(data)
 
-        # Type checking
-        if not isinstance(data, mne.io.Raw) and not isinstance(
-            data, mne.io.base.BaseRaw
-        ):
+        # Type checking - use BaseRaw to support all file formats (FIFF, EEGLAB, etc.)
+        if not isinstance(data, mne.io.base.BaseRaw):
             raise TypeError("Data must be an MNE Raw object for bad channel detection")
 
         try:
@@ -348,8 +346,8 @@ class ChannelsMixin:
 
             self._update_metadata("step_drop_channels", metadata)
 
-            # Save the result if it's a Raw object
-            if isinstance(result_data, mne.io.Raw):
+            # Save the result if it's a Raw object (use BaseRaw for all file formats)
+            if isinstance(result_data, mne.io.base.BaseRaw):
                 self._save_raw_result(result_data, stage_name)
 
             # Update self.raw or self.epochs
@@ -417,9 +415,9 @@ class ChannelsMixin:
         # Determine which data to use
         data = self._get_data_object(data, use_epochs)
 
-        # Type checking
+        # Type checking - use BaseRaw/BaseEpochs to support all file formats (FIFF, EEGLAB, etc.)
         if not isinstance(
-            data, (mne.io.Raw, mne.Epochs)
+            data, (mne.io.BaseRaw, mne.BaseEpochs)
         ):  # pylint: disable=isinstance-second-argument-not-valid-type
             raise TypeError(
                 "Data must be an MNE Raw or Epochs object for setting channel types"
@@ -476,8 +474,8 @@ class ChannelsMixin:
 
             self._update_metadata("set_channel_types", metadata)
 
-            # Save the result if it's a Raw object
-            if isinstance(result_data, mne.io.Raw):
+            # Save the result if it's a Raw object (use BaseRaw for all file formats)
+            if isinstance(result_data, mne.io.base.BaseRaw):
                 self._save_raw_result(result_data, stage_name)
 
             # Update self.raw or self.epochs

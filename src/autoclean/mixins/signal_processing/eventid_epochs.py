@@ -79,10 +79,8 @@ class EventIDEpochsMixin:
         # Determine which data to use
         data = self._get_data_object(data)
 
-        # Type checking
-        if not isinstance(data, mne.io.Raw) and not isinstance(
-            data, mne.io.base.BaseRaw
-        ):
+        # Type checking - use BaseRaw to support all file formats (FIFF, EEGLAB, etc.)
+        if not isinstance(data, mne.io.base.BaseRaw):
             message("error", "Data must be an MNE Raw object for event discovery")
             return None
 
@@ -543,10 +541,8 @@ class EventIDEpochsMixin:
         # Determine which data to use
         data = self._get_data_object(data)
 
-        # Type checking
-        if not isinstance(data, mne.io.Raw) and not isinstance(
-            data, mne.io.base.BaseRaw
-        ):
+        # Type checking - use BaseRaw to support all file formats (FIFF, EEGLAB, etc.)
+        if not isinstance(data, mne.io.base.BaseRaw):
             raise TypeError("Data must be an MNE Raw object for epoch creation")
 
         try:

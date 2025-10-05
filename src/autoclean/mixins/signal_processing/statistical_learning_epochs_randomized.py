@@ -98,7 +98,8 @@ class StatisticalLearningRandomizedEpochsMixin:
 
         # Determine which data to use
         data = self._get_data_object(data)
-        if not isinstance(data, (mne.io.Raw, mne.io.base.BaseRaw)):
+        # Type checking - use BaseRaw to support all file formats (FIFF, EEGLAB, etc.)
+        if not isinstance(data, mne.io.base.BaseRaw):
             raise TypeError("Data must be an MNE Raw object for SL epoch creation")
 
         try:
