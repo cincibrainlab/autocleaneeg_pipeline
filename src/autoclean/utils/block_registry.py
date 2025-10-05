@@ -373,18 +373,51 @@ class BlockRegistry:
         return bundled_index
 
     # ---------------- Query helpers -----------------
+    def _get_actual_block_version(self, block_name: str, category: str) -> str:
+        """Get the version from the actual manifest.json file that will be used at runtime.
+
+        Checks in priority order: cache first, then bundled (matching mixin loading priority).
+        """
+        # Check cache first (highest priority, like mixin loading)
+        cache_path = self.cache_root / category / block_name / "manifest.json"
+        if cache_path.exists():
+            try:
+                with cache_path.open("r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+                    return manifest.get("version", "unknown")
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        # Fallback to bundled
+        bundled_path = Path(__file__).parent.parent / "blocks" / category / block_name / "manifest.json"
+        if bundled_path.exists():
+            try:
+                with bundled_path.open("r", encoding="utf-8") as f:
+                    manifest = json.load(f)
+                    return manifest.get("version", "unknown")
+            except (json.JSONDecodeError, OSError):
+                pass
+
+        return "unknown"
+
     def list_blocks(self) -> List[ProcessingBlock]:
         index = self._load_index()
-        return [
-            ProcessingBlock(
-                name=entry["name"],
-                category=entry.get("category", "unknown"),
+        blocks = []
+        for entry in index.get("blocks", []):  # type: ignore[arg-type]
+            name = entry["name"]
+            category = entry.get("category", "unknown")
+
+            # Get actual version from the file that will be used at runtime
+            actual_version = self._get_actual_block_version(name, category)
+
+            blocks.append(ProcessingBlock(
+                name=name,
+                category=category,
                 path=entry["path"],
-                version=entry.get("version", "unknown"),
+                version=actual_version,  # Use actual version, not registry metadata
                 description=entry.get("description", ""),
-            )
-            for entry in index.get("blocks", [])  # type: ignore[arg-type]
-        ]
+            ))
+        return blocks
 
     def get_block(self, block_name: str) -> Optional[ProcessingBlock]:
         return next((block for block in self.list_blocks() if block.name == block_name), None)
@@ -447,23 +480,28 @@ class BlockRegistry:
         }
 
     def block_source(self, block_name: str) -> str:
+        """Determine which source will be used at runtime (matches mixin loading priority).
+
+        Returns: "cache", "bundled", or "missing"
+        """
         block = self.get_block(block_name)
         if not block:
             return "missing"
 
-        record = self.manifest.block_record(block.name)
-        if record:
-            source = record.get("source")
-            if isinstance(source, str):
-                return source
+        # Check cache first (highest priority, like mixin loading)
+        cache_path = self.cache_root / block.category / block.name
+        if cache_path.exists() and cache_path.is_dir():
+            # Verify it has a mixin.py file (actually loadable)
+            if (cache_path / "mixin.py").exists():
+                return "cache"
 
-        cached = self._cache_path_for(block.path)
-        if cached.exists() and cached.is_dir():
-            return "cache"
+        # Check bundled second (fallback)
+        bundled_path = Path(__file__).parent.parent / "blocks" / block.category / block.name
+        if bundled_path.exists() and bundled_path.is_dir():
+            # Verify it has a mixin.py file (actually loadable)
+            if (bundled_path / "mixin.py").exists():
+                return "bundled"
 
-        bundled = Path(__file__).parent.parent / "blocks" / block.category / block.name
-        if bundled.exists() and bundled.is_dir():
-            return "bundled"
         return "missing"
 
     # ---------------- Materialization -----------------
