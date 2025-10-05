@@ -3164,11 +3164,12 @@ class ExclusionFileSelector(ReviewBase):
         toolbar_layout.setSpacing(10)
         toolbar_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        # Branding label
-        branding = QLabel("AutocleanEEG Exclude")
+        # Branding label (two lines for compact width)
+        branding = QLabel("AutocleanEEG<br>Exclude")
         branding.setObjectName("appBrandingLabel")
+        branding.setAlignment(Qt.AlignCenter)
         branding.setStyleSheet(
-            "font-size: 11px; letter-spacing: 0.5px; "
+            "font-size: 13px; letter-spacing: 0.4px; line-height: 1.1; "
             "color: #3a7bd5; font-weight: 700;"
         )
         toolbar_layout.addWidget(branding)
