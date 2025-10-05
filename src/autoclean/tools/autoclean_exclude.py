@@ -1450,7 +1450,7 @@ class _JsonTreeModel(QAbstractItemModel):
         return None
 
 class ProcessingMetricsWidget(QWidget):
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, open_folder_btn: Optional[QPushButton] = None, refresh_btn: Optional[QPushButton] = None) -> None:
         super().__init__(parent)
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1490,6 +1490,19 @@ class ProcessingMetricsWidget(QWidget):
         self.open_qa_folder_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
         self.open_qa_folder_btn.setToolTip("Open the QA folder in your file browser")
         button_toolbar_layout.addWidget(self.open_qa_folder_btn)
+
+        # Add open folder and refresh buttons if provided
+        if open_folder_btn is not None:
+            open_folder_btn.setMinimumHeight(34)
+            open_folder_btn.setMaximumWidth(180)
+            open_folder_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+            button_toolbar_layout.addWidget(open_folder_btn)
+
+        if refresh_btn is not None:
+            refresh_btn.setMinimumHeight(34)
+            refresh_btn.setMaximumWidth(180)
+            refresh_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+            button_toolbar_layout.addWidget(refresh_btn)
 
         button_toolbar_layout.addStretch(1)
 
@@ -2435,6 +2448,7 @@ class ExclusionFileSelector(ReviewBase):
         self._pending_selection_item: Optional[QTreeWidgetItem] = None
         self._selection_timer: Optional[QTimer] = None
         self.show_backup_folders = False  # Toggle for showing backup/reprocess folders
+        self._filename_filter = ""  # Filter text for file list
 
         super().__init__(
             str(self.exports_dir) if self.exports_dir is not None else None
@@ -3093,7 +3107,10 @@ class ExclusionFileSelector(ReviewBase):
         detail_tabs.setFocusPolicy(Qt.NoFocus)
         detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
-        self.metrics_widget = ProcessingMetricsWidget()
+        self.metrics_widget = ProcessingMetricsWidget(
+            open_folder_btn=self.open_folder_btn,
+            refresh_btn=self.refresh_btn
+        )
 
         # Connect and style Export to QA button
         self.metrics_widget.export_to_qa_btn.clicked.connect(self._batch_export_to_qa)
@@ -3147,52 +3164,37 @@ class ExclusionFileSelector(ReviewBase):
         toolbar_layout.setSpacing(10)
         toolbar_layout.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-        header = QLabel("Workspace")
-        header.setObjectName("directoryToolbarLabel")
-        header.setAlignment(Qt.AlignVCenter)
-        header.setStyleSheet(
-            "font-size: 11px; letter-spacing: 0.6px; text-transform: uppercase; "
-            "color: #5b6c7c; font-weight: 600;"
+        # Choose folder button
+        index = self.left_layout.indexOf(self.select_dir_btn)
+        if index >= 0:
+            self.left_layout.removeWidget(self.select_dir_btn)
+        self.select_dir_btn.setText("Choose Folder…")
+        icon = self.style().standardIcon(QStyle.SP_DialogOpenButton)
+        if not icon.isNull():
+            self.select_dir_btn.setIcon(icon)
+            self.select_dir_btn.setIconSize(QSize(18, 18))
+        self.select_dir_btn.setToolTip("Browse for a directory containing exported .set files.")
+        self.select_dir_btn.setCursor(Qt.PointingHandCursor)
+        self.select_dir_btn.setMinimumHeight(34)
+        self.select_dir_btn.setMaximumWidth(180)
+        self.select_dir_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+        toolbar_layout.addWidget(self.select_dir_btn)
+
+        # Current folder label
+        self._current_folder_label = QLabel()
+        self._current_folder_label.setObjectName("currentFolderLabel")
+        self._current_folder_label.setStyleSheet(
+            "font-size: 12px; color: #5b6c7c; font-weight: 500; margin-left: 8px;"
         )
-        toolbar_layout.addWidget(header)
+        toolbar_layout.addWidget(self._current_folder_label)
 
-        toolbar_layout.addStretch(1)
-
-        button_specs = (
-            (
-                self.select_dir_btn,
-                "Choose Folder…",
-                self.style().standardIcon(QStyle.SP_DialogOpenButton),
-                "Browse for a directory containing exported .set files.",
-            ),
-            (
-                self.open_folder_btn,
-                "Open Folder",
-                self.style().standardIcon(QStyle.SP_DirIcon),
-                "Reveal the current review folder in your file browser.",
-            ),
-            (
-                self.refresh_btn,
-                "Refresh List",
-                self.style().standardIcon(QStyle.SP_BrowserReload),
-                "Reload the file tree to pick up new or modified exports.",
-            ),
-        )
-
-        for button, label, icon, tooltip in button_specs:
-            index = self.left_layout.indexOf(button)
-            if index >= 0:
-                self.left_layout.removeWidget(button)
-            button.setText(label)
-            if not icon.isNull():
-                button.setIcon(icon)
-                button.setIconSize(QSize(18, 18))
-            button.setToolTip(tooltip)
-            button.setCursor(Qt.PointingHandCursor)
-            button.setMinimumHeight(34)
-            button.setMaximumWidth(180)
-            button.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
-            toolbar_layout.addWidget(button)
+        # Remove open folder and refresh buttons from toolbar (moved to QA toolbar)
+        index = self.left_layout.indexOf(self.open_folder_btn)
+        if index >= 0:
+            self.left_layout.removeWidget(self.open_folder_btn)
+        index = self.left_layout.indexOf(self.refresh_btn)
+        if index >= 0:
+            self.left_layout.removeWidget(self.refresh_btn)
 
         toolbar_layout.addStretch(1)
 
@@ -3241,29 +3243,34 @@ class ExclusionFileSelector(ReviewBase):
         self.left_layout.insertWidget(0, header_container)
         self.directory_toolbar_container = header_container
 
-        # Add folder path label with backup toggle on its own row under the toolbar rows
-        path_row = QHBoxLayout()
-        path_row.setContentsMargins(0, 0, 0, 0)
+        # Add filter input with backup toggle on its own row under the toolbar rows
+        filter_row = QHBoxLayout()
+        filter_row.setContentsMargins(0, 0, 0, 0)
+        filter_row.setSpacing(8)
 
-        path_label = QLabel()
-        path_label.setObjectName("directoryPathLabel")
-        path_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        path_label.setWordWrap(True)
-        path_row.addWidget(path_label, stretch=1)
+        # Filter input
+        self._filter_input = QLineEdit()
+        self._filter_input.setPlaceholderText("Filter files...")
+        self._filter_input.setObjectName("fileFilterInput")
+        self._filter_input.setClearButtonEnabled(True)
+        self._filter_input.textChanged.connect(self._on_filter_changed)
+        self._filter_input.setStyleSheet(
+            "QLineEdit { padding: 6px; border: 1px solid #d9e2ec; border-radius: 4px; }"
+            "QLineEdit:focus { border-color: #3a7bd5; }"
+        )
+        filter_row.addWidget(self._filter_input, stretch=1)
 
         # Compact checkbox for showing backup folders
         backup_toggle = QCheckBox("Show backups")
         backup_toggle.setChecked(self.show_backup_folders)
         backup_toggle.setToolTip("Show or hide backup and reprocess folders")
         backup_toggle.toggled.connect(self._on_backup_toggle_changed)
-        path_row.addWidget(backup_toggle, stretch=0)
+        filter_row.addWidget(backup_toggle, stretch=0)
 
         # Insert the horizontal layout
-        path_container = QWidget()
-        path_container.setLayout(path_row)
-        self.left_layout.insertWidget(1, path_container)
-        self._workspace_path_label = path_label
-        self._refresh_workspace_path_label()
+        filter_container = QWidget()
+        filter_container.setLayout(filter_row)
+        self.left_layout.insertWidget(1, filter_container)
 
         if hasattr(self, "file_tree") and self.file_tree is not None:
             try:
@@ -4004,6 +4011,13 @@ class ExclusionFileSelector(ReviewBase):
             else:
                 set_files = all_set_files
 
+            # Apply filename filter if specified
+            if self._filename_filter:
+                set_files = [
+                    f for f in set_files
+                    if self._filename_filter in f.name.lower()
+                ]
+
             set_files = sorted(set_files, key=_sort_key)
 
             for file_path in set_files:
@@ -4119,17 +4133,26 @@ class ExclusionFileSelector(ReviewBase):
             self._refresh_workspace_path_label()
 
     def _refresh_workspace_path_label(self) -> None:
-        """Update the workspace path label with the current directory."""
-        label = self._workspace_path_label
-        if label is None:
+        """Update the current folder label with the directory name."""
+        if not hasattr(self, '_current_folder_label') or self._current_folder_label is None:
             return
-        text = self.current_dir or ""
-        label.setToolTip(text)
-        label.setText(text)
+        if self.current_dir:
+            from pathlib import Path
+            folder_name = Path(self.current_dir).name
+            self._current_folder_label.setText(f"Current: {folder_name}")
+            self._current_folder_label.setToolTip(self.current_dir)
+        else:
+            self._current_folder_label.setText("")
+            self._current_folder_label.setToolTip("")
 
     def _on_backup_toggle_changed(self, checked: bool) -> None:
         """Handle backup folder visibility toggle."""
         self.show_backup_folders = checked
+        self.loadFiles()  # Refresh file tree with new filter
+
+    def _on_filter_changed(self, text: str) -> None:
+        """Handle filename filter text changes."""
+        self._filename_filter = text.strip().lower()
         self.loadFiles()  # Refresh file tree with new filter
 
     def onFileSelect(self, item):  # noqa: N802 - inherited public API
