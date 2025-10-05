@@ -86,10 +86,15 @@ def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None, save_stc:
     return stc
 
 
-def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None):
+def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None, save_stc: bool = False):
     """
     Perform source localization on epoched EEG data using an identity matrix
     for noise covariance.
+
+    Args:
+        epochs: MNE Epochs object
+        config: Configuration dictionary
+        save_stc: If True, save vertex-level STC files for first 3 epochs (default: False)
     """
     # --------------------------------------------------------------------------
     # Preprocessing for Source Localization
@@ -126,7 +131,7 @@ def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None):
         "Computed source estimates for epochs using MNE with identity noise covariance"
     )
 
-    if config is not None:
+    if config is not None and save_stc:
         # For epochs, we get a list of STCs, so we might need to handle this differently
         # or save each epoch separately
         if isinstance(stc, list):
