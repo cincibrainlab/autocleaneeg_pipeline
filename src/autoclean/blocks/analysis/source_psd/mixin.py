@@ -18,18 +18,12 @@ Source-level PSD is fundamental for:
 
 from pathlib import Path
 from typing import Optional, Union
-import importlib.util
 
 import mne
 import pandas as pd
 
-# Import algorithm functions dynamically (for bundled block compatibility)
-_algorithm_path = Path(__file__).parent / "algorithm.py"
-_spec = importlib.util.spec_from_file_location("_source_psd_algorithm", _algorithm_path)
-_algorithm_module = importlib.util.module_from_spec(_spec)
-_spec.loader.exec_module(_algorithm_module)
-calculate_source_psd_list = _algorithm_module.calculate_source_psd_list
-visualize_psd_results = _algorithm_module.visualize_psd_results
+# Import algorithm functions
+from .algorithm import calculate_roi_psd, calculate_source_psd_list, visualize_psd_results
 
 
 class SourcePSDMixin:
@@ -68,24 +62,37 @@ class SourcePSDMixin:
         generate_plots: bool = True,
         stage_name: str = "apply_source_psd",
     ) -> tuple:
-        """Calculate power spectral density from source estimates with ROI averaging.
+        """Calculate power spectral density from source-localized data with ROI averaging.
 
-        This method applies Welch's method to compute PSD from source-localized data
-        and parcellates the results into anatomical regions using the Desikan-Killiany
-        atlas (68 cortical ROIs). The method automatically handles both single STC
-        objects and lists of STCs from epoched data.
+        This method supports two modes:
 
-        The PSD calculation uses adaptive windowing (4s windows with 50% overlap) and
-        parallel batch processing for efficiency. Results include:
+        **ROI-Optimized Mode (v2.0.0+):**
+        - For data from source localization v2.0.1+ (self.source_eeg exists)
+        - Processes 68 DK atlas ROI channels directly
+        - Much faster (~10-30 seconds vs 2-5 minutes)
+        - Uses MNE's built-in PSD computation
+
+        **Vertex-Level Mode (v1.0.0 compatible):**
+        - For data from source localization v1.0.0 (self.stc/self.stc_list exists)
+        - Processes 20,484 cortical vertices with parcellation
+        - Uses parallel batch processing for efficiency
+        - Backward compatible with existing workflows
+
+        Both modes produce identical output formats for downstream compatibility.
+
+        The PSD calculation uses Welch's method with adaptive windowing (4s windows,
+        50% overlap). Results include:
         - Full frequency-resolved PSD (0.5-45 Hz) for each ROI
         - Band power summaries (delta, theta, alpha, beta, gamma)
         - Diagnostic visualizations (4-panel plots)
 
         Args:
-            stc_list: Optional SourceEstimate or list. If None, uses self.stc or self.stc_list
+            stc_list: Optional SourceEstimate or list. If None, auto-detects from
+                self.source_eeg (ROI mode) or self.stc/self.stc_list (vertex mode)
             segment_duration: Duration in seconds to process (default: 80s for optimal
                 balance of accuracy and performance). If None, uses entire data.
             n_jobs: Number of parallel jobs for computation (default: 4)
+                Note: Only used in vertex-level mode
             generate_plots: Whether to generate diagnostic PSD plots (default: True)
             stage_name: Name for saving and metadata tracking
 
@@ -95,13 +102,13 @@ class SourcePSDMixin:
                 - file_path: Path to saved parquet file
 
         Raises:
-            AttributeError: If no source estimates found (no self.stc or self.stc_list)
-            TypeError: If input is not SourceEstimate or list
+            AttributeError: If no source data found (no self.source_eeg, self.stc, or self.stc_list)
+            TypeError: If input is not valid source data
             RuntimeError: If PSD calculation fails
 
         Example:
             ```python
-            # Apply source PSD with default parameters
+            # Apply source PSD with default parameters (auto-detects mode)
             psd_df, file_path = task.apply_source_psd()
 
             # Apply with custom parameters
@@ -111,20 +118,20 @@ class SourcePSDMixin:
                 generate_plots=False
             )
 
-            # Access results
+            # Access results (same format regardless of mode)
             print(psd_df.head())  # View ROI PSDs
             ```
 
         Notes
         -----
-        - Requires prior source localization (self.stc or self.stc_list must exist)
-        - Uses fsaverage brain and Desikan-Killiany atlas (68 ROIs)
+        - Requires prior source localization (v2.0.1 or v1.0.0)
+        - Uses Desikan-Killiany atlas (68 cortical ROIs)
         - Saves three files:
             * {subject}_roi_psd.parquet: Full frequency-resolved data
             * {subject}_roi_bands.csv: Band power summaries
             * {subject}_psd_visualization.png: Diagnostic plots (if generate_plots=True)
         - Frequency bands: delta (1-4), theta (4-8), alpha (8-13), beta (13-30), gamma (30-45)
-        - Processes middle epochs for better stationarity
+        - Processes middle epochs/segments for better stationarity
         """
         # Check if this step is enabled in the configuration
         if hasattr(self, "_check_step_enabled"):
@@ -143,27 +150,76 @@ class SourcePSDMixin:
                 n_jobs = config_value.get("n_jobs", n_jobs)
                 generate_plots = config_value.get("generate_plots", generate_plots)
 
-        # Determine which data to use
+        # Determine which data to use and which mode to run
+        # Priority: explicit parameter > self.source_eeg (v2.0+) > self.stc/stc_list (v1.0)
+        use_roi_mode = False
+        roi_data = None
+
         if stc_list is None:
-            # Try to get source estimates from task object
-            if hasattr(self, "stc_list") and self.stc_list is not None:
+            # Check for ROI-optimized data first (v2.0.1+ source localization)
+            if hasattr(self, "source_eeg") and self.source_eeg is not None:
+                use_roi_mode = True
+                roi_data = self.source_eeg
+                if hasattr(self, "message"):
+                    self.message("info", "Detected ROI-optimized source data (source localization v2.0.1+)")
+                    self.message("info", f"Using fast 68-channel mode (vs 20,484-vertex mode)")
+                else:
+                    print("INFO: Detected ROI-optimized source data (source localization v2.0.1+)")
+                    print("INFO: Using fast 68-channel mode (vs 20,484-vertex mode)")
+            # Fall back to vertex-level data (v1.0.0 source localization)
+            elif hasattr(self, "stc_list") and self.stc_list is not None:
                 stc_list = self.stc_list
+                use_roi_mode = False
+                if hasattr(self, "message"):
+                    self.message("info", "Detected vertex-level source data (source localization v1.0.0)")
+                    self.message("info", "Using vertex-level mode with parcellation")
+                else:
+                    print("INFO: Detected vertex-level source data (source localization v1.0.0)")
+                    print("INFO: Using vertex-level mode with parcellation")
             elif hasattr(self, "stc") and self.stc is not None:
                 stc_list = self.stc
+                use_roi_mode = False
+                if hasattr(self, "message"):
+                    self.message("info", "Detected vertex-level source data (source localization v1.0.0)")
+                    self.message("info", "Using vertex-level mode with parcellation")
+                else:
+                    print("INFO: Detected vertex-level source data (source localization v1.0.0)")
+                    print("INFO: Using vertex-level mode with parcellation")
             else:
                 raise AttributeError(
-                    "No source estimates found. Apply source localization first "
-                    "(self.stc or self.stc_list must exist)."
+                    "No source data found. Apply source localization first "
+                    "(v2.0.1: self.source_eeg, or v1.0.0: self.stc/self.stc_list must exist)."
+                )
+        else:
+            # Explicit parameter provided - determine type
+            # Check if it's ROI data (Raw/Epochs) or vertex data (SourceEstimate)
+            if isinstance(stc_list, (mne.io.BaseRaw, mne.BaseEpochs)):
+                use_roi_mode = True
+                roi_data = stc_list
+                if hasattr(self, "message"):
+                    self.message("info", "Using ROI-optimized mode (68 channels)")
+                else:
+                    print("INFO: Using ROI-optimized mode (68 channels)")
+            elif isinstance(stc_list, (mne.SourceEstimate, list)):
+                use_roi_mode = False
+                if hasattr(self, "message"):
+                    self.message("info", "Using vertex-level mode (20,484 vertices)")
+                else:
+                    print("INFO: Using vertex-level mode (20,484 vertices)")
+            else:
+                raise TypeError(
+                    f"Data must be Raw, Epochs, SourceEstimate, or list, got {type(stc_list)}"
                 )
 
-        # Type checking
-        is_single_stc = isinstance(stc_list, mne.SourceEstimate)
-        is_list = isinstance(stc_list, list)
+        # Type checking for vertex mode
+        if not use_roi_mode:
+            is_single_stc = isinstance(stc_list, mne.SourceEstimate)
+            is_list = isinstance(stc_list, list)
 
-        if not (is_single_stc or is_list):
-            raise TypeError(
-                f"Data must be mne.SourceEstimate or list, got {type(stc_list)}"
-            )
+            if not (is_single_stc or is_list):
+                raise TypeError(
+                    f"Data must be mne.SourceEstimate or list, got {type(stc_list)}"
+                )
 
         try:
             # Log start
@@ -173,17 +229,29 @@ class SourcePSDMixin:
                     "info",
                     f"Segment duration: {segment_duration}s, n_jobs: {n_jobs}",
                 )
-                if is_single_stc:
-                    self.message("info", "Input: Single SourceEstimate")
+                if use_roi_mode:
+                    data_type = "Raw" if isinstance(roi_data, mne.io.BaseRaw) else "Epochs"
+                    self.message("info", f"Input: {data_type} with {len(roi_data.ch_names)} ROI channels")
+                    self.message("info", "Mode: ROI-optimized (fast)")
                 else:
-                    self.message("info", f"Input: {len(stc_list)} SourceEstimates")
+                    if is_single_stc:
+                        self.message("info", "Input: Single SourceEstimate")
+                    else:
+                        self.message("info", f"Input: {len(stc_list)} SourceEstimates")
+                    self.message("info", "Mode: Vertex-level with parcellation")
             else:
                 print("=== Calculating Source-Level PSD ===")
                 print(f"Segment duration: {segment_duration}s, n_jobs: {n_jobs}")
-                if is_single_stc:
-                    print("Input: Single SourceEstimate")
+                if use_roi_mode:
+                    data_type = "Raw" if isinstance(roi_data, mne.io.BaseRaw) else "Epochs"
+                    print(f"Input: {data_type} with {len(roi_data.ch_names)} ROI channels")
+                    print("Mode: ROI-optimized (fast)")
                 else:
-                    print(f"Input: {len(stc_list)} SourceEstimates")
+                    if is_single_stc:
+                        print("Input: Single SourceEstimate")
+                    else:
+                        print(f"Input: {len(stc_list)} SourceEstimates")
+                    print("Mode: Vertex-level with parcellation")
 
             # Prepare parameters
             output_dir = None
@@ -199,6 +267,7 @@ class SourcePSDMixin:
                     output_dir = str(output_dir)
                 elif "output_dir" in config:
                     output_dir = config["output_dir"]
+
                 # Get subject ID from config - use same method as export functions
                 if "unprocessed_file" in config:
                     subject_id = Path(config["unprocessed_file"]).stem
@@ -220,17 +289,29 @@ class SourcePSDMixin:
             if subject_id is None and hasattr(self, "file_path"):
                 subject_id = Path(self.file_path).stem
 
-            # Call algorithm function
-            psd_df, file_path = calculate_source_psd_list(
-                stc_list=stc_list,
-                subjects_dir=None,  # Uses MNE environment variable
-                subject="fsaverage",
-                n_jobs=n_jobs,
-                output_dir=output_dir,
-                subject_id=subject_id,
-                generate_plots=generate_plots,
-                segment_duration=segment_duration,
-            )
+            # Call appropriate algorithm function based on mode
+            if use_roi_mode:
+                # ROI-optimized mode: Process 68 channels directly
+                psd_df, file_path = calculate_roi_psd(
+                    data=roi_data,
+                    segment_duration=segment_duration,
+                    n_jobs=n_jobs,  # Not currently used but kept for API consistency
+                    output_dir=output_dir,
+                    subject_id=subject_id,
+                    generate_plots=generate_plots,
+                )
+            else:
+                # Vertex-level mode: Process 20,484 vertices with parcellation
+                psd_df, file_path = calculate_source_psd_list(
+                    stc_list=stc_list,
+                    subjects_dir=None,  # Uses MNE environment variable
+                    subject="fsaverage",
+                    n_jobs=n_jobs,
+                    output_dir=output_dir,
+                    subject_id=subject_id,
+                    generate_plots=generate_plots,
+                    segment_duration=segment_duration,
+                )
 
             # Generate additional visualization if requested
             if generate_plots:
@@ -262,11 +343,7 @@ class SourcePSDMixin:
 
             # Update metadata
             if hasattr(self, "_update_metadata"):
-                # Get block info for reproducibility
-                block_info = self._get_block_info("source_psd")
-
                 metadata = {
-                    "block_name": "source_psd",
                     "segment_duration": segment_duration,
                     "n_jobs": n_jobs,
                     "generate_plots": generate_plots,
@@ -275,17 +352,20 @@ class SourcePSDMixin:
                     "freq_min": float(psd_df["frequency"].min()),
                     "freq_max": float(psd_df["frequency"].max()),
                     "output_file": file_path,
+                    "psd_mode": "roi_optimized" if use_roi_mode else "vertex_level",
                 }
 
-                # Add block version/commit info for reproducibility
-                if block_info:
-                    metadata.update(block_info)
-
-                if is_single_stc:
-                    metadata["stc_type"] = "single"
+                if use_roi_mode:
+                    metadata["data_type"] = "raw" if isinstance(roi_data, mne.io.BaseRaw) else "epochs"
+                    metadata["n_channels"] = len(roi_data.ch_names)
+                    metadata["processing_mode"] = "68_channel_direct"
                 else:
-                    metadata["stc_type"] = "list"
-                    metadata["n_stcs"] = len(stc_list)
+                    if is_single_stc:
+                        metadata["stc_type"] = "single"
+                    else:
+                        metadata["stc_type"] = "list"
+                        metadata["n_stcs"] = len(stc_list)
+                    metadata["processing_mode"] = "vertex_parcellation"
 
                 self._update_metadata("step_apply_source_psd", metadata)
 

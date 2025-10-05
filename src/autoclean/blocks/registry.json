@@ -42,8 +42,8 @@
       "name": "source_psd",
       "category": "analysis",
       "path": "blocks/analysis/source_psd",
-      "version": "1.0.0",
-      "description": "Source-level power spectral density (PSD) calculation with ROI averaging using Welch's method and Desikan-Killiany atlas"
+      "version": "2.0.0",
+      "description": "Source-level power spectral density (PSD) calculation with ROI averaging using Welch's method and Desikan-Killiany atlas. Supports both ROI-optimized (68-channel) and vertex-level (20k-vertex) modes for compatibility with source localization v2.0.1+ and v1.0.0"
     },
     {
       "name": "source_connectivity",
