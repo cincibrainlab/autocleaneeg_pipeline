@@ -25,11 +25,11 @@
       "description": "Zapline DSS-based line noise removal using Denoising Source Separation for removing power line artifacts from EEG/MEG data"
     },
     {
-      "name": "fooof_analysis",
+      "name": "fooof_periodic",
       "category": "analysis",
       "path": "blocks/analysis/fooof_analysis",
       "version": "1.0.0",
-      "description": "FOOOF spectral parameterization for extracting periodic and aperiodic components from source-localized EEG data"
+      "description": "Vertex-level extraction of oscillatory peak parameters from source-localized EEG data using the specparam algorithm (formerly FOOOF)"
     },
     {
       "name": "source_localization",
