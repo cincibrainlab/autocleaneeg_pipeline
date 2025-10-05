@@ -61,7 +61,7 @@ class SourceLocalizationMixin:
         lambda2: float = 1.0 / 9.0,
         pick_ori: str = "normal",
         n_jobs: int = 10,
-        save_stc: bool = False,
+        save_stc: bool = True,
         stage_name: str = "apply_source_localization",
     ) -> Union[mne.SourceEstimate, list]:
         """Apply MNE source localization to estimate cortical sources.
