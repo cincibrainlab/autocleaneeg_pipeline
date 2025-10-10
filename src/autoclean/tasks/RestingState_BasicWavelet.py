@@ -123,18 +123,6 @@ class RestingState_BasicWavelet(Task):
         # Generate visualization reports
         self.generate_reports()
 
-    def resume_after_ica(self, raw, post_ica_path=None):
-        """Resume the task tail after manual ICA re-apply."""
-        self.raw = raw
-        try:
-            self.original_raw = raw.copy()
-        except Exception:
-            self.original_raw = None
-
-        self.create_regular_epochs(export=True)
-        self.detect_outlier_epochs()
-        self.gfp_clean_epochs()
-        self.generate_reports()
 
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports."""

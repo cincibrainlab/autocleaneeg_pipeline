@@ -112,36 +112,6 @@ class RestingState_Basic(Task):
         # Generate visualization reports
         self.generate_reports()
 
-    def resume_after_ica(self, raw, post_ica_path=None):
-        """
-        Resume the task tail after manual ICA re-apply.
-
-        Parameters
-        ----------
-        raw : mne.io.Raw
-            The post-ICA cleaned raw loaded from the manual_ica stage.
-        post_ica_path : str | None
-            Path to the post_ica_manual file (for context/logging only).
-        """
-        # Attach post-ICA data to the task
-        self.raw = raw
-        try:
-            self.original_raw = raw.copy()  # for report overlays
-        except Exception:
-            self.original_raw = None
-
-        # Optional log if you want
-        # from autoclean.utils.logging import message
-        # message("header", f"Resuming {self.__class__.__name__} from post_ICA: {post_ica_path or '(in‑memory)'}")
-        self.create_regular_epochs(export=True)  # Export epochs
-        # Detect outlier epochs
-        self.detect_outlier_epochs()
-
-        # Clean epochs using GFP with export
-        self.gfp_clean_epochs()
-
-        # Reports
-        self.generate_reports()
 
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports."""
