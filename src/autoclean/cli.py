@@ -2600,14 +2600,16 @@ def cmd_list_tasks(args) -> int:
 
         # Add workspace tasks (installed, possibly customized)
         for task in workspace_tasks:
-            sync = registry.task_sync_status(task.name, workspace_dir)
-            sync_status = sync.get("status") or "unknown"
-
             # Determine source (library or user)
             if task.name in library_task_names:
                 source = "library"
+                # Only check sync status for library tasks
+                sync = registry.task_sync_status(task.name, workspace_dir)
+                sync_status = sync.get("status") or "unknown"
             else:
                 source = "workspace"
+                # User-created tasks don't have sync status
+                sync_status = "user_created"
 
             unified_tasks.append({
                 "name": task.name,
@@ -2725,6 +2727,8 @@ def cmd_list_tasks(args) -> int:
                         status_text = "[warning]↻ outdated[/warning]"
                     elif sync_state == "missing":
                         status_text = "[error]✗ orphaned[/error]"
+                    elif sync_state == "user_created":
+                        status_text = "[success]✓ ready[/success]"
                     else:
                         status_text = "[muted]—[/muted]"
 

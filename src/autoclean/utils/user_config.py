@@ -109,14 +109,14 @@ class UserConfigManager:
         return self.config_dir / "output"
 
     def list_custom_tasks(self) -> Dict[str, Dict[str, Any]]:
-        """List custom tasks by scanning tasks directory."""
+        """List custom tasks by scanning tasks directory (including subdirectories)."""
         custom_tasks = {}
 
         if not self.tasks_dir.exists():
             return custom_tasks
 
-        # Scan for Python files
-        for task_file in self.tasks_dir.glob("*.py"):
+        # Scan for Python files recursively (including subdirectories)
+        for task_file in self.tasks_dir.rglob("*.py"):
             if task_file.name.startswith("_"):
                 continue
 

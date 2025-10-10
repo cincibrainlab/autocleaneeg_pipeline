@@ -155,7 +155,7 @@ def _discover_builtin_tasks() -> Tuple[List[DiscoveredTask], List[InvalidTaskFil
 def _discover_custom_tasks() -> (
     Tuple[List[DiscoveredTask], List[InvalidTaskFile], List[SkippedTaskFile]]
 ):
-    """Discover custom tasks from user configuration directory."""
+    """Discover custom tasks from user configuration directory (including subdirectories)."""
     valid_tasks: List[DiscoveredTask] = []
     invalid_files: List[InvalidTaskFile] = []
     skipped_files: List[SkippedTaskFile] = []
@@ -173,7 +173,8 @@ def _discover_custom_tasks() -> (
     if not user_config.tasks_dir.exists():
         return valid_tasks, invalid_files, skipped_files
 
-    for task_file in user_config.tasks_dir.glob("*.py"):
+    # Scan for Python files recursively (including subdirectories)
+    for task_file in user_config.tasks_dir.rglob("*.py"):
         # Skip private files, templates, and test fixtures
         if task_file.name.startswith("_"):
             skipped_files.append(
