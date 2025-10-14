@@ -422,18 +422,41 @@ def save_epochs_to_set(
 
             # Use specialized export for preserving complex event structures
             if events_in_epochs is not None and len(events_in_epochs) > 0:
+                # First export using MNE to preserve channel locations and all info
+                epochs.export(path, fmt="eeglab", overwrite=True)
 
-                export_set(
-                    fname=str(path),
-                    data=epochs.get_data(),
-                    sfreq=epochs.info["sfreq"],
-                    events=events_in_epochs,
-                    tmin=epochs.tmin,
-                    tmax=epochs.tmax,
-                    ch_names=epochs.ch_names,
-                    event_id=event_id_rebuilt,
-                    precision="single",
-                )
+                # Then load and update with preserved event information
+                EEG = sio.loadmat(path)
+                for k in ["__header__", "__version__", "__globals__"]:
+                    EEG.pop(k, None)
+
+                # Update event information while preserving channel locations
+                EEG["event"] = []
+                EEG["urevent"] = []
+                for idx, (sample, _, code) in enumerate(events_in_epochs):
+                    event_struct = {
+                        "type": next(
+                            (k for k, v in event_id_rebuilt.items() if v == code),
+                            str(code),
+                        ),
+                        "latency": float(sample + 1),  # MATLAB 1-indexing
+                        "urevent": idx + 1,
+                    }
+                    EEG["event"].append(event_struct)
+                    EEG["urevent"].append(event_struct.copy())
+
+                # Convert event list to structured array as EEGLAB expects
+                if EEG["event"]:
+                    import numpy as np
+                    event_dtype = [('type', 'O'), ('latency', 'f8'), ('urevent', 'f8')]
+                    event_array = np.zeros(len(EEG["event"]), dtype=event_dtype)
+                    for i, evt in enumerate(EEG["event"]):
+                        event_array[i] = (evt["type"], evt["latency"], evt["urevent"])
+                    EEG["event"] = event_array
+                    EEG["urevent"] = event_array.copy()
+
+                # Save back to file
+                sio.savemat(path, EEG, do_compression=False)
             else:
                 # Use MNE's built-in exporter for simple cases
                 epochs.export(path, fmt="eeglab", overwrite=True)
