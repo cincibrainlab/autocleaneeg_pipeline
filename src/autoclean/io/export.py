@@ -8,7 +8,6 @@ from typing import Any, Dict, Optional
 import mne
 import numpy as np
 import scipy.io as sio
-from eeglabio.epochs import export_set
 
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
@@ -420,30 +419,36 @@ def save_epochs_to_set(
             # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use specialized export for preserving complex event structures
-            if events_in_epochs is not None and len(events_in_epochs) > 0:
+            # Always use MNE's export first to preserve channel locations
+            epochs.export(path, fmt="eeglab", overwrite=True)
 
-                export_set(
-                    fname=str(path),
-                    data=epochs.get_data(),
-                    sfreq=epochs.info["sfreq"],
-                    events=events_in_epochs,
-                    tmin=epochs.tmin,
-                    tmax=epochs.tmax,
-                    ch_names=epochs.ch_names,
-                    event_id=event_id_rebuilt,
-                    precision="single",
-                )
-            else:
-                # Use MNE's built-in exporter for simple cases
-                epochs.export(path, fmt="eeglab", overwrite=True)
-            # Add run_id to EEGLAB's etc field for tracking
+            # Load the exported file and update it with complex events and run_id
             # pylint: disable=invalid-name
             EEG = sio.loadmat(path)
+            # Remove MATLAB metadata
             for k in ["__header__", "__version__", "__globals__"]:
                 EEG.pop(k, None)
+
+            # Update events and event_id if we have complex event structures
+            if events_in_epochs is not None and len(events_in_epochs) > 0:
+                # Update events and event_id with complex event structure
+                EEG["event"] = events_in_epochs
+                EEG["urevent"] = events_in_epochs.copy()
+
+                # Convert event_id dict to MATLAB-compatible format
+                if event_id_rebuilt:
+                    # MATLAB expects a struct-like format for event types
+                    event_names = list(event_id_rebuilt.keys())
+                    event_codes = list(event_id_rebuilt.values())
+                    # Store as separate arrays that EEGLAB can reconstruct
+                    EEG["event_types"] = event_names
+                    EEG["event_codes"] = event_codes
+
+            # Add run_id to EEGLAB's etc field for tracking
             EEG["etc"] = {}
             EEG["etc"]["run_id"] = autoclean_dict["run_id"]
+
+            # Save back with all updates and preserved channel locations
             sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
