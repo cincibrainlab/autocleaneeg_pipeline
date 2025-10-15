@@ -654,37 +654,67 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
         if file_path.suffix.lower() == ".set":
             try:
                 eeg_epochs = None
-                try:
-                    eeg_epochs = mne.io.read_epochs_eeglab(file_path, verbose=False)
-                    eeg_epochs.load_data()
-                    eeg_epochs.pick('eeg', exclude=[])
-                except Exception as exc:
-                    eeg_epochs = None
-                    load_error_epochs = exc
-                else:
-                    load_error_epochs = None
+                load_error_epochs = None
+                load_error_raw = None
 
+                # First check the file to determine if it contains epochs or raw data
+                # We'll use scipy to peek at the structure without fully loading through MNE
+                try:
+                    mat_data = sio.loadmat(file_path, struct_as_record=False, squeeze_me=True)
+                    eeg_struct = mat_data.get('EEG', None)
+
+                    # Check if this is epoched data by looking at the trials field
+                    is_epoched = False
+                    if eeg_struct is not None and hasattr(eeg_struct, 'trials'):
+                        n_trials = getattr(eeg_struct, 'trials', 1)
+                        is_epoched = n_trials > 1
+                except Exception as peek_exc:
+                    message("debug", f"Could not peek at file structure for {file_path.name}: {peek_exc}")
+                    # If we can't peek, try epochs first as a fallback
+                    is_epoched = True
+
+                # Try loading based on what we detected
+                if is_epoched:
+                    try:
+                        eeg_epochs = mne.io.read_epochs_eeglab(file_path, verbose=False)
+                        eeg_epochs.load_data()
+                        eeg_epochs.pick('eeg', exclude=[])
+                    except Exception as exc:
+                        eeg_epochs = None
+                        load_error_epochs = exc
+                else:
+                    # It's raw data, skip trying epochs and go straight to raw loading
+                    pass
+
+                # If epochs loading failed or we detected raw data, try raw loading
                 if eeg_epochs is None:
                     try:
                         raw = mne.io.read_raw_eeglab(file_path, preload=True, verbose=False)
                         raw.pick('eeg', exclude=[])
-                    except Exception as raw_exc:
-                        raise RuntimeError(
-                            f"Could not load exported set as epochs ({load_error_epochs}) or raw ({raw_exc})"
-                        ) from raw_exc
 
-                    if len(raw.ch_names) == 0:
-                        message(
-                            "warning",
-                            f"Skipping export for {file_path.name}: no EEG channels present.",
+                        if len(raw.ch_names) == 0:
+                            message(
+                                "warning",
+                                f"Skipping export for {file_path.name}: no EEG channels present.",
+                            )
+                            continue
+
+                        total_duration = raw.times[-1] if len(raw.times) > 1 else 0.0
+                        duration = max(min(total_duration, 5.0), 1.0)
+                        eeg_epochs = mne.make_fixed_length_epochs(
+                            raw, duration=duration, preload=True, verbose=False
                         )
-                        continue
-
-                    total_duration = raw.times[-1] if len(raw.times) > 1 else 0.0
-                    duration = max(min(total_duration, 5.0), 1.0)
-                    eeg_epochs = mne.make_fixed_length_epochs(
-                        raw, duration=duration, preload=True, verbose=False
-                    )
+                    except Exception as raw_exc:
+                        load_error_raw = raw_exc
+                        # Both loading methods failed
+                        error_details = []
+                        if load_error_epochs:
+                            error_details.append(f"epochs: {load_error_epochs}")
+                        if load_error_raw:
+                            error_details.append(f"raw: {raw_exc}")
+                        raise RuntimeError(
+                            f"Could not load exported set as {' or '.join(error_details)}"
+                        ) from raw_exc
 
                 if len(eeg_epochs.ch_names) == 0:
                     message(
