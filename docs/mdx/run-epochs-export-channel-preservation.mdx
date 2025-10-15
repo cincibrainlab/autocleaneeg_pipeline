@@ -1,0 +1,70 @@
+---
+title: Preserve Channel Locations When Exporting Complex Epochs
+description: Ensured EEGLAB exports from AutoClean always carry channel locations, even when we have to rebuild event tables for metadata-rich runs.
+---
+
+# Preserve Channel Locations When Exporting Complex Epochs
+
+<Steps>
+  <Step title="Diagnose the regression">
+    EEGLAB exports that contained rich, per-epoch metadata were saved with <code>eeglabio.export_set</code>. That pathway rebuilt complex events, but it bypassed <code>epochs.info</code>, so the downstream <code>chanlocs</code> structure was empty whenever extra events were attached.
+  </Step>
+  <Step title="Lean on MNE for core serialization">
+    I now call <code>epochs.export(..., fmt="eeglab")</code> for every run. MNE writes the canonical <code>.set</code> scaffold—including channel locations—without us having to mirror its logic.
+  </Step>
+  <Step title="Rehydrate complex events after export">
+    Once the file hits disk, I reopen it, rebuild event structs from <code>epochs.metadata</code>, and map human-readable labels back to their numeric IDs. Finally, I inject the <code>run_id</code> into the EEGLAB <code>etc</code> field before re-saving.
+  </Step>
+</Steps>
+
+## What Changed Under the Hood
+
+<Diagram name="save_epochs_to_set overhaul">
+MNE Epochs.export()
+  -> write .set with channel locations intact
+  -> loadmat(..., squeeze_me=True)
+      -> rebuild events via scipy.mat_struct when metadata exists
+      -> store label dictionary in eventdescription
+      -> append run_id under EEG.etc
+  -> savemat(..., do_compression=False)
+</Diagram>
+
+<Callout type="tip" title="Why mat_struct?">
+  EEGLAB event tables expect MATLAB structs. By creating <code>scipy.io.matlab.mat_struct</code> objects for each event, we can reshape the exported array without losing compatibility with EEGLAB or <code>mne.io.read_epochs_eeglab</code>.
+</Callout>
+
+## How to Verify the Fix Yourself
+
+<Steps>
+  <Step title="Install development extras">
+    <code>make install-dev</code>
+  </Step>
+  <Step title="Regenerate an EEGLAB export from a run with metadata">
+    <code>autocleaneeg-pipeline export --stage post_epoching</code><br />
+    Pick a run where <code>epochs.metadata</code> contains the <code>additional_events</code> column.
+  </Step>
+  <Step title="Inspect the saved .set">
+    <code>python -c "from scipy.io import loadmat; mat = loadmat('path/to/export.set', struct_as_record=False, squeeze_me=True); print(mat['chanlocs'][0].labels)"</code><br />
+    The channel labels remain populated. You can also drill into <code>mat['event']</code> to confirm the rebuilt event entries and <code>mat['eventdescription']</code> to see the string-to-code mapping.
+  </Step>
+</Steps>
+
+## Confidence Checklist
+
+<Accordion>
+  <AccordionItem title="Channel geometry survives">
+    After export, load the file in EEGLAB or via <code>mne.io.read_epochs_eeglab</code>; electrode positions should be intact because the first serialization pass now always comes from MNE.
+  </AccordionItem>
+  <AccordionItem title="Complex events stay readable">
+    The regenerated <code>event</code> structs carry the same labels that were attached in metadata, so downstream consumers that expect strings (rather than numeric codes) still succeed.
+  </AccordionItem>
+  <AccordionItem title="Run provenance persists">
+    The EEGLAB <code>etc</code> struct still holds <code>run_id</code>, allowing internal review tools to look up the AutoClean database entry for any export.
+  </AccordionItem>
+</Accordion>
+
+## Notes & Concerns
+
+<Note>
+  We currently rebuild only the global <code>event</code> table and its label list. If future consumers rely on the per-epoch <code>epoch</code> struct for multi-event timing, we may need to extend this patch to refresh that table as well.
+</Note>

@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 import mne
 import numpy as np
 import scipy.io as sio
-from eeglabio.epochs import export_set
+from scipy.io.matlab import mat_struct
 
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
@@ -358,7 +358,7 @@ def save_epochs_to_set(
                                     )
                                     continue
 
-                                # global_sample is for concatenated data, as expected by eeglabio.export_set
+                                # global_sample indexes into concatenated epoch data for export
                                 # It's the start of the i-th epoch's data block + the sample within that block.
                                 global_sample = (
                                     i * n_samples
@@ -420,30 +420,58 @@ def save_epochs_to_set(
             # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use specialized export for preserving complex event structures
-            if events_in_epochs is not None and len(events_in_epochs) > 0:
+            # Always start with MNE's exporter so channel locations persist
+            epochs.export(path, fmt="eeglab", overwrite=True)
 
-                export_set(
-                    fname=str(path),
-                    data=epochs.get_data(),
-                    sfreq=epochs.info["sfreq"],
-                    events=events_in_epochs,
-                    tmin=epochs.tmin,
-                    tmax=epochs.tmax,
-                    ch_names=epochs.ch_names,
-                    event_id=event_id_rebuilt,
-                    precision="single",
-                )
-            else:
-                # Use MNE's built-in exporter for simple cases
-                epochs.export(path, fmt="eeglab", overwrite=True)
-            # Add run_id to EEGLAB's etc field for tracking
+            # Load the freshly exported file for post-processing
             # pylint: disable=invalid-name
-            EEG = sio.loadmat(path)
+            EEG = sio.loadmat(path, struct_as_record=False, squeeze_me=True)
             for k in ["__header__", "__version__", "__globals__"]:
                 EEG.pop(k, None)
-            EEG["etc"] = {}
-            EEG["etc"]["run_id"] = autoclean_dict["run_id"]
+
+            if (
+                events_in_epochs is not None
+                and getattr(events_in_epochs, "size", 0) > 0
+                and event_id_rebuilt is not None
+            ):
+                inverse_event_id = {
+                    int(code): str(label)
+                    for label, code in event_id_rebuilt.items()
+                }
+                samples_per_epoch = int(len(epochs.times))
+                new_events = []
+
+                for sample_index, _, event_code in events_in_epochs:
+                    label = inverse_event_id.get(int(event_code), str(event_code))
+                    event_struct = mat_struct()
+                    event_struct._fieldnames = [
+                        "type",
+                        "latency",
+                        "duration",
+                        "epoch",
+                    ]
+                    event_struct.type = np.array([label], dtype=object)
+                    event_struct.latency = np.array(
+                        [[float(int(sample_index) + 1)]], dtype=float
+                    )
+                    event_struct.duration = np.array([[0.0]], dtype=float)
+                    event_struct.epoch = np.array(
+                        [[float(int(sample_index) // samples_per_epoch + 1)]],
+                        dtype=float,
+                    )
+                    new_events.append(event_struct)
+
+                EEG["event"] = np.array([new_events], dtype=object)
+                EEG["eventdescription"] = np.array(
+                    [list(event_id_rebuilt.keys())], dtype=object
+                )
+
+            etc_field = EEG.get("etc", {})
+            if not isinstance(etc_field, dict):
+                etc_field = {}
+            etc_field["run_id"] = autoclean_dict["run_id"]
+            EEG["etc"] = etc_field
+
             sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
