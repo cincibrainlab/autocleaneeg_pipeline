@@ -461,16 +461,18 @@ def save_epochs_to_set(
                     )
                     new_events.append(event_struct)
 
-                EEG["event"] = np.array([new_events], dtype=object)
-                EEG["eventdescription"] = np.array(
+                # Write to the actual EEG struct, not top-level dict
+                EEG["EEG"].event = np.array([new_events], dtype=object)
+                EEG["EEG"].eventdescription = np.array(
                     [list(event_id_rebuilt.keys())], dtype=object
                 )
 
-            etc_field = EEG.get("etc", {})
+            # Access the EEG struct's etc field
+            etc_field = getattr(EEG["EEG"], "etc", {})
             if not isinstance(etc_field, dict):
                 etc_field = {}
             etc_field["run_id"] = autoclean_dict["run_id"]
-            EEG["etc"] = etc_field
+            EEG["EEG"].etc = etc_field
 
             sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
