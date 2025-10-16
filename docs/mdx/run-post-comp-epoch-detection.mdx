@@ -1,0 +1,101 @@
+---
+title: Detect Epoched EEGLAB Sets During Post-Comp Exports
+description: Hardened the post_comp export to classify EEGLAB datasets, rebuild readable event structs, and always produce EEG-only copies without losing channel metadata.
+---
+
+# Detect Epoched EEGLAB Sets During Post-Comp Exports
+
+<Hero>
+  <HeroIcon name="sparkles" />
+  <HeroTitle>Why this run mattered</HeroTitle>
+  <HeroSubtitle>
+    Post-compilation exports were failing whenever we saved epoched EEG, because we tried to
+    reload the .set as raw and MNE refused to coerce a multi-trial file. I patched the
+    export logic so we first detect what kind of dataset we wrote and then reload it the
+    right way.
+  </HeroSubtitle>
+</Hero>
+
+## What I Changed
+
+<Steps>
+  <Step title="Classify EEGLAB datasets before reloading">
+    I added a lightweight inspector that opens the saved <code>.set</code> with
+    <code>scipy.io.loadmat</code>, reads the <code>trials</code> header, and flags files with
+    more than one trial as epoched. That hint steers the verification flow toward
+    <code>mne.io.read_epochs_eeglab</code> instead of <code>read_raw_eeglab</code>.
+  </Step>
+  <Step title="Make regenerated events readable to MNE">
+    The previous run wrote MATLAB structs that wrapped each field inside tiny arrays. MNE’s
+    EEGLAB reader tripped over those shapes and crashed. I now emit simple scalars for
+    <code>type</code>, <code>latency</code>, <code>duration</code>, and <code>epoch</code> and keep
+    the <code>eventdescription</code> vector flat, mirroring what MNE exports by default.
+  </Step>
+  <Step title="Gracefully fall back when metadata is missing">
+    If the detector cannot determine the dataset type, the exporter still tries the epochs
+    loader first, then raw as a fallback, recording any exception so the final error message
+    is actionable.
+  </Step>
+</Steps>
+
+## How the Detection Works
+
+<Diagram name="post-comp EEG-only export">
+.save_epochs_to_set
+  -> MNE export writes base .set
+  -> scipy.loadmat reloads the file
+      -> rebuild events with scalar MATLAB structs
+      -> capture run_id in EEG.etc
+      -> savemat writes the patched file
+.copy_final_files
+  -> _classify_eeglab_dataset looks at EEG.trials
+  -> choose read_epochs_eeglab for multi-trial sets
+  -> fallback to fixed-length epochs for continuous data
+  -> export EEG-only .set with channel montage intact
+</Diagram>
+
+## How to Test the Run Yourself
+
+<Steps>
+  <Step title="Install tooling">
+    <code>make install-dev</code>
+  </Step>
+  <Step title="Regenerate a post_comp directory">
+    Run your pipeline up through the <code>post_comp</code> stage so a multi-trial
+    <code>*_epo.set</code> lands in the staging folder.
+  </Step>
+  <Step title="Verify detection">
+    <code>python -c "from autoclean.io.export import _classify_eeglab_dataset;\nprint(_classify_eeglab_dataset('path/to/file.set'))"</code><br />
+    The command should print <code>epochs</code> for epoched exports and <code>raw</code>
+    for continuous saves.
+  </Step>
+  <Step title="Re-run copy_final_files">
+    <code>python -c "from autoclean.io.export import copy_final_files;\nfrom autoclean.configkit import load_config;\nconfig = load_config('your-config.yaml');\ncopy_final_files(config)"</code><br />
+    The EEG-only exports now complete without raising the previous trial-count error.
+  </Step>
+</Steps>
+
+## Confidence Checklist
+
+<Accordion>
+  <AccordionItem title="Epoched exports no longer crash">
+    The loader classification forces epoched data through <code>read_epochs_eeglab</code>,
+    avoiding the <code>The number of trials is ...</code> error we hit before.
+  </AccordionItem>
+  <AccordionItem title="Events remain round-trippable">
+    Scalar MATLAB structs match the shapes produced by MNE, so
+    <code>mne.io.read_epochs_eeglab</code> can deserialize them on the verification pass.
+  </AccordionItem>
+  <AccordionItem title="Unknown files still report useful errors">
+    When classification fails we gather the loader exceptions and echo them in the final
+    message, making it easier to spot missing companions like <code>.fdt</code> files.
+  </AccordionItem>
+</Accordion>
+
+## Notes & Concerns
+
+<Note>
+  The detector currently keys off <code>EEG.trials</code>. If future data variants omit that
+  header, we may need to derive the classification from the shape of <code>EEG.data</code>
+  instead.
+</Note>

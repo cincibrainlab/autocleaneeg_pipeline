@@ -8,7 +8,7 @@ from typing import Any, Dict, Optional
 import mne
 import numpy as np
 import scipy.io as sio
-from eeglabio.epochs import export_set
+from scipy.io.matlab import mat_struct
 
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
@@ -20,6 +20,49 @@ __all__ = [
     "copy_final_files",
     "_get_stage_number",
 ]
+
+
+def _infer_eeglab_trial_count(file_path: Path) -> Optional[int]:
+    """Inspect an EEGLAB .set file and return its trial count if available."""
+
+    try:
+        eeg_dict = sio.loadmat(file_path, struct_as_record=False, squeeze_me=True)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        message(
+            "debug",
+            f"Unable to inspect {file_path.name} for trial count: {exc}",
+        )
+        return None
+
+    for meta_key in ("__header__", "__version__", "__globals__"):
+        eeg_dict.pop(meta_key, None)
+
+    trials_value = eeg_dict.get("trials")
+    if trials_value is None:
+        return None
+
+    try:
+        trials_array = np.atleast_1d(trials_value)
+        if trials_array.size == 0:
+            return None
+        return int(trials_array.flat[0])
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        message(
+            "debug",
+            f"Could not interpret trial count in {file_path.name}: {exc}",
+        )
+        return None
+
+
+def _classify_eeglab_dataset(file_path: Path) -> Optional[str]:
+    """Classify an EEGLAB dataset as 'epochs', 'raw', or None when unknown."""
+
+    trials = _infer_eeglab_trial_count(file_path)
+    if trials is None:
+        return None
+    if trials > 1:
+        return "epochs"
+    return "raw"
 
 
 def save_stc_to_file(
@@ -284,7 +327,10 @@ def save_epochs_to_set(
                 n_samples = len(epochs.times)  # Total samples per epoch
 
                 # Build event dictionary from all unique event labels
-                all_labels = set()
+                base_event_id = {
+                    str(label): code for label, code in getattr(epochs, "event_id", {}).items()
+                }
+                all_labels = set(base_event_id.keys())
                 # Iterate over potentially NaN-containing 'additional_events' Series safely
                 for additional_event_list_for_epoch in epochs.metadata[
                     "additional_events"
@@ -306,24 +352,21 @@ def save_epochs_to_set(
                     # else: it's not a list after dropna(), so it was NaN or another non-list type.
 
                 # Preserve original event codes instead of creating sequential ones
-                event_id_rebuilt = {}
-                if hasattr(epochs, "event_id") and epochs.event_id:
-                    # Use original event codes from epochs object
-                    for label in all_labels:
-                        # Find matching event code from original event_id
-                        for orig_label, orig_code in epochs.event_id.items():
-                            if str(orig_label) == str(label):
-                                event_id_rebuilt[label] = orig_code
-                                break
-                        else:
-                            # Fallback: if no match found, use sequential numbering
-                            event_id_rebuilt[label] = len(event_id_rebuilt) + 1
+                event_id_rebuilt = dict(base_event_id)
+                used_codes = set(base_event_id.values())
+
+                if not event_id_rebuilt:
+                    # If no base event IDs exist, seed codes sequentially
+                    for idx, label in enumerate(sorted(all_labels)):
+                        event_id_rebuilt[label] = idx + 1
+                        used_codes.add(idx + 1)
                 else:
-                    # Fallback: if no original event_id available, use sequential numbering
-                    event_id_rebuilt = {
-                        label: idx + 1
-                        for idx, label in enumerate(sorted(list(all_labels)))
-                    }
+                    for label in sorted(all_labels - set(event_id_rebuilt.keys())):
+                        next_code = max(used_codes or {0}) + 1
+                        while next_code in used_codes:
+                            next_code += 1
+                        event_id_rebuilt[label] = next_code
+                        used_codes.add(next_code)
                 # Reconstruct events array with global sample positions
                 events_in_epochs = []
                 used_samples = set()  # Track used samples to prevent collisions
@@ -358,7 +401,7 @@ def save_epochs_to_set(
                                     )
                                     continue
 
-                                # global_sample is for concatenated data, as expected by eeglabio.export_set
+                                # global_sample indexes into concatenated epoch data for export
                                 # It's the start of the i-th epoch's data block + the sample within that block.
                                 global_sample = (
                                     i * n_samples
@@ -420,30 +463,82 @@ def save_epochs_to_set(
             # Ensure parent directory exists
             path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Use specialized export for preserving complex event structures
-            if events_in_epochs is not None and len(events_in_epochs) > 0:
+            # Always start with MNE's exporter so channel locations persist
+            epochs.export(path, fmt="eeglab", overwrite=True)
 
-                export_set(
-                    fname=str(path),
-                    data=epochs.get_data(),
-                    sfreq=epochs.info["sfreq"],
-                    events=events_in_epochs,
-                    tmin=epochs.tmin,
-                    tmax=epochs.tmax,
-                    ch_names=epochs.ch_names,
-                    event_id=event_id_rebuilt,
-                    precision="single",
-                )
-            else:
-                # Use MNE's built-in exporter for simple cases
-                epochs.export(path, fmt="eeglab", overwrite=True)
-            # Add run_id to EEGLAB's etc field for tracking
+            # Load the freshly exported file for post-processing
             # pylint: disable=invalid-name
-            EEG = sio.loadmat(path)
+            EEG = sio.loadmat(path, struct_as_record=False, squeeze_me=True)
             for k in ["__header__", "__version__", "__globals__"]:
                 EEG.pop(k, None)
-            EEG["etc"] = {}
-            EEG["etc"]["run_id"] = autoclean_dict["run_id"]
+
+            original_event_structs_raw = EEG.get("event")
+            original_event_structs: list[mat_struct] = []
+            if isinstance(original_event_structs_raw, mat_struct):
+                original_event_structs = [original_event_structs_raw]
+            elif isinstance(original_event_structs_raw, np.ndarray):
+                original_event_structs = [
+                    ev
+                    for ev in original_event_structs_raw.ravel().tolist()
+                    if isinstance(ev, mat_struct)
+                ]
+
+            if (
+                events_in_epochs is not None
+                and getattr(events_in_epochs, "size", 0) > 0
+                and event_id_rebuilt is not None
+            ):
+                inverse_event_id = {
+                    int(code): str(label)
+                    for label, code in event_id_rebuilt.items()
+                }
+                samples_per_epoch = int(len(epochs.times))
+                new_events: list[mat_struct] = []
+
+                for sample_index, _, event_code in events_in_epochs:
+                    label = inverse_event_id.get(int(event_code), str(event_code))
+                    event_struct = mat_struct()
+                    event_struct._fieldnames = [
+                        "type",
+                        "latency",
+                        "duration",
+                        "epoch",
+                    ]
+                    event_struct.type = str(label)
+                    event_struct.latency = float(int(sample_index) + 1)
+                    event_struct.duration = 0.0
+                    event_struct.epoch = float(int(sample_index) // samples_per_epoch + 1)
+                    new_events.append(event_struct)
+
+                combined_events = (
+                    original_event_structs + new_events
+                    if original_event_structs
+                    else new_events
+                )
+                if combined_events:
+                    combined_events.sort(
+                        key=lambda ev: float(getattr(ev, "latency", 0.0))
+                    )
+                    EEG["event"] = np.array(combined_events, dtype=object)
+
+                    unique_labels: list[str] = []
+                    for ev in combined_events:
+                        label = str(getattr(ev, "type", ""))
+                        if label and label not in unique_labels:
+                            unique_labels.append(label)
+                    if unique_labels:
+                        EEG["eventdescription"] = np.array(
+                            unique_labels, dtype=object
+                        )
+            elif original_event_structs:
+                EEG["event"] = np.array(original_event_structs, dtype=object)
+
+            etc_field = EEG.get("etc", {})
+            if not isinstance(etc_field, dict):
+                etc_field = {}
+            etc_field["run_id"] = autoclean_dict["run_id"]
+            EEG["etc"] = etc_field
+
             sio.savemat(path, EEG, do_compression=False)
             message("success", f"✓ Saved {stage} file to: {path}")
         except Exception as e:
@@ -624,38 +719,63 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
         dest_path = final_files_dir / file_path.name
 
         if file_path.suffix.lower() == ".set":
+            dataset_kind = _classify_eeglab_dataset(file_path)
+            loader_sequence = (
+                ("epochs",)
+                if dataset_kind == "epochs"
+                else ("raw", "epochs")
+                if dataset_kind == "raw"
+                else ("epochs", "raw")
+            )
+
             try:
                 eeg_epochs = None
-                try:
-                    eeg_epochs = mne.io.read_epochs_eeglab(file_path, verbose=False)
-                    eeg_epochs.load_data()
-                    eeg_epochs.pick('eeg', exclude=[])
-                except Exception as exc:
-                    eeg_epochs = None
-                    load_error_epochs = exc
-                else:
-                    load_error_epochs = None
+                load_errors: dict[str, Exception] = {}
+
+                for loader in loader_sequence:
+                    if loader == "epochs":
+                        try:
+                            eeg_epochs = mne.io.read_epochs_eeglab(
+                                file_path, verbose=False
+                            )
+                            eeg_epochs.load_data()
+                            eeg_epochs.pick("eeg", exclude=[])
+                        except Exception as exc:  # pylint: disable=broad-exception-caught
+                            load_errors["epochs"] = exc
+                            eeg_epochs = None
+                        else:
+                            break
+                    else:  # loader == "raw"
+                        try:
+                            raw = mne.io.read_raw_eeglab(
+                                file_path, preload=True, verbose=False
+                            )
+                            raw.pick("eeg", exclude=[])
+                        except Exception as exc:  # pylint: disable=broad-exception-caught
+                            load_errors["raw"] = exc
+                        else:
+                            if len(raw.ch_names) == 0:
+                                message(
+                                    "warning",
+                                    f"Skipping export for {file_path.name}: no EEG channels present.",
+                                )
+                                eeg_epochs = None
+                                break
+
+                            total_duration = raw.times[-1] if len(raw.times) > 1 else 0.0
+                            duration = max(min(total_duration, 5.0), 1.0)
+                            eeg_epochs = mne.make_fixed_length_epochs(
+                                raw, duration=duration, preload=True, verbose=False
+                            )
+                            break
 
                 if eeg_epochs is None:
-                    try:
-                        raw = mne.io.read_raw_eeglab(file_path, preload=True, verbose=False)
-                        raw.pick('eeg', exclude=[])
-                    except Exception as raw_exc:
-                        raise RuntimeError(
-                            f"Could not load exported set as epochs ({load_error_epochs}) or raw ({raw_exc})"
-                        ) from raw_exc
-
-                    if len(raw.ch_names) == 0:
-                        message(
-                            "warning",
-                            f"Skipping export for {file_path.name}: no EEG channels present.",
-                        )
-                        continue
-
-                    total_duration = raw.times[-1] if len(raw.times) > 1 else 0.0
-                    duration = max(min(total_duration, 5.0), 1.0)
-                    eeg_epochs = mne.make_fixed_length_epochs(
-                        raw, duration=duration, preload=True, verbose=False
+                    detected = dataset_kind or "unknown"
+                    load_msgs = ", ".join(
+                        f"{name}: {err}" for name, err in load_errors.items()
+                    )
+                    raise RuntimeError(
+                        f"Failed to load {file_path.name} as {detected} dataset ({load_msgs})"
                     )
 
                 if len(eeg_epochs.ch_names) == 0:
@@ -669,7 +789,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 eeg_epochs.export(dest_path, fmt="eeglab", overwrite=True)
                 files_copied += 1
                 message("debug", f"Exported EEG-only set to {dest_path}")
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 error_msg = f"Failed to export EEG-only set for {file_path.name}: {str(e)}"
                 copy_failures.append(error_msg)
                 message("error", error_msg)

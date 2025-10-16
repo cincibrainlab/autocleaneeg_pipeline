@@ -1,0 +1,95 @@
+---
+title: Merge Additional Metadata Events Without Breaking EEGLAB Reloads
+description: Preserve MNE's native EEGLAB events while appending metadata-derived markers so verification can reload epoched exports cleanly.
+---
+
+# Merge Additional Metadata Events Without Breaking EEGLAB Reloads
+
+<Hero>
+  <HeroIcon name="adjustmentsHorizontal" />
+  <HeroTitle>Fixing the post-comp regression</HeroTitle>
+  <HeroSubtitle>
+    Our previous patch rewrote the EEGLAB event table with metadata-only markers. That
+    dropped the primary epoch triggers, so <code>mne.io.read_epochs_eeglab</code> crashed in
+    the post-comp export check. I merged the metadata events back in alongside the
+    originals.
+  </HeroSubtitle>
+</Hero>
+
+## What Changed
+
+<Steps>
+  <Step title="Seed the event-id map with the original triggers">
+    I now normalize <code>epochs.event_id</code> into a string keyed dictionary before
+    processing metadata. New labels get fresh IDs that never collide with the original
+    EEGLAB codes.
+  </Step>
+  <Step title="Append metadata events instead of replacing the struct">
+    Rather than overwriting <code>EEG.event</code>, I flatten the original MATLAB structs and
+    append the reconstructed metadata events. The combined list is sorted by latency so
+    readers see the same chronology MNE exported.
+  </Step>
+  <Step title="Regenerate eventdescription from the merged list">
+    After merging, I rebuild <code>eventdescription</code> from the unified event types so UI
+    layers still display the expanded vocabulary without losing the canonical triggers.
+  </Step>
+</Steps>
+
+## Implementation Notes
+
+<Callout>
+  <CalloutTitle>Why we skipped a deeper refactor</CalloutTitle>
+  <CalloutBody>
+    I explored public reports about <code>read_epochs_eeglab</code> failures but outbound HTTP
+    requests returned <code>403</code> in this sandbox. Given the timebox, preserving MNE's
+    native export and augmenting it in-place is the minimal and safest fix.
+  </CalloutBody>
+</Callout>
+
+<Accordion>
+  <AccordionItem title="Flattening MATLAB structs">
+    The exporter now coalesces any nested arrays returned by <code>scipy.io.loadmat</code>
+    so we always have a simple <code>list[mat_struct]</code> before adding metadata events.
+  </AccordionItem>
+  <AccordionItem title="Deterministic ID assignment">
+    Additional labels are sorted alphabetically and assigned the next free numeric code,
+    ensuring reproducible exports even when metadata order changes run-to-run.
+  </AccordionItem>
+</Accordion>
+
+## How to Verify the Fix
+
+<Steps>
+  <Step title="Install the toolchain">
+    <code>make install-dev</code>
+  </Step>
+  <Step title="Regenerate an epoched export">
+    Run the pipeline through <code>post_comp</code> so a metadata-rich
+    <code>*_epo.set</code> file is written to the stage directory.
+  </Step>
+  <Step title="Inspect merged events">
+    <code>python -c "import scipy.io as sio;\nEEG = sio.loadmat('path/to/file.set', struct_as_record=False, squeeze_me=True);\nprint(len(EEG['event']))"</code><br />
+    The length should now include both the canonical triggers and any
+    <code>additional_events</code> entries.
+  </Step>
+  <Step title="Validate reloading succeeds">
+    <code>python -c "from mne.io import read_epochs_eeglab;\nread_epochs_eeglab('path/to/file.set', verbose=False)"</code><br />
+    The call should return an <code>EpochsEEGLAB</code> instance without raising the previous
+    <code>list index out of range</code> exception.
+  </Step>
+</Steps>
+
+## Confidence Checklist
+
+<Checklist>
+  <ChecklistItem>Base EEGLAB events remain intact for every epoch.</ChecklistItem>
+  <ChecklistItem>Metadata-driven events appear alongside the originals in chronological order.</ChecklistItem>
+  <ChecklistItem>MNE successfully reloads the merged file during the EEG-only verification step.</ChecklistItem>
+</Checklist>
+
+## Follow-ups
+
+<Tip>
+  Consider unit tests that simulate a metadata-rich epoch export so future changes can
+  assert that both canonical and metadata events survive round-tripping.
+</Tip>
