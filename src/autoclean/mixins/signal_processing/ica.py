@@ -210,6 +210,12 @@ class IcaMixin:
         If reject=True, it will also apply component rejection.
         """
 
+        # Check if ICA is enabled in the configuration
+        is_ica_enabled, _ = self._check_step_enabled("ICA")
+        if not is_ica_enabled:
+            message("warning", "ICA is not enabled in the config. Skipping both ICA and component classification.")
+            return None
+
         # Auto-detect method from config if not specified
         if method is None:
             is_enabled, step_config = self._check_step_enabled("component_rejection")
