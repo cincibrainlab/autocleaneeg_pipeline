@@ -329,6 +329,7 @@ def save_epochs_to_set(
                     }
                 # Reconstruct events array with global sample positions
                 events_in_epochs = []
+                epoch_indices_array = []  # Track which epoch each event belongs to
                 used_samples = set()  # Track used samples to prevent collisions
 
                 # Iterate through metadata rows, but ensure we don't go beyond the actual number of events
@@ -385,6 +386,7 @@ def save_epochs_to_set(
                                 events_in_epochs.append(
                                     [global_sample, 0, code]
                                 )  # Assuming duration 0 for point events
+                                epoch_indices_array.append(i)  # Explicit mapping: this event belongs to epoch i
                             except ValueError:
                                 message(
                                     "warning",
@@ -403,8 +405,19 @@ def save_epochs_to_set(
 
                 if events_in_epochs:  # Only convert to numpy array if list is not empty
                     events_in_epochs = np.array(events_in_epochs, dtype=int)
+                    epoch_indices_array = np.array(epoch_indices_array, dtype=int)
+
+                    # Check if all epochs are covered
+                    unique_epoch_indices = np.unique(epoch_indices_array)
+                    n_epochs = len(epochs)
+
+                    if len(unique_epoch_indices) < n_epochs:
+                        missing_epochs = sorted(set(range(n_epochs)) - set(unique_epoch_indices))
+                        message("warning", f"Event export: {len(unique_epoch_indices)}/{n_epochs} epochs have events")
+                        message("warning", f"Missing epoch indices: {missing_epochs[:10]}..." if len(missing_epochs) > 10 else f"Missing epoch indices: {missing_epochs}")
                 else:  # If list is empty, set to None or an empty array as eeglabio expects
                     events_in_epochs = None  # Or np.empty((0,3), dtype=int) depending on eeglabio's preference for empty
+                    epoch_indices_array = None
 
             else:
                 message(
@@ -441,6 +454,7 @@ def save_epochs_to_set(
                     ch_names=ch_names,
                     ch_locs=cart_coords,
                     event_id=event_id_rebuilt,
+                    epoch_indices=epoch_indices_array,
                     precision="single",
                 )
             else:
