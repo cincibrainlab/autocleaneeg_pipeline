@@ -10,6 +10,9 @@ import numpy as np
 import scipy.io as sio
 from eeglabio.epochs import export_set
 
+# Channel Fix
+from mne.export._eeglab import _get_als_coords_from_chs
+
 from autoclean.utils.database import manage_database_conditionally
 from autoclean.utils.logging import message
 
@@ -423,6 +426,11 @@ def save_epochs_to_set(
             # Use specialized export for preserving complex event structures
             if events_in_epochs is not None and len(events_in_epochs) > 0:
 
+                ## Channel locations fix 10/19/2025
+                drop_chs = ["epoc", "STI 014"]
+                ch_names = [ch for ch in epochs.ch_names if ch not in drop_chs]
+                cart_coords = _get_als_coords_from_chs(epochs.info["chs"], drop_chs)
+
                 export_set(
                     fname=str(path),
                     data=epochs.get_data(),
@@ -430,7 +438,8 @@ def save_epochs_to_set(
                     events=events_in_epochs,
                     tmin=epochs.tmin,
                     tmax=epochs.tmax,
-                    ch_names=epochs.ch_names,
+                    ch_names=ch_names,
+                    ch_locs=cart_coords,
                     event_id=event_id_rebuilt,
                     precision="single",
                 )
