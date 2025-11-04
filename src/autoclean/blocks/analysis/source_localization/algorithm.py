@@ -14,7 +14,6 @@ minimum norm estimates. Medical & Biological Engineering & Computing, 32(1), 35-
 
 import os
 import tempfile
-from pathlib import Path
 
 import mne
 

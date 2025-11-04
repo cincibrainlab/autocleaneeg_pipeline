@@ -208,7 +208,7 @@ class AutoRejectEpochsMixin:
                         "consensus": consensus,
                         "n_jobs": n_jobs,
                     }
-                    report_result = generate_autoreject_report(
+                    _report_result = generate_autoreject_report(
                         epochs_before=epochs_before,
                         epochs_after=epochs_clean,
                         output_pdf=report_path,

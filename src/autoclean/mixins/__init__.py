@@ -7,6 +7,7 @@ Any class ending with 'Mixin' in a .py file within a subdirectory of this packag
 
 import importlib
 import inspect
+import os
 import pkgutil
 import sys
 import traceback
@@ -264,8 +265,6 @@ _BLOCK_SEARCH_PATHS = [
 ]
 
 # Add task-registry blocks if env var is set
-import os
-
 if os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH"):
     _registry_path = Path(os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH")) / "blocks"
     _BLOCK_SEARCH_PATHS.append(_registry_path)  # 3. Task-registry (dev mode)
@@ -348,8 +347,6 @@ _EXTERNAL_BLOCK_PATHS = [
 ]
 
 # Add task-registry blocks if env var is set
-import os
-
 if os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH"):
     _registry_path = Path(os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH")) / "blocks"
     if _registry_path.exists():

@@ -12,7 +12,6 @@ from typing import Optional, Union
 
 from loguru import logger
 
-from autoclean import __version__
 from autoclean.utils.user_config import UserConfigManager
 
 # Remove default handler

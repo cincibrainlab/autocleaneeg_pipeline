@@ -15,14 +15,9 @@ import hashlib
 import logging
 import threading
 import time
-import weakref
-from functools import wraps
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional
 
 import matplotlib.pyplot as plt
-import mne
-import numpy as np
 from mne.preprocessing import ICA
 
 logger = logging.getLogger(__name__)
@@ -182,7 +177,7 @@ class ICATopographyCache:
 
         try:
             # Get the electrode positions and setup plotting parameters
-            info = ica.info
+            _info = ica.info
 
             # Use MNE's internal topography computation
             # This is much faster than calling plot_components individually
@@ -235,7 +230,7 @@ class ICATopographyCache:
                                             )(),
                                         }
                                     )
-                            except:
+                            except Exception:
                                 pass
 
                     # Store the extracted data

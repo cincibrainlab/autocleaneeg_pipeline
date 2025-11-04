@@ -295,7 +295,7 @@ class SetupDisplay(CLIDisplay):
     def welcome_header(self, is_first_time: bool = True) -> None:
         """Display welcome header for setup."""
         # Simple branding constants
-        PRODUCT_NAME = "AutoClean EEG"
+        _PRODUCT_NAME = "AutoClean EEG"
         TAGLINE = "Professional EEG Processing & Analysis Platform"
         LOGO_ICON = "🧠"
 
@@ -469,7 +469,8 @@ class SetupDisplay(CLIDisplay):
 
 
 # Global instances for easy import
-from autoclean.utils.console import get_console as _get_console  # type: ignore
+# Note: Import at module level to avoid circular imports with console module
+from autoclean.utils.console import get_console as _get_console  # type: ignore # noqa: E402
 
 cli_display = CLIDisplay(_get_console())
 setup_display = SetupDisplay(_get_console())

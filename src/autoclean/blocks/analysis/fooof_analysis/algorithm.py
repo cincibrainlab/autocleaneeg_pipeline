@@ -21,7 +21,6 @@ from __future__ import annotations
 import gc
 import os
 import warnings
-from pathlib import Path
 
 import mne
 import numpy as np
@@ -31,7 +30,7 @@ from scipy import signal
 
 # SpecParam dependency for spectral parameterization
 try:
-    from specparam import SpectralGroupModel, SpectralModel
+    from specparam import SpectralGroupModel
     from specparam.analysis import get_band_peak
 
     SPECPARAM_AVAILABLE = True

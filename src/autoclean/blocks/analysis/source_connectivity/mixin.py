@@ -17,10 +17,9 @@ Functional connectivity analysis enables:
 
 import importlib.util
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import mne
-import pandas as pd
 
 # Import algorithm function dynamically (for bundled block compatibility)
 _algorithm_path = Path(__file__).parent / "algorithm.py"

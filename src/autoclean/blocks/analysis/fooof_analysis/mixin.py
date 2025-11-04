@@ -19,10 +19,9 @@ aperiodic components. Nature Neuroscience, 23(12), 1655-1665.
 
 import importlib.util
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 import mne
-import pandas as pd
 
 # Import algorithm functions dynamically (for bundled block compatibility)
 _algorithm_path = Path(__file__).parent / "algorithm.py"

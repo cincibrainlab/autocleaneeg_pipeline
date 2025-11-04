@@ -9,7 +9,6 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-from autoclean import __version__
 from autoclean.utils.logging import message
 
 # Cache to ensure we only perform a backup once per directory in a single

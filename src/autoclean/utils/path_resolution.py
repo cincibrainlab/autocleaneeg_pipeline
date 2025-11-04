@@ -6,7 +6,6 @@ Phase 1 implementation: derive relocations from recent runs' metadata.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
 
 from autoclean.utils.database import manage_database_conditionally
 

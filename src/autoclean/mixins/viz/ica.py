@@ -31,7 +31,6 @@ from autoclean.functions.visualization.icvision_layouts import (
     plot_ica_topographies_overview,
 )
 from autoclean.mixins.viz._ica_sources_cache import (
-    cache_aware_ica_method,
     get_cached_ica_sources,
     get_ica_cache_stats,
     invalidate_ica_cache,

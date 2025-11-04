@@ -507,7 +507,7 @@ def save_ica_to_fif(ica, autoclean_dict, pre_ica_raw):
             Raw data before ICA
     """
     try:
-        derivatives_dir = Path(autoclean_dict["derivatives_dir"])
+        _derivatives_dir = Path(autoclean_dict["derivatives_dir"])
         basename = Path(autoclean_dict["unprocessed_file"]).stem
         # Prefer configured task-level ICA directory; fallback to task root derived from metadata_dir
         ica_dir_cfg = autoclean_dict.get("ica_dir")

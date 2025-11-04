@@ -20,7 +20,6 @@ HTML reports documenting the processing pipeline results.
 import ast
 import getpass
 import os
-import shutil
 import traceback
 from datetime import datetime
 from pathlib import Path

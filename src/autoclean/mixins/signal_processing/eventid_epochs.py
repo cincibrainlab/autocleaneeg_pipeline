@@ -209,7 +209,7 @@ class EventIDEpochsMixin:
                         message("info", json.dumps(custom_config, indent=2))
                         message(
                             "info",
-                            f"\nNote: Replace 'target' and 'standard' with meaningful names for your experiment",
+                            "\nNote: Replace 'target' and 'standard' with meaningful names for your experiment",
                         )
 
                     message("info", "\n" + "=" * 80)
@@ -401,7 +401,7 @@ class EventIDEpochsMixin:
                     if problem_channels:
                         message(
                             "info",
-                            f"\n  ⚠️  Channels exceeding threshold in >20% of epochs:",
+                            "\n  ⚠️  Channels exceeding threshold in >20% of epochs:",
                         )
                         for ch in sorted(
                             problem_channels,
@@ -421,7 +421,7 @@ class EventIDEpochsMixin:
                             suggested_thresh = avg_mean_amp * 2.5
                             message(
                                 "info",
-                                f"    • >30% of channels flagged - threshold may be too strict",
+                                "    • >30% of channels flagged - threshold may be too strict",
                             )
                             message(
                                 "info",
@@ -431,7 +431,7 @@ class EventIDEpochsMixin:
                             # Few channels - likely bad electrode contact
                             message(
                                 "info",
-                                f"    • Few channels flagged - likely bad electrode contact",
+                                "    • Few channels flagged - likely bad electrode contact",
                             )
                             message(
                                 "info",
@@ -440,7 +440,7 @@ class EventIDEpochsMixin:
                         else:
                             message(
                                 "info",
-                                f"    • Review electrode placement for flagged channels",
+                                "    • Review electrode placement for flagged channels",
                             )
                     else:
                         message("info", "  ✓ All channels within acceptable limits")
@@ -450,7 +450,7 @@ class EventIDEpochsMixin:
                             suggested_thresh = avg_mean_amp * 1.5
                             message(
                                 "info",
-                                f"\n  💡 Threshold may be too loose for this data",
+                                "\n  💡 Threshold may be too loose for this data",
                             )
                             message(
                                 "info",
@@ -881,12 +881,12 @@ class EventIDEpochsMixin:
                         if not keep_all_epochs:
                             message(
                                 "info",
-                                f"  • Proceeding with rejection of flagged epochs...",
+                                "  • Proceeding with rejection of flagged epochs...",
                             )
                         else:
                             message(
                                 "info",
-                                f"  • Epochs will be marked but kept (keep_all_epochs=True)",
+                                "  • Epochs will be marked but kept (keep_all_epochs=True)",
                             )
                         message("info", "")
 
@@ -1022,7 +1022,7 @@ class EventIDEpochsMixin:
                 # Show top 5 most problematic at INFO level
                 top_n = min(5, len(sorted_annotations))
                 if top_n > 0:
-                    message("info", f"\nTop rejection reasons:")
+                    message("info", "\nTop rejection reasons:")
                     for annotation, count in sorted_annotations[:top_n]:
                         message("info", f"  • {annotation}: {count} epochs")
 

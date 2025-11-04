@@ -33,7 +33,6 @@ from scipy.signal import hilbert
 # Optional imports with availability flags
 try:
     import networkx as nx
-    from networkx.algorithms.community import louvain_communities, modularity
 
     NETWORK_ANALYSIS_AVAILABLE = True
 except ImportError:
@@ -201,8 +200,6 @@ def calculate_source_connectivity(
     # Function to calculate AEC
     def calculate_aec(data, band_range, sfreq):
         import numpy as np
-        from mne.filter import filter_data
-        from scipy.signal import hilbert
 
         # Filter the data for the specific frequency band
         filtered_data = filter_data(

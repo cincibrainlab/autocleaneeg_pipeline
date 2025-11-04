@@ -535,7 +535,7 @@ def cmd_blocks_lock(args) -> int:
             "[dim]Commit this file to your repository for reproducibility:[/dim]"
         )
         console.print(f"[dim]  git add {lock_file_path}[/dim]")
-        console.print(f"[dim]  git commit -m 'Lock analysis environment'[/dim]\n")
+        console.print("[dim]  git commit -m 'Lock analysis environment'[/dim]\n")
 
         return 0
 

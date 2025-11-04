@@ -172,7 +172,7 @@ class SourceLocalizationMixin:
             # Log start
             if hasattr(self, "message"):
                 self.message("header", "Applying source localization")
-                self.message("info", f"Using autocleaneeg-eeg2source package")
+                self.message("info", "Using autocleaneeg-eeg2source package")
                 self.message("info", f"Method: {method}, lambda2: {lambda2}")
                 self.message(
                     "info",
@@ -180,7 +180,7 @@ class SourceLocalizationMixin:
                 )
             else:
                 print("=== Applying Source Localization ===")
-                print(f"Using autocleaneeg-eeg2source package")
+                print("Using autocleaneeg-eeg2source package")
                 print(f"Method: {method}, lambda2: {lambda2}")
 
             # Create temporary directory for processing
@@ -304,7 +304,7 @@ class SourceLocalizationMixin:
 
                 if hasattr(self, "message"):
                     self.message(
-                        "success", f"Source localization complete: 68 DK regions"
+                        "success", "Source localization complete: 68 DK regions"
                     )
                     self.message("info", f"Saved to: {final_file}")
 

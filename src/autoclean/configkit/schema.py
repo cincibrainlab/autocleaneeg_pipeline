@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from schema import And, Optional, Or, Schema
 
-SCHEMA_VERSION = "2025.09"
-
 from autoclean.utils.montage import VALID_MONTAGES
+
+SCHEMA_VERSION = "2025.09"
 
 # Optional: wavelet validation via PyWavelets
 try:  # pragma: no cover - optional dep

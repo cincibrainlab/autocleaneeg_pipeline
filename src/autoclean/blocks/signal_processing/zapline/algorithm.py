@@ -9,7 +9,7 @@ Based on:
 - MEEGkit Python toolbox: https://github.com/nbara/python-meegkit
 """
 
-from typing import Optional, Tuple
+from typing import Tuple
 
 import numpy as np
 

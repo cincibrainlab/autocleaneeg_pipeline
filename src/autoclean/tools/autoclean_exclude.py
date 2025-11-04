@@ -20,7 +20,7 @@ from collections import Counter, OrderedDict
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import pandas as pd
 import yaml
@@ -335,7 +335,7 @@ def _generate_reprocess_task_from_original(
             f"[AST DEBUG] Filtered out EOG channels from bad channel list: {filtered_out}"
         )
         print(
-            f"[AST DEBUG] These channels are dropped earlier in the pipeline and cannot be marked as bad"
+            "[AST DEBUG] These channels are dropped earlier in the pipeline and cannot be marked as bad"
         )
 
     print(f"[AST DEBUG] fix_type from payload: '{fix_type}'")
@@ -359,7 +359,7 @@ def _generate_reprocess_task_from_original(
                 # Add dataset_name to the config dict
                 node.value.keys.append(ast.Constant(value="dataset_name"))
                 node.value.values.append(ast.Constant(value=dataset_name))
-                print(f"[AST DEBUG] Added dataset_name to config dict")
+                print("[AST DEBUG] Added dataset_name to config dict")
             return node
 
     tree = ConfigModifier().visit(tree)
@@ -401,7 +401,7 @@ def _generate_reprocess_task_from_original(
 
         def visit_FunctionDef(self, node):
             if node.name == "run":
-                print(f"[AST DEBUG] Entering run() method, setting in_run_method=True")
+                print("[AST DEBUG] Entering run() method, setting in_run_method=True")
                 self.in_run_method = True
 
                 # Manually visit each statement and build new body with modifications
@@ -422,7 +422,7 @@ def _generate_reprocess_task_from_original(
                     ):
                         # Insert apply_ica_component_rejection call after this
                         print(
-                            f"[AST DEBUG] Inserting apply_ica_component_rejection after classify_ica_components"
+                            "[AST DEBUG] Inserting apply_ica_component_rejection after classify_ica_components"
                         )
                         apply_call = ast.Expr(
                             value=ast.Call(
@@ -486,7 +486,7 @@ def _generate_reprocess_task_from_original(
                     )
                 else:
                     print(
-                        f"[AST DEBUG] Skipping manual_bad_channels parameter (empty after filtering EOG channels)"
+                        "[AST DEBUG] Skipping manual_bad_channels parameter (empty after filtering EOG channels)"
                     )
 
             # Modify classify_ica_components() for ICA fixes
@@ -495,7 +495,7 @@ def _generate_reprocess_task_from_original(
                 and isinstance(node.func, ast.Attribute)
                 and node.func.attr == "classify_ica_components"
             ):
-                print(f"[AST DEBUG] Modifying classify_ica_components to reject=False")
+                print("[AST DEBUG] Modifying classify_ica_components to reject=False")
                 self.ica_classify_modified = True
                 # Set reject=False
                 found_reject = False
@@ -3997,7 +3997,7 @@ class ExclusionFileSelector(ReviewBase):
 
     def _commit_decisions(self) -> None:
         if not self.decisions_path:
-            print(f"[EPOCH DEBUG] No decisions path available for saving")
+            print("[EPOCH DEBUG] No decisions path available for saving")
             return
 
         print(f"[EPOCH DEBUG] Committing decisions to: {self.decisions_path}")
@@ -4492,7 +4492,7 @@ class ExclusionFileSelector(ReviewBase):
             )
             self._capture_bad_epochs_for_current_file()
         else:
-            print(f"[EPOCH DEBUG] Closing plot - no current_key to capture epochs")
+            print("[EPOCH DEBUG] Closing plot - no current_key to capture epochs")
 
         try:
             self._auto_save_pending_epochs(reason=reason)
@@ -4572,7 +4572,7 @@ class ExclusionFileSelector(ReviewBase):
     def _capture_bad_epochs_for_current_file(self) -> None:
         """Capture bad epoch information for the current file independently of decision status."""
         if not self.current_key:
-            print(f"[EPOCH DEBUG] No current_key available for epoch capture")
+            print("[EPOCH DEBUG] No current_key available for epoch capture")
             return
 
         print(f"[EPOCH DEBUG] Capturing epochs for current file: {self.current_key}")
@@ -4668,7 +4668,7 @@ class ExclusionFileSelector(ReviewBase):
                 print(f"[EPOCH DEBUG] Exception type: {type(e).__name__}")
                 bad_epochs = []
         else:
-            print(f"[EPOCH DEBUG] No epochs available for capture")
+            print("[EPOCH DEBUG] No epochs available for capture")
 
         # Update record with epoch information
         record["bad_epochs_count"] = len(bad_epochs)
@@ -4703,13 +4703,13 @@ class ExclusionFileSelector(ReviewBase):
             )
 
         # Schedule save to persist the epoch information
-        print(f"[EPOCH DEBUG] Scheduling save for epoch data")
+        print("[EPOCH DEBUG] Scheduling save for epoch data")
         self._schedule_save()
 
     def _capture_bad_epochs_for_key(self, key: str) -> None:
         """Capture bad epoch information for a specific file key."""
         if not key:
-            print(f"[EPOCH DEBUG] No key provided for epoch capture")
+            print("[EPOCH DEBUG] No key provided for epoch capture")
             return
 
         print(f"[EPOCH DEBUG] Capturing epochs for key: {key}")
@@ -4833,7 +4833,7 @@ class ExclusionFileSelector(ReviewBase):
     def _restore_bad_epochs_to_plot(self) -> None:
         """Restore previously marked bad epochs to the current epochs before plotting."""
         if not self.current_key or not self.current_epochs:
-            print(f"[EPOCH DEBUG] No current key or epochs to restore bad epochs")
+            print("[EPOCH DEBUG] No current key or epochs to restore bad epochs")
             return
 
         # Get the saved bad epoch information for this file
@@ -4873,10 +4873,10 @@ class ExclusionFileSelector(ReviewBase):
     def _setup_epoch_event_handlers(self) -> None:
         """Set up event handlers for epoch marking/unmarking."""
         if not self.plot_widget:
-            print(f"[EPOCH DEBUG] Cannot set up epoch event handlers - no plot widget")
+            print("[EPOCH DEBUG] Cannot set up epoch event handlers - no plot widget")
             return
 
-        print(f"[EPOCH DEBUG] Setting up epoch event handlers")
+        print("[EPOCH DEBUG] Setting up epoch event handlers")
 
         # Set up a timer to check for epoch changes (polling drop_log)
         self._epoch_check_timer = QTimer(self)
@@ -4902,7 +4902,7 @@ class ExclusionFileSelector(ReviewBase):
         current_snapshot = self._snapshot_drop_log()
 
         if current_snapshot != getattr(self, "_last_drop_log_snapshot", None):
-            print(f"[EPOCH DEBUG] Drop log changed; saving epoch updates")
+            print("[EPOCH DEBUG] Drop log changed; saving epoch updates")
             self._last_drop_log_snapshot = current_snapshot
 
             current_bad_epochs = self._get_user_marked_bad_epochs()
@@ -4957,7 +4957,7 @@ class ExclusionFileSelector(ReviewBase):
     def _save_epoch_changes_immediately(self, bad_epochs: set) -> None:
         """Save epoch changes immediately when they occur."""
         if not self.current_key:
-            print(f"[EPOCH DEBUG] No current key for immediate save")
+            print("[EPOCH DEBUG] No current key for immediate save")
             return
 
         print(
@@ -5206,7 +5206,7 @@ class ExclusionFileSelector(ReviewBase):
             print(f"[REPROCESS]   Task file: {task_file_relative}")
             print(f"[REPROCESS]   Task file hash: {task_file_hash[:16]}...")
         else:
-            print(f"[REPROCESS]   WARNING: Task file not found in status/ directory")
+            print("[REPROCESS]   WARNING: Task file not found in status/ directory")
 
     def _trigger_reprocess_with_overrides(self) -> None:
         """Trigger reprocessing with manual overrides from the current file's payload."""
@@ -5408,10 +5408,10 @@ class ExclusionFileSelector(ReviewBase):
         import json
         import sqlite3
 
-        from autoclean.utils.audit import calculate_access_log_hash, get_user_context
+        from autoclean.utils.audit import calculate_access_log_hash
 
         try:
-            print(f"[REPROCESS] Merging databases...")
+            print("[REPROCESS] Merging databases...")
 
             # Connect to both databases
             original_conn = sqlite3.connect(str(original_db_path))
@@ -5488,7 +5488,7 @@ class ExclusionFileSelector(ReviewBase):
                     f"[REPROCESS] Supersession link established: reprocess {reprocess_run_id} supersedes original {original_run_id}"
                 )
                 print(
-                    f"[REPROCESS] Original run remains immutable per audit trail requirements"
+                    "[REPROCESS] Original run remains immutable per audit trail requirements"
                 )
 
             # 6. Copy update_audit_log entries
@@ -5623,11 +5623,11 @@ class ExclusionFileSelector(ReviewBase):
                     with open(manifest_path, "w", encoding="utf-8") as f:
                         json.dump(manifest, f, indent=2)
 
-                    print(f"[REPROCESS] Updated backup manifest with run IDs")
+                    print("[REPROCESS] Updated backup manifest with run IDs")
                 except Exception as e:
                     print(f"[REPROCESS] Warning: Failed to update manifest: {e}")
 
-            print(f"[REPROCESS] Database merge successful")
+            print("[REPROCESS] Database merge successful")
             return original_run_id, reprocess_run_id
 
         except Exception as e:
@@ -5790,7 +5790,7 @@ class ExclusionFileSelector(ReviewBase):
         stem = reprocess_info["stem"]
         original_task_root = reprocess_info["original_task_root"]
         reprocess_folder_name = reprocess_info["reprocess_folder_name"]
-        output_dir = reprocess_info["output_dir"]
+        _output_dir = reprocess_info["output_dir"]
 
         print(
             f"[REPROCESS DEBUG] stem={stem}, reprocess_folder_name={reprocess_folder_name}"
@@ -5799,7 +5799,7 @@ class ExclusionFileSelector(ReviewBase):
 
         if exit_code == 0:
             print(
-                f"[REPROCESS DEBUG] Process completed successfully, starting file copy..."
+                "[REPROCESS DEBUG] Process completed successfully, starting file copy..."
             )
             # Copy reprocessed files from temp folder to original folder
             try:
@@ -5929,7 +5929,7 @@ class ExclusionFileSelector(ReviewBase):
                     )
 
                     if original_run_id and reprocess_run_id:
-                        print(f"[REPROCESS] Database merge completed successfully")
+                        print("[REPROCESS] Database merge completed successfully")
                         print(f"[REPROCESS]   Original run: {original_run_id}")
                         print(f"[REPROCESS]   Reprocess run: {reprocess_run_id}")
 
@@ -6016,11 +6016,11 @@ class ExclusionFileSelector(ReviewBase):
 
                     else:
                         print(
-                            f"[REPROCESS] Warning: Database merge failed - see logs above"
+                            "[REPROCESS] Warning: Database merge failed - see logs above"
                         )
                 else:
                     print(
-                        f"[REPROCESS] Warning: Database files not found, skipping merge"
+                        "[REPROCESS] Warning: Database files not found, skipping merge"
                     )
 
                 QMessageBox.information(
@@ -6558,13 +6558,13 @@ class ExclusionFileSelector(ReviewBase):
         qa_log_path = self._create_qa_preprocessing_log()
 
         # Show summary
-        summary = f"Export complete:\n\n"
+        summary = "Export complete:\n\n"
         summary += f"Exported: {exported_count}\n"
         summary += f"Skipped (unchanged): {skipped_count}\n"
         if error_count > 0:
             summary += f"Errors: {error_count}\n"
         if qa_log_path:
-            summary += f"\n✓ QA preprocessing log created"
+            summary += "\n✓ QA preprocessing log created"
 
         QMessageBox.information(self, "Export Complete", summary)
 
@@ -6577,7 +6577,6 @@ class ExclusionFileSelector(ReviewBase):
         Returns:
             Path to generated QA log, or None if preprocessing_log unavailable
         """
-        import pandas as pd
 
         # Check if we have preprocessing log
         if self.preprocessing_log_df is None or self.preprocessing_log_df.empty:

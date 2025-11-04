@@ -2607,7 +2607,7 @@ def cmd_list_tasks(args) -> int:
 
         # Process built-in tasks
         builtin_tasks = [t for t in valid_tasks if "autoclean/tasks" in t.source]
-        builtin_names = {t.name for t in builtin_tasks}
+        _builtin_names = {t.name for t in builtin_tasks}
 
         # Add workspace tasks (installed, possibly customized)
         for task in workspace_tasks:
@@ -5907,7 +5907,7 @@ def cmd_task_use(args) -> int:
                 f"[warning]⚠[/warning] {task_name} exists with customizations"
             )
             console.print(
-                f"[muted]Use --force to overwrite (this will delete your changes)[/muted]"
+                "[muted]Use --force to overwrite (this will delete your changes)[/muted]"
             )
             return 1
         else:
@@ -5933,10 +5933,10 @@ def cmd_task_use(args) -> int:
                 f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]"
             )
             console.print(
-                f"[muted]Ready to process: autocleaneeg-pipeline process <file>[/muted]"
+                "[muted]Ready to process: autocleaneeg-pipeline process <file>[/muted]"
             )
         else:
-            console.print(f"[error]✗[/error] Failed to set active task")
+            console.print("[error]✗[/error] Failed to set active task")
             return 1
 
     return 0
@@ -6125,7 +6125,7 @@ def cmd_task_install(args) -> int:
                     f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]"
                 )
             else:
-                console.print(f"[error]✗[/error] Failed to set active task")
+                console.print("[error]✗[/error] Failed to set active task")
                 return 1
 
         console.print(
@@ -6271,7 +6271,7 @@ def cmd_task_sync(args) -> int:
             except Exception as exc:
                 console.print(f"  ✗ Failed to update {task_name}: {exc}")
 
-        console.print(f"\n[success]✓[/success] Update complete")
+        console.print("\n[success]✓[/success] Update complete")
 
     return 0
 
@@ -6320,27 +6320,27 @@ def cmd_task_update(args) -> int:
     if new:
         console.print("[header]New tasks available:[/header]")
         console.print(
-            f"  • Run [accent]'task list --source=library'[/accent] to see all library tasks"
+            "  • Run [accent]'task list --source=library'[/accent] to see all library tasks"
         )
         console.print(
-            f"  • Run [accent]'task use <name>'[/accent] to install and activate a new task"
+            "  • Run [accent]'task use <name>'[/accent] to install and activate a new task"
         )
         console.print()
 
     if updated:
         console.print("[header]Tasks with updates:[/header]")
         console.print(
-            f"  • Run [accent]'task sync'[/accent] to check if your workspace tasks are outdated"
+            "  • Run [accent]'task sync'[/accent] to check if your workspace tasks are outdated"
         )
         console.print(
-            f"  • Run [accent]'task sync --update'[/accent] to automatically update outdated tasks"
+            "  • Run [accent]'task sync --update'[/accent] to automatically update outdated tasks"
         )
         console.print()
 
     if removed:
         console.print("[header]Removed tasks:[/header]")
-        console.print(f"  • These tasks are no longer in the library")
-        console.print(f"  • Your workspace copies will continue to work")
+        console.print("  • These tasks are no longer in the library")
+        console.print("  • Your workspace copies will continue to work")
         console.print()
 
     return 0
@@ -6353,7 +6353,6 @@ def cmd_task_diagnose(args) -> int:
 
     console.print("→ Running workspace health check...\n")
 
-    from rich.table import Table
 
     # Check tasks
     workspace_tasks = user_config.list_custom_tasks()
@@ -6434,11 +6433,11 @@ def cmd_task_diagnose(args) -> int:
     health_style = "success" if issues == 0 else "warning"
 
     # Display results
-    console.print(f"[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]")
+    console.print("[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]")
     console.print(
         f"[header] WORKSPACE HEALTH: [{health_style}]{health}[/{health_style}][/header]"
     )
-    console.print(f"[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]\n")
+    console.print("[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]\n")
 
     console.print("[info]Tasks:[/info]")
     console.print(f"  • {num_tasks} tasks installed in workspace")
@@ -6451,12 +6450,12 @@ def cmd_task_diagnose(args) -> int:
     if num_orphaned > 0:
         console.print(f"  • {num_orphaned} orphan(s)")
 
-    console.print(f"\n[info]Cache:[/info]")
+    console.print("\n[info]Cache:[/info]")
     console.print(f"  • Library cache: {commit} ({cache_age})")
     console.print(f"  • Network: {'OK' if network_ok else 'Offline'}")
     console.print(f"  • Cache size: {cache_size}")
 
-    console.print(f"\n[info]Configuration:[/info]")
+    console.print("\n[info]Configuration:[/info]")
     active_task = user_config.get_active_task()
     workspace_dir = user_config.config_dir
     tasks_dir = user_config.tasks_dir
@@ -6472,13 +6471,13 @@ def cmd_task_diagnose(args) -> int:
     )
 
     if issues > 0:
-        console.print(f"\n[warning]Issues:[/warning]")
+        console.print("\n[warning]Issues:[/warning]")
         if num_outdated > 0:
             console.print(f"  ⚠ {num_outdated} outdated task(s)")
         if num_orphaned > 0:
             console.print(f"  ⚠ {num_orphaned} orphaned task file(s)")
 
-        console.print(f"\n[info]Recommendations:[/info]")
+        console.print("\n[info]Recommendations:[/info]")
         if num_outdated > 0:
             console.print(
                 "  • Run [accent]'task sync --update'[/accent] to update outdated tasks"
@@ -6597,7 +6596,7 @@ def cmd_task_diff(args) -> int:
             console.print(f"[muted]{line}[/muted]")
 
     console.print(
-        f"\n[muted]Use 'task sync --update' to apply source changes (backup will be created)[/muted]"
+        "\n[muted]Use 'task sync --update' to apply source changes (backup will be created)[/muted]"
     )
 
     return 0
@@ -7000,7 +6999,7 @@ def cmd_settings_theme(args) -> int:
             )
             return 0
         else:
-            console.print(f"[error]✗[/error] Failed to save theme preference")
+            console.print("[error]✗[/error] Failed to save theme preference")
             return 1
     else:
         console.print("[muted]Theme selection cancelled.[/muted]")

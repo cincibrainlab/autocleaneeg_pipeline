@@ -11,8 +11,17 @@ from pathlib import Path
 
 import yaml
 from platformdirs import user_config_dir
+from schema import And, Optional, Or, Schema
 
-from autoclean.configkit.schema import SCHEMA_VERSION
+from autoclean.configkit.schema import (
+    COMP_REJ_METHODS,
+    ICA_METHODS,
+    SCHEMA_VERSION,
+    THRESHOLD_MODES,
+    _ic_flags_valid,
+    _is_valid_montage,
+    _is_valid_wavelet,
+)
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
 
@@ -158,8 +167,8 @@ def _legacy_validate_task_module_config(task_config: dict) -> dict:
 
     Returns the validated (possibly legacy-migrated) config or raises SchemaError.
     """
-    migrated = migrate_legacy_task_config(dict(task_config))
-    schema = _build_task_settings_schema()
+    migrated = _legacy_migrate_legacy_task_config(dict(task_config))
+    schema = _legacy_build_task_settings_schema()
     return schema.validate(migrated)
 
 

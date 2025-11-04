@@ -13,8 +13,7 @@ import logging
 import time
 import weakref
 from functools import wraps
-from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Tuple
 
 import mne
 import numpy as np

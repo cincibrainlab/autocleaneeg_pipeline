@@ -27,7 +27,7 @@ except ImportError:
 
 # Import logging utilities for warnings
 try:
-    from autoclean.utils.logging import message
+    from autoclean.utils import logging  # noqa: F401
 
     LOGGING_AVAILABLE = True
 except ImportError:

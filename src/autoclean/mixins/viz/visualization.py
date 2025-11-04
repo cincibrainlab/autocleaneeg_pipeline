@@ -842,7 +842,7 @@ class VisualizationMixin:
         # Parameters for PSD
         fmin = 0.5
         fmax = 80
-        n_fft = int(raw_original.info["sfreq"] * 2)  # Window length of 2 seconds
+        _n_fft = int(raw_original.info["sfreq"] * 2)  # Window length of 2 seconds
 
         sfreq = raw_cleaned.info["sfreq"]  # ~250 Hz in your printout
         epoch_len = 2.0  # try 2.0 s; use 1.0 s if you still get warnings

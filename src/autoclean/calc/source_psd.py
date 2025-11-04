@@ -75,7 +75,6 @@ def calculate_source_psd_list(
         Path to the saved file
     """
 
-    import mne
     import pandas as pd
 
     # Start timing
@@ -479,7 +478,6 @@ def visualize_psd_results(psd_df, output_dir=None, subject_id=None):
         Figure containing the visualization
     """
 
-    import pandas as pd
 
     # Set up plotting style
     plt.style.use("seaborn-v0_8-whitegrid")

@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import os
+from typing import Optional
+
+from rich.console import Console
+from rich.style import Style
+from rich.theme import Theme
+
 """
 Themed Console utilities for AutoClean EEG.
 
@@ -11,13 +18,6 @@ Provides a single get_console() factory and theme selection that respects:
 Use semantic styles in markup: brand, title, subtitle, header, accent,
 info, success, warning, error, muted, dim, border
 """
-
-import os
-from typing import Optional
-
-from rich.console import Console
-from rich.style import Style
-from rich.theme import Theme
 
 
 def _get_persistent_theme() -> Optional[str]:

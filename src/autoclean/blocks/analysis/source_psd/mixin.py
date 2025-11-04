@@ -17,10 +17,9 @@ Source-level PSD is fundamental for:
 """
 
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import mne
-import pandas as pd
 
 # Import algorithm functions
 from .algorithm import (
@@ -172,7 +171,7 @@ class SourcePSDMixin:
                         "Detected ROI-optimized source data (source localization v2.0.1+)",
                     )
                     self.message(
-                        "info", f"Using fast 68-channel mode (vs 20,484-vertex mode)"
+                        "info", "Using fast 68-channel mode (vs 20,484-vertex mode)"
                     )
                 else:
                     print(
