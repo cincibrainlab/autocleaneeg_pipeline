@@ -87,7 +87,18 @@ class BDFBiosemi32Plugin(BaseEEGPlugin):
 
             message("success", "Successfully applied biosemi32 montage")
 
-            # Step 3: Pick EEG and stimulus channels
+            # Step 3: Exclude external channels that won't have montage positions
+            # EXG channels (EOG, mastoids, etc.) don't have positions in standard montage
+            exg_to_exclude = [ch for ch in raw.ch_names if ch in [
+                'LM', 'RM', 'LVE', 'RVE', 'LHE', 'RHE', 'EXG7', 'EXG8',
+                'EXG1', 'EXG2', 'EXG3', 'EXG4', 'EXG5', 'EXG6'
+            ]]
+
+            if exg_to_exclude:
+                raw.drop_channels(exg_to_exclude)
+                message("debug", f"Dropped {len(exg_to_exclude)} EXG channels without montage positions")
+
+            # Pick EEG and stimulus channels
             # Keep stimulus channels for event extraction
             raw.pick_types(eeg=True, stim=True, exclude=[])
 
