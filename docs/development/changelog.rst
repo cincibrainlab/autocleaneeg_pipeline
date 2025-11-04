@@ -6,6 +6,28 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <https://keepachangelog.com/en/1.0.0/>`_,
 and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0.html>`_.
 
+[3.0.0] - Unreleased
+--------------------
+
+Added
+^^^^^
+* CONTRIBUTING.md with comprehensive development workflow guide and Makefile documentation
+* MIGRATION_GUIDE.md for version migration instructions
+* Development section in README with Makefile command reference
+
+Changed
+^^^^^^^
+* Converted LICENSE to LICENSE.md format
+* Updated Makefile: removed pip-based install, streamlined commands, added detailed comments
+* Makefile now defaults to uv tool-based workflows (matches CONTRIBUTING.md)
+* Improved Makefile help text with clearer command descriptions
+
+Fixed
+^^^^^
+* Suppressed verbose MNE epoch creation messages ("Getting epoch for...", "[N] Keeping...")
+* Set verbose=False by default in epoching functions when verbose=None
+* Code formatting: auto-formatted 68 files with black and isort
+
 [2.0.0] - 06/12/2025
 --------------------
 
