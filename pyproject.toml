@@ -8,7 +8,7 @@ version = "3.0.0"
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
-license = {file = "LICENSE"}
+license = {file = "LICENSE.md"}
 keywords = ["eeg", "neuroscience", "signal-processing", "preprocessing", "mne-python", "bids", "electrophysiology"]
 authors = [
     { name = "Ernest Pedapati", email = "ernest.pedapati@cchmc.org" },

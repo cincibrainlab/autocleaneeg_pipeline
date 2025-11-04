@@ -1,7 +1,7 @@
 # AutoCleanEEG Pipeline
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE.md)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 A modular framework for automated EEG data processing, built on MNE‑Python.
@@ -46,13 +46,29 @@ autocleaneeg-pipeline --help # Slow on first run!
 
 Full documentation is available at [https://docs.autocleaneeg.org](https://docs.autocleaneeg.org)
 
+## Development
+
+For contributors, we provide a Makefile with convenient development commands:
+
+```bash
+make help          # Show all available commands
+make check         # Run code quality checks
+make format        # Auto-format code
+make lint          # Run linting and type checking
+make test          # Run unit tests
+make test-cov      # Run tests with coverage
+make ci-check      # Run CI-equivalent checks locally
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full development guidelines.
+
 ## Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
 
 ## Acknowledgments
 
