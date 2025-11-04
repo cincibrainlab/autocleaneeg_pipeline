@@ -13,6 +13,34 @@ from autoclean.utils.block_lock import BlockLockFile
 from autoclean.utils.block_registry import BlockRegistry
 from autoclean.utils.console import get_console
 
+# ---------------------------------------------------------------------------
+# Internal helpers (consistency + DRY)
+# ---------------------------------------------------------------------------
+
+def _console(args):
+    """
+    Return a rich console using the same calling convention as the main CLI.
+    In the main CLI we pass the argparse Namespace to get_console; mirror that here
+    so theme selection and other context remain consistent.
+    """
+    try:
+        return get_console(args)
+    except TypeError:
+        # Backwards compatibility: some older builds expected a theme string
+        theme = getattr(args, "theme", None) if args is not None else None
+        return get_console(theme)
+
+def _get_block_or_error(registry: BlockRegistry, block_name: str, console):
+    """
+    Fetch a block from the registry or print a uniform error and return None.
+    """
+    block = registry.get_block(block_name)
+    if not block:
+        console.print(f"[error]Block not found: {block_name}[/error]")
+        console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
+        return None
+    return block
+
 
 def get_blocks_dir() -> Path:
     """Get the bundled blocks directory."""
@@ -59,7 +87,7 @@ def load_block_manifest(category: str, block_name: str) -> Optional[dict]:
 
 def cmd_blocks_list(args) -> int:
     """List all available blocks (from cache/bundled)."""
-    console = get_console(args.theme if hasattr(args, "theme") else None)
+    console = _console(args)
 
     registry = BlockRegistry()
     blocks = registry.list_blocks()
@@ -149,19 +177,15 @@ def cmd_blocks_list(args) -> int:
 
 def cmd_blocks_info(args) -> int:
     """Show detailed info for a specific block."""
-    console = get_console(args.theme if hasattr(args, "theme") else None)
+    console = _console(args)
 
     block_name = args.block_name
 
     # Find block in registry
     registry = BlockRegistry()
-    block = registry.get_block(block_name)
-
+    block = _get_block_or_error(registry, block_name, console)
     if not block:
-        console.print(f"[error]Block not found: {block_name}[/error]")
-        console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
         return 1
-
     # Get sync status
     status_info = registry.block_sync_status(block.name)
     status = status_info.get("status", "unknown")
@@ -245,17 +269,14 @@ def cmd_blocks_deps(args) -> int:
         is_uv_tool_install,
     )
 
-    console = get_console(args.theme if hasattr(args, "theme") else None)
+    console = _console(args)
     block_name = args.block_name
     registry = BlockRegistry()
 
     # Get block info
-    block = registry.get_block(block_name)
+    block = _get_block_or_error(registry, block_name, console)
     if not block:
-        console.print(f"[error]Block not found: {block_name}[/error]")
-        console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
         return 1
-
     # Load manifest using existing helper
     manifest_dict = load_block_manifest(block.category, block_name)
     if not manifest_dict:
@@ -347,7 +368,7 @@ def cmd_blocks_deps(args) -> int:
 
 def cmd_blocks_update(args) -> int:
     """Update blocks from task-registry GitHub."""
-    console = get_console(args.theme if hasattr(args, "theme") else None)
+    console = _console(args)
 
     console.print("→ Updating blocks from GitHub registry...\n")
 
@@ -382,7 +403,7 @@ def cmd_blocks_update(args) -> int:
 
 def cmd_blocks_install(args) -> int:
     """Install/download a specific block to cache."""
-    console = get_console(args.theme if hasattr(args, "theme") else None)
+    console = _console(args)
 
     # Check if --locked flag is set
     locked = getattr(args, "locked", False)
@@ -395,12 +416,9 @@ def cmd_blocks_install(args) -> int:
     registry = BlockRegistry()
 
     # Check if block exists
-    block = registry.get_block(block_name)
+    block = _get_block_or_error(registry, block_name, console)
     if not block:
-        console.print(f"[error]Block not found: {block_name}[/error]")
-        console.print("[dim]Run 'blocks list' to see available blocks[/dim]")
         return 1
-
     if commit_hash:
         console.print(
             f"→ Installing block [accent]{block_name}[/accent] from commit [yellow]{commit_hash[:8]}[/yellow]..."
@@ -428,7 +446,7 @@ def cmd_blocks_install(args) -> int:
 
 def cmd_blocks_install_locked(args) -> int:
     """Install all blocks from lock file."""
-    console = get_console(args.theme if hasattr(args, "theme") else None)
+    console = _console(args)
 
     lock_file_path = Path(getattr(args, "lock_file", "blocks.lock"))
     lock = BlockLockFile(lock_file_path)
@@ -484,7 +502,7 @@ def cmd_blocks_install_locked(args) -> int:
 
 def cmd_blocks_lock(args) -> int:
     """Generate lock file from current block state."""
-    console = get_console(args.theme if hasattr(args, "theme") else None)
+    console = _console(args)
 
     lock_file_path = Path(getattr(args, "output", "blocks.lock"))
     lock = BlockLockFile(lock_file_path)

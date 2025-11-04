@@ -2896,22 +2896,21 @@ def cmd_blocks(args) -> int:
         _print_root_help(console, "blocks")
         return 0
 
-    if action == "list":
-        return cli_blocks.cmd_blocks_list(args)
-    if action == "info":
-        return cli_blocks.cmd_blocks_info(args)
-    if action == "deps":
-        return cli_blocks.cmd_blocks_deps(args)
-    if action == "update":
-        return cli_blocks.cmd_blocks_update(args)
-    if action == "install":
-        return cli_blocks.cmd_blocks_install(args)
-    if action == "lock":
-        return cli_blocks.cmd_blocks_lock(args)
+    # Map sub-actions to their handlers to reduce branching and improve maintainability
+    _actions = {
+        "list": cli_blocks.cmd_blocks_list,
+        "info": cli_blocks.cmd_blocks_info,
+        "deps": cli_blocks.cmd_blocks_deps,
+        "update": cli_blocks.cmd_blocks_update,
+        "install": cli_blocks.cmd_blocks_install,
+        "lock": cli_blocks.cmd_blocks_lock,
+    }
+    handler = _actions.get(action)
+    if handler is not None:
+        return handler(args)
 
     message("error", f"Unknown blocks action: {action}")
     return 1
-
 
 def cmd_montage(args) -> int:
     """Execute montage-related commands."""
