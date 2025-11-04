@@ -71,7 +71,9 @@ def validate_python_identifier(value: str, *, label: str = "value") -> None:
     """
 
     if not value or not value.isidentifier() or keyword.iskeyword(value):
-        raise ValueError(f"{label} must be a valid Python identifier and not a keyword.")
+        raise ValueError(
+            f"{label} must be a valid Python identifier and not a keyword."
+        )
 
 
 def render_reprocess_task_from_json(
@@ -184,6 +186,7 @@ def render_reprocess_task_from_json(
     # Assume template is in src/autoclean/templates/
     try:
         import autoclean
+
         package_dir = Path(autoclean.__file__).parent
         template_path = package_dir / "templates" / template_name
     except (ImportError, AttributeError):

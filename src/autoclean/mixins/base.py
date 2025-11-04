@@ -226,7 +226,7 @@ class BaseMixin:
             Returns empty dict if info cannot be retrieved
         """
         try:
-            from autoclean.utils.block_registry import BlockRegistry, CACHE_ROOT
+            from autoclean.utils.block_registry import CACHE_ROOT, BlockRegistry
 
             registry = BlockRegistry(cache_root=CACHE_ROOT)
             block_record = registry.manifest.block_record(block_name)
@@ -332,18 +332,19 @@ class BaseMixin:
                 r["channel"] == channel and r["reason"] == reason
                 for r in channel_removals
             ):
-                channel_removals.append({
-                    "channel": channel,
-                    "reason": reason,
-                    "source_step": source_step,
-                    "timestamp": timestamp,
-                })
+                channel_removals.append(
+                    {
+                        "channel": channel,
+                        "reason": reason,
+                        "source_step": source_step,
+                        "timestamp": timestamp,
+                    }
+                )
 
         # Update metadata with complete removals list
         metadata = {"channel_removals": channel_removals}
         manage_database_conditionally(
-            operation="update",
-            update_record={"run_id": run_id, "metadata": metadata}
+            operation="update", update_record={"run_id": run_id, "metadata": metadata}
         )
 
     def _update_flagged_status(self, flagged: bool, reason: str) -> None:
@@ -527,7 +528,9 @@ class BaseMixin:
         root.mkdir(parents=True, exist_ok=True)
         return root
 
-    def _resolve_report_path(self, report_key: str, filename: str | None = None) -> Path:
+    def _resolve_report_path(
+        self, report_key: str, filename: str | None = None
+    ) -> Path:
         """Build an absolute path for a report artifact under the reports root."""
 
         base_dir = self._get_reports_root()

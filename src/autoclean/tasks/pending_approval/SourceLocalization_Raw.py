@@ -34,7 +34,10 @@ config = {
     "trim_step": {"enabled": False, "value": 0},
     "montage": {"enabled": True, "value": "standard_1020"},
     "reference_step": {"enabled": True, "value": "average"},
-    "crop_step": {"enabled": True, "value": {"start": 0, "end": 60}},  # Limit to 60s for speed
+    "crop_step": {
+        "enabled": True,
+        "value": {"start": 0, "end": 60},
+    },  # Limit to 60s for speed
     "ICA": {"enabled": False, "value": {"method": "infomax"}},
     "component_rejection": {
         "enabled": False,

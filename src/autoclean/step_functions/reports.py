@@ -17,6 +17,7 @@ The functions generate clear, publication-ready figures and detailed
 HTML reports documenting the processing pipeline results.
 """
 
+import ast
 import getpass
 import os
 import shutil
@@ -24,7 +25,6 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
-import ast
 
 import matplotlib
 import pandas as pd
@@ -291,7 +291,7 @@ def create_run_report(
             if original_channels:
                 # Add count and abbreviated list
                 channel_display = f"{len(original_channels)} channels"
-            
+
             import_info.extend(
                 [
                     ["File", import_details.get("basename", "N/A")],
@@ -519,6 +519,7 @@ def create_run_report(
 
     task_params_data = []
     try:
+
         def _flatten_dict(d, parent_key=""):
             items = []
             for k, v in d.items():
@@ -552,7 +553,8 @@ def create_run_report(
         task_params_data = [["Error processing task parameters", ""]]
 
     task_params_table = ReportLabTable(
-        [[Paragraph("Parameter", heading_style), Paragraph("Value", heading_style)]] + task_params_data,
+        [[Paragraph("Parameter", heading_style), Paragraph("Value", heading_style)]]
+        + task_params_data,
         colWidths=[3 * inch, 3 * inch],
     )
     task_params_table.setStyle(
@@ -714,12 +716,14 @@ def create_run_report(
     try:
         # First try to get from JSON summary
         if json_summary and "import_details" in json_summary:
-            original_channels = json_summary["import_details"].get("original_channel_names", [])
+            original_channels = json_summary["import_details"].get(
+                "original_channel_names", []
+            )
             if original_channels:
                 # Format as comma-separated list in rows of ~10 channels each for readability
                 channels_per_row = 10
                 for i in range(0, len(original_channels), channels_per_row):
-                    chunk = original_channels[i:i+channels_per_row]
+                    chunk = original_channels[i : i + channels_per_row]
                     original_channels_data.append([", ".join(chunk)])
             else:
                 original_channels_data = [["Original channel names not available"]]
@@ -731,7 +735,7 @@ def create_run_report(
                 # Format as comma-separated list in rows of ~10 channels each for readability
                 channels_per_row = 10
                 for i in range(0, len(original_channels), channels_per_row):
-                    chunk = original_channels[i:i+channels_per_row]
+                    chunk = original_channels[i : i + channels_per_row]
                     original_channels_data.append([", ".join(chunk)])
             else:
                 original_channels_data = [["Original channel names not available"]]
@@ -1301,7 +1305,9 @@ def update_task_processing_log(
                 pd.DataFrame([details], dtype=str).to_csv(final_file_csv, index=False)
                 message("success", f"Saved per-file processing log to {final_file_csv}")
             except Exception as ff_err:  # pylint: disable=broad-except
-                message("error", f"Error saving CSV to exports directory: {str(ff_err)}")
+                message(
+                    "error", f"Error saving CSV to exports directory: {str(ff_err)}"
+                )
 
         except Exception as perfile_err:  # pylint: disable=broad-except
             message("error", f"Error saving per-file CSV: {str(perfile_err)}")
@@ -1355,12 +1361,8 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
     metadata_dir = Path(
         prepare_dirs.get("metadata") or (Path(bids_dir_str).parent / "reports")
     )
-    reports_dir = Path(
-        prepare_dirs.get("reports") or (metadata_dir.parent / "reports")
-    )
-    ica_dir = Path(
-        prepare_dirs.get("ica") or (metadata_dir.parent / "ica")
-    )
+    reports_dir = Path(prepare_dirs.get("reports") or (metadata_dir.parent / "reports"))
+    ica_dir = Path(prepare_dirs.get("ica") or (metadata_dir.parent / "ica"))
     # Task-root exports directory
     final_files_dir = Path(
         prepare_dirs.get("exports") or (metadata_dir.parent / "exports")
@@ -1470,7 +1472,9 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         import_details["basename"] = metadata["import_eeg"]["unprocessedFile"]
         # Store original channel names if available
         if "originalChannelNames" in metadata["import_eeg"]:
-            import_details["original_channel_names"] = metadata["import_eeg"]["originalChannelNames"]
+            import_details["original_channel_names"] = metadata["import_eeg"][
+                "originalChannelNames"
+            ]
         original_channel_count = int(metadata["import_eeg"]["channelCount"]) - int(
             len(dropped_channels)
         )

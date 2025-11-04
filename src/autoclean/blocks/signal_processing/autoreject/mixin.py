@@ -19,10 +19,10 @@ from pathlib import Path
 from typing import List, Optional, Union
 
 import mne
+from autoreject import AutoReject
 
 from autoclean.functions.advanced.autoreject_reporting import generate_autoreject_report
 from autoclean.utils.logging import message
-from autoreject import AutoReject
 
 
 class AutoRejectEpochsMixin:
@@ -196,7 +196,9 @@ class AutoRejectEpochsMixin:
                 elif hasattr(self, "directories") and "derivatives" in self.directories:
                     derivatives_dir = Path(self.directories["derivatives"])
                     if not derivatives_dir.exists():
-                        raise ValueError("No derivatives directory available for autoreject report")
+                        raise ValueError(
+                            "No derivatives directory available for autoreject report"
+                        )
                     report_path = derivatives_dir / filename
 
                 if report_path:
@@ -210,7 +212,11 @@ class AutoRejectEpochsMixin:
                         epochs_before=epochs_before,
                         epochs_after=epochs_clean,
                         output_pdf=report_path,
-                        rejection_log=rejection_log.labels if hasattr(rejection_log, "labels") else None,
+                        rejection_log=(
+                            rejection_log.labels
+                            if hasattr(rejection_log, "labels")
+                            else None
+                        ),
                         ar_params=ar_params,
                     )
 

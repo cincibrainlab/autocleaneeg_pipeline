@@ -12,11 +12,9 @@ from pathlib import Path
 import yaml
 from platformdirs import user_config_dir
 
-
 from autoclean.configkit.schema import SCHEMA_VERSION
 from autoclean.utils.logging import message
 from autoclean.utils.montage import VALID_MONTAGES
-
 
 
 def load_config(config_file: Path = None) -> dict:
@@ -33,6 +31,7 @@ def load_config(config_file: Path = None) -> dict:
 
 # DEPRECATED: Legacy schema helpers retained temporarily for reference only
 # These are superseded by autoclean.configkit.schema
+
 
 def _legacy_build_task_settings_schema():
     """Schema for Python task module `config` dictionaries.
@@ -86,7 +85,10 @@ def _legacy_build_task_settings_schema():
             },
             # Referencing and montage
             "reference_step": {"enabled": bool, "value": Or(str, list[str], None)},
-            "montage": {"enabled": bool, "value": Or(And(str, _is_valid_montage), None)},
+            "montage": {
+                "enabled": bool,
+                "value": Or(And(str, _is_valid_montage), None),
+            },
             # ICA
             "ICA": {
                 "enabled": bool,

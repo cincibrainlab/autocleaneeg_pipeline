@@ -837,9 +837,9 @@ class UserConfigManager:
 
                 memory_gb = memory.total / (1024**3)
                 memory_available_gb = memory.available / (1024**3)
-                info[
-                    "Memory"
-                ] = f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available"
+                info["Memory"] = (
+                    f"{memory_gb:.1f} GB total, {memory_available_gb:.1f} GB available"
+                )
 
                 if cpu_physical and cpu_physical != cpu_count:
                     info["CPU"] = f"{cpu_physical} cores ({cpu_count} threads)"

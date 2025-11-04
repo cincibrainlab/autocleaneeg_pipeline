@@ -104,9 +104,7 @@ def render_methods(context: RunContext) -> str:
         ica_context: Optional[Dict[str, Any]] = {
             "method": ica.method,
             "n_components": (
-                str(ica.n_components)
-                if ica.n_components is not None
-                else "n"
+                str(ica.n_components) if ica.n_components is not None else "n"
             ),
             "classifier": ica.classifier or "unspecified",
             "removed_count": len(ica.removed_indices),
@@ -118,7 +116,9 @@ def render_methods(context: RunContext) -> str:
     if e and (e.tmin is not None or e.tmax is not None):
         baseline = None
         if e.baseline and any(x is not None for x in e.baseline):
-            baseline = f" with baseline correction ({e.baseline[0]} to {e.baseline[1]} s)"
+            baseline = (
+                f" with baseline correction ({e.baseline[0]} to {e.baseline[1]} s)"
+            )
 
         counts_sentence = None
         if e.total_epochs is not None:
@@ -149,9 +149,7 @@ def render_methods(context: RunContext) -> str:
             if context.bids_root
             else "a BIDS-compliant folder"
         ),
-        "resample_hz": (
-            f"{context.resample_hz:.0f}" if context.resample_hz else None
-        ),
+        "resample_hz": (f"{context.resample_hz:.0f}" if context.resample_hz else None),
         "filter_band": filter_band,
         "reference": context.reference,
         "ica": ica_context,
@@ -364,6 +362,8 @@ def _append_trace(
 
 def _hash_prompt(s: str) -> str:
     return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
 def run_context_from_dict(data: Dict[str, Any]) -> RunContext:
     """Coerce a plain dict (e.g., loaded from JSON) into a RunContext.
 
@@ -403,7 +403,9 @@ def run_context_from_dict(data: Dict[str, Any]) -> RunContext:
         return EpochStats(
             tmin=e.get("tmin"),
             tmax=e.get("tmax"),
-            baseline=tuple(e.get("baseline")) if e.get("baseline") is not None else None,
+            baseline=(
+                tuple(e.get("baseline")) if e.get("baseline") is not None else None
+            ),
             total_epochs=e.get("total_epochs"),
             kept_epochs=e.get("kept_epochs"),
             rejected_epochs=e.get("rejected_epochs"),

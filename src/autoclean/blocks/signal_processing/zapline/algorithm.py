@@ -9,8 +9,9 @@ Based on:
 - MEEGkit Python toolbox: https://github.com/nbara/python-meegkit
 """
 
+from typing import Optional, Tuple
+
 import numpy as np
-from typing import Tuple, Optional
 
 
 def apply_zapline_dss(
@@ -97,11 +98,11 @@ def apply_zapline_dss(
                 "Zapline removes electrical noise (like the hum from power outlets) "
                 "from your EEG recordings. This makes your brain signals cleaner "
                 "and easier to analyze."
-            )
+            ),
         )
 
     # Validate input
-    if raw.info['nchan'] < 2:
+    if raw.info["nchan"] < 2:
         raise ValueError(
             f"Zapline requires at least 2 channels, got {raw.info['nchan']}. "
             "DSS exploits spatial structure of noise."
@@ -109,7 +110,7 @@ def apply_zapline_dss(
 
     # Extract data and parameters
     data = raw.get_data().T  # Convert to (n_samples, n_channels)
-    sfreq = raw.info['sfreq']
+    sfreq = raw.info["sfreq"]
 
     # Defensive validation of all parameters before passing to meegkit
     if fline is None:
@@ -133,9 +134,9 @@ def apply_zapline_dss(
 
     # Apply appropriate DSS method
     info = {
-        'method': 'dss_line_iter' if use_iter else 'dss_line',
-        'fline': fline,
-        'nkeep': nkeep,
+        "method": "dss_line_iter" if use_iter else "dss_line",
+        "fline": fline,
+        "nkeep": nkeep,
     }
 
     # Calculate appropriate nfft (should be power of 2, at least 1 second of data)
@@ -151,7 +152,7 @@ def apply_zapline_dss(
             nfft=nfft,
             n_iter_max=max_iter,
         )
-        info['iterations'] = iterations
+        info["iterations"] = iterations
     else:
         # Single-pass removal
         out, _ = dss.dss_line(
@@ -161,7 +162,7 @@ def apply_zapline_dss(
             nkeep=nkeep,
             nfft=nfft,
         )
-        info['iterations'] = 1
+        info["iterations"] = 1
 
     # Create cleaned Raw object
     raw_clean = raw.copy()
@@ -171,9 +172,7 @@ def apply_zapline_dss(
 
 
 def compute_line_noise_power(
-    raw,
-    fline: float = 60.0,
-    bandwidth: float = 2.0
+    raw, fline: float = 60.0, bandwidth: float = 2.0
 ) -> Tuple[float, float]:
     """Compute power at line frequency before and after Zapline.
 
@@ -198,18 +197,15 @@ def compute_line_noise_power(
     from scipy import signal
 
     data = raw.get_data()
-    sfreq = raw.info['sfreq']
+    sfreq = raw.info["sfreq"]
 
     # Compute power spectrum
     freqs, psd = signal.welch(
-        data,
-        fs=sfreq,
-        nperseg=int(4 * sfreq),  # 4-second windows
-        scaling='density'
+        data, fs=sfreq, nperseg=int(4 * sfreq), scaling="density"  # 4-second windows
     )
 
     # Find indices for line frequency band
-    line_band = (freqs >= fline - bandwidth/2) & (freqs <= fline + bandwidth/2)
+    line_band = (freqs >= fline - bandwidth / 2) & (freqs <= fline + bandwidth / 2)
 
     # Average across channels
     psd_mean = psd.mean(axis=0)
@@ -228,11 +224,7 @@ def compute_line_noise_power(
     return power_db, snr
 
 
-def validate_zapline_effectiveness(
-    raw_before,
-    raw_after,
-    fline: float = 60.0
-) -> dict:
+def validate_zapline_effectiveness(raw_before, raw_after, fline: float = 60.0) -> dict:
     """Validate Zapline effectiveness by comparing spectra.
 
     Parameters
@@ -259,13 +251,13 @@ def validate_zapline_effectiveness(
     reduction_db = power_before - power_after
 
     results = {
-        'power_before_db': power_before,
-        'power_after_db': power_after,
-        'reduction_db': reduction_db,
-        'snr_before': snr_before,
-        'snr_after': snr_after,
-        'success': reduction_db >= 10.0,  # At least 10 dB reduction
-        'fline': fline
+        "power_before_db": power_before,
+        "power_after_db": power_after,
+        "reduction_db": reduction_db,
+        "snr_before": snr_before,
+        "snr_after": snr_after,
+        "success": reduction_db >= 10.0,  # At least 10 dB reduction
+        "fline": fline,
     }
 
     return results

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from autoclean.core.task import Task
 
-
 config = {
     "schema_version": "2025.09",
     "montage": {"enabled": True, "value": "GSN-HydroCel-129"},
@@ -32,10 +31,10 @@ config = {
         "enabled": True,
         "value": {
             "wavelet": "sym4",
-            "level": "auto",           # Use the deepest safe decomposition level
+            "level": "auto",  # Use the deepest safe decomposition level
             "threshold_mode": "soft",
-            "threshold_scale": 0.85,     # Slightly less aggressive than default
-            "psd_fmax": 35.0,            # Align PSD metrics with the band-pass
+            "threshold_scale": 0.85,  # Slightly less aggressive than default
+            "psd_fmax": 35.0,  # Align PSD metrics with the band-pass
             "picks": "eeg",
             "bandpass": [1.0, 30.0],
             "filter_kwargs": None,

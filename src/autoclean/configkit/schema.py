@@ -256,7 +256,10 @@ def _build_task_settings_schema() -> Schema:
     return Schema(
         {
             "schema_version": And(str, lambda v: v == SCHEMA_VERSION),
-            "montage": {"enabled": bool, "value": Or(And(str, _is_valid_montage), None)},
+            "montage": {
+                "enabled": bool,
+                "value": Or(And(str, _is_valid_montage), None),
+            },
             Optional("ai_reporting"): Or(bool, None),
             Optional("move_flagged_files"): Or(bool, None),
             Optional("dataset_name"): Or(str, None),
@@ -268,7 +271,9 @@ def _build_task_settings_schema() -> Schema:
                     "l_freq": Or(int, float, None),
                     "h_freq": Or(int, float, None),
                     "notch_freqs": Or(float, int, list[float], list[int], None),
-                    Optional("notch_widths"): Or(float, int, list[float], list[int], None),
+                    Optional("notch_widths"): Or(
+                        float, int, list[float], list[int], None
+                    ),
                 },
             },
             "drop_outerlayer": step_value_list,

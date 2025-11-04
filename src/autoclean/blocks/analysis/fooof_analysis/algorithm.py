@@ -31,7 +31,7 @@ from scipy import signal
 
 # SpecParam dependency for spectral parameterization
 try:
-    from specparam import SpectralModel, SpectralGroupModel
+    from specparam import SpectralGroupModel, SpectralModel
     from specparam.analysis import get_band_peak
 
     SPECPARAM_AVAILABLE = True

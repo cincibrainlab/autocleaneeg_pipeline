@@ -266,9 +266,7 @@ def format_dependency_error(
     return "\n".join(lines)
 
 
-def get_block_dependency_status(
-    block_name: str, manifest_path: Path
-) -> Dict[str, any]:
+def get_block_dependency_status(block_name: str, manifest_path: Path) -> Dict[str, any]:
     """Get comprehensive dependency status for a block.
 
     Parameters
@@ -291,8 +289,7 @@ def get_block_dependency_status(
     missing = get_missing_dependencies(block_name, manifest_path)
 
     satisfied = [
-        (pkg, ver) for pkg, ver in all_deps.items()
-        if (pkg, ver) not in missing
+        (pkg, ver) for pkg, ver in all_deps.items() if (pkg, ver) not in missing
     ]
 
     return {

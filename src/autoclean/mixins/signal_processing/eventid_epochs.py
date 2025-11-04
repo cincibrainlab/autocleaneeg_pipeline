@@ -62,7 +62,7 @@ class EventIDEpochsMixin:
         --------
         >>> # Discover events in your data
         >>> processor.print_discovered_events()
-        
+
         >>> # Use in a script to see available events
         >>> available_events = processor.print_discovered_events(show_config_example=False)
         >>> if available_events:
@@ -114,7 +114,9 @@ class EventIDEpochsMixin:
                 event_counts[event_desc] = {
                     "code": event_code,
                     "count": count,
-                    "percentage": (count / len(events_all) * 100) if len(events_all) > 0 else 0,
+                    "percentage": (
+                        (count / len(events_all) * 100) if len(events_all) > 0 else 0
+                    ),
                 }
 
             # Sort by count (most frequent first)
@@ -125,7 +127,7 @@ class EventIDEpochsMixin:
             # Print formatted table
             message("info", f"\nFound {len(event_id_all)} unique event types:")
             message("info", "=" * 80)
-            
+
             # Header
             header = f"{'Event Name':<25} {'Code':<10} {'Count':<12} {'% of Total':<15}"
             message("info", header)
@@ -147,22 +149,24 @@ class EventIDEpochsMixin:
             # Provide configuration guidance
             if show_config_example:
                 message("header", "\nConfiguration Guide")
-                
+
                 # Set default exclusion patterns if not provided
                 if exclude_patterns is None:
                     exclude_patterns = ["BAD", "artifact"]
-                
+
                 # Filter out likely artifact markers
                 def should_exclude(event_name):
                     """Check if event name matches any exclusion pattern."""
                     upper_name = event_name.upper()
-                    return any(upper_name.startswith(pattern.upper()) for pattern in exclude_patterns)
-                
+                    return any(
+                        upper_name.startswith(pattern.upper())
+                        for pattern in exclude_patterns
+                    )
+
                 likely_stimuli = {
                     k: v["code"]
                     for k, v in event_counts.items()
-                    if not should_exclude(k)
-                    and v["count"] >= 5  # Exclude rare events
+                    if not should_exclude(k) and v["count"] >= 5  # Exclude rare events
                 }
 
                 if likely_stimuli:
@@ -170,7 +174,7 @@ class EventIDEpochsMixin:
                         "info",
                         "\nTo use these events for epoching, add to your config.json:",
                     )
-                    
+
                     # Example 1: Simple config
                     simple_config = {
                         "epoch_settings": {
@@ -179,15 +183,15 @@ class EventIDEpochsMixin:
                             "event_id": likely_stimuli,
                         }
                     }
-                    
+
                     message("info", "\nBasic Example (uses all available events):")
                     message("info", json.dumps(simple_config, indent=2))
-                    
+
                     # Example 2: Custom naming
                     if len(likely_stimuli) >= 2:
                         first_event = list(likely_stimuli.items())[0]
                         second_event = list(likely_stimuli.items())[1]
-                        
+
                         custom_config = {
                             "epoch_settings": {
                                 "enabled": True,
@@ -198,20 +202,30 @@ class EventIDEpochsMixin:
                                 },
                             }
                         }
-                        
-                        message("info", "\nCustom Naming Example (recommended for clarity):")
+
+                        message(
+                            "info", "\nCustom Naming Example (recommended for clarity):"
+                        )
                         message("info", json.dumps(custom_config, indent=2))
                         message(
                             "info",
                             f"\nNote: Replace 'target' and 'standard' with meaningful names for your experiment",
                         )
-                    
+
                     message("info", "\n" + "=" * 80)
                     message("info", "Pro Tips:")
                     message("info", "  • Event codes must match EXACTLY (integers)")
-                    message("info", "  • Use descriptive names instead of 'DIN4' for better readability")
-                    message("info", "  • Adjust tmin/tmax based on your experimental design")
-                    message("info", "  • If epochs are empty, verify codes match what's shown above")
+                    message(
+                        "info",
+                        "  • Use descriptive names instead of 'DIN4' for better readability",
+                    )
+                    message(
+                        "info", "  • Adjust tmin/tmax based on your experimental design"
+                    )
+                    message(
+                        "info",
+                        "  • If epochs are empty, verify codes match what's shown above",
+                    )
                     message("info", "=" * 80)
                 else:
                     message(
@@ -282,9 +296,13 @@ class EventIDEpochsMixin:
             n_epochs = len(epochs)
 
             # Compute amplitudes per channel per epoch
-            method_desc = "maximum absolute values" if method == "max_abs" else "peak-to-peak amplitudes"
+            method_desc = (
+                "maximum absolute values"
+                if method == "max_abs"
+                else "peak-to-peak amplitudes"
+            )
             message("info", f"Computing {method_desc} across epochs...")
-            
+
             report_rows = []
             channels_by_type = {}  # For type-level summaries
 
@@ -292,12 +310,16 @@ class EventIDEpochsMixin:
                 # Compute amplitudes based on method
                 if method == "max_abs":
                     # Maximum absolute value (matches MNE's reject behavior)
-                    amplitudes = np.max(np.abs(data[:, ch_idx, :]), axis=1)  # (n_epochs,)
+                    amplitudes = np.max(
+                        np.abs(data[:, ch_idx, :]), axis=1
+                    )  # (n_epochs,)
                 elif method == "ptp":
                     # Peak-to-peak range (max - min)
                     amplitudes = np.ptp(data[:, ch_idx, :], axis=1)  # (n_epochs,)
                 else:
-                    message("warning", f"Unknown method '{method}', defaulting to 'max_abs'")
+                    message(
+                        "warning", f"Unknown method '{method}', defaulting to 'max_abs'"
+                    )
                     amplitudes = np.max(np.abs(data[:, ch_idx, :]), axis=1)
 
                 mean_amp = amplitudes.mean()
@@ -314,31 +336,37 @@ class EventIDEpochsMixin:
                     flagged_count = (amplitudes > thresh_value).sum()
                     flagged_pct = (flagged_count / n_epochs) * 100
 
-                report_rows.append({
-                    "channel": ch_name,
-                    "ch_type": ch_type,
-                    "mean_amp": mean_amp,
-                    "max_amp": max_amp,
-                    "min_amp": min_amp,
-                    "flagged_count": flagged_count,
-                    "flagged_pct": flagged_pct,
-                    "threshold": thresh_value,
-                })
+                report_rows.append(
+                    {
+                        "channel": ch_name,
+                        "ch_type": ch_type,
+                        "mean_amp": mean_amp,
+                        "max_amp": max_amp,
+                        "min_amp": min_amp,
+                        "flagged_count": flagged_count,
+                        "flagged_pct": flagged_pct,
+                        "threshold": thresh_value,
+                    }
+                )
 
                 # Aggregate by channel type
                 if ch_type not in channels_by_type:
                     channels_by_type[ch_type] = []
-                channels_by_type[ch_type].append({
-                    "name": ch_name,
-                    "mean_amp": mean_amp,
-                    "flagged_pct": flagged_pct,
-                })
+                channels_by_type[ch_type].append(
+                    {
+                        "name": ch_name,
+                        "mean_amp": mean_amp,
+                        "flagged_pct": flagged_pct,
+                    }
+                )
 
             quality_df = pd.DataFrame(report_rows)
 
             # Print summary statistics
             message("info", "=" * 80)
-            message("info", f"Analyzed {n_epochs} epochs across {len(ch_names)} channels")
+            message(
+                "info", f"Analyzed {n_epochs} epochs across {len(ch_names)} channels"
+            )
             message("info", "=" * 80)
 
             # Per-type summary
@@ -356,7 +384,7 @@ class EventIDEpochsMixin:
 
                 message("info", f"  Average mean amplitude: {avg_mean_amp:.6f} V")
                 message("info", f"  Maximum mean amplitude: {max_mean_amp:.6f} V")
-                
+
                 # Show number of channels for context
                 message("info", f"  Number of channels:     {len(channels)}")
 
@@ -371,9 +399,14 @@ class EventIDEpochsMixin:
                     ]
 
                     if problem_channels:
-                        message("info", f"\n  ⚠️  Channels exceeding threshold in >20% of epochs:")
+                        message(
+                            "info",
+                            f"\n  ⚠️  Channels exceeding threshold in >20% of epochs:",
+                        )
                         for ch in sorted(
-                            problem_channels, key=lambda x: x["flagged_pct"], reverse=True
+                            problem_channels,
+                            key=lambda x: x["flagged_pct"],
+                            reverse=True,
                         ):
                             message(
                                 "info",
@@ -433,9 +466,18 @@ class EventIDEpochsMixin:
             overall_max = quality_df["max_amp"].max()
             overall_min = quality_df["min_amp"].min()
 
-            message("info", f"Overall mean amplitude (across all channels): {overall_mean:.6f} V")
-            message("info", f"Overall max amplitude (across all channels):  {overall_max:.6f} V")
-            message("info", f"Overall min amplitude (across all channels):  {overall_min:.6f} V")
+            message(
+                "info",
+                f"Overall mean amplitude (across all channels): {overall_mean:.6f} V",
+            )
+            message(
+                "info",
+                f"Overall max amplitude (across all channels):  {overall_max:.6f} V",
+            )
+            message(
+                "info",
+                f"Overall min amplitude (across all channels):  {overall_min:.6f} V",
+            )
 
             if volt_threshold:
                 total_flagged = quality_df["flagged_count"].sum()
@@ -554,7 +596,9 @@ class EventIDEpochsMixin:
                     "Tip: Call print_discovered_events() to see available events in your data",
                 )
                 # Automatically show available events to help the user
-                message("info", "Automatically discovering events to help you configure...")
+                message(
+                    "info", "Automatically discovering events to help you configure..."
+                )
                 self.print_discovered_events(data=data)
                 return None
 
@@ -564,16 +608,23 @@ class EventIDEpochsMixin:
             auto_discover = True
             if hasattr(self, "config") and isinstance(self.config, dict):
                 auto_discover = self.config.get("auto_discover_events", True)
-            
+
             if auto_discover:
-                message("info", "\nDiscovering available events in data for verification...")
-                discovered_events = self.print_discovered_events(data=data, show_config_example=True)
-                
+                message(
+                    "info", "\nDiscovering available events in data for verification..."
+                )
+                discovered_events = self.print_discovered_events(
+                    data=data, show_config_example=True
+                )
+
                 if discovered_events is None:
                     message("error", "Failed to discover events in data")
                     return None
             else:
-                message("debug", "Auto-discovery disabled via config (auto_discover_events=False)")
+                message(
+                    "debug",
+                    "Auto-discovery disabled via config (auto_discover_events=False)",
+                )
 
             # Get all events from annotations for epoching
             try:
@@ -612,7 +663,7 @@ class EventIDEpochsMixin:
                 "info",
                 f"Looking for events matching patterns: {list(event_patterns.keys())}",
             )
-            
+
             # If no patterns matched, provide helpful debugging info
             if len(event_patterns) == 0:
                 message(
@@ -629,7 +680,7 @@ class EventIDEpochsMixin:
                 )
                 self.print_discovered_events(data=data)
                 return None
-            
+
             # Filter events to include only those with matching trigger codes
             trigger_codes = list(event_patterns.values())
 
@@ -710,7 +761,7 @@ class EventIDEpochsMixin:
                     # Manually compute threshold violations since MNE has no built-in
                     # dry-run threshold detection
                     bad_epochs_thresh = []
-                    
+
                     # Map channel names to their types
                     ch_types_list = epochs.get_channel_types()
                     ch_type_map = {}
@@ -718,23 +769,25 @@ class EventIDEpochsMixin:
                         if ch_type not in ch_type_map:
                             ch_type_map[ch_type] = []
                         ch_type_map[ch_type].append(ch_name)
-                    
+
                     # Check each epoch for threshold violations
                     for idx in range(len(epochs)):
-                        this_epoch = epochs[idx].get_data()[0]  # Shape: (n_chans, n_times)
+                        this_epoch = epochs[idx].get_data()[
+                            0
+                        ]  # Shape: (n_chans, n_times)
                         drop_reasons = []
-                        
+
                         for ch_type, thresh in volt_threshold.items():
                             if ch_type in ch_type_map:
                                 # Get indices of channels of this type
                                 ch_names_of_type = ch_type_map[ch_type]
                                 mask = np.isin(epochs.ch_names, ch_names_of_type)
                                 epoch_type_data = this_epoch[mask]
-                                
+
                                 # Check if any sample exceeds threshold
                                 if np.any(np.abs(epoch_type_data) > thresh):
                                     drop_reasons.append(ch_type)
-                        
+
                         if drop_reasons:
                             bad_epochs_thresh.append(idx)
                             # Mark which channel types exceeded threshold
@@ -743,7 +796,7 @@ class EventIDEpochsMixin:
                                 if col_name not in epochs.metadata.columns:
                                     epochs.metadata[col_name] = False
                                 epochs.metadata.loc[idx, col_name] = True
-                    
+
                     message(
                         "info",
                         f"Marked {len(bad_epochs_thresh)} epochs exceeding voltage thresholds (not dropped)",
@@ -805,24 +858,36 @@ class EventIDEpochsMixin:
                 if volt_threshold is not None:
                     message("info", "\n")
                     message("header", "Amplitude Quality Preview (Before Rejection)")
-                    message("info", "Analyzing impact of configured thresholds on your data...\n")
+                    message(
+                        "info",
+                        "Analyzing impact of configured thresholds on your data...\n",
+                    )
                     quality_df_preview = self.summarize_amplitude_quality(
                         epochs=epochs,  # Analyze ALL epochs before dropping
-                        volt_threshold=volt_threshold
+                        volt_threshold=volt_threshold,
                     )
-                    
+
                     if quality_df_preview is not None:
                         # Calculate what will be rejected
                         total_flagged = quality_df_preview["flagged_count"].sum()
                         total_possible = len(epochs) * len(epochs.ch_names)
                         overall_flag_pct = (total_flagged / total_possible) * 100
-                        
+
                         message("info", "\n📊 Impact Preview:")
-                        message("info", f"  • With current thresholds, {overall_flag_pct:.1f}% of channel-epoch pairs will be flagged")
+                        message(
+                            "info",
+                            f"  • With current thresholds, {overall_flag_pct:.1f}% of channel-epoch pairs will be flagged",
+                        )
                         if not keep_all_epochs:
-                            message("info", f"  • Proceeding with rejection of flagged epochs...")
+                            message(
+                                "info",
+                                f"  • Proceeding with rejection of flagged epochs...",
+                            )
                         else:
-                            message("info", f"  • Epochs will be marked but kept (keep_all_epochs=True)")
+                            message(
+                                "info",
+                                f"  • Epochs will be marked but kept (keep_all_epochs=True)",
+                            )
                         message("info", "")
 
                 # Drop bad epochs only if not keeping all epochs
@@ -879,10 +944,14 @@ class EventIDEpochsMixin:
                             surviving_sorted = surviving_event_samples[
                                 surviving_sorted_idx
                             ]
-                            original_sorted = original_event_samples[original_sorted_idx]
+                            original_sorted = original_event_samples[
+                                original_sorted_idx
+                            ]
 
                             # Find positions of surviving events in the sorted original array
-                            positions = np.searchsorted(original_sorted, surviving_sorted)
+                            positions = np.searchsorted(
+                                original_sorted, surviving_sorted
+                            )
 
                             # Map back to original indices
                             kept_original_indices = original_sorted_idx[positions]
@@ -931,54 +1000,70 @@ class EventIDEpochsMixin:
                         )
 
             # Create beautiful concise summary for INFO, detailed breakdown for DEBUG
-            message("info", "\n" + "="*80)
+            message("info", "\n" + "=" * 80)
             message("info", "📊 Epoch Rejection Summary")
-            message("info", "="*80)
+            message("info", "=" * 80)
             message("info", f"Total epochs:    {total_epochs}")
-            message("info", f"Kept epochs:     {good_epochs} ({good_epochs/total_epochs*100:.1f}%)")
-            message("info", f"Rejected epochs: {total_epochs - good_epochs} ({(total_epochs - good_epochs)/total_epochs*100:.1f}%)")
-            
+            message(
+                "info",
+                f"Kept epochs:     {good_epochs} ({good_epochs/total_epochs*100:.1f}%)",
+            )
+            message(
+                "info",
+                f"Rejected epochs: {total_epochs - good_epochs} ({(total_epochs - good_epochs)/total_epochs*100:.1f}%)",
+            )
+
             if annotation_types:
                 # Sort by count (most problematic first)
-                sorted_annotations = sorted(annotation_types.items(), key=lambda x: x[1], reverse=True)
-                
+                sorted_annotations = sorted(
+                    annotation_types.items(), key=lambda x: x[1], reverse=True
+                )
+
                 # Show top 5 most problematic at INFO level
                 top_n = min(5, len(sorted_annotations))
                 if top_n > 0:
                     message("info", f"\nTop rejection reasons:")
                     for annotation, count in sorted_annotations[:top_n]:
                         message("info", f"  • {annotation}: {count} epochs")
-                
+
                 # Show all details at DEBUG level
                 message("debug", "\nDetailed rejection breakdown (all channels):")
                 for annotation, count in sorted_annotations:
                     message("debug", f"  {annotation}: {count} epochs")
-            
-            message("info", "="*80)
+
+            message("info", "=" * 80)
 
             # Brief quality validation after dropping (without full coaching)
             message("info", "\n")
             message("header", "Final Data Quality Validation")
             quality_df_final = self.summarize_amplitude_quality(
                 epochs=epochs_clean,
-                volt_threshold=None  # No threshold comparison, just descriptive stats
+                volt_threshold=None,  # No threshold comparison, just descriptive stats
             )
-            
+
             # Store quality metrics in metadata
             amplitude_quality_stats = {}
             if quality_df_final is not None:
                 amplitude_quality_stats = {
-                    "overall_mean_amplitude": float(quality_df_final["mean_amp"].mean()),
+                    "overall_mean_amplitude": float(
+                        quality_df_final["mean_amp"].mean()
+                    ),
                     "overall_max_amplitude": float(quality_df_final["max_amp"].max()),
                     "overall_min_amplitude": float(quality_df_final["min_amp"].min()),
                     "channels_analyzed": len(quality_df_final),
                 }
-                
+
                 message("info", "\n✓ Final Dataset Quality:")
-                message("info", f"  • Mean amplitude: {amplitude_quality_stats['overall_mean_amplitude']:.6f} V")
-                message("info", f"  • Data retained: {good_epochs}/{total_epochs} epochs ({good_epochs/total_epochs*100:.1f}%)")
+                message(
+                    "info",
+                    f"  • Mean amplitude: {amplitude_quality_stats['overall_mean_amplitude']:.6f} V",
+                )
+                message(
+                    "info",
+                    f"  • Data retained: {good_epochs}/{total_epochs} epochs ({good_epochs/total_epochs*100:.1f}%)",
+                )
                 message("info", "")
-            
+
             # Add threshold config if it was used in preview
             if volt_threshold:
                 amplitude_quality_stats["threshold_config"] = volt_threshold
@@ -1020,7 +1105,7 @@ class EventIDEpochsMixin:
                 "tmax": tmax,
                 "event_id": event_id,
             }
-            
+
             # Add amplitude quality stats to metadata if available
             if amplitude_quality_stats:
                 metadata["amplitude_quality"] = amplitude_quality_stats

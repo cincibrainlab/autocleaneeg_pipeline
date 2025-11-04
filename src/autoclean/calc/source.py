@@ -36,7 +36,7 @@ except ImportError:
 
 try:
     from bctpy import charpath, clustering_coef_wu, efficiency_wei
-    from specparam import SpectralModel, SpectralGroupModel
+    from specparam import SpectralGroupModel, SpectralModel
     from specparam.analysis import get_band_peak
 
     SPECPARAM_AVAILABLE = True
@@ -46,7 +46,9 @@ except ImportError:
 from autoclean.io.export import save_stc_to_file
 
 
-def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None, save_stc: bool = False):
+def estimate_source_function_raw(
+    raw: mne.io.Raw, config: dict = None, save_stc: bool = False
+):
     """
     Perform source localization on continuous resting-state EEG data using an identity matrix
     for noise covariance, keeping it as raw data.

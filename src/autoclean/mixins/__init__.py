@@ -256,12 +256,16 @@ _loaded_block_names: set = set()  # Track which blocks we've already loaded
 
 # Three-tier priority system (like task library)
 _BLOCK_SEARCH_PATHS = [
-    Path.home() / ".config" / "autocleaneeg" / ".block_cache",  # 1. Cache (from updates)
-    Path(__file__).parent.parent / "blocks",                     # 2. Bundled (fallback)
+    Path.home()
+    / ".config"
+    / "autocleaneeg"
+    / ".block_cache",  # 1. Cache (from updates)
+    Path(__file__).parent.parent / "blocks",  # 2. Bundled (fallback)
 ]
 
 # Add task-registry blocks if env var is set
 import os
+
 if os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH"):
     _registry_path = Path(os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH")) / "blocks"
     _BLOCK_SEARCH_PATHS.append(_registry_path)  # 3. Task-registry (dev mode)
@@ -285,13 +289,20 @@ for search_path in _BLOCK_SEARCH_PATHS:
 
                 # Load algorithm.py first if it exists (for relative imports in mixin.py)
                 import importlib.util
+
                 algorithm_file = mixin_file.parent / "algorithm.py"
                 if algorithm_file.exists():
-                    alg_module_name = f"autoclean_bundled_blocks.{category}.{block_name}.algorithm"
-                    alg_spec = importlib.util.spec_from_file_location(alg_module_name, algorithm_file)
+                    alg_module_name = (
+                        f"autoclean_bundled_blocks.{category}.{block_name}.algorithm"
+                    )
+                    alg_spec = importlib.util.spec_from_file_location(
+                        alg_module_name, algorithm_file
+                    )
                     if alg_spec and alg_spec.loader:
                         alg_module = importlib.util.module_from_spec(alg_spec)
-                        sys.modules[alg_module_name] = alg_module  # Register so mixin can import it
+                        sys.modules[alg_module_name] = (
+                            alg_module  # Register so mixin can import it
+                        )
                         alg_spec.loader.exec_module(alg_module)
 
                 # Create a module name for the block
@@ -301,11 +312,15 @@ for search_path in _BLOCK_SEARCH_PATHS:
                 spec = importlib.util.spec_from_file_location(module_name, mixin_file)
                 if spec and spec.loader:
                     module = importlib.util.module_from_spec(spec)
-                    sys.modules[module_name] = module  # Register so relative imports work
+                    sys.modules[module_name] = (
+                        module  # Register so relative imports work
+                    )
                     spec.loader.exec_module(module)
 
                     # Look for Mixin classes
-                    for class_name, class_obj in inspect.getmembers(module, inspect.isclass):
+                    for class_name, class_obj in inspect.getmembers(
+                        module, inspect.isclass
+                    ):
                         if (
                             class_obj.__module__ == module_name
                             and class_name.endswith("Mixin")
@@ -334,6 +349,7 @@ _EXTERNAL_BLOCK_PATHS = [
 
 # Add task-registry blocks if env var is set
 import os
+
 if os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH"):
     _registry_path = Path(os.getenv("AUTOCLEAN_TASK_REGISTRY_PATH")) / "blocks"
     if _registry_path.exists():
@@ -357,13 +373,16 @@ for external_path in _EXTERNAL_BLOCK_PATHS:
         try:
             # Load the module directly from file path
             import importlib.util
+
             spec = importlib.util.spec_from_file_location(module_name, block_file)
             if spec and spec.loader:
                 module = importlib.util.module_from_spec(spec)
                 spec.loader.exec_module(module)
 
                 # Look for Mixin classes
-                for class_name, class_obj in inspect.getmembers(module, inspect.isclass):
+                for class_name, class_obj in inspect.getmembers(
+                    module, inspect.isclass
+                ):
                     if (
                         class_obj.__module__ == module_name
                         and class_name.endswith("Mixin")
@@ -371,7 +390,9 @@ for external_path in _EXTERNAL_BLOCK_PATHS:
                     ):
                         if class_obj not in _discovered_external_mixins:
                             _discovered_external_mixins.append(class_obj)
-                            print(f"✓ Loaded external block: {class_name} from {block_file.name}")
+                            print(
+                                f"✓ Loaded external block: {class_name} from {block_file.name}"
+                            )
         except Exception as e:
             # Don't fail on external block errors - just warn
             print(f"Warning: Could not load external block from {block_file}: {e}")

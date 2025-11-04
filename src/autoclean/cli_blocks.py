@@ -32,7 +32,15 @@ def load_registry() -> dict:
 def load_block_manifest(category: str, block_name: str) -> Optional[dict]:
     """Load manifest for a specific block (from bundled or cache)."""
     # Try cache first
-    cache_path = Path.home() / ".config" / "autocleaneeg" / ".block_cache" / category / block_name / "manifest.json"
+    cache_path = (
+        Path.home()
+        / ".config"
+        / "autocleaneeg"
+        / ".block_cache"
+        / category
+        / block_name
+        / "manifest.json"
+    )
     if cache_path.exists():
         try:
             with open(cache_path) as f:
@@ -123,11 +131,17 @@ def cmd_blocks_list(args) -> int:
     if any(update_summary.values()):
         console.print("[dim]Last update:[/dim]")
         if update_summary["new"]:
-            console.print(f"  [success]New:[/success] {', '.join(update_summary['new'])}")
+            console.print(
+                f"  [success]New:[/success] {', '.join(update_summary['new'])}"
+            )
         if update_summary["updated"]:
-            console.print(f"  [accent]Updated:[/accent] {', '.join(update_summary['updated'])}")
+            console.print(
+                f"  [accent]Updated:[/accent] {', '.join(update_summary['updated'])}"
+            )
         if update_summary["removed"]:
-            console.print(f"  [warning]Removed:[/warning] {', '.join(update_summary['removed'])}")
+            console.print(
+                f"  [warning]Removed:[/warning] {', '.join(update_summary['removed'])}"
+            )
         console.print()
 
     return 0
@@ -226,8 +240,8 @@ def cmd_blocks_info(args) -> int:
 def cmd_blocks_deps(args) -> int:
     """Show dependencies for a specific block."""
     from autoclean.utils.block_dependencies import (
-        get_block_dependency_status,
         generate_install_command,
+        get_block_dependency_status,
         is_uv_tool_install,
     )
 
@@ -249,8 +263,18 @@ def cmd_blocks_deps(args) -> int:
         return 1
 
     # Find actual manifest file path for dependency checker
-    cache_path = Path.home() / ".config" / "autocleaneeg" / ".block_cache" / block.category / block_name / "manifest.json"
-    bundled_path = Path(__file__).parent / "blocks" / block.category / block_name / "manifest.json"
+    cache_path = (
+        Path.home()
+        / ".config"
+        / "autocleaneeg"
+        / ".block_cache"
+        / block.category
+        / block_name
+        / "manifest.json"
+    )
+    bundled_path = (
+        Path(__file__).parent / "blocks" / block.category / block_name / "manifest.json"
+    )
 
     manifest_path = cache_path if cache_path.exists() else bundled_path
     if not manifest_path.exists():
@@ -278,7 +302,9 @@ def cmd_blocks_deps(args) -> int:
         if (pkg, version) in dep_status["missing"]:
             console.print(f"  [error]✗[/error] {pkg}{version} [dim](missing)[/dim]")
         else:
-            console.print(f"  [success]✓[/success] {pkg}{version} [dim](installed)[/dim]")
+            console.print(
+                f"  [success]✓[/success] {pkg}{version} [dim](installed)[/dim]"
+            )
     console.print()
 
     # Show installation instructions if there are missing deps
@@ -286,11 +312,15 @@ def cmd_blocks_deps(args) -> int:
         console.print("[yellow]Installation:[/yellow]")
 
         if is_uv_tool_install():
-            console.print("[dim]You installed via 'uv tool install'. To enable this block:[/dim]")
+            console.print(
+                "[dim]You installed via 'uv tool install'. To enable this block:[/dim]"
+            )
             console.print()
 
             # Option 1: Use blocks enable (future feature)
-            console.print(f"  [accent]autocleaneeg-pipeline blocks enable {block_name}[/accent]")
+            console.print(
+                f"  [accent]autocleaneeg-pipeline blocks enable {block_name}[/accent]"
+            )
             console.print()
 
             # Option 2: Manual reinstall
@@ -301,7 +331,9 @@ def cmd_blocks_deps(args) -> int:
 
             # Option 3: Install all blocks
             console.print("[dim]Or install all block dependencies at once:[/dim]")
-            console.print('  [accent]uv tool install "autocleaneeg-pipeline[blocks-all]"[/accent]')
+            console.print(
+                '  [accent]uv tool install "autocleaneeg-pipeline[blocks-all]"[/accent]'
+            )
         else:
             console.print("[dim]Install with pip:[/dim]")
             for pkg, version in dep_status["missing"]:
@@ -370,17 +402,23 @@ def cmd_blocks_install(args) -> int:
         return 1
 
     if commit_hash:
-        console.print(f"→ Installing block [accent]{block_name}[/accent] from commit [yellow]{commit_hash[:8]}[/yellow]...")
+        console.print(
+            f"→ Installing block [accent]{block_name}[/accent] from commit [yellow]{commit_hash[:8]}[/yellow]..."
+        )
     else:
         console.print(f"→ Installing block [accent]{block_name}[/accent]...")
 
     try:
-        dest_path = registry.materialize_block_to(block_name, registry.cache_root, commit=commit_hash)
+        dest_path = registry.materialize_block_to(
+            block_name, registry.cache_root, commit=commit_hash
+        )
         console.print(f"[success]✓[/success] Block installed to cache: {dest_path}")
         if commit_hash:
             console.print(f"[dim]Installed from commit: {commit_hash}[/dim]")
         console.print()
-        console.print("[dim]The block will be automatically discovered on next pipeline run.[/dim]")
+        console.print(
+            "[dim]The block will be automatically discovered on next pipeline run.[/dim]"
+        )
         console.print()
         return 0
     except Exception as exc:
@@ -400,7 +438,9 @@ def cmd_blocks_install_locked(args) -> int:
         console.print("[dim]Run 'blocks lock' to create one[/dim]")
         return 1
 
-    console.print(f"→ Installing blocks from lock file: [accent]{lock_file_path}[/accent]\n")
+    console.print(
+        f"→ Installing blocks from lock file: [accent]{lock_file_path}[/accent]\n"
+    )
 
     try:
         lock_data = lock.load()
@@ -410,19 +450,27 @@ def cmd_blocks_install_locked(args) -> int:
             console.print("[warning]Lock file contains no blocks[/warning]")
             return 0
 
-        console.print(f"[dim]Registry commit: {lock_data.get('registry_commit', 'unknown')}[/dim]")
-        console.print(f"[dim]Locked at: {lock_data.get('locked_at', 'unknown')}[/dim]\n")
+        console.print(
+            f"[dim]Registry commit: {lock_data.get('registry_commit', 'unknown')}[/dim]"
+        )
+        console.print(
+            f"[dim]Locked at: {lock_data.get('locked_at', 'unknown')}[/dim]\n"
+        )
 
         registry = BlockRegistry()
         installed = lock.install_from_lock(registry)
 
-        console.print(f"\n[success]✓[/success] Installed {len(installed)}/{len(blocks_data)} blocks")
+        console.print(
+            f"\n[success]✓[/success] Installed {len(installed)}/{len(blocks_data)} blocks"
+        )
         for block_name in installed:
             console.print(f"  • {block_name}")
 
         if len(installed) < len(blocks_data):
             failed = set(blocks_data.keys()) - set(installed)
-            console.print(f"\n[warning]Failed to install {len(failed)} blocks:[/warning]")
+            console.print(
+                f"\n[warning]Failed to install {len(failed)} blocks:[/warning]"
+            )
             for block_name in failed:
                 console.print(f"  • {block_name}")
 
@@ -455,8 +503,12 @@ def cmd_blocks_lock(args) -> int:
 
         lock.save(lock_data)
 
-        console.print(f"[success]✓[/success] Lock file created: [accent]{lock_file_path}[/accent]\n")
-        console.print(f"[dim]Registry commit: {lock_data.get('registry_commit', 'unknown')}[/dim]")
+        console.print(
+            f"[success]✓[/success] Lock file created: [accent]{lock_file_path}[/accent]\n"
+        )
+        console.print(
+            f"[dim]Registry commit: {lock_data.get('registry_commit', 'unknown')}[/dim]"
+        )
         console.print(f"[dim]Blocks locked: {len(blocks_data)}[/dim]\n")
 
         # Show locked blocks
@@ -479,7 +531,9 @@ def cmd_blocks_lock(args) -> int:
         console.print(table)
         console.print()
 
-        console.print("[dim]Commit this file to your repository for reproducibility:[/dim]")
+        console.print(
+            "[dim]Commit this file to your repository for reproducibility:[/dim]"
+        )
         console.print(f"[dim]  git add {lock_file_path}[/dim]")
         console.print(f"[dim]  git commit -m 'Lock analysis environment'[/dim]\n")
 

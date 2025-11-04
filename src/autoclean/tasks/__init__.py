@@ -24,9 +24,7 @@ if _pending_dir.exists():
     for finder, name, ispkg in pkgutil.iter_modules([str(_pending_dir)]):
         if name.startswith("_"):
             continue
-        module = importlib.import_module(
-            f"{__package__}.pending_approval.{name}"
-        )
+        module = importlib.import_module(f"{__package__}.pending_approval.{name}")
         _task_modules[f"pending_approval.{name}"] = module
 
 # Initialize collections

@@ -9,9 +9,9 @@ import json
 import os
 import secrets
 import time
-from functools import wraps
 import webbrowser
 from datetime import datetime, timedelta
+from functools import wraps
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple

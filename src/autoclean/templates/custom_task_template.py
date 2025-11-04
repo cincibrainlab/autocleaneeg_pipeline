@@ -69,14 +69,14 @@ config = {
     "wavelet_threshold": {
         "enabled": False,
         "value": {
-            "wavelet": "sym4",           # Mother wavelet name
-            "level": 5,                  # Decomposition levels (auto-clamped internally)
-            "threshold_mode": "soft",   # 'soft' or 'hard'
-            "is_erp": False,             # Enable ERP-preserving mode
-            "threshold_scale": 1.0,      # Multiplier for universal threshold
-            "psd_fmax": 45.0,            # Optional PSD ceiling for wavelet QA plots
-            "bandpass": [1.0, 30.0],     # Optional pre-filter band (set to None to skip)
-            "filter_kwargs": None        # Extra args forwarded to MNE filtering
+            "wavelet": "sym4",  # Mother wavelet name
+            "level": 5,  # Decomposition levels (auto-clamped internally)
+            "threshold_mode": "soft",  # 'soft' or 'hard'
+            "is_erp": False,  # Enable ERP-preserving mode
+            "threshold_scale": 1.0,  # Multiplier for universal threshold
+            "psd_fmax": 45.0,  # Optional PSD ceiling for wavelet QA plots
+            "bandpass": [1.0, 30.0],  # Optional pre-filter band (set to None to skip)
+            "filter_kwargs": None,  # Extra args forwarded to MNE filtering
         },
     },
     "reference_step": {
@@ -101,10 +101,10 @@ config = {
         "value": {
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
             "ic_rejection_threshold": 0.3,  # Threshold for automatic rejection
-            "ic_rejection_overrides": {        # Optional per-type overrides
-            "muscle": 0.99                # Very conservative (only 99% confidence)
+            "ic_rejection_overrides": {  # Optional per-type overrides
+                "muscle": 0.99  # Very conservative (only 99% confidence)
             },
-            "psd_fmax": 40.0  # NEW: Limit PSD plots to 40 Hz
+            "psd_fmax": 40.0,  # NEW: Limit PSD plots to 40 Hz
         },
     },
     "epoch_settings": {

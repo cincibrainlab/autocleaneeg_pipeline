@@ -14,8 +14,8 @@ decisions to ensure appropriate artifact removal.
 
 """
 
-import os
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -31,10 +31,10 @@ from autoclean.functions.visualization.icvision_layouts import (
     plot_ica_topographies_overview,
 )
 from autoclean.mixins.viz._ica_sources_cache import (
-    get_cached_ica_sources,
-    invalidate_ica_cache,
-    get_ica_cache_stats,
     cache_aware_ica_method,
+    get_cached_ica_sources,
+    get_ica_cache_stats,
+    invalidate_ica_cache,
 )
 from autoclean.utils.logging import message
 
@@ -236,7 +236,10 @@ class ICAReportingMixin:
                 message("warning", "Failed to generate 'all components' ICA report")
 
         except Exception as exc:
-            message("error", f"Critical error in 'all components' ICA report generation: {exc}")
+            message(
+                "error",
+                f"Critical error in 'all components' ICA report generation: {exc}",
+            )
 
         try:
             # Generate report for rejected components
@@ -254,12 +257,20 @@ class ICAReportingMixin:
                     }
                 }
                 self._update_metadata("generate_ica_reports", metadata)
-                message("success", "Successfully generated 'rejected components' ICA report")
+                message(
+                    "success", "Successfully generated 'rejected components' ICA report"
+                )
             else:
-                message("info", "No rejected components report generated (may be no rejected components)")
+                message(
+                    "info",
+                    "No rejected components report generated (may be no rejected components)",
+                )
 
         except Exception as exc:
-            message("error", f"Critical error in 'rejected components' ICA report generation: {exc}")
+            message(
+                "error",
+                f"Critical error in 'rejected components' ICA report generation: {exc}",
+            )
 
     def _plot_ica_components(
         self,
@@ -278,11 +289,16 @@ class ICAReportingMixin:
         """
         # Safety guards - input validation
         if self.raw is None or self.final_ica is None:
-            message("warning", "ICA plotting skipped because raw or ICA data is missing.")
+            message(
+                "warning", "ICA plotting skipped because raw or ICA data is missing."
+            )
             return None
-        
+
         if components not in ["all", "rejected"]:
-            message("error", f"Invalid components parameter: '{components}'. Must be 'all' or 'rejected'.")
+            message(
+                "error",
+                f"Invalid components parameter: '{components}'. Must be 'all' or 'rejected'.",
+            )
             return None
 
         raw = self.raw
@@ -324,7 +340,10 @@ class ICAReportingMixin:
             component_indices = list(ica.exclude)
             report_name = "ica_components_rejected"
             if not component_indices:
-                message("info", "No rejected components. Skipping rejected components report.")
+                message(
+                    "info",
+                    "No rejected components. Skipping rejected components report.",
+                )
                 return None
         # Invalid components parameter handled by safety guard above
 
@@ -339,7 +358,9 @@ class ICAReportingMixin:
 
         basename = Path(self.config["unprocessed_file"]).stem
         basename = f"{basename}_{report_name}"
-        pdf_path = self._resolve_report_path("ica_components", basename).with_suffix(".pdf")
+        pdf_path = self._resolve_report_path("ica_components", basename).with_suffix(
+            ".pdf"
+        )
 
         if os.path.exists(pdf_path):
             os.remove(pdf_path)
@@ -375,7 +396,9 @@ class ICAReportingMixin:
                     if ic_labels is not None and idx < len(ic_labels):
                         comp_info = ic_labels.iloc[idx]
                         annot = str(comp_info.get("annotator", "ic_label")).lower()
-                        src_suffix = " [Vision]" if annot in {"ic_vision", "vision"} else ""
+                        src_suffix = (
+                            " [Vision]" if annot in {"ic_vision", "vision"} else ""
+                        )
                         table_data.append(
                             [
                                 f"IC{idx + 1}",
@@ -384,9 +407,9 @@ class ICAReportingMixin:
                                 "Yes" if idx in excluded_set else "No",
                             ]
                         )
-                        colors.append([
-                            color_map.get(comp_info["ic_type"].lower(), "white")
-                        ] * 4)
+                        colors.append(
+                            [color_map.get(comp_info["ic_type"].lower(), "white")] * 4
+                        )
                     else:
                         table_data.append(
                             [
@@ -467,27 +490,36 @@ class ICAReportingMixin:
                 plt.close(fig_overlay)
 
             source_name = Path(self.config["unprocessed_file"]).stem
-            
+
             # Pre-compute batch data for better performance
-            from autoclean.mixins.viz._ica_topography_cache import get_cached_topographies
             from autoclean.mixins.viz._ica_psd_cache import get_cached_component_psds
-            
+            from autoclean.mixins.viz._ica_topography_cache import (
+                get_cached_topographies,
+            )
+
             try:
                 # Pre-compute all topographies for the components we'll plot
-                logger.debug(f"Pre-computing topographies for {len(component_indices)} components")
+                logger.debug(
+                    f"Pre-computing topographies for {len(component_indices)} components"
+                )
                 get_cached_topographies(ica, component_indices)
-                
+
                 # Pre-compute all PSDs for the components we'll plot
-                logger.debug(f"Pre-computing PSDs for {len(component_indices)} components")
+                logger.debug(
+                    f"Pre-computing PSDs for {len(component_indices)} components"
+                )
                 get_cached_component_psds(ica, raw, component_indices, fmax=psd_fmax)
                 get_cached_component_psds(
                     ica, raw_fast, component_indices, fmax=psd_fmax
                 )
-                
-                message("info", f"Pre-computed batch data for {len(component_indices)} components")
+
+                message(
+                    "info",
+                    f"Pre-computed batch data for {len(component_indices)} components",
+                )
             except Exception as exc:
                 logger.warning(f"Batch pre-computation failed (will fallback): {exc}")
-            
+
             for idx in component_indices:
                 classification_label = None
                 classification_confidence = None
@@ -563,7 +595,7 @@ class ICAReportingMixin:
 
     def get_cache_info(self) -> dict:
         """Get ICA sources cache statistics for monitoring.
-        
+
         Returns
         -------
         dict
@@ -579,11 +611,13 @@ class ICAReportingMixin:
     def log_cache_performance(self):
         """Log current cache performance statistics."""
         stats = get_ica_cache_stats()
-        if stats['entries'] > 0:
-            message("info", 
+        if stats["entries"] > 0:
+            message(
+                "info",
                 f"ICA Cache: {stats['entries']} entries, "
                 f"{stats['total_size_mb']:.1f}MB used "
-                f"({stats['utilization_percent']:.1f}% of limit)")
+                f"({stats['utilization_percent']:.1f}% of limit)",
+            )
         else:
             message("info", "ICA Cache: empty")
 

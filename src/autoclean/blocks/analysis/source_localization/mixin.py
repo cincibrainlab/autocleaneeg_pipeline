@@ -7,13 +7,12 @@ ensuring consistent results and easier maintenance.
 The mixin always outputs 68-channel EEG data (Desikan-Killiany atlas regions).
 """
 
+import os
+import shutil
+import tempfile
+import warnings
 from pathlib import Path
 from typing import Optional, Union
-import tempfile
-import shutil
-import os
-
-import warnings
 
 import mne
 
@@ -145,9 +144,7 @@ class SourceLocalizationMixin:
         is_epochs = isinstance(data, mne.BaseEpochs)
 
         if not (is_raw or is_epochs):
-            raise TypeError(
-                f"Data must be mne.io.Raw or mne.Epochs, got {type(data)}"
-            )
+            raise TypeError(f"Data must be mne.io.Raw or mne.Epochs, got {type(data)}")
 
         # Auto-detect montage from data if not specified
         if montage is None:
@@ -155,17 +152,21 @@ class SourceLocalizationMixin:
             if data.get_montage() is not None:
                 detected_montage = data.get_montage()
                 # Get montage name if available, otherwise use 'unknown'
-                montage_name = getattr(detected_montage, 'kind', 'unknown')
+                montage_name = getattr(detected_montage, "kind", "unknown")
                 if hasattr(self, "message"):
-                    self.message("info", f"Auto-detected montage from data: {montage_name}")
+                    self.message(
+                        "info", f"Auto-detected montage from data: {montage_name}"
+                    )
                 # Note: SequentialProcessor requires montage, but data already has positions
                 # We'll pass the detected name, but positions come from exported .set file
-                montage = montage_name if montage_name != 'unknown' else "standard_1020"
+                montage = montage_name if montage_name != "unknown" else "standard_1020"
             else:
                 # No montage on data, use default
                 montage = "standard_1020"
                 if hasattr(self, "message"):
-                    self.message("warning", "No montage detected, using default: standard_1020")
+                    self.message(
+                        "warning", "No montage detected, using default: standard_1020"
+                    )
 
         try:
             # Log start
@@ -188,9 +189,11 @@ class SourceLocalizationMixin:
                 tmp_input = os.path.join(tmpdir, "temp_input.set")
 
                 if hasattr(self, "message"):
-                    self.message("info", "Exporting to temporary file for processing...")
+                    self.message(
+                        "info", "Exporting to temporary file for processing..."
+                    )
 
-                data.export(tmp_input, fmt='eeglab', overwrite=True)
+                data.export(tmp_input, fmt="eeglab", overwrite=True)
 
                 # Initialize processor from package
                 memory_manager = MemoryManager(max_memory_gb=max_memory_gb)
@@ -198,8 +201,8 @@ class SourceLocalizationMixin:
                 processor = SequentialProcessor(
                     memory_manager=memory_manager,
                     montage=montage,
-                    resample_freq=resample_freq or data.info['sfreq'],
-                    lambda2=lambda2
+                    resample_freq=resample_freq or data.info["sfreq"],
+                    lambda2=lambda2,
                 )
 
                 if hasattr(self, "message"):
@@ -212,13 +215,13 @@ class SourceLocalizationMixin:
                 # 4. Saves output
                 result = processor.process_file(tmp_input, tmpdir)
 
-                if result['status'] != 'success':
+                if result["status"] != "success":
                     raise RuntimeError(
                         f"Source localization failed: {result.get('error', 'Unknown error')}"
                     )
 
                 # Load the 68-region output
-                output_file = result['output_file']
+                output_file = result["output_file"]
 
                 if hasattr(self, "message"):
                     self.message("info", "Loading 68-region output...")
@@ -269,7 +272,7 @@ class SourceLocalizationMixin:
                 shutil.copy2(output_file, final_file)
 
                 # Copy .fdt file if it exists
-                fdt_file = output_file.replace('.set', '.fdt')
+                fdt_file = output_file.replace(".set", ".fdt")
                 if os.path.exists(fdt_file):
                     shutil.copy2(fdt_file, final_fdt)
 
@@ -301,8 +304,7 @@ class SourceLocalizationMixin:
 
                 if hasattr(self, "message"):
                     self.message(
-                        "success",
-                        f"Source localization complete: 68 DK regions"
+                        "success", f"Source localization complete: 68 DK regions"
                     )
                     self.message("info", f"Saved to: {final_file}")
 
@@ -322,11 +324,13 @@ class SourceLocalizationMixin:
 
                 if is_raw:
                     metadata["duration_sec"] = source_data.times[-1]
-                    metadata["sfreq"] = source_data.info['sfreq']
+                    metadata["sfreq"] = source_data.info["sfreq"]
                 else:
                     metadata["n_epochs"] = len(source_data)
-                    metadata["epoch_duration_sec"] = source_data.times[-1] - source_data.times[0]
-                    metadata["sfreq"] = source_data.info['sfreq']
+                    metadata["epoch_duration_sec"] = (
+                        source_data.times[-1] - source_data.times[0]
+                    )
+                    metadata["sfreq"] = source_data.info["sfreq"]
 
                 self._update_metadata("step_apply_source_localization", metadata)
 

@@ -17,7 +17,7 @@ import scipy.io as sio
 from dotenv import load_dotenv
 from PyQt5.Qt import *  # noqa: F403
 from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
-from PyQt5.QtGui import QImage, QPixmap, QColor, QPalette
+from PyQt5.QtGui import QColor, QImage, QPalette, QPixmap
 from PyQt5.QtWidgets import (
     QApplication,
     QComboBox,
@@ -716,10 +716,8 @@ class FileSelector(QWidget):
                     print(f"Falling back to original path: {derivatives_dir}")
 
                 reports_dir = None
-                spd_meta = (
-                    self.current_run_record.get("metadata", {}).get(
-                        "step_prepare_directories", {}
-                    )
+                spd_meta = self.current_run_record.get("metadata", {}).get(
+                    "step_prepare_directories", {}
                 )
                 if isinstance(spd_meta, dict):
                     reports_candidate = spd_meta.get("reports")
@@ -779,7 +777,11 @@ class FileSelector(QWidget):
                         try:
                             qa_dir = resolve_moved_path(Path(spd_meta["metadata"]))
                         except Exception:
-                            qa_dir = Path(spd_meta["metadata"]) if spd_meta.get("metadata") else None
+                            qa_dir = (
+                                Path(spd_meta["metadata"])
+                                if spd_meta.get("metadata")
+                                else None
+                            )
                         qa_dir = qa_dir.parent / "qa" if qa_dir else None
                     if qa_dir and qa_dir.exists():
                         print(f"Searching for image files in QA directory: {qa_dir}")
@@ -1197,7 +1199,8 @@ class FileSelector(QWidget):
 
             if self.status_bar is not None:
                 self.status_bar.showMessage(
-                    f"Auto-saved exclusions for {Path(self._plotted_file_path).name}", 5000
+                    f"Auto-saved exclusions for {Path(self._plotted_file_path).name}",
+                    5000,
                 )
 
             if reason != "selection_changed" and hasattr(self, "loadFiles"):
@@ -1345,9 +1348,7 @@ class FileSelector(QWidget):
             palette.setColor(QPalette.Text, QColor("#1f2933"))
             palette.setColor(QPalette.WindowText, QColor("#1f2933"))
             widget.setPalette(palette)
-            widget.setStyleSheet(
-                "background-color: #ffffff; color: #1f2933;"
-            )
+            widget.setStyleSheet("background-color: #ffffff; color: #1f2933;")
             for child in widget.findChildren(QWidget):
                 child.setPalette(palette)
         except Exception:

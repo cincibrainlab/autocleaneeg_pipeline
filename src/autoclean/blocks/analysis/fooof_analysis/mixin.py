@@ -17,9 +17,9 @@ Donoghue T, et al. (2020). Parameterizing neural power spectra into periodic and
 aperiodic components. Nature Neuroscience, 23(12), 1655-1665.
 """
 
+import importlib.util
 from pathlib import Path
 from typing import Optional, Union
-import importlib.util
 
 import mne
 import pandas as pd
@@ -283,7 +283,9 @@ class specparamAnalysisMixin:
                 self.message("error", error_msg)
             else:
                 print(f"ERROR: {error_msg}")
-            raise RuntimeError(f"Failed to calculate specparam aperiodic: {str(e)}") from e
+            raise RuntimeError(
+                f"Failed to calculate specparam aperiodic: {str(e)}"
+            ) from e
 
     def apply_fooof_periodic(
         self,
@@ -485,4 +487,6 @@ class specparamAnalysisMixin:
                 self.message("error", error_msg)
             else:
                 print(f"ERROR: {error_msg}")
-            raise RuntimeError(f"Failed to calculate specparam periodic: {str(e)}") from e
+            raise RuntimeError(
+                f"Failed to calculate specparam periodic: {str(e)}"
+            ) from e

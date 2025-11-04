@@ -20,7 +20,9 @@ try:  # Python 3.10+ provides importlib.resources.files
 except ImportError:  # pragma: no cover - fallback for very old Python
     from importlib_resources import files  # type: ignore
 
-RAW_BASE = "https://raw.githubusercontent.com/cincibrainlab/autocleaneeg-task-registry/main"
+RAW_BASE = (
+    "https://raw.githubusercontent.com/cincibrainlab/autocleaneeg-task-registry/main"
+)
 CACHE_ROOT = Path.home() / ".config" / "autocleaneeg" / ".builtin_cache"
 
 MANIFEST_NAME = "manifest.json"
@@ -111,14 +113,18 @@ class CacheManifest:
         }
         self.save()
 
-    def update_task_remote(self, task_name: str, *, path: str, remote_hash: Optional[str]) -> None:
+    def update_task_remote(
+        self, task_name: str, *, path: str, remote_hash: Optional[str]
+    ) -> None:
         tasks: Dict[str, object] = self.data.setdefault("tasks", {})  # type: ignore[assignment]
         rec: Dict[str, object] = tasks.get(task_name, {})  # type: ignore[assignment]
-        rec.update({
-            "path": path,
-            "remote_hash": remote_hash,
-            "last_seen_commit": self.data.get("registry_commit"),
-        })
+        rec.update(
+            {
+                "path": path,
+                "remote_hash": remote_hash,
+                "last_seen_commit": self.data.get("registry_commit"),
+            }
+        )
         tasks[task_name] = rec
         self.save()
 
@@ -174,7 +180,9 @@ class BuiltinRegistry:
         self.manifest = CacheManifest(self.cache_root / MANIFEST_NAME)
         env_timeout = os.environ.get(TIMEOUT_ENV)
         try:
-            self.timeout = float(timeout or (float(env_timeout) if env_timeout else DEFAULT_TIMEOUT))
+            self.timeout = float(
+                timeout or (float(env_timeout) if env_timeout else DEFAULT_TIMEOUT)
+            )
         except (TypeError, ValueError):
             self.timeout = DEFAULT_TIMEOUT
         # Last update diff snapshot for CLI rendering
@@ -260,16 +268,24 @@ class BuiltinRegistry:
                 try:
                     data = self._fetch_bytes(remote_url)
                     remote_hash = hashlib.sha256(data).hexdigest()
-                except (URLError, HTTPError, socket.timeout):  # pragma: no cover - network
+                except (
+                    URLError,
+                    HTTPError,
+                    socket.timeout,
+                ):  # pragma: no cover - network
                     remote_hash = None
                 # Compare with prior remote hash if available
                 before = before_records.get(name) or {}
-                before_hash = before.get("remote_hash") if isinstance(before, dict) else None
+                before_hash = (
+                    before.get("remote_hash") if isinstance(before, dict) else None
+                )
                 if remote_hash and before_hash and isinstance(before_hash, str):
                     if remote_hash != before_hash:
                         updated.append(name)
                 # Persist the latest remote hash in the manifest
-                self.manifest.update_task_remote(name, path=path, remote_hash=remote_hash)
+                self.manifest.update_task_remote(
+                    name, path=path, remote_hash=remote_hash
+                )
 
             # Record success and summarize
             self.manifest.record_success(commit)
@@ -307,7 +323,9 @@ class BuiltinRegistry:
         ]
 
     def get_task(self, task_name: str) -> Optional[BuiltinTask]:
-        return next((task for task in self.list_tasks() if task.name == task_name), None)
+        return next(
+            (task for task in self.list_tasks() if task.name == task_name), None
+        )
 
     def _cache_path_for(self, rel_path: str) -> Path:
         return self.cache_root / rel_path

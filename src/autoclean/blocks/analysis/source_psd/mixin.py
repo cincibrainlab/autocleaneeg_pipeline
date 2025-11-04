@@ -23,7 +23,11 @@ import mne
 import pandas as pd
 
 # Import algorithm functions
-from .algorithm import calculate_roi_psd, calculate_source_psd_list, visualize_psd_results
+from .algorithm import (
+    calculate_roi_psd,
+    calculate_source_psd_list,
+    visualize_psd_results,
+)
 
 
 class SourcePSDMixin:
@@ -146,7 +150,9 @@ class SourcePSDMixin:
 
             # Get parameters from config if available
             if config_value and isinstance(config_value, dict):
-                segment_duration = config_value.get("segment_duration", segment_duration)
+                segment_duration = config_value.get(
+                    "segment_duration", segment_duration
+                )
                 n_jobs = config_value.get("n_jobs", n_jobs)
                 generate_plots = config_value.get("generate_plots", generate_plots)
 
@@ -161,29 +167,46 @@ class SourcePSDMixin:
                 use_roi_mode = True
                 roi_data = self.source_eeg
                 if hasattr(self, "message"):
-                    self.message("info", "Detected ROI-optimized source data (source localization v2.0.1+)")
-                    self.message("info", f"Using fast 68-channel mode (vs 20,484-vertex mode)")
+                    self.message(
+                        "info",
+                        "Detected ROI-optimized source data (source localization v2.0.1+)",
+                    )
+                    self.message(
+                        "info", f"Using fast 68-channel mode (vs 20,484-vertex mode)"
+                    )
                 else:
-                    print("INFO: Detected ROI-optimized source data (source localization v2.0.1+)")
+                    print(
+                        "INFO: Detected ROI-optimized source data (source localization v2.0.1+)"
+                    )
                     print("INFO: Using fast 68-channel mode (vs 20,484-vertex mode)")
             # Fall back to vertex-level data (v1.0.0 source localization)
             elif hasattr(self, "stc_list") and self.stc_list is not None:
                 stc_list = self.stc_list
                 use_roi_mode = False
                 if hasattr(self, "message"):
-                    self.message("info", "Detected vertex-level source data (source localization v1.0.0)")
+                    self.message(
+                        "info",
+                        "Detected vertex-level source data (source localization v1.0.0)",
+                    )
                     self.message("info", "Using vertex-level mode with parcellation")
                 else:
-                    print("INFO: Detected vertex-level source data (source localization v1.0.0)")
+                    print(
+                        "INFO: Detected vertex-level source data (source localization v1.0.0)"
+                    )
                     print("INFO: Using vertex-level mode with parcellation")
             elif hasattr(self, "stc") and self.stc is not None:
                 stc_list = self.stc
                 use_roi_mode = False
                 if hasattr(self, "message"):
-                    self.message("info", "Detected vertex-level source data (source localization v1.0.0)")
+                    self.message(
+                        "info",
+                        "Detected vertex-level source data (source localization v1.0.0)",
+                    )
                     self.message("info", "Using vertex-level mode with parcellation")
                 else:
-                    print("INFO: Detected vertex-level source data (source localization v1.0.0)")
+                    print(
+                        "INFO: Detected vertex-level source data (source localization v1.0.0)"
+                    )
                     print("INFO: Using vertex-level mode with parcellation")
             else:
                 raise AttributeError(
@@ -230,8 +253,13 @@ class SourcePSDMixin:
                     f"Segment duration: {segment_duration}s, n_jobs: {n_jobs}",
                 )
                 if use_roi_mode:
-                    data_type = "Raw" if isinstance(roi_data, mne.io.BaseRaw) else "Epochs"
-                    self.message("info", f"Input: {data_type} with {len(roi_data.ch_names)} ROI channels")
+                    data_type = (
+                        "Raw" if isinstance(roi_data, mne.io.BaseRaw) else "Epochs"
+                    )
+                    self.message(
+                        "info",
+                        f"Input: {data_type} with {len(roi_data.ch_names)} ROI channels",
+                    )
                     self.message("info", "Mode: ROI-optimized (fast)")
                 else:
                     if is_single_stc:
@@ -243,8 +271,12 @@ class SourcePSDMixin:
                 print("=== Calculating Source-Level PSD ===")
                 print(f"Segment duration: {segment_duration}s, n_jobs: {n_jobs}")
                 if use_roi_mode:
-                    data_type = "Raw" if isinstance(roi_data, mne.io.BaseRaw) else "Epochs"
-                    print(f"Input: {data_type} with {len(roi_data.ch_names)} ROI channels")
+                    data_type = (
+                        "Raw" if isinstance(roi_data, mne.io.BaseRaw) else "Epochs"
+                    )
+                    print(
+                        f"Input: {data_type} with {len(roi_data.ch_names)} ROI channels"
+                    )
                     print("Mode: ROI-optimized (fast)")
                 else:
                     if is_single_stc:
@@ -321,9 +353,13 @@ class SourcePSDMixin:
                     )
                 except Exception as e:
                     if hasattr(self, "message"):
-                        self.message("warning", f"Could not generate PSD visualization: {str(e)}")
+                        self.message(
+                            "warning", f"Could not generate PSD visualization: {str(e)}"
+                        )
                     else:
-                        print(f"WARNING: Could not generate PSD visualization: {str(e)}")
+                        print(
+                            f"WARNING: Could not generate PSD visualization: {str(e)}"
+                        )
 
             # Log completion
             n_rois = len(psd_df["roi"].unique())
@@ -356,7 +392,9 @@ class SourcePSDMixin:
                 }
 
                 if use_roi_mode:
-                    metadata["data_type"] = "raw" if isinstance(roi_data, mne.io.BaseRaw) else "epochs"
+                    metadata["data_type"] = (
+                        "raw" if isinstance(roi_data, mne.io.BaseRaw) else "epochs"
+                    )
                     metadata["n_channels"] = len(roi_data.ch_names)
                     metadata["processing_mode"] = "68_channel_direct"
                 else:

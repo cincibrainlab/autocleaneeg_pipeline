@@ -338,7 +338,9 @@ class SetupDisplay(CLIDisplay):
         if details:
             self.console.print(f"  {details}", style="muted")
 
-    def workspace_location_prompt(self, default_dir: Path, current_dir: Optional[Path] = None) -> Path:
+    def workspace_location_prompt(
+        self, default_dir: Path, current_dir: Optional[Path] = None
+    ) -> Path:
         """Prompt for workspace location with clear choices."""
         from pathlib import Path as _Path
 
@@ -426,7 +428,9 @@ class SetupDisplay(CLIDisplay):
                 self.success("Using custom folder", _short(chosen_dir))
             except (EOFError, KeyboardInterrupt):
                 chosen_dir = default_dir
-                self.warning("Using recommended default due to interrupt", _short(chosen_dir))
+                self.warning(
+                    "Using recommended default due to interrupt", _short(chosen_dir)
+                )
 
         self.blank_line()
         return chosen_dir

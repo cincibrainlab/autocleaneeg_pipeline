@@ -94,7 +94,7 @@ def calculate_roi_psd(
         raise TypeError(f"Data must be Raw or Epochs, got {type(data)}")
 
     # Get basic info
-    sfreq = data.info['sfreq']
+    sfreq = data.info["sfreq"]
     n_channels = len(data.ch_names)
 
     print(f"Processing {n_channels} ROI channels at {sfreq} Hz")
@@ -106,7 +106,9 @@ def calculate_roi_psd(
     else:
         epoch_duration = data.times[-1] - data.times[0]
         total_duration = epoch_duration * len(data)
-        print(f"Total available signal: {total_duration:.1f} seconds ({len(data)} epochs of {epoch_duration:.1f}s each)")
+        print(
+            f"Total available signal: {total_duration:.1f} seconds ({len(data)} epochs of {epoch_duration:.1f}s each)"
+        )
 
     # Select data segment if needed
     if segment_duration is not None and segment_duration < total_duration:
@@ -121,9 +123,11 @@ def calculate_roi_psd(
             n_epochs_needed = int(np.ceil(segment_duration / epoch_duration))
             n_epochs_needed = min(n_epochs_needed, len(data))
             start_idx = (len(data) - n_epochs_needed) // 2
-            data_to_use = data[start_idx:start_idx + n_epochs_needed]
+            data_to_use = data[start_idx : start_idx + n_epochs_needed]
             actual_duration = len(data_to_use) * epoch_duration
-            print(f"Using {len(data_to_use)} epochs ({actual_duration:.1f}s) from middle of recording")
+            print(
+                f"Using {len(data_to_use)} epochs ({actual_duration:.1f}s) from middle of recording"
+            )
     else:
         data_to_use = data
         if is_raw:
@@ -171,24 +175,24 @@ def calculate_roi_psd(
     if is_raw:
         # Use MNE's compute_psd for Raw
         psd_data = data_to_use.compute_psd(
-            method='welch',
+            method="welch",
             fmin=fmin,
             fmax=fmax,
             n_fft=window_length,
             n_overlap=n_overlap,
-            n_jobs=1  # Single core sufficient for 68 channels
+            n_jobs=1,  # Single core sufficient for 68 channels
         )
         freqs = psd_data.freqs
         psd_values = psd_data.get_data()  # Shape: (n_channels, n_freqs)
     else:
         # Use MNE's compute_psd for Epochs (averages across epochs)
         psd_data = data_to_use.compute_psd(
-            method='welch',
+            method="welch",
             fmin=fmin,
             fmax=fmax,
             n_fft=window_length,
             n_overlap=n_overlap,
-            n_jobs=1
+            n_jobs=1,
         )
         freqs = psd_data.freqs
         psd_values = psd_data.get_data()  # Shape: (n_epochs, n_channels, n_freqs)
@@ -204,19 +208,21 @@ def calculate_roi_psd(
     for ch_idx, ch_name in enumerate(data.ch_names):
         # Parse channel name to extract ROI and hemisphere
         # Format from eeg2source: "lh_roi_name" or "rh_roi_name"
-        if ch_name.startswith('lh_'):
-            hemisphere = 'lh'
-            roi_name = ch_name[3:] + '-lh'  # Convert "lh_superior_frontal" to "superior_frontal-lh"
-        elif ch_name.startswith('rh_'):
-            hemisphere = 'rh'
-            roi_name = ch_name[3:] + '-rh'
+        if ch_name.startswith("lh_"):
+            hemisphere = "lh"
+            roi_name = (
+                ch_name[3:] + "-lh"
+            )  # Convert "lh_superior_frontal" to "superior_frontal-lh"
+        elif ch_name.startswith("rh_"):
+            hemisphere = "rh"
+            roi_name = ch_name[3:] + "-rh"
         else:
             # Fallback: assume format is already "roiName-hemisphere"
-            if '-lh' in ch_name:
-                hemisphere = 'lh'
+            if "-lh" in ch_name:
+                hemisphere = "lh"
                 roi_name = ch_name
-            elif '-rh' in ch_name:
-                hemisphere = 'rh'
+            elif "-rh" in ch_name:
+                hemisphere = "rh"
                 roi_name = ch_name
             else:
                 print(f"Warning: Cannot parse channel name '{ch_name}', skipping")
@@ -227,13 +233,15 @@ def calculate_roi_psd(
 
         # Add frequency-resolved PSD data
         for freq_idx, freq in enumerate(freqs):
-            roi_psds.append({
-                'subject': subject_id,
-                'roi': roi_name,
-                'hemisphere': hemisphere,
-                'frequency': freq,
-                'psd': channel_psd[freq_idx]
-            })
+            roi_psds.append(
+                {
+                    "subject": subject_id,
+                    "roi": roi_name,
+                    "hemisphere": hemisphere,
+                    "frequency": freq,
+                    "psd": channel_psd[freq_idx],
+                }
+            )
 
         # Calculate band powers
         for band_name, (band_min, band_max) in bands.items():
@@ -243,15 +251,17 @@ def calculate_roi_psd(
             else:
                 band_power = 0
 
-            band_psds.append({
-                'subject': subject_id,
-                'roi': roi_name,
-                'hemisphere': hemisphere,
-                'band': band_name,
-                'band_start_hz': band_min,
-                'band_end_hz': band_max,
-                'power': band_power
-            })
+            band_psds.append(
+                {
+                    "subject": subject_id,
+                    "roi": roi_name,
+                    "hemisphere": hemisphere,
+                    "band": band_name,
+                    "band_start_hz": band_min,
+                    "band_end_hz": band_max,
+                    "power": band_power,
+                }
+            )
 
     # Create DataFrames
     psd_df = pd.DataFrame(roi_psds)
@@ -272,37 +282,51 @@ def calculate_roi_psd(
         print("Creating summary visualizations...")
 
         # Group by band and hemisphere
-        band_summary = band_df.groupby(['band', 'hemisphere'])['power'].mean().reset_index()
-        pivot_df = band_summary.pivot(index='band', columns='hemisphere', values='power')
+        band_summary = (
+            band_df.groupby(["band", "hemisphere"])["power"].mean().reset_index()
+        )
+        pivot_df = band_summary.pivot(
+            index="band", columns="hemisphere", values="power"
+        )
 
         # Sort bands in frequency order
-        band_order = ['delta', 'theta', 'lowalpha', 'highalpha', 'alpha',
-                      'lowbeta', 'highbeta', 'gamma']
+        band_order = [
+            "delta",
+            "theta",
+            "lowalpha",
+            "highalpha",
+            "alpha",
+            "lowbeta",
+            "highbeta",
+            "gamma",
+        ]
         pivot_df = pivot_df.reindex(band_order)
 
         # Create bar plot
         plt.figure(figsize=(12, 8))
-        pivot_df.plot(kind='bar', ax=plt.gca())
-        plt.title(f'Mean Band Power by Hemisphere - {subject_id}')
-        plt.ylabel('Power (µV²/Hz)')
-        plt.grid(True, axis='y')
+        pivot_df.plot(kind="bar", ax=plt.gca())
+        plt.title(f"Mean Band Power by Hemisphere - {subject_id}")
+        plt.ylabel("Power (µV²/Hz)")
+        plt.grid(True, axis="y")
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f'{subject_id}_hemisphere_bands.png'))
+        plt.savefig(os.path.join(output_dir, f"{subject_id}_hemisphere_bands.png"))
         plt.close()
 
         # Log scale version
         plt.figure(figsize=(12, 8))
-        np.log10(pivot_df).plot(kind='bar', ax=plt.gca())
-        plt.title(f'Log10 Mean Band Power by Hemisphere - {subject_id}')
-        plt.ylabel('Log10 Power')
-        plt.grid(True, axis='y')
+        np.log10(pivot_df).plot(kind="bar", ax=plt.gca())
+        plt.title(f"Log10 Mean Band Power by Hemisphere - {subject_id}")
+        plt.ylabel("Log10 Power")
+        plt.grid(True, axis="y")
         plt.tight_layout()
-        plt.savefig(os.path.join(output_dir, f'{subject_id}_hemisphere_bands_log.png'))
+        plt.savefig(os.path.join(output_dir, f"{subject_id}_hemisphere_bands_log.png"))
         plt.close()
 
     total_time = time.time() - start_time
     print(f"Total processing time: {total_time:.1f} seconds")
-    print(f"ROI-optimized PSD: {n_channels} channels (vs 20,484 vertices in vertex-level mode)")
+    print(
+        f"ROI-optimized PSD: {n_channels} channels (vs 20,484 vertices in vertex-level mode)"
+    )
 
     return psd_df, file_path
 

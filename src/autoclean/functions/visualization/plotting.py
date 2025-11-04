@@ -272,7 +272,9 @@ def plot_ica_components(
 
     if picks is None:
         component_idx = 0
-    elif isinstance(picks, (list, tuple, np.ndarray, Sequence)) and not isinstance(picks, (str, bytes)):
+    elif isinstance(picks, (list, tuple, np.ndarray, Sequence)) and not isinstance(
+        picks, (str, bytes)
+    ):
         picks_list: List[int] = list(picks)  # type: ignore[arg-type]
         if not picks_list:
             raise ValueError("picks must contain at least one component index")

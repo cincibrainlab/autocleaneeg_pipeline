@@ -1,18 +1,19 @@
 """Reporting utilities for AutoClean EEG pipeline."""
 
+from autoclean.functions.preprocessing.wavelet_thresholding import (
+    WaveletReportResult,
+    generate_wavelet_report,
+)
+
 from .llm_reporting import (
     EpochStats,
     FilterParams,
     ICAStats,
     LLMClient,
     RunContext,
-    run_context_from_dict,
     create_reports,
     render_methods,
-)
-from autoclean.functions.preprocessing.wavelet_thresholding import (
-    WaveletReportResult,
-    generate_wavelet_report,
+    run_context_from_dict,
 )
 
 __all__ = [

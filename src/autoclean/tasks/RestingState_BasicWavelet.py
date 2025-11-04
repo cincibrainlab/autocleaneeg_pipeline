@@ -70,7 +70,7 @@ config = {
         "remove_baseline": {"enabled": False, "window": [None, 0]},
         "threshold_rejection": {"enabled": False, "volt_threshold": {"eeg": 0.000125}},
     },
-    "ai_reporting": False
+    "ai_reporting": False,
 }
 
 
@@ -122,7 +122,6 @@ class RestingState_BasicWavelet(Task):
 
         # Generate visualization reports
         self.generate_reports()
-
 
     def generate_reports(self) -> None:
         """Generate quality control visualizations and reports."""

@@ -191,9 +191,7 @@ def step_convert_to_bids(
     pipeline_derivatives_root = bids_root / "derivatives"
     derivatives_dir = pipeline_derivatives_root
     derivatives_dir.mkdir(parents=True, exist_ok=True)
-    message(
-        "info", f"Ensured BIDS derivatives root exists at {derivatives_dir}"
-    )
+    message("info", f"Ensured BIDS derivatives root exists at {derivatives_dir}")
 
     # Pipeline-level derivatives root (for dataset_description), no versioned subfolder
     pipeline_derivatives_root = bids_root / "derivatives"
@@ -466,12 +464,14 @@ def _update_dataset_description(bids_root: Path, dataset_name: str) -> None:
         # Remove placeholder Authors if present (e.g., ["[Unspecified1]", "[Unspecified2]"])
         authors = data.get("Authors")
         if isinstance(authors, list) and authors:
+
             def _is_placeholder(x: str) -> bool:
                 try:
                     s = str(x).strip()
                     return s.startswith("[Unspecified") or s == "[Unspecified]"
                 except Exception:
                     return False
+
             if all(_is_placeholder(a) for a in authors):
                 data.pop("Authors", None)
 

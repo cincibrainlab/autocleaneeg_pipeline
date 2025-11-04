@@ -24,7 +24,8 @@ import requests
 from rich.panel import Panel
 from rich.table import Table
 
-from autoclean import __version__
+# Block management commands
+from autoclean import __version__, cli_blocks
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
 from autoclean.utils.builtins import BuiltinRegistry
@@ -38,23 +39,20 @@ from autoclean.utils.config import (
 )
 from autoclean.utils.console import get_console
 from autoclean.utils.database import DB_PATH
-from autoclean.utils.logging import has_logged_errors, message
-from autoclean.utils.template_renderer import (
-    render_template,
-    validate_python_identifier,
-)
 from autoclean.utils.file_system import update_status_marker
+from autoclean.utils.logging import has_logged_errors, message
+from autoclean.utils.montage import load_valid_montages
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
     get_task_by_name,
     get_task_overrides,
     safe_discover_tasks,
 )
-from autoclean.utils.montage import load_valid_montages
+from autoclean.utils.template_renderer import (
+    render_template,
+    validate_python_identifier,
+)
 from autoclean.utils.user_config import user_config
-
-# Block management commands
-from autoclean import cli_blocks
 
 # ------------------------------------------------------------
 # CLI Process Logging
@@ -297,8 +295,12 @@ def _print_startup_context(console) -> None:
             if isinstance(last_error, dict):
                 err_text = _Text()
                 err_text.append("Working offline: ", style="warning")
-                err_text.append(last_error.get("message", "connection problem"), style="warning")
-                timestamp = _pretty_timestamp(last_error.get("timestamp"), default="time not recorded")
+                err_text.append(
+                    last_error.get("message", "connection problem"), style="warning"
+                )
+                timestamp = _pretty_timestamp(
+                    last_error.get("timestamp"), default="time not recorded"
+                )
                 if timestamp:
                     err_text.append("  ", style="muted")
                     err_text.append(timestamp, style="muted")
@@ -589,7 +591,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         tbl.add_column("Command", style="accent", no_wrap=True)
         tbl.add_column("Description", style="muted")
         rows = [
-            ("🎨 settings theme [name]", "Configure CLI color theme (interactive if omitted)"),
+            (
+                "🎨 settings theme [name]",
+                "Configure CLI color theme (interactive if omitted)",
+            ),
             ("🧹 settings theme --clear", "Reset theme to auto-detect"),
         ]
         for c, d in rows:
@@ -605,7 +610,9 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
-    console.print("[muted]Tip: use 'help <topic>' to see focused command groups.[/muted]")
+    console.print(
+        "[muted]Tip: use 'help <topic>' to see focused command groups.[/muted]"
+    )
     console.print()
     console.print("[header]Main Commands[/header]")
 
@@ -940,7 +947,6 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     task_subparsers = task_parser.add_subparsers(
         dest="task_action", help="Task actions"
     )
-
 
     # Delete task (alias with path/name support)
     delete_task_parser = task_subparsers.add_parser(
@@ -1785,7 +1791,11 @@ def _show_process_guard(args) -> bool:
     console = get_console(args)
 
     # Determine target output directory for status tagging
-    output_root = Path(args.output) if getattr(args, "output", None) else user_config.get_default_output_dir()
+    output_root = (
+        Path(args.output)
+        if getattr(args, "output", None)
+        else user_config.get_default_output_dir()
+    )
 
     # Get current values
     task_name = args.task_name or args.task
@@ -1959,7 +1969,9 @@ def _show_process_guard(args) -> bool:
         from rich.prompt import Confirm
 
         try:
-            proceed = Confirm.ask("🚀 [bold]Proceed with processing?[/bold]", default=False)
+            proceed = Confirm.ask(
+                "🚀 [bold]Proceed with processing?[/bold]", default=False
+            )
         except KeyboardInterrupt:
             message("warning", "Processing cancelled by user (Ctrl+C).")
             _mark_cancelled("user-interrupted-before-start")
@@ -2514,9 +2526,7 @@ def cmd_list_tasks(args) -> int:
             synced_at = _pretty_timestamp(registry_info.get("synced_at"))
             last_error = registry_info.get("last_error")
 
-            summary_line = (
-                f"[info]Task Library version:[/info] {commit} [muted](last checked {synced_at})[/muted]"
-            )
+            summary_line = f"[info]Task Library version:[/info] {commit} [muted](last checked {synced_at})[/muted]"
             console.print(_Align.center(_Text.from_markup(summary_line)))
             if isinstance(last_error, dict):
                 err_msg = last_error.get("message", "connection problem")
@@ -2580,6 +2590,7 @@ def cmd_list_tasks(args) -> int:
         library_index = {}
         try:
             import json
+
             if registry._cache_index_path().exists():
                 index_data = json.loads(registry._cache_index_path().read_text())
             else:
@@ -2611,42 +2622,48 @@ def cmd_list_tasks(args) -> int:
                 # User-created tasks don't have sync status
                 sync_status = "user_created"
 
-            unified_tasks.append({
-                "name": task.name,
-                "source": source,
-                "sync_status": sync_status,
-                "install_status": "installed",
-                "montage": _montage_label(task.name),
-                "description": task.description or "No description",
-                "category": _get_category(task.name),
-            })
+            unified_tasks.append(
+                {
+                    "name": task.name,
+                    "source": source,
+                    "sync_status": sync_status,
+                    "install_status": "installed",
+                    "montage": _montage_label(task.name),
+                    "description": task.description or "No description",
+                    "category": _get_category(task.name),
+                }
+            )
 
         # Add library tasks not in workspace (available to install)
         for ltask in library_tasks:
             if ltask.name not in workspace_names:
                 lib_entry = library_index.get(ltask.name, {})
-                unified_tasks.append({
-                    "name": ltask.name,
-                    "source": "library",
-                    "sync_status": "not_installed",
-                    "install_status": "available",
-                    "montage": "—",
-                    "description": lib_entry.get("description", "No description"),
-                    "category": _get_category(ltask.name),
-                })
+                unified_tasks.append(
+                    {
+                        "name": ltask.name,
+                        "source": "library",
+                        "sync_status": "not_installed",
+                        "install_status": "available",
+                        "montage": "—",
+                        "description": lib_entry.get("description", "No description"),
+                        "category": _get_category(ltask.name),
+                    }
+                )
 
         # Add built-in tasks not overridden by workspace
         for task in builtin_tasks:
             if task.name not in workspace_names:
-                unified_tasks.append({
-                    "name": task.name,
-                    "source": "builtin",
-                    "sync_status": "builtin",
-                    "install_status": "available",
-                    "montage": _montage_label(task.name),
-                    "description": task.description or "No description",
-                    "category": _get_category(task.name),
-                })
+                unified_tasks.append(
+                    {
+                        "name": task.name,
+                        "source": "builtin",
+                        "sync_status": "builtin",
+                        "install_status": "available",
+                        "montage": _montage_label(task.name),
+                        "description": task.description or "No description",
+                        "category": _get_category(task.name),
+                    }
+                )
 
         # Apply filters
         filtered_tasks = unified_tasks
@@ -2656,7 +2673,9 @@ def cmd_list_tasks(args) -> int:
                 active_task = user_config.get_active_task()
                 filtered_tasks = [t for t in filtered_tasks if t["name"] == active_task]
             else:
-                filtered_tasks = [t for t in filtered_tasks if t["source"] == source_filter]
+                filtered_tasks = [
+                    t for t in filtered_tasks if t["source"] == source_filter
+                ]
 
         if status_filter != "all":
             status_map = {
@@ -2666,10 +2685,14 @@ def cmd_list_tasks(args) -> int:
                 "customized": lambda t: t["sync_status"] == "modified",
             }
             if status_filter in status_map:
-                filtered_tasks = [t for t in filtered_tasks if status_map[status_filter](t)]
+                filtered_tasks = [
+                    t for t in filtered_tasks if status_map[status_filter](t)
+                ]
 
         if category_filter != "all":
-            filtered_tasks = [t for t in filtered_tasks if t["category"] == category_filter]
+            filtered_tasks = [
+                t for t in filtered_tasks if t["category"] == category_filter
+            ]
 
         # Sort by name
         filtered_tasks.sort(key=lambda t: t["name"])
@@ -2694,8 +2717,12 @@ def cmd_list_tasks(args) -> int:
         # Table output with unified view
         if filtered_tasks:
             # Separate installed and available
-            installed = [t for t in filtered_tasks if t["install_status"] == "installed"]
-            available = [t for t in filtered_tasks if t["install_status"] == "available"]
+            installed = [
+                t for t in filtered_tasks if t["install_status"] == "installed"
+            ]
+            available = [
+                t for t in filtered_tasks if t["install_status"] == "available"
+            ]
 
             # Show installed tasks
             if installed:
@@ -3016,7 +3043,10 @@ def cmd_montage_set(args) -> int:
             return 0
 
     if current_value == selected_montage:
-        message("info", f"Montage is already set to '{selected_montage}'. No changes needed.")
+        message(
+            "info",
+            f"Montage is already set to '{selected_montage}'. No changes needed.",
+        )
         return 0
 
     confirmed = args.force
@@ -3178,14 +3208,14 @@ def _extract_montage_value(block_text: str) -> Optional[str]:
     """Extract the montage value from the montage block."""
 
     value_match = re.search(
-        r'([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)',
+        r"([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)",
         block_text,
         re.DOTALL,
     )
     if value_match:
         return value_match.group("val")
 
-    none_match = re.search(r'[\"\']value[\"\']\s*:\s*None', block_text)
+    none_match = re.search(r"[\"\']value[\"\']\s*:\s*None", block_text)
     if none_match:
         return None
 
@@ -3196,7 +3226,7 @@ def _replace_montage_value(block_text: str, new_value: str) -> Optional[str]:
     """Return a montage block with the value replaced."""
 
     string_match = re.search(
-        r'([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)',
+        r"([\"\']value[\"\']\s*:\s*)(?P<quote>[\"\'])(?P<val>.*?)(?P=quote)",
         block_text,
         re.DOTALL,
     )
@@ -3207,7 +3237,7 @@ def _replace_montage_value(block_text: str, new_value: str) -> Optional[str]:
         replacement = f"{string_match.group(1)}{quote}{new_value}{quote}"
         return prefix + replacement + suffix
 
-    none_match = re.search(r'([\"\']value[\"\']\s*:\s*)None', block_text)
+    none_match = re.search(r"([\"\']value[\"\']\s*:\s*)None", block_text)
     if none_match:
         prefix = block_text[: none_match.start()]
         suffix = block_text[none_match.end() :]
@@ -3306,6 +3336,7 @@ def cmd_exclude(args) -> int:
     except Exception as e:
         message("error", f"Failed to start exclusion GUI: {str(e)}")
         return 1
+
 
 def cmd_workspace(args) -> int:
     """Workspace command dispatcher and helpers."""
@@ -3725,7 +3756,9 @@ def _simple_header(
     console.print()
 
 
-def _wizard_collect_state() -> Tuple[Path, bool, Optional[str], Optional[Path], Optional[str], Optional[str]]:
+def _wizard_collect_state() -> (
+    Tuple[Path, bool, Optional[str], Optional[Path], Optional[str], Optional[str]]
+):
     """Gather current workspace, task, montage, and input state for summaries."""
 
     workspace_dir = user_config.config_dir
@@ -3797,9 +3830,11 @@ def _wizard_render_state(display: CLIDisplay, title: str) -> None:
     status_icon = "✓" if workspace_valid else "⚠"
     table.add_row(
         "Workspace",
-        f"{status_icon} {workspace_display}"
-        if workspace_valid
-        else f"⚠ {workspace_display} [warning](needs setup)[/warning]",
+        (
+            f"{status_icon} {workspace_display}"
+            if workspace_valid
+            else f"⚠ {workspace_display} [warning](needs setup)[/warning]"
+        ),
     )
 
     if active_task:
@@ -3846,9 +3881,7 @@ def _wizard_create_task_from_template(
     target_path = user_config.tasks_dir / f"{file_name}.py"
 
     try:
-        validate_python_identifier(
-            class_name, label="Task class name"
-        )
+        validate_python_identifier(class_name, label="Task class name")
     except ValueError as exc:
         raise RuntimeError(str(exc)) from exc
 
@@ -3875,9 +3908,7 @@ def _wizard_create_task_from_template(
         try:
             fd = os.open(target_path, flags)
         except FileExistsError as exc:
-            raise RuntimeError(
-                f"Task file already exists at {target_path}"
-            ) from exc
+            raise RuntimeError(f"Task file already exists at {target_path}") from exc
         except OSError as exc:
             raise RuntimeError(f"Failed to create task file: {exc}") from exc
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
@@ -3930,8 +3961,8 @@ def cmd_wizard(args) -> int:
         message("error", f"Wizard requires Rich console support: {exc}")
         return 1
 
-    from rich.text import Text
     from rich.table import Table
+    from rich.text import Text
 
     try:
         console = display.console
@@ -4007,7 +4038,9 @@ def cmd_wizard(args) -> int:
                     break
                 except Exception as exc:  # pylint: disable=broad-except
                     display.error("Workspace setup failed", str(exc))
-                    if not display.prompt_yes_no("Try a different location?", default=True):
+                    if not display.prompt_yes_no(
+                        "Try a different location?", default=True
+                    ):
                         return 1
         else:
             display.success("Workspace confirmed", str(workspace_dir))
@@ -4029,7 +4062,9 @@ def cmd_wizard(args) -> int:
 
         custom_tasks = user_config.list_custom_tasks()
         if custom_tasks:
-            task_table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+            task_table = Table(
+                show_header=True, header_style="header", box=None, padding=(0, 1)
+            )
             task_table.add_column("#", style="muted", width=3)
             task_table.add_column("Task", style="accent")
             task_table.add_column("Source", style="muted")
@@ -4156,7 +4191,9 @@ def cmd_wizard(args) -> int:
                 break
 
         # Step 3 — Montage selection
-        (_, _, active_task, active_task_path, current_montage, _) = _wizard_collect_state()
+        (_, _, active_task, active_task_path, current_montage, _) = (
+            _wizard_collect_state()
+        )
 
         display.header(
             "Step 3 • Montage",
@@ -4186,7 +4223,9 @@ def cmd_wizard(args) -> int:
             )
         else:
             montage_items = list(enumerate(sorted(montages.items()), start=1))
-            montage_table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+            montage_table = Table(
+                show_header=True, header_style="header", box=None, padding=(0, 1)
+            )
             montage_table.add_column("#", style="muted", width=3)
             montage_table.add_column("Montage", style="accent")
             montage_table.add_column("Description", style="muted")
@@ -4310,7 +4349,9 @@ def cmd_wizard(args) -> int:
                 # Guard against obvious path traversal outside user-controlled roots
                 allowed_roots = []
                 try:
-                    workspace_root = user_config.get_default_output_dir().resolve().parent
+                    workspace_root = (
+                        user_config.get_default_output_dir().resolve().parent
+                    )
                     allowed_roots.append(workspace_root)
                 except Exception:
                     pass
@@ -4336,7 +4377,9 @@ def cmd_wizard(args) -> int:
                             "may expose sensitive locations."
                         ),
                     )
-                    if not display.prompt_yes_no("Use this path anyway?", default=False):
+                    if not display.prompt_yes_no(
+                        "Use this path anyway?", default=False
+                    ):
                         continue
 
                 if user_config.set_active_source(str(candidate)):
@@ -4648,9 +4691,9 @@ def _setup_compliance_mode() -> int:
         user_config_data["compliance"]["require_electronic_signatures"] = (
             signature_answer["require_signatures"]
         )
-        user_config_data["workspace"]["auto_backup"] = (
-            True  # Always enabled for compliance
-        )
+        user_config_data["workspace"][
+            "auto_backup"
+        ] = True  # Always enabled for compliance
 
         save_user_config(user_config_data)
 
@@ -5794,6 +5837,7 @@ def cmd_task_use(args) -> int:
         console.print("\n[header]Select a task to install and activate:[/header]\n")
 
         from rich.table import Table
+
         table = Table(show_header=True, box=None, padding=(0, 1))
         table.add_column("#", style="dim", width=3)
         table.add_column("Task", style="accent")
@@ -5803,7 +5847,11 @@ def cmd_task_use(args) -> int:
             # Try to get description from registry
             desc = "No description"
             try:
-                index = json.loads(registry._cache_index_path().read_text() if registry._cache_index_path().exists() else registry._pkg_index_text())
+                index = json.loads(
+                    registry._cache_index_path().read_text()
+                    if registry._cache_index_path().exists()
+                    else registry._pkg_index_text()
+                )
                 for entry in index.get("tasks", []):
                     if entry.get("name") == task.name:
                         desc = entry.get("description", "No description")
@@ -5816,6 +5864,7 @@ def cmd_task_use(args) -> int:
 
         try:
             from rich.prompt import Prompt
+
             choice = Prompt.ask("\nSelect task by number", default="")
             if not choice.strip():
                 console.print("[muted]Selection cancelled.[/muted]")
@@ -5849,11 +5898,17 @@ def cmd_task_use(args) -> int:
         status = sync_status.get("status")
 
         if status == "synced":
-            console.print(f"[success]✓[/success] {task_name} already installed and up to date")
+            console.print(
+                f"[success]✓[/success] {task_name} already installed and up to date"
+            )
             skip_install = True
         elif status == "modified":
-            console.print(f"[warning]⚠[/warning] {task_name} exists with customizations")
-            console.print(f"[muted]Use --force to overwrite (this will delete your changes)[/muted]")
+            console.print(
+                f"[warning]⚠[/warning] {task_name} exists with customizations"
+            )
+            console.print(
+                f"[muted]Use --force to overwrite (this will delete your changes)[/muted]"
+            )
             return 1
         else:
             skip_install = False
@@ -5861,8 +5916,12 @@ def cmd_task_use(args) -> int:
     # Install task if needed
     if not skip_install:
         try:
-            installed_path = registry.materialize_task_to(task_name, user_config.tasks_dir)
-            console.print(f"[success]✓[/success] {task_name} installed to [info]{installed_path}[/info]")
+            installed_path = registry.materialize_task_to(
+                task_name, user_config.tasks_dir
+            )
+            console.print(
+                f"[success]✓[/success] {task_name} installed to [info]{installed_path}[/info]"
+            )
         except Exception as exc:
             console.print(f"[error]✗[/error] Installation failed: {exc}")
             return 1
@@ -5870,8 +5929,12 @@ def cmd_task_use(args) -> int:
     # Set as active task (unless --no-activate)
     if not args.no_activate:
         if user_config.set_active_task(task_name):
-            console.print(f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]")
-            console.print(f"[muted]Ready to process: autocleaneeg-pipeline process <file>[/muted]")
+            console.print(
+                f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]"
+            )
+            console.print(
+                f"[muted]Ready to process: autocleaneeg-pipeline process <file>[/muted]"
+            )
         else:
             console.print(f"[error]✗[/error] Failed to set active task")
             return 1
@@ -5905,9 +5968,7 @@ def cmd_task_install(args) -> int:
                 # Check if it's a builtin task
                 valid_tasks, _, _ = safe_discover_tasks()
                 builtin_names = [
-                    t.name
-                    for t in valid_tasks
-                    if "autoclean/tasks" in t.source
+                    t.name for t in valid_tasks if "autoclean/tasks" in t.source
                 ]
                 if task_source in builtin_names:
                     source_type = "builtin"
@@ -5946,6 +6007,7 @@ def cmd_task_install(args) -> int:
 
             # Copy file
             import shutil
+
             shutil.copy2(source_path, dest_path)
 
             # Extract task name
@@ -6049,6 +6111,7 @@ def cmd_task_install(args) -> int:
 
             # Copy from built-in source
             import shutil
+
             shutil.copy2(builtin_task.source, dest_path)
 
             console.print(
@@ -6154,7 +6217,9 @@ def cmd_task_sync(args) -> int:
     if outdated_tasks:
         console.print(f"  • {len(outdated_tasks)} task(s) have updates available")
     if orphaned_tasks:
-        console.print(f"  • {len(orphaned_tasks)} orphaned task(s) (source no longer exists)")
+        console.print(
+            f"  • {len(orphaned_tasks)} orphaned task(s) (source no longer exists)"
+        )
     if customized_tasks:
         console.print(f"  • {len(customized_tasks)} customized task(s)")
     if not outdated_tasks and not orphaned_tasks:
@@ -6164,10 +6229,16 @@ def cmd_task_sync(args) -> int:
     if outdated_tasks or orphaned_tasks:
         console.print("\n[header]Next steps:[/header]")
         if outdated_tasks:
-            console.print("  • Run [accent]'task sync --update'[/accent] to apply updates (will backup customized tasks)")
-            console.print(f"  • Run [accent]'task diff {outdated_tasks[0][0]}'[/accent] to preview changes")
+            console.print(
+                "  • Run [accent]'task sync --update'[/accent] to apply updates (will backup customized tasks)"
+            )
+            console.print(
+                f"  • Run [accent]'task diff {outdated_tasks[0][0]}'[/accent] to preview changes"
+            )
         if orphaned_tasks:
-            console.print("  • Run [accent]'task delete <name>'[/accent] to remove orphaned tasks")
+            console.print(
+                "  • Run [accent]'task delete <name>'[/accent] to remove orphaned tasks"
+            )
 
     # Apply updates if requested
     if args.update and outdated_tasks:
@@ -6178,15 +6249,19 @@ def cmd_task_sync(args) -> int:
         console.print(f"\n→ Updating {len(outdated_tasks)} task(s)...\n")
 
         from datetime import datetime
+
         backup_suffix = datetime.now().strftime("%Y-%m-%d-%H%M%S")
 
         for task_name, source in outdated_tasks:
             try:
                 # Create backup
                 task_path = user_config.tasks_dir / f"{task_name}.py"
-                backup_path = user_config.tasks_dir / f"{task_name}.backup.{backup_suffix}.py"
+                backup_path = (
+                    user_config.tasks_dir / f"{task_name}.backup.{backup_suffix}.py"
+                )
 
                 import shutil
+
                 shutil.copy2(task_path, backup_path)
                 console.print(f"  ⚠ Backed up {task_name} to {backup_path.name}")
 
@@ -6244,14 +6319,22 @@ def cmd_task_update(args) -> int:
     # Helpful next steps
     if new:
         console.print("[header]New tasks available:[/header]")
-        console.print(f"  • Run [accent]'task list --source=library'[/accent] to see all library tasks")
-        console.print(f"  • Run [accent]'task use <name>'[/accent] to install and activate a new task")
+        console.print(
+            f"  • Run [accent]'task list --source=library'[/accent] to see all library tasks"
+        )
+        console.print(
+            f"  • Run [accent]'task use <name>'[/accent] to install and activate a new task"
+        )
         console.print()
 
     if updated:
         console.print("[header]Tasks with updates:[/header]")
-        console.print(f"  • Run [accent]'task sync'[/accent] to check if your workspace tasks are outdated")
-        console.print(f"  • Run [accent]'task sync --update'[/accent] to automatically update outdated tasks")
+        console.print(
+            f"  • Run [accent]'task sync'[/accent] to check if your workspace tasks are outdated"
+        )
+        console.print(
+            f"  • Run [accent]'task sync --update'[/accent] to automatically update outdated tasks"
+        )
         console.print()
 
     if removed:
@@ -6307,6 +6390,7 @@ def cmd_task_diagnose(args) -> int:
     if synced_at:
         try:
             from datetime import datetime, timezone
+
             synced_time = datetime.fromisoformat(synced_at)
             now = datetime.now(timezone.utc)
             delta = now - synced_time
@@ -6325,6 +6409,7 @@ def cmd_task_diagnose(args) -> int:
     network_ok = True
     try:
         import socket
+
         socket.create_connection(("github.com", 443), timeout=2).close()
     except Exception:
         network_ok = False
@@ -6333,6 +6418,7 @@ def cmd_task_diagnose(args) -> int:
     cache_size = "unknown"
     try:
         import os
+
         total_size = 0
         for dirpath, dirnames, filenames in os.walk(registry.cache_root):
             for f in filenames:
@@ -6349,7 +6435,9 @@ def cmd_task_diagnose(args) -> int:
 
     # Display results
     console.print(f"[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]")
-    console.print(f"[header] WORKSPACE HEALTH: [{health_style}]{health}[/{health_style}][/header]")
+    console.print(
+        f"[header] WORKSPACE HEALTH: [{health_style}]{health}[/{health_style}][/header]"
+    )
     console.print(f"[header]━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━[/header]\n")
 
     console.print("[info]Tasks:[/info]")
@@ -6373,9 +6461,15 @@ def cmd_task_diagnose(args) -> int:
     workspace_dir = user_config.config_dir
     tasks_dir = user_config.tasks_dir
 
-    console.print(f"  • Active task: {active_task or 'None'} {'✓' if active_task else '✗'}")
-    console.print(f"  • Workspace: {workspace_dir} {'✓' if workspace_dir.exists() else '✗'}")
-    console.print(f"  • Tasks directory: {tasks_dir} {'✓' if tasks_dir.exists() else '✗'}")
+    console.print(
+        f"  • Active task: {active_task or 'None'} {'✓' if active_task else '✗'}"
+    )
+    console.print(
+        f"  • Workspace: {workspace_dir} {'✓' if workspace_dir.exists() else '✗'}"
+    )
+    console.print(
+        f"  • Tasks directory: {tasks_dir} {'✓' if tasks_dir.exists() else '✗'}"
+    )
 
     if issues > 0:
         console.print(f"\n[warning]Issues:[/warning]")
@@ -6386,13 +6480,19 @@ def cmd_task_diagnose(args) -> int:
 
         console.print(f"\n[info]Recommendations:[/info]")
         if num_outdated > 0:
-            console.print("  • Run [accent]'task sync --update'[/accent] to update outdated tasks")
+            console.print(
+                "  • Run [accent]'task sync --update'[/accent] to update outdated tasks"
+            )
         if num_orphaned > 0:
-            console.print("  • Run [accent]'task delete <name>'[/accent] to remove orphaned tasks")
+            console.print(
+                "  • Run [accent]'task delete <name>'[/accent] to remove orphaned tasks"
+            )
         if num_customized > 0:
             console.print("  • Review customizations before updating")
 
-    console.print(f"\n[info]Overall:[/info] Your workspace is {health.lower()}{' with minor cleanup needed' if issues > 0 else ''}")
+    console.print(
+        f"\n[info]Overall:[/info] Your workspace is {health.lower()}{' with minor cleanup needed' if issues > 0 else ''}"
+    )
 
     return 0
 
@@ -6414,7 +6514,9 @@ def cmd_task_diff(args) -> int:
     task = registry.get_task(task_name)
     if not task:
         console.print(f"[error]✗[/error] Task '{task_name}' not found in library")
-        console.print("[muted]This task may be user-created (no source to compare).[/muted]")
+        console.print(
+            "[muted]This task may be user-created (no source to compare).[/muted]"
+        )
         return 1
 
     # Get source path (try cache first, then package)
@@ -6450,7 +6552,9 @@ def cmd_task_diff(args) -> int:
 
     # Check if identical
     if workspace_content == source_content:
-        console.print(f"[success]✓[/success] No differences - workspace copy matches {source_label}")
+        console.print(
+            f"[success]✓[/success] No differences - workspace copy matches {source_label}"
+        )
         return 0
 
     # Show diff
@@ -6461,6 +6565,7 @@ def cmd_task_diff(args) -> int:
 
     # Generate unified diff
     import difflib
+
     workspace_lines = workspace_content.splitlines(keepends=True)
     source_lines = source_content.splitlines(keepends=True)
 
@@ -6491,7 +6596,9 @@ def cmd_task_diff(args) -> int:
         else:
             console.print(f"[muted]{line}[/muted]")
 
-    console.print(f"\n[muted]Use 'task sync --update' to apply source changes (backup will be created)[/muted]")
+    console.print(
+        f"\n[muted]Use 'task sync --update' to apply source changes (backup will be created)[/muted]"
+    )
 
     return 0
 
@@ -6521,21 +6628,25 @@ def cmd_task_search(args) -> int:
                 description = entry.get("description", "")
                 category = entry.get("category", "")
 
-                if (query in name.lower() or
-                    query in description.lower() or
-                    query in category.lower()):
+                if (
+                    query in name.lower()
+                    or query in description.lower()
+                    or query in category.lower()
+                ):
 
                     # Check if installed
                     workspace_path = user_config.tasks_dir / f"{name}.py"
                     status = "installed" if workspace_path.exists() else "available"
 
-                    results.append({
-                        "name": name,
-                        "description": description,
-                        "source": "library",
-                        "status": status,
-                        "category": category,
-                    })
+                    results.append(
+                        {
+                            "name": name,
+                            "description": description,
+                            "source": "library",
+                            "status": status,
+                            "category": category,
+                        }
+                    )
         except Exception:
             pass
 
@@ -6545,23 +6656,30 @@ def cmd_task_search(args) -> int:
         for task_name, task_info in workspace_tasks.items():
             description = task_info.get("description", "")
             if query in task_name.lower() or query in description.lower():
-                results.append({
-                    "name": task_name,
-                    "description": description,
-                    "source": "workspace",
-                    "status": "installed",
-                    "category": "",
-                })
+                results.append(
+                    {
+                        "name": task_name,
+                        "description": description,
+                        "source": "workspace",
+                        "status": "installed",
+                        "category": "",
+                    }
+                )
 
     # Display results
     if not results:
-        console.print(f"[warning]No tasks found matching [accent]'{args.query}'[/accent][/warning]")
-        console.print("[muted]Try a different search term or run 'task list' to see all tasks.[/muted]")
+        console.print(
+            f"[warning]No tasks found matching [accent]'{args.query}'[/accent][/warning]"
+        )
+        console.print(
+            "[muted]Try a different search term or run 'task list' to see all tasks.[/muted]"
+        )
         return 0
 
     console.print(f"[success]Found {len(results)} task(s):[/success]\n")
 
     from rich.table import Table
+
     table = Table(show_header=True, box=None, padding=(0, 1))
     table.add_column("Task", style="accent")
     table.add_column("Source", style="muted")
@@ -6579,7 +6697,11 @@ def cmd_task_search(args) -> int:
             result["name"],
             f"[{result['source']}]",
             status_text,
-            result["description"][:50] + "..." if len(result["description"]) > 50 else result["description"],
+            (
+                result["description"][:50] + "..."
+                if len(result["description"]) > 50
+                else result["description"]
+            ),
         )
 
     console.print(table)
@@ -6588,7 +6710,9 @@ def cmd_task_search(args) -> int:
     # Show helpful next step
     available_count = sum(1 for r in results if r["status"] == "available")
     if available_count > 0:
-        console.print("[muted]Use 'task use <name>' to install and activate a task[/muted]")
+        console.print(
+            "[muted]Use 'task use <name>' to install and activate a task[/muted]"
+        )
 
     return 0
 
@@ -6838,8 +6962,12 @@ def cmd_settings_theme(args) -> int:
     # Handle --clear flag
     if args.clear:
         if user_config.set_theme(None):
-            console.print("[success]✓[/success] Theme preference cleared (reverted to auto)")
-            console.print("[muted]The CLI will now auto-detect your terminal background.[/muted]")
+            console.print(
+                "[success]✓[/success] Theme preference cleared (reverted to auto)"
+            )
+            console.print(
+                "[muted]The CLI will now auto-detect your terminal background.[/muted]"
+            )
             return 0
         else:
             console.print("[error]✗[/error] Failed to clear theme preference")
@@ -6849,8 +6977,12 @@ def cmd_settings_theme(args) -> int:
     if args.theme_name:
         theme = args.theme_name
         if user_config.set_theme(theme):
-            console.print(f"[success]✓[/success] Theme set to: [accent]{theme}[/accent]")
-            console.print("[muted]Restart your CLI session to see the new theme.[/muted]")
+            console.print(
+                f"[success]✓[/success] Theme set to: [accent]{theme}[/accent]"
+            )
+            console.print(
+                "[muted]Restart your CLI session to see the new theme.[/muted]"
+            )
             return 0
         else:
             console.print(f"[error]✗[/error] Failed to set theme to: {theme}")
@@ -6860,8 +6992,12 @@ def cmd_settings_theme(args) -> int:
     selected = user_config.select_theme_interactive()
     if selected:
         if user_config.set_theme(selected):
-            console.print(f"\n[success]✓[/success] Theme set to: [accent]{selected}[/accent]")
-            console.print("[muted]Restart your CLI session to see the new theme.[/muted]")
+            console.print(
+                f"\n[success]✓[/success] Theme set to: [accent]{selected}[/accent]"
+            )
+            console.print(
+                "[muted]Restart your CLI session to see the new theme.[/muted]"
+            )
             return 0
         else:
             console.print(f"[error]✗[/error] Failed to save theme preference")
@@ -7228,9 +7364,13 @@ def cmd_report_chat(args) -> int:
             per_file_candidates = []
             if reports_dir_resolved:
                 per_file_candidates.append(
-                    reports_dir_resolved / "run_reports" / f"{basename}_processing_log.csv"
+                    reports_dir_resolved
+                    / "run_reports"
+                    / f"{basename}_processing_log.csv"
                 )
-            per_file_candidates.append(derivatives_root / f"{basename}_processing_log.csv")
+            per_file_candidates.append(
+                derivatives_root / f"{basename}_processing_log.csv"
+            )
             if logs_dir:
                 per_file_candidates.append(logs_dir / f"{basename}_processing_log.csv")
 
@@ -7255,13 +7395,13 @@ def cmd_report_chat(args) -> int:
             pdf_name = rec.get("report_file") or f"{basename}_autoclean_report.pdf"
             pdf_candidates = []
             if reports_dir_resolved:
-                pdf_candidates.append(
-                    reports_dir_resolved / "run_reports" / pdf_name
-                )
+                pdf_candidates.append(reports_dir_resolved / "run_reports" / pdf_name)
                 pdf_candidates.append(reports_dir_resolved / pdf_name)
             pdf_candidates.append(metadata_dir_resolved / pdf_name)
 
-            pdf_path = next((p for p in pdf_candidates if p.exists()), pdf_candidates[-1])
+            pdf_path = next(
+                (p for p in pdf_candidates if p.exists()), pdf_candidates[-1]
+            )
 
             def _to_float(x):
                 try:
@@ -7330,9 +7470,9 @@ def cmd_report_chat(args) -> int:
                 "mne_version": None,
                 "compliance_user": None,
                 "notes": ([f"flags: {row['flags']}"] if row.get("flags") else []),
-                "figures": {"autoclean_report_pdf": str(pdf_path)}
-                if pdf_path.exists()
-                else {},
+                "figures": (
+                    {"autoclean_report_pdf": str(pdf_path)} if pdf_path.exists() else {}
+                ),
             }
 
             # Epochs
@@ -8430,18 +8570,14 @@ def main(argv: Optional[list] = None) -> int:
     tasks_dir = workspace_dir / "tasks"
 
     skip_task_reminder = (
-        args.command == "workspace"
-        and getattr(args, "workspace_action", None) == "set"
+        args.command == "workspace" and getattr(args, "workspace_action", None) == "set"
     )
     reminder_text: Optional[str] = None
     if not skip_task_reminder:
         try:
-            has_task_files = (
-                tasks_dir.exists()
-                and any(
-                    entry.is_file() and entry.suffix.lower() == ".py"
-                    for entry in tasks_dir.iterdir()
-                )
+            has_task_files = tasks_dir.exists() and any(
+                entry.is_file() and entry.suffix.lower() == ".py"
+                for entry in tasks_dir.iterdir()
             )
             if not has_task_files:
                 reminder_text = (

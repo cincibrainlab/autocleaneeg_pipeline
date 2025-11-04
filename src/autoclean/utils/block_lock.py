@@ -11,7 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from autoclean.utils.block_registry import BlockRegistry, CACHE_ROOT
+from autoclean.utils.block_registry import CACHE_ROOT, BlockRegistry
 
 
 class BlockLockFile:
@@ -91,7 +91,9 @@ class BlockLockFile:
         lock_data : dict
             Lock file contents from generate()
         """
-        self.lock_file_path.write_text(json.dumps(lock_data, indent=2) + "\n", encoding="utf-8")
+        self.lock_file_path.write_text(
+            json.dumps(lock_data, indent=2) + "\n", encoding="utf-8"
+        )
 
     def load(self) -> Dict:
         """Load lock file from disk.
@@ -137,7 +139,9 @@ class BlockLockFile:
         lock_data = self.load()
 
         if lock_data.get("version") != 1:
-            raise ValueError(f"Unsupported lock file version: {lock_data.get('version')}")
+            raise ValueError(
+                f"Unsupported lock file version: {lock_data.get('version')}"
+            )
 
         if registry is None:
             registry = BlockRegistry(cache_root=CACHE_ROOT)
@@ -150,7 +154,9 @@ class BlockLockFile:
 
             try:
                 # Install from specific commit
-                registry.materialize_block_to(block_name, registry.cache_root, commit=commit)
+                registry.materialize_block_to(
+                    block_name, registry.cache_root, commit=commit
+                )
                 installed.append(block_name)
             except Exception as exc:
                 # Continue with other blocks even if one fails

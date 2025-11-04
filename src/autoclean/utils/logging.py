@@ -44,6 +44,7 @@ def reset_log_state() -> None:
 
     _error_event.clear()
 
+
 # Define custom levels with specific order
 # Standard levels are already defined:
 # - DEBUG(10)
@@ -280,11 +281,7 @@ def configure_logger(
         log_dir = Path(logs_dir)
     elif output_dir is not None and task is not None:
         # Legacy fallback: try to reconstruct path (may not work with dataset names)
-        log_dir = (
-            Path(output_dir)
-            / task
-            / "logs"
-        )
+        log_dir = Path(output_dir) / task / "logs"
     else:
         # Default to the AutoClean workspace if no task-specific path is provided
         log_dir = UserConfigManager().config_dir / "logs"

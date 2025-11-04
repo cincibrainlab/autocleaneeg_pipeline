@@ -75,8 +75,8 @@ config = {
         "enabled": True,
         "value": {
             "epoch_length": 4.0,  # 4-second epochs
-            "n_epochs": 40,       # Number of epochs for averaging
-            "n_jobs": 4,          # Parallel jobs
+            "n_epochs": 40,  # Number of epochs for averaging
+            "n_jobs": 4,  # Parallel jobs
         },
     },
 }
@@ -99,5 +99,5 @@ class SourceAnalysisPipeline(Task):
 
         # Source analysis pipeline (no epochs - connectivity needs continuous data)
         self.apply_source_localization()  # Creates self.stc from Raw
-        self.apply_source_psd()            # Uses self.stc
-        self.apply_source_connectivity()   # Uses self.stc
+        self.apply_source_psd()  # Uses self.stc
+        self.apply_source_connectivity()  # Uses self.stc

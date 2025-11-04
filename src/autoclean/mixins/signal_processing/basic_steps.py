@@ -1,7 +1,7 @@
 """Basic steps mixin for autoclean tasks."""
 
-from typing import List, Optional, Union
 import warnings
+from typing import List, Optional, Union
 
 import mne
 
@@ -82,7 +82,7 @@ class BasicStepsMixin:
             "self.assign_eog_channels(), self.trim_edges(), self.crop_duration(). "
             "See approved tasks in src/autoclean/tasks/ for examples.",
             DeprecationWarning,
-            stacklevel=2
+            stacklevel=2,
         )
 
         message("header", "Running basic preprocessing steps...")

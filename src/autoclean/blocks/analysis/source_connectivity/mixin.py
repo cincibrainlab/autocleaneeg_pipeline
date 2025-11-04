@@ -15,16 +15,18 @@ Functional connectivity analysis enables:
 - Graph theory metrics for network organization
 """
 
+import importlib.util
 from pathlib import Path
 from typing import Optional, Union
-import importlib.util
 
 import mne
 import pandas as pd
 
 # Import algorithm function dynamically (for bundled block compatibility)
 _algorithm_path = Path(__file__).parent / "algorithm.py"
-_spec = importlib.util.spec_from_file_location("_source_connectivity_algorithm", _algorithm_path)
+_spec = importlib.util.spec_from_file_location(
+    "_source_connectivity_algorithm", _algorithm_path
+)
 _algorithm_module = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_algorithm_module)
 calculate_source_connectivity = _algorithm_module.calculate_source_connectivity

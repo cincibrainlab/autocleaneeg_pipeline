@@ -16,6 +16,7 @@ from autoclean.utils.logging import message
 # Import cache invalidation function if available
 try:
     from autoclean.mixins.viz._ica_sources_cache import invalidate_ica_cache
+
     CACHE_AVAILABLE = True
 except ImportError:
     CACHE_AVAILABLE = False
@@ -142,7 +143,11 @@ class IcaMixin:
         save_ica_to_fif(self.final_ica, self.config, data)
 
         # Invalidate any cached sources since ICA object has changed
-        if CACHE_AVAILABLE and hasattr(self, 'final_ica') and self.final_ica is not None:
+        if (
+            CACHE_AVAILABLE
+            and hasattr(self, "final_ica")
+            and self.final_ica is not None
+        ):
             invalidate_ica_cache(self.final_ica)
 
         message("success", "ICA step complete")
@@ -213,7 +218,10 @@ class IcaMixin:
         # Check if ICA is enabled in the configuration
         is_ica_enabled, _ = self._check_step_enabled("ICA")
         if not is_ica_enabled:
-            message("warning", "ICA is not enabled in the config. Skipping both ICA and component classification.")
+            message(
+                "warning",
+                "ICA is not enabled in the config. Skipping both ICA and component classification.",
+            )
             return None
 
         # Auto-detect method from config if not specified
@@ -427,18 +435,21 @@ class IcaMixin:
 
             flags_to_reject = config_params_nested.get("ic_flags_to_reject")
             rejection_threshold = config_params_nested.get("ic_rejection_threshold")
-            threshold_overrides = config_params_nested.get(
-                "ic_rejection_overrides", {}
-            )
+            threshold_overrides = config_params_nested.get("ic_rejection_overrides", {})
 
             # If not found in "value", try to get them from the main step config dict directly
-            if flags_to_reject is None and "ic_flags_to_reject" in step_config_main_dict:
+            if (
+                flags_to_reject is None
+                and "ic_flags_to_reject" in step_config_main_dict
+            ):
                 flags_to_reject = step_config_main_dict.get("ic_flags_to_reject")
             if (
                 rejection_threshold is None
                 and "ic_rejection_threshold" in step_config_main_dict
             ):
-                rejection_threshold = step_config_main_dict.get("ic_rejection_threshold")
+                rejection_threshold = step_config_main_dict.get(
+                    "ic_rejection_threshold"
+                )
             if (
                 not threshold_overrides
                 and "ic_rejection_overrides" in step_config_main_dict
@@ -458,7 +469,9 @@ class IcaMixin:
         if not manual_override:
             # Warn about unused overrides
             if threshold_overrides:
-                unused_overrides = set(threshold_overrides.keys()) - set(flags_to_reject)
+                unused_overrides = set(threshold_overrides.keys()) - set(
+                    flags_to_reject
+                )
                 if unused_overrides:
                     message(
                         "warning",
@@ -471,7 +484,8 @@ class IcaMixin:
                 }
                 threshold_info.update(threshold_overrides)
                 message(
-                    "info", f"Will reject ICs with per-type thresholds: {threshold_info}"
+                    "info",
+                    f"Will reject ICs with per-type thresholds: {threshold_info}",
                 )
             else:
                 message(
@@ -487,19 +501,22 @@ class IcaMixin:
         message("debug", f"Applying ICA to {data_source_name}")
 
         if manual_override:
-            old_exclude = self.final_ica.exclude.copy() if self.final_ica.exclude else []
+            old_exclude = (
+                self.final_ica.exclude.copy() if self.final_ica.exclude else []
+            )
             self.final_ica.exclude = manual_rejected_components
 
             if CACHE_AVAILABLE and old_exclude != manual_rejected_components:
                 invalidate_ica_cache(self.final_ica)
-                message("debug", "Cache invalidated due to manual ICA exclude list change")
+                message(
+                    "debug", "Cache invalidated due to manual ICA exclude list change"
+                )
 
             if manual_rejected_components:
                 self.final_ica.apply(target_data)
                 message(
                     "info",
-                    "Applied manual ICA exclusions: "
-                    f"{manual_rejected_components}",
+                    "Applied manual ICA exclusions: " f"{manual_rejected_components}",
                 )
             else:
                 message("info", "Manual ICA override provided no components to remove.")
@@ -531,7 +548,9 @@ class IcaMixin:
             auto_exclude = sorted(self.final_ica.exclude)
 
             if not rejected_ic_indices_this_step:
-                message("info", "No new components met rejection criteria in this step.")
+                message(
+                    "info", "No new components met rejection criteria in this step."
+                )
             else:
                 message(
                     "info",
@@ -541,7 +560,9 @@ class IcaMixin:
 
             # Use control sheet to finalize exclusions
             final_exclude = update_ica_control_sheet(self.config, auto_exclude)
-            old_exclude = self.final_ica.exclude.copy() if self.final_ica.exclude else []
+            old_exclude = (
+                self.final_ica.exclude.copy() if self.final_ica.exclude else []
+            )
             self.final_ica.exclude = final_exclude
 
             # Invalidate cache if exclude list changed

@@ -58,7 +58,7 @@ class EEGLABSetMEA30Plugin(BaseEEGPlugin):
                 message("info", "Configuring MEA30 channels")
 
                 # MEA30 requires EEG channels only
-                raw.pick('eeg', exclude=[])
+                raw.pick("eeg", exclude=[])
 
                 # Check if we have the expected channel count
                 if len(raw.ch_names) != 30:

@@ -92,8 +92,8 @@ class ChannelsMixin:
                     .get("enabled", True)
                 ):
                     # If EOG step is disabled, temporarily set EOG channels to EEG type
-                    indices_dict = mne.channel_indices_by_type(data.info, picks='eog')
-                    eog_picks = indices_dict.get('eog', [])
+                    indices_dict = mne.channel_indices_by_type(data.info, picks="eog")
+                    eog_picks = indices_dict.get("eog", [])
                     eog_ch_names = [data.ch_names[idx] for idx in eog_picks]
                     data.set_channel_types({ch: "eeg" for ch in eog_ch_names})
 
@@ -122,8 +122,7 @@ class ChannelsMixin:
             if manual_override:
                 message(
                     "info",
-                    "Applying manual bad channel override: "
-                    f"{manual_bad_channels}",
+                    "Applying manual bad channel override: " f"{manual_bad_channels}",
                 )
                 uncorrelated_channels: List[str] = []
                 deviation_channels: List[str] = []
@@ -242,9 +241,11 @@ class ChannelsMixin:
             # Update metadata
             metadata = {
                 "method": "ManualOverride" if manual_override else "NoisyChannels",
-                "options": options
-                if not manual_override
-                else {"manual_bad_channels": manual_bad_channels},
+                "options": (
+                    options
+                    if not manual_override
+                    else {"manual_bad_channels": manual_bad_channels}
+                ),
                 "channelCount": len(result_raw.ch_names),
                 "durationSec": int(result_raw.n_times) / result_raw.info["sfreq"],
                 "numberSamples": int(result_raw.n_times),
@@ -437,7 +438,7 @@ class ChannelsMixin:
                     result_data.drop_channels(channels_to_drop)
                     message(
                         "info",
-                        f"Dropped {len(channels_to_drop)} channels: {channels_to_drop}"
+                        f"Dropped {len(channels_to_drop)} channels: {channels_to_drop}",
                     )
 
                     # Track channel removals in unified metadata
@@ -456,7 +457,7 @@ class ChannelsMixin:
                 else:
                     message(
                         "info",
-                        "No matching channels found to drop (channels may already be absent)"
+                        "No matching channels found to drop (channels may already be absent)",
                     )
                     metadata = {
                         "dropped_channels": [],
@@ -520,8 +521,8 @@ class ChannelsMixin:
                     raise ValueError("No data available to process")
 
             # Detect EOG channels
-            indices_dict = mne.channel_indices_by_type(data.info, picks='eog')
-            eog_picks = indices_dict.get('eog', [])
+            indices_dict = mne.channel_indices_by_type(data.info, picks="eog")
+            eog_picks = indices_dict.get("eog", [])
             eog_ch_names = [data.ch_names[idx] for idx in eog_picks]
 
             if not eog_ch_names:

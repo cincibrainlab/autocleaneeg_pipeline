@@ -12,8 +12,8 @@ Hämäläinen MS & Ilmoniemi RJ (1994). Interpreting magnetic fields of the brai
 minimum norm estimates. Medical & Biological Engineering & Computing, 32(1), 35-42.
 """
 
-import tempfile
 import os
+import tempfile
 from pathlib import Path
 
 import mne
@@ -28,7 +28,9 @@ except ImportError:
     )
 
 
-def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None, save_stc: bool = False):
+def estimate_source_function_raw(
+    raw: mne.io.Raw, config: dict = None, save_stc: bool = False
+):
     """
     Perform source localization on continuous EEG data.
 
@@ -49,23 +51,27 @@ def estimate_source_function_raw(raw: mne.io.Raw, config: dict = None, save_stc:
     with tempfile.TemporaryDirectory() as tmpdir:
         # Export to temp file
         tmp_input = os.path.join(tmpdir, "temp_raw.set")
-        raw.export(tmp_input, fmt='eeglab', overwrite=True)
+        raw.export(tmp_input, fmt="eeglab", overwrite=True)
 
         # Process with package
         processor = SequentialProcessor(
             memory_manager=MemoryManager(),
-            montage=config.get("montage", "GSN-HydroCel-129") if config else "GSN-HydroCel-129",
-            resample_freq=raw.info['sfreq'],
-            lambda2=config.get("lambda2", 1.0/9.0) if config else 1.0/9.0
+            montage=(
+                config.get("montage", "GSN-HydroCel-129")
+                if config
+                else "GSN-HydroCel-129"
+            ),
+            resample_freq=raw.info["sfreq"],
+            lambda2=config.get("lambda2", 1.0 / 9.0) if config else 1.0 / 9.0,
         )
 
         result = processor.process_file(tmp_input, tmpdir)
 
-        if result['status'] != 'success':
+        if result["status"] != "success":
             raise RuntimeError(f"Processing failed: {result.get('error')}")
 
         # Load 68-region output
-        output_raw = mne.io.read_raw_eeglab(result['output_file'], preload=True)
+        output_raw = mne.io.read_raw_eeglab(result["output_file"], preload=True)
 
     return output_raw
 
@@ -90,23 +96,27 @@ def estimate_source_function_epochs(epochs: mne.Epochs, config: dict = None):
     with tempfile.TemporaryDirectory() as tmpdir:
         # Export to temp file
         tmp_input = os.path.join(tmpdir, "temp_epochs.set")
-        epochs.export(tmp_input, fmt='eeglab', overwrite=True)
+        epochs.export(tmp_input, fmt="eeglab", overwrite=True)
 
         # Process with package
         processor = SequentialProcessor(
             memory_manager=MemoryManager(),
-            montage=config.get("montage", "GSN-HydroCel-129") if config else "GSN-HydroCel-129",
-            resample_freq=epochs.info['sfreq'],
-            lambda2=config.get("lambda2", 1.0/9.0) if config else 1.0/9.0
+            montage=(
+                config.get("montage", "GSN-HydroCel-129")
+                if config
+                else "GSN-HydroCel-129"
+            ),
+            resample_freq=epochs.info["sfreq"],
+            lambda2=config.get("lambda2", 1.0 / 9.0) if config else 1.0 / 9.0,
         )
 
         result = processor.process_file(tmp_input, tmpdir)
 
-        if result['status'] != 'success':
+        if result["status"] != "success":
             raise RuntimeError(f"Processing failed: {result.get('error')}")
 
         # Load 68-region output
-        output_epochs = mne.read_epochs_eeglab(result['output_file'])
+        output_epochs = mne.read_epochs_eeglab(result["output_file"])
 
     return output_epochs
 

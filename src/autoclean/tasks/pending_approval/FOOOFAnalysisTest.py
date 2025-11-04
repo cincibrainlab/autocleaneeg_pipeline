@@ -127,5 +127,5 @@ class specparamAnalysisTest(Task):
 
         # Source analysis pipeline (no epochs - specparam needs continuous data)
         self.apply_source_localization()  # Creates self.stc from Raw
-        self.apply_fooof_aperiodic()      # Extracts 1/f parameters
-        self.apply_fooof_periodic()       # Extracts oscillatory peaks
+        self.apply_fooof_aperiodic()  # Extracts 1/f parameters
+        self.apply_fooof_periodic()  # Extracts oscillatory peaks

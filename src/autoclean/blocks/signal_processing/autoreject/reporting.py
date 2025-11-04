@@ -75,8 +75,12 @@ def generate_autoreject_report(
         ]
 
     # Calculate PSDs (using welch method which supports fmax parameter)
-    psd_before, freqs_before = epochs_before.compute_psd(method="welch", fmax=50.0).get_data(return_freqs=True)
-    psd_after, freqs_after = epochs_after.compute_psd(method="welch", fmax=50.0).get_data(return_freqs=True)
+    psd_before, freqs_before = epochs_before.compute_psd(
+        method="welch", fmax=50.0
+    ).get_data(return_freqs=True)
+    psd_after, freqs_after = epochs_after.compute_psd(
+        method="welch", fmax=50.0
+    ).get_data(return_freqs=True)
 
     # Average across epochs
     psd_before_mean = psd_before.mean(axis=0)  # (n_channels, n_freqs)
@@ -99,14 +103,20 @@ def generate_autoreject_report(
     with PdfPages(output_pdf_path) as pdf:
         # Page 1: Overview and statistics
         fig1 = _create_overview_page(
-            summary, epochs_before.ch_names, psd_before_mean, psd_after_mean, freqs_before
+            summary,
+            epochs_before.ch_names,
+            psd_before_mean,
+            psd_after_mean,
+            freqs_before,
         )
         pdf.savefig(fig1, bbox_inches="tight")
         plt.close(fig1)
 
         # Page 2: Rejection visualization
         if rejection_log is not None:
-            fig2 = _create_rejection_visualization(rejection_log, epochs_before.ch_names)
+            fig2 = _create_rejection_visualization(
+                rejection_log, epochs_before.ch_names
+            )
             pdf.savefig(fig2, bbox_inches="tight")
             plt.close(fig2)
 
@@ -225,11 +235,18 @@ PARAMETERS
     psd_before_avg = 10 * np.log10(psd_before.mean(axis=0))
     psd_after_avg = 10 * np.log10(psd_after.mean(axis=0))
 
-    ax_psd.plot(freqs, psd_before_avg, label="Before AutoReject", alpha=0.7, linewidth=2)
+    ax_psd.plot(
+        freqs, psd_before_avg, label="Before AutoReject", alpha=0.7, linewidth=2
+    )
     ax_psd.plot(freqs, psd_after_avg, label="After AutoReject", alpha=0.7, linewidth=2)
     ax_psd.set_xlabel("Frequency (Hz)", fontsize=11)
     ax_psd.set_ylabel("Power (dB)", fontsize=11)
-    ax_psd.set_title("Power Spectral Density Comparison (Grand Average)", fontweight="bold", pad=15, fontsize=12)
+    ax_psd.set_title(
+        "Power Spectral Density Comparison (Grand Average)",
+        fontweight="bold",
+        pad=15,
+        fontsize=12,
+    )
     ax_psd.legend(loc="upper right")
     ax_psd.grid(True, alpha=0.3)
     ax_psd.set_xlim([0, 50])
@@ -237,7 +254,9 @@ PARAMETERS
     return fig
 
 
-def _create_rejection_visualization(rejection_log: np.ndarray, ch_names: List[str]) -> plt.Figure:
+def _create_rejection_visualization(
+    rejection_log: np.ndarray, ch_names: List[str]
+) -> plt.Figure:
     """Create visualization showing which epochs were rejected/interpolated."""
     fig = plt.figure(figsize=(11, 14))
     gs = GridSpec(2, 1, figure=fig, hspace=0.3)
@@ -250,6 +269,7 @@ def _create_rejection_visualization(rejection_log: np.ndarray, ch_names: List[st
     # rejection_log: 0=good, 1=interpolated, 2=rejected
     # Create custom colormap
     from matplotlib.colors import ListedColormap
+
     cmap = ListedColormap(["#51cf66", "#ffd43b", "#ff6b6b"])  # green, yellow, red
 
     im = ax_heat.imshow(
@@ -263,7 +283,11 @@ def _create_rejection_visualization(rejection_log: np.ndarray, ch_names: List[st
 
     ax_heat.set_xlabel("Epoch Number", fontsize=11)
     ax_heat.set_ylabel("Channel", fontsize=11)
-    ax_heat.set_title("Rejection Log (Green=Good, Yellow=Interpolated, Red=Rejected)", fontweight="bold", pad=10)
+    ax_heat.set_title(
+        "Rejection Log (Green=Good, Yellow=Interpolated, Red=Rejected)",
+        fontweight="bold",
+        pad=10,
+    )
 
     # Show subset of channel labels if too many
     if len(ch_names) > 30:
@@ -286,8 +310,21 @@ def _create_rejection_visualization(rejection_log: np.ndarray, ch_names: List[st
 
     epochs = np.arange(rejection_log.shape[0])
 
-    ax_summary.bar(epochs, n_interpolated, label="Interpolated Channels", color="#ffd43b", alpha=0.7)
-    ax_summary.bar(epochs, n_rejected, bottom=n_interpolated, label="Rejected", color="#ff6b6b", alpha=0.7)
+    ax_summary.bar(
+        epochs,
+        n_interpolated,
+        label="Interpolated Channels",
+        color="#ffd43b",
+        alpha=0.7,
+    )
+    ax_summary.bar(
+        epochs,
+        n_rejected,
+        bottom=n_interpolated,
+        label="Rejected",
+        color="#ff6b6b",
+        alpha=0.7,
+    )
 
     ax_summary.set_xlabel("Epoch Number", fontsize=11)
     ax_summary.set_ylabel("Number of Bad Channels", fontsize=11)
@@ -298,11 +335,15 @@ def _create_rejection_visualization(rejection_log: np.ndarray, ch_names: List[st
     return fig
 
 
-def _create_interpolation_heatmap(rejection_log: np.ndarray, ch_names: List[str]) -> plt.Figure:
+def _create_interpolation_heatmap(
+    rejection_log: np.ndarray, ch_names: List[str]
+) -> plt.Figure:
     """Create heatmap showing interpolation frequency per channel."""
     fig = plt.figure(figsize=(11, 14))
 
-    fig.suptitle("Channel Interpolation Summary", fontsize=16, fontweight="bold", y=0.98)
+    fig.suptitle(
+        "Channel Interpolation Summary", fontsize=16, fontweight="bold", y=0.98
+    )
 
     # Count interpolations per channel
     n_interp_per_channel = np.sum(rejection_log == 1, axis=0)
@@ -328,14 +369,25 @@ def _create_interpolation_heatmap(rejection_log: np.ndarray, ch_names: List[str]
     ax.set_yticklabels(sorted_channels[:n_show], fontsize=9)
     ax.set_xlabel("Number of Interpolations", fontsize=11)
     ax.set_ylabel("Channel", fontsize=11)
-    ax.set_title(f"Interpolation Frequency (Top {n_show} Channels)", fontweight="bold", pad=15, fontsize=12)
+    ax.set_title(
+        f"Interpolation Frequency (Top {n_show} Channels)",
+        fontweight="bold",
+        pad=15,
+        fontsize=12,
+    )
     ax.grid(True, alpha=0.3, axis="x")
     ax.invert_yaxis()
 
     # Add count labels on bars
     for i, (count, bar) in enumerate(zip(sorted_counts[:n_show], bars)):
         if count > 0:
-            ax.text(count, bar.get_y() + bar.get_height() / 2, f"  {int(count)}",
-                   va="center", fontsize=8, fontweight="bold")
+            ax.text(
+                count,
+                bar.get_y() + bar.get_height() / 2,
+                f"  {int(count)}",
+                va="center",
+                fontsize=8,
+                fontweight="bold",
+            )
 
     return fig

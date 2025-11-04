@@ -48,4 +48,3 @@ def resolve_moved_path(stored_path: str | Path, max_records: int = 200) -> Path:
                 return candidate
 
     return p
-

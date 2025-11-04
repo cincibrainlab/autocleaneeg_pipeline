@@ -20,7 +20,7 @@ from collections import Counter, OrderedDict
 from datetime import datetime
 from functools import partial
 from pathlib import Path
-from typing import Dict, Iterable, Optional, List, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple
 
 import pandas as pd
 import yaml
@@ -45,11 +45,16 @@ def check_gui_dependencies() -> None:
 check_gui_dependencies()
 
 
+import mne  # noqa: E402
+import scipy.io as sio  # noqa: E402
+from PyQt6.QtCore import pyqtRemoveInputHook  # noqa: E402
+from PyQt6.QtPdf import QPdfDocument  # noqa: E402
+from PyQt6.QtPdfWidgets import QPdfView  # noqa: E402
 from qtpy.QtCore import (  # noqa: E402
     QAbstractItemModel,
+    QEvent,
     QModelIndex,
     QObject,
-    QEvent,
     QPointF,
     QProcess,
     QSize,
@@ -74,9 +79,9 @@ from qtpy.QtWidgets import (  # noqa: E402
     QPushButton,
     QScrollArea,
     QShortcut,
+    QSizePolicy,
     QSpinBox,
     QSplitter,
-    QSizePolicy,
     QStackedLayout,
     QStatusBar,
     QStyle,
@@ -89,19 +94,11 @@ from qtpy.QtWidgets import (  # noqa: E402
     QWidget,
 )
 
-from PyQt6.QtCore import pyqtRemoveInputHook  # noqa: E402
-from PyQt6.QtPdf import QPdfDocument  # noqa: E402
-from PyQt6.QtPdfWidgets import QPdfView  # noqa: E402
-
 from autoclean.io.export import save_epochs_to_set  # noqa: E402
 from autoclean.utils.database import get_run_record  # noqa: E402
 from autoclean.utils.logging import message  # noqa: E402
 from autoclean.utils.path_resolution import resolve_moved_path  # noqa: E402
 from autoclean.utils.user_config import user_config  # noqa: E402
-
-import mne  # noqa: E402
-import scipy.io as sio  # noqa: E402
-
 
 pyqtRemoveInputHook()
 
@@ -179,7 +176,7 @@ def _enum_name(value: object) -> str:
     """Return the Enum name if available, otherwise string form."""
     if value is None:
         return "None"
-    name = getattr(value, 'name', None)
+    name = getattr(value, "name", None)
     if name:
         return str(name)
     return str(value)
@@ -226,21 +223,22 @@ def _get_removal_reason_display(reason_code: str) -> Tuple[str, str]:
         color: Hex color code for display (e.g., "#9b59b6")
     """
     reason_map = {
-        "EOG_DROPPED": ("EOG", "#9b59b6"),          # Purple
+        "EOG_DROPPED": ("EOG", "#9b59b6"),  # Purple
         "OUTER_LAYER": ("Outer Layer", "#3498db"),  # Blue
-        "UNCORRELATED": ("Uncorrelated", "#e67e22"), # Orange
-        "DEVIATION": ("Deviation", "#e74c3c"),       # Red
-        "RANSAC": ("RANSAC", "#d35400"),            # Dark Orange
-        "BRIDGED": ("Bridged", "#c0392b"),          # Dark Red
-        "RANK": ("Rank", "#8e44ad"),                # Purple
-        "MANUAL_EXCLUDE": ("Manual", "#7f8c8d"),    # Gray
-        "TEMPLATE_EXCLUDE": ("Template", "#95a5a6"), # Light Gray
-        "NOISY": ("Noisy", "#e74c3c"),              # Red
+        "UNCORRELATED": ("Uncorrelated", "#e67e22"),  # Orange
+        "DEVIATION": ("Deviation", "#e74c3c"),  # Red
+        "RANSAC": ("RANSAC", "#d35400"),  # Dark Orange
+        "BRIDGED": ("Bridged", "#c0392b"),  # Dark Red
+        "RANK": ("Rank", "#8e44ad"),  # Purple
+        "MANUAL_EXCLUDE": ("Manual", "#7f8c8d"),  # Gray
+        "TEMPLATE_EXCLUDE": ("Template", "#95a5a6"),  # Light Gray
+        "NOISY": ("Noisy", "#e74c3c"),  # Red
     }
     return reason_map.get(reason_code, (reason_code, "#95a5a6"))
 
 
 # --- Configuration and Asset Resolution ---
+
 
 def _load_config() -> dict:
     """Load configuration from config.yaml."""
@@ -270,7 +268,7 @@ def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
         The config dictionary from the task file, or None if parsing fails
     """
     try:
-        with open(task_file_path, 'r', encoding='utf-8') as f:
+        with open(task_file_path, "r", encoding="utf-8") as f:
             file_content = f.read()
 
         # Parse the file as AST
@@ -280,7 +278,7 @@ def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
         for node in ast.walk(tree):
             if isinstance(node, ast.Assign):
                 for target in node.targets:
-                    if isinstance(target, ast.Name) and target.id == 'config':
+                    if isinstance(target, ast.Name) and target.id == "config":
                         # Found the config assignment - evaluate it safely
                         return ast.literal_eval(node.value)
 
@@ -293,10 +291,7 @@ def _parse_task_file_config(task_file_path: Path) -> Optional[dict]:
 
 
 def _generate_reprocess_task_from_original(
-    original_task_path: Path,
-    payload: dict,
-    new_class_name: str,
-    timestamp: str
+    original_task_path: Path, payload: dict, new_class_name: str, timestamp: str
 ) -> str:
     """Generate reprocess task by modifying the original task file's AST.
 
@@ -317,27 +312,31 @@ def _generate_reprocess_task_from_original(
         Complete reprocess task file content
     """
     # Read original task file
-    with open(original_task_path, 'r', encoding='utf-8') as f:
+    with open(original_task_path, "r", encoding="utf-8") as f:
         original_source = f.read()
 
     # Parse AST
     tree = ast.parse(original_source)
 
     # Extract override data from payload
-    fix_type = payload.get('fix_type', 'both')
-    bad_channels_raw = payload['modifications']['bad_channels']['modified']
-    rejected_ica = payload['modifications']['rejected_ica']['modified']
-    file_stem = payload.get('file_stem', 'unknown')
+    fix_type = payload.get("fix_type", "both")
+    bad_channels_raw = payload["modifications"]["bad_channels"]["modified"]
+    rejected_ica = payload["modifications"]["rejected_ica"]["modified"]
+    file_stem = payload.get("file_stem", "unknown")
 
     # Filter out EOG channels that will be dropped before clean_bad_channels runs
     # Common EOG channel names that are typically dropped early in pipeline
-    eog_channel_patterns = ['EOG', 'HEOG', 'VEOG', 'hEOG', 'vEOG', 'REOG', 'LEOG']
+    eog_channel_patterns = ["EOG", "HEOG", "VEOG", "hEOG", "vEOG", "REOG", "LEOG"]
     bad_channels = [ch for ch in bad_channels_raw if ch not in eog_channel_patterns]
 
     if len(bad_channels) != len(bad_channels_raw):
         filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
-        print(f"[AST DEBUG] Filtered out EOG channels from bad channel list: {filtered_out}")
-        print(f"[AST DEBUG] These channels are dropped earlier in the pipeline and cannot be marked as bad")
+        print(
+            f"[AST DEBUG] Filtered out EOG channels from bad channel list: {filtered_out}"
+        )
+        print(
+            f"[AST DEBUG] These channels are dropped earlier in the pipeline and cannot be marked as bad"
+        )
 
     print(f"[AST DEBUG] fix_type from payload: '{fix_type}'")
     print(f"[AST DEBUG] bad_channels (after EOG filter): {bad_channels}")
@@ -351,12 +350,14 @@ def _generate_reprocess_task_from_original(
     class ConfigModifier(ast.NodeTransformer):
         def visit_Assign(self, node):
             # Look for 'config = {...}' assignment
-            if (len(node.targets) == 1 and
-                isinstance(node.targets[0], ast.Name) and
-                node.targets[0].id == 'config' and
-                isinstance(node.value, ast.Dict)):
+            if (
+                len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and node.targets[0].id == "config"
+                and isinstance(node.value, ast.Dict)
+            ):
                 # Add dataset_name to the config dict
-                node.value.keys.append(ast.Constant(value='dataset_name'))
+                node.value.keys.append(ast.Constant(value="dataset_name"))
                 node.value.values.append(ast.Constant(value=dataset_name))
                 print(f"[AST DEBUG] Added dataset_name to config dict")
             return node
@@ -371,21 +372,21 @@ def _generate_reprocess_task_from_original(
 
             # Update docstring with override info
             if len(bad_channels) != len(bad_channels_raw):
-                docstring = f'''
+                docstring = f"""
     Reprocessing task with manual bad channel and ICA component overrides.
 
     This task reprocesses the original raw data from the beginning with:
     - Manual bad channel list: {bad_channels} (EOG channels excluded, dropped earlier in pipeline)
     - Manual ICA component rejection: {rejected_ica}
-    '''
+    """
             else:
-                docstring = f'''
+                docstring = f"""
     Reprocessing task with manual bad channel and ICA component overrides.
 
     This task reprocesses the original raw data from the beginning with:
     - Manual bad channel list: {bad_channels}
     - Manual ICA component rejection: {rejected_ica}
-    '''
+    """
             node.body[0] = ast.Expr(value=ast.Constant(value=docstring.strip()))
 
             return node
@@ -399,7 +400,7 @@ def _generate_reprocess_task_from_original(
             self.ica_classify_modified = False
 
         def visit_FunctionDef(self, node):
-            if node.name == 'run':
+            if node.name == "run":
                 print(f"[AST DEBUG] Entering run() method, setting in_run_method=True")
                 self.in_run_method = True
 
@@ -412,30 +413,37 @@ def _generate_reprocess_task_from_original(
                     new_body.append(modified_stmt)
 
                     # If ICA fix and this is the classify_ica_components call, insert apply after it
-                    if (fix_type in ('ica', 'both') and
-                        isinstance(modified_stmt, ast.Expr) and
-                        isinstance(modified_stmt.value, ast.Call) and
-                        isinstance(modified_stmt.value.func, ast.Attribute) and
-                        modified_stmt.value.func.attr == 'classify_ica_components'):
+                    if (
+                        fix_type in ("ica", "both")
+                        and isinstance(modified_stmt, ast.Expr)
+                        and isinstance(modified_stmt.value, ast.Call)
+                        and isinstance(modified_stmt.value.func, ast.Attribute)
+                        and modified_stmt.value.func.attr == "classify_ica_components"
+                    ):
                         # Insert apply_ica_component_rejection call after this
-                        print(f"[AST DEBUG] Inserting apply_ica_component_rejection after classify_ica_components")
+                        print(
+                            f"[AST DEBUG] Inserting apply_ica_component_rejection after classify_ica_components"
+                        )
                         apply_call = ast.Expr(
                             value=ast.Call(
                                 func=ast.Attribute(
-                                    value=ast.Name(id='self', ctx=ast.Load()),
-                                    attr='apply_ica_component_rejection',
-                                    ctx=ast.Load()
+                                    value=ast.Name(id="self", ctx=ast.Load()),
+                                    attr="apply_ica_component_rejection",
+                                    ctx=ast.Load(),
                                 ),
                                 args=[],
                                 keywords=[
                                     ast.keyword(
-                                        arg='manual_rejected_components',
+                                        arg="manual_rejected_components",
                                         value=ast.List(
-                                            elts=[ast.Constant(value=comp) for comp in rejected_ica],
-                                            ctx=ast.Load()
-                                        )
+                                            elts=[
+                                                ast.Constant(value=comp)
+                                                for comp in rejected_ica
+                                            ],
+                                            ctx=ast.Load(),
+                                        ),
                                     )
-                                ]
+                                ],
                             )
                         )
                         new_body.append(apply_call)
@@ -445,8 +453,10 @@ def _generate_reprocess_task_from_original(
             return node
 
         def visit_Call(self, node):
-            func_name = node.func.attr if isinstance(node.func, ast.Attribute) else '?'
-            print(f"[AST DEBUG] visit_Call: func={func_name}, in_run_method={self.in_run_method}")
+            func_name = node.func.attr if isinstance(node.func, ast.Attribute) else "?"
+            print(
+                f"[AST DEBUG] visit_Call: func={func_name}, in_run_method={self.in_run_method}"
+            )
 
             if not self.in_run_method:
                 print(f"[AST DEBUG] Skipping {func_name} (not in run method)")
@@ -454,41 +464,49 @@ def _generate_reprocess_task_from_original(
 
             # Modify clean_bad_channels() for channel fixes
             # Support both 'channel' and 'channels' variants
-            if (fix_type in ('channel', 'channels', 'both') and
-                isinstance(node.func, ast.Attribute) and
-                node.func.attr == 'clean_bad_channels'):
+            if (
+                fix_type in ("channel", "channels", "both")
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "clean_bad_channels"
+            ):
                 # Only add parameter if there are non-EOG bad channels
                 if bad_channels:
-                    print(f"[AST DEBUG] Adding manual_bad_channels parameter: {bad_channels}")
+                    print(
+                        f"[AST DEBUG] Adding manual_bad_channels parameter: {bad_channels}"
+                    )
                     # Add manual_bad_channels parameter
                     node.keywords.append(
                         ast.keyword(
-                            arg='manual_bad_channels',
+                            arg="manual_bad_channels",
                             value=ast.List(
                                 elts=[ast.Constant(value=ch) for ch in bad_channels],
-                                ctx=ast.Load()
-                            )
+                                ctx=ast.Load(),
+                            ),
                         )
                     )
                 else:
-                    print(f"[AST DEBUG] Skipping manual_bad_channels parameter (empty after filtering EOG channels)")
+                    print(
+                        f"[AST DEBUG] Skipping manual_bad_channels parameter (empty after filtering EOG channels)"
+                    )
 
             # Modify classify_ica_components() for ICA fixes
-            if (fix_type in ('ica', 'both') and
-                isinstance(node.func, ast.Attribute) and
-                node.func.attr == 'classify_ica_components'):
+            if (
+                fix_type in ("ica", "both")
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "classify_ica_components"
+            ):
                 print(f"[AST DEBUG] Modifying classify_ica_components to reject=False")
                 self.ica_classify_modified = True
                 # Set reject=False
                 found_reject = False
                 for kw in node.keywords:
-                    if kw.arg == 'reject':
+                    if kw.arg == "reject":
                         kw.value = ast.Constant(value=False)
                         found_reject = True
                         break
                 if not found_reject:
                     node.keywords.append(
-                        ast.keyword(arg='reject', value=ast.Constant(value=False))
+                        ast.keyword(arg="reject", value=ast.Constant(value=False))
                     )
 
             return node
@@ -502,8 +520,8 @@ def _generate_reprocess_task_from_original(
     modified_code = ast.unparse(tree)
 
     # Create header comment
-    timestamp = payload.get('timestamp', '')
-    file_stem = payload.get('file_stem', 'unknown')
+    timestamp = payload.get("timestamp", "")
+    file_stem = payload.get("file_stem", "unknown")
 
     # Build header with EOG filter note if applicable
     eog_note = ""
@@ -511,7 +529,7 @@ def _generate_reprocess_task_from_original(
         filtered_out = [ch for ch in bad_channels_raw if ch not in bad_channels]
         eog_note = f"\n# Note: EOG channels {filtered_out} excluded (dropped earlier in pipeline)"
 
-    header = f'''# =============================================================================
+    header = f"""# =============================================================================
 #  REPROCESSING TASK WITH MANUAL OVERRIDES
 # =============================================================================
 # This task was automatically generated to reprocess EEG data with manual
@@ -526,125 +544,129 @@ def _generate_reprocess_task_from_original(
 # - ICA components: {len(rejected_ica)} components
 # =============================================================================
 
-'''
+"""
 
     return header + modified_code
 
 
 def strip_suffixes(stem: str, asset_type: str = None, config: dict = None) -> str:
     """Strip suffixes from filename stem based on configuration.
-    
+
     Args:
         stem: The filename stem to process
         asset_type: Optional asset type for asset-specific suffixes
         config: Configuration dictionary (loaded if not provided)
-    
+
     Returns:
         Stem with suffixes stripped
     """
     if config is None:
         config = _load_config()
-    
+
     if not config:
         return stem
-    
+
     # Get global suffixes
     all_suffixes = list(config.get("suffixes", {}).get("global", []))
-    
+
     # Add asset-specific suffixes if available
     if asset_type and asset_type in config.get("suffixes", {}):
         all_suffixes.extend(config["suffixes"][asset_type])
-    
+
     # Sort by length (longest first) to handle overlapping suffixes correctly
     all_suffixes = sorted(all_suffixes, key=len, reverse=True)
-    
+
     # Strip suffixes
     for suffix in all_suffixes:
         if stem.endswith(suffix):
-            return stem[:-len(suffix)]
-    
+            return stem[: -len(suffix)]
+
     return stem
 
 
-def resolve_asset(file_path: Path, asset_type: str, log_df: pd.DataFrame = None, config: dict = None) -> Optional[Path]:
+def resolve_asset(
+    file_path: Path, asset_type: str, log_df: pd.DataFrame = None, config: dict = None
+) -> Optional[Path]:
     """Resolve asset path using configuration-based approach.
-    
+
     Args:
         file_path: The source file path
         asset_type: Type of asset to resolve (processing_log, psd_overview, run_report, ica_report)
         log_df: DataFrame containing preprocessing log (optional for backward compatibility)
         config: Configuration dictionary (loaded if not provided)
-    
+
     Returns:
         Resolved asset path or None if not found
     """
     if config is None:
         config = _load_config()
-    
+
     if not config:
         return None
-    
+
     # Strip suffixes to get normalized stem
     stem = strip_suffixes(file_path.stem, asset_type, config)
-    
+
     # Get configuration for this asset type
     postfixes = config.get("postfixes", {})
     directories = config.get("directories", {})
     logfile_config = config.get("logfile", {})
-    
+
     if asset_type not in postfixes or asset_type not in directories:
         return None
-    
+
     postfix = postfixes[asset_type]
     subdir = directories[asset_type]
-    
+
     # Determine base directory
     if subdir == ".":
         base_dir = file_path.parent
     else:
         base_dir = file_path.parent / subdir
-    
+
     # Construct the asset path
     asset_path = base_dir / f"{stem}{postfix}"
-    
+
     # If log DataFrame is provided, verify the stem exists in the log
     if log_df is not None and not log_df.empty:
         key_column = logfile_config.get("key_column", "subj_basename")
         if key_column in log_df.columns:
             if stem not in log_df[key_column].values:
                 return None
-    
+
     return asset_path
 
 
-def _load_preprocessing_log(task_root: Optional[Path] = None, exports_dir: Optional[Path] = None) -> Optional[pd.DataFrame]:
+def _load_preprocessing_log(
+    task_root: Optional[Path] = None, exports_dir: Optional[Path] = None
+) -> Optional[pd.DataFrame]:
     """Load preprocessing log DataFrame.
-    
+
     Args:
         task_root: Task root directory
         exports_dir: Exports directory
-    
+
     Returns:
         DataFrame with preprocessing log or None if not found
     """
     config = _load_config()
     if not config:
         return None
-    
+
     logfile_name = config.get("logfile", {}).get("name", "preprocessing_log.csv")
-    
+
     # Try to find the log file in common locations
     search_paths = []
-    
+
     if task_root:
         search_paths.append(task_root / logfile_name)
         search_paths.append(task_root / "logs" / logfile_name)
-    
+
     if exports_dir:
         search_paths.append(exports_dir / logfile_name)
         search_paths.append(exports_dir.parent / logfile_name)
         search_paths.append(exports_dir.parent / "logs" / logfile_name)
-    
+
     for log_path in search_paths:
         if log_path.exists():
             try:
@@ -652,7 +674,7 @@ def _load_preprocessing_log(task_root: Optional[Path] = None, exports_dir: Optio
             except Exception as e:
                 print(f"Warning: Could not load preprocessing log from {log_path}: {e}")
                 continue
-    
+
     return None
 
 
@@ -739,16 +761,16 @@ class PdfPreviewWidget(QWidget):
             doc_status_name = _enum_name(doc_status)
 
         error_value: Optional[object] = None
-        error_name = 'unsupported'
-        if hasattr(self._document, 'error'):
+        error_name = "unsupported"
+        if hasattr(self._document, "error"):
             try:
                 error_value = self._document.error()
                 error_name = _enum_name(error_value)
             except Exception as exc:
                 error_name = f"error_call_failed={exc}"
 
-        ready = doc_status_name == 'Ready'
-        error_ok = error_name in {'None', 'None_', 'NoError', 'NoError_', 'unsupported'}
+        ready = doc_status_name == "Ready"
+        error_ok = error_name in {"None", "None_", "NoError", "NoError_", "unsupported"}
 
         if not ready or not error_ok:
             diagnostics: list[str] = []
@@ -769,9 +791,9 @@ class PdfPreviewWidget(QWidget):
                         f"mtime={datetime.fromtimestamp(stat.st_mtime).isoformat(timespec='seconds')}"
                     )
             else:
-                diagnostics.append('file_missing')
+                diagnostics.append("file_missing")
 
-            if hasattr(self._document, 'errorString'):
+            if hasattr(self._document, "errorString"):
                 try:
                     error_string = self._document.errorString()
                 except Exception as exc:
@@ -780,14 +802,14 @@ class PdfPreviewWidget(QWidget):
                     if error_string:
                         diagnostics.append(f"error_string={error_string!r}")
 
-            diag_text = ", ".join(diagnostics) if diagnostics else 'no file diagnostics'
+            diag_text = ", ".join(diagnostics) if diagnostics else "no file diagnostics"
             log_warning(
                 f"[{_human_timestamp()}] PDF load failed for {path}; "
                 f"requested_status={status_name}, document_status={doc_status_name}, "
                 f"error={error_name}, {diag_text}."
             )
             self.clear(suppress_log=True)
-            self.show_message('Failed to load preview')
+            self.show_message("Failed to load preview")
             return
 
         try:
@@ -824,7 +846,6 @@ class PdfPreviewWidget(QWidget):
         self._status_label.show()
         self._update_status_label()
 
-
     def _update_status_label(self) -> None:
         if self._total_pages <= 0:
             self._status_label.setText("No document loaded")
@@ -836,10 +857,8 @@ class PdfPreviewWidget(QWidget):
             zoom = 1.0
         zoom_pct = int(round(zoom * 100))
         mode = self._view.pageMode()
-        mode_name = getattr(mode, 'name', str(mode))
-        self._status_label.setText(
-            f"{page_text} · Zoom {zoom_pct}% · Mode {mode_name}"
-        )
+        mode_name = getattr(mode, "name", str(mode))
+        self._status_label.setText(f"{page_text} · Zoom {zoom_pct}% · Mode {mode_name}")
 
     def _step_page(self, delta: int) -> None:
         if self._navigator is None or self._total_pages <= 0:
@@ -878,7 +897,7 @@ class ReviewBase(QWidget):
         self._plotted_file_path: Optional[str] = None
         self._plot_is_raw = False
         self._auto_saving_epochs = False
-        
+
         # New configuration-based asset resolution
         self.preprocessing_log_df: Optional[pd.DataFrame] = None
         self.config: dict = _load_config()
@@ -1087,28 +1106,30 @@ class ReviewBase(QWidget):
         """Load preprocessing log DataFrame for asset resolution."""
         if not self.current_dir:
             return
-        
+
         # Try to determine task_root and exports_dir from current_dir
         current_path = Path(self.current_dir)
-        
+
         # Look for exports directory
         exports_dir = None
         if current_path.name == "exports":
             exports_dir = current_path
         elif (current_path / "exports").exists():
             exports_dir = current_path / "exports"
-        
+
         # Look for task root (parent of exports or current directory)
         task_root = None
         if exports_dir:
             task_root = exports_dir.parent
         else:
             task_root = current_path
-        
+
         self.preprocessing_log_df = _load_preprocessing_log(task_root, exports_dir)
-        
+
         if self.preprocessing_log_df is not None:
-            print(f"Loaded preprocessing log with {len(self.preprocessing_log_df)} entries")
+            print(
+                f"Loaded preprocessing log with {len(self.preprocessing_log_df)} entries"
+            )
         else:
             print("No preprocessing log found - using fallback asset resolution")
 
@@ -1243,27 +1264,33 @@ class ReviewBase(QWidget):
 
     def _sync_browser_bad_epochs(self) -> None:
         """Sync browser's bad_epochs list from drop_log and update visuals."""
-        if not self.plot_widget or not hasattr(self.plot_widget, 'mne'):
+        if not self.plot_widget or not hasattr(self.plot_widget, "mne"):
             return
 
         # Extract bad epoch numbers from drop_log
         bad_epoch_nums = []
-        if hasattr(self.current_epochs, 'drop_log') and hasattr(self.current_epochs, 'selection'):
+        if hasattr(self.current_epochs, "drop_log") and hasattr(
+            self.current_epochs, "selection"
+        ):
             for idx, log in enumerate(self.current_epochs.drop_log):
                 # Check if this epoch is marked as USER-rejected
-                if log and any(isinstance(entry, str) and entry.upper() == 'USER' for entry in log):
+                if log and any(
+                    isinstance(entry, str) and entry.upper() == "USER" for entry in log
+                ):
                     # Get the actual epoch number from selection
                     if idx < len(self.current_epochs.selection):
                         bad_epoch_nums.append(self.current_epochs.selection[idx])
 
         # Update browser's bad_epochs list
         self.plot_widget.mne.bad_epochs = sorted(bad_epoch_nums)
-        print(f"[EPOCH DEBUG] Synced {len(bad_epoch_nums)} bad epochs to browser: {bad_epoch_nums}")
+        print(
+            f"[EPOCH DEBUG] Synced {len(bad_epoch_nums)} bad epochs to browser: {bad_epoch_nums}"
+        )
 
         # Trigger visual updates
-        if hasattr(self.plot_widget.mne, 'overview_bar'):
+        if hasattr(self.plot_widget.mne, "overview_bar"):
             self.plot_widget.mne.overview_bar.update_bad_epochs()
-        if hasattr(self.plot_widget, 'update_bad_epoch_highlights'):
+        if hasattr(self.plot_widget, "update_bad_epoch_highlights"):
             self.plot_widget.update_bad_epoch_highlights()
 
     def closePlot(self) -> None:  # noqa: N802 - legacy public API
@@ -1445,12 +1472,21 @@ class _JsonTreeModel(QAbstractItemModel):
         return item.key if index.column() == 0 else item.value
 
     def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
-        if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
+        if (
+            orientation == Qt.Orientation.Horizontal
+            and role == Qt.ItemDataRole.DisplayRole
+        ):
             return ["Key", "Value"][section]
         return None
 
+
 class ProcessingMetricsWidget(QWidget):
-    def __init__(self, parent: Optional[QWidget] = None, open_folder_btn: Optional[QPushButton] = None, refresh_btn: Optional[QPushButton] = None) -> None:
+    def __init__(
+        self,
+        parent: Optional[QWidget] = None,
+        open_folder_btn: Optional[QPushButton] = None,
+        refresh_btn: Optional[QPushButton] = None,
+    ) -> None:
         super().__init__(parent)
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -1479,15 +1515,21 @@ class ProcessingMetricsWidget(QWidget):
         self.export_to_qa_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.export_to_qa_btn.setMinimumHeight(34)
         self.export_to_qa_btn.setMaximumWidth(180)
-        self.export_to_qa_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
-        self.export_to_qa_btn.setToolTip("Export cleaned .set files (bad epochs removed) to qa/ folder with unified preprocessing log")
+        self.export_to_qa_btn.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Fixed
+        )
+        self.export_to_qa_btn.setToolTip(
+            "Export cleaned .set files (bad epochs removed) to qa/ folder with unified preprocessing log"
+        )
         button_toolbar_layout.addWidget(self.export_to_qa_btn)
 
         self.open_qa_folder_btn = QPushButton("Open QA Folder")
         self.open_qa_folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.open_qa_folder_btn.setMinimumHeight(34)
         self.open_qa_folder_btn.setMaximumWidth(180)
-        self.open_qa_folder_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+        self.open_qa_folder_btn.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Fixed
+        )
         self.open_qa_folder_btn.setToolTip("Open the QA folder in your file browser")
         button_toolbar_layout.addWidget(self.open_qa_folder_btn)
 
@@ -1495,7 +1537,9 @@ class ProcessingMetricsWidget(QWidget):
         if open_folder_btn is not None:
             open_folder_btn.setMinimumHeight(34)
             open_folder_btn.setMaximumWidth(180)
-            open_folder_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+            open_folder_btn.setSizePolicy(
+                QSizePolicy.MinimumExpanding, QSizePolicy.Fixed
+            )
             button_toolbar_layout.addWidget(open_folder_btn)
 
         if refresh_btn is not None:
@@ -1640,7 +1684,8 @@ class JsonMetadataViewer(QWidget):
         self.tree_view.setAlternatingRowColors(True)
         self.tree_view.setHeaderHidden(False)
         self.tree_view.setSortingEnabled(False)
-        self.tree_view.setStyleSheet("""
+        self.tree_view.setStyleSheet(
+            """
             QTreeView {
                 background-color: #ffffff;
                 border: 1px solid #d9e2ec;
@@ -1660,7 +1705,8 @@ class JsonMetadataViewer(QWidget):
             QTreeView::branch:has-children:open {
                 image: url(none);
             }
-        """)
+        """
+        )
         layout.addWidget(self.tree_view)
 
         # Message label for empty state
@@ -1731,7 +1777,9 @@ class ReprocessWidget(QWidget):
         self.original_bad_channels: list[str] = []
         self.original_rejected_ica: list[int] = []
         self._suppress_change_signal: bool = False
-        self._modification_mode: Optional[str] = None  # 'channels', 'components', or None
+        self._modification_mode: Optional[str] = (
+            None  # 'channels', 'components', or None
+        )
 
         # Create horizontal layout for side-by-side groups
         groups_layout = QHBoxLayout()
@@ -1810,7 +1858,8 @@ class ReprocessWidget(QWidget):
             "Channel modifications are unavailable\n"
             "until you reset."
         )
-        self.channels_overlay.setStyleSheet("""
+        self.channels_overlay.setStyleSheet(
+            """
             QLabel {
                 background-color: rgba(255, 255, 255, 0.92);
                 border: 2px solid #e67e22;
@@ -1820,7 +1869,8 @@ class ReprocessWidget(QWidget):
                 font-weight: 600;
                 color: #d35400;
             }
-        """)
+        """
+        )
         self.channels_overlay.hide()
 
         # ICA overlay (shown when channels are being modified)
@@ -1833,7 +1883,8 @@ class ReprocessWidget(QWidget):
             "ICA decomposition. ICA component\n"
             "selection is unavailable until you reset."
         )
-        self.ica_overlay.setStyleSheet("""
+        self.ica_overlay.setStyleSheet(
+            """
             QLabel {
                 background-color: rgba(255, 255, 255, 0.92);
                 border: 2px solid #e67e22;
@@ -1843,7 +1894,8 @@ class ReprocessWidget(QWidget):
                 font-weight: 600;
                 color: #d35400;
             }
-        """)
+        """
+        )
         self.ica_overlay.hide()
 
         # Button bar for reset and reprocess
@@ -1853,7 +1905,8 @@ class ReprocessWidget(QWidget):
         # Reset button
         reset_btn = QPushButton("Reset to Original")
         reset_btn.clicked.connect(self._reset_to_original)
-        reset_btn.setStyleSheet("""
+        reset_btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: #f0f4f8;
                 border: 1px solid #cbd5e0;
@@ -1865,13 +1918,15 @@ class ReprocessWidget(QWidget):
                 background-color: #e2e8f0;
                 border-color: #a0aec0;
             }
-        """)
+        """
+        )
         button_bar.addWidget(reset_btn)
 
         # Reprocess button
         self.reprocess_btn = QPushButton("Reprocess with Overrides")
         self.reprocess_btn.clicked.connect(self._handle_reprocess_clicked)
-        self.reprocess_btn.setStyleSheet("""
+        self.reprocess_btn.setStyleSheet(
+            """
             QPushButton {
                 background-color: #3498db;
                 color: white;
@@ -1889,7 +1944,8 @@ class ReprocessWidget(QWidget):
                 border-color: #95a5a6;
                 color: #7f8c8d;
             }
-        """)
+        """
+        )
         self.reprocess_btn.setEnabled(False)  # Disabled until changes are made
         button_bar.addWidget(self.reprocess_btn)
 
@@ -1910,7 +1966,9 @@ class ReprocessWidget(QWidget):
         self.channels_changes_widget.setLayout(self.channels_changes_layout)
 
         self.channels_summary_label = QLabel()
-        self.channels_summary_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #34495e;")
+        self.channels_summary_label.setStyleSheet(
+            "font-size: 12px; font-weight: 600; color: #34495e;"
+        )
         self.channels_changes_layout.addWidget(self.channels_summary_label)
 
         self.channels_chips_widget = QWidget()
@@ -1931,7 +1989,9 @@ class ReprocessWidget(QWidget):
         self.ica_changes_widget.setLayout(self.ica_changes_layout)
 
         self.ica_summary_label = QLabel()
-        self.ica_summary_label.setStyleSheet("font-size: 12px; font-weight: 600; color: #34495e;")
+        self.ica_summary_label.setStyleSheet(
+            "font-size: 12px; font-weight: 600; color: #34495e;"
+        )
         self.ica_changes_layout.addWidget(self.ica_summary_label)
 
         self.ica_chips_widget = QWidget()
@@ -1947,7 +2007,9 @@ class ReprocessWidget(QWidget):
         # Message label for empty state
         self.message_label = QLabel("Select a file to edit reprocessing parameters")
         self.message_label.setAlignment(Qt.AlignCenter)
-        self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 12px;")
+        self.message_label.setStyleSheet(
+            "color: #95a5a6; font-size: 13px; padding: 12px;"
+        )
 
         # Stack to switch between summary and message
         self.bottom_stack = QStackedLayout()
@@ -1960,14 +2022,14 @@ class ReprocessWidget(QWidget):
         """Handle resize events to position overlays correctly."""
         super().resizeEvent(event)
         # Position overlays to cover their respective group boxes
-        if hasattr(self, 'channels_overlay'):
+        if hasattr(self, "channels_overlay"):
             self.channels_overlay.setGeometry(self.channels_group.rect())
-        if hasattr(self, 'ica_overlay'):
+        if hasattr(self, "ica_overlay"):
             self.ica_overlay.setGeometry(self.ica_group.rect())
 
     def _update_section_states(self) -> None:
         """Update enabled/disabled state of sections based on modification mode."""
-        if self._modification_mode == 'channels':
+        if self._modification_mode == "channels":
             # Channels being modified - disable ICA section
             self.ica_spinbox.setEnabled(False)
             self.add_ica_btn.setEnabled(False)
@@ -1983,7 +2045,7 @@ class ReprocessWidget(QWidget):
             self.channels_list.setEnabled(True)
             self.channels_overlay.hide()
 
-        elif self._modification_mode == 'components':
+        elif self._modification_mode == "components":
             # Components being modified - disable channels section
             self.channel_combo.setEnabled(False)
             self.add_channel_btn.setEnabled(False)
@@ -2045,7 +2107,9 @@ class ReprocessWidget(QWidget):
         }
 
         # Filter out EOG channels from combo box (but keep in valid_channels for validation)
-        valid_channels_for_combo = [ch for ch in valid_channels if ch not in eog_channels]
+        valid_channels_for_combo = [
+            ch for ch in valid_channels if ch not in eog_channels
+        ]
 
         # Populate channel combo with filtered list
         self.channel_combo.addItems(valid_channels_for_combo)
@@ -2082,12 +2146,14 @@ class ReprocessWidget(QWidget):
             QMessageBox.warning(
                 self,
                 "Invalid Channel",
-                f"'{channel}' is not a valid channel.\nValid channels: {', '.join(self.valid_channels[:10])}..."
+                f"'{channel}' is not a valid channel.\nValid channels: {', '.join(self.valid_channels[:10])}...",
             )
             return
 
         # Check if already in list
-        items = [self.channels_list.item(i).text() for i in range(self.channels_list.count())]
+        items = [
+            self.channels_list.item(i).text() for i in range(self.channels_list.count())
+        ]
         if channel in items:
             return
 
@@ -2096,7 +2162,7 @@ class ReprocessWidget(QWidget):
 
         # Set modification mode to channels and update UI states
         if self._modification_mode is None:
-            self._modification_mode = 'channels'
+            self._modification_mode = "channels"
             self._update_section_states()
 
         self._emit_change_signal()
@@ -2109,7 +2175,7 @@ class ReprocessWidget(QWidget):
 
             # Set modification mode to channels and update UI states
             if self._modification_mode is None:
-                self._modification_mode = 'channels'
+                self._modification_mode = "channels"
                 self._update_section_states()
 
             self._emit_change_signal()
@@ -2128,7 +2194,7 @@ class ReprocessWidget(QWidget):
 
         # Set modification mode to components and update UI states
         if self._modification_mode is None:
-            self._modification_mode = 'components'
+            self._modification_mode = "components"
             self._update_section_states()
 
         self._emit_change_signal()
@@ -2141,7 +2207,7 @@ class ReprocessWidget(QWidget):
 
             # Set modification mode to components and update UI states
             if self._modification_mode is None:
-                self._modification_mode = 'components'
+                self._modification_mode = "components"
                 self._update_section_states()
 
             self._emit_change_signal()
@@ -2166,8 +2232,7 @@ class ReprocessWidget(QWidget):
     def get_current_values(self) -> dict:
         """Get current bad channels and rejected ICA components."""
         bad_channels = [
-            self.channels_list.item(i).text()
-            for i in range(self.channels_list.count())
+            self.channels_list.item(i).text() for i in range(self.channels_list.count())
         ]
 
         rejected_ica = [
@@ -2175,18 +2240,14 @@ class ReprocessWidget(QWidget):
             for i in range(self.ica_list.count())
         ]
 
-        return {
-            "bad_channels": bad_channels,
-            "rejected_ica": rejected_ica
-        }
+        return {"bad_channels": bad_channels, "rejected_ica": rejected_ica}
 
     def has_changes(self) -> bool:
         """Check if current values differ from original values."""
         current = self.get_current_values()
-        return (
-            set(current["bad_channels"]) != set(self.original_bad_channels)
-            or set(current["rejected_ica"]) != set(self.original_rejected_ica)
-        )
+        return set(current["bad_channels"]) != set(self.original_bad_channels) or set(
+            current["rejected_ica"]
+        ) != set(self.original_rejected_ica)
 
     def get_changes_diff(self) -> dict:
         """Get a diff of changes from original values.
@@ -2238,7 +2299,9 @@ class ReprocessWidget(QWidget):
             # No changes - show message
             self.bottom_stack.setCurrentWidget(self.message_label)
             self.message_label.setText("No modifications yet")
-            self.message_label.setStyleSheet("color: #95a5a6; font-size: 13px; padding: 20px;")
+            self.message_label.setStyleSheet(
+                "color: #95a5a6; font-size: 13px; padding: 20px;"
+            )
             self.reprocess_btn.setEnabled(False)
             return
 
@@ -2265,7 +2328,8 @@ class ReprocessWidget(QWidget):
             # Add chips for added channels
             for ch in ch_added[:10]:  # Limit to 10 to avoid overflow
                 chip = QLabel(f"+ {ch}")
-                chip.setStyleSheet("""
+                chip.setStyleSheet(
+                    """
                     background-color: #d4edda;
                     color: #155724;
                     border: 1px solid #c3e6cb;
@@ -2273,13 +2337,15 @@ class ReprocessWidget(QWidget):
                     padding: 3px 8px;
                     font-size: 11px;
                     font-weight: 600;
-                """)
+                """
+                )
                 self.channels_chips_layout.addWidget(chip)
 
             # Add chips for removed channels
             for ch in ch_removed[:10]:  # Limit to 10 to avoid overflow
                 chip = QLabel(f"− {ch}")
-                chip.setStyleSheet("""
+                chip.setStyleSheet(
+                    """
                     background-color: #f8d7da;
                     color: #721c24;
                     border: 1px solid #f5c6cb;
@@ -2287,7 +2353,8 @@ class ReprocessWidget(QWidget):
                     padding: 3px 8px;
                     font-size: 11px;
                     font-weight: 600;
-                """)
+                """
+                )
                 self.channels_chips_layout.addWidget(chip)
 
             # Add ellipsis if there are more items
@@ -2295,7 +2362,9 @@ class ReprocessWidget(QWidget):
             total_items = len(ch_added) + len(ch_removed)
             if total_items > total_shown:
                 more_label = QLabel(f"... +{total_items - total_shown} more")
-                more_label.setStyleSheet("color: #7f8c8d; font-size: 11px; padding: 3px 8px;")
+                more_label.setStyleSheet(
+                    "color: #7f8c8d; font-size: 11px; padding: 3px 8px;"
+                )
                 self.channels_chips_layout.addWidget(more_label)
 
         else:
@@ -2320,7 +2389,8 @@ class ReprocessWidget(QWidget):
             # Add chips for added components
             for ic in ica_added[:10]:  # Limit to 10 to avoid overflow
                 chip = QLabel(f"+ IC{ic}")
-                chip.setStyleSheet("""
+                chip.setStyleSheet(
+                    """
                     background-color: #d4edda;
                     color: #155724;
                     border: 1px solid #c3e6cb;
@@ -2328,13 +2398,15 @@ class ReprocessWidget(QWidget):
                     padding: 3px 8px;
                     font-size: 11px;
                     font-weight: 600;
-                """)
+                """
+                )
                 self.ica_chips_layout.addWidget(chip)
 
             # Add chips for removed components
             for ic in ica_removed[:10]:  # Limit to 10 to avoid overflow
                 chip = QLabel(f"− IC{ic}")
-                chip.setStyleSheet("""
+                chip.setStyleSheet(
+                    """
                     background-color: #f8d7da;
                     color: #721c24;
                     border: 1px solid #f5c6cb;
@@ -2342,7 +2414,8 @@ class ReprocessWidget(QWidget):
                     padding: 3px 8px;
                     font-size: 11px;
                     font-weight: 600;
-                """)
+                """
+                )
                 self.ica_chips_layout.addWidget(chip)
 
             # Add ellipsis if there are more items
@@ -2350,7 +2423,9 @@ class ReprocessWidget(QWidget):
             total_items = len(ica_added) + len(ica_removed)
             if total_items > total_shown:
                 more_label = QLabel(f"... +{total_items - total_shown} more")
-                more_label.setStyleSheet("color: #7f8c8d; font-size: 11px; padding: 3px 8px;")
+                more_label.setStyleSheet(
+                    "color: #7f8c8d; font-size: 11px; padding: 3px 8px;"
+                )
                 self.ica_chips_layout.addWidget(more_label)
 
         else:
@@ -2371,9 +2446,7 @@ class ReprocessWidget(QWidget):
 
         if not parent:
             QMessageBox.warning(
-                self,
-                "Error",
-                "Could not access parent window for reprocessing."
+                self, "Error", "Could not access parent window for reprocessing."
             )
             return
 
@@ -2513,7 +2586,9 @@ class ExclusionFileSelector(ReviewBase):
                 if widget is not None:
                     plot_tab_layout.addWidget(widget)
 
-        self.time_series_tab_index = self.plot_tabs.addTab(plot_tab_container, "Time Series")
+        self.time_series_tab_index = self.plot_tabs.addTab(
+            plot_tab_container, "Time Series"
+        )
         self.right_layout = plot_tab_layout
 
         psd_tab_container = QWidget()
@@ -2547,12 +2622,12 @@ class ExclusionFileSelector(ReviewBase):
         run_layout.setSpacing(8)
         run_tab_container.setLayout(run_layout)
 
-        self.run_report_preview = PdfPreviewWidget(
-            "Select a file to view run report"
-        )
+        self.run_report_preview = PdfPreviewWidget("Select a file to view run report")
         self.run_report_preview.setObjectName("runReportPreview")
         run_layout.addWidget(self.run_report_preview, 1)
-        self.run_report_tab_index = self.plot_tabs.addTab(run_tab_container, "Run Report")
+        self.run_report_tab_index = self.plot_tabs.addTab(
+            run_tab_container, "Run Report"
+        )
 
         ica_tab_container = QWidget()
         ica_layout = QVBoxLayout()
@@ -2567,7 +2642,9 @@ class ExclusionFileSelector(ReviewBase):
 
         # JSON Metadata tab
         self.json_metadata_viewer = JsonMetadataViewer()
-        self.json_tab_index = self.plot_tabs.addTab(self.json_metadata_viewer, "Metadata")
+        self.json_tab_index = self.plot_tabs.addTab(
+            self.json_metadata_viewer, "Metadata"
+        )
 
         container_layout = self.right_container.layout()
         if container_layout is None:
@@ -2592,14 +2669,18 @@ class ExclusionFileSelector(ReviewBase):
 
         if hasattr(self, "file_tree") and self.file_tree is not None:
             try:
-                self.file_tree.itemSelectionChanged.connect(self._handle_tree_selection_changed)
+                self.file_tree.itemSelectionChanged.connect(
+                    self._handle_tree_selection_changed
+                )
             except Exception:
                 pass
 
         # Connect reprocess widget signal
         if hasattr(self, "reprocess_widget") and self.reprocess_widget is not None:
             try:
-                self.reprocess_widget.values_changed.connect(self._handle_reprocess_changed)
+                self.reprocess_widget.values_changed.connect(
+                    self._handle_reprocess_changed
+                )
             except Exception:
                 pass
 
@@ -2682,12 +2763,16 @@ class ExclusionFileSelector(ReviewBase):
         self._shortcuts["CLEAR"] = clear_shortcut
 
         # Add up/down arrow navigation shortcuts
-        up_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.MoveToPreviousLine), self)
+        up_shortcut = QShortcut(
+            QKeySequence(QKeySequence.StandardKey.MoveToPreviousLine), self
+        )
         up_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
         up_shortcut.activated.connect(self._navigate_up)
         self._shortcuts["UP"] = up_shortcut
 
-        down_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.MoveToNextLine), self)
+        down_shortcut = QShortcut(
+            QKeySequence(QKeySequence.StandardKey.MoveToNextLine), self
+        )
         down_shortcut.setContext(Qt.ShortcutContext.ApplicationShortcut)
         down_shortcut.activated.connect(self._navigate_down)
         self._shortcuts["DOWN"] = down_shortcut
@@ -3108,8 +3193,7 @@ class ExclusionFileSelector(ReviewBase):
         detail_tabs.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
         self.metrics_widget = ProcessingMetricsWidget(
-            open_folder_btn=self.open_folder_btn,
-            refresh_btn=self.refresh_btn
+            open_folder_btn=self.open_folder_btn, refresh_btn=self.refresh_btn
         )
 
         # Connect and style Export to QA button
@@ -3188,11 +3272,15 @@ class ExclusionFileSelector(ReviewBase):
         if not icon.isNull():
             self.select_dir_btn.setIcon(icon)
             self.select_dir_btn.setIconSize(QSize(18, 18))
-        self.select_dir_btn.setToolTip("Browse for a directory containing exported .set files.")
+        self.select_dir_btn.setToolTip(
+            "Browse for a directory containing exported .set files."
+        )
         self.select_dir_btn.setCursor(Qt.PointingHandCursor)
         self.select_dir_btn.setMinimumHeight(34)
         self.select_dir_btn.setMaximumWidth(180)
-        self.select_dir_btn.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Fixed)
+        self.select_dir_btn.setSizePolicy(
+            QSizePolicy.MinimumExpanding, QSizePolicy.Fixed
+        )
         toolbar_layout.addWidget(self.select_dir_btn)
 
         # Current folder label
@@ -3414,7 +3502,9 @@ class ExclusionFileSelector(ReviewBase):
         except Exception:
             return []
 
-    def _limit_segments(self, counter: Dict[str, int], limit: int = 6) -> OrderedDict[str, int]:
+    def _limit_segments(
+        self, counter: Dict[str, int], limit: int = 6
+    ) -> OrderedDict[str, int]:
         if not counter:
             return OrderedDict()
 
@@ -3488,7 +3578,9 @@ class ExclusionFileSelector(ReviewBase):
         if raw_duration > 0 or post_duration > 0:
             if raw_duration <= 0:
                 raw_duration = post_duration
-            retained_pct = (post_duration / raw_duration * 100.0) if raw_duration > 0 else 0.0
+            retained_pct = (
+                (post_duration / raw_duration * 100.0) if raw_duration > 0 else 0.0
+            )
             metrics.append(
                 (
                     "Data Retained",
@@ -3555,12 +3647,14 @@ class ExclusionFileSelector(ReviewBase):
     def _find_processing_log_for_file(self, file_path: Path) -> Optional[Path]:
         """Find processing log for a file using configuration-based resolution."""
         try:
-            asset_path = resolve_asset(file_path, "processing_log", self.preprocessing_log_df, self.config)
+            asset_path = resolve_asset(
+                file_path, "processing_log", self.preprocessing_log_df, self.config
+            )
             if asset_path and asset_path.exists():
                 return asset_path
         except Exception as e:
             print(f"Warning: Error resolving processing log for {file_path}: {e}")
-        
+
         return None
 
     def _psd_reports_dir(self) -> Optional[Path]:
@@ -3596,7 +3690,9 @@ class ExclusionFileSelector(ReviewBase):
             return None
 
         stem = strip_suffixes(file_path.stem, config=self.config)
-        psd_path = self.task_root / "reports" / "psd_topo" / f"{stem}_psd_topo_figure.png"
+        psd_path = (
+            self.task_root / "reports" / "psd_topo" / f"{stem}_psd_topo_figure.png"
+        )
 
         if psd_path.exists():
             return psd_path
@@ -3608,7 +3704,9 @@ class ExclusionFileSelector(ReviewBase):
             return None
 
         stem = strip_suffixes(file_path.stem, config=self.config)
-        report_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_report.pdf"
+        report_path = (
+            self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_report.pdf"
+        )
 
         if report_path.exists():
             return report_path
@@ -3620,14 +3718,23 @@ class ExclusionFileSelector(ReviewBase):
             return None
 
         stem = strip_suffixes(file_path.stem, config=self.config)
-        ica_path = self.task_root / "reports" / "ica_components" / f"{stem}_ica_components_all.pdf"
+        ica_path = (
+            self.task_root
+            / "reports"
+            / "ica_components"
+            / f"{stem}_ica_components_all.pdf"
+        )
 
         if ica_path.exists():
             return ica_path
         return None
 
     def _update_psd_preview_for_file(self, file_path: Optional[Path]) -> None:
-        if self.psd_message_label is None or self.psd_image_label is None or self.psd_scroll is None:
+        if (
+            self.psd_message_label is None
+            or self.psd_image_label is None
+            or self.psd_scroll is None
+        ):
             return
 
         if file_path is None:
@@ -3693,7 +3800,9 @@ class ExclusionFileSelector(ReviewBase):
                 f"[{_human_timestamp()}] Run report not available for {file_path}; found path={pdf_path}."
             )
             self.run_report_preview.clear()
-            self.run_report_preview.show_message("Run report not available for this file")
+            self.run_report_preview.show_message(
+                "Run report not available for this file"
+            )
             return
 
         try:
@@ -3750,7 +3859,12 @@ class ExclusionFileSelector(ReviewBase):
         # Get the normalized stem and construct JSON path
         stem = strip_suffixes(file_path.stem, config=self.config)
         if self.task_root:
-            json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            json_path = (
+                self.task_root
+                / "reports"
+                / "run_reports"
+                / f"{stem}_autoclean_metadata.json"
+            )
             self.json_metadata_viewer.load_json(json_path)
         else:
             self.json_metadata_viewer.load_json(None)
@@ -3768,7 +3882,12 @@ class ExclusionFileSelector(ReviewBase):
         if not self.task_root:
             return
 
-        json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+        json_path = (
+            self.task_root
+            / "reports"
+            / "run_reports"
+            / f"{stem}_autoclean_metadata.json"
+        )
         if not json_path.exists():
             return
 
@@ -3784,11 +3903,17 @@ class ExclusionFileSelector(ReviewBase):
                 bad_channels = [r["channel"] for r in channel_removals]
             else:
                 # Fallback to legacy bad channels extraction
-                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get("bads", [])
+                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get(
+                    "bads", []
+                )
 
             # Extract rejected ICA components
-            ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
-            rejected_ica = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
+            ica_rejection = metadata_section.get(
+                "step_apply_ica_component_rejection", {}
+            )
+            rejected_ica = ica_rejection.get("ica", {}).get(
+                "final_excluded_indices", []
+            )
 
             # Extract original channel names from import (BEFORE any removals)
             # This allows users to select ANY original channel to mark as bad
@@ -3798,7 +3923,9 @@ class ExclusionFileSelector(ReviewBase):
             # Fallback to legacy methods if original_channel_names not available
             if not valid_channels:
                 # Try metadata.import_eeg.originalChannelNames
-                valid_channels = metadata_section.get("import_eeg", {}).get("originalChannelNames", [])
+                valid_channels = metadata_section.get("import_eeg", {}).get(
+                    "originalChannelNames", []
+                )
 
             if not valid_channels:
                 # Final fallback: use scalp_channels_used (old behavior)
@@ -3811,13 +3938,15 @@ class ExclusionFileSelector(ReviewBase):
             max_components = int(ica_components_str) if ica_components_str else 0
 
             # Load data into widget
-            self.reprocess_widget.load_from_metadata({
-                "bad_channels": bad_channels,
-                "rejected_ica": rejected_ica,
-                "valid_channels": valid_channels,
-                "max_components": max_components,
-                "channel_removals": channel_removals  # Pass unified metadata
-            })
+            self.reprocess_widget.load_from_metadata(
+                {
+                    "bad_channels": bad_channels,
+                    "rejected_ica": rejected_ica,
+                    "valid_channels": valid_channels,
+                    "max_components": max_components,
+                    "channel_removals": channel_removals,  # Pass unified metadata
+                }
+            )
 
         except Exception as e:
             print(f"Warning: Could not load reprocess data from {json_path}: {e}")
@@ -3873,11 +4002,13 @@ class ExclusionFileSelector(ReviewBase):
 
         print(f"[EPOCH DEBUG] Committing decisions to: {self.decisions_path}")
         print(f"[EPOCH DEBUG] Total decisions to save: {len(self.decisions)}")
-        
+
         # Log epoch information for each decision
         for key, record in self.decisions.items():
             if record.get("epochs_reviewed", False):
-                print(f"[EPOCH DEBUG] Decision {key}: {record.get('bad_epochs_count', 0)} bad epochs, {record.get('total_epochs', 0)} total epochs")
+                print(
+                    f"[EPOCH DEBUG] Decision {key}: {record.get('bad_epochs_count', 0)} bad epochs, {record.get('total_epochs', 0)} total epochs"
+                )
 
         self.decisions_path.parent.mkdir(parents=True, exist_ok=True)
         payload = json.dumps(self.decisions, indent=2, sort_keys=True)
@@ -3889,7 +4020,9 @@ class ExclusionFileSelector(ReviewBase):
             for key, record in sorted(self.decisions.items()):
                 # Skip invalid records that are strings instead of dicts
                 if not isinstance(record, dict):
-                    print(f"[WARNING] Skipping invalid record for {key}: {type(record)}")
+                    print(
+                        f"[WARNING] Skipping invalid record for {key}: {type(record)}"
+                    )
                     continue
 
                 row_data = {
@@ -3916,17 +4049,33 @@ class ExclusionFileSelector(ReviewBase):
 
                 # Log epoch data for CSV rows
                 if row_data["epochs_reviewed"]:
-                    print(f"[EPOCH DEBUG] CSV row {key}: {row_data['bad_epochs_count']} bad epochs, indices={row_data['bad_epoch_indices']}")
+                    print(
+                        f"[EPOCH DEBUG] CSV row {key}: {row_data['bad_epochs_count']} bad epochs, indices={row_data['bad_epoch_indices']}"
+                    )
 
             with self.decisions_csv_path.open("w", newline="", encoding="utf-8") as fp:
                 writer = csv.DictWriter(
-                    fp, fieldnames=[
-                        "entry", "status", "notes", "relative_path", "last_updated",
-                        "epochs_reviewed", "bad_epochs_count", "bad_epoch_indices",
-                        "bad_epoch_times", "bad_epoch_events", "total_epochs", "epoch_rejection_rate",
-                        "qa_export_hash", "qa_export_timestamp", "qa_export_path",
-                        "reprocess_modified", "reprocess_fix_type", "reprocess_timestamp"
-                    ]
+                    fp,
+                    fieldnames=[
+                        "entry",
+                        "status",
+                        "notes",
+                        "relative_path",
+                        "last_updated",
+                        "epochs_reviewed",
+                        "bad_epochs_count",
+                        "bad_epoch_indices",
+                        "bad_epoch_times",
+                        "bad_epoch_events",
+                        "total_epochs",
+                        "epoch_rejection_rate",
+                        "qa_export_hash",
+                        "qa_export_timestamp",
+                        "qa_export_path",
+                        "reprocess_modified",
+                        "reprocess_fix_type",
+                        "reprocess_timestamp",
+                    ],
                 )
                 writer.writeheader()
                 writer.writerows(rows)
@@ -3995,7 +4144,9 @@ class ExclusionFileSelector(ReviewBase):
                 if self.status_bar is not None:
                     self.status_bar.showMessage("No folder selected")
                 if self.metrics_widget is not None:
-                    self.metrics_widget.show_message("Select a folder with processing logs")
+                    self.metrics_widget.show_message(
+                        "Select a folder with processing logs"
+                    )
                 return
 
             root_path = Path(current_dir)
@@ -4020,7 +4171,8 @@ class ExclusionFileSelector(ReviewBase):
             # Filter backup and reprocess folders if toggle is off
             if not self.show_backup_folders:
                 set_files = [
-                    f for f in all_set_files
+                    f
+                    for f in all_set_files
                     if not any(part in ["backups", "reprocess"] for part in f.parts)
                 ]
             else:
@@ -4029,8 +4181,7 @@ class ExclusionFileSelector(ReviewBase):
             # Apply filename filter if specified
             if self._filename_filter:
                 set_files = [
-                    f for f in set_files
-                    if self._filename_filter in f.name.lower()
+                    f for f in set_files if self._filename_filter in f.name.lower()
                 ]
 
             set_files = sorted(set_files, key=_sort_key)
@@ -4045,23 +4196,37 @@ class ExclusionFileSelector(ReviewBase):
                 # Check if file was reprocessed
                 is_reprocessed = False
                 reprocess_details = None
-                stem = file_path.stem.replace('_comp_epo', '').replace('_epo', '')
+                stem = file_path.stem.replace("_comp_epo", "").replace("_epo", "")
 
                 # Look for metadata JSON in task root
-                task_root = root_path if root_path.name != "exports" else root_path.parent
-                metadata_json = task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+                task_root = (
+                    root_path if root_path.name != "exports" else root_path.parent
+                )
+                metadata_json = (
+                    task_root
+                    / "reports"
+                    / "run_reports"
+                    / f"{stem}_autoclean_metadata.json"
+                )
 
                 if metadata_json.exists():
                     try:
                         import json
-                        with open(metadata_json, 'r') as f:
+
+                        with open(metadata_json, "r") as f:
                             metadata = json.load(f)
-                            if metadata.get('reprocessed'):
+                            if metadata.get("reprocessed"):
                                 is_reprocessed = True
                                 reprocess_details = {
-                                    'timestamp': metadata.get('reprocessed_timestamp', 'Unknown'),
-                                    'reason': metadata.get('reprocess_reason', 'manual_override'),
-                                    'original_run_id': metadata.get('reprocessed_from_run_id', 'Unknown')
+                                    "timestamp": metadata.get(
+                                        "reprocessed_timestamp", "Unknown"
+                                    ),
+                                    "reason": metadata.get(
+                                        "reprocess_reason", "manual_override"
+                                    ),
+                                    "original_run_id": metadata.get(
+                                        "reprocessed_from_run_id", "Unknown"
+                                    ),
                                 }
                     except Exception:
                         pass  # Silently ignore JSON read errors
@@ -4082,10 +4247,12 @@ class ExclusionFileSelector(ReviewBase):
 
                 # Add tooltip if reprocessed
                 if is_reprocessed and reprocess_details:
-                    tooltip = (f"Reprocessed File\n"
-                              f"Timestamp: {reprocess_details['timestamp']}\n"
-                              f"Reason: {reprocess_details['reason']}\n"
-                              f"Original Run: {reprocess_details['original_run_id'][:16]}...")
+                    tooltip = (
+                        f"Reprocessed File\n"
+                        f"Timestamp: {reprocess_details['timestamp']}\n"
+                        f"Reason: {reprocess_details['reason']}\n"
+                        f"Original Run: {reprocess_details['original_run_id'][:16]}..."
+                    )
                     item.setToolTip(0, tooltip)
 
                 if self.file_tree is not None:
@@ -4104,7 +4271,9 @@ class ExclusionFileSelector(ReviewBase):
             if not set_files and self.instruction_widget is not None:
                 self.instruction_widget.show()
                 if self.status_bar is not None:
-                    self.status_bar.showMessage("No .set files found in the selected folder")
+                    self.status_bar.showMessage(
+                        "No .set files found in the selected folder"
+                    )
                 if self.metrics_widget is not None:
                     self.metrics_widget.show_message(
                         "Processing log not available for this folder"
@@ -4149,10 +4318,14 @@ class ExclusionFileSelector(ReviewBase):
 
     def _refresh_workspace_path_label(self) -> None:
         """Update the current folder label with the directory name."""
-        if not hasattr(self, '_current_folder_label') or self._current_folder_label is None:
+        if (
+            not hasattr(self, "_current_folder_label")
+            or self._current_folder_label is None
+        ):
             return
         if self.current_dir:
             from pathlib import Path
+
             folder_name = Path(self.current_dir).name
             self._current_folder_label.setText(f"Current: {folder_name}")
             self._current_folder_label.setToolTip(self.current_dir)
@@ -4200,8 +4373,10 @@ class ExclusionFileSelector(ReviewBase):
             previous_plot is None or Path(previous_plot) != file_path
         ):
             # Capture bad epochs from current plot before closing it
-            if hasattr(self, '_previous_key') and self._previous_key:
-                print(f"[EPOCH DEBUG] Capturing epochs from current plot before closing: {self._previous_key}")
+            if hasattr(self, "_previous_key") and self._previous_key:
+                print(
+                    f"[EPOCH DEBUG] Capturing epochs from current plot before closing: {self._previous_key}"
+                )
                 self._capture_bad_epochs_for_current_file()
             self.closePlot(reason="selection_changed")
 
@@ -4220,9 +4395,9 @@ class ExclusionFileSelector(ReviewBase):
             self.current_run_record = None
 
         self.current_key = self._record_key(file_path)
-        
+
         # Note: Epochs are captured before closing the plot above
-        
+
         record = self.decisions.get(self.current_key)
         self._update_decision_controls(record)
         self._refresh_related_list(file_path)
@@ -4230,7 +4405,9 @@ class ExclusionFileSelector(ReviewBase):
             self.detail_panel.show()
 
         # Update visual indicators for the current file
-        self._apply_status_to_item(item, record.get("status", "UNSET") if record else "UNSET")
+        self._apply_status_to_item(
+            item, record.get("status", "UNSET") if record else "UNSET"
+        )
 
         self._update_psd_preview_for_file(file_path)
         self._update_run_report_preview_for_file(file_path)
@@ -4244,7 +4421,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Store current key for next file switch
         self._previous_key = self.current_key
-        
+
         self._auto_plot_current()
 
     def _render_plot(self, *, reason: str) -> None:
@@ -4288,10 +4465,10 @@ class ExclusionFileSelector(ReviewBase):
 
             if self.status_bar is not None and self.current_display_name:
                 self.status_bar.showMessage(f"Ready · {self.current_display_name}")
-            
+
             # Set up event-driven epoch capture
             self._setup_epoch_event_handlers()
-                
+
         finally:
             self._plot_in_progress = False
             if self._pending_plot_refresh:
@@ -4307,10 +4484,12 @@ class ExclusionFileSelector(ReviewBase):
 
         # Clean up event handlers
         self._cleanup_epoch_event_handlers()
-        
+
         # Capture bad epochs before closing plot
         if self.current_key:
-            print(f"[EPOCH DEBUG] Closing plot - capturing epochs for current file: {self.current_key}")
+            print(
+                f"[EPOCH DEBUG] Closing plot - capturing epochs for current file: {self.current_key}"
+            )
             self._capture_bad_epochs_for_current_file()
         else:
             print(f"[EPOCH DEBUG] Closing plot - no current_key to capture epochs")
@@ -4395,16 +4574,20 @@ class ExclusionFileSelector(ReviewBase):
         if not self.current_key:
             print(f"[EPOCH DEBUG] No current_key available for epoch capture")
             return
-        
+
         print(f"[EPOCH DEBUG] Capturing epochs for current file: {self.current_key}")
-        
+
         # Initialize record if it doesn't exist
         record = self.decisions.setdefault(
             self.current_key,
             {
                 "status": "UNSET",
                 "notes": "",
-                "relative_path": self._relative_path(Path(self.selected_file_path)) if hasattr(self, "selected_file_path") else "",
+                "relative_path": (
+                    self._relative_path(Path(self.selected_file_path))
+                    if hasattr(self, "selected_file_path")
+                    else ""
+                ),
                 "last_updated": "",
                 "epochs_reviewed": False,
                 "bad_epochs_count": 0,
@@ -4431,67 +4614,94 @@ class ExclusionFileSelector(ReviewBase):
             try:
                 # Read from browser's live bad_epochs list if plot is open
                 has_plot = self.plot_widget is not None
-                has_mne = hasattr(self.plot_widget, 'mne') if has_plot else False
-                has_bad_epochs = hasattr(self.plot_widget.mne, 'bad_epochs') if has_mne else False
+                has_mne = hasattr(self.plot_widget, "mne") if has_plot else False
+                has_bad_epochs = (
+                    hasattr(self.plot_widget.mne, "bad_epochs") if has_mne else False
+                )
 
-                print(f"[EPOCH DEBUG] Plot widget check: has_plot={has_plot}, has_mne={has_mne}, has_bad_epochs={has_bad_epochs}")
+                print(
+                    f"[EPOCH DEBUG] Plot widget check: has_plot={has_plot}, has_mne={has_mne}, has_bad_epochs={has_bad_epochs}"
+                )
 
                 if has_plot and has_mne and has_bad_epochs:
                     bad_epochs = list(self.plot_widget.mne.bad_epochs)
-                    print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from browser: {bad_epochs}")
+                    print(
+                        f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from browser: {bad_epochs}"
+                    )
                 else:
                     # Fall back to drop_log if no plot widget
-                    bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
-                    print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from drop_log: {bad_epochs}")
+                    bad_epochs = self._extract_user_bad_epoch_indices(
+                        self.current_epochs
+                    )
+                    print(
+                        f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs from drop_log: {bad_epochs}"
+                    )
 
                 total_epochs = len(self.current_epochs)
                 print(f"[EPOCH DEBUG] Total epochs: {total_epochs}")
 
                 # Extract timing and event information for bad epochs
-                if bad_epochs and hasattr(self.current_epochs, 'events'):
-                    print(f"[EPOCH DEBUG] Extracting timing and event info for {len(bad_epochs)} bad epochs")
+                if bad_epochs and hasattr(self.current_epochs, "events"):
+                    print(
+                        f"[EPOCH DEBUG] Extracting timing and event info for {len(bad_epochs)} bad epochs"
+                    )
                     for idx in bad_epochs:
                         if idx < len(self.current_epochs.events):
                             # Convert sample to time
-                            time_sec = self.current_epochs.events[idx, 0] / self.current_epochs.info['sfreq']
+                            time_sec = (
+                                self.current_epochs.events[idx, 0]
+                                / self.current_epochs.info["sfreq"]
+                            )
                             epoch_times.append(f"{time_sec:.3f}")
                             epoch_events.append(str(self.current_epochs.events[idx, 2]))
-                            print(f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}")
+                            print(
+                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}"
+                            )
 
                 record["epochs_reviewed"] = True
                 print(f"[EPOCH DEBUG] Marked epochs as reviewed for {self.current_key}")
 
             except (AttributeError, IndexError) as e:
-                print(f"[EPOCH DEBUG] Error extracting epoch information from drop_log: {e}")
+                print(
+                    f"[EPOCH DEBUG] Error extracting epoch information from drop_log: {e}"
+                )
                 print(f"[EPOCH DEBUG] Exception type: {type(e).__name__}")
                 bad_epochs = []
         else:
             print(f"[EPOCH DEBUG] No epochs available for capture")
-        
+
         # Update record with epoch information
         record["bad_epochs_count"] = len(bad_epochs)
-        record["bad_epoch_indices"] = ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        record["bad_epoch_indices"] = (
+            ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        )
         record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
         record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
         record["total_epochs"] = total_epochs
-        record["epoch_rejection_rate"] = (len(bad_epochs) / total_epochs * 100.0) if total_epochs > 0 else 0.0
-        
+        record["epoch_rejection_rate"] = (
+            (len(bad_epochs) / total_epochs * 100.0) if total_epochs > 0 else 0.0
+        )
+
         print(f"[EPOCH DEBUG] Updated record for {self.current_key}:")
         print(f"[EPOCH DEBUG]   - Bad epochs count: {record['bad_epochs_count']}")
         print(f"[EPOCH DEBUG]   - Bad epoch indices: {record['bad_epoch_indices']}")
         print(f"[EPOCH DEBUG]   - Bad epoch times: {record['bad_epoch_times']}")
         print(f"[EPOCH DEBUG]   - Bad epoch events: {record['bad_epoch_events']}")
         print(f"[EPOCH DEBUG]   - Total epochs: {record['total_epochs']}")
-        print(f"[EPOCH DEBUG]   - Rejection rate: {record['epoch_rejection_rate']:.1f}%")
-        
+        print(
+            f"[EPOCH DEBUG]   - Rejection rate: {record['epoch_rejection_rate']:.1f}%"
+        )
+
         # Update visual indicator if we have bad epochs
         item = self.row_lookup.get(self.current_key)
         if item is not None:
             print(f"[EPOCH DEBUG] Updating visual indicator for item: {item.text(0)}")
             self._apply_status_to_item(item, record.get("status", "UNSET"))
         else:
-            print(f"[EPOCH DEBUG] No item found in row_lookup for key: {self.current_key}")
-        
+            print(
+                f"[EPOCH DEBUG] No item found in row_lookup for key: {self.current_key}"
+            )
+
         # Schedule save to persist the epoch information
         print(f"[EPOCH DEBUG] Scheduling save for epoch data")
         self._schedule_save()
@@ -4501,9 +4711,9 @@ class ExclusionFileSelector(ReviewBase):
         if not key:
             print(f"[EPOCH DEBUG] No key provided for epoch capture")
             return
-        
+
         print(f"[EPOCH DEBUG] Capturing epochs for key: {key}")
-        
+
         # Initialize record if it doesn't exist
         record = self.decisions.setdefault(
             key,
@@ -4538,46 +4748,63 @@ class ExclusionFileSelector(ReviewBase):
                 bad_epochs = self._extract_user_bad_epoch_indices(self.current_epochs)
                 total_epochs = len(self.current_epochs)
 
-                print(f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs for key {key} from drop_log: {bad_epochs}")
+                print(
+                    f"[EPOCH DEBUG] Found {len(bad_epochs)} bad epochs for key {key} from drop_log: {bad_epochs}"
+                )
                 print(f"[EPOCH DEBUG] Total epochs: {total_epochs}")
 
                 # Extract timing and event information for bad epochs
-                if bad_epochs and hasattr(self.current_epochs, 'events'):
-                    print(f"[EPOCH DEBUG] Extracting timing and event info for {len(bad_epochs)} bad epochs")
+                if bad_epochs and hasattr(self.current_epochs, "events"):
+                    print(
+                        f"[EPOCH DEBUG] Extracting timing and event info for {len(bad_epochs)} bad epochs"
+                    )
                     for idx in bad_epochs:
                         if idx < len(self.current_epochs.events):
                             # Convert sample to time
-                            time_sec = self.current_epochs.events[idx, 0] / self.current_epochs.info['sfreq']
+                            time_sec = (
+                                self.current_epochs.events[idx, 0]
+                                / self.current_epochs.info["sfreq"]
+                            )
                             epoch_times.append(f"{time_sec:.3f}")
                             epoch_events.append(str(self.current_epochs.events[idx, 2]))
-                            print(f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}")
+                            print(
+                                f"[EPOCH DEBUG] Bad epoch {idx}: time={time_sec:.3f}s, event={self.current_epochs.events[idx, 2]}"
+                            )
 
                 record["epochs_reviewed"] = True
                 print(f"[EPOCH DEBUG] Marked epochs as reviewed for key {key}")
 
             except (AttributeError, IndexError) as e:
-                print(f"[EPOCH DEBUG] Error extracting epoch information for {key}: {e}")
+                print(
+                    f"[EPOCH DEBUG] Error extracting epoch information for {key}: {e}"
+                )
                 print(f"[EPOCH DEBUG] Exception type: {type(e).__name__}")
                 bad_epochs = []
         else:
             print(f"[EPOCH DEBUG] No epochs available for capture for key {key}")
-        
+
         # Update record with epoch information
         record["bad_epochs_count"] = len(bad_epochs)
-        record["bad_epoch_indices"] = ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        record["bad_epoch_indices"] = (
+            ",".join(map(str, bad_epochs)) if bad_epochs else ""
+        )
         record["bad_epoch_times"] = ",".join(epoch_times) if epoch_times else ""
         record["bad_epoch_events"] = ",".join(epoch_events) if epoch_events else ""
         record["total_epochs"] = total_epochs
-        record["epoch_rejection_rate"] = (len(bad_epochs) / total_epochs * 100.0) if total_epochs > 0 else 0.0
-        
+        record["epoch_rejection_rate"] = (
+            (len(bad_epochs) / total_epochs * 100.0) if total_epochs > 0 else 0.0
+        )
+
         print(f"[EPOCH DEBUG] Updated record for key {key}:")
         print(f"[EPOCH DEBUG]   - Bad epochs count: {record['bad_epochs_count']}")
         print(f"[EPOCH DEBUG]   - Bad epoch indices: {record['bad_epoch_indices']}")
         print(f"[EPOCH DEBUG]   - Bad epoch times: {record['bad_epoch_times']}")
         print(f"[EPOCH DEBUG]   - Bad epoch events: {record['bad_epoch_events']}")
         print(f"[EPOCH DEBUG]   - Total epochs: {record['total_epochs']}")
-        print(f"[EPOCH DEBUG]   - Rejection rate: {record['epoch_rejection_rate']:.1f}%")
-        
+        print(
+            f"[EPOCH DEBUG]   - Rejection rate: {record['epoch_rejection_rate']:.1f}%"
+        )
+
         # Update visual indicator if we have bad epochs
         item = self.row_lookup.get(key)
         if item is not None:
@@ -4585,7 +4812,7 @@ class ExclusionFileSelector(ReviewBase):
             self._apply_status_to_item(item, record.get("status", "UNSET"))
         else:
             print(f"[EPOCH DEBUG] No item found in row_lookup for key: {key}")
-        
+
         # Schedule save to persist the epoch information
         print(f"[EPOCH DEBUG] Scheduling save for epoch data for key {key}")
         self._schedule_save()
@@ -4595,7 +4822,7 @@ class ExclusionFileSelector(ReviewBase):
         # Temporarily replace the base class restoration method with ours
         original_method = ReviewBase._restore_bad_epochs_to_plot
         ReviewBase._restore_bad_epochs_to_plot = self._restore_bad_epochs_to_plot
-        
+
         try:
             # Call the base class plotFile
             super().plotFile()
@@ -4608,28 +4835,36 @@ class ExclusionFileSelector(ReviewBase):
         if not self.current_key or not self.current_epochs:
             print(f"[EPOCH DEBUG] No current key or epochs to restore bad epochs")
             return
-        
+
         # Get the saved bad epoch information for this file
         record = self.decisions.get(self.current_key, {})
         bad_epoch_indices_str = record.get("bad_epoch_indices", "")
-        
+
         if not bad_epoch_indices_str:
             print(f"[EPOCH DEBUG] No bad epochs to restore for {self.current_key}")
             return
-        
+
         try:
             # Parse the bad epoch indices
-            bad_epoch_indices = [int(idx.strip()) for idx in bad_epoch_indices_str.split(",") if idx.strip()]
-            print(f"[EPOCH DEBUG] Restoring {len(bad_epoch_indices)} bad epochs for {self.current_key}: {bad_epoch_indices}")
+            bad_epoch_indices = [
+                int(idx.strip())
+                for idx in bad_epoch_indices_str.split(",")
+                if idx.strip()
+            ]
+            print(
+                f"[EPOCH DEBUG] Restoring {len(bad_epoch_indices)} bad epochs for {self.current_key}: {bad_epoch_indices}"
+            )
 
             # Update drop_log to match the desired state
             drop_log_list = []
             bad_epoch_set = set(bad_epoch_indices)
             for idx in range(len(self.current_epochs)):
-                drop_log_list.append(('USER',) if idx in bad_epoch_set else tuple())
+                drop_log_list.append(("USER",) if idx in bad_epoch_set else tuple())
             self.current_epochs.drop_log = tuple(drop_log_list)
 
-            print(f"[EPOCH DEBUG] Successfully restored {len(bad_epoch_indices)} bad epochs via drop_log")
+            print(
+                f"[EPOCH DEBUG] Successfully restored {len(bad_epoch_indices)} bad epochs via drop_log"
+            )
 
         except (ValueError, IndexError) as e:
             print(f"[EPOCH DEBUG] Error restoring bad epochs: {e}")
@@ -4654,19 +4889,19 @@ class ExclusionFileSelector(ReviewBase):
 
     def _cleanup_epoch_event_handlers(self) -> None:
         """Clean up event handlers."""
-        if hasattr(self, '_epoch_check_timer'):
+        if hasattr(self, "_epoch_check_timer"):
             self._epoch_check_timer.stop()
             self._epoch_check_timer.deleteLater()
-            delattr(self, '_epoch_check_timer')
+            delattr(self, "_epoch_check_timer")
 
-        if hasattr(self, '_last_drop_log_snapshot'):
-            delattr(self, '_last_drop_log_snapshot')
+        if hasattr(self, "_last_drop_log_snapshot"):
+            delattr(self, "_last_drop_log_snapshot")
 
     def _check_epoch_changes(self) -> None:
         """Check if epochs have been marked/unmarked and save immediately."""
         current_snapshot = self._snapshot_drop_log()
 
-        if current_snapshot != getattr(self, '_last_drop_log_snapshot', None):
+        if current_snapshot != getattr(self, "_last_drop_log_snapshot", None):
             print(f"[EPOCH DEBUG] Drop log changed; saving epoch updates")
             self._last_drop_log_snapshot = current_snapshot
 
@@ -4677,7 +4912,7 @@ class ExclusionFileSelector(ReviewBase):
 
     def _extract_user_bad_epoch_indices(self, epochs) -> list[int]:
         """Extract indices marked as bad by the user from the epochs drop_log."""
-        if epochs is None or not hasattr(epochs, 'drop_log'):
+        if epochs is None or not hasattr(epochs, "drop_log"):
             return []
 
         marked_indices: list[int] = []
@@ -4691,15 +4926,17 @@ class ExclusionFileSelector(ReviewBase):
             else:
                 entries = [log]
 
-            if any(isinstance(entry, str) and entry.upper() == 'USER' for entry in entries):
+            if any(
+                isinstance(entry, str) and entry.upper() == "USER" for entry in entries
+            ):
                 marked_indices.append(idx)
 
         return marked_indices
 
     def _snapshot_drop_log(self) -> tuple:
         """Return a hashable snapshot of the current drop_log state."""
-        epochs = getattr(self, 'current_epochs', None)
-        if epochs is None or not hasattr(epochs, 'drop_log'):
+        epochs = getattr(self, "current_epochs", None)
+        if epochs is None or not hasattr(epochs, "drop_log"):
             return tuple()
 
         snapshot = []
@@ -4714,7 +4951,7 @@ class ExclusionFileSelector(ReviewBase):
 
     def _get_user_marked_bad_epochs(self) -> set[int]:
         """Return a set of epoch indices currently marked as bad by the user."""
-        epochs = getattr(self, 'current_epochs', None)
+        epochs = getattr(self, "current_epochs", None)
         return set(self._extract_user_bad_epoch_indices(epochs))
 
     def _save_epoch_changes_immediately(self, bad_epochs: set) -> None:
@@ -4722,16 +4959,22 @@ class ExclusionFileSelector(ReviewBase):
         if not self.current_key:
             print(f"[EPOCH DEBUG] No current key for immediate save")
             return
-        
-        print(f"[EPOCH DEBUG] Saving epoch changes immediately for {self.current_key}: {sorted(bad_epochs)}")
-        
+
+        print(
+            f"[EPOCH DEBUG] Saving epoch changes immediately for {self.current_key}: {sorted(bad_epochs)}"
+        )
+
         # Initialize record if it doesn't exist
         record = self.decisions.setdefault(
             self.current_key,
             {
                 "status": "UNSET",
                 "notes": "",
-                "relative_path": self._relative_path(Path(self.selected_file_path)) if hasattr(self, "selected_file_path") else "",
+                "relative_path": (
+                    self._relative_path(Path(self.selected_file_path))
+                    if hasattr(self, "selected_file_path")
+                    else ""
+                ),
                 "last_updated": "",
                 "epochs_reviewed": False,
                 "bad_epochs_count": 0,
@@ -4749,18 +4992,25 @@ class ExclusionFileSelector(ReviewBase):
         # Update record with current epoch information
         bad_epochs_list = sorted(list(bad_epochs))
         total_epochs = len(self.current_epochs) if self.current_epochs else 0
-        
+
         # Extract timing and event information for bad epochs
         epoch_times = []
         epoch_events = []
-        if bad_epochs_list and self.current_epochs and hasattr(self.current_epochs, 'events'):
+        if (
+            bad_epochs_list
+            and self.current_epochs
+            and hasattr(self.current_epochs, "events")
+        ):
             for idx in bad_epochs_list:
                 if idx < len(self.current_epochs.events):
                     # Convert sample to time
-                    time_sec = self.current_epochs.events[idx, 0] / self.current_epochs.info['sfreq']
+                    time_sec = (
+                        self.current_epochs.events[idx, 0]
+                        / self.current_epochs.info["sfreq"]
+                    )
                     epoch_times.append(f"{time_sec:.3f}")
                     epoch_events.append(str(self.current_epochs.events[idx, 2]))
-        
+
         # Update record
         record["epochs_reviewed"] = True
         record["bad_epochs_count"] = len(bad_epochs_list)
@@ -4768,17 +5018,19 @@ class ExclusionFileSelector(ReviewBase):
         record["bad_epoch_times"] = ",".join(epoch_times)
         record["bad_epoch_events"] = ",".join(epoch_events)
         record["total_epochs"] = total_epochs
-        record["epoch_rejection_rate"] = (len(bad_epochs_list) / total_epochs * 100.0) if total_epochs > 0 else 0.0
-        
+        record["epoch_rejection_rate"] = (
+            (len(bad_epochs_list) / total_epochs * 100.0) if total_epochs > 0 else 0.0
+        )
+
         print(f"[EPOCH DEBUG] Updated record for {self.current_key}:")
         print(f"[EPOCH DEBUG]   - Bad epochs count: {record['bad_epochs_count']}")
         print(f"[EPOCH DEBUG]   - Bad epoch indices: {record['bad_epoch_indices']}")
-        
+
         # Update visual indicator
         item = self.row_lookup.get(self.current_key)
         if item is not None:
             self._apply_status_to_item(item, record.get("status", "UNSET"))
-        
+
         # Save immediately
         self._schedule_save()
 
@@ -4914,7 +5166,9 @@ class ExclusionFileSelector(ReviewBase):
                 task_file_relative = f"status/{task_file_path.name}"
                 # Calculate SHA256 hash of task file for integrity
                 if task_file_path.exists():
-                    task_file_hash = hashlib.sha256(task_file_path.read_bytes()).hexdigest()
+                    task_file_hash = hashlib.sha256(
+                        task_file_path.read_bytes()
+                    ).hexdigest()
 
         # Build payload
         payload = {
@@ -4934,7 +5188,9 @@ class ExclusionFileSelector(ReviewBase):
                 "can_apply_ica_fix": can_apply_ica_fix,
                 "requires_full_reprocess": requires_full_reprocess,
                 "ica_file_exists": ica_file_exists,
-                "task_file_exists": task_file_path.exists() if task_file_path else False,
+                "task_file_exists": (
+                    task_file_path.exists() if task_file_path else False
+                ),
             },
         }
 
@@ -4956,9 +5212,7 @@ class ExclusionFileSelector(ReviewBase):
         """Trigger reprocessing with manual overrides from the current file's payload."""
         if not self.task_root or not hasattr(self, "selected_file_path"):
             QMessageBox.warning(
-                self,
-                "Reprocess Error",
-                "No file selected or task root not configured."
+                self, "Reprocess Error", "No file selected or task root not configured."
             )
             return
 
@@ -4972,7 +5226,7 @@ class ExclusionFileSelector(ReviewBase):
                 f"Please open the exclude GUI on the original task folder "
                 f"(e.g., 'BiotrialResting1020'), not the reprocess temp subfolder.\n\n"
                 f"Reprocess temp folders are automatically created under reprocess/ "
-                f"and can be deleted after results are copied."
+                f"and can be deleted after results are copied.",
             )
             return
 
@@ -4981,13 +5235,15 @@ class ExclusionFileSelector(ReviewBase):
         stem = strip_suffixes(file_path.stem, config=self.config)
 
         # Check if manual fix payload exists
-        payload_path = self.task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
+        payload_path = (
+            self.task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
+        )
         if not payload_path.exists():
             QMessageBox.warning(
                 self,
                 "Reprocess Error",
                 f"Manual fix payload not found:\n{payload_path}\n\n"
-                "Please make changes in the Reprocess tab first."
+                "Please make changes in the Reprocess tab first.",
             )
             return
 
@@ -4996,12 +5252,17 @@ class ExclusionFileSelector(ReviewBase):
             payload = json.loads(payload_path.read_text())
 
             # Load metadata to get original raw file path
-            metadata_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            metadata_path = (
+                self.task_root
+                / "reports"
+                / "run_reports"
+                / f"{stem}_autoclean_metadata.json"
+            )
             if not metadata_path.exists():
                 QMessageBox.warning(
                     self,
                     "Reprocess Error",
-                    f"Metadata file not found:\n{metadata_path}"
+                    f"Metadata file not found:\n{metadata_path}",
                 )
                 return
 
@@ -5011,7 +5272,7 @@ class ExclusionFileSelector(ReviewBase):
                 QMessageBox.warning(
                     self,
                     "Reprocess Error",
-                    "Could not find original raw file path in metadata."
+                    "Could not find original raw file path in metadata.",
                 )
                 return
 
@@ -5021,7 +5282,7 @@ class ExclusionFileSelector(ReviewBase):
                 QMessageBox.warning(
                     self,
                     "Reprocess Error",
-                    f"Original raw file not found:\n{raw_file_path}"
+                    f"Original raw file not found:\n{raw_file_path}",
                 )
                 return
 
@@ -5045,7 +5306,7 @@ class ExclusionFileSelector(ReviewBase):
                 "Confirm Reprocessing",
                 confirm_msg,
                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-                QMessageBox.StandardButton.No
+                QMessageBox.StandardButton.No,
             )
 
             if reply != QMessageBox.StandardButton.Yes:
@@ -5053,8 +5314,10 @@ class ExclusionFileSelector(ReviewBase):
 
             # Generate reprocessing task file with sanitized class name
             # This creates a temporary task folder that we'll copy from later
-            sanitized = stem.replace('-', '_').replace(' ', '_')
-            sanitized = ''.join(c if c.isalnum() or c == '_' else '_' for c in sanitized)
+            sanitized = stem.replace("-", "_").replace(" ", "_")
+            sanitized = "".join(
+                c if c.isalnum() or c == "_" else "_" for c in sanitized
+            )
             if sanitized and sanitized[0].isdigit():
                 class_name = f"Task_{sanitized}_Reprocess"
             else:
@@ -5068,7 +5331,7 @@ class ExclusionFileSelector(ReviewBase):
                 QMessageBox.warning(
                     self,
                     "Reprocess Error",
-                    "No original task file reference in payload. Cannot generate reprocess task."
+                    "No original task file reference in payload. Cannot generate reprocess task.",
                 )
                 return
 
@@ -5078,12 +5341,13 @@ class ExclusionFileSelector(ReviewBase):
                 QMessageBox.warning(
                     self,
                     "Reprocess Error",
-                    f"Original task file not found:\n{original_task_path}"
+                    f"Original task file not found:\n{original_task_path}",
                 )
                 return
 
             # Generate timestamp for consistent folder naming
             from datetime import datetime
+
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
             # Generate reprocess task by modifying original task's AST
@@ -5092,25 +5356,28 @@ class ExclusionFileSelector(ReviewBase):
                 original_task_path=original_task_path,
                 payload=payload,
                 new_class_name=class_name,
-                timestamp=timestamp
+                timestamp=timestamp,
             )
 
             # Write generated task to file
-            with open(task_output_path, 'w', encoding='utf-8') as f:
+            with open(task_output_path, "w", encoding="utf-8") as f:
                 f.write(rendered_task)
 
             print(f"[REPROCESS] Generated task file: {task_output_path}")
 
             # Start non-blocking reprocess
-            self._start_reprocess(stem, task_output_path, raw_file_path, payload, timestamp)
+            self._start_reprocess(
+                stem, task_output_path, raw_file_path, payload, timestamp
+            )
 
         except Exception as e:
             QMessageBox.critical(
                 self,
                 "Reprocessing Error",
-                f"An error occurred during reprocessing:\n\n{str(e)}"
+                f"An error occurred during reprocessing:\n\n{str(e)}",
             )
             import traceback
+
             traceback.print_exc()
 
     def _merge_reprocess_database(
@@ -5118,7 +5385,7 @@ class ExclusionFileSelector(ReviewBase):
         original_db_path: Path,
         reprocess_db_path: Path,
         stem: str,
-        manifest_path: Optional[Path] = None
+        manifest_path: Optional[Path] = None,
     ) -> tuple[Optional[str], Optional[str]]:
         """Merge reprocess database into original task database.
 
@@ -5138,8 +5405,9 @@ class ExclusionFileSelector(ReviewBase):
         tuple[str | None, str | None]
             (original_run_id, reprocess_run_id) if successful, (None, None) otherwise
         """
-        import sqlite3
         import json
+        import sqlite3
+
         from autoclean.utils.audit import calculate_access_log_hash, get_user_context
 
         try:
@@ -5156,13 +5424,17 @@ class ExclusionFileSelector(ReviewBase):
 
             # 1. Add supersession columns if they don't exist
             try:
-                original_cursor.execute("ALTER TABLE pipeline_runs ADD COLUMN superseded_by TEXT")
+                original_cursor.execute(
+                    "ALTER TABLE pipeline_runs ADD COLUMN superseded_by TEXT"
+                )
                 print("[REPROCESS] Added superseded_by column")
             except sqlite3.OperationalError:
                 pass  # Column already exists
 
             try:
-                original_cursor.execute("ALTER TABLE pipeline_runs ADD COLUMN supersedes_run_id TEXT")
+                original_cursor.execute(
+                    "ALTER TABLE pipeline_runs ADD COLUMN supersedes_run_id TEXT"
+                )
                 print("[REPROCESS] Added supersedes_run_id column")
             except sqlite3.OperationalError:
                 pass  # Column already exists
@@ -5170,10 +5442,10 @@ class ExclusionFileSelector(ReviewBase):
             # 2. Find the original run for this file in original database
             original_cursor.execute(
                 "SELECT run_id FROM pipeline_runs WHERE unprocessed_file LIKE ? ORDER BY created_at DESC LIMIT 1",
-                (f"%{stem}%",)
+                (f"%{stem}%",),
             )
             original_run = original_cursor.fetchone()
-            original_run_id = original_run['run_id'] if original_run else None
+            original_run_id = original_run["run_id"] if original_run else None
 
             if not original_run_id:
                 print(f"[REPROCESS] Warning: No original run found for {stem}")
@@ -5186,25 +5458,25 @@ class ExclusionFileSelector(ReviewBase):
                 print("[REPROCESS] Error: No run found in reprocess database")
                 return None, None
 
-            reprocess_run_id = reprocess_run['run_id']
+            reprocess_run_id = reprocess_run["run_id"]
 
             # 4. Insert reprocess run into original database
             columns = [desc[0] for desc in reprocess_cursor.description]
             placeholders = ", ".join(["?" for _ in columns])
 
             # Add supersedes_run_id to the insert
-            if 'supersedes_run_id' in columns:
+            if "supersedes_run_id" in columns:
                 values = list(reprocess_run)
-                supersedes_idx = columns.index('supersedes_run_id')
+                supersedes_idx = columns.index("supersedes_run_id")
                 values[supersedes_idx] = original_run_id
             else:
-                columns.append('supersedes_run_id')
+                columns.append("supersedes_run_id")
                 values = list(reprocess_run) + [original_run_id]
                 placeholders += ", ?"
 
             original_cursor.execute(
                 f"INSERT INTO pipeline_runs ({', '.join(columns)}) VALUES ({placeholders})",
-                values
+                values,
             )
             print(f"[REPROCESS] Inserted reprocess run: {reprocess_run_id}")
 
@@ -5212,8 +5484,12 @@ class ExclusionFileSelector(ReviewBase):
             # NOTE: We can't UPDATE the original run because it's completed and protected by audit triggers
             # The supersession relationship is stored in the reprocess run via supersedes_run_id
             if original_run_id:
-                print(f"[REPROCESS] Supersession link established: reprocess {reprocess_run_id} supersedes original {original_run_id}")
-                print(f"[REPROCESS] Original run remains immutable per audit trail requirements")
+                print(
+                    f"[REPROCESS] Supersession link established: reprocess {reprocess_run_id} supersedes original {original_run_id}"
+                )
+                print(
+                    f"[REPROCESS] Original run remains immutable per audit trail requirements"
+                )
 
             # 6. Copy update_audit_log entries
             reprocess_cursor.execute("SELECT * FROM update_audit_log")
@@ -5225,7 +5501,7 @@ class ExclusionFileSelector(ReviewBase):
                 for log in audit_logs:
                     original_cursor.execute(
                         f"INSERT INTO update_audit_log ({', '.join(columns)}) VALUES ({placeholders})",
-                        tuple(log)
+                        tuple(log),
                     )
                 print(f"[REPROCESS] Copied {len(audit_logs)} audit log entries")
 
@@ -5235,7 +5511,9 @@ class ExclusionFileSelector(ReviewBase):
                 "SELECT log_hash FROM database_access_log ORDER BY log_id DESC LIMIT 1"
             )
             last_hash_row = original_cursor.fetchone()
-            previous_hash = last_hash_row['log_hash'] if last_hash_row else "genesis_hash_empty_log"
+            previous_hash = (
+                last_hash_row["log_hash"] if last_hash_row else "genesis_hash_empty_log"
+            )
 
             # Get access logs from reprocess database (skip genesis entry)
             reprocess_cursor.execute(
@@ -5249,12 +5527,20 @@ class ExclusionFileSelector(ReviewBase):
 
                     # Recalculate hash with new previous_hash for chain integrity
                     new_hash = calculate_access_log_hash(
-                        log_dict['timestamp'],
-                        log_dict['operation'],
-                        json.loads(log_dict['user_context']) if log_dict.get('user_context') else {},
+                        log_dict["timestamp"],
+                        log_dict["operation"],
+                        (
+                            json.loads(log_dict["user_context"])
+                            if log_dict.get("user_context")
+                            else {}
+                        ),
                         "",
-                        json.loads(log_dict['details']) if log_dict.get('details') else {},
-                        previous_hash
+                        (
+                            json.loads(log_dict["details"])
+                            if log_dict.get("details")
+                            else {}
+                        ),
+                        previous_hash,
                     )
 
                     # Insert with recalculated hash
@@ -5266,18 +5552,20 @@ class ExclusionFileSelector(ReviewBase):
                         ) VALUES (?, ?, ?, ?, ?, ?, ?)
                         """,
                         (
-                            log_dict['timestamp'],
-                            log_dict['operation'],
-                            log_dict['user_context'],
-                            log_dict['details'],
+                            log_dict["timestamp"],
+                            log_dict["operation"],
+                            log_dict["user_context"],
+                            log_dict["details"],
                             new_hash,
                             previous_hash,
-                            log_dict.get('auth0_user_id')
-                        )
+                            log_dict.get("auth0_user_id"),
+                        ),
                     )
                     previous_hash = new_hash
 
-                print(f"[REPROCESS] Copied {len(access_logs)} access log entries (re-chained)")
+                print(
+                    f"[REPROCESS] Copied {len(access_logs)} access log entries (re-chained)"
+                )
 
             # 8. Copy electronic_signatures if any
             reprocess_cursor.execute("SELECT * FROM electronic_signatures")
@@ -5289,7 +5577,7 @@ class ExclusionFileSelector(ReviewBase):
                 for sig in signatures:
                     original_cursor.execute(
                         f"INSERT INTO electronic_signatures ({', '.join(columns)}) VALUES ({placeholders})",
-                        tuple(sig)
+                        tuple(sig),
                     )
                 print(f"[REPROCESS] Copied {len(signatures)} electronic signatures")
 
@@ -5300,12 +5588,12 @@ class ExclusionFileSelector(ReviewBase):
             if users:
                 for user in users:
                     user_dict = dict(user)
-                    auth0_user_id = user_dict['auth0_user_id']
+                    auth0_user_id = user_dict["auth0_user_id"]
 
                     # Check if user already exists
                     original_cursor.execute(
                         "SELECT auth0_user_id FROM authenticated_users WHERE auth0_user_id = ?",
-                        (auth0_user_id,)
+                        (auth0_user_id,),
                     )
                     if original_cursor.fetchone():
                         continue  # Skip existing users
@@ -5314,7 +5602,7 @@ class ExclusionFileSelector(ReviewBase):
                     placeholders = ", ".join(["?" for _ in columns])
                     original_cursor.execute(
                         f"INSERT INTO authenticated_users ({', '.join(columns)}) VALUES ({placeholders})",
-                        tuple(user)
+                        tuple(user),
                     )
                 print(f"[REPROCESS] Copied {len(users)} authenticated users")
 
@@ -5326,13 +5614,13 @@ class ExclusionFileSelector(ReviewBase):
             # 11. Update backup manifest with run IDs
             if manifest_path and manifest_path.exists():
                 try:
-                    with open(manifest_path, 'r', encoding='utf-8') as f:
+                    with open(manifest_path, "r", encoding="utf-8") as f:
                         manifest = json.load(f)
 
-                    manifest['original_run_id'] = original_run_id
-                    manifest['superseded_by_run_id'] = reprocess_run_id
+                    manifest["original_run_id"] = original_run_id
+                    manifest["superseded_by_run_id"] = reprocess_run_id
 
-                    with open(manifest_path, 'w', encoding='utf-8') as f:
+                    with open(manifest_path, "w", encoding="utf-8") as f:
                         json.dump(manifest, f, indent=2)
 
                     print(f"[REPROCESS] Updated backup manifest with run IDs")
@@ -5345,14 +5633,18 @@ class ExclusionFileSelector(ReviewBase):
         except Exception as e:
             print(f"[REPROCESS] Error merging databases: {e}")
             import traceback
+
             traceback.print_exc()
             return None, None
 
-    def _start_reprocess(self, stem: str, task_path: Path, raw_path: Path, payload: dict, timestamp: str) -> None:
+    def _start_reprocess(
+        self, stem: str, task_path: Path, raw_path: Path, payload: dict, timestamp: str
+    ) -> None:
         """Start reprocessing in background with simple status dialog."""
-        from PyQt6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton
-        import shutil
         import json
+        import shutil
+
+        from PyQt6.QtWidgets import QDialog, QLabel, QPushButton, QVBoxLayout
 
         # Store reprocess info for post-processing
         original_task_root = self.task_root
@@ -5378,12 +5670,14 @@ class ExclusionFileSelector(ReviewBase):
         if comp_file.exists():
             backup_file = backups_dir / f"{stem}_comp_epo_{timestamp}.fif"
             shutil.copy2(comp_file, backup_file)
-            backed_up_files.append({
-                "filename": comp_file.name,
-                "original_path": str(comp_file.relative_to(original_task_root)),
-                "backup_path": str(backup_file.relative_to(original_task_root)),
-                "size_bytes": comp_file.stat().st_size
-            })
+            backed_up_files.append(
+                {
+                    "filename": comp_file.name,
+                    "original_path": str(comp_file.relative_to(original_task_root)),
+                    "backup_path": str(backup_file.relative_to(original_task_root)),
+                    "size_bytes": comp_file.stat().st_size,
+                }
+            )
             print(f"[REPROCESS] Backed up {comp_file.name} to {backup_file}")
 
         # Backup database file
@@ -5391,12 +5685,14 @@ class ExclusionFileSelector(ReviewBase):
         if db_file.exists():
             db_backup_file = backups_dir / f"run_database_{timestamp}.db"
             shutil.copy2(db_file, db_backup_file)
-            backed_up_files.append({
-                "filename": db_file.name,
-                "original_path": str(db_file.relative_to(original_task_root)),
-                "backup_path": str(db_backup_file.relative_to(original_task_root)),
-                "size_bytes": db_file.stat().st_size
-            })
+            backed_up_files.append(
+                {
+                    "filename": db_file.name,
+                    "original_path": str(db_file.relative_to(original_task_root)),
+                    "backup_path": str(db_backup_file.relative_to(original_task_root)),
+                    "size_bytes": db_file.stat().st_size,
+                }
+            )
             print(f"[REPROCESS] Backed up {db_file.name} to {db_backup_file}")
 
         # Create backup manifest for provenance tracking
@@ -5411,10 +5707,10 @@ class ExclusionFileSelector(ReviewBase):
                 "manual_overrides": payload.get("modifications", {}),
                 "reprocess_task_file": str(task_path.relative_to(original_task_root)),
                 "reprocess_task_hash": payload.get("task_file_hash", ""),
-                "fix_type": payload.get("fix_type", "unknown")
+                "fix_type": payload.get("fix_type", "unknown"),
             }
 
-            with open(manifest_path, 'w', encoding='utf-8') as f:
+            with open(manifest_path, "w", encoding="utf-8") as f:
                 json.dump(manifest, f, indent=2)
 
             print(f"[REPROCESS] Created backup manifest: {manifest_path.name}")
@@ -5426,7 +5722,9 @@ class ExclusionFileSelector(ReviewBase):
         dialog.resize(350, 120)
 
         layout = QVBoxLayout()
-        label = QLabel(f"Reprocessing {stem}...\n\nThis may take several minutes.\nYou can continue using the GUI.")
+        label = QLabel(
+            f"Reprocessing {stem}...\n\nThis may take several minutes.\nYou can continue using the GUI."
+        )
         label.setWordWrap(True)
         layout.addWidget(label)
 
@@ -5440,36 +5738,36 @@ class ExclusionFileSelector(ReviewBase):
         # Capture output for error reporting
         output_lines = []
         process.readyReadStandardOutput.connect(
-            lambda: output_lines.append(process.readAllStandardOutput().data().decode('utf-8', errors='ignore'))
+            lambda: output_lines.append(
+                process.readAllStandardOutput().data().decode("utf-8", errors="ignore")
+            )
         )
         process.readyReadStandardError.connect(
-            lambda: output_lines.append(process.readAllStandardError().data().decode('utf-8', errors='ignore'))
+            lambda: output_lines.append(
+                process.readAllStandardError().data().decode("utf-8", errors="ignore")
+            )
         )
 
         # Pass reprocess info to completion handler
         reprocess_info = {
-            'stem': stem,
-            'original_task_root': original_task_root,
-            'reprocess_folder_name': reprocess_folder_name,
-            'output_dir': output_dir,
-            'manifest_path': manifest_path if backed_up_files else None,
-            'timestamp': timestamp,
-            'backups_dir': backups_dir
+            "stem": stem,
+            "original_task_root": original_task_root,
+            "reprocess_folder_name": reprocess_folder_name,
+            "output_dir": output_dir,
+            "manifest_path": manifest_path if backed_up_files else None,
+            "timestamp": timestamp,
+            "backups_dir": backups_dir,
         }
 
         process.finished.connect(
-            lambda code, status: self._on_reprocess_done(code, dialog, output_lines, reprocess_info)
+            lambda code, status: self._on_reprocess_done(
+                code, dialog, output_lines, reprocess_info
+            )
         )
 
         cancel_btn.clicked.connect(lambda: (process.kill(), dialog.close()))
 
-        cmd_args = [
-            "process",
-            "--task-file",
-            str(task_path),
-            "--file",
-            str(raw_path)
-        ]
+        cmd_args = ["process", "--task-file", str(task_path), "--file", str(raw_path)]
 
         if output_dir:
             cmd_args.extend(["--output", str(output_dir)])
@@ -5481,11 +5779,7 @@ class ExclusionFileSelector(ReviewBase):
         dialog.show()
 
     def _on_reprocess_done(
-        self,
-        exit_code: int,
-        dialog,
-        output_lines: list,
-        reprocess_info: dict
+        self, exit_code: int, dialog, output_lines: list, reprocess_info: dict
     ) -> None:
         """Handle reprocess completion and copy results to original folder."""
         import shutil
@@ -5493,32 +5787,41 @@ class ExclusionFileSelector(ReviewBase):
         print(f"[REPROCESS DEBUG] _on_reprocess_done called with exit_code={exit_code}")
         dialog.close()
 
-        stem = reprocess_info['stem']
-        original_task_root = reprocess_info['original_task_root']
-        reprocess_folder_name = reprocess_info['reprocess_folder_name']
-        output_dir = reprocess_info['output_dir']
+        stem = reprocess_info["stem"]
+        original_task_root = reprocess_info["original_task_root"]
+        reprocess_folder_name = reprocess_info["reprocess_folder_name"]
+        output_dir = reprocess_info["output_dir"]
 
-        print(f"[REPROCESS DEBUG] stem={stem}, reprocess_folder_name={reprocess_folder_name}")
+        print(
+            f"[REPROCESS DEBUG] stem={stem}, reprocess_folder_name={reprocess_folder_name}"
+        )
         print(f"[REPROCESS DEBUG] original_task_root={original_task_root}")
 
         if exit_code == 0:
-            print(f"[REPROCESS DEBUG] Process completed successfully, starting file copy...")
+            print(
+                f"[REPROCESS DEBUG] Process completed successfully, starting file copy..."
+            )
             # Copy reprocessed files from temp folder to original folder
             try:
-                reprocess_folder = (original_task_root / "reprocess" / reprocess_folder_name).resolve()
+                reprocess_folder = (
+                    original_task_root / "reprocess" / reprocess_folder_name
+                ).resolve()
 
                 if not reprocess_folder.exists():
                     QMessageBox.warning(
                         self,
                         "Reprocess Warning",
                         f"Reprocess completed but output folder not found:\n{reprocess_folder}\n\n"
-                        f"Files may be in a different location."
+                        f"Files may be in a different location.",
                     )
                     return
 
                 # Backup existing files before overwriting
                 from datetime import datetime
-                backup_timestamp = reprocess_info.get('timestamp', datetime.now().strftime("%Y%m%d_%H%M%S"))
+
+                backup_timestamp = reprocess_info.get(
+                    "timestamp", datetime.now().strftime("%Y%m%d_%H%M%S")
+                )
                 backups_dir = original_task_root / "exports" / "backups"
                 file_backup_dir = backups_dir / f"{stem}_{backup_timestamp}"
 
@@ -5541,29 +5844,36 @@ class ExclusionFileSelector(ReviewBase):
                                 file_backup_dir.mkdir(parents=True, exist_ok=True)
                                 backup_path = file_backup_dir / file_path.name
                                 shutil.copy2(dest_path, backup_path)
-                                backed_up_files.append({
-                                    "filename": file_path.name,
-                                    "original_path": f"exports/{file_path.name}",
-                                    "backup_path": f"exports/backups/{stem}_{backup_timestamp}/{file_path.name}",
-                                    "size_bytes": dest_path.stat().st_size
-                                })
-                                print(f"[REPROCESS] Backed up {file_path.name} before overwrite")
+                                backed_up_files.append(
+                                    {
+                                        "filename": file_path.name,
+                                        "original_path": f"exports/{file_path.name}",
+                                        "backup_path": f"exports/backups/{stem}_{backup_timestamp}/{file_path.name}",
+                                        "size_bytes": dest_path.stat().st_size,
+                                    }
+                                )
+                                print(
+                                    f"[REPROCESS] Backed up {file_path.name} before overwrite"
+                                )
 
                 # Update backup manifest if files were backed up
-                manifest_path = reprocess_info.get('manifest_path')
+                manifest_path = reprocess_info.get("manifest_path")
                 if backed_up_files and manifest_path and manifest_path.exists():
                     import json
-                    with open(manifest_path, 'r') as f:
+
+                    with open(manifest_path, "r") as f:
                         manifest = json.load(f)
 
                     # Add pre-copy backup files to manifest
-                    if 'backed_up_files' not in manifest:
-                        manifest['backed_up_files'] = []
-                    manifest['backed_up_files'].extend(backed_up_files)
+                    if "backed_up_files" not in manifest:
+                        manifest["backed_up_files"] = []
+                    manifest["backed_up_files"].extend(backed_up_files)
 
-                    with open(manifest_path, 'w') as f:
+                    with open(manifest_path, "w") as f:
                         json.dump(manifest, f, indent=2)
-                    print(f"[REPROCESS] Updated backup manifest with {len(backed_up_files)} pre-copy backups")
+                    print(
+                        f"[REPROCESS] Updated backup manifest with {len(backed_up_files)} pre-copy backups"
+                    )
 
                 # Now copy reprocessed files (overwriting originals)
                 if reprocess_exports.exists():
@@ -5571,12 +5881,16 @@ class ExclusionFileSelector(ReviewBase):
                         if file_path.is_file():
                             # Skip GUI state files (not processing artifacts)
                             if file_path.name == "autoclean_exclusion_decisions.json":
-                                print(f"[REPROCESS] Skipped GUI state file: {file_path.name}")
+                                print(
+                                    f"[REPROCESS] Skipped GUI state file: {file_path.name}"
+                                )
                                 continue
 
                             dest_path = original_exports / file_path.name
                             shutil.copy2(file_path, dest_path)
-                            print(f"[REPROCESS] Copied {file_path.name} to original exports")
+                            print(
+                                f"[REPROCESS] Copied {file_path.name} to original exports"
+                            )
 
                 # Copy reports folder contents (preserving structure)
                 reprocess_reports = reprocess_folder / "reports"
@@ -5600,19 +5914,18 @@ class ExclusionFileSelector(ReviewBase):
                         if file_path.is_file():
                             dest_path = original_ica / file_path.name
                             shutil.copy2(file_path, dest_path)
-                            print(f"[REPROCESS] Copied {file_path.name} to original ica")
+                            print(
+                                f"[REPROCESS] Copied {file_path.name} to original ica"
+                            )
 
                 # Merge databases to consolidate run records
                 original_db_path = original_task_root / "run_database.db"
                 reprocess_db_path = reprocess_folder / "run_database.db"
-                manifest_path = reprocess_info.get('manifest_path')
+                manifest_path = reprocess_info.get("manifest_path")
 
                 if original_db_path.exists() and reprocess_db_path.exists():
                     original_run_id, reprocess_run_id = self._merge_reprocess_database(
-                        original_db_path,
-                        reprocess_db_path,
-                        stem,
-                        manifest_path
+                        original_db_path, reprocess_db_path, stem, manifest_path
                     )
 
                     if original_run_id and reprocess_run_id:
@@ -5621,67 +5934,94 @@ class ExclusionFileSelector(ReviewBase):
                         print(f"[REPROCESS]   Reprocess run: {reprocess_run_id}")
 
                         # Inject reprocess metadata into copied JSON
-                        metadata_json_path = original_reports / "run_reports" / f"{stem}_autoclean_metadata.json"
+                        metadata_json_path = (
+                            original_reports
+                            / "run_reports"
+                            / f"{stem}_autoclean_metadata.json"
+                        )
                         if metadata_json_path.exists():
                             import json
                             from datetime import datetime
 
-                            with open(metadata_json_path, 'r') as f:
+                            with open(metadata_json_path, "r") as f:
                                 metadata = json.load(f)
 
                             # Read manual fix payload for details
-                            manual_fix_path = original_task_root / "qa" / "manual_fixes" / f"{stem}_manual_fix.json"
+                            manual_fix_path = (
+                                original_task_root
+                                / "qa"
+                                / "manual_fixes"
+                                / f"{stem}_manual_fix.json"
+                            )
                             manual_overrides = {}
                             reprocess_reason = "manual_override"
                             if manual_fix_path.exists():
-                                with open(manual_fix_path, 'r') as f:
+                                with open(manual_fix_path, "r") as f:
                                     fix_payload = json.load(f)
-                                    manual_overrides = fix_payload.get('modifications', {})
+                                    manual_overrides = fix_payload.get(
+                                        "modifications", {}
+                                    )
                                     reprocess_reason = f"manual_override_{fix_payload.get('fix_type', 'unknown')}"
 
                             # Inject reprocess metadata
-                            metadata['reprocessed'] = True
-                            metadata['reprocessed_timestamp'] = datetime.now().isoformat()
-                            metadata['reprocessed_from_run_id'] = original_run_id
-                            metadata['reprocess_run_id'] = reprocess_run_id
-                            metadata['reprocess_reason'] = reprocess_reason
-                            metadata['manual_overrides'] = manual_overrides
-                            metadata['original_backup'] = f"exports/backups/{stem}_{backup_timestamp}/"
+                            metadata["reprocessed"] = True
+                            metadata["reprocessed_timestamp"] = (
+                                datetime.now().isoformat()
+                            )
+                            metadata["reprocessed_from_run_id"] = original_run_id
+                            metadata["reprocess_run_id"] = reprocess_run_id
+                            metadata["reprocess_reason"] = reprocess_reason
+                            metadata["manual_overrides"] = manual_overrides
+                            metadata["original_backup"] = (
+                                f"exports/backups/{stem}_{backup_timestamp}/"
+                            )
 
-                            with open(metadata_json_path, 'w') as f:
+                            with open(metadata_json_path, "w") as f:
                                 json.dump(metadata, f, indent=2)
-                            print(f"[REPROCESS] Injected reprocess metadata into {metadata_json_path.name}")
+                            print(
+                                f"[REPROCESS] Injected reprocess metadata into {metadata_json_path.name}"
+                            )
 
                         # Add reprocessed flag to processing_log.csv
-                        processing_log_path = original_exports / f"{stem}_processing_log.csv"
+                        processing_log_path = (
+                            original_exports / f"{stem}_processing_log.csv"
+                        )
                         if processing_log_path.exists():
                             import csv
 
                             # Read CSV
-                            with open(processing_log_path, 'r', newline='') as f:
+                            with open(processing_log_path, "r", newline="") as f:
                                 reader = csv.DictReader(f)
                                 rows = list(reader)
                                 fieldnames = reader.fieldnames
 
                             # Add reprocessed_flag column if not present
-                            if fieldnames and 'reprocessed_flag' not in fieldnames:
-                                fieldnames = list(fieldnames) + ['reprocessed_flag']
+                            if fieldnames and "reprocessed_flag" not in fieldnames:
+                                fieldnames = list(fieldnames) + ["reprocessed_flag"]
 
                             # Set flag for latest row
                             if rows:
-                                rows[-1]['reprocessed_flag'] = f"REPROCESSED_{backup_timestamp}"
+                                rows[-1][
+                                    "reprocessed_flag"
+                                ] = f"REPROCESSED_{backup_timestamp}"
 
                             # Write back
-                            with open(processing_log_path, 'w', newline='') as f:
+                            with open(processing_log_path, "w", newline="") as f:
                                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                                 writer.writeheader()
                                 writer.writerows(rows)
-                            print(f"[REPROCESS] Added reprocessed flag to {processing_log_path.name}")
+                            print(
+                                f"[REPROCESS] Added reprocessed flag to {processing_log_path.name}"
+                            )
 
                     else:
-                        print(f"[REPROCESS] Warning: Database merge failed - see logs above")
+                        print(
+                            f"[REPROCESS] Warning: Database merge failed - see logs above"
+                        )
                 else:
-                    print(f"[REPROCESS] Warning: Database files not found, skipping merge")
+                    print(
+                        f"[REPROCESS] Warning: Database files not found, skipping merge"
+                    )
 
                 QMessageBox.information(
                     self,
@@ -5689,7 +6029,7 @@ class ExclusionFileSelector(ReviewBase):
                     f"Reprocessed {stem} successfully!\n\n"
                     f"Results copied to original task folder.\n"
                     f"Original files backed up to exports/backups/\n\n"
-                    f"Temp folder can be deleted: reprocess/{reprocess_folder_name}"
+                    f"Temp folder can be deleted: reprocess/{reprocess_folder_name}",
                 )
                 self.refreshFileTree()
 
@@ -5698,11 +6038,11 @@ class ExclusionFileSelector(ReviewBase):
                     self,
                     "Copy Error",
                     f"Reprocessing completed but failed to copy results:\n\n{str(e)}\n\n"
-                    f"You can manually copy from:\n{reprocess_folder}"
+                    f"You can manually copy from:\n{reprocess_folder}",
                 )
         else:
             # Show error with captured output
-            output = ''.join(output_lines) if output_lines else "No output captured"
+            output = "".join(output_lines) if output_lines else "No output captured"
             error_msg = f"Reprocessing failed with exit code {exit_code}.\n\nOutput:\n{output[-1000:]}"
             QMessageBox.warning(self, "Reprocessing Failed", error_msg)
 
@@ -5715,7 +6055,9 @@ class ExclusionFileSelector(ReviewBase):
             self._decision_stack.setCurrentIndex(1 if has_selection else 0)
 
         if self.status_label is not None:
-            display_label = meta["label"] if status and status != "UNSET" else "Not Started"
+            display_label = (
+                meta["label"] if status and status != "UNSET" else "Not Started"
+            )
             if status and status != "UNSET":
                 chip_color = QColor(meta["color"])
                 chip_bg = QColor(chip_color)
@@ -5752,15 +6094,20 @@ class ExclusionFileSelector(ReviewBase):
 
         if self.save_state_label is not None:
             if has_selection:
-                if self.save_state_label.text() in {"Select a file to assign a decision.", ""}:
-                    self.save_state_label.setText("Changes auto-save after a short pause.")
+                if self.save_state_label.text() in {
+                    "Select a file to assign a decision.",
+                    "",
+                }:
+                    self.save_state_label.setText(
+                        "Changes auto-save after a short pause."
+                    )
             else:
                 self.save_state_label.setText("Select a file to assign a decision.")
 
     def _apply_status_to_item(self, item, status: str) -> None:
         base_label = item.data(0, Qt.UserRole + 2) or item.text(0)
         meta = STATUS_DEFINITIONS.get(status, STATUS_DEFINITIONS["UNSET"])
-        
+
         # Get the key for this item to check epoch information
         key = item.data(0, Qt.UserRole + 1)
         epoch_info = ""
@@ -5769,15 +6116,15 @@ class ExclusionFileSelector(ReviewBase):
             bad_count = record.get("bad_epochs_count", 0)
             if bad_count > 0:
                 epoch_info = f" ({bad_count} bad epochs)"
-        
+
         display = base_label
         if status and status != "UNSET":
             display = f"{base_label} [{meta['label']}]{epoch_info}"
         elif epoch_info:
             display = f"{base_label}{epoch_info}"
-        
+
         item.setText(0, display)
-        
+
         # Set background color based on status and epoch information
         if status and status != "UNSET":
             color = QColor(meta["color"])
@@ -5830,13 +6177,19 @@ class ExclusionFileSelector(ReviewBase):
                 result["bad_channels"] = [r["channel"] for r in channel_removals]
             else:
                 # Fallback to legacy bad channels extraction
-                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get("bads", [])
+                bad_channels = metadata_section.get("step_clean_bad_channels", {}).get(
+                    "bads", []
+                )
                 if isinstance(bad_channels, list):
                     result["bad_channels"] = bad_channels
 
             # Extract rejected ICA components
-            ica_rejection = metadata_section.get("step_apply_ica_component_rejection", {})
-            rejected_comps = ica_rejection.get("ica", {}).get("final_excluded_indices", [])
+            ica_rejection = metadata_section.get(
+                "step_apply_ica_component_rejection", {}
+            )
+            rejected_comps = ica_rejection.get("ica", {}).get(
+                "final_excluded_indices", []
+            )
             if isinstance(rejected_comps, list):
                 result["rejected_ica"] = rejected_comps
 
@@ -5865,7 +6218,11 @@ class ExclusionFileSelector(ReviewBase):
                 display_name = f"✗ {asset_type}: not found"
                 item = QListWidgetItem(display_name)
                 item.setForeground(QColor("#95a5a6"))  # Gray
-                item.setToolTip(f"Expected: {asset_path}" if asset_path else "Path could not be resolved")
+                item.setToolTip(
+                    f"Expected: {asset_path}"
+                    if asset_path
+                    else "Path could not be resolved"
+                )
                 item.setData(Qt.UserRole, "")  # No path to open
 
             self.related_list.addItem(item)
@@ -5937,22 +6294,22 @@ class ExclusionFileSelector(ReviewBase):
             QMessageBox.warning(
                 self,
                 "File Not Found",
-                f"This file is not available.\n\n{item.toolTip()}"
+                f"This file is not available.\n\n{item.toolTip()}",
             )
             return
 
         file_path = Path(str(data))
         if not file_path.exists():
             QMessageBox.warning(
-                self,
-                "File Not Found",
-                f"File no longer exists:\n{file_path}"
+                self, "File Not Found", f"File no longer exists:\n{file_path}"
             )
             return
 
         _open_path(file_path)
 
-    def _gather_related_files(self, file_path: Path) -> list[tuple[str, Optional[Path], bool]]:
+    def _gather_related_files(
+        self, file_path: Path
+    ) -> list[tuple[str, Optional[Path], bool]]:
         """Gather related files using asset resolution system.
 
         Returns:
@@ -5970,7 +6327,12 @@ class ExclusionFileSelector(ReviewBase):
 
         # Resolve JSON metadata - construct path from task root
         if self.task_root:
-            json_path = self.task_root / "reports" / "run_reports" / f"{stem}_autoclean_metadata.json"
+            json_path = (
+                self.task_root
+                / "reports"
+                / "run_reports"
+                / f"{stem}_autoclean_metadata.json"
+            )
             results.append(("Metadata (JSON)", json_path, json_path.exists()))
 
         return results
@@ -5995,14 +6357,14 @@ class ExclusionFileSelector(ReviewBase):
         """Navigate to the previous file in the tree using up arrow key."""
         if not hasattr(self, "file_tree") or self.file_tree is None:
             return
-        
+
         current_item = self.file_tree.currentItem()
         if current_item is None:
             # If no current item, select the first item
             if self.file_tree.topLevelItemCount() > 0:
                 self.file_tree.setCurrentItem(self.file_tree.topLevelItem(0))
             return
-        
+
         current_index = self.file_tree.indexOfTopLevelItem(current_item)
         if current_index > 0:
             # Move to previous item
@@ -6014,14 +6376,14 @@ class ExclusionFileSelector(ReviewBase):
         """Navigate to the next file in the tree using down arrow key."""
         if not hasattr(self, "file_tree") or self.file_tree is None:
             return
-        
+
         current_item = self.file_tree.currentItem()
         if current_item is None:
             # If no current item, select the first item
             if self.file_tree.topLevelItemCount() > 0:
                 self.file_tree.setCurrentItem(self.file_tree.topLevelItem(0))
             return
-        
+
         current_index = self.file_tree.indexOfTopLevelItem(current_item)
         if current_index < self.file_tree.topLevelItemCount() - 1:
             # Move to next item
@@ -6048,9 +6410,9 @@ class ExclusionFileSelector(ReviewBase):
         if not isinstance(record, dict):
             record = {}
         metadata = {
-            'bad_epoch_indices': record.get('bad_epoch_indices', ''),
-            'total_epochs': record.get('total_epochs', 0),
-            'file_key': file_key
+            "bad_epoch_indices": record.get("bad_epoch_indices", ""),
+            "total_epochs": record.get("total_epochs", 0),
+            "file_key": file_key,
         }
         hash_str = json.dumps(metadata, sort_keys=True)
         return hashlib.sha256(hash_str.encode()).hexdigest()
@@ -6062,25 +6424,29 @@ class ExclusionFileSelector(ReviewBase):
         Uses hash checking to avoid redundant writes.
         Progress is shown via QProgressDialog.
         """
-        from PyQt6.QtWidgets import QProgressDialog, QMessageBox
         from datetime import datetime
+
         import mne
+        from PyQt6.QtWidgets import QMessageBox, QProgressDialog
 
         # Find all files with bad epochs marked
         files_to_export = [
-            (key, record) for key, record in self.decisions.items()
-            if isinstance(record, dict) and record.get('bad_epochs_count', 0) > 0
+            (key, record)
+            for key, record in self.decisions.items()
+            if isinstance(record, dict) and record.get("bad_epochs_count", 0) > 0
         ]
 
         print(f"[QA EXPORT] Found {len(files_to_export)} files to export")
         for key, record in files_to_export:
-            print(f"[QA EXPORT]   {key}: type={type(record)}, bad_epochs={record.get('bad_epochs_count', 'N/A') if isinstance(record, dict) else 'NOT DICT'}")
+            print(
+                f"[QA EXPORT]   {key}: type={type(record)}, bad_epochs={record.get('bad_epochs_count', 'N/A') if isinstance(record, dict) else 'NOT DICT'}"
+            )
 
         if not files_to_export:
             QMessageBox.information(
                 self,
                 "No Files to Export",
-                "No files have bad epochs marked for export."
+                "No files have bad epochs marked for export.",
             )
             return
 
@@ -6090,7 +6456,7 @@ class ExclusionFileSelector(ReviewBase):
             QMessageBox.warning(
                 self,
                 "Task Root Not Found",
-                "Cannot determine task root directory for QA exports."
+                "Cannot determine task root directory for QA exports.",
             )
             return
 
@@ -6098,11 +6464,7 @@ class ExclusionFileSelector(ReviewBase):
 
         # Create progress dialog
         progress = QProgressDialog(
-            "Exporting cleaned files to QA...",
-            "Cancel",
-            0,
-            len(files_to_export),
-            self
+            "Exporting cleaned files to QA...", "Cancel", 0, len(files_to_export), self
         )
         progress.setWindowTitle("Batch Export to QA")
         progress.setWindowModality(Qt.WindowModality.WindowModal)
@@ -6120,11 +6482,13 @@ class ExclusionFileSelector(ReviewBase):
 
             # Debug: verify record type
             if not isinstance(record, dict):
-                print(f"[QA EXPORT] ERROR: record is {type(record)} not dict for {file_key}")
+                print(
+                    f"[QA EXPORT] ERROR: record is {type(record)} not dict for {file_key}"
+                )
                 error_count += 1
                 continue
 
-            relative_path = record.get('relative_path', '')
+            relative_path = record.get("relative_path", "")
             progress.setLabelText(f"Processing {relative_path}...")
 
             try:
@@ -6132,7 +6496,7 @@ class ExclusionFileSelector(ReviewBase):
                 current_hash = self._calculate_export_hash(file_key)
 
                 # Check if already exported with same hash
-                existing_hash = record.get('qa_export_hash', '')
+                existing_hash = record.get("qa_export_hash", "")
                 if existing_hash == current_hash:
                     skipped_count += 1
                     continue
@@ -6148,9 +6512,13 @@ class ExclusionFileSelector(ReviewBase):
                 epochs = mne.read_epochs_eeglab(str(source_file), verbose=False)
 
                 # Get bad epoch indices from CSV
-                bad_indices_str = record.get('bad_epoch_indices', '')
+                bad_indices_str = record.get("bad_epoch_indices", "")
                 if bad_indices_str:
-                    bad_indices = [int(idx.strip()) for idx in bad_indices_str.split(',') if idx.strip()]
+                    bad_indices = [
+                        int(idx.strip())
+                        for idx in bad_indices_str.split(",")
+                        if idx.strip()
+                    ]
 
                     # Map back to selection indices (in case some epochs were already dropped)
                     bad_selection_indices = []
@@ -6161,21 +6529,22 @@ class ExclusionFileSelector(ReviewBase):
 
                     # Drop bad epochs
                     if bad_selection_indices:
-                        epochs.drop(bad_selection_indices, reason='USER', verbose=False)
+                        epochs.drop(bad_selection_indices, reason="USER", verbose=False)
 
                 # Save to qa/ with same filename using MNE's native save
                 dest_file = qa_dir / source_file.name
                 epochs.save(str(dest_file), overwrite=True, verbose=False)
 
                 # Update CSV record with export metadata
-                record['qa_export_hash'] = current_hash
-                record['qa_export_timestamp'] = datetime.now().isoformat()
-                record['qa_export_path'] = f"qa/{source_file.name}"
+                record["qa_export_hash"] = current_hash
+                record["qa_export_timestamp"] = datetime.now().isoformat()
+                record["qa_export_path"] = f"qa/{source_file.name}"
 
                 exported_count += 1
 
             except Exception as e:
                 import traceback
+
                 print(f"[QA EXPORT] Error exporting {file_key}: {e}")
                 print(f"[QA EXPORT] Traceback: {traceback.format_exc()}")
                 error_count += 1
@@ -6221,17 +6590,25 @@ class ExclusionFileSelector(ReviewBase):
             print("[QA LOG] QA directory not found, skipping QA log generation")
             return None
 
-        print(f"[QA LOG] Creating QA preprocessing log from {len(self.preprocessing_log_df)} records")
+        print(
+            f"[QA LOG] Creating QA preprocessing log from {len(self.preprocessing_log_df)} records"
+        )
 
         # Start with copy of preprocessing log
         qa_log = self.preprocessing_log_df.copy()
 
         # Get key column from config
         config = _load_config()
-        key_column = config.get("logfile", {}).get("key_column", "subj_basename") if config else "subj_basename"
+        key_column = (
+            config.get("logfile", {}).get("key_column", "subj_basename")
+            if config
+            else "subj_basename"
+        )
 
         if key_column not in qa_log.columns:
-            print(f"[QA LOG] Warning: key column '{key_column}' not found in preprocessing log")
+            print(
+                f"[QA LOG] Warning: key column '{key_column}' not found in preprocessing log"
+            )
             key_column = qa_log.columns[0]  # Fallback to first column
 
         # Create mapping from entry to manual review data
@@ -6244,33 +6621,50 @@ class ExclusionFileSelector(ReviewBase):
             subj_basename = strip_suffixes(entry, config=config)
 
             manual_data[subj_basename] = {
-                'qa_status': record.get('status', ''),
-                'manual_bad_epochs': record.get('bad_epochs_count', 0),
-                'manual_bad_epoch_indices': record.get('bad_epoch_indices', ''),
-                'manual_review_timestamp': record.get('last_updated', ''),
-                'manual_review_notes': record.get('notes', ''),
-                'qa_exported': record.get('qa_export_timestamp', ''),
+                "qa_status": record.get("status", ""),
+                "manual_bad_epochs": record.get("bad_epochs_count", 0),
+                "manual_bad_epoch_indices": record.get("bad_epoch_indices", ""),
+                "manual_review_timestamp": record.get("last_updated", ""),
+                "manual_review_notes": record.get("notes", ""),
+                "qa_exported": record.get("qa_export_timestamp", ""),
             }
 
         # Add new QA columns
-        qa_log['qa_status'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('qa_status', ''))
-        qa_log['manual_bad_epochs'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_bad_epochs', 0))
-        qa_log['manual_bad_epoch_indices'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_bad_epoch_indices', ''))
-        qa_log['manual_review_timestamp'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_review_timestamp', ''))
-        qa_log['manual_review_notes'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('manual_review_notes', ''))
-        qa_log['qa_exported'] = qa_log[key_column].map(lambda x: manual_data.get(x, {}).get('qa_exported', ''))
+        qa_log["qa_status"] = qa_log[key_column].map(
+            lambda x: manual_data.get(x, {}).get("qa_status", "")
+        )
+        qa_log["manual_bad_epochs"] = qa_log[key_column].map(
+            lambda x: manual_data.get(x, {}).get("manual_bad_epochs", 0)
+        )
+        qa_log["manual_bad_epoch_indices"] = qa_log[key_column].map(
+            lambda x: manual_data.get(x, {}).get("manual_bad_epoch_indices", "")
+        )
+        qa_log["manual_review_timestamp"] = qa_log[key_column].map(
+            lambda x: manual_data.get(x, {}).get("manual_review_timestamp", "")
+        )
+        qa_log["manual_review_notes"] = qa_log[key_column].map(
+            lambda x: manual_data.get(x, {}).get("manual_review_notes", "")
+        )
+        qa_log["qa_exported"] = qa_log[key_column].map(
+            lambda x: manual_data.get(x, {}).get("qa_exported", "")
+        )
 
         # Update original epoch_badtrials to include manual bad epochs
-        if 'epoch_badtrials' in qa_log.columns:
-            qa_log['epoch_badtrials'] = qa_log['epoch_badtrials'].fillna(0) + qa_log['manual_bad_epochs'].fillna(0)
+        if "epoch_badtrials" in qa_log.columns:
+            qa_log["epoch_badtrials"] = qa_log["epoch_badtrials"].fillna(0) + qa_log[
+                "manual_bad_epochs"
+            ].fillna(0)
 
             # Recalculate epoch_percent with updated bad epochs count
-            if 'epoch_trials' in qa_log.columns:
-                qa_log['epoch_percent'] = (
-                    (qa_log['epoch_trials'] - qa_log['epoch_badtrials']) / qa_log['epoch_trials']
+            if "epoch_trials" in qa_log.columns:
+                qa_log["epoch_percent"] = (
+                    (qa_log["epoch_trials"] - qa_log["epoch_badtrials"])
+                    / qa_log["epoch_trials"]
                 ).fillna(1.0)
         else:
-            print("[QA LOG] Warning: 'epoch_badtrials' column not found, cannot update metrics")
+            print(
+                "[QA LOG] Warning: 'epoch_badtrials' column not found, cannot update metrics"
+            )
 
         # Save to qa/ folder
         qa_log_path = qa_dir / "qa_preprocessing_log.csv"
@@ -6278,7 +6672,9 @@ class ExclusionFileSelector(ReviewBase):
 
         print(f"[QA LOG] Created QA preprocessing log: {qa_log_path}")
         print(f"[QA LOG]   - {len(qa_log)} total records")
-        print(f"[QA LOG]   - {len([k for k in manual_data if manual_data[k]['qa_status']])} manually reviewed")
+        print(
+            f"[QA LOG]   - {len([k for k in manual_data if manual_data[k]['qa_status']])} manually reviewed"
+        )
 
         return qa_log_path
 
@@ -6286,16 +6682,18 @@ class ExclusionFileSelector(ReviewBase):
         """Open the QA folder in the system file browser."""
         if not self.task_root:
             from PyQt6.QtWidgets import QMessageBox
+
             QMessageBox.warning(
                 self,
                 "QA Folder Not Found",
-                "Cannot open QA folder: task root directory not set."
+                "Cannot open QA folder: task root directory not set.",
             )
             return
 
         qa_dir = self.task_root / "qa"
         if not qa_dir.exists():
             from PyQt6.QtWidgets import QMessageBox
+
             # Create the qa directory if it doesn't exist
             qa_dir.mkdir(exist_ok=True)
             print(f"[QA FOLDER] Created QA directory: {qa_dir}")

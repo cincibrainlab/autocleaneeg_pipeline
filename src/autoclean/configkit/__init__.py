@@ -4,10 +4,10 @@ Centralizes config enums, schema builders, and validation helpers.
 """
 
 from .schema import (
-    THRESHOLD_MODES,
     COMP_REJ_METHODS,
-    ICA_METHODS,
     IC_FLAGS,
+    ICA_METHODS,
+    THRESHOLD_MODES,
     validate_task_module_config,
 )
 

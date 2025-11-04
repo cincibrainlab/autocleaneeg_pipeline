@@ -28,20 +28,24 @@ from scipy.ndimage import uniform_filter1d
 # Import caching functions (optional to avoid circular imports)
 try:
     from autoclean.mixins.viz._ica_sources_cache import get_cached_ica_sources
+
     SOURCES_CACHE_AVAILABLE = True
 except ImportError:
     SOURCES_CACHE_AVAILABLE = False
 
 try:
     from autoclean.mixins.viz._ica_topography_cache import (
-        get_cached_topographies, apply_cached_topography
+        apply_cached_topography,
+        get_cached_topographies,
     )
+
     TOPOGRAPHY_CACHE_AVAILABLE = True
 except ImportError:
     TOPOGRAPHY_CACHE_AVAILABLE = False
 
 try:
     from autoclean.mixins.viz._ica_psd_cache import get_cached_component_psds
+
     PSD_CACHE_AVAILABLE = True
 except ImportError:
     PSD_CACHE_AVAILABLE = False
@@ -195,7 +199,7 @@ def plot_component_for_classification(
             sources = get_cached_ica_sources(ica_obj, raw_obj)
         else:
             sources = ica_obj.get_sources(raw_obj)
-            
+
         sfreq = sources.info["sfreq"]
         component_data = sources.get_data(picks=[component_idx])
         component_data = np.asarray(component_data)
@@ -216,7 +220,7 @@ def plot_component_for_classification(
                 sources_full = get_cached_ica_sources(ica_obj, raw_full)
             else:
                 sources_full = ica_obj.get_sources(raw_full)
-                
+
             psd_sfreq = sources_full.info["sfreq"]
             component_data_full = sources_full.get_data(picks=[component_idx])
             component_data_full = np.asarray(component_data_full)
@@ -409,12 +413,18 @@ def plot_component_for_classification(
             # Use cached batch PSD computation for better performance
             try:
                 psd_data_cached, freqs = get_cached_component_psds(
-                    ica_obj, raw_full, [component_idx], 
-                    fmin=fmin_psd, fmax=fmax_psd, n_fft=n_fft_psd
+                    ica_obj,
+                    raw_full,
+                    [component_idx],
+                    fmin=fmin_psd,
+                    fmax=fmax_psd,
+                    n_fft=n_fft_psd,
                 )
                 psds = psd_data_cached[0]  # Get data for our component
             except Exception as cache_exc:
-                logger.debug(f"PSD cache failed for IC{component_idx}, falling back: {cache_exc}")
+                logger.debug(
+                    f"PSD cache failed for IC{component_idx}, falling back: {cache_exc}"
+                )
                 # Fallback to individual computation
                 psds, freqs = psd_array_welch(
                     psd_data,
@@ -438,7 +448,7 @@ def plot_component_for_classification(
                 verbose=False,
                 average="mean",
             )
-            
+
         if psds.size == 0:
             raise ValueError("PSD computation returned empty array")
 
@@ -689,8 +699,10 @@ def plot_ica_topographies_overview(
                 if comp_idx in batch_topographies:
                     # Use cached topography
                     apply_cached_topography(
-                        ax, batch_topographies[comp_idx], comp_idx,
-                        title=f"IC{comp_idx}"
+                        ax,
+                        batch_topographies[comp_idx],
+                        comp_idx,
+                        title=f"IC{comp_idx}",
                     )
                 else:
                     # Fallback to original MNE plotting

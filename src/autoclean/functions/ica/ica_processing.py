@@ -239,7 +239,9 @@ def classify_ica_components(
                 if hasattr(ica, "labels_scores_")
                 else None
             )
-            iclabel_labels_dict = {k: list(v) for k, v in getattr(ica, "labels_", {}).items()}
+            iclabel_labels_dict = {
+                k: list(v) for k, v in getattr(ica, "labels_", {}).items()
+            }
 
             # Determine which leading components to reclassify with ICVision
             icvision_n_components = kwargs.pop("icvision_n_components", 20)
@@ -260,7 +262,9 @@ def classify_ica_components(
                     if 0 <= ci < n_comp:
                         merged_ic_type[ci] = lbl
             # Overlay ICVision labels for the processed subset (as provided by icvision)
-            icvision_labels_dict = {k: list(v) for k, v in getattr(ica, "labels_", {}).items()}
+            icvision_labels_dict = {
+                k: list(v) for k, v in getattr(ica, "labels_", {}).items()
+            }
             for lbl, comps in icvision_labels_dict.items():
                 for ci in comps:
                     if 0 <= ci < n_comp:
@@ -282,7 +286,9 @@ def classify_ica_components(
             if icvision_scores is not None:
                 icvision_scores = _np.array(icvision_scores, copy=False)
                 # If sizes match the subset length, assume row order corresponds to component_indices
-                if icvision_scores.ndim == 2 and icvision_scores.shape[0] == len(component_indices):
+                if icvision_scores.ndim == 2 and icvision_scores.shape[0] == len(
+                    component_indices
+                ):
                     for row_idx, comp_idx in enumerate(component_indices):
                         if 0 <= comp_idx < n_comp:
                             max_prob = float(icvision_scores[row_idx].max())
@@ -297,7 +303,9 @@ def classify_ica_components(
                     # If shape is unexpected, at least try to update confidence for the subset
                     if icvision_scores.ndim == 2:
                         max_probs = icvision_scores.max(axis=1)
-                        for row_idx, comp_idx in enumerate(component_indices[: len(max_probs)]):
+                        for row_idx, comp_idx in enumerate(
+                            component_indices[: len(max_probs)]
+                        ):
                             if 0 <= comp_idx < n_comp:
                                 max_prob = float(max_probs[row_idx])
                                 vision_confidence[comp_idx] = max_prob
@@ -473,7 +481,9 @@ def _attach_source_metadata(
     icvision_df: Optional[pd.DataFrame],
 ) -> pd.DataFrame:
     """Augment classification results with source-specific metadata."""
-    aligned_iclabel = iclabel_df.reindex(base_df.index).copy() if iclabel_df is not None else None
+    aligned_iclabel = (
+        iclabel_df.reindex(base_df.index).copy() if iclabel_df is not None else None
+    )
     aligned_icvision = (
         icvision_df.reindex(base_df.index).copy() if icvision_df is not None else None
     )
@@ -485,11 +495,16 @@ def _attach_source_metadata(
         if "annotator" not in aligned_icvision.columns:
             aligned_icvision["annotator"] = "ic_vision"
         if aligned_iclabel is not None:
-            missing_type = aligned_icvision["ic_type"].isna() | (aligned_icvision["ic_type"] == "")
+            missing_type = aligned_icvision["ic_type"].isna() | (
+                aligned_icvision["ic_type"] == ""
+            )
             aligned_icvision.loc[missing_type, "ic_type"] = aligned_iclabel.loc[
                 missing_type, "ic_type"
             ]
-            if "confidence" in aligned_icvision.columns and "confidence" in aligned_iclabel.columns:
+            if (
+                "confidence" in aligned_icvision.columns
+                and "confidence" in aligned_iclabel.columns
+            ):
                 missing_conf = aligned_icvision["confidence"].isna()
                 aligned_icvision.loc[missing_conf, "confidence"] = aligned_iclabel.loc[
                     missing_conf, "confidence"
@@ -672,7 +687,9 @@ def update_ica_control_sheet(
         elif bids_dir:
             ica_root = Path(bids_dir).parent / "ica"
         else:
-            raise ValueError("Cannot determine ICA directory: missing 'ica_dir', 'reports_dir', and 'bids_dir'")
+            raise ValueError(
+                "Cannot determine ICA directory: missing 'ica_dir', 'reports_dir', and 'bids_dir'"
+            )
     ica_root.mkdir(parents=True, exist_ok=True)
     sheet_path = ica_root / "ica_control_sheet.csv"
 

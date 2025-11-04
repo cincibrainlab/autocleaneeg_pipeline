@@ -20,7 +20,9 @@ try:  # Python 3.10+ provides importlib.resources.files
 except ImportError:  # pragma: no cover - fallback for very old Python
     from importlib_resources import files  # type: ignore
 
-RAW_BASE = "https://raw.githubusercontent.com/cincibrainlab/autocleaneeg-task-registry/main"
+RAW_BASE = (
+    "https://raw.githubusercontent.com/cincibrainlab/autocleaneeg-task-registry/main"
+)
 CACHE_ROOT = Path.home() / ".config" / "autocleaneeg" / ".block_cache"
 
 MANIFEST_NAME = "manifest.json"
@@ -135,16 +137,23 @@ class CacheManifest:
         self.save()
 
     def update_block_remote(
-        self, block_name: str, *, category: str, path: str, remote_hashes: Optional[Dict[str, str]]
+        self,
+        block_name: str,
+        *,
+        category: str,
+        path: str,
+        remote_hashes: Optional[Dict[str, str]],
     ) -> None:
         blocks: Dict[str, object] = self.data.setdefault("blocks", {})  # type: ignore[assignment]
         rec: Dict[str, object] = blocks.get(block_name, {})  # type: ignore[assignment]
-        rec.update({
-            "category": category,
-            "path": path,
-            "remote_hashes": remote_hashes,
-            "last_seen_commit": self.data.get("registry_commit"),
-        })
+        rec.update(
+            {
+                "category": category,
+                "path": path,
+                "remote_hashes": remote_hashes,
+                "last_seen_commit": self.data.get("registry_commit"),
+            }
+        )
         blocks[block_name] = rec
         self.save()
 
@@ -203,7 +212,9 @@ class BlockRegistry:
         self.manifest = CacheManifest(self.cache_root / MANIFEST_NAME)
         env_timeout = os.environ.get(TIMEOUT_ENV)
         try:
-            self.timeout = float(timeout or (float(env_timeout) if env_timeout else DEFAULT_TIMEOUT))
+            self.timeout = float(
+                timeout or (float(env_timeout) if env_timeout else DEFAULT_TIMEOUT)
+            )
         except (TypeError, ValueError):
             self.timeout = DEFAULT_TIMEOUT
         # Last update diff snapshot for CLI rendering
@@ -309,12 +320,18 @@ class BlockRegistry:
                         file_url = f"{self.raw_base}/{path}/{filename}"
                         data = self._fetch_bytes(file_url)
                         remote_hashes[filename] = hashlib.sha256(data).hexdigest()
-                    except (URLError, HTTPError, socket.timeout):  # pragma: no cover - network
+                    except (
+                        URLError,
+                        HTTPError,
+                        socket.timeout,
+                    ):  # pragma: no cover - network
                         remote_hashes[filename] = ""
 
                 # Compare with prior remote hashes if available
                 before = before_records.get(name) or {}
-                before_hashes = before.get("remote_hashes") if isinstance(before, dict) else None
+                before_hashes = (
+                    before.get("remote_hashes") if isinstance(before, dict) else None
+                )
                 if remote_hashes and before_hashes and isinstance(before_hashes, dict):
                     # Check if any file changed
                     if remote_hashes != before_hashes:
@@ -373,7 +390,9 @@ class BlockRegistry:
         return bundled_index
 
     # ---------------- Query helpers -----------------
-    def _get_actual_block_version(self, block_name: str, category: str, block_path: str) -> str:
+    def _get_actual_block_version(
+        self, block_name: str, category: str, block_path: str
+    ) -> str:
         """Get the version from the actual manifest.json file that will be used at runtime.
 
         Checks in priority order: cache first, then bundled (matching mixin loading priority).
@@ -418,17 +437,21 @@ class BlockRegistry:
             # Get actual version from the file that will be used at runtime
             actual_version = self._get_actual_block_version(name, category, path)
 
-            blocks.append(ProcessingBlock(
-                name=name,
-                category=category,
-                path=path,
-                version=actual_version,  # Use actual version, not registry metadata
-                description=entry.get("description", ""),
-            ))
+            blocks.append(
+                ProcessingBlock(
+                    name=name,
+                    category=category,
+                    path=path,
+                    version=actual_version,  # Use actual version, not registry metadata
+                    description=entry.get("description", ""),
+                )
+            )
         return blocks
 
     def get_block(self, block_name: str) -> Optional[ProcessingBlock]:
-        return next((block for block in self.list_blocks() if block.name == block_name), None)
+        return next(
+            (block for block in self.list_blocks() if block.name == block_name), None
+        )
 
     def _cache_path_for(self, rel_path: str) -> Path:
         return self.cache_root / rel_path
@@ -464,8 +487,12 @@ class BlockRegistry:
                 source = "cache"
 
         # Check bundled blocks
-        bundled_path = Path(__file__).parent.parent / "blocks" / block.category / block.name
-        bundled_hashes = _hash_directory(bundled_path) if bundled_path.exists() else None
+        bundled_path = (
+            Path(__file__).parent.parent / "blocks" / block.category / block.name
+        )
+        bundled_hashes = (
+            _hash_directory(bundled_path) if bundled_path.exists() else None
+        )
 
         status: str
         if cache_hashes and bundled_hashes:
@@ -515,7 +542,9 @@ class BlockRegistry:
         return "missing"
 
     # ---------------- Materialization -----------------
-    def materialize_block_to(self, block_name: str, dest_dir: Path, commit: Optional[str] = None) -> Path:
+    def materialize_block_to(
+        self, block_name: str, dest_dir: Path, commit: Optional[str] = None
+    ) -> Path:
         """Download and cache a block from the remote registry.
 
         Parameters
@@ -594,7 +623,9 @@ class BlockRegistry:
             pass  # Fall back to bundled
 
         # Try bundled blocks
-        bundled_path = Path(__file__).parent.parent / "blocks" / block.category / block.name
+        bundled_path = (
+            Path(__file__).parent.parent / "blocks" / block.category / block.name
+        )
         if bundled_path.exists() and bundled_path.is_dir():
             dest_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copytree(bundled_path, dest_path, dirs_exist_ok=True)

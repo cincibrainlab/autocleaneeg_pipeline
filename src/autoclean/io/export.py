@@ -638,7 +638,7 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 try:
                     eeg_epochs = mne.io.read_epochs_eeglab(file_path, verbose=False)
                     eeg_epochs.load_data()
-                    eeg_epochs.pick('eeg', exclude=[])
+                    eeg_epochs.pick("eeg", exclude=[])
                 except Exception as exc:
                     eeg_epochs = None
                     load_error_epochs = exc
@@ -647,8 +647,10 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
 
                 if eeg_epochs is None:
                     try:
-                        raw = mne.io.read_raw_eeglab(file_path, preload=True, verbose=False)
-                        raw.pick('eeg', exclude=[])
+                        raw = mne.io.read_raw_eeglab(
+                            file_path, preload=True, verbose=False
+                        )
+                        raw.pick("eeg", exclude=[])
                     except Exception as raw_exc:
                         raise RuntimeError(
                             f"Could not load exported set as epochs ({load_error_epochs}) or raw ({raw_exc})"
@@ -679,7 +681,9 @@ def copy_final_files(autoclean_dict: Dict[str, Any]) -> None:
                 files_copied += 1
                 message("debug", f"Exported EEG-only set to {dest_path}")
             except Exception as e:
-                error_msg = f"Failed to export EEG-only set for {file_path.name}: {str(e)}"
+                error_msg = (
+                    f"Failed to export EEG-only set for {file_path.name}: {str(e)}"
+                )
                 copy_failures.append(error_msg)
                 message("error", error_msg)
             continue

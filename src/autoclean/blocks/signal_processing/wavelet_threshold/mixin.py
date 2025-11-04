@@ -118,7 +118,9 @@ class WaveletThresholdMixin:
         elif isinstance(filter_kwargs_cfg, Mapping):
             filter_kwargs = dict(filter_kwargs_cfg)
         else:
-            raise TypeError("wavelet_threshold filter_kwargs must be a mapping if provided")
+            raise TypeError(
+                "wavelet_threshold filter_kwargs must be a mapping if provided"
+            )
 
         baseline = inst.get_data()
         message("header", "Applying wavelet thresholding...")
@@ -186,7 +188,9 @@ class WaveletThresholdMixin:
                     if dir_value:
                         derivatives_dir = Path(dir_value)
                 if derivatives_dir is None:
-                    raise ValueError("No derivatives directory available for wavelet report")
+                    raise ValueError(
+                        "No derivatives directory available for wavelet report"
+                    )
                 derivatives_dir.mkdir(parents=True, exist_ok=True)
                 report_path = derivatives_dir / filename
 

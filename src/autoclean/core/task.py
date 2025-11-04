@@ -42,8 +42,8 @@ except ImportError as e:
 
     DISCOVERED_MIXINS = (_ImportErrorMixinFallback,)
 
-from autoclean.utils.auth import require_authentication
 from autoclean.configkit.schema import validate_task_module_config
+from autoclean.utils.auth import require_authentication
 
 
 class Task(ABC, *DISCOVERED_MIXINS):
@@ -317,14 +317,14 @@ class Task(ABC, *DISCOVERED_MIXINS):
             return None
 
         try:
+            from autoclean import __version__ as ac_version
             from autoclean.reporting.llm_reporting import (
+                EpochStats,
                 FilterParams,
                 ICAStats,
-                EpochStats,
                 RunContext,
                 create_reports,
             )
-            from autoclean import __version__ as ac_version
         except Exception:
             # Reporting module not available; skip silently
             return None
@@ -403,7 +403,11 @@ class Task(ABC, *DISCOVERED_MIXINS):
                 return [float(v)]
             except Exception:
                 # Fallback: comma/space separated
-                parts = [p for p in str(x).replace("[", "").replace("]", "").split(",") if p.strip()]
+                parts = [
+                    p
+                    for p in str(x).replace("[", "").replace("]", "").split(",")
+                    if p.strip()
+                ]
                 out = []
                 for p in parts:
                     try:

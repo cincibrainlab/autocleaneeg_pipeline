@@ -98,20 +98,26 @@ class BlockDependencyError(Exception):
         console.print()
 
         if is_uv_tool_install():
-            console.print("  [dim]Since you installed with 'uv tool install', run:[/dim]")
+            console.print(
+                "  [dim]Since you installed with 'uv tool install', run:[/dim]"
+            )
             console.print()
 
             # Option 1: Individual packages
             cmd = generate_install_command(self.missing_packages)
             console.print(f"    [accent]{cmd}[/accent]")
             console.print()
-            console.print("  [dim]This will take about 30 seconds and add the required software.[/dim]")
+            console.print(
+                "  [dim]This will take about 30 seconds and add the required software.[/dim]"
+            )
             console.print()
 
             # Option 2: All blocks
             console.print("  [dim]Or install all optional blocks at once:[/dim]")
             console.print()
-            console.print('    [accent]uv tool install "autocleaneeg-pipeline[blocks-all]"[/accent]')
+            console.print(
+                '    [accent]uv tool install "autocleaneeg-pipeline[blocks-all]"[/accent]'
+            )
         else:
             console.print("  [dim]Install with pip:[/dim]")
             console.print()
@@ -122,8 +128,12 @@ class BlockDependencyError(Exception):
 
         # Need help?
         console.print("[bold]Need help?[/bold]")
-        console.print("  📘 Docs: [link]https://docs.autocleaneeg.org/blocks/dependencies[/link]")
-        console.print("  💬 Get support: [link]https://github.com/cincibrainlab/autoclean_pipeline/discussions[/link]")
+        console.print(
+            "  📘 Docs: [link]https://docs.autocleaneeg.org/blocks/dependencies[/link]"
+        )
+        console.print(
+            "  💬 Get support: [link]https://github.com/cincibrainlab/autoclean_pipeline/discussions[/link]"
+        )
         console.print()
 
 
@@ -205,9 +215,7 @@ def format_dependency_missing_message(
     lines.append("")
 
     lines.append("What happened?")
-    lines.append(
-        f"  The '{block_name}' processing block needs additional software"
-    )
+    lines.append(f"  The '{block_name}' processing block needs additional software")
     lines.append("  that isn't currently installed.")
     lines.append("")
 
@@ -232,7 +240,9 @@ def format_dependency_missing_message(
 
     lines.append("Need help?")
     lines.append("  Docs: https://docs.autocleaneeg.org/blocks/dependencies")
-    lines.append("  Support: https://github.com/cincibrainlab/autoclean_pipeline/discussions")
+    lines.append(
+        "  Support: https://github.com/cincibrainlab/autoclean_pipeline/discussions"
+    )
     lines.append("")
     lines.append("=" * 60)
 

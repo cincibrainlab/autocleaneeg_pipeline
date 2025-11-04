@@ -28,12 +28,14 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
+from reportlab.platypus import Image as ReportImage
 from reportlab.platypus import (
-    Image as ReportImage,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
-    Table as ReportTable,
+)
+from reportlab.platypus import Table as ReportTable
+from reportlab.platypus import (
     TableStyle,
 )
 
@@ -106,8 +108,10 @@ def _resolve_pick_indices(
         if key in {"all", "everything"}:
             return np.arange(n_channels, dtype=int)
         if key == "eeg":
-            indices_dict = mne.channel_indices_by_type(inst.info, picks='eeg', exclude=[])
-            picked = np.array(indices_dict.get('eeg', []), dtype=int)
+            indices_dict = mne.channel_indices_by_type(
+                inst.info, picks="eeg", exclude=[]
+            )
+            picked = np.array(indices_dict.get("eeg", []), dtype=int)
             if picked.size == 0:
                 raise ValueError("No EEG channels available for picks='eeg'")
             return picked
@@ -160,7 +164,9 @@ def _denoise_signal(
     else:
         requested_level = int(level)
 
-    effective_level = _resolve_decomposition_level(signal_array.size, wavelet, requested_level)
+    effective_level = _resolve_decomposition_level(
+        signal_array.size, wavelet, requested_level
+    )
     if effective_level == 0:
         return signal_array.copy()
 
@@ -314,9 +320,7 @@ def _load_raw_object(
     elif path.suffix.lower() in {".edf", ".bdf"}:
         raw = mne.io.read_raw_edf(path, preload=preload, verbose=False)
     else:
-        raise ValueError(
-            f"Unsupported file type for wavelet report: '{path.suffix}'."
-        )
+        raise ValueError(f"Unsupported file type for wavelet report: '{path.suffix}'.")
 
     return raw, path
 
@@ -374,7 +378,7 @@ def _compute_psd_metrics(
     ch_names: Sequence[str],
     bands: Dict[str, Tuple[float, float]] = FREQUENCY_BANDS,
     psd_fmax: Optional[float] = None,
-    ) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
+) -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray]:
     """Compute Welch PSDs and band power reductions.
 
     The optional ``psd_fmax`` argument enforces a ceiling on the analysis range,
@@ -455,9 +459,9 @@ def _build_overview_figure(
 
     time_axis = np.arange(snippet_samples) / sfreq
 
-    top_channels = (
-        metrics.sort_values("ptp_reduction_pct", ascending=False)["channel"].tolist()
-    )
+    top_channels = metrics.sort_values("ptp_reduction_pct", ascending=False)[
+        "channel"
+    ].tolist()
     if not top_channels:
         top_channels = [ch_names[0]]
 
@@ -517,7 +521,9 @@ def _build_psd_figure(
     mean_before = psd_before.mean(axis=0)
     mean_after = psd_after.mean(axis=0)
     axes[0].plot(freqs, mean_before, label="Original", color="#1f77b4", linewidth=1.2)
-    axes[0].plot(freqs, mean_after, label="Wavelet-cleaned", color="#d62728", linewidth=1.2)
+    axes[0].plot(
+        freqs, mean_after, label="Wavelet-cleaned", color="#d62728", linewidth=1.2
+    )
     axes[0].set_xlabel("Frequency (Hz)")
     axes[0].set_ylabel("Power (V²/Hz)")
     axes[0].set_title("Mean PSD across channels")
@@ -525,7 +531,9 @@ def _build_psd_figure(
     axes[0].legend(frameon=False)
 
     band_summary = (
-        psd_metrics.groupby("band")["power_reduction_pct"].mean().reindex(FREQUENCY_BANDS.keys())
+        psd_metrics.groupby("band")["power_reduction_pct"]
+        .mean()
+        .reindex(FREQUENCY_BANDS.keys())
     )
     axes[1].bar(
         band_summary.index,
@@ -544,19 +552,23 @@ def _build_psd_figure(
     return buffer
 
 
-def _create_summary_table(summary: Dict[str, Union[str, float, int, Dict[str, float]]]) -> ReportTable:
+def _create_summary_table(
+    summary: Dict[str, Union[str, float, int, Dict[str, float]]],
+) -> ReportTable:
     """Create a styled summary table for the PDF report."""
 
-    table_data = [
-        ["Channels analyzed", f"{summary['channels']}"]
-    ]
+    table_data = [["Channels analyzed", f"{summary['channels']}"]]
     table_data.extend(
         [
             ["Sampling rate (Hz)", f"{summary['sfreq']:.2f}"],
             ["Duration (s)", f"{summary['duration_sec']:.2f}"],
             [
                 "PSD ceiling (Hz)",
-                f"{summary['psd_fmax']:.2f}" if summary.get("psd_fmax") else "Default (45 Hz)",
+                (
+                    f"{summary['psd_fmax']:.2f}"
+                    if summary.get("psd_fmax")
+                    else "Default (45 Hz)"
+                ),
             ],
             [
                 "Threshold scale",
@@ -605,7 +617,12 @@ def _create_summary_table(summary: Dict[str, Union[str, float, int, Dict[str, fl
                 ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
                 ("FONTSIZE", (0, 0), (-1, -1), 9),
                 ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F9FBFC")]),
+                (
+                    "ROWBACKGROUNDS",
+                    (0, 1),
+                    (-1, -1),
+                    [colors.white, colors.HexColor("#F9FBFC")],
+                ),
                 ("GRID", (0, 0), (-1, -1), 0.25, colors.HexColor("#BDC3C7")),
             ]
         )
@@ -617,7 +634,9 @@ def _create_psd_table(psd_metrics: pd.DataFrame) -> ReportTable:
     """Create a table summarizing band power reductions."""
 
     band_summary = (
-        psd_metrics.groupby(["band"])["power_reduction_pct"].mean().reindex(FREQUENCY_BANDS.keys())
+        psd_metrics.groupby(["band"])["power_reduction_pct"]
+        .mean()
+        .reindex(FREQUENCY_BANDS.keys())
     )
     table_data = [["Band", "Mean power change (%)"]]
     for band, value in band_summary.items():
@@ -649,7 +668,15 @@ def _create_top_channel_table(metrics: pd.DataFrame, top_n: int = 10) -> ReportT
     """Render a table of the top channels ranked by reduction."""
 
     top_channels = metrics.sort_values("ptp_reduction_pct", ascending=False).head(top_n)
-    table_data = [["Channel", "P2P before (µV)", "P2P after (µV)", "Reduction (%)", "STD reduction (%)"]]
+    table_data = [
+        [
+            "Channel",
+            "P2P before (µV)",
+            "P2P after (µV)",
+            "Reduction (%)",
+            "STD reduction (%)",
+        ]
+    ]
 
     for _, row in top_channels.iterrows():
         table_data.append(
@@ -662,7 +689,10 @@ def _create_top_channel_table(metrics: pd.DataFrame, top_n: int = 10) -> ReportT
             ]
         )
 
-    table = ReportTable(table_data, colWidths=[1.4 * inch, 1.2 * inch, 1.2 * inch, 1.2 * inch, 1.2 * inch])
+    table = ReportTable(
+        table_data,
+        colWidths=[1.4 * inch, 1.2 * inch, 1.2 * inch, 1.2 * inch, 1.2 * inch],
+    )
     table.setStyle(
         TableStyle(
             [
@@ -671,7 +701,12 @@ def _create_top_channel_table(metrics: pd.DataFrame, top_n: int = 10) -> ReportT
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("ALIGN", (0, 0), (-1, 0), "CENTER"),
                 ("FONTSIZE", (0, 0), (-1, 0), 9),
-                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#F2F6F9")]),
+                (
+                    "ROWBACKGROUNDS",
+                    (0, 1),
+                    (-1, -1),
+                    [colors.white, colors.HexColor("#F2F6F9")],
+                ),
                 ("TEXTCOLOR", (0, 1), (-1, -1), colors.HexColor("#2C3E50")),
                 ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
                 ("FONTSIZE", (0, 1), (-1, -1), 8),
@@ -794,7 +829,9 @@ def generate_wavelet_report(
     """
 
     raw, source_path = _load_raw_object(source)
-    source_name = source_path.name if source_path else getattr(raw, "filenames", ["Raw data"])[0]
+    source_name = (
+        source_path.name if source_path else getattr(raw, "filenames", ["Raw data"])[0]
+    )
     output_pdf_path = Path(output_pdf)
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -824,9 +861,7 @@ def generate_wavelet_report(
         psd_fmax=psd_fmax,
     )
 
-    effective_level = _resolve_decomposition_level(
-        baseline.shape[1], wavelet, level
-    )
+    effective_level = _resolve_decomposition_level(baseline.shape[1], wavelet, level)
     sfreq = float(raw_subset.info["sfreq"])
     duration = baseline.shape[1] / sfreq if sfreq else 0.0
 
@@ -854,7 +889,10 @@ def generate_wavelet_report(
             if not metrics.empty
             else "N/A"
         ),
-        "band_reductions": {band: float(band_reductions.get(band, 0.0)) for band in FREQUENCY_BANDS.keys()},
+        "band_reductions": {
+            band: float(band_reductions.get(band, 0.0))
+            for band in FREQUENCY_BANDS.keys()
+        },
     }
     if picks is not None:
         if isinstance(picks, str):

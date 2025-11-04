@@ -19,9 +19,7 @@ def _load_algorithm_module():
     mixin_path = Path(__file__).parent
     algorithm_path = mixin_path / "algorithm.py"
 
-    spec = importlib.util.spec_from_file_location(
-        "zapline_algorithm", algorithm_path
-    )
+    spec = importlib.util.spec_from_file_location("zapline_algorithm", algorithm_path)
     if spec and spec.loader:
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
@@ -256,11 +254,13 @@ class ZaplineMixin:
 
         # Also save metadata as JSON file in reports/zapline/
         try:
-            if hasattr(self, '_resolve_report_path') and hasattr(self, 'config'):
+            if hasattr(self, "_resolve_report_path") and hasattr(self, "config"):
                 basename = self.config.get("unprocessed_file", Path("zapline")).stem
-                json_path = self._resolve_report_path("zapline", f"{basename}_zapline_metadata.json")
+                json_path = self._resolve_report_path(
+                    "zapline", f"{basename}_zapline_metadata.json"
+                )
 
-                with open(json_path, 'w') as f:
+                with open(json_path, "w") as f:
                     json.dump(metadata, f, indent=2)
 
                 message("info", f"Zapline metadata saved to: {json_path}")

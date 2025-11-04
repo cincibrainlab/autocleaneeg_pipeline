@@ -334,13 +334,17 @@ class Pipeline:
             dataset_name = None
             if task.lower() in self.session_task_configs:
                 task_config = self.session_task_configs[task.lower()]
-                dataset_name = task_config.get('dataset_name')
+                dataset_name = task_config.get("dataset_name")
                 if dataset_name:
-                    message("info", f"Using dataset_name from loaded task config: {dataset_name}")
+                    message(
+                        "info",
+                        f"Using dataset_name from loaded task config: {dataset_name}",
+                    )
 
             # Fall back to discovery-based extraction if not found in session
             if not dataset_name:
                 from autoclean.utils.task_discovery import extract_config_from_task
+
                 dataset_name = extract_config_from_task(task, "dataset_name")
 
             # Prepare directory structure for processing outputs
@@ -1281,7 +1285,7 @@ class Pipeline:
 
         # Extract config dict from module if available
         task_config = {}
-        if hasattr(module, 'config') and isinstance(module.config, dict):
+        if hasattr(module, "config") and isinstance(module.config, dict):
             task_config = module.config
 
         return task_classes[0], task_config
