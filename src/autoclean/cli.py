@@ -218,6 +218,29 @@ def _log_cli_execution(args: argparse.Namespace) -> None:
 # ------------------------------------------------------------
 # Rich help integration
 # ------------------------------------------------------------
+def _get_current_montage() -> Optional[str]:
+    """
+    Retrieve the current montage from the active task file with guard logic.
+    Returns None if no task is active or montage cannot be determined.
+    """
+    try:
+        active_task = user_config.get_active_task()
+        if not active_task:
+            return None
+
+        active_task_path = user_config.get_custom_task_path(active_task)
+        if not active_task_path or not active_task_path.exists():
+            return None
+
+        source = active_task_path.read_text(encoding="utf-8")
+        block, _, _ = _locate_montage_block(source)
+        if block:
+            return _extract_montage_value(block)
+        return None
+    except Exception:
+        return None
+
+
 def _print_startup_context(console) -> None:
     """Print system info, workspace path, and free disk space (shared for header/help)."""
     try:
@@ -324,6 +347,28 @@ def _print_startup_context(console) -> None:
             else:
                 at.append("not set", style="warning")
             console.print(_Align.center(at))
+        except Exception:
+            pass
+
+        # Show current montage with guard (or not set/not configured)
+        try:
+            current_montage = _get_current_montage()
+            mt = _Text()
+            mt.append("📊 ", style="muted")
+            mt.append("Montage: ", style="muted")
+            if current_montage:
+                mt.append(str(current_montage), style="accent")
+            else:
+                # Check if there's an active task at all
+                try:
+                    active_task = user_config.get_active_task()
+                    if active_task:
+                        mt.append("not configured", style="warning")
+                    else:
+                        mt.append("not set", style="warning")
+                except Exception:
+                    mt.append("not set", style="warning")
+            console.print(_Align.center(mt))
         except Exception:
             pass
 
