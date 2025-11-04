@@ -10,13 +10,13 @@ help: ## Show this help message
 	@echo "============================================="
 	@echo ""
 	@echo "Setup:"
-	@echo "  install-dev      Install development tools (uv tool)"
-	@echo "  install-dev-uv   Install development tools directly with uv"
-	@echo "  install          Install package in development mode"
-	@echo "  install-uv-tool  Install AutoClean as a uv tool (standalone)"
-	@echo "  uninstall-uv-tool Uninstall AutoClean uv tool"
-	@echo "  upgrade-tools    Upgrade all development tools"
-	@echo "  list-tools       List installed development tools"
+	@echo "  install-dev         Install development tools (uv tool)"
+	@echo "  install-dev-uv      Install development tools directly with uv"
+	@echo "  install             Install package in development mode (pip)"
+	@echo "  install-uv-tool     Install AutoClean in editable mode (uv, matches CONTRIBUTING.md)"
+	@echo "  uninstall-uv-tool   Uninstall AutoClean uv tool"
+	@echo "  upgrade-tools       Upgrade all development tools"
+	@echo "  list-tools          List installed development tools"
 	@echo ""
 	@echo "Code Quality (uv tool):"
 	@echo "  check          Run all code quality checks"
@@ -52,14 +52,14 @@ upgrade-tools: ## Upgrade all development tools
 list-tools: ## List installed development tools
 	@python3 scripts/uv_tools.py list
 
-install: ## Install package in development mode
+install: ## Install package in development mode (using pip)
 	@echo "📦 Installing AutoClean in development mode..."
 	@pip install -e .
 
-install-uv-tool: ## Install AutoClean as a uv tool (standalone)
+install-uv-tool: ## Install AutoClean as a uv tool (editable, matches CONTRIBUTING.md)
 	@echo "🚀 Installing AutoClean as a uv tool..."
-	@uv tool install .
-	@echo "✅ AutoClean installed! Try: uv tool run autoclean --help"
+	@uv tool install -e --upgrade . --force
+	@echo "✅ AutoClean installed! Try: autocleaneeg-pipeline --help"
 
 uninstall-uv-tool: ## Uninstall AutoClean uv tool
 	@echo "🗑️ Uninstalling AutoClean uv tool..."
@@ -145,7 +145,7 @@ pre-commit: ## Run pre-commit hooks manually (using uv tool)
 	@python3 scripts/uv_tools.py run pre-commit run --all-files || echo "⚠️ Pre-commit not installed. Run 'make install-dev' first."
 
 # Development workflow
-dev-setup: install install-dev ## Complete development setup
+dev-setup: install-uv-tool install-dev ## Complete development setup (matches CONTRIBUTING.md)
 	@echo "🎯 Development environment setup completed!"
 	@echo "💡 Try running: make check"
 
