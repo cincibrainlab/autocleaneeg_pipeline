@@ -25,7 +25,7 @@ def create_eventid_epochs(
     picks: Optional[Union[str, List[str]]] = None,
     preload: bool = True,
     on_missing: str = "raise",
-    verbose: Optional[bool] = None,
+    verbose: Optional[Union[bool, str]] = None,
 ) -> mne.Epochs:
     """Create epochs based on specific event IDs from continuous EEG data.
 
@@ -267,6 +267,15 @@ def create_eventid_epochs(
                 return empty_epochs
 
         # Create epochs
+        # Set verbose=False by default to suppress MNE's verbose epoch-by-epoch messages
+        # ("Keeping...", "Getting epoch for...") unless explicitly requested
+        # Accept both bool and str (like "WARNING") for MNE compatibility
+        if verbose is None:
+            epoch_verbose = False
+        elif isinstance(verbose, str):
+            epoch_verbose = verbose  # Pass through string verbosity levels like "WARNING"
+        else:
+            epoch_verbose = verbose  # bool value
         epochs = mne.Epochs(
             data,
             filtered_events,
@@ -281,7 +290,7 @@ def create_eventid_epochs(
             detrend=detrend,
             picks=picks,
             preload=preload,
-            verbose=verbose,
+            verbose=epoch_verbose,
         )
 
         return epochs

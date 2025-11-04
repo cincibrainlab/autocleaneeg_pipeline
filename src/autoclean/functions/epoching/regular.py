@@ -126,6 +126,9 @@ def create_regular_epochs(
             raise RuntimeError("No events could be created - data may be too short")
 
         # Create epochs from the synthetic events
+        # Set verbose=False by default to suppress MNE's verbose epoch-by-epoch messages
+        # ("Getting epoch for...") unless explicitly requested
+        epoch_verbose = verbose if verbose is not None else False
         epochs = mne.Epochs(
             data,
             events,
@@ -137,7 +140,7 @@ def create_regular_epochs(
             flat=flat,
             reject_by_annotation=reject_by_annotation,
             preload=preload,
-            verbose=verbose,
+            verbose=epoch_verbose,
         )
 
         # Add metadata about annotations if requested
