@@ -1,4 +1,22 @@
 # Changelog
+## [Unreleased]
+
+### Added
+- **BioSemi BDF Support**: Complete plugin-based support for BioSemi BDF files
+  - Added `bdf_biosemi32_plugin.py` for 32-channel BioSemi systems
+  - Added `bdf_biosemi64_plugin.py` for 64-channel BioSemi systems
+  - Added `bdf_biosemi128_plugin.py` for 128-channel BioSemi systems
+  - Added `bdf_biosemi256_plugin.py` for 256-channel BioSemi systems
+  - Automatic status channel detection for trigger extraction
+  - CMS/DRL referencing preserved from acquisition (user can rereference in pipeline)
+  - Comprehensive unit tests for all BDF plugins
+  - Full integration with existing CLI, task system, and montage selection
+
+### Notes
+- BDF format was already registered in the system; these plugins enable full functionality
+- BioSemi montages (biosemi16/32/64/128/160/256) already existed in montages.yaml
+- Users can process BDF files using `autocleaneeg-pipeline run --file data.bdf` or `--format "*.bdf"` for directories
+
 ## [2.3.0] - 9/24/2025
 
 ### Changed
