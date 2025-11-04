@@ -55,6 +55,29 @@ class BDFBiosemi256Plugin(BaseEEGPlugin):
                 f"Loaded {len(raw.ch_names)} channels: {', '.join(raw.ch_names[:10])}...",
             )
 
+            # Step 1.5: Rename channels to match standard biosemi naming
+            # BioSemi BDF files often have prefixed channel names (e.g., A1_Fp1)
+            # that need to be stripped to match MNE's standard montage names
+            rename_mapping = {}
+            for ch_name in raw.ch_names:
+                # Skip Status channel
+                if ch_name == "Status":
+                    continue
+                # BioSemi channels may have prefix like A1_, B5_, etc.
+                if "_" in ch_name:
+                    prefix, standard_name = ch_name.split("_", 1)
+                    # Fix known case issues (e.g., Afz -> AFz)
+                    if standard_name == "Afz":
+                        standard_name = "AFz"
+                    rename_mapping[ch_name] = standard_name
+
+            if rename_mapping:
+                raw.rename_channels(rename_mapping)
+                message(
+                    "debug",
+                    f"Renamed {len(rename_mapping)} channels to standard names",
+                )
+
             # Step 2: Configure the biosemi256 montage
             message("info", "Configuring biosemi256 montage")
 
