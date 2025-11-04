@@ -2,7 +2,7 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev check format lint test clean all
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-cov test-integration test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve
 
 # Default target
 help: ## Show this help message
@@ -10,21 +10,20 @@ help: ## Show this help message
 	@echo "============================================="
 	@echo ""
 	@echo "Setup:"
-	@echo "  install-dev         Install development tools (uv tool)"
-	@echo "  install-dev-uv      Install development tools directly with uv"
-	@echo "  install             Install package in development mode (pip)"
-	@echo "  install-uv-tool     Install AutoClean in editable mode (uv, matches CONTRIBUTING.md)"
+	@echo "  install-dev         Install development tools (black, isort, ruff, mypy, pre-commit)"
+	@echo "  install-uv-tool     Install AutoClean as standalone CLI tool (RECOMMENDED)"
+	@echo "                      ✅ Global CLI, isolated, editable, matches CONTRIBUTING.md"
 	@echo "  uninstall-uv-tool   Uninstall AutoClean uv tool"
 	@echo "  upgrade-tools       Upgrade all development tools"
 	@echo "  list-tools          List installed development tools"
 	@echo ""
-	@echo "Code Quality (uv tool):"
-	@echo "  check          Run all code quality checks"
+	@echo "Code Quality:"
+	@echo "  check          Run all code quality checks (format + lint)"
+	@echo "  check-fix      Run checks and auto-fix issues"
 	@echo "  format         Auto-format code (black + isort)"
-	@echo "  lint           Run linting (ruff + mypy)"
-	@echo "  format-check   Check formatting without fixing"
-	@echo "  format-direct  Format with direct commands (fallback)"
-	@echo "  lint-direct    Lint with direct commands (fallback)"
+	@echo "  lint           Run linting (ruff)"
+	@echo "  format-direct  Format with direct commands (fallback if uv unavailable)"
+	@echo "  lint-direct    Lint with direct commands (fallback if uv unavailable)"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test           Run unit tests"
@@ -32,19 +31,16 @@ help: ## Show this help message
 	@echo "  test-perf      Run performance benchmarks"
 	@echo ""
 	@echo "CI Simulation:"
-	@echo "  ci-check       Run the same checks as CI"
+	@echo "  ci-check       Run the same checks as CI (format + lint + tests)"
 	@echo "  pre-commit     Run pre-commit hooks manually"
 	@echo ""
 	@echo "Utilities:"
-	@echo "  clean          Clean temporary files"
+	@echo "  clean          Clean temporary files and caches"
 	@echo "  all            Run format, lint, and test"
 
 # Installation
-install-dev: ## Install development tools using uv tool
+install-dev: ## Install development tools using uv tool (black, isort, ruff, mypy, pre-commit)
 	@python3 scripts/install_dev_tools.py
-
-install-dev-uv: ## Install development tools using uv tool directly
-	@python3 scripts/uv_tools.py install
 
 upgrade-tools: ## Upgrade all development tools
 	@python3 scripts/uv_tools.py upgrade
@@ -52,14 +48,35 @@ upgrade-tools: ## Upgrade all development tools
 list-tools: ## List installed development tools
 	@python3 scripts/uv_tools.py list
 
-install: ## Install package in development mode (using pip)
-	@echo "📦 Installing AutoClean in development mode..."
-	@pip install -e .
+# -----------------------------------------------------------------------------
+# Installation Methods - IMPORTANT DIFFERENCES
+# -----------------------------------------------------------------------------
+# 
+# uv tool install -e --upgrade . --force (install-uv-tool target):
+#   - Installs into uv's ISOLATED tool environment (separate from Python envs)
+#   - Package available as GLOBAL CLI command: autocleaneeg-pipeline
+#   - Works from any directory, no environment activation needed
+#   - Zero dependency conflicts (isolated environment)
+#   - Flags breakdown:
+#     -e, --editable: Development mode - code changes reflect immediately
+#     --upgrade: Upgrade if already installed (checks for newer version)
+#     --force: Force reinstall even if same version (ensures clean install)
+#   - Use for: CLI usage, development workflow, matches CONTRIBUTING.md
+#
+# RECOMMENDED: Use 'install-uv-tool' for development (matches CONTRIBUTING.md)
+# -----------------------------------------------------------------------------
 
-install-uv-tool: ## Install AutoClean as a uv tool (editable, matches CONTRIBUTING.md)
-	@echo "🚀 Installing AutoClean as a uv tool..."
+install-uv-tool: ## Install AutoClean as standalone CLI tool (RECOMMENDED - matches CONTRIBUTING.md)
+	@echo "🚀 Installing AutoClean as a uv tool (isolated environment)..."
+	@echo "   This installs in editable mode with automatic upgrades"
+	@echo "   Flags: -e (editable) --upgrade (update if exists) --force (clean reinstall)"
 	@uv tool install -e --upgrade . --force
-	@echo "✅ AutoClean installed! Try: autocleaneeg-pipeline --help"
+	@echo ""
+	@echo "✅ AutoClean installed! Available globally as: autocleaneeg-pipeline"
+	@echo "   Try: autocleaneeg-pipeline --help"
+	@echo ""
+	@echo "💡 Code changes will reflect immediately (editable mode)"
+	@echo "💡 No dependency conflicts (isolated uv environment)"
 
 uninstall-uv-tool: ## Uninstall AutoClean uv tool
 	@echo "🗑️ Uninstalling AutoClean uv tool..."
@@ -78,16 +95,11 @@ format-direct: ## Auto-format code with direct commands (fallback)
 	@isort src/autoclean/
 	@echo "✅ Code formatting completed"
 
-format-check: ## Check code formatting without making changes (using uv tool)
-	@echo "🔍 Checking code formatting with uv tool..."
-	@python3 scripts/uv_tools.py run black --check --diff src/autoclean/
-	@python3 scripts/uv_tools.py run isort --check-only --diff src/autoclean/
-
-lint: ## Run linting with ruff and type checking with mypy (using uv tool)
+lint: ## Run linting with ruff (using uv tool)
 	@echo "🔍 Running linting with uv tool..."
 	@python3 scripts/uv_tools.py run ruff check src/autoclean/
-	@echo "⚠️ Type checking (mypy) temporarily disabled"
-	# @python3 scripts/uv_tools.py run mypy src/autoclean/ --ignore-missing-imports
+	@echo "✅ Linting completed"
+	@echo "ℹ️  Note: mypy type checking temporarily disabled"
 
 lint-direct: ## Run linting with direct commands (fallback)
 	@echo "🔍 Running linting with direct commands..."
@@ -95,7 +107,7 @@ lint-direct: ## Run linting with direct commands (fallback)
 	# @mypy src/autoclean/ --ignore-missing-imports
 
 # Code Quality - Combined
-check: ## Run all code quality checks
+check: ## Run all code quality checks (format + lint, no fixes)
 	@python3 scripts/check_code_quality.py
 
 check-fix: ## Run code quality checks and auto-fix issues
@@ -147,10 +159,8 @@ pre-commit: ## Run pre-commit hooks manually (using uv tool)
 # Development workflow
 dev-setup: install-uv-tool install-dev ## Complete development setup (matches CONTRIBUTING.md)
 	@echo "🎯 Development environment setup completed!"
+	@echo "💡 Installed with uv tool (global CLI, isolated environment)"
 	@echo "💡 Try running: make check"
-
-quick-check: format lint ## Quick format and lint check
-	@echo "✅ Quick quality check completed"
 
 # Utilities
 clean: ## Clean temporary files and caches
@@ -169,13 +179,7 @@ all: format lint test ## Run format, lint, and test
 	@echo "🎉 All checks completed successfully!"
 
 # Advanced workflows
-fix-all: ## Auto-fix all possible issues
-	@echo "🔧 Auto-fixing all possible issues..."
-	@python3 scripts/check_code_quality.py --fix
-	@echo "✅ Auto-fix completed. Review changes before committing."
-
-validate: ci-check ## Validate code is ready for CI
-	@echo "✅ Code validation completed - ready for CI!"
+# Note: 'check-fix' and 'ci-check' cover most use cases
 
 # Documentation
 docs-setup: ## Install documentation dependencies
