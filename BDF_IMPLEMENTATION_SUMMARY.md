@@ -147,8 +147,8 @@ class BDFBiosemiXXPlugin(BaseEEGPlugin):
    - All with proper descriptions
 
 3. **CLI Support**
-   - Single file: `autocleaneeg-pipeline run --file data.bdf`
-   - Directory: `autocleaneeg-pipeline run --dir /data/ --format "*.bdf"`
+   - Single file: `autocleaneeg-pipeline process --file data.bdf`
+   - Directory: `autocleaneeg-pipeline process --dir /data/ --format "*.bdf"`
    - Montage selection: `autocleaneeg-pipeline montage set biosemi64`
    - Setup wizard: `autocleaneeg-pipeline wizard`
 
@@ -220,10 +220,10 @@ autocleaneeg-pipeline wizard
 ### Processing BDF Files
 ```bash
 # Single file
-autocleaneeg-pipeline run --file /data/subject001.bdf
+autocleaneeg-pipeline process --file /data/subject001.bdf
 
 # Directory of files
-autocleaneeg-pipeline run --dir /data/subjects/ --format "*.bdf"
+autocleaneeg-pipeline process --dir /data/subjects/ --format "*.bdf"
 
 # Results appear in workspace with BIDS structure
 ```

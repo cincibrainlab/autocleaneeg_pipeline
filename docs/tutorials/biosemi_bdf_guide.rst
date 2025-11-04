@@ -20,11 +20,11 @@ Quick Start
 
 Processing a single BDF file::
 
-    autocleaneeg-pipeline run --file /path/to/data.bdf
+    autocleaneeg-pipeline process --file /path/to/data.bdf
 
 Processing a directory of BDF files::
 
-    autocleaneeg-pipeline run --dir /path/to/data/ --format "*.bdf"
+    autocleaneeg-pipeline process --dir /path/to/data/ --format "*.bdf"
 
 Setting Your Montage
 ---------------------
@@ -207,12 +207,12 @@ Complete workflow for processing BioSemi 64-channel data::
     # Select workspace, task, biosemi64 montage
 
     # 2. Test with single file
-    autocleaneeg-pipeline run --file /data/subject001.bdf
+    autocleaneeg-pipeline process --file /data/subject001.bdf
 
     # 3. Review outputs in workspace/subject001/
 
     # 4. If satisfied, process entire dataset
-    autocleaneeg-pipeline run --dir /data/ --format "*.bdf"
+    autocleaneeg-pipeline process --dir /data/ --format "*.bdf"
 
     # 5. Results appear in workspace/ with BIDS structure
 
