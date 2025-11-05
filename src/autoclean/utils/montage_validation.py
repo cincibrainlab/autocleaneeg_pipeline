@@ -17,18 +17,18 @@ import matplotlib.pyplot as plt
 import mne
 import numpy as np
 import seaborn as sns
-from matplotlib.patches import Circle, FancyBboxPatch, Wedge
+from matplotlib.patches import Circle, Wedge
 
 # Configure matplotlib for non-interactive use
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 sns.set_palette("husl")
-plt.style.use('seaborn-v0_8-darkgrid')
+plt.style.use("seaborn-v0_8-darkgrid")
 
 
 def fig_to_base64(fig) -> str:
     """Convert matplotlib figure to base64 string for HTML embedding."""
     buf = BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight', facecolor='white')
+    fig.savefig(buf, format="png", dpi=150, bbox_inches="tight", facecolor="white")
     buf.seek(0)
     img_str = base64.b64encode(buf.read()).decode()
     plt.close(fig)
@@ -51,65 +51,75 @@ def extract_file_metadata(raw: mne.io.Raw, original_filename: str) -> Dict:
     metadata = {}
 
     # File information
-    metadata['filename'] = Path(original_filename).name
-    metadata['file_format'] = Path(original_filename).suffix.upper().replace('.', '')
+    metadata["filename"] = Path(original_filename).name
+    metadata["file_format"] = Path(original_filename).suffix.upper().replace(".", "")
 
     # Recording information
-    metadata['n_channels'] = info['nchan']
-    metadata['sampling_rate'] = f"{info['sfreq']:.2f} Hz"
-    metadata['n_samples'] = raw.n_times
-    metadata['duration'] = f"{raw.times[-1]:.2f} seconds ({raw.times[-1]/60:.2f} minutes)"
+    metadata["n_channels"] = info["nchan"]
+    metadata["sampling_rate"] = f"{info['sfreq']:.2f} Hz"
+    metadata["n_samples"] = raw.n_times
+    metadata["duration"] = (
+        f"{raw.times[-1]:.2f} seconds ({raw.times[-1]/60:.2f} minutes)"
+    )
 
     # Date/time
-    if info['meas_date'] is not None:
-        metadata['recording_date'] = info['meas_date'].strftime("%Y-%m-%d %H:%M:%S")
+    if info["meas_date"] is not None:
+        metadata["recording_date"] = info["meas_date"].strftime("%Y-%m-%d %H:%M:%S")
     else:
-        metadata['recording_date'] = "Not available"
+        metadata["recording_date"] = "Not available"
 
     # Device information
-    if info.get('device_info'):
-        dev_info = info['device_info']
-        metadata['device_type'] = dev_info.get('type', 'Unknown')
-        metadata['device_model'] = dev_info.get('model', 'Unknown')
-        metadata['device_serial'] = dev_info.get('serial', 'Unknown')
+    if info.get("device_info"):
+        dev_info = info["device_info"]
+        metadata["device_type"] = dev_info.get("type", "Unknown")
+        metadata["device_model"] = dev_info.get("model", "Unknown")
+        metadata["device_serial"] = dev_info.get("serial", "Unknown")
     else:
-        metadata['device_type'] = "Not available"
-        metadata['device_model'] = "Not available"
-        metadata['device_serial'] = "Not available"
+        metadata["device_type"] = "Not available"
+        metadata["device_model"] = "Not available"
+        metadata["device_serial"] = "Not available"
 
     # Subject information
-    if info.get('subject_info'):
-        subj_info = info['subject_info']
-        metadata['subject_id'] = subj_info.get('his_id', 'Not available')
-        metadata['subject_first_name'] = subj_info.get('first_name', 'Not available')
-        metadata['subject_last_name'] = subj_info.get('last_name', 'Not available')
+    if info.get("subject_info"):
+        subj_info = info["subject_info"]
+        metadata["subject_id"] = subj_info.get("his_id", "Not available")
+        metadata["subject_first_name"] = subj_info.get("first_name", "Not available")
+        metadata["subject_last_name"] = subj_info.get("last_name", "Not available")
     else:
-        metadata['subject_id'] = "Not available"
-        metadata['subject_first_name'] = "Not available"
-        metadata['subject_last_name'] = "Not available"
+        metadata["subject_id"] = "Not available"
+        metadata["subject_first_name"] = "Not available"
+        metadata["subject_last_name"] = "Not available"
 
     # Filter settings
-    metadata['highpass_filter'] = f"{info['highpass']:.2f} Hz" if info.get('highpass') else "None"
-    metadata['lowpass_filter'] = f"{info['lowpass']:.2f} Hz" if info.get('lowpass') else "None"
+    metadata["highpass_filter"] = (
+        f"{info['highpass']:.2f} Hz" if info.get("highpass") else "None"
+    )
+    metadata["lowpass_filter"] = (
+        f"{info['lowpass']:.2f} Hz" if info.get("lowpass") else "None"
+    )
 
     # Description
-    metadata['description'] = info.get('description', 'Not available')
+    metadata["description"] = info.get("description", "Not available")
 
     # Channel type breakdown
     ch_types = {}
-    for ch in info['chs']:
-        ch_kind = mne.io.constants.FIFF.get(ch['kind'], 'unknown')
+    for ch in info["chs"]:
+        ch_kind = mne.io.constants.FIFF.get(ch["kind"], "unknown")
         ch_types[ch_kind] = ch_types.get(ch_kind, 0) + 1
-    metadata['channel_types'] = ch_types
+    metadata["channel_types"] = ch_types
 
     # Reference info
-    if hasattr(info, 'get_montage') and info.get_montage():
-        metadata['reference'] = "Custom montage applied"
+    if hasattr(info, "get_montage") and info.get_montage():
+        metadata["reference"] = "Custom montage applied"
     else:
-        metadata['reference'] = "Not specified"
+        metadata["reference"] = "Not specified"
 
     # Line frequency
-    metadata['line_freq'] = f"{info.get('line_freq', 'Not specified')} Hz" if info.get('line_freq') else "Not specified"
+    metadata["line_freq"] = (
+        f"{info.get('line_freq', 'Not specified')} Hz"
+        if info.get("line_freq")
+        else "Not specified"
+    )
 
     return metadata
 
@@ -126,7 +136,7 @@ def detect_coordinate_scale(positions: np.ndarray) -> Tuple[str, float]:
         - visualization_scale_factor: multiplier to make coordinates visible (1.0 for human, >1 for mouse)
     """
     if len(positions) == 0:
-        return 'unknown', 1.0
+        return "unknown", 1.0
 
     # Calculate the maximum extent in any dimension
     max_extent = np.max(np.ptp(positions, axis=0))
@@ -141,13 +151,15 @@ def detect_coordinate_scale(positions: np.ndarray) -> Tuple[str, float]:
         # Scale to ~10cm spread for human-scale MNE plotting
         target_spread = 0.10  # 10cm
         scale_factor = target_spread / max_extent if max_extent > 0 else 100.0
-        return 'mouse', scale_factor
+        return "mouse", scale_factor
     else:
         # Human scale - use as-is
-        return 'human', 1.0
+        return "human", 1.0
 
 
-def extract_channel_info(raw: mne.io.Raw, rename_map: Dict = None, montage_channels: Set = None) -> List[Dict]:
+def extract_channel_info(
+    raw: mne.io.Raw, rename_map: Dict = None, montage_channels: Set = None
+) -> List[Dict]:
     """Extract detailed channel-by-channel information.
 
     Works across all file formats supported by MNE.
@@ -165,22 +177,22 @@ def extract_channel_info(raw: mne.io.Raw, rename_map: Dict = None, montage_chann
     montage_channels = montage_channels or set()
 
     for idx, ch_name in enumerate(raw.ch_names):
-        ch = raw.info['chs'][idx]
+        ch = raw.info["chs"][idx]
 
         # Get channel type as human-readable string
-        ch_kind = ch['kind']
+        ch_kind = ch["kind"]
         ch_type_name = {
-            mne.io.constants.FIFF.FIFFV_EEG_CH: 'EEG',
-            mne.io.constants.FIFF.FIFFV_MEG_CH: 'MEG',
-            mne.io.constants.FIFF.FIFFV_STIM_CH: 'STIM',
-            mne.io.constants.FIFF.FIFFV_EOG_CH: 'EOG',
-            mne.io.constants.FIFF.FIFFV_ECG_CH: 'ECG',
-            mne.io.constants.FIFF.FIFFV_EMG_CH: 'EMG',
-            mne.io.constants.FIFF.FIFFV_MISC_CH: 'MISC'
-        }.get(ch_kind, f'Unknown ({ch_kind})')
+            mne.io.constants.FIFF.FIFFV_EEG_CH: "EEG",
+            mne.io.constants.FIFF.FIFFV_MEG_CH: "MEG",
+            mne.io.constants.FIFF.FIFFV_STIM_CH: "STIM",
+            mne.io.constants.FIFF.FIFFV_EOG_CH: "EOG",
+            mne.io.constants.FIFF.FIFFV_ECG_CH: "ECG",
+            mne.io.constants.FIFF.FIFFV_EMG_CH: "EMG",
+            mne.io.constants.FIFF.FIFFV_MISC_CH: "MISC",
+        }.get(ch_kind, f"Unknown ({ch_kind})")
 
         # Get position
-        loc = ch['loc'][:3]
+        loc = ch["loc"][:3]
         has_position = not np.any(np.isnan(loc))
 
         # Determine if this channel will be renamed
@@ -189,25 +201,31 @@ def extract_channel_info(raw: mne.io.Raw, rename_map: Dict = None, montage_chann
         standard_name = rename_map.get(ch_name, ch_name)
 
         # Check if standard name matches montage
-        matched_montage = standard_name in montage_channels if montage_channels else None
+        matched_montage = (
+            standard_name in montage_channels if montage_channels else None
+        )
 
-        channel_info.append({
-            'raw_name': raw_name,
-            'standard_name': standard_name if will_be_renamed else None,
-            'will_rename': will_be_renamed,
-            'matched_montage': matched_montage,
-            'index': idx,
-            'type': ch_type_name,
-            'has_position': has_position,
-            'x': f"{loc[0]:.4f}" if has_position else "N/A",
-            'y': f"{loc[1]:.4f}" if has_position else "N/A",
-            'z': f"{loc[2]:.4f}" if has_position else "N/A",
-        })
+        channel_info.append(
+            {
+                "raw_name": raw_name,
+                "standard_name": standard_name if will_be_renamed else None,
+                "will_rename": will_be_renamed,
+                "matched_montage": matched_montage,
+                "index": idx,
+                "type": ch_type_name,
+                "has_position": has_position,
+                "x": f"{loc[0]:.4f}" if has_position else "N/A",
+                "y": f"{loc[1]:.4f}" if has_position else "N/A",
+                "z": f"{loc[2]:.4f}" if has_position else "N/A",
+            }
+        )
 
     return channel_info
 
 
-def analyze_channels(raw: mne.io.Raw, montage: mne.channels.DigMontage, montage_name: str = None) -> Dict:
+def analyze_channels(
+    raw: mne.io.Raw, montage: mne.channels.DigMontage, montage_name: str = None
+) -> Dict:
     """Comprehensive channel analysis.
 
     Args:
@@ -218,8 +236,8 @@ def analyze_channels(raw: mne.io.Raw, montage: mne.channels.DigMontage, montage_
     Returns:
         Dictionary containing analysis results
     """
-    file_chs = set(ch for ch in raw.ch_names if ch != 'Status')
-    montage_chs = set(montage.get_positions()['ch_pos'].keys())
+    file_chs = set(ch for ch in raw.ch_names if ch != "Status")
+    montage_chs = set(montage.get_positions()["ch_pos"].keys())
 
     matched = file_chs & montage_chs
     in_file_not_montage = file_chs - montage_chs
@@ -228,27 +246,29 @@ def analyze_channels(raw: mne.io.Raw, montage: mne.channels.DigMontage, montage_
     # Channel-by-channel analysis
     channel_data = {}
     for ch_name in raw.ch_names:
-        if ch_name == 'Status':
+        if ch_name == "Status":
             continue
 
         ch_idx = raw.ch_names.index(ch_name)
-        ch_type = raw.info['chs'][ch_idx]['kind']
+        ch_type = raw.info["chs"][ch_idx]["kind"]
 
         if ch_type == mne.io.constants.FIFF.FIFFV_EEG_CH:
-            loc = raw.info['chs'][ch_idx]['loc'][:3]
+            loc = raw.info["chs"][ch_idx]["loc"][:3]
             has_pos = not np.any(np.isnan(loc))
 
             channel_data[ch_name] = {
-                'in_file': True,
-                'in_montage': ch_name in montage_chs,
-                'has_position': has_pos,
-                'position': loc if has_pos else None,
-                'matched': ch_name in matched,
-                'distance_from_origin': np.linalg.norm(loc) if has_pos else None
+                "in_file": True,
+                "in_montage": ch_name in montage_chs,
+                "has_position": has_pos,
+                "position": loc if has_pos else None,
+                "matched": ch_name in matched,
+                "distance_from_origin": np.linalg.norm(loc) if has_pos else None,
             }
 
     # Position quality checks
-    positions = np.array([d['position'] for d in channel_data.values() if d['has_position']])
+    positions = np.array(
+        [d["position"] for d in channel_data.values() if d["has_position"]]
+    )
 
     if len(positions) > 0:
         distances = np.linalg.norm(positions, axis=1)
@@ -256,15 +276,18 @@ def analyze_channels(raw: mne.io.Raw, montage: mne.channels.DigMontage, montage_
         std_dist = np.std(distances)
 
         # Find outliers (>3 std from mean)
-        outliers = [ch for ch, d in channel_data.items()
-                   if d['distance_from_origin'] and
-                   abs(d['distance_from_origin'] - mean_dist) > 3 * std_dist]
+        outliers = [
+            ch
+            for ch, d in channel_data.items()
+            if d["distance_from_origin"]
+            and abs(d["distance_from_origin"] - mean_dist) > 3 * std_dist
+        ]
 
         # Find duplicates
         position_map = {}
         for ch, d in channel_data.items():
-            if d['has_position']:
-                pos_key = tuple(np.round(d['position'], 6))
+            if d["has_position"]:
+                pos_key = tuple(np.round(d["position"], 6))
                 position_map.setdefault(pos_key, []).append(ch)
         duplicates = {k: v for k, v in position_map.items() if len(v) > 1}
     else:
@@ -275,35 +298,39 @@ def analyze_channels(raw: mne.io.Raw, montage: mne.channels.DigMontage, montage_
 
     # Detect coordinate scale
     # Check montage name first for known mouse probes
-    if montage_name and ('mouse' in montage_name.lower() or 'mea' in montage_name.lower()):
+    if montage_name and (
+        "mouse" in montage_name.lower() or "mea" in montage_name.lower()
+    ):
         # Known mouse-scale montage - force mouse detection
-        scale_type = 'mouse'
+        scale_type = "mouse"
         scale_factor = 1.0  # No scaling needed since we'll work in micrometers
     else:
         # Detect from coordinates
         scale_type, scale_factor = detect_coordinate_scale(positions)
 
     return {
-        'file_channels': file_chs,
-        'montage_channels': montage_chs,
-        'matched': matched,
-        'unmatched_file': in_file_not_montage,
-        'unmatched_montage': in_montage_not_file,
-        'channel_data': channel_data,
-        'match_pct': len(matched) / len(file_chs) * 100 if file_chs else 0,
-        'n_positioned': len(positions),
-        'mean_distance': mean_dist,
-        'std_distance': std_dist,
-        'outliers': outliers,
-        'duplicates': duplicates,
-        'positions': positions,
-        'scale_type': scale_type,
-        'scale_factor': scale_factor,
-        'montage_name': montage_name
+        "file_channels": file_chs,
+        "montage_channels": montage_chs,
+        "matched": matched,
+        "unmatched_file": in_file_not_montage,
+        "unmatched_montage": in_montage_not_file,
+        "channel_data": channel_data,
+        "match_pct": len(matched) / len(file_chs) * 100 if file_chs else 0,
+        "n_positioned": len(positions),
+        "mean_distance": mean_dist,
+        "std_distance": std_dist,
+        "outliers": outliers,
+        "duplicates": duplicates,
+        "positions": positions,
+        "scale_type": scale_type,
+        "scale_factor": scale_factor,
+        "montage_name": montage_name,
     }
 
 
-def suggest_montages(file_channels: Set[str], top_n: int = 10) -> List[Tuple[str, int, float]]:
+def suggest_montages(
+    file_channels: Set[str], top_n: int = 10
+) -> List[Tuple[str, int, float]]:
     """Test and rank alternative montages.
 
     Args:
@@ -314,23 +341,35 @@ def suggest_montages(file_channels: Set[str], top_n: int = 10) -> List[Tuple[str
         List of tuples (montage_name, matched_count, match_percentage)
     """
     test_montages = [
-        'biosemi16', 'biosemi32', 'biosemi64', 'biosemi128', 'biosemi256',
-        'standard_1005', 'standard_1020', 'standard_postfixed',
-        'GSN-HydroCel-32', 'GSN-HydroCel-64', 'GSN-HydroCel-65',
-        'GSN-HydroCel-124', 'GSN-HydroCel-128', 'GSN-HydroCel-129',
-        'GSN-HydroCel-256', 'GSN-HydroCel-257',
-        'easycap-M1', 'easycap-M10',
+        "biosemi16",
+        "biosemi32",
+        "biosemi64",
+        "biosemi128",
+        "biosemi256",
+        "standard_1005",
+        "standard_1020",
+        "standard_postfixed",
+        "GSN-HydroCel-32",
+        "GSN-HydroCel-64",
+        "GSN-HydroCel-65",
+        "GSN-HydroCel-124",
+        "GSN-HydroCel-128",
+        "GSN-HydroCel-129",
+        "GSN-HydroCel-256",
+        "GSN-HydroCel-257",
+        "easycap-M1",
+        "easycap-M10",
     ]
 
     results = []
     for name in test_montages:
         try:
             m = mne.channels.make_standard_montage(name)
-            m_chs = set(m.get_positions()['ch_pos'].keys())
+            m_chs = set(m.get_positions()["ch_pos"].keys())
             matched = file_channels & m_chs
             pct = len(matched) / len(file_channels) * 100 if file_channels else 0
             results.append((name, len(matched), pct))
-        except:
+        except Exception:
             continue
 
     results.sort(key=lambda x: x[2], reverse=True)
@@ -347,40 +386,47 @@ def create_3d_plot(analysis: Dict, title: str) -> str:
     Returns:
         Base64-encoded PNG image
     """
-    scale_type = analysis.get('scale_type', 'human')
-    scale_factor = analysis.get('scale_factor', 1.0)
+    scale_type = analysis.get("scale_type", "human")
+    analysis.get("scale_factor", 1.0)
 
     # For mouse scale, use flat 2D grid instead of 3D views
-    if scale_type == 'mouse':
+    if scale_type == "mouse":
         return _create_mouse_flat_plot(analysis)
 
     # Human scale: use standard 3D views
     fig = plt.figure(figsize=(20, 5))
     views = [
-        (30, 45, 'Perspective'),
-        (90, 0, 'Top View'),
-        (0, 0, 'Back View'),
-        (0, 90, 'Side View')
+        (30, 45, "Perspective"),
+        (90, 0, "Top View"),
+        (0, 0, "Back View"),
+        (0, 90, "Side View"),
     ]
 
     for idx, (elev, azim, view_title) in enumerate(views, 1):
-        ax = fig.add_subplot(1, 4, idx, projection='3d')
-        ax.set_title(view_title, fontsize=12, fontweight='bold')
-        ax.set_xlabel('X', fontsize=10)
-        ax.set_ylabel('Y', fontsize=10)
-        ax.set_zlabel('Z', fontsize=10)
+        ax = fig.add_subplot(1, 4, idx, projection="3d")
+        ax.set_title(view_title, fontsize=12, fontweight="bold")
+        ax.set_xlabel("X", fontsize=10)
+        ax.set_ylabel("Y", fontsize=10)
+        ax.set_zlabel("Z", fontsize=10)
 
         # Plot channels with labels
-        for ch, data in analysis['channel_data'].items():
-            if data['has_position']:
-                pos = data['position']
-                color = '#27ae60' if data['matched'] else '#e67e22'
-                marker = 'o' if data['matched'] else 's'
-                size = 60 if data['matched'] else 50
+        for ch, data in analysis["channel_data"].items():
+            if data["has_position"]:
+                pos = data["position"]
+                color = "#27ae60" if data["matched"] else "#e67e22"
+                marker = "o" if data["matched"] else "s"
+                size = 60 if data["matched"] else 50
 
                 # Plot electrode marker
-                ax.scatter(*pos, c=color, marker=marker, s=size, alpha=0.8,
-                         edgecolors='black', linewidths=0.5)
+                ax.scatter(
+                    *pos,
+                    c=color,
+                    marker=marker,
+                    s=size,
+                    alpha=0.8,
+                    edgecolors="black",
+                    linewidths=0.5,
+                )
 
                 # Calculate radial offset for label (away from origin)
                 norm = np.linalg.norm(pos)
@@ -392,11 +438,23 @@ def create_3d_plot(analysis: Dict, title: str) -> str:
                     label_pos = pos + np.array([0.01, 0.01, 0.01])
 
                 # Add channel name label with background
-                ax.text(label_pos[0], label_pos[1], label_pos[2], ch,
-                       fontsize=7, ha='center', va='center', fontweight='bold',
-                       bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
-                                edgecolor='none', alpha=0.8),
-                       zorder=10)
+                ax.text(
+                    label_pos[0],
+                    label_pos[1],
+                    label_pos[2],
+                    ch,
+                    fontsize=7,
+                    ha="center",
+                    va="center",
+                    fontweight="bold",
+                    bbox=dict(
+                        boxstyle="round,pad=0.25",
+                        facecolor="white",
+                        edgecolor="none",
+                        alpha=0.8,
+                    ),
+                    zorder=10,
+                )
 
         # Head sphere for human scale
         u = np.linspace(0, 2 * np.pi, 30)
@@ -404,13 +462,13 @@ def create_3d_plot(analysis: Dict, title: str) -> str:
         x = 0.095 * np.outer(np.cos(u), np.sin(v))
         y = 0.095 * np.outer(np.sin(u), np.sin(v))
         z = 0.095 * np.outer(np.ones(np.size(u)), np.cos(v))
-        ax.plot_surface(x, y, z, alpha=0.15, color='gray')
+        ax.plot_surface(x, y, z, alpha=0.15, color="gray")
 
         ax.view_init(elev=elev, azim=azim)
         ax.set_xlim([-0.12, 0.12])
         ax.set_ylim([-0.12, 0.12])
         ax.set_zlim([-0.12, 0.12])
-        ax.set_box_aspect([1,1,1])
+        ax.set_box_aspect([1, 1, 1])
 
     plt.tight_layout()
     return fig_to_base64(fig)
@@ -425,45 +483,71 @@ def _create_mouse_flat_plot(analysis: Dict) -> str:
     Returns:
         Base64-encoded PNG image
     """
-    positions = analysis['positions']
+    positions = analysis["positions"]
 
     if len(positions) == 0:
         # Return empty plot if no positions
         fig, ax = plt.subplots(figsize=(15, 8))
-        ax.text(0.5, 0.5, 'No positioned channels', ha='center', va='center', fontsize=16)
-        ax.axis('off')
+        ax.text(
+            0.5, 0.5, "No positioned channels", ha="center", va="center", fontsize=16
+        )
+        ax.axis("off")
         return fig_to_base64(fig)
 
     # Use MNE-normalized coordinates directly (MNE scales custom montages)
-    montage_name = analysis.get('montage_name', 'Mouse Probe')
+    montage_name = analysis.get("montage_name", "Mouse Probe")
 
     # Create figure with 3 subplots: 3D view, Top view, Side view
     fig = plt.figure(figsize=(24, 8))
 
-    fig.suptitle(f'{montage_name} - Electrode Layout (3D + Orthogonal Views)',
-                fontsize=14, fontweight='bold', color='#2c3e50')
+    fig.suptitle(
+        f"{montage_name} - Electrode Layout (3D + Orthogonal Views)",
+        fontsize=14,
+        fontweight="bold",
+        color="#2c3e50",
+    )
 
     # Subplot 1: 3D perspective view (3/4 view)
-    ax_3d = fig.add_subplot(1, 3, 1, projection='3d')
-    ax_3d.set_title('3D Perspective View', fontsize=12, fontweight='bold')
-    ax_3d.set_xlabel('X Position', fontsize=10)
-    ax_3d.set_ylabel('Y Position', fontsize=10)
-    ax_3d.set_zlabel('Z Position', fontsize=10)
+    ax_3d = fig.add_subplot(1, 3, 1, projection="3d")
+    ax_3d.set_title("3D Perspective View", fontsize=12, fontweight="bold")
+    ax_3d.set_xlabel("X Position", fontsize=10)
+    ax_3d.set_ylabel("Y Position", fontsize=10)
+    ax_3d.set_zlabel("Z Position", fontsize=10)
 
     # Plot electrodes in 3D
-    for ch, data in analysis['channel_data'].items():
-        if data['has_position']:
-            pos = data['position']
-            color = '#27ae60' if data['matched'] else '#e67e22'
-            marker = 'o' if data['matched'] else 's'
+    for ch, data in analysis["channel_data"].items():
+        if data["has_position"]:
+            pos = data["position"]
+            color = "#27ae60" if data["matched"] else "#e67e22"
+            marker = "o" if data["matched"] else "s"
             size = 100
 
-            ax_3d.scatter(pos[0], pos[1], pos[2], c=color, marker=marker, s=size,
-                         alpha=0.8, edgecolors='black', linewidths=2, zorder=3)
+            ax_3d.scatter(
+                pos[0],
+                pos[1],
+                pos[2],
+                c=color,
+                marker=marker,
+                s=size,
+                alpha=0.8,
+                edgecolors="black",
+                linewidths=2,
+                zorder=3,
+            )
 
             # Add channel label
-            ax_3d.text(pos[0], pos[1], pos[2], ch, fontsize=7, ha='center', va='center',
-                      fontweight='bold', color='white', zorder=4)
+            ax_3d.text(
+                pos[0],
+                pos[1],
+                pos[2],
+                ch,
+                fontsize=7,
+                ha="center",
+                va="center",
+                fontweight="bold",
+                color="white",
+                zorder=4,
+            )
 
     # Set 3/4 view angle (azimuth=45, elevation=30)
     ax_3d.view_init(elev=30, azim=45)
@@ -478,42 +562,60 @@ def _create_mouse_flat_plot(analysis: Dict) -> str:
     y_center = (positions[:, 1].max() + positions[:, 1].min()) / 2
     z_center = (positions[:, 2].max() + positions[:, 2].min()) / 2
 
-    ax_3d.set_xlim(x_center - max_range/2, x_center + max_range/2)
-    ax_3d.set_ylim(y_center - max_range/2, y_center + max_range/2)
-    ax_3d.set_zlim(z_center - max_range/2, z_center + max_range/2)
-    ax_3d.set_box_aspect([1,1,1])
+    ax_3d.set_xlim(x_center - max_range / 2, x_center + max_range / 2)
+    ax_3d.set_ylim(y_center - max_range / 2, y_center + max_range / 2)
+    ax_3d.set_zlim(z_center - max_range / 2, z_center + max_range / 2)
+    ax_3d.set_box_aspect([1, 1, 1])
 
     # Add grid
     ax_3d.grid(True, alpha=0.3)
 
     # Subplot 2: Top view (X-Y)
     ax1 = fig.add_subplot(1, 3, 2)
-    ax1.set_title('Top View (X-Y Plane)', fontsize=12, fontweight='bold')
-    ax1.set_xlabel('X Position', fontsize=10)
-    ax1.set_ylabel('Y Position', fontsize=10)
+    ax1.set_title("Top View (X-Y Plane)", fontsize=12, fontweight="bold")
+    ax1.set_xlabel("X Position", fontsize=10)
+    ax1.set_ylabel("Y Position", fontsize=10)
 
     # Plot electrodes
-    for ch, data in analysis['channel_data'].items():
-        if data['has_position']:
-            pos = data['position']
-            color = '#27ae60' if data['matched'] else '#e67e22'
-            marker = 'o' if data['matched'] else 's'
+    for ch, data in analysis["channel_data"].items():
+        if data["has_position"]:
+            pos = data["position"]
+            color = "#27ae60" if data["matched"] else "#e67e22"
+            marker = "o" if data["matched"] else "s"
             size = 150
 
-            ax1.scatter(pos[0], pos[1], c=color, marker=marker, s=size,
-                       alpha=0.7, edgecolors='black', linewidths=2, zorder=3)
+            ax1.scatter(
+                pos[0],
+                pos[1],
+                c=color,
+                marker=marker,
+                s=size,
+                alpha=0.7,
+                edgecolors="black",
+                linewidths=2,
+                zorder=3,
+            )
 
             # Add channel label
-            ax1.text(pos[0], pos[1], ch, fontsize=7, ha='center', va='center',
-                    fontweight='bold', color='white', zorder=4)
+            ax1.text(
+                pos[0],
+                pos[1],
+                ch,
+                fontsize=7,
+                ha="center",
+                va="center",
+                fontweight="bold",
+                color="white",
+                zorder=4,
+            )
 
     # Add grid
-    ax1.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
-    ax1.set_aspect('equal')
+    ax1.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+    ax1.set_aspect("equal")
 
     # Add axis at origin
-    ax1.axhline(y=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
-    ax1.axvline(x=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
+    ax1.axhline(y=0, color="k", linestyle="-", linewidth=0.5, alpha=0.3)
+    ax1.axvline(x=0, color="k", linestyle="-", linewidth=0.5, alpha=0.3)
 
     # Set limits with padding
     x_range = np.ptp(positions[:, 0])
@@ -525,32 +627,50 @@ def _create_mouse_flat_plot(analysis: Dict) -> str:
 
     # Subplot 3: Side view (X-Z)
     ax2 = fig.add_subplot(1, 3, 3)
-    ax2.set_title('Side View (X-Z Plane)', fontsize=12, fontweight='bold')
-    ax2.set_xlabel('X Position', fontsize=10)
-    ax2.set_ylabel('Z Position', fontsize=10)
+    ax2.set_title("Side View (X-Z Plane)", fontsize=12, fontweight="bold")
+    ax2.set_xlabel("X Position", fontsize=10)
+    ax2.set_ylabel("Z Position", fontsize=10)
 
     # Plot electrodes
-    for ch, data in analysis['channel_data'].items():
-        if data['has_position']:
-            pos = data['position']
-            color = '#27ae60' if data['matched'] else '#e67e22'
-            marker = 'o' if data['matched'] else 's'
+    for ch, data in analysis["channel_data"].items():
+        if data["has_position"]:
+            pos = data["position"]
+            color = "#27ae60" if data["matched"] else "#e67e22"
+            marker = "o" if data["matched"] else "s"
             size = 150
 
-            ax2.scatter(pos[0], pos[2], c=color, marker=marker, s=size,
-                       alpha=0.7, edgecolors='black', linewidths=2, zorder=3)
+            ax2.scatter(
+                pos[0],
+                pos[2],
+                c=color,
+                marker=marker,
+                s=size,
+                alpha=0.7,
+                edgecolors="black",
+                linewidths=2,
+                zorder=3,
+            )
 
             # Add channel label
-            ax2.text(pos[0], pos[2], ch, fontsize=7, ha='center', va='center',
-                    fontweight='bold', color='white', zorder=4)
+            ax2.text(
+                pos[0],
+                pos[2],
+                ch,
+                fontsize=7,
+                ha="center",
+                va="center",
+                fontweight="bold",
+                color="white",
+                zorder=4,
+            )
 
     # Add grid
-    ax2.grid(True, alpha=0.3, linestyle='--', linewidth=0.5)
-    ax2.set_aspect('equal')
+    ax2.grid(True, alpha=0.3, linestyle="--", linewidth=0.5)
+    ax2.set_aspect("equal")
 
     # Add axis at origin
-    ax2.axhline(y=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
-    ax2.axvline(x=0, color='k', linestyle='-', linewidth=0.5, alpha=0.3)
+    ax2.axhline(y=0, color="k", linestyle="-", linewidth=0.5, alpha=0.3)
+    ax2.axvline(x=0, color="k", linestyle="-", linewidth=0.5, alpha=0.3)
 
     # Set limits with padding
     z_range = np.ptp(positions[:, 2])
@@ -560,11 +680,12 @@ def _create_mouse_flat_plot(analysis: Dict) -> str:
 
     # Add legend
     from matplotlib.patches import Patch
+
     legend_elements = [
-        Patch(facecolor='#27ae60', edgecolor='black', label='Matched channels'),
-        Patch(facecolor='#e67e22', edgecolor='black', label='Unmatched channels')
+        Patch(facecolor="#27ae60", edgecolor="black", label="Matched channels"),
+        Patch(facecolor="#e67e22", edgecolor="black", label="Unmatched channels"),
     ]
-    ax1.legend(handles=legend_elements, loc='upper right', framealpha=0.9, fontsize=10)
+    ax1.legend(handles=legend_elements, loc="upper right", framealpha=0.9, fontsize=10)
 
     plt.tight_layout()
     return fig_to_base64(fig)
@@ -579,87 +700,135 @@ def create_stats_plot(analysis: Dict) -> str:
     Returns:
         Base64-encoded PNG image
     """
-    scale_type = analysis.get('scale_type', 'human')
-    scale_factor = analysis.get('scale_factor', 1.0)
+    scale_type = analysis.get("scale_type", "human")
+    analysis.get("scale_factor", 1.0)
 
     # For mouse scale, use distance histogram instead
-    if scale_type == 'mouse':
+    if scale_type == "mouse":
         return _create_mouse_stats_plot(analysis)
 
     # Human scale: standard distribution plots
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 8))
 
-    fig.suptitle('Position Distribution Analysis', fontsize=16, fontweight='bold')
+    fig.suptitle("Position Distribution Analysis", fontsize=16, fontweight="bold")
 
-    if len(analysis['positions']) > 0:
-        positions = analysis['positions']
+    if len(analysis["positions"]) > 0:
+        positions = analysis["positions"]
         distances = np.linalg.norm(positions, axis=1)
 
         # Plot 1: Top view (X-Y) colored by distance
-        ax1.set_title('Top View (X-Y) - Colored by Distance from Origin', fontsize=13, fontweight='bold')
+        ax1.set_title(
+            "Top View (X-Y) - Colored by Distance from Origin",
+            fontsize=13,
+            fontweight="bold",
+        )
         x = positions[:, 0]
         y = positions[:, 1]
-        scatter1 = ax1.scatter(x, y, c=distances, cmap='viridis', s=120,
-                            alpha=0.7, edgecolors='black', linewidths=1.5)
-        cbar1 = plt.colorbar(scatter1, ax=ax1, label='Distance (m)')
+        scatter1 = ax1.scatter(
+            x,
+            y,
+            c=distances,
+            cmap="viridis",
+            s=120,
+            alpha=0.7,
+            edgecolors="black",
+            linewidths=1.5,
+        )
+        plt.colorbar(scatter1, ax=ax1, label="Distance (m)")
 
         # Add channel labels
-        for ch, data in analysis['channel_data'].items():
-            if data['has_position']:
-                pos = data['position']
+        for ch, data in analysis["channel_data"].items():
+            if data["has_position"]:
+                pos = data["position"]
                 angle = np.arctan2(pos[1], pos[0])
                 offset_dist = 0.010
                 text_x = pos[0] + offset_dist * np.cos(angle)
                 text_y = pos[1] + offset_dist * np.sin(angle)
 
-                ax1.text(text_x, text_y, ch, fontsize=8, ha='center', va='center',
-                        fontweight='bold', zorder=5,
-                        bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
-                                 edgecolor='none', alpha=0.85))
+                ax1.text(
+                    text_x,
+                    text_y,
+                    ch,
+                    fontsize=8,
+                    ha="center",
+                    va="center",
+                    fontweight="bold",
+                    zorder=5,
+                    bbox=dict(
+                        boxstyle="round,pad=0.25",
+                        facecolor="white",
+                        edgecolor="none",
+                        alpha=0.85,
+                    ),
+                )
 
-        ax1.set_xlabel('X (meters)', fontsize=11)
-        ax1.set_ylabel('Y (meters)', fontsize=11)
+        ax1.set_xlabel("X (meters)", fontsize=11)
+        ax1.set_ylabel("Y (meters)", fontsize=11)
         ax1.grid(True, alpha=0.3)
-        ax1.set_aspect('equal')
+        ax1.set_aspect("equal")
 
         # Add head circle and nose
-        circle1 = Circle((0, 0), 0.095, fill=False, edgecolor='black', linewidth=2)
+        circle1 = Circle((0, 0), 0.095, fill=False, edgecolor="black", linewidth=2)
         ax1.add_patch(circle1)
-        nose1 = Wedge((0, 0.095), 0.015, 60, 120, facecolor='black', alpha=0.5)
+        nose1 = Wedge((0, 0.095), 0.015, 60, 120, facecolor="black", alpha=0.5)
         ax1.add_patch(nose1)
 
         ax1.set_xlim(-0.12, 0.12)
         ax1.set_ylim(-0.12, 0.12)
 
         # Plot 2: Side view (Y-Z) colored by distance
-        ax2.set_title('Side View (Y-Z) - Colored by Distance from Origin', fontsize=13, fontweight='bold')
+        ax2.set_title(
+            "Side View (Y-Z) - Colored by Distance from Origin",
+            fontsize=13,
+            fontweight="bold",
+        )
         y = positions[:, 1]
         z = positions[:, 2]
-        scatter2 = ax2.scatter(y, z, c=distances, cmap='viridis', s=120,
-                            alpha=0.7, edgecolors='black', linewidths=1.5)
-        cbar2 = plt.colorbar(scatter2, ax=ax2, label='Distance (m)')
+        scatter2 = ax2.scatter(
+            y,
+            z,
+            c=distances,
+            cmap="viridis",
+            s=120,
+            alpha=0.7,
+            edgecolors="black",
+            linewidths=1.5,
+        )
+        plt.colorbar(scatter2, ax=ax2, label="Distance (m)")
 
         # Add channel labels for side view
-        for ch, data in analysis['channel_data'].items():
-            if data['has_position']:
-                pos = data['position']
+        for ch, data in analysis["channel_data"].items():
+            if data["has_position"]:
+                pos = data["position"]
                 angle = np.arctan2(pos[2], pos[1])
                 offset_dist = 0.010
                 text_y = pos[1] + offset_dist * np.cos(angle)
                 text_z = pos[2] + offset_dist * np.sin(angle)
 
-                ax2.text(text_y, text_z, ch, fontsize=8, ha='center', va='center',
-                        fontweight='bold', zorder=5,
-                        bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
-                                 edgecolor='none', alpha=0.85))
+                ax2.text(
+                    text_y,
+                    text_z,
+                    ch,
+                    fontsize=8,
+                    ha="center",
+                    va="center",
+                    fontweight="bold",
+                    zorder=5,
+                    bbox=dict(
+                        boxstyle="round,pad=0.25",
+                        facecolor="white",
+                        edgecolor="none",
+                        alpha=0.85,
+                    ),
+                )
 
-        ax2.set_xlabel('Y (meters)', fontsize=11)
-        ax2.set_ylabel('Z (meters)', fontsize=11)
+        ax2.set_xlabel("Y (meters)", fontsize=11)
+        ax2.set_ylabel("Z (meters)", fontsize=11)
         ax2.grid(True, alpha=0.3)
-        ax2.set_aspect('equal')
+        ax2.set_aspect("equal")
 
         # Add head circle
-        circle2 = Circle((0, 0), 0.095, fill=False, edgecolor='black', linewidth=2)
+        circle2 = Circle((0, 0), 0.095, fill=False, edgecolor="black", linewidth=2)
         ax2.add_patch(circle2)
 
         ax2.set_xlim(-0.12, 0.12)
@@ -678,91 +847,147 @@ def _create_mouse_stats_plot(analysis: Dict) -> str:
     Returns:
         Base64-encoded PNG image
     """
-    positions = analysis['positions']
-    montage_name = analysis.get('montage_name', 'Mouse Probe')
+    positions = analysis["positions"]
+    montage_name = analysis.get("montage_name", "Mouse Probe")
 
     if len(positions) == 0:
         fig, ax = plt.subplots(figsize=(15, 8))
-        ax.text(0.5, 0.5, 'No positioned channels', ha='center', va='center', fontsize=16)
-        ax.axis('off')
+        ax.text(
+            0.5, 0.5, "No positioned channels", ha="center", va="center", fontsize=16
+        )
+        ax.axis("off")
         return fig_to_base64(fig)
 
     # Use normalized coordinates (MNE scales custom montages)
     fig = plt.figure(figsize=(18, 12))
     gs = fig.add_gridspec(2, 2, hspace=0.3, wspace=0.3)
 
-    fig.suptitle(f'{montage_name} - Statistical Analysis', fontsize=14, fontweight='bold', color='#2c3e50')
+    fig.suptitle(
+        f"{montage_name} - Statistical Analysis",
+        fontsize=14,
+        fontweight="bold",
+        color="#2c3e50",
+    )
 
     # Plot 1: Distance histogram
     ax1 = fig.add_subplot(gs[0, 0])
     distances = np.linalg.norm(positions, axis=1)
-    ax1.hist(distances, bins=15, color='#3498db', alpha=0.7, edgecolor='black')
-    ax1.set_xlabel('Distance from Origin (normalized)', fontsize=11)
-    ax1.set_ylabel('Frequency', fontsize=11)
-    ax1.set_title('Distance Distribution', fontsize=12, fontweight='bold')
+    ax1.hist(distances, bins=15, color="#3498db", alpha=0.7, edgecolor="black")
+    ax1.set_xlabel("Distance from Origin (normalized)", fontsize=11)
+    ax1.set_ylabel("Frequency", fontsize=11)
+    ax1.set_title("Distance Distribution", fontsize=12, fontweight="bold")
     ax1.grid(True, alpha=0.3)
-    ax1.axvline(np.mean(distances), color='red', linestyle='--', linewidth=2, label=f'Mean: {np.mean(distances):.4f}')
+    ax1.axvline(
+        np.mean(distances),
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Mean: {np.mean(distances):.4f}",
+    )
     ax1.legend()
 
     # Plot 2: X-coordinate distribution
     ax2 = fig.add_subplot(gs[0, 1])
-    ax2.hist(positions[:, 0], bins=15, color='#e74c3c', alpha=0.7, edgecolor='black')
-    ax2.set_xlabel('X Position (normalized)', fontsize=11)
-    ax2.set_ylabel('Frequency', fontsize=11)
-    ax2.set_title('X-Coordinate Distribution', fontsize=12, fontweight='bold')
+    ax2.hist(positions[:, 0], bins=15, color="#e74c3c", alpha=0.7, edgecolor="black")
+    ax2.set_xlabel("X Position (normalized)", fontsize=11)
+    ax2.set_ylabel("Frequency", fontsize=11)
+    ax2.set_title("X-Coordinate Distribution", fontsize=12, fontweight="bold")
     ax2.grid(True, alpha=0.3)
-    ax2.axvline(np.mean(positions[:, 0]), color='red', linestyle='--', linewidth=2, label=f'Mean: {np.mean(positions[:, 0]):.4f}')
+    ax2.axvline(
+        np.mean(positions[:, 0]),
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Mean: {np.mean(positions[:, 0]):.4f}",
+    )
     ax2.legend()
 
     # Plot 3: Y-coordinate distribution
     ax3 = fig.add_subplot(gs[1, 0])
-    ax3.hist(positions[:, 1], bins=15, color='#2ecc71', alpha=0.7, edgecolor='black')
-    ax3.set_xlabel('Y Position (normalized)', fontsize=11)
-    ax3.set_ylabel('Frequency', fontsize=11)
-    ax3.set_title('Y-Coordinate Distribution', fontsize=12, fontweight='bold')
+    ax3.hist(positions[:, 1], bins=15, color="#2ecc71", alpha=0.7, edgecolor="black")
+    ax3.set_xlabel("Y Position (normalized)", fontsize=11)
+    ax3.set_ylabel("Frequency", fontsize=11)
+    ax3.set_title("Y-Coordinate Distribution", fontsize=12, fontweight="bold")
     ax3.grid(True, alpha=0.3)
-    ax3.axvline(np.mean(positions[:, 1]), color='red', linestyle='--', linewidth=2, label=f'Mean: {np.mean(positions[:, 1]):.4f}')
+    ax3.axvline(
+        np.mean(positions[:, 1]),
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Mean: {np.mean(positions[:, 1]):.4f}",
+    )
     ax3.legend()
 
     # Plot 4: Summary statistics table
     ax4 = fig.add_subplot(gs[1, 1])
-    ax4.axis('off')
+    ax4.axis("off")
 
     stats_data = [
-        ['Statistic', 'X', 'Y', 'Z', 'Distance'],
-        ['Mean', f'{np.mean(positions[:, 0]):.4f}', f'{np.mean(positions[:, 1]):.4f}',
-         f'{np.mean(positions[:, 2]):.4f}', f'{np.mean(distances):.4f}'],
-        ['Std Dev', f'{np.std(positions[:, 0]):.4f}', f'{np.std(positions[:, 1]):.4f}',
-         f'{np.std(positions[:, 2]):.4f}', f'{np.std(distances):.4f}'],
-        ['Min', f'{np.min(positions[:, 0]):.4f}', f'{np.min(positions[:, 1]):.4f}',
-         f'{np.min(positions[:, 2]):.4f}', f'{np.min(distances):.4f}'],
-        ['Max', f'{np.max(positions[:, 0]):.4f}', f'{np.max(positions[:, 1]):.4f}',
-         f'{np.max(positions[:, 2]):.4f}', f'{np.max(distances):.4f}'],
-        ['Range', f'{np.ptp(positions[:, 0]):.4f}', f'{np.ptp(positions[:, 1]):.4f}',
-         f'{np.ptp(positions[:, 2]):.4f}', f'{np.ptp(distances):.4f}'],
+        ["Statistic", "X", "Y", "Z", "Distance"],
+        [
+            "Mean",
+            f"{np.mean(positions[:, 0]):.4f}",
+            f"{np.mean(positions[:, 1]):.4f}",
+            f"{np.mean(positions[:, 2]):.4f}",
+            f"{np.mean(distances):.4f}",
+        ],
+        [
+            "Std Dev",
+            f"{np.std(positions[:, 0]):.4f}",
+            f"{np.std(positions[:, 1]):.4f}",
+            f"{np.std(positions[:, 2]):.4f}",
+            f"{np.std(distances):.4f}",
+        ],
+        [
+            "Min",
+            f"{np.min(positions[:, 0]):.4f}",
+            f"{np.min(positions[:, 1]):.4f}",
+            f"{np.min(positions[:, 2]):.4f}",
+            f"{np.min(distances):.4f}",
+        ],
+        [
+            "Max",
+            f"{np.max(positions[:, 0]):.4f}",
+            f"{np.max(positions[:, 1]):.4f}",
+            f"{np.max(positions[:, 2]):.4f}",
+            f"{np.max(distances):.4f}",
+        ],
+        [
+            "Range",
+            f"{np.ptp(positions[:, 0]):.4f}",
+            f"{np.ptp(positions[:, 1]):.4f}",
+            f"{np.ptp(positions[:, 2]):.4f}",
+            f"{np.ptp(distances):.4f}",
+        ],
     ]
 
-    table = ax4.table(cellText=stats_data, cellLoc='center', loc='center',
-                     bbox=[0, 0, 1, 1])
+    table = ax4.table(
+        cellText=stats_data, cellLoc="center", loc="center", bbox=[0, 0, 1, 1]
+    )
     table.auto_set_font_size(False)
     table.set_fontsize(10)
     table.scale(1, 2)
 
     # Style header row
     for i in range(5):
-        table[(0, i)].set_facecolor('#34495e')
-        table[(0, i)].set_text_props(weight='bold', color='white')
+        table[(0, i)].set_facecolor("#34495e")
+        table[(0, i)].set_text_props(weight="bold", color="white")
 
     # Style data rows
     for i in range(1, 6):
         for j in range(5):
             if j == 0:
-                table[(i, j)].set_facecolor('#ecf0f1')
-                table[(i, j)].set_text_props(weight='bold')
+                table[(i, j)].set_facecolor("#ecf0f1")
+                table[(i, j)].set_text_props(weight="bold")
             else:
-                table[(i, j)].set_facecolor('white')
+                table[(i, j)].set_facecolor("white")
 
-    ax4.set_title('Statistical Summary (Normalized Coordinates)', fontsize=12, fontweight='bold', pad=20)
+    ax4.set_title(
+        "Statistical Summary (Normalized Coordinates)",
+        fontsize=12,
+        fontweight="bold",
+        pad=20,
+    )
 
     plt.tight_layout()
     return fig_to_base64(fig)
@@ -780,7 +1005,7 @@ def generate_html_report(
     metadata: Dict,
     channel_info: List[Dict],
     rename_map: Dict,
-    custom_report_sections: List[str] = None
+    custom_report_sections: List[str] = None,
 ):
     """Generate enhanced HTML report optimized for EEG researchers.
 
@@ -804,28 +1029,54 @@ def generate_html_report(
     issues = []
     recommendations = []
 
-    if analysis['match_pct'] < 95:
+    if analysis["match_pct"] < 95:
         issues.append(f"Low match percentage ({analysis['match_pct']:.1f}%)")
         recommendations.append("Review alternative montage suggestions below")
-        recommendations.append("Verify correct montage selection for this recording system")
+        recommendations.append(
+            "Verify correct montage selection for this recording system"
+        )
 
-    if analysis['match_pct'] < 90:
-        recommendations.append("CRITICAL: Less than 90% match - likely wrong montage selected")
+    if analysis["match_pct"] < 90:
+        recommendations.append(
+            "CRITICAL: Less than 90% match - likely wrong montage selected"
+        )
 
-    if analysis['duplicates']:
-        issues.append(f"{len(analysis['duplicates'])} duplicate position(s) - WRONG MONTAGE LIKELY")
-        recommendations.append("Duplicate positions indicate incorrect montage - check alternative suggestions")
+    if analysis["duplicates"]:
+        issues.append(
+            f"{len(analysis['duplicates'])} duplicate position(s) - WRONG MONTAGE LIKELY"
+        )
+        recommendations.append(
+            "Duplicate positions indicate incorrect montage - check alternative suggestions"
+        )
 
-    if analysis['outliers']:
+    if analysis["outliers"]:
         issues.append(f"{len(analysis['outliers'])} position outlier(s)")
         recommendations.append("Check electrode placement for outlier channels")
 
-    if analysis['unmatched_file']:
+    if analysis["unmatched_file"]:
         issues.append(f"{len(analysis['unmatched_file'])} unmatched channel(s) in file")
-        recommendations.append("Verify channel naming conventions match expected format")
+        recommendations.append(
+            "Verify channel naming conventions match expected format"
+        )
 
-    verdict_class = "success" if not issues else "error" if analysis['match_pct'] < 90 or analysis['duplicates'] else "warning"
-    verdict_status = "PASS" if not issues else "FAIL" if analysis['match_pct'] < 90 or analysis['duplicates'] else "WARNING"
+    verdict_class = (
+        "success"
+        if not issues
+        else (
+            "error"
+            if analysis["match_pct"] < 90 or analysis["duplicates"]
+            else "warning"
+        )
+    )
+    verdict_status = (
+        "PASS"
+        if not issues
+        else (
+            "FAIL"
+            if analysis["match_pct"] < 90 or analysis["duplicates"]
+            else "WARNING"
+        )
+    )
 
     # Calculate number of columns for channel table
     total_channels = len(channel_info)
@@ -840,7 +1091,6 @@ def generate_html_report(
 
     # Import CSS from external file or embed directly
     # For now, embedding directly for portability
-    from pathlib import Path as P
 
     html = f"""<!DOCTYPE html>
 <html>
@@ -866,7 +1116,7 @@ def _get_report_css(n_columns: int) -> str:
         css_file = Path(__file__).parent.parent.parent / "tmp" / "academic_css.txt"
         if css_file.exists():
             return css_file.read_text()
-    except:
+    except Exception:
         pass
 
     # Embedded CSS (fallback)
@@ -1190,10 +1440,25 @@ def _get_report_css(n_columns: int) -> str:
     """
 
 
-def _generate_report_body(eeg_file, montage_name, timestamp, verdict_class, verdict_status,
-                           analysis, issues, recommendations, plot3d_b64, stats_b64, metadata,
-                           channel_info, channels_per_column, n_columns, rename_map, suggestions,
-                           custom_report_sections=None):
+def _generate_report_body(
+    eeg_file,
+    montage_name,
+    timestamp,
+    verdict_class,
+    verdict_status,
+    analysis,
+    issues,
+    recommendations,
+    plot3d_b64,
+    stats_b64,
+    metadata,
+    channel_info,
+    channels_per_column,
+    n_columns,
+    rename_map,
+    suggestions,
+    custom_report_sections=None,
+):
     """Generate the HTML body content for the report."""
     # Due to size, this would typically be in a template file
     # For now, returning a simplified version
@@ -1203,7 +1468,9 @@ def _generate_report_body(eeg_file, montage_name, timestamp, verdict_class, verd
         custom_report_sections = []
 
     # Join custom sections if any
-    custom_sections_html = '\n'.join(custom_report_sections) if custom_report_sections else ''
+    custom_sections_html = (
+        "\n".join(custom_report_sections) if custom_report_sections else ""
+    )
 
     return f"""
     <div class="container">

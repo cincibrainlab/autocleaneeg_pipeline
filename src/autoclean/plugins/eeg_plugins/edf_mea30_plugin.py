@@ -86,17 +86,17 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
         coords_dict = {}
 
         for _, row in mapping_df.iterrows():
-            edf_chan = int(row['edf_chan'])
-            mea_label = row['mea_label']
+            edf_chan = int(row["edf_chan"])
+            mea_label = row["mea_label"]
 
             # EDF channel name in raw file
             edf_name = f"Chan {edf_chan}"
             rename_map[edf_name] = mea_label
 
             # Extract 3D coordinates (already in meters)
-            x = row['x']
-            y = row['y']
-            z = row['z']
+            x = row["x"]
+            y = row["y"]
+            z = row["z"]
             coords_dict[mea_label] = (x, y, z)
 
         return edf_channels_to_drop, rename_map, coords_dict
@@ -128,89 +128,35 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
 
         # Display comprehensive info block about channel mapping
         message(
-            "info",
-            f"Loading Mouse EEG EDF file with MEA30 montage: {file_path.name}"
+            "info", f"Loading Mouse EEG EDF file with MEA30 montage: {file_path.name}"
         )
+        message("info", "=" * 70)
+        message("info", "MEA30 CHANNEL MAPPING INFORMATION")
+        message("info", "=" * 70)
+        message(
+            "info", "Raw EDF files contain 33 channels with SCRAMBLED hardware routing:"
+        )
+        message("info", "")
+        message("info", "1. CHANNELS TO DROP (3 total):")
+        message(
+            "info", "   • Chan 2  → Excluded (not in MEA mapping, likely bad/reference)"
+        )
+        message("info", "   • Chan 32 → Reference electrode")
+        message("info", "   • Chan 33 → Ground electrode")
+        message("info", "")
+        message("info", "2. CHANNEL REMAPPING (30 EEG channels):")
         message(
             "info",
-            "="*70
+            "   • Remaining 30 channels are reordered to anatomical MEA positions",
         )
-        message(
-            "info",
-            "MEA30 CHANNEL MAPPING INFORMATION"
-        )
-        message(
-            "info",
-            "="*70
-        )
-        message(
-            "info",
-            "Raw EDF files contain 33 channels with SCRAMBLED hardware routing:"
-        )
-        message(
-            "info",
-            ""
-        )
-        message(
-            "info",
-            "1. CHANNELS TO DROP (3 total):"
-        )
-        message(
-            "info",
-            "   • Chan 2  → Excluded (not in MEA mapping, likely bad/reference)"
-        )
-        message(
-            "info",
-            "   • Chan 32 → Reference electrode"
-        )
-        message(
-            "info",
-            "   • Chan 33 → Ground electrode"
-        )
-        message(
-            "info",
-            ""
-        )
-        message(
-            "info",
-            "2. CHANNEL REMAPPING (30 EEG channels):"
-        )
-        message(
-            "info",
-            "   • Remaining 30 channels are reordered to anatomical MEA positions"
-        )
-        message(
-            "info",
-            "   • Example: EDF 'Chan 1' → MEA 'Ch 23' (Right Temporal)"
-        )
-        message(
-            "info",
-            "   • Example: EDF 'Chan 30' → MEA 'Ch 01' (Left Temporal)"
-        )
-        message(
-            "info",
-            ""
-        )
-        message(
-            "info",
-            "3. 3D MONTAGE APPLICATION:"
-        )
-        message(
-            "info",
-            "   • MNI stereotactic brain coordinates (~2.0 unit range)"
-        )
-        message(
-            "info",
-            "   • Validated against MATLAB code and CSV mappings"
-        )
-        message(
-            "info",
-            "   • Compatible with adult and P21 mice"
-        )
-        message(
-            "info",
-            "="*70
-        )
+        message("info", "   • Example: EDF 'Chan 1' → MEA 'Ch 23' (Right Temporal)")
+        message("info", "   • Example: EDF 'Chan 30' → MEA 'Ch 01' (Left Temporal)")
+        message("info", "")
+        message("info", "3. 3D MONTAGE APPLICATION:")
+        message("info", "   • MNI stereotactic brain coordinates (~2.0 unit range)")
+        message("info", "   • Validated against MATLAB code and CSV mappings")
+        message("info", "   • Compatible with adult and P21 mice")
+        message("info", "=" * 70)
 
         try:
             # Step 1: Load raw EDF file
@@ -232,19 +178,30 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
             existing_drops = [ch for ch in channels_to_drop if ch in raw.ch_names]
             if existing_drops:
                 raw.drop_channels(existing_drops)
-                message("success", f"✓ Dropped {len(existing_drops)} channels: {', '.join(existing_drops)}")
+                message(
+                    "success",
+                    f"✓ Dropped {len(existing_drops)} channels: {', '.join(existing_drops)}",
+                )
             else:
-                message("warning", "⚠ Expected channels to drop not found - file may have different structure")
+                message(
+                    "warning",
+                    "⚠ Expected channels to drop not found - file may have different structure",
+                )
 
             # Step 3: Rename channels from "Chan N" to "Ch ##"
             message("info", "Step 3/5: Remapping channels to MEA anatomical order...")
 
             # Only rename channels that exist in the raw object
-            existing_rename_map = {k: v for k, v in rename_map.items() if k in raw.ch_names}
+            existing_rename_map = {
+                k: v for k, v in rename_map.items() if k in raw.ch_names
+            }
 
             if existing_rename_map:
                 raw.rename_channels(existing_rename_map)
-                message("success", f"✓ Remapped {len(existing_rename_map)} channels to MEA order")
+                message(
+                    "success",
+                    f"✓ Remapped {len(existing_rename_map)} channels to MEA order",
+                )
 
                 # Show a few examples
                 example_items = list(existing_rename_map.items())[:3]
@@ -253,68 +210,60 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                 if len(existing_rename_map) > 3:
                     message("debug", f"   ... and {len(existing_rename_map) - 3} more")
             else:
-                message("warning", "⚠ No channels found for renaming - check file structure")
+                message(
+                    "warning", "⚠ No channels found for renaming - check file structure"
+                )
 
             # Step 4: Load and apply 3D montage
             message("info", "Step 4/5: Applying MEA30 3D brain coordinates...")
             montage = self._load_saved_montage()
 
             if montage:
-                raw.set_montage(montage, match_case=False, on_missing='warn')
-                message("success", f"✓ Applied 3D montage with {len(coords_dict)} electrode positions")
-                message("info", "   Coordinates: MNI stereotactic space (normalized to unit sphere)")
+                raw.set_montage(montage, match_case=False, on_missing="warn")
+                message(
+                    "success",
+                    f"✓ Applied 3D montage with {len(coords_dict)} electrode positions",
+                )
+                message(
+                    "info",
+                    "   Coordinates: MNI stereotactic space (normalized to unit sphere)",
+                )
             else:
-                message("warning", "⚠ Montage file not found - creating from coordinates")
+                message(
+                    "warning", "⚠ Montage file not found - creating from coordinates"
+                )
                 # Create montage from coordinates dict
                 montage = mne.channels.make_dig_montage(
                     ch_pos=coords_dict,
-                    coord_frame='mni_tal'  # MNI/Talairach coordinates
+                    coord_frame="mni_tal",  # MNI/Talairach coordinates
                 )
-                raw.set_montage(montage, match_case=False, on_missing='warn')
+                raw.set_montage(montage, match_case=False, on_missing="warn")
                 message("success", "✓ Created and applied montage from mapping CSV")
 
             # Step 5: Pick EEG channels only
             message("info", "Step 5/5: Finalizing channel selection...")
             raw.pick_types(eeg=True, stim=True, exclude=[])
 
-            eeg_count = len([ch for ch in raw.ch_names if raw.get_channel_types([ch])[0] == 'eeg'])
+            eeg_count = len(
+                [ch for ch in raw.ch_names if raw.get_channel_types([ch])[0] == "eeg"]
+            )
             message("success", f"✓ Final channel count: {eeg_count} EEG channels")
 
+            message("info", "=" * 70)
+            message("success", "✓ MEA30 EDF import complete!")
+            message("info", "  • Started with: 33 raw channels")
+            message("info", "  • Dropped: 3 non-EEG channels (2, 32, 33)")
+            message("info", "  • Remapped: 30 EEG channels to anatomical order")
             message(
                 "info",
-                "="*70
+                f"  • Result: {eeg_count} positioned MEA channels ready for analysis",
             )
-            message(
-                "success",
-                "✓ MEA30 EDF import complete!"
-            )
-            message(
-                "info",
-                f"  • Started with: 33 raw channels"
-            )
-            message(
-                "info",
-                f"  • Dropped: 3 non-EEG channels (2, 32, 33)"
-            )
-            message(
-                "info",
-                f"  • Remapped: 30 EEG channels to anatomical order"
-            )
-            message(
-                "info",
-                f"  • Result: {eeg_count} positioned MEA channels ready for analysis"
-            )
-            message(
-                "info",
-                "="*70
-            )
+            message("info", "=" * 70)
 
             return raw
 
         except Exception as e:
-            raise RuntimeError(
-                f"Failed to process MEA30 EDF file: {str(e)}"
-            ) from e
+            raise RuntimeError(f"Failed to process MEA30 EDF file: {str(e)}") from e
 
     def process_events(self, raw: mne.io.Raw) -> tuple:
         """Process events and annotations from EDF file.
@@ -340,9 +289,11 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                         "sample": events[:, 0],
                         "id": events[:, 2],
                         "type": [
-                            list(event_id.keys())[list(event_id.values()).index(id)]
-                            if id in event_id.values()
-                            else f"Event_{id}"
+                            (
+                                list(event_id.keys())[list(event_id.values()).index(id)]
+                                if id in event_id.values()
+                                else f"Event_{id}"
+                            )
                             for id in events[:, 2]
                         ],
                     }
@@ -350,7 +301,7 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
 
                 message(
                     "info",
-                    f"Found {len(events)} events of {len(event_id)} unique types"
+                    f"Found {len(events)} events of {len(event_id)} unique types",
                 )
 
                 return events, event_id, events_df
@@ -399,7 +350,7 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                 "30 EEG channels require remapping from scrambled hardware order",
                 "3D coordinates are MNI brain space (normalized to unit sphere)",
                 "Compatible with 'autocleaneeg-pipeline montage test' visualization",
-            ]
+            ],
         }
 
     def generate_montage_report(
@@ -407,7 +358,7 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
         raw_before: mne.io.Raw,
         raw_after: mne.io.Raw,
         montage: mne.channels.DigMontage,
-        report_data: dict
+        report_data: dict,
     ) -> dict:
         """Generate custom montage validation report for MEA30 EDF files.
 
@@ -431,7 +382,8 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
         mapping_df = pd.read_csv(csv_file)
 
         # Section 1: Transformation Overview
-        html_sections.append(f"""
+        html_sections.append(
+            f"""
         <div class="section" style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 20px; margin: 20px 0;">
             <h2 style="color: #007bff; margin-top: 0;">🔄 MEA30 EDF Channel Transformation</h2>
 
@@ -475,7 +427,8 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                 </p>
             </div>
         </div>
-        """)
+        """
+        )
 
         # Section 2: Channel Mapping Table (show first 10 + last 5 for readability)
         mapping_rows = []
@@ -484,12 +437,13 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
         for idx in show_indices:
             if idx < len(mapping_df):
                 row = mapping_df.iloc[idx]
-                edf_ch = int(row['edf_chan'])
-                mea_label = row['mea_label']
-                side = row['side']
-                region = row['region']
+                edf_ch = int(row["edf_chan"])
+                mea_label = row["mea_label"]
+                side = row["side"]
+                region = row["region"]
 
-                mapping_rows.append(f"""
+                mapping_rows.append(
+                    f"""
                 <tr>
                     <td>Chan {edf_ch}</td>
                     <td style="text-align: center;">→</td>
@@ -497,20 +451,24 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                     <td>{side}</td>
                     <td>{region}</td>
                 </tr>
-                """)
+                """
+                )
 
             if idx == 9:
-                mapping_rows.append("""
+                mapping_rows.append(
+                    """
                 <tr style="background: #f8f9fa;">
                     <td colspan="5" style="text-align: center; font-style: italic;">
                         ... 15 more mappings ...
                     </td>
                 </tr>
-                """)
+                """
+                )
 
-        mapping_table_html = '\n'.join(mapping_rows)
+        mapping_table_html = "\n".join(mapping_rows)
 
-        html_sections.append(f"""
+        html_sections.append(
+            f"""
         <div class="section">
             <h2>📋 Channel Mapping Details</h2>
             <p style="color: #666; margin-bottom: 15px;">
@@ -538,10 +496,12 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                 Complete mapping available in: <code>data/probe_maps/MEA30_EDF_mapping.csv</code>
             </p>
         </div>
-        """)
+        """
+        )
 
         # Section 3: Validation Information
-        html_sections.append("""
+        html_sections.append(
+            """
         <div class="section" style="background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 5px;">
             <h2 style="color: #155724; margin-top: 0;">✓ Validation & Quality Assurance</h2>
 
@@ -568,16 +528,17 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                 <strong>Coordinate System:</strong> MNI stereotactic space, normalized to unit sphere (~2.0 unit range)
             </p>
         </div>
-        """)
+        """
+        )
 
         # Summary stats for report
         summary_stats = {
-            'raw_channels': len(raw_before.ch_names),
-            'processed_channels': len(raw_after.ch_names),
-            'channels_dropped': 3,
-            'channels_remapped': 30,
-            'transformation_type': 'MEA30 EDF hardware routing correction',
-            'validation_sources': 3
+            "raw_channels": len(raw_before.ch_names),
+            "processed_channels": len(raw_after.ch_names),
+            "channels_dropped": 3,
+            "channels_remapped": 30,
+            "transformation_type": "MEA30 EDF hardware routing correction",
+            "validation_sources": 3,
         }
 
         # Info messages
@@ -586,8 +547,8 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
         ]
 
         return {
-            'html_sections': html_sections,
-            'summary_stats': summary_stats,
-            'info_messages': info_messages,
-            'warnings': []
+            "html_sections": html_sections,
+            "summary_stats": summary_stats,
+            "info_messages": info_messages,
+            "warnings": [],
         }

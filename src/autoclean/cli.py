@@ -67,6 +67,7 @@ from autoclean.utils.user_config import user_config
 try:
     import neo
     import neo.io
+
     NEO_AVAILABLE = True
 except ImportError:
     NEO_AVAILABLE = False
@@ -336,13 +337,13 @@ def _print_context(
                 input_display = input_display.replace(home, "~", 1)
             if p.exists():
                 if p.is_file():
-                    input_type = 'file'
+                    input_type = "file"
                 elif p.is_dir():
-                    input_type = 'dir'
+                    input_type = "dir"
                 else:
-                    input_type = 'other'
+                    input_type = "other"
             else:
-                input_type = 'missing'
+                input_type = "missing"
             input_val = input_display
     except Exception:
         pass
@@ -352,21 +353,17 @@ def _print_context(
 
     if style == "centered":
         from rich import box
+
         config_table = Table(
-            show_header=False,
-            box=box.ROUNDED,
-            padding=(0, 1),
-            border_style="dim"
+            show_header=False, box=box.ROUNDED, padding=(0, 1), border_style="dim"
         )
         config_table.add_column("Property", style="muted", no_wrap=True)
         config_table.add_column("Value", style="accent")
     else:  # compact
         from rich import box
+
         config_table = Table(
-            show_header=False,
-            box=box.SIMPLE,
-            padding=(0, 1),
-            show_edge=False
+            show_header=False, box=box.SIMPLE, padding=(0, 1), show_edge=False
         )
         config_table.add_column("Property", style="muted", no_wrap=True)
         config_table.add_column("Value", style="accent")
@@ -378,7 +375,10 @@ def _print_context(
     if style == "centered":
         ws_label.append(f"{ws_icon} ", style=ws_style)
     ws_label.append("Workspace", style="muted")
-    config_table.add_row(ws_label, Text(workspace_display, style=ws_style if not workspace_valid else "accent"))
+    config_table.add_row(
+        ws_label,
+        Text(workspace_display, style=ws_style if not workspace_valid else "accent"),
+    )
 
     # Add active task row
     task_label = Text()
@@ -404,17 +404,17 @@ def _print_context(
     # Add input row
     input_label = Text()
     if style == "centered":
-        if input_type == 'file':
+        if input_type == "file":
             input_label.append("📄 ", style="muted")
-        elif input_type == 'dir':
+        elif input_type == "dir":
             input_label.append("📂 ", style="muted")
-        elif input_type == 'missing':
+        elif input_type == "missing":
             input_label.append("⚠ ", style="warning")
         else:
             input_label.append("📁 ", style="muted")
     input_label.append("Input", style="muted")
     if input_val:
-        input_style = "warning" if input_type == 'missing' else "accent"
+        input_style = "warning" if input_type == "missing" else "accent"
         config_table.add_row(input_label, Text(input_val, style=input_style))
     else:
         config_table.add_row(input_label, Text("not set", style="warning"))
@@ -468,7 +468,9 @@ def _print_context(
                 workspace_dir
                 if workspace_dir.exists()
                 else (
-                    workspace_dir.parent if workspace_dir.parent.exists() else Path.home()
+                    workspace_dir.parent
+                    if workspace_dir.parent.exists()
+                    else Path.home()
                 )
             )
             du = shutil.disk_usage(str(usage_path))
@@ -485,7 +487,9 @@ def _print_context(
 
 def _print_startup_context(console) -> None:
     """Print system info, workspace path, and free disk space (shared for header/help)."""
-    _print_context(console, style="centered", include_system_info=True, include_disk=True)
+    _print_context(
+        console, style="centered", include_system_info=True, include_disk=True
+    )
 
 
 class RichHelpAction(argparse.Action):
@@ -1396,7 +1400,9 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
 
     montage_test_parser = montage_subparsers.add_parser(
-        "test", help="Generate montage validation report for active input", add_help=False
+        "test",
+        help="Generate montage validation report for active input",
+        add_help=False,
     )
     attach_rich_help(montage_test_parser)
 
@@ -3025,6 +3031,7 @@ def cmd_blocks(args) -> int:
     message("error", f"Unknown blocks action: {action}")
     return 1
 
+
 def cmd_montage(args) -> int:
     """Execute montage-related commands."""
     action = getattr(args, "montage_action", None)
@@ -3244,14 +3251,14 @@ def _load_xdat_via_neo(file_path: Path, montage_name: str = "MouseEEGv2_H32"):
 
         # Basic Neo loading without mapping
         stem = file_path.stem
-        if stem.endswith('_data'):
+        if stem.endswith("_data"):
             base_stem = stem[:-5]
             json_file = file_path.parent / f"{base_stem}.xdat.json"
-        elif stem.endswith('_timestamp'):
+        elif stem.endswith("_timestamp"):
             base_stem = stem[:-10]
             json_file = file_path.parent / f"{base_stem}.xdat.json"
         else:
-            json_file = file_path.with_suffix('.xdat.json')
+            json_file = file_path.with_suffix(".xdat.json")
 
         reader_file = str(json_file) if json_file.exists() else str(file_path)
 
@@ -3271,15 +3278,15 @@ def _load_xdat_via_neo(file_path: Path, montage_name: str = "MouseEEGv2_H32"):
             if sfreq is None:
                 sfreq = float(analog_signal.sampling_rate.magnitude)
 
-            for ch_name in analog_signal.array_annotations.get('channel_names', []):
+            for ch_name in analog_signal.array_annotations.get("channel_names", []):
                 ch_names.append(str(ch_name))
                 ch_name_lower = ch_name.lower()
-                if 'din' in ch_name_lower or 'dout' in ch_name_lower:
-                    ch_types_list.append('stim')
-                elif 'aux' in ch_name_lower:
-                    ch_types_list.append('misc')
+                if "din" in ch_name_lower or "dout" in ch_name_lower:
+                    ch_types_list.append("stim")
+                elif "aux" in ch_name_lower:
+                    ch_types_list.append("misc")
                 else:
-                    ch_types_list.append('eeg')
+                    ch_types_list.append("eeg")
 
         data = np.vstack(all_data)
         info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types_list)
@@ -3290,8 +3297,9 @@ def _load_xdat_via_neo(file_path: Path, montage_name: str = "MouseEEGv2_H32"):
 
 def cmd_montage_test(args) -> int:
     """Generate montage validation report for the active input file."""
-    import mne
     from pathlib import Path
+
+    import mne
 
     console = get_console(args)
 
@@ -3360,16 +3368,21 @@ def cmd_montage_test(args) -> int:
     try:
         # Determine file type and load accordingly
         suffix = input_file.suffix.lower()
-        if suffix == '.bdf':
-            raw = mne.io.read_raw_bdf(str(input_file), preload=True, stim_channel="auto",
-                                     exclude=[], verbose=False)
-        elif suffix == '.edf':
+        if suffix == ".bdf":
+            raw = mne.io.read_raw_bdf(
+                str(input_file),
+                preload=True,
+                stim_channel="auto",
+                exclude=[],
+                verbose=False,
+            )
+        elif suffix == ".edf":
             raw = mne.io.read_raw_edf(str(input_file), preload=True, verbose=False)
-        elif suffix == '.set':
+        elif suffix == ".set":
             raw = mne.io.read_raw_eeglab(str(input_file), preload=True, verbose=False)
-        elif suffix == '.fif':
+        elif suffix == ".fif":
             raw = mne.io.read_raw_fif(str(input_file), preload=True, verbose=False)
-        elif suffix == '.xdat':
+        elif suffix == ".xdat":
             raw = _load_xdat_via_neo(input_file)
         else:
             message("error", f"Unsupported file format: {suffix}")
@@ -3385,7 +3398,11 @@ def cmd_montage_test(args) -> int:
 
     # Check if a plugin exists for this format/montage combination
     # Plugins can perform complex transformations (remapping, dropping channels, etc.)
-    from autoclean.io.import_ import find_plugin_for_combination, discover_plugins, get_format_from_extension
+    from autoclean.io.import_ import (
+        discover_plugins,
+        find_plugin_for_combination,
+        get_format_from_extension,
+    )
 
     # Ensure plugins are discovered so format registry is populated
     discover_plugins()
@@ -3394,7 +3411,7 @@ def cmd_montage_test(args) -> int:
     format_id = get_format_from_extension(suffix)
     if not format_id:
         # Fallback for unknown formats
-        format_id = suffix.upper().lstrip('.')
+        format_id = suffix.upper().lstrip(".")
 
     plugin = find_plugin_for_combination(format_id, montage_name)
     plugin_report_data = {}
@@ -3412,17 +3429,19 @@ def cmd_montage_test(args) -> int:
 
             eeg_picks = mne.pick_types(raw.info, eeg=True)
             n_eeg_after = len(eeg_picks)
-            console.print(f"[success]✓[/success] Plugin processed: {n_eeg_after} EEG channels")
+            console.print(
+                f"[success]✓[/success] Plugin processed: {n_eeg_after} EEG channels"
+            )
 
             # Generate custom report if plugin supports it
-            if hasattr(plugin, 'generate_montage_report'):
+            if hasattr(plugin, "generate_montage_report"):
                 console.print("[info]Generating plugin-specific report...[/info]")
                 # Note: montage will be loaded below, so we'll call this after montage loading
                 # Store plugin and raw_before for later use
                 plugin_report_data = {
-                    'plugin': plugin,
-                    'raw_before': raw_before,
-                    'has_custom_report': True
+                    "plugin": plugin,
+                    "raw_before": raw_before,
+                    "has_custom_report": True,
                 }
         except Exception as exc:
             console.print(f"[yellow]⚠[/yellow] Plugin processing failed: {exc}")
@@ -3431,7 +3450,7 @@ def cmd_montage_test(args) -> int:
 
     # Determine rename map for BDF files
     rename_map = {}
-    if suffix == '.bdf':
+    if suffix == ".bdf":
         for ch in raw.ch_names:
             if ch != "Status" and "_" in ch:
                 _, std_name = ch.split("_", 1)
@@ -3443,22 +3462,30 @@ def cmd_montage_test(args) -> int:
     try:
         # Try loading as standard MNE montage
         montage = mne.channels.make_standard_montage(montage_name)
-        montage_channels = set(montage.get_positions()['ch_pos'].keys())
+        montage_channels = set(montage.get_positions()["ch_pos"].keys())
     except ValueError:
         # Not a standard montage, try loading custom montage
         try:
             from pathlib import Path as PathLib
+
             # Check in package data/montages directory
             # cli.py is in src/autoclean/cli.py, so parent is src/autoclean
             package_dir = PathLib(__file__).parent
-            custom_montage_file = package_dir / "data" / "montages" / f"{montage_name}.sfp"
+            custom_montage_file = (
+                package_dir / "data" / "montages" / f"{montage_name}.sfp"
+            )
 
             if custom_montage_file.exists():
-                message("info", f"Loading custom montage from {custom_montage_file.name}")
+                message(
+                    "info", f"Loading custom montage from {custom_montage_file.name}"
+                )
                 montage = mne.channels.read_custom_montage(str(custom_montage_file))
-                montage_channels = set(montage.get_positions()['ch_pos'].keys())
+                montage_channels = set(montage.get_positions()["ch_pos"].keys())
             else:
-                message("error", f"Montage '{montage_name}' not found (checked standard and custom)")
+                message(
+                    "error",
+                    f"Montage '{montage_name}' not found (checked standard and custom)",
+                )
                 return 1
         except Exception as exc:
             message("error", f"Failed to load custom montage '{montage_name}': {exc}")
@@ -3484,7 +3511,7 @@ def cmd_montage_test(args) -> int:
     analysis = analyze_channels(raw, montage, montage_name=montage_name)
 
     # Get alternative montage suggestions
-    suggestions = suggest_montages(analysis['file_channels'])
+    suggestions = suggest_montages(analysis["file_channels"])
 
     # Generate visualizations
     console.print("[info]Generating visualizations...[/info]")
@@ -3502,25 +3529,25 @@ def cmd_montage_test(args) -> int:
 
     # Generate plugin-specific report if available
     custom_report_sections = []
-    if plugin_report_data.get('has_custom_report'):
+    if plugin_report_data.get("has_custom_report"):
         try:
-            plugin = plugin_report_data['plugin']
-            raw_before = plugin_report_data['raw_before']
+            plugin = plugin_report_data["plugin"]
+            raw_before = plugin_report_data["raw_before"]
             custom_report = plugin.generate_montage_report(
                 raw_before, raw, montage, analysis
             )
-            custom_report_sections = custom_report.get('html_sections', [])
+            custom_report_sections = custom_report.get("html_sections", [])
 
             # Add custom stats to analysis
-            if 'summary_stats' in custom_report:
-                analysis['plugin_stats'] = custom_report['summary_stats']
+            if "summary_stats" in custom_report:
+                analysis["plugin_stats"] = custom_report["summary_stats"]
 
             # Display info messages
-            for info_msg in custom_report.get('info_messages', []):
+            for info_msg in custom_report.get("info_messages", []):
                 console.print(f"[info]{info_msg}[/info]")
 
             # Display warnings
-            for warning in custom_report.get('warnings', []):
+            for warning in custom_report.get("warnings", []):
                 console.print(f"[yellow]⚠ {warning}[/yellow]")
 
         except Exception as exc:
@@ -3540,14 +3567,18 @@ def cmd_montage_test(args) -> int:
         metadata,
         raw_channel_info,
         rename_map,
-        custom_report_sections
+        custom_report_sections,
     )
 
     console.print()
     console.print(f"[success]✓ Report saved:[/success] {report_file}")
     console.print()
-    console.print(f"Match: [{'green' if analysis['match_pct'] >= 95 else 'yellow' if analysis['match_pct'] >= 90 else 'red'}]{analysis['match_pct']:.1f}%[/] ({len(analysis['matched'])}/{len(analysis['file_channels'])} channels)")
-    console.print(f"Positioned: {analysis['n_positioned']}/{len(analysis['file_channels'])}")
+    console.print(
+        f"Match: [{'green' if analysis['match_pct'] >= 95 else 'yellow' if analysis['match_pct'] >= 90 else 'red'}]{analysis['match_pct']:.1f}%[/] ({len(analysis['matched'])}/{len(analysis['file_channels'])} channels)"
+    )
+    console.print(
+        f"Positioned: {analysis['n_positioned']}/{len(analysis['file_channels'])}"
+    )
     console.print()
 
     return 0
@@ -6813,7 +6844,6 @@ def cmd_task_diagnose(args) -> int:
 
     console.print("→ Running workspace health check...\n")
 
-
     # Check tasks
     workspace_tasks = user_config.list_custom_tasks()
     num_tasks = len(workspace_tasks)
@@ -9055,7 +9085,9 @@ def main(argv: Optional[list] = None) -> int:
     if args.command and args.command != "workspace":
         # Compact branding header for consistency across all commands (except workspace which has its own branding)
         console = get_console(args)
-        _print_context(console, style="compact", include_system_info=False, include_disk=False)
+        _print_context(
+            console, style="compact", include_system_info=False, include_disk=False
+        )
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
@@ -9063,7 +9095,9 @@ def main(argv: Optional[list] = None) -> int:
         _simple_header(console)
 
         # Display centered context info (system, workspace, task, montage, input, disk)
-        _print_context(console, style="centered", include_system_info=True, include_disk=True)
+        _print_context(
+            console, style="centered", include_system_info=True, include_disk=True
+        )
 
         # Minimal centered key commands belt (for quick discovery)
         try:

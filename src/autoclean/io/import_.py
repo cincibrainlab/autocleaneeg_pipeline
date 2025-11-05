@@ -157,7 +157,7 @@ class BaseEEGPlugin(abc.ABC):
         raw_before: mne.io.Raw,
         raw_after: mne.io.Raw,
         montage: mne.channels.DigMontage,
-        report_data: Dict[str, Any]
+        report_data: Dict[str, Any],
     ) -> Dict[str, Any]:
         """Generate plugin-specific montage validation report data.
 
