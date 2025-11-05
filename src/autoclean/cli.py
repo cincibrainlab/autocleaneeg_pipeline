@@ -63,6 +63,14 @@ from autoclean.utils.template_renderer import (
 )
 from autoclean.utils.user_config import user_config
 
+# Optional Neo support for extended formats (XDAT)
+try:
+    import neo
+    import neo.io
+    NEO_AVAILABLE = True
+except ImportError:
+    NEO_AVAILABLE = False
+
 # ------------------------------------------------------------
 # CLI Process Logging
 # ------------------------------------------------------------
@@ -3199,6 +3207,87 @@ def cmd_montage_set(args) -> int:
     return 0
 
 
+def _load_xdat_via_neo(file_path: Path, montage_name: str = "MouseEEGv2_H32"):
+    """Load XDAT file using plugin system.
+
+    Args:
+        file_path: Path to the .xdat file
+        montage_name: Montage to apply (default: MouseEEGv2_H32)
+
+    Returns:
+        MNE Raw object with probe mapping applied via plugin
+
+    Raises:
+        ImportError: If Neo is not available
+        Exception: If file loading fails or plugin not found
+    """
+    from autoclean.io.import_ import get_plugin_for_combination
+
+    # Try to get the XDAT + montage plugin
+    try:
+        plugin = get_plugin_for_combination("NEURONEXUS_XDAT", montage_name)
+        raw = plugin.import_and_configure(file_path, autoclean_dict={}, preload=True)
+        return raw
+    except ValueError as e:
+        # Plugin not found - fall back to basic Neo loading
+        message("warning", f"No plugin found for XDAT + {montage_name}: {e}")
+        message("info", "Falling back to basic XDAT loading without montage mapping")
+
+        if not NEO_AVAILABLE:
+            raise ImportError(
+                "Neo package is required for XDAT files. "
+                "Install with: pip install neo"
+            )
+
+        import mne
+        import numpy as np
+
+        # Basic Neo loading without mapping
+        stem = file_path.stem
+        if stem.endswith('_data'):
+            base_stem = stem[:-5]
+            json_file = file_path.parent / f"{base_stem}.xdat.json"
+        elif stem.endswith('_timestamp'):
+            base_stem = stem[:-10]
+            json_file = file_path.parent / f"{base_stem}.xdat.json"
+        else:
+            json_file = file_path.with_suffix('.xdat.json')
+
+        reader_file = str(json_file) if json_file.exists() else str(file_path)
+
+        reader = neo.io.NeuroNexusIO(filename=reader_file)
+        block = reader.read_block()
+        segment = block.segments[0]
+
+        all_data = []
+        ch_names = []
+        ch_types_list = []
+        sfreq = None
+
+        for analog_signal in segment.analogsignals:
+            sig_data = analog_signal.magnitude.T
+            all_data.append(sig_data)
+
+            if sfreq is None:
+                sfreq = float(analog_signal.sampling_rate.magnitude)
+
+            for ch_name in analog_signal.array_annotations.get('channel_names', []):
+                ch_names.append(str(ch_name))
+                ch_name_lower = ch_name.lower()
+                if 'din' in ch_name_lower or 'dout' in ch_name_lower:
+                    ch_types_list.append('stim')
+                elif 'aux' in ch_name_lower:
+                    ch_types_list.append('misc')
+                else:
+                    ch_types_list.append('eeg')
+
+        data = np.vstack(all_data)
+        info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types=ch_types_list)
+        raw = mne.io.RawArray(data, info)
+
+        return raw
+
+
 def cmd_montage_test(args) -> int:
     """Generate montage validation report for the active input file."""
     import mne
@@ -3280,9 +3369,11 @@ def cmd_montage_test(args) -> int:
             raw = mne.io.read_raw_eeglab(str(input_file), preload=True, verbose=False)
         elif suffix == '.fif':
             raw = mne.io.read_raw_fif(str(input_file), preload=True, verbose=False)
+        elif suffix == '.xdat':
+            raw = _load_xdat_via_neo(input_file)
         else:
             message("error", f"Unsupported file format: {suffix}")
-            message("info", "Supported formats: .bdf, .edf, .set, .fif")
+            message("info", "Supported formats: .bdf, .edf, .set, .fif, .xdat")
             return 1
     except Exception as exc:
         message("error", f"Failed to load EEG file: {exc}")
@@ -3302,10 +3393,30 @@ def cmd_montage_test(args) -> int:
                     std_name = "AFz"
                 rename_map[ch] = std_name
 
-    # Load montage
+    # Load montage (try standard first, then custom)
     try:
+        # Try loading as standard MNE montage
         montage = mne.channels.make_standard_montage(montage_name)
         montage_channels = set(montage.get_positions()['ch_pos'].keys())
+    except ValueError:
+        # Not a standard montage, try loading custom montage
+        try:
+            from pathlib import Path as PathLib
+            # Check in package data/montages directory
+            # cli.py is in src/autoclean/cli.py, so parent is src/autoclean
+            package_dir = PathLib(__file__).parent
+            custom_montage_file = package_dir / "data" / "montages" / f"{montage_name}.sfp"
+
+            if custom_montage_file.exists():
+                message("info", f"Loading custom montage from {custom_montage_file.name}")
+                montage = mne.channels.read_custom_montage(str(custom_montage_file))
+                montage_channels = set(montage.get_positions()['ch_pos'].keys())
+            else:
+                message("error", f"Montage '{montage_name}' not found (checked standard and custom)")
+                return 1
+        except Exception as exc:
+            message("error", f"Failed to load custom montage '{montage_name}': {exc}")
+            return 1
     except Exception as exc:
         message("error", f"Failed to load montage '{montage_name}': {exc}")
         return 1
@@ -3323,8 +3434,8 @@ def cmd_montage_test(args) -> int:
 
     raw.set_montage(montage, match_case=False, on_missing="warn")
 
-    # Analyze channels
-    analysis = analyze_channels(raw, montage)
+    # Analyze channels (pass montage_name for mouse-scale detection)
+    analysis = analyze_channels(raw, montage, montage_name=montage_name)
 
     # Get alternative montage suggestions
     suggestions = suggest_montages(analysis['file_channels'])

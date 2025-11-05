@@ -179,6 +179,8 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
             "standard_1020",
             "biosemi64",
             "MEA30",
+            "MouseEEGv2_H32",
+            "MEA30_MNI",
             "BioSemi-256",
             "CustomCap-64",
         ]

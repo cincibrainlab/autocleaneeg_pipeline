@@ -28,4 +28,6 @@ valid_montages:
   artinis-brite23: "Artinis Brite23 fNIRS"
   GSN-HydroCel-124: "HydroCel GSN 124 (NBCD)"
   MEA30: "Mouse_EEG_v2_H32"
+  MouseEEGv2_H32: "NeuroNexus Mouse EEG v2 H32 (30ch) - Probe Geometry"
+  MEA30_MNI: "MEA 30ch MNI Brain Space (3D)"
   Grael4k: "Grael 4k 32 Channel" 

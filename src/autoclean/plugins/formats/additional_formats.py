@@ -13,3 +13,4 @@ register_format("edf", "EDF_FORMAT")  # European Data Format
 register_format("gdf", "GDF_FORMAT")  # General Data Format
 register_format("sqd", "KIT_FORMAT")  # KIT/Yokogawa MEG data
 register_format("rda", "RDA_FORMAT")  # RecView Data Acquisition files
+register_format("xdat", "NEURONEXUS_XDAT")  # NeuroNexus XDAT files
