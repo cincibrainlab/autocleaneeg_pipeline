@@ -42,6 +42,15 @@ from autoclean.utils.database import DB_PATH
 from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.logging import has_logged_errors, message
 from autoclean.utils.montage import load_valid_montages
+from autoclean.utils.montage_validation import (
+    analyze_channels,
+    create_3d_plot,
+    create_stats_plot,
+    extract_channel_info,
+    extract_file_metadata,
+    generate_html_report,
+    suggest_montages,
+)
 from autoclean.utils.task_discovery import (
     extract_config_from_task,
     get_task_by_name,
@@ -1377,6 +1386,11 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Skip confirmation prompt and apply immediately",
     )
+
+    montage_test_parser = montage_subparsers.add_parser(
+        "test", help="Generate montage validation report for active input", add_help=False
+    )
+    attach_rich_help(montage_test_parser)
 
     # Blocks management commands
     blocks_parser = subparsers.add_parser(
@@ -3017,6 +3031,8 @@ def cmd_montage(args) -> int:
         return cmd_montage_list(args)
     if action == "set":
         return cmd_montage_set(args)
+    if action == "test":
+        return cmd_montage_test(args)
 
     message("error", f"Unknown montage action: {action}")
     return 1
@@ -3180,6 +3196,176 @@ def cmd_montage_set(args) -> int:
         "success",
         f"✓ Montage for '{active_task}' updated to '{selected_montage}' in {task_path.name}",
     )
+    return 0
+
+
+def cmd_montage_test(args) -> int:
+    """Generate montage validation report for the active input file."""
+    import mne
+    from pathlib import Path
+
+    console = get_console(args)
+
+    # Header
+    console.print()
+    console.print("[bold cyan]🧭 Montage Validation Test[/bold cyan]")
+    console.print()
+
+    # Get active input file
+    active_source = user_config.get_active_source()
+    if not active_source:
+        message("error", "No active input file is currently set.")
+        message("info", "Use: autocleaneeg-pipeline input select")
+        return 1
+
+    input_file = Path(active_source)
+    if not input_file.exists():
+        message("error", f"Active input file does not exist: {input_file}")
+        return 1
+
+    # Get active task
+    active_task = user_config.get_active_task()
+    if not active_task:
+        message("error", "No active task is currently set.")
+        message("info", "Use: autocleaneeg-pipeline task set")
+        return 1
+
+    # Get montage from active task
+    task_path = user_config.get_custom_task_path(active_task)
+    if task_path is None or not task_path.exists():
+        message(
+            "error",
+            f"Active task '{active_task}' is not a workspace task.",
+        )
+        return 1
+
+    try:
+        with task_path.open("r", encoding="utf-8", newline="") as f:
+            task_source = f.read()
+    except Exception as exc:
+        message("error", f"Failed to read task file: {exc}")
+        return 1
+
+    block_text, _, _ = _locate_montage_block(task_source)
+    if block_text is None:
+        message(
+            "error",
+            f"Task '{active_task}' does not define a montage block.",
+        )
+        return 1
+
+    montage_name = _extract_montage_value(block_text)
+    if not montage_name:
+        message("error", "No montage is configured in the active task.")
+        message("info", "Use: autocleaneeg-pipeline montage set")
+        return 1
+
+    # Print configuration
+    console.print(f"[info]Input file:[/info] {input_file.name}")
+    console.print(f"[info]Active task:[/info] {active_task}")
+    console.print(f"[info]Montage:[/info] {montage_name}")
+    console.print()
+
+    # Load EEG file
+    console.print("[info]Loading EEG file...[/info]")
+    try:
+        # Determine file type and load accordingly
+        suffix = input_file.suffix.lower()
+        if suffix == '.bdf':
+            raw = mne.io.read_raw_bdf(str(input_file), preload=True, stim_channel="auto",
+                                     exclude=[], verbose=False)
+        elif suffix == '.edf':
+            raw = mne.io.read_raw_edf(str(input_file), preload=True, verbose=False)
+        elif suffix == '.set':
+            raw = mne.io.read_raw_eeglab(str(input_file), preload=True, verbose=False)
+        elif suffix == '.fif':
+            raw = mne.io.read_raw_fif(str(input_file), preload=True, verbose=False)
+        else:
+            message("error", f"Unsupported file format: {suffix}")
+            message("info", "Supported formats: .bdf, .edf, .set, .fif")
+            return 1
+    except Exception as exc:
+        message("error", f"Failed to load EEG file: {exc}")
+        return 1
+
+    eeg_picks = mne.pick_types(raw.info, eeg=True)
+    n_eeg_channels = len(eeg_picks)
+    console.print(f"[success]✓[/success] Loaded {n_eeg_channels} EEG channels")
+
+    # Determine rename map for BDF files
+    rename_map = {}
+    if suffix == '.bdf':
+        for ch in raw.ch_names:
+            if ch != "Status" and "_" in ch:
+                _, std_name = ch.split("_", 1)
+                if std_name == "Afz":
+                    std_name = "AFz"
+                rename_map[ch] = std_name
+
+    # Load montage
+    try:
+        montage = mne.channels.make_standard_montage(montage_name)
+        montage_channels = set(montage.get_positions()['ch_pos'].keys())
+    except Exception as exc:
+        message("error", f"Failed to load montage '{montage_name}': {exc}")
+        return 1
+
+    # Extract raw channel info BEFORE renaming
+    console.print("[info]Analyzing channel positions...[/info]")
+    raw_channel_info = extract_channel_info(raw, rename_map, montage_channels)
+
+    # Extract metadata
+    metadata = extract_file_metadata(raw, str(input_file))
+
+    # Apply renaming and montage
+    if rename_map:
+        raw.rename_channels(rename_map)
+
+    raw.set_montage(montage, match_case=False, on_missing="warn")
+
+    # Analyze channels
+    analysis = analyze_channels(raw, montage)
+
+    # Get alternative montage suggestions
+    suggestions = suggest_montages(analysis['file_channels'])
+
+    # Generate visualizations
+    console.print("[info]Generating visualizations...[/info]")
+    plot3d_b64 = create_3d_plot(analysis, f"3D Electrode Positions - {montage_name}")
+    stats_b64 = create_stats_plot(analysis)
+
+    # Determine output directory and file path
+    default_output = user_config.get_default_output_dir()
+    task_root = default_output / active_task
+
+    qa_dir = task_root / "qa"
+    qa_dir.mkdir(parents=True, exist_ok=True)
+
+    report_file = qa_dir / "montage_validation_report.html"
+
+    # Generate HTML report
+    console.print("[info]Generating HTML report...[/info]")
+    generate_html_report(
+        str(input_file),
+        montage_name,
+        analysis,
+        suggestions,
+        report_file,
+        None,  # topomap_b64 (not used)
+        plot3d_b64,
+        stats_b64,
+        metadata,
+        raw_channel_info,
+        rename_map
+    )
+
+    console.print()
+    console.print(f"[success]✓ Report saved:[/success] {report_file}")
+    console.print()
+    console.print(f"Match: [{'green' if analysis['match_pct'] >= 95 else 'yellow' if analysis['match_pct'] >= 90 else 'red'}]{analysis['match_pct']:.1f}%[/] ({len(analysis['matched'])}/{len(analysis['file_channels'])} channels)")
+    console.print(f"Positioned: {analysis['n_positioned']}/{len(analysis['file_channels'])}")
+    console.print()
+
     return 0
 
 
