@@ -3069,31 +3069,44 @@ def cmd_montage_list(args) -> int:
         )
         return 0
 
-    from rich.align import Align
-    from rich.text import Text
+    # Launch the beautiful Textual UI for montage browsing
+    try:
+        from autoclean.utils.montage_ui import display_montage_browser
 
-    console.print()
-    console.print(Align.center(Text("EEG Montage Catalog", style="title")))
-    console.print(
-        Align.center(Text("Defined in configs/montages.yaml", style="subtitle"))
-    )
-    console.print()
+        display_montage_browser(montages, selectable=False)
+        return 0
+    except Exception as exc:  # pylint: disable=broad-except
+        # Fallback to table view if Textual fails
+        message("warning", f"Could not launch interactive UI: {exc}")
+        message("info", "Falling back to table view...")
 
-    table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
-    table.add_column("Montage", style="accent", no_wrap=True)
-    table.add_column("Description", style="muted")
+        from rich.align import Align
+        from rich.text import Text
 
-    for montage_id, description in sorted(montages.items()):
-        display_description = description or "[muted]No description provided[/muted]"
-        table.add_row(montage_id, display_description)
+        console.print()
+        console.print(Align.center(Text("EEG Montage Catalog", style="title")))
+        console.print(
+            Align.center(Text("Defined in configs/montages.yaml", style="subtitle"))
+        )
+        console.print()
 
-    console.print(table)
-    console.print()
-    console.print(
-        f"[muted]{len(montages)} montage(s) available · Edit configs/montages.yaml to customize.[/muted]"
-    )
+        table = Table(show_header=True, header_style="header", box=None, padding=(0, 1))
+        table.add_column("Montage", style="accent", no_wrap=True)
+        table.add_column("Description", style="muted")
 
-    return 0
+        for montage_id, description in sorted(montages.items()):
+            display_description = (
+                description or "[muted]No description provided[/muted]"
+            )
+            table.add_row(montage_id, display_description)
+
+        console.print(table)
+        console.print()
+        console.print(
+            f"[muted]{len(montages)} montage(s) available · Edit configs/montages.yaml to customize.[/muted]"
+        )
+
+        return 0
 
 
 def cmd_montage_set(args) -> int:
@@ -3586,6 +3599,17 @@ def cmd_montage_test(args) -> int:
 
 def _prompt_for_montage(args, montages, current_value):
     """Prompt the user to choose a montage interactively."""
+
+    # Try to use the beautiful Textual UI first
+    try:
+        from autoclean.utils.montage_ui import display_montage_browser
+
+        selected = display_montage_browser(montages, selectable=True)
+        return selected
+    except Exception as exc:  # pylint: disable=broad-except
+        # Fallback to Rich-based prompt if Textual fails
+        message("warning", f"Could not launch interactive UI: {exc}")
+        message("info", "Falling back to text-based selection...")
 
     items = sorted(montages.items())
 
