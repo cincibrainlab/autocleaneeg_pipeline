@@ -274,20 +274,20 @@ class MontageListView(App):
 
         with Horizontal(id="main-container"):
             with Vertical(id="left-panel"):
-                list_view = ListView(id="montage-list")
-                # Populate the list with montages
-                for montage_id, description in sorted(self.montages.items()):
-                    list_item = ListItem(
-                        Vertical(
-                            Label(montage_id, classes="montage-id"),
-                            Label(description, classes="montage-desc"),
-                            classes="montage-list-item",
+                # Create ListView and populate it directly with ListItems
+                with ListView(id="montage-list"):
+                    for montage_id, description in sorted(self.montages.items()):
+                        list_item = ListItem(
+                            Vertical(
+                                Label(montage_id, classes="montage-id"),
+                                Label(description, classes="montage-desc"),
+                                classes="montage-list-item",
+                            )
                         )
-                    )
-                    list_item.montage_id = montage_id
-                    list_item.description = description
-                    list_view.append(list_item)
-                yield list_view
+                        # Store montage info as attributes
+                        list_item.montage_id = montage_id
+                        list_item.description = description
+                        yield list_item
 
             with VerticalScroll(id="right-panel"):
                 yield MontageDetailPanel(id="detail-panel")
