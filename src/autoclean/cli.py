@@ -8662,6 +8662,28 @@ def main(argv: Optional[list] = None) -> int:
         except Exception:
             pass
 
+        # Show current montage for real sub-commands
+        try:
+            current_montage = _get_current_montage()
+            if current_montage:
+                console.print(f"[info]Montage:[/info] [accent]{current_montage}[/accent]")
+            else:
+                # Check if there's an active task at all
+                try:
+                    active_task = user_config.get_active_task()
+                    if active_task:
+                        console.print(
+                            "[warning]Montage not configured[/warning] [muted](run 'autocleaneeg-pipeline montage set')[/muted]"
+                        )
+                    else:
+                        console.print(
+                            "[warning]Montage not set[/warning] [muted](set an active task first)[/muted]"
+                        )
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
         # Show active input (file vs folder) for real sub-commands
         try:
             active_src = user_config.get_active_source()
@@ -8762,6 +8784,28 @@ def main(argv: Optional[list] = None) -> int:
                 else:
                     at.append("not set", style="warning")
                 console.print(Align.center(at))
+            except Exception:
+                pass
+
+            # Show current montage with guard (or not set/not configured)
+            try:
+                current_montage = _get_current_montage()
+                mt = Text()
+                mt.append("📊 ", style="muted")
+                mt.append("Montage: ", style="muted")
+                if current_montage:
+                    mt.append(str(current_montage), style="accent")
+                else:
+                    # Check if there's an active task at all
+                    try:
+                        active_task = user_config.get_active_task()
+                        if active_task:
+                            mt.append("not configured", style="warning")
+                        else:
+                            mt.append("not set", style="warning")
+                    except Exception:
+                        mt.append("not set", style="warning")
+                console.print(Align.center(mt))
             except Exception:
                 pass
 
