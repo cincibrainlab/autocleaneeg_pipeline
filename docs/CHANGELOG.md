@@ -1,4 +1,32 @@
 # Changelog
+## [3.0.0-alpha.1] - Unreleased
+
+### Added
+- **Plugin Report Interface**: Unified plugin-based montage validation report system
+  - Added `generate_montage_report()` method to `BaseEEGPlugin` for custom validation reports
+  - Added `find_plugin_for_combination()` helper for optional plugin features
+  - Montage test command now detects and uses plugins for enhanced validation
+  - Custom HTML report sections explain plugin transformations automatically
+  - Architecture supports future plugins (XDAT, custom arrays, etc.)
+- **MEA30 EDF Plugin**: Complete support for mouse EEG with MEA30 electrode arrays
+  - Added `EDFMouseMEA30Plugin` with automatic channel remapping (33→30 channels)
+  - Drops reference/ground channels (Chan 2, 32, 33) automatically
+  - Corrects scrambled hardware routing to anatomical MEA order
+  - Applies 3D MNI brain coordinates validated against MATLAB reference
+  - Custom montage report with transformation visualization
+  - Added `MEA30_EDF.sfp` montage with validated 3D coordinates
+  - Added `MEA30_EDF_mapping.csv` with complete channel routing documentation
+  - montage test now shows 100% match for MEA30 EDF files (was 0%)
+
+### Changed
+- **Montage Validation**: Enhanced `cmd_montage_test` to process files through plugins before validation
+- **Report Generation**: Updated `montage_validation.py` to accept and render custom plugin report sections
+
+### Technical
+- Added `PLUGIN_REPORT_INTERFACE_PROPOSAL.md` documenting the architecture decision
+- Plugin report sections include transformation overview, mapping tables, and validation info
+- Format detection now uses `get_format_from_extension()` for consistency
+
 ## [3.0.0-alpha] - Unreleased
 
 ### Breaking
