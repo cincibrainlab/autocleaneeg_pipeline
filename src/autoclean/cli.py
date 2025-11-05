@@ -241,61 +241,84 @@ def _get_current_montage() -> Optional[str]:
         return None
 
 
-def _print_startup_context(console) -> None:
-    """Print system info, workspace path, and free disk space (shared for header/help)."""
+def _print_context(
+    console,
+    style: str = "centered",
+    include_system_info: bool = True,
+    include_disk: bool = True,
+) -> None:
+    """
+    Unified context display function with configurable formatting.
+
+    Args:
+        console: Rich console instance
+        style: Display style - 'centered' (with emojis) or 'compact' (left-aligned, info tags)
+        include_system_info: Show Python/OS/Time info (centered style only)
+        include_disk: Show disk space (centered style only)
+    """
+    from rich.align import Align
+    from rich.text import Text
+
+    # System info (centered style only)
+    if include_system_info and style == "centered":
+        try:
+            import platform as _platform
+
+            py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
+            os_name = _platform.system() or "UnknownOS"
+            os_rel = _platform.release() or ""
+            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+            info = Text()
+            info.append("🐍 Python ", style="muted")
+            info.append(py_ver, style="accent")
+            info.append("  •  ", style="muted")
+            info.append("🖥 ", style="muted")
+            info.append(f"{os_name} {os_rel}".strip(), style="accent")
+            info.append("  •  ", style="muted")
+            info.append("🕒 ", style="muted")
+            info.append(now_str, style="accent")
+            console.print(Align.center(info))
+        except Exception:
+            pass
+
+    # Workspace
     try:
-        import platform as _platform
-
-        from rich.align import Align
-        from rich.text import Text
-
-        py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-        os_name = _platform.system() or "UnknownOS"
-        os_rel = _platform.release() or ""
-        now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-        info = Text()
-        info.append("🐍 Python ", style="muted")
-        info.append(py_ver, style="accent")
-        info.append("  •  ", style="muted")
-        info.append("🖥 ", style="muted")
-        info.append(f"{os_name} {os_rel}".strip(), style="accent")
-        info.append("  •  ", style="muted")
-        info.append("🕒 ", style="muted")
-        info.append(now_str, style="accent")
-        console.print(Align.center(info))
-    except Exception:
-        pass
-
-    # Workspace + disk
-    try:
-        from rich.align import Align as _Align
-        from rich.text import Text as _Text
-
         workspace_dir = user_config.config_dir
         try:
-            # Prefer strict validity check (requires saved setup + structure)
             valid_ws = user_config._is_workspace_valid()  # type: ignore[attr-defined]
         except Exception:
-            # Fallback to basic existence check
             valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+
         home = str(Path.home())
         display_path = str(workspace_dir)
         if display_path.startswith(home):
             display_path = display_path.replace(home, "~", 1)
 
-        ws = _Text()
-        if valid_ws:
-            ws.append("✓ ", style="success")
-            ws.append("Workspace ", style="muted")
-            ws.append(display_path, style="accent")
-            console.print(_Align.center(ws))
-        else:
-            ws.append("⚠ ", style="warning")
-            ws.append("Workspace not configured — ", style="muted")
-            ws.append(display_path, style="accent")
-            console.print(_Align.center(ws))
+        if style == "centered":
+            ws = Text()
+            if valid_ws:
+                ws.append("✓ ", style="success")
+                ws.append("Workspace ", style="muted")
+                ws.append(display_path, style="accent")
+            else:
+                ws.append("⚠ ", style="warning")
+                ws.append("Workspace not configured — ", style="muted")
+                ws.append(display_path, style="accent")
+            console.print(Align.center(ws))
+        else:  # compact
+            if valid_ws:
+                console.print(f"[success]Autoclean Workspace Directory:[/success] {workspace_dir}")
+            else:
+                message(
+                    "warning",
+                    f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline workspace' to configure)",
+                )
+    except Exception:
+        pass
 
+    # Task library status (centered style only)
+    if style == "centered":
         try:
             registry = BuiltinRegistry()
             registry_info = registry.registry_status()
@@ -306,17 +329,17 @@ def _print_startup_context(console) -> None:
             elif commit == "local-snapshot":
                 commit = "local snapshot"
             synced_at = _pretty_timestamp(registry_info.get("synced_at"))
-            status_line = _Text()
+            status_line = Text()
             status_line.append("Task Library: ", style="muted")
             status_line.append(commit, style="accent")
             status_line.append("  ", style="muted")
             status_line.append("last checked ", style="muted")
             status_line.append(synced_at, style="accent")
-            console.print(_Align.center(status_line))
+            console.print(Align.center(status_line))
 
             last_error = registry_info.get("last_error")
             if isinstance(last_error, dict):
-                err_text = _Text()
+                err_text = Text()
                 err_text.append("Working offline: ", style="warning")
                 err_text.append(
                     last_error.get("message", "connection problem"), style="warning"
@@ -327,39 +350,42 @@ def _print_startup_context(console) -> None:
                 if timestamp:
                     err_text.append("  ", style="muted")
                     err_text.append(timestamp, style="muted")
-                console.print(_Align.center(err_text))
+                console.print(Align.center(err_text))
         except Exception:
             pass
-            tip = _Text()
-            tip.append("Run ", style="muted")
-            tip.append("autocleaneeg-pipeline workspace", style="accent")
-            tip.append(" to configure.", style="muted")
-            console.print(_Align.center(tip))
 
-        # Always show active task line beneath Workspace (or guard if not set)
-        try:
-            active_task = user_config.get_active_task()
-            at = _Text()
+    # Active task
+    try:
+        active_task = user_config.get_active_task()
+        if style == "centered":
+            at = Text()
             at.append("🎯 ", style="muted")
             at.append("Active task: ", style="muted")
             if active_task:
                 at.append(str(active_task), style="accent")
             else:
                 at.append("not set", style="warning")
-            console.print(_Align.center(at))
-        except Exception:
-            pass
+            console.print(Align.center(at))
+        else:  # compact
+            if active_task:
+                console.print(f"[info]Active task:[/info] [accent]{active_task}[/accent]")
+            else:
+                console.print(
+                    "[warning]Active task not set[/warning] [muted](run 'autocleaneeg-pipeline task set')[/muted]"
+                )
+    except Exception:
+        pass
 
-        # Show current montage with guard (or not set/not configured)
-        try:
-            current_montage = _get_current_montage()
-            mt = _Text()
+    # Montage
+    try:
+        current_montage = _get_current_montage()
+        if style == "centered":
+            mt = Text()
             mt.append("📊 ", style="muted")
             mt.append("Montage: ", style="muted")
             if current_montage:
                 mt.append(str(current_montage), style="accent")
             else:
-                # Check if there's an active task at all
                 try:
                     active_task = user_config.get_active_task()
                     if active_task:
@@ -368,18 +394,36 @@ def _print_startup_context(console) -> None:
                         mt.append("not set", style="warning")
                 except Exception:
                     mt.append("not set", style="warning")
-            console.print(_Align.center(mt))
-        except Exception:
-            pass
+            console.print(Align.center(mt))
+        else:  # compact
+            if current_montage:
+                console.print(f"[info]Montage:[/info] [accent]{current_montage}[/accent]")
+            else:
+                try:
+                    active_task = user_config.get_active_task()
+                    if active_task:
+                        console.print(
+                            "[warning]Montage not configured[/warning] [muted](run 'autocleaneeg-pipeline montage set')[/muted]"
+                        )
+                    else:
+                        console.print(
+                            "[warning]Montage not set[/warning] [muted](set an active task first)[/muted]"
+                        )
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
-        # Show active input (or guard if not set/missing)
-        try:
-            active_source = user_config.get_active_source()
-            src = _Text()
+    # Active input
+    try:
+        active_source = user_config.get_active_source()
+        home = str(Path.home())
+
+        if style == "centered":
+            src = Text()
             if active_source:
                 sp = Path(active_source)
                 display_src = str(sp)
-                home = str(Path.home())
                 if display_src.startswith(home):
                     display_src = display_src.replace(home, "~", 1)
                 if sp.exists():
@@ -401,28 +445,54 @@ def _print_startup_context(console) -> None:
                 src.append("📁 ", style="muted")
                 src.append("Active input: ", style="muted")
                 src.append("not set", style="warning")
-            console.print(_Align.center(src))
+            console.print(Align.center(src))
+        else:  # compact
+            if active_source:
+                p = Path(active_source)
+                if p.exists():
+                    if p.is_file():
+                        console.print(f"[info]Input file:[/info] [accent]{active_source}[/accent]")
+                    elif p.is_dir():
+                        console.print(f"[info]Input folder:[/info] [accent]{active_source}[/accent]")
+                    else:
+                        console.print(f"[info]Input:[/info] [accent]{active_source}[/accent]")
+                else:
+                    console.print(
+                        f"[warning]Input missing[/warning] [muted]—[/muted] [accent]{active_source}[/accent]"
+                    )
+            else:
+                console.print(
+                    "[warning]Active input not set[/warning] [muted](run 'autocleaneeg-pipeline input set')[/muted]"
+                )
+    except Exception:
+        pass
+
+    # Disk space (centered style only)
+    if include_disk and style == "centered":
+        try:
+            workspace_dir = user_config.config_dir
+            usage_path = (
+                workspace_dir
+                if workspace_dir.exists()
+                else (
+                    workspace_dir.parent if workspace_dir.parent.exists() else Path.home()
+                )
+            )
+            du = shutil.disk_usage(str(usage_path))
+            free_gb = du.free / (1024**3)
+            free_line = Text()
+            free_line.append("💾 ", style="muted")
+            free_line.append("Free space ", style="muted")
+            free_line.append(f"{free_gb:.1f} GB", style="accent")
+            console.print(Align.center(free_line))
+            console.print()
         except Exception:
             pass
 
-        # Disk free
-        usage_path = (
-            workspace_dir
-            if workspace_dir.exists()
-            else (
-                workspace_dir.parent if workspace_dir.parent.exists() else Path.home()
-            )
-        )
-        du = shutil.disk_usage(str(usage_path))
-        free_gb = du.free / (1024**3)
-        free_line = _Text()
-        free_line.append("💾 ", style="muted")
-        free_line.append("Free space ", style="muted")
-        free_line.append(f"{free_gb:.1f} GB", style="accent")
-        console.print(_Align.center(free_line))
-        console.print()
-    except Exception:
-        pass
+
+def _print_startup_context(console) -> None:
+    """Print system info, workspace path, and free disk space (shared for header/help)."""
+    _print_context(console, style="centered", include_system_info=True, include_disk=True)
 
 
 class RichHelpAction(argparse.Action):
@@ -8639,237 +8709,15 @@ def main(argv: Optional[list] = None) -> int:
     if args.command and args.command != "workspace":
         # Compact branding header for consistency across all commands (except workspace which has its own branding)
         console = get_console(args)
-
-        if workspace_dir.exists() and (workspace_dir / "tasks").exists():
-            console.print(
-                f"[success]Autoclean Workspace Directory:[/success] {workspace_dir}"
-            )
-        else:
-            message(
-                "warning",
-                f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline workspace' to configure)",
-            )
-
-        # Always show active task status for real sub-commands
-        try:
-            current = user_config.get_active_task()
-            if current:
-                console.print(f"[info]Active task:[/info] [accent]{current}[/accent]")
-            else:
-                console.print(
-                    "[warning]Active task not set[/warning] [muted](run 'autocleaneeg-pipeline task set')[/muted]"
-                )
-        except Exception:
-            pass
-
-        # Show current montage for real sub-commands
-        try:
-            current_montage = _get_current_montage()
-            if current_montage:
-                console.print(f"[info]Montage:[/info] [accent]{current_montage}[/accent]")
-            else:
-                # Check if there's an active task at all
-                try:
-                    active_task = user_config.get_active_task()
-                    if active_task:
-                        console.print(
-                            "[warning]Montage not configured[/warning] [muted](run 'autocleaneeg-pipeline montage set')[/muted]"
-                        )
-                    else:
-                        console.print(
-                            "[warning]Montage not set[/warning] [muted](set an active task first)[/muted]"
-                        )
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
-        # Show active input (file vs folder) for real sub-commands
-        try:
-            active_src = user_config.get_active_source()
-            if active_src:
-                p = Path(active_src)
-                if p.exists():
-                    if p.is_file():
-                        console.print(
-                            f"[info]Input file:[/info] [accent]{active_src}[/accent]"
-                        )
-                    elif p.is_dir():
-                        console.print(
-                            f"[info]Input folder:[/info] [accent]{active_src}[/accent]"
-                        )
-                    else:
-                        console.print(
-                            f"[info]Input:[/info] [accent]{active_src}[/accent]"
-                        )
-                else:
-                    console.print(
-                        f"[warning]Input missing[/warning] [muted]—[/muted] [accent]{active_src}[/accent]"
-                    )
-            else:
-                console.print(
-                    "[warning]Active input not set[/warning] [muted](run 'autocleaneeg-pipeline input set')[/muted]"
-                )
-        except Exception:
-            pass
+        _print_context(console, style="compact", include_system_info=False, include_disk=False)
 
     if not args.command:
         # Show our custom 80s-style main interface instead of default help
         console = get_console(args)
         _simple_header(console)
 
-        # Centered system info: Python, OS, Date/Time
-        try:
-            import platform as _platform
-
-            from rich.align import Align
-            from rich.text import Text
-
-            py_ver = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
-            os_name = _platform.system() or "UnknownOS"
-            os_rel = _platform.release() or ""
-            now_str = datetime.now().strftime("%Y-%m-%d %H:%M")
-
-            info = Text()
-            info.append("🐍 Python ", style="muted")
-            info.append(py_ver, style="accent")
-            info.append("  •  ", style="muted")
-            info.append("🖥 ", style="muted")
-            info.append(f"{os_name} {os_rel}".strip(), style="accent")
-            info.append("  •  ", style="muted")
-            info.append("🕒 ", style="muted")
-            info.append(now_str, style="accent")
-
-            console.print(Align.center(info))
-            console.print()
-        except Exception:
-            pass
-
-        # Show workspace info elegantly beneath the banner (centered)
-        try:
-            from rich.align import Align
-            from rich.text import Text
-
-            valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
-            home = str(Path.home())
-            display_path = str(workspace_dir)
-            if display_path.startswith(home):
-                display_path = display_path.replace(home, "~", 1)
-
-            ws = Text()
-            if valid_ws:
-                ws.append("✓ ", style="success")
-                ws.append("Workspace ", style="muted")
-                ws.append(display_path, style="accent")
-                console.print(Align.center(ws))
-            else:
-                ws.append("⚠ ", style="warning")
-                ws.append("Workspace not configured — ", style="muted")
-                ws.append(display_path, style="accent")
-                console.print(Align.center(ws))
-
-                tip = Text()
-                tip.append("Run ", style="muted")
-                tip.append("autocleaneeg-pipeline workspace", style="accent")
-                tip.append(" to configure.", style="muted")
-                console.print(Align.center(tip))
-            # Always show active task line beneath Workspace (or guard if not set)
-            try:
-                active_task = user_config.get_active_task()
-                at = Text()
-                at.append("🎯 ", style="muted")
-                at.append("Active task: ", style="muted")
-                if active_task:
-                    at.append(str(active_task), style="accent")
-                else:
-                    at.append("not set", style="warning")
-                console.print(Align.center(at))
-            except Exception:
-                pass
-
-            # Show current montage with guard (or not set/not configured)
-            try:
-                current_montage = _get_current_montage()
-                mt = Text()
-                mt.append("📊 ", style="muted")
-                mt.append("Montage: ", style="muted")
-                if current_montage:
-                    mt.append(str(current_montage), style="accent")
-                else:
-                    # Check if there's an active task at all
-                    try:
-                        active_task = user_config.get_active_task()
-                        if active_task:
-                            mt.append("not configured", style="warning")
-                        else:
-                            mt.append("not set", style="warning")
-                    except Exception:
-                        mt.append("not set", style="warning")
-                console.print(Align.center(mt))
-            except Exception:
-                pass
-
-            # Show active input (file vs folder) beneath task
-            try:
-                from rich.align import Align as _SrcAlign
-                from rich.text import Text as _SrcText
-
-                active_src = user_config.get_active_source()
-                src_line = _SrcText()
-                if active_src:
-                    p = Path(active_src)
-                    display_src = str(p)
-                    if display_src.startswith(home):
-                        display_src = display_src.replace(home, "~", 1)
-                    if p.exists():
-                        if p.is_file():
-                            src_line.append("📄 ", style="muted")
-                            src_line.append("Input file: ", style="muted")
-                        elif p.is_dir():
-                            src_line.append("📂 ", style="muted")
-                            src_line.append("Input folder: ", style="muted")
-                        else:
-                            src_line.append("📁 ", style="muted")
-                            src_line.append("Input: ", style="muted")
-                        src_line.append(display_src, style="accent")
-                    else:
-                        src_line.append("⚠ ", style="warning")
-                        src_line.append("Input missing — ", style="muted")
-                        src_line.append(display_src, style="accent")
-                else:
-                    src_line.append("📁 ", style="muted")
-                    src_line.append("Active input: ", style="muted")
-                    src_line.append("not set", style="warning")
-                console.print(_SrcAlign.center(src_line))
-            except Exception:
-                pass
-        except Exception:
-            # Suppress fallback to avoid left-justified output in banner
-            pass
-
-        # Disk free space for workspace volume (guarded)
-        try:
-            from rich.align import Align as _Align
-            from rich.text import Text as _Text
-
-            usage_path = (
-                workspace_dir
-                if workspace_dir.exists()
-                else (
-                    workspace_dir.parent
-                    if workspace_dir.parent.exists()
-                    else Path.home()
-                )
-            )
-            du = shutil.disk_usage(str(usage_path))
-            free_gb = du.free / (1024**3)
-            free_line = _Text()
-            free_line.append("💾 ", style="muted")
-            free_line.append("Free space ", style="muted")
-            free_line.append(f"{free_gb:.1f} GB", style="accent")
-            console.print(_Align.center(free_line))
-        except Exception:
-            pass
+        # Display centered context info (system, workspace, task, montage, input, disk)
+        _print_context(console, style="centered", include_system_info=True, include_disk=True)
 
         # Minimal centered key commands belt (for quick discovery)
         try:
