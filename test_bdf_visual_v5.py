@@ -286,7 +286,7 @@ def suggest_montages(file_channels: Set[str], top_n: int = 10) -> List[Tuple[str
 
 
 def create_elegant_topomap(analysis: Dict, title: str) -> str:
-    """Create elegant 2D topomap with enhanced styling."""
+    """Create elegant 2D topomap with enhanced styling and clear channel labels."""
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 9))
     fig.suptitle(title, fontsize=16, fontweight='bold', y=0.98)
@@ -317,14 +317,25 @@ def create_elegant_topomap(analysis: Dict, title: str) -> str:
                 color, marker, size, alpha, edge = '#e67e22', 's', 100, 0.7, '#d35400'
                 label = 'Unmatched' if ax1.get_legend_handles_labels()[1].count('Unmatched') == 0 else ''
 
+            # Plot electrode marker
             ax1.scatter(pos[0], pos[1], c=color, marker=marker, s=size,
                        alpha=alpha, edgecolors=edge, linewidths=2, label=label, zorder=3)
-            ax1.text(pos[0], pos[1], ch, fontsize=7, ha='center', va='center',
-                    fontweight='bold', zorder=4)
+
+            # Calculate radial offset for text label (away from center)
+            angle = np.arctan2(pos[1], pos[0])
+            offset_dist = 0.012  # Offset distance in meters
+            text_x = pos[0] + offset_dist * np.cos(angle)
+            text_y = pos[1] + offset_dist * np.sin(angle)
+
+            # Add channel name label with background box for readability
+            ax1.text(text_x, text_y, ch, fontsize=8, ha='center', va='center',
+                    fontweight='bold', zorder=5,
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
+                             edgecolor='none', alpha=0.85))
 
     ax1.legend(loc='upper right', framealpha=0.9, fontsize=10)
-    ax1.set_xlim(-0.12, 0.12)
-    ax1.set_ylim(-0.12, 0.12)
+    ax1.set_xlim(-0.13, 0.13)
+    ax1.set_ylim(-0.13, 0.13)
 
     # Plot 2: Side view (Y-Z)
     ax2.set_title('Side View (Y-Z Plane)', fontsize=14, pad=15)
@@ -344,13 +355,24 @@ def create_elegant_topomap(analysis: Dict, title: str) -> str:
             size = 120 if data['matched'] else 100
             edge = '#1e8449' if data['matched'] else '#d35400'
 
+            # Plot electrode marker
             ax2.scatter(pos[1], pos[2], c=color, marker=marker, s=size,
                        alpha=0.8, edgecolors=edge, linewidths=2, zorder=3)
-            ax2.text(pos[1], pos[2], ch, fontsize=7, ha='center', va='center',
-                    fontweight='bold', zorder=4)
 
-    ax2.set_xlim(-0.12, 0.12)
-    ax2.set_ylim(-0.12, 0.12)
+            # Calculate radial offset for text label (away from center)
+            angle = np.arctan2(pos[2], pos[1])
+            offset_dist = 0.012
+            text_y = pos[1] + offset_dist * np.cos(angle)
+            text_z = pos[2] + offset_dist * np.sin(angle)
+
+            # Add channel name label with background box
+            ax2.text(text_y, text_z, ch, fontsize=8, ha='center', va='center',
+                    fontweight='bold', zorder=5,
+                    bbox=dict(boxstyle='round,pad=0.3', facecolor='white',
+                             edgecolor='none', alpha=0.85))
+
+    ax2.set_xlim(-0.13, 0.13)
+    ax2.set_ylim(-0.13, 0.13)
 
     plt.tight_layout()
     return fig_to_base64(fig)
@@ -376,7 +398,7 @@ def create_3d_plot(analysis: Dict, title: str) -> str:
         ax.set_ylabel('Y', fontsize=10)
         ax.set_zlabel('Z', fontsize=10)
 
-        # Plot channels
+        # Plot channels with labels
         for ch, data in analysis['channel_data'].items():
             if data['has_position']:
                 pos = data['position']
@@ -384,8 +406,25 @@ def create_3d_plot(analysis: Dict, title: str) -> str:
                 marker = 'o' if data['matched'] else 's'
                 size = 60 if data['matched'] else 50
 
+                # Plot electrode marker
                 ax.scatter(*pos, c=color, marker=marker, s=size, alpha=0.8,
                          edgecolors='black', linewidths=0.5)
+
+                # Calculate radial offset for label (away from origin)
+                norm = np.linalg.norm(pos)
+                if norm > 0:
+                    offset_dist = 0.015
+                    offset_vec = (pos / norm) * offset_dist
+                    label_pos = pos + offset_vec
+                else:
+                    label_pos = pos + np.array([0.01, 0.01, 0.01])
+
+                # Add channel name label with background
+                ax.text(label_pos[0], label_pos[1], label_pos[2], ch,
+                       fontsize=7, ha='center', va='center', fontweight='bold',
+                       bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
+                                edgecolor='none', alpha=0.8),
+                       zorder=10)
 
         # Head sphere
         u = np.linspace(0, 2 * np.pi, 30)
@@ -396,9 +435,9 @@ def create_3d_plot(analysis: Dict, title: str) -> str:
         ax.plot_surface(x, y, z, alpha=0.15, color='gray')
 
         ax.view_init(elev=elev, azim=azim)
-        ax.set_xlim([-0.11, 0.11])
-        ax.set_ylim([-0.11, 0.11])
-        ax.set_zlim([-0.11, 0.11])
+        ax.set_xlim([-0.12, 0.12])
+        ax.set_ylim([-0.12, 0.12])
+        ax.set_zlim([-0.12, 0.12])
         ax.set_box_aspect([1,1,1])
 
     plt.tight_layout()
@@ -406,90 +445,83 @@ def create_3d_plot(analysis: Dict, title: str) -> str:
 
 
 def create_stats_plot(analysis: Dict) -> str:
-    """Create statistical analysis plots."""
+    """Create position distribution analysis plots - top and side views."""
 
-    fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(16, 12))
-    fig.suptitle('Statistical Analysis', fontsize=16, fontweight='bold')
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 8))
+    fig.suptitle('Position Distribution Analysis', fontsize=16, fontweight='bold')
 
-    # Plot 1: Match statistics pie chart
-    ax1.set_title('Channel Matching Overview', fontsize=13, fontweight='bold')
-    sizes = [len(analysis['matched']), len(analysis['unmatched_file'])]
-    colors = ['#27ae60', '#e67e22']
-    labels = [f"Matched\n{len(analysis['matched'])} channels",
-              f"Unmatched\n{len(analysis['unmatched_file'])} channels"]
-    explode = (0.05, 0)
-
-    ax1.pie(sizes, explode=explode, labels=labels, colors=colors, autopct='%1.1f%%',
-            shadow=True, startangle=90, textprops={'fontsize': 11, 'fontweight': 'bold'})
-    ax1.axis('equal')
-
-    # Plot 2: Distance distribution histogram
     if len(analysis['positions']) > 0:
         distances = np.linalg.norm(analysis['positions'], axis=1)
-        ax2.set_title('Distance Distribution from Origin', fontsize=13, fontweight='bold')
-        ax2.hist(distances, bins=20, color='#3498db', alpha=0.7, edgecolor='black')
-        ax2.axvline(analysis['mean_distance'], color='#e74c3c', linestyle='--',
-                   linewidth=2, label=f'Mean: {analysis["mean_distance"]:.4f}m')
-        ax2.set_xlabel('Distance (meters)', fontsize=11)
-        ax2.set_ylabel('Count', fontsize=11)
-        ax2.legend(fontsize=10)
-        ax2.grid(True, alpha=0.3)
 
-    # Plot 3: Position scatter (X-Y with distance color)
-    ax3.set_title('Position Distribution (colored by distance)', fontsize=13, fontweight='bold')
-    if len(analysis['positions']) > 0:
+        # Plot 1: Top view (X-Y) colored by distance
+        ax1.set_title('Top View (X-Y) - Colored by Distance from Origin', fontsize=13, fontweight='bold')
         x = analysis['positions'][:, 0]
         y = analysis['positions'][:, 1]
-        distances = np.linalg.norm(analysis['positions'], axis=1)
-        scatter = ax3.scatter(x, y, c=distances, cmap='viridis', s=100,
-                            alpha=0.7, edgecolors='black', linewidths=1)
-        plt.colorbar(scatter, ax=ax3, label='Distance (m)')
-        ax3.set_xlabel('X (meters)', fontsize=11)
-        ax3.set_ylabel('Y (meters)', fontsize=11)
-        ax3.grid(True, alpha=0.3)
-        ax3.set_aspect('equal')
+        scatter1 = ax1.scatter(x, y, c=distances, cmap='viridis', s=120,
+                            alpha=0.7, edgecolors='black', linewidths=1.5)
+        cbar1 = plt.colorbar(scatter1, ax=ax1, label='Distance (m)')
+
+        # Add channel name labels
+        for ch, data in analysis['channel_data'].items():
+            if data['has_position']:
+                pos = data['position']
+                angle = np.arctan2(pos[1], pos[0])
+                offset_dist = 0.010
+                text_x = pos[0] + offset_dist * np.cos(angle)
+                text_y = pos[1] + offset_dist * np.sin(angle)
+
+                ax1.text(text_x, text_y, ch, fontsize=8, ha='center', va='center',
+                        fontweight='bold', zorder=5,
+                        bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
+                                 edgecolor='none', alpha=0.85))
+
+        ax1.set_xlabel('X (meters)', fontsize=11)
+        ax1.set_ylabel('Y (meters)', fontsize=11)
+        ax1.grid(True, alpha=0.3)
+        ax1.set_aspect('equal')
+
+        # Add head circle and nose
+        circle1 = Circle((0, 0), 0.095, fill=False, edgecolor='black', linewidth=2)
+        ax1.add_patch(circle1)
+        nose1 = Wedge((0, 0.095), 0.015, 60, 120, facecolor='black', alpha=0.5)
+        ax1.add_patch(nose1)
+
+        ax1.set_xlim(-0.12, 0.12)
+        ax1.set_ylim(-0.12, 0.12)
+
+        # Plot 2: Side view (Y-Z) colored by distance
+        ax2.set_title('Side View (Y-Z) - Colored by Distance from Origin', fontsize=13, fontweight='bold')
+        y = analysis['positions'][:, 1]
+        z = analysis['positions'][:, 2]
+        scatter2 = ax2.scatter(y, z, c=distances, cmap='viridis', s=120,
+                            alpha=0.7, edgecolors='black', linewidths=1.5)
+        cbar2 = plt.colorbar(scatter2, ax=ax2, label='Distance (m)')
+
+        # Add channel name labels for side view
+        for ch, data in analysis['channel_data'].items():
+            if data['has_position']:
+                pos = data['position']
+                angle = np.arctan2(pos[2], pos[1])
+                offset_dist = 0.010
+                text_y = pos[1] + offset_dist * np.cos(angle)
+                text_z = pos[2] + offset_dist * np.sin(angle)
+
+                ax2.text(text_y, text_z, ch, fontsize=8, ha='center', va='center',
+                        fontweight='bold', zorder=5,
+                        bbox=dict(boxstyle='round,pad=0.25', facecolor='white',
+                                 edgecolor='none', alpha=0.85))
+
+        ax2.set_xlabel('Y (meters)', fontsize=11)
+        ax2.set_ylabel('Z (meters)', fontsize=11)
+        ax2.grid(True, alpha=0.3)
+        ax2.set_aspect('equal')
 
         # Add head circle
-        circle = Circle((0, 0), 0.095, fill=False, edgecolor='black', linewidth=2)
-        ax3.add_patch(circle)
+        circle2 = Circle((0, 0), 0.095, fill=False, edgecolor='black', linewidth=2)
+        ax2.add_patch(circle2)
 
-    # Plot 4: Match percentage gauge
-    ax4.set_title('Match Quality Score', fontsize=13, fontweight='bold')
-    ax4.set_xlim(0, 1)
-    ax4.set_ylim(0, 1)
-    ax4.axis('off')
-
-    pct = analysis['match_pct']
-
-    # Gauge background
-    gauge_bg = FancyBboxPatch((0.1, 0.3), 0.8, 0.3, boxstyle="round,pad=0.05",
-                              facecolor='#ecf0f1', edgecolor='#95a5a6', linewidth=3)
-    ax4.add_patch(gauge_bg)
-
-    # Gauge fill
-    if pct >= 95:
-        color = '#27ae60'
-        status = 'EXCELLENT'
-    elif pct >= 85:
-        color = '#f39c12'
-        status = 'GOOD'
-    elif pct >= 70:
-        color = '#e67e22'
-        status = 'FAIR'
-    else:
-        color = '#e74c3c'
-        status = 'POOR'
-
-    gauge_fill = FancyBboxPatch((0.1, 0.3), 0.8 * (pct/100), 0.3,
-                               boxstyle="round,pad=0.05",
-                               facecolor=color, alpha=0.7)
-    ax4.add_patch(gauge_fill)
-
-    # Text
-    ax4.text(0.5, 0.75, f"{pct:.1f}%", ha='center', va='center',
-            fontsize=36, fontweight='bold', color=color)
-    ax4.text(0.5, 0.15, status, ha='center', va='center',
-            fontsize=24, fontweight='bold', color=color)
+        ax2.set_xlim(-0.12, 0.12)
+        ax2.set_ylim(-0.12, 0.12)
 
     plt.tight_layout()
     return fig_to_base64(fig)
@@ -537,8 +569,7 @@ def generate_html_report(
         recommendations.append("Verify channel naming conventions match expected format")
 
     verdict_class = "success" if not issues else "error" if analysis['match_pct'] < 90 or analysis['duplicates'] else "warning"
-    verdict_icon = "PASS" if not issues else "FAIL" if analysis['match_pct'] < 90 or analysis['duplicates'] else "WARNING"
-    verdict_title = "DATA QUALITY: VALIDATED" if not issues else "DATA QUALITY: FAILED" if analysis['match_pct'] < 90 or analysis['duplicates'] else "DATA QUALITY: NEEDS REVIEW"
+    verdict_status = "PASS" if not issues else "FAIL" if analysis['match_pct'] < 90 or analysis['duplicates'] else "WARNING"
 
     # Calculate number of columns for channel table
     # Show channels in 2 or 3 columns depending on total count
@@ -601,12 +632,13 @@ def generate_html_report(
             font-size: 14px;
             color: #333;
             font-style: italic;
-            margin-bottom: 12px;
+            margin-bottom: 15px;
         }}
 
         .header .meta {{
-            font-size: 11px;
-            color: #666;
+            font-size: 14px;
+            color: #333;
+            font-weight: 600;
         }}
 
         /* ENHANCED VERDICT PANEL - Priority 1 */
@@ -978,117 +1010,61 @@ def generate_html_report(
     <div class="container">
         <div class="header">
             <h1>EEG Channel Validation Report</h1>
-            <div class="subtitle">Electrode Position and Montage Analysis - ACNS Standards</div>
+            <div class="subtitle">Electrode Position and Montage Analysis</div>
             <div class="meta">
-                <strong>File:</strong> {Path(bdf_file).name} | <strong>Montage:</strong> {montage_name} | <strong>Generated:</strong> {timestamp}
+                File: {Path(bdf_file).name} &nbsp;|&nbsp; Montage: {montage_name} &nbsp;|&nbsp; Generated: {timestamp}
             </div>
         </div>
 
-        <!-- PRIORITY 1: VERDICT & MATCH ANALYSIS -->
+        <!-- VERDICT PANEL -->
         <div class="verdict {verdict_class}">
-            <div class="verdict-title">{verdict_icon}</div>
-            <div class="verdict-status">{verdict_title}</div>
+            <div class="verdict-title">{verdict_status}</div>
             <div class="verdict-details">
-                Match Rate: <strong>{analysis['match_pct']:.1f}%</strong> ({len(analysis['matched'])}/{len(analysis['file_channels'])} channels) |
-                Positioned Channels: <strong>{analysis['n_positioned']}/{len(analysis['file_channels'])}</strong>
+                Match: <strong>{analysis['match_pct']:.1f}%</strong> ({len(analysis['matched'])}/{len(analysis['file_channels'])}) &nbsp;|&nbsp;
+                Positioned: <strong>{analysis['n_positioned']}/{len(analysis['file_channels'])}</strong> &nbsp;|&nbsp;
+                Unmatched: <strong>{len(analysis['unmatched_file'])}</strong> &nbsp;|&nbsp;
+                Outliers: <strong>{len(analysis['outliers'])}</strong> &nbsp;|&nbsp;
+                Duplicates: <strong>{len(analysis['duplicates'])}</strong>
             </div>
-            {'<div class="verdict-details" style="color: #8b0000; margin-top: 8px;">Duplicate positions detected - WRONG MONTAGE likely!</div>' if analysis['duplicates'] else ''}
         </div>
 
-        <div class="section">
-            <h2>1. Match Analysis & Quality Issues</h2>
-            <div class="stats-grid">
-                <div class="stat-card {'success' if analysis['match_pct'] >= 95 else 'error' if analysis['match_pct'] < 90 else 'warning'}">
-                    <div class="label">Match Percentage</div>
-                    <div class="value">{analysis['match_pct']:.1f}%</div>
-                </div>
-                <div class="stat-card success">
-                    <div class="label">Matched Channels</div>
-                    <div class="value">{len(analysis['matched'])}</div>
-                </div>
-                <div class="stat-card {'error' if len(analysis['unmatched_file']) > 0 else 'success'}">
-                    <div class="label">Unmatched (File)</div>
-                    <div class="value">{len(analysis['unmatched_file'])}</div>
-                </div>
-                <div class="stat-card {'success' if analysis['n_positioned'] == len(analysis['file_channels']) else 'warning'}">
-                    <div class="label">With Positions</div>
-                    <div class="value">{analysis['n_positioned']}</div>
-                </div>
-                <div class="stat-card {'error' if analysis['duplicates'] else 'success'}">
-                    <div class="label">Duplicate Positions</div>
-                    <div class="value">{len(analysis['duplicates'])}</div>
-                </div>
-                <div class="stat-card {'warning' if analysis['outliers'] else 'success'}">
-                    <div class="label">Position Outliers</div>
-                    <div class="value">{len(analysis['outliers'])}</div>
-                </div>
+        <!-- QUALITY ISSUES (if any) -->
+        {f'''<div class="section">
+            <h2>Quality Issues</h2>
+            {f'<div class="error-box"><strong>CRITICAL:</strong> {len(analysis["duplicates"])} duplicate positions detected - likely WRONG MONTAGE selected!</div>' if analysis['duplicates'] else ''}
+            {f'<div class="warning-box"><strong>Position outliers ({len(analysis["outliers"])}):</strong> {", ".join(analysis["outliers"])}</div>' if analysis['outliers'] else ''}
+
+            <div class="two-col-grid" style="margin-top: 15px;">
+                {f'<div class="warning-box" style="margin: 0;"><strong>Unmatched channels ({len(analysis["unmatched_file"])}):</strong><br>{", ".join(sorted(analysis["unmatched_file"]))}</div>' if analysis['unmatched_file'] else '<div></div>'}
+                {f'<div class="info-box" style="margin: 0;"><strong>Recommendations:</strong><br>{"<br>".join(f"• {rec}" for rec in recommendations)}</div>' if recommendations else '<div></div>'}
             </div>
+        </div>''' if issues else ''}
 
-            {f'''<div class="error-box">
-                <strong>CRITICAL ERROR: DUPLICATE POSITIONS DETECTED</strong><br><br>
-                Multiple channels share the same position coordinates. This usually indicates the <strong>WRONG MONTAGE</strong> was selected for this recording!<br><br>
-                <strong>Action Required:</strong> Review alternative montage suggestions below and re-run validation.
-            </div>''' if analysis['duplicates'] else ''}
-
-            {f'''<div class="warning-box">
-                <strong>UNMATCHED CHANNELS IN FILE ({len(analysis['unmatched_file'])} channels):</strong><br><br>
-                These channels exist in the recording but not in the selected montage. This may indicate:
-                <ul style="margin: 10px 0 0 20px;">
-                    <li>Wrong montage selected</li>
-                    <li>Channel naming convention mismatch</li>
-                    <li>Non-standard electrode placement</li>
-                </ul>
-                <div class="channel-list" style="margin-top: 12px;">
-                    {' '.join(f'<span class="channel-chip unmatched">{ch}</span>' for ch in sorted(analysis['unmatched_file']))}
-                </div>
-            </div>''' if analysis['unmatched_file'] else ''}
-
-            {f'''<div class="warning-box">
-                <strong>POSITION OUTLIERS DETECTED ({len(analysis['outliers'])} channels):</strong><br><br>
-                These channels have positions more than 3 standard deviations from the mean distance:<br>
-                <strong>{', '.join(analysis['outliers'])}</strong><br><br>
-                This may indicate electrode placement errors or coordinate system issues.
-            </div>''' if analysis['outliers'] else ''}
-
-            {f'''<div class="recommendations-box">
-                <h3>RECOMMENDATIONS - ACTIONS REQUIRED:</h3>
-                <ul>
-                    {''.join(f'<li>{rec}</li>' for rec in recommendations)}
-                </ul>
-            </div>''' if recommendations else '<div class="info-box"><strong>ALL CHECKS PASSED:</strong> No quality issues detected. Data is ready for analysis.</div>'}
-        </div>
-
-        <!-- PRIORITY 2: VISUAL COMPARISON -->
+        <!-- 3D ELECTRODE POSITIONS -->
         <div class="section">
-            <h2>2. Electrode Position Visualizations</h2>
+            <h2>3D Electrode Positions</h2>
             <p style="font-size: 12px; color: #666; margin-bottom: 15px;">
-                Visual verification of electrode placement using 10-20 system coordinates.
+                Four-perspective view of electrode placement in 3D space.
                 <strong>Green circles = matched channels</strong> | <strong>Orange squares = unmatched channels</strong>
             </p>
-            <div class="image-grid">
-                <div class="image-container">
-                    <img src="{topomap_b64}" alt="2D Topomap">
-                    <div class="image-caption">2D Electrode Positions (Top & Side Views)</div>
-                </div>
-                <div class="image-container">
-                    <img src="{plot3d_b64}" alt="3D Positions">
-                    <div class="image-caption">3D Electrode Positions (Multiple Perspectives)</div>
-                </div>
+            <div class="image-container full">
+                <img src="{plot3d_b64}" alt="3D Positions" style="max-width: 95%;">
+                <div class="image-caption">3D Electrode Positions (Top, Back, Side, and Perspective Views)</div>
             </div>
         </div>
 
-        <!-- PRIORITY 2: STATISTICAL ANALYSIS -->
+        <!-- STATISTICAL ANALYSIS -->
         <div class="section">
-            <h2>3. Statistical Analysis</h2>
+            <h2>Statistical Analysis</h2>
             <div class="image-container full">
                 <img src="{stats_b64}" alt="Statistical Analysis" style="max-width: 95%;">
                 <div class="image-caption">Position distribution, match statistics, and quality metrics</div>
             </div>
         </div>
 
-        <!-- PRIORITY 3: RECORDING METADATA -->
+        <!-- RECORDING METADATA -->
         <div class="section">
-            <h2>4. Recording Metadata</h2>
+            <h2>Recording Metadata</h2>
             <div class="two-col-grid">
                 <div class="col-section">
                     <h3>Acquisition Parameters</h3>
@@ -1158,9 +1134,9 @@ def generate_html_report(
             {'<div class="info-box" style="margin-top: 15px;"><strong>Channel Type Breakdown:</strong> ' + ', '.join([f'{k}: {v}' for k, v in metadata["channel_types"].items()]) + '</div>' if metadata['channel_types'] else ''}
         </div>
 
-        <!-- PRIORITY 4: COMPLETE CHANNEL TABLE (Multi-column layout) -->
+        <!-- COMPLETE CHANNEL TABLE (Multi-column layout) -->
         <div class="section">
-            <h2>5. Raw Channel Information (Pre-Processing)</h2>
+            <h2>Raw Channel Information</h2>
             <p style="color: #666; margin-bottom: 15px; font-size: 12px;">
                 <strong>Original channel names as they appear in the file BEFORE any renaming or montage application.</strong>
                 This section provides full transparency for debugging channel naming issues.
@@ -1228,7 +1204,7 @@ def generate_html_report(
     if analysis['match_pct'] < 95:
         html += f"""
         <div class="section">
-            <h2>6. Alternative Montage Suggestions</h2>
+            <h2>Alternative Montage Suggestions</h2>
             <div class="warning-box">
                 <strong>Current montage match is below 95%.</strong> Consider these alternatives for better channel matching:
             </div>
@@ -1337,7 +1313,7 @@ def main():
 
     # Generate visualizations
     console.print("[info]Generating visualizations...[/info]")
-    topomap_b64 = create_elegant_topomap(analysis, f"{Path(bdf_file).name} - {montage_name}")
+    # topomap_b64 = create_elegant_topomap(analysis, f"{Path(bdf_file).name} - {montage_name}")  # Not used - replaced by stats plot
     plot3d_b64 = create_3d_plot(analysis, f"3D Electrode Positions - {montage_name}")
     stats_b64 = create_stats_plot(analysis)
 
@@ -1345,7 +1321,7 @@ def main():
     html_file = output_dir / f"{Path(bdf_file).stem}_validation_report_v5.html"
     console.print("[info]Generating HTML report...[/info]")
     generate_html_report(bdf_file, montage_name, analysis, suggestions,
-                        html_file, topomap_b64, plot3d_b64, stats_b64,
+                        html_file, None, plot3d_b64, stats_b64,
                         metadata, raw_channel_info, rename_map)
 
     # Summary
