@@ -779,7 +779,8 @@ def generate_html_report(
     stats_b64: str,
     metadata: Dict,
     channel_info: List[Dict],
-    rename_map: Dict
+    rename_map: Dict,
+    custom_report_sections: List[str] = None
 ):
     """Generate enhanced HTML report optimized for EEG researchers.
 
@@ -795,6 +796,7 @@ def generate_html_report(
         metadata: File metadata from extract_file_metadata()
         channel_info: Channel information from extract_channel_info()
         rename_map: Channel rename mapping
+        custom_report_sections: Optional list of HTML strings from plugin reports
     """
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
@@ -850,7 +852,7 @@ def generate_html_report(
     </style>
 </head>
 <body>
-    {_generate_report_body(eeg_file, montage_name, timestamp, verdict_class, verdict_status, analysis, issues, recommendations, plot3d_b64, stats_b64, metadata, channel_info, channels_per_column, n_columns, rename_map, suggestions)}
+    {_generate_report_body(eeg_file, montage_name, timestamp, verdict_class, verdict_status, analysis, issues, recommendations, plot3d_b64, stats_b64, metadata, channel_info, channels_per_column, n_columns, rename_map, suggestions, custom_report_sections)}
 </body>
 </html>"""
 
@@ -1190,11 +1192,18 @@ def _get_report_css(n_columns: int) -> str:
 
 def _generate_report_body(eeg_file, montage_name, timestamp, verdict_class, verdict_status,
                            analysis, issues, recommendations, plot3d_b64, stats_b64, metadata,
-                           channel_info, channels_per_column, n_columns, rename_map, suggestions):
+                           channel_info, channels_per_column, n_columns, rename_map, suggestions,
+                           custom_report_sections=None):
     """Generate the HTML body content for the report."""
     # Due to size, this would typically be in a template file
     # For now, returning a simplified version
     # Full implementation would include all sections from test_bdf_visual_v5.py
+
+    if custom_report_sections is None:
+        custom_report_sections = []
+
+    # Join custom sections if any
+    custom_sections_html = '\n'.join(custom_report_sections) if custom_report_sections else ''
 
     return f"""
     <div class="container">
@@ -1216,6 +1225,8 @@ def _generate_report_body(eeg_file, montage_name, timestamp, verdict_class, verd
                 Duplicates: <strong>{len(analysis['duplicates'])}</strong>
             </div>
         </div>
+
+        {custom_sections_html}
 
         {_generate_quality_issues_section(issues, analysis, recommendations) if issues else ''}
 

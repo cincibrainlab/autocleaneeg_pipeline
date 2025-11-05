@@ -3383,6 +3383,52 @@ def cmd_montage_test(args) -> int:
     n_eeg_channels = len(eeg_picks)
     console.print(f"[success]✓[/success] Loaded {n_eeg_channels} EEG channels")
 
+    # Check if a plugin exists for this format/montage combination
+    # Plugins can perform complex transformations (remapping, dropping channels, etc.)
+    from autoclean.io.import_ import find_plugin_for_combination, discover_plugins, get_format_from_extension
+
+    # Ensure plugins are discovered so format registry is populated
+    discover_plugins()
+
+    # Map file suffix to format_id (use get_format_from_extension for consistency)
+    format_id = get_format_from_extension(suffix)
+    if not format_id:
+        # Fallback for unknown formats
+        format_id = suffix.upper().lstrip('.')
+
+    plugin = find_plugin_for_combination(format_id, montage_name)
+    plugin_report_data = {}
+
+    if plugin:
+        console.print(f"[info]Using plugin: {plugin.__class__.__name__}[/info]")
+
+        # Save copy of raw data before plugin processing
+        raw_before = raw.copy()
+
+        # Process through plugin
+        try:
+            raw_after = plugin.import_and_configure(input_file, {}, preload=True)
+            raw = raw_after  # Use plugin-processed data for the rest of the analysis
+
+            eeg_picks = mne.pick_types(raw.info, eeg=True)
+            n_eeg_after = len(eeg_picks)
+            console.print(f"[success]✓[/success] Plugin processed: {n_eeg_after} EEG channels")
+
+            # Generate custom report if plugin supports it
+            if hasattr(plugin, 'generate_montage_report'):
+                console.print("[info]Generating plugin-specific report...[/info]")
+                # Note: montage will be loaded below, so we'll call this after montage loading
+                # Store plugin and raw_before for later use
+                plugin_report_data = {
+                    'plugin': plugin,
+                    'raw_before': raw_before,
+                    'has_custom_report': True
+                }
+        except Exception as exc:
+            console.print(f"[yellow]⚠[/yellow] Plugin processing failed: {exc}")
+            console.print("[info]Falling back to standard loading...[/info]")
+            # Continue with raw data from standard loading
+
     # Determine rename map for BDF files
     rename_map = {}
     if suffix == '.bdf':
@@ -3454,6 +3500,32 @@ def cmd_montage_test(args) -> int:
 
     report_file = qa_dir / "montage_validation_report.html"
 
+    # Generate plugin-specific report if available
+    custom_report_sections = []
+    if plugin_report_data.get('has_custom_report'):
+        try:
+            plugin = plugin_report_data['plugin']
+            raw_before = plugin_report_data['raw_before']
+            custom_report = plugin.generate_montage_report(
+                raw_before, raw, montage, analysis
+            )
+            custom_report_sections = custom_report.get('html_sections', [])
+
+            # Add custom stats to analysis
+            if 'summary_stats' in custom_report:
+                analysis['plugin_stats'] = custom_report['summary_stats']
+
+            # Display info messages
+            for info_msg in custom_report.get('info_messages', []):
+                console.print(f"[info]{info_msg}[/info]")
+
+            # Display warnings
+            for warning in custom_report.get('warnings', []):
+                console.print(f"[yellow]⚠ {warning}[/yellow]")
+
+        except Exception as exc:
+            console.print(f"[yellow]⚠[/yellow] Plugin report generation failed: {exc}")
+
     # Generate HTML report
     console.print("[info]Generating HTML report...[/info]")
     generate_html_report(
@@ -3467,7 +3539,8 @@ def cmd_montage_test(args) -> int:
         stats_b64,
         metadata,
         raw_channel_info,
-        rename_map
+        rename_map,
+        custom_report_sections
     )
 
     console.print()

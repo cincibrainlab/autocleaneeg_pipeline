@@ -152,6 +152,40 @@ class BaseEEGPlugin(abc.ABC):
             "plugin_version": getattr(self, "VERSION", "1.0.0"),
         }
 
+    def generate_montage_report(
+        self,
+        raw_before: mne.io.Raw,
+        raw_after: mne.io.Raw,
+        montage: mne.channels.DigMontage,
+        report_data: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Generate plugin-specific montage validation report data.
+
+        This method is called by 'montage test' to generate custom
+        report sections for plugins that perform complex transformations
+        (e.g., channel remapping, dropping, coordinate transformations).
+
+        Args:
+            raw_before: Raw data BEFORE plugin processing (original file)
+            raw_after: Raw data AFTER plugin processing (transformed)
+            montage: The montage that was applied
+            report_data: Standard report data dict (read-only reference)
+
+        Returns:
+            dict: Additional report sections with optional keys:
+                - 'html_sections': List[str] - HTML strings to insert in report
+                - 'summary_stats': Dict - Additional statistics to display
+                - 'warnings': List[str] - Warning messages
+                - 'info_messages': List[str] - Informational messages
+
+        Note:
+            If not overridden, returns empty dict (no custom report content).
+            Plugins only need to override this if they perform transformations
+            that should be explained in the montage validation report.
+        """
+        # Default implementation - no custom report
+        return {}
+
 
 def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
     """Register a new EEG plugin.
@@ -179,6 +213,7 @@ def register_plugin(plugin_class: Type[BaseEEGPlugin]) -> None:
             "standard_1020",
             "biosemi64",
             "MEA30",
+            "MEA30_EDF",
             "MouseEEGv2_H32",
             "MEA30_MNI",
             "BioSemi-256",
@@ -299,6 +334,28 @@ def get_plugin_for_combination(format_id: str, montage_name: str) -> BaseEEGPlug
     raise ValueError(
         f"No plugin found for format '{format_id}' and montage '{montage_name}'"
     )
+
+
+def find_plugin_for_combination(
+    format_id: str, montage_name: str
+) -> Optional[BaseEEGPlugin]:
+    """Find a plugin for the given format and montage combination.
+
+    Similar to get_plugin_for_combination, but returns None if no plugin
+    is found instead of raising an exception. Useful for optional plugin
+    features like montage test reports.
+
+    Args:
+        format_id: Format identifier
+        montage_name: Name of the EEG montage/system
+
+    Returns:
+        BaseEEGPlugin instance if found, None otherwise
+    """
+    try:
+        return get_plugin_for_combination(format_id, montage_name)
+    except ValueError:
+        return None
 
 
 def import_eeg(

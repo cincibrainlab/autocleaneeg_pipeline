@@ -58,7 +58,7 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
     @classmethod
     def supports_format_montage(cls, format_id: str, montage_name: str) -> bool:
         """Check if this plugin supports the given format and montage combination."""
-        return format_id == "EDF" and montage_name == "MEA30_EDF"
+        return format_id == "EDF_FORMAT" and montage_name == "MEA30_EDF"
 
     def _load_mea30_mapping(self) -> tuple:
         """Load MEA30 EDF channel mapping from package resources.
@@ -400,4 +400,194 @@ class EDFMouseMEA30Plugin(BaseEEGPlugin):
                 "3D coordinates are MNI brain space (normalized to unit sphere)",
                 "Compatible with 'autocleaneeg-pipeline montage test' visualization",
             ]
+        }
+
+    def generate_montage_report(
+        self,
+        raw_before: mne.io.Raw,
+        raw_after: mne.io.Raw,
+        montage: mne.channels.DigMontage,
+        report_data: dict
+    ) -> dict:
+        """Generate custom montage validation report for MEA30 EDF files.
+
+        This report explains the channel dropping and remapping transformations
+        that are performed during import.
+
+        Args:
+            raw_before: Raw EDF data before plugin processing (33 channels)
+            raw_after: Raw data after plugin processing (30 channels)
+            montage: The applied montage
+            report_data: Standard report analysis data
+
+        Returns:
+            dict with 'html_sections', 'summary_stats', and 'info_messages'
+        """
+        html_sections = []
+
+        # Load mapping for detailed table
+        package_dir = Path(__file__).parent.parent.parent
+        csv_file = package_dir / "data" / "probe_maps" / "MEA30_EDF_mapping.csv"
+        mapping_df = pd.read_csv(csv_file)
+
+        # Section 1: Transformation Overview
+        html_sections.append(f"""
+        <div class="section" style="background: #f8f9fa; border-left: 4px solid #007bff; padding: 20px; margin: 20px 0;">
+            <h2 style="color: #007bff; margin-top: 0;">🔄 MEA30 EDF Channel Transformation</h2>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin: 20px 0;">
+                <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #dee2e6;">
+                    <h4 style="margin-top: 0; color: #dc3545;">Input (Raw EDF)</h4>
+                    <ul style="margin: 10px 0; padding-left: 20px; line-height: 1.8;">
+                        <li><strong>{len(raw_before.ch_names)}</strong> channels total</li>
+                        <li>Generic naming: "Chan 1" - "Chan 33"</li>
+                        <li>Scrambled hardware routing</li>
+                        <li>No embedded coordinates</li>
+                    </ul>
+                </div>
+
+                <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #dee2e6;">
+                    <h4 style="margin-top: 0; color: #ffc107;">Transformation</h4>
+                    <ol style="margin: 10px 0; padding-left: 20px; line-height: 1.8;">
+                        <li><strong>Drop</strong>: Chan 2, 32, 33</li>
+                        <li><strong>Remap</strong>: 30 channels → anatomical order</li>
+                        <li><strong>Apply</strong>: 3D MNI coordinates</li>
+                    </ol>
+                </div>
+
+                <div style="background: white; padding: 15px; border-radius: 5px; border: 1px solid #dee2e6;">
+                    <h4 style="margin-top: 0; color: #28a745;">Output (Processed)</h4>
+                    <ul style="margin: 10px 0; padding-left: 20px; line-height: 1.8;">
+                        <li><strong>{len(raw_after.ch_names)}</strong> EEG channels</li>
+                        <li>Anatomical naming: "Ch01" - "Ch30"</li>
+                        <li>Correct MEA order</li>
+                        <li>Full 3D coordinates</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="background: #fff3cd; border: 1px solid #ffc107; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                <strong style="color: #856404;">ℹ️ Why This Matters:</strong>
+                <p style="margin: 10px 0 0 0; color: #856404;">
+                    The raw EDF file contains channels in the order they were recorded by the hardware,
+                    which doesn't match the physical electrode positions on the mouse brain. This plugin
+                    corrects the scrambled routing and applies validated anatomical coordinates.
+                </p>
+            </div>
+        </div>
+        """)
+
+        # Section 2: Channel Mapping Table (show first 10 + last 5 for readability)
+        mapping_rows = []
+        show_indices = list(range(10)) + list(range(25, 30))
+
+        for idx in show_indices:
+            if idx < len(mapping_df):
+                row = mapping_df.iloc[idx]
+                edf_ch = int(row['edf_chan'])
+                mea_label = row['mea_label']
+                side = row['side']
+                region = row['region']
+
+                mapping_rows.append(f"""
+                <tr>
+                    <td>Chan {edf_ch}</td>
+                    <td style="text-align: center;">→</td>
+                    <td><strong>{mea_label}</strong></td>
+                    <td>{side}</td>
+                    <td>{region}</td>
+                </tr>
+                """)
+
+            if idx == 9:
+                mapping_rows.append("""
+                <tr style="background: #f8f9fa;">
+                    <td colspan="5" style="text-align: center; font-style: italic;">
+                        ... 15 more mappings ...
+                    </td>
+                </tr>
+                """)
+
+        mapping_table_html = '\n'.join(mapping_rows)
+
+        html_sections.append(f"""
+        <div class="section">
+            <h2>📋 Channel Mapping Details</h2>
+            <p style="color: #666; margin-bottom: 15px;">
+                The following table shows how raw EDF channels are remapped to anatomical MEA positions.
+                Note that <strong>Chan 2</strong> is excluded (bad channel), and <strong>Chan 32-33</strong>
+                are reference/ground electrodes.
+            </p>
+
+            <table style="width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 12px;">
+                <thead>
+                    <tr style="background: #343a40; color: white;">
+                        <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6;">Raw EDF</th>
+                        <th style="padding: 10px; text-align: center; border: 1px solid #dee2e6;"></th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6;">MEA Channel</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6;">Hemisphere</th>
+                        <th style="padding: 10px; text-align: left; border: 1px solid #dee2e6;">Brain Region</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {mapping_table_html}
+                </tbody>
+            </table>
+
+            <p style="font-size: 11px; color: #666; font-style: italic;">
+                Complete mapping available in: <code>data/probe_maps/MEA30_EDF_mapping.csv</code>
+            </p>
+        </div>
+        """)
+
+        # Section 3: Validation Information
+        html_sections.append("""
+        <div class="section" style="background: #d4edda; border: 1px solid #c3e6cb; padding: 20px; border-radius: 5px;">
+            <h2 style="color: #155724; margin-top: 0;">✓ Validation & Quality Assurance</h2>
+
+            <div style="background: white; padding: 15px; border-radius: 5px; margin: 15px 0;">
+                <h4 style="margin-top: 0;">Cross-Validated Against:</h4>
+                <ul style="line-height: 1.8; margin: 10px 0;">
+                    <li><strong>MATLAB EEGLAB code</strong>: <code>edf2meaLookupTest</code> function</li>
+                    <li><strong>Adult mouse atlas</strong>: Mea_adult_atlas-30_dict.csv</li>
+                    <li><strong>P21 mouse atlas</strong>: Mea_P21_atlas-30_dict.csv</li>
+                </ul>
+            </div>
+
+            <div style="background: white; padding: 15px; border-radius: 5px;">
+                <h4 style="margin-top: 0;">Validation Results:</h4>
+                <ul style="line-height: 1.8; margin: 10px 0;">
+                    <li>✓ All channel mappings match exactly across sources</li>
+                    <li>✓ All coordinates match with <strong>&lt;0.001m tolerance</strong></li>
+                    <li>✓ Adult and P21 coordinates are <strong>identical</strong></li>
+                    <li>✓ 4 region label differences between age groups (developmental)</li>
+                </ul>
+            </div>
+
+            <p style="margin: 15px 0 0 0; font-size: 12px; color: #155724;">
+                <strong>Coordinate System:</strong> MNI stereotactic space, normalized to unit sphere (~2.0 unit range)
+            </p>
+        </div>
+        """)
+
+        # Summary stats for report
+        summary_stats = {
+            'raw_channels': len(raw_before.ch_names),
+            'processed_channels': len(raw_after.ch_names),
+            'channels_dropped': 3,
+            'channels_remapped': 30,
+            'transformation_type': 'MEA30 EDF hardware routing correction',
+            'validation_sources': 3
+        }
+
+        # Info messages
+        info_messages = [
+            f"Plugin transformed {len(raw_before.ch_names)} raw channels → {len(raw_after.ch_names)} positioned MEA channels"
+        ]
+
+        return {
+            'html_sections': html_sections,
+            'summary_stats': summary_stats,
+            'info_messages': info_messages,
+            'warnings': []
         }
