@@ -1,18 +1,25 @@
 #!/usr/bin/env python3
 """
-BDF Event Analysis and Report Generator
+EEG Event Analysis and Report Generator
 
-Comprehensive analysis of raw events in BDF files to understand event structure
+Comprehensive analysis of raw events in EEG files to understand event structure
 before configuring epoching parameters.
 
+Supported formats:
+- BDF (BioSemi)
+- EGI (.raw, .mff)
+- BrainVision (.vhdr)
+- EDF
+- FIF
+
 Features:
-- Complete event extraction from status channel
+- Complete event extraction from status/trigger channels
 - Event timing and interval analysis
 - Visual timeline of events
 - Statistical summaries
 - HTML report generation
 
-Usage: uv run test_event_analysis.py [bdf_file] [output_dir]
+Usage: uv run test_event_analysis.py [eeg_file] [output_dir]
 """
 
 import sys
@@ -39,6 +46,13 @@ except ImportError as e:
     print("Install: uv pip install mne matplotlib seaborn rich pandas")
     sys.exit(1)
 
+# Optional Neo import for additional format support
+try:
+    import neo
+    NEO_AVAILABLE = True
+except ImportError:
+    NEO_AVAILABLE = False
+
 # Styling
 sns.set_palette("husl")
 plt.style.use('seaborn-v0_8-darkgrid')
@@ -55,8 +69,212 @@ def fig_to_base64(fig) -> str:
     return f"data:image/png;base64,{img_str}"
 
 
+def detect_file_format(file_path: str) -> str:
+    """Detect EEG file format from extension."""
+    ext = Path(file_path).suffix.lower()
+    format_map = {
+        '.bdf': 'bdf',
+        '.edf': 'edf',
+        '.raw': 'egi',
+        '.mff': 'egi_mff',
+        '.vhdr': 'brainvision',
+        '.fif': 'fif',
+        '.set': 'eeglab',
+        '.xdat': 'neuronexus_xdat',  # Neo-supported format
+    }
+    return format_map.get(ext, 'unknown')
+
+
+def load_xdat_via_neo(file_path: str) -> mne.io.Raw:
+    """Load .xdat file using Neo and convert to MNE Raw format.
+
+    Args:
+        file_path: Path to .xdat file (or .xdat.json metadata file)
+
+    Returns:
+        MNE Raw object
+    """
+    console.print("[info]Loading .xdat file via Neo...[/info]")
+
+    # Neo NeuroNexusIO expects the JSON metadata file
+    # If given the data file, look for companion JSON
+    file_path = Path(file_path)
+    if file_path.suffix == '.xdat':
+        # Look for the JSON metadata file
+        # Try two naming patterns:
+        # 1. filename_data.xdat -> filename.xdat.json
+        # 2. filename.xdat -> filename.xdat.json
+
+        # First, try removing _data suffix if present
+        stem = file_path.stem
+        if stem.endswith('_data'):
+            # Remove _data suffix
+            base_stem = stem[:-5]  # Remove '_data'
+            json_file = file_path.parent / f"{base_stem}.xdat.json"
+        elif stem.endswith('_timestamp'):
+            # If given timestamp file, also look for base json
+            base_stem = stem[:-10]  # Remove '_timestamp'
+            json_file = file_path.parent / f"{base_stem}.xdat.json"
+        else:
+            # Standard pattern
+            json_file = Path(str(file_path) + '.json')
+
+        if not json_file.exists():
+            # Try the simple pattern as fallback
+            json_file = Path(str(file_path) + '.json')
+            if not json_file.exists():
+                raise FileNotFoundError(
+                    f"Neo NeuroNexusIO requires a JSON metadata file.\n"
+                    f"Looked for: {json_file}\n"
+                    f"Make sure both the .xdat data file and .xdat.json metadata file are present."
+                )
+        reader_file = str(json_file)
+    else:
+        reader_file = str(file_path)
+
+    console.print(f"[info]Using metadata file:[/info] {Path(reader_file).name}")
+
+    # Read with Neo
+    reader = neo.io.NeuroNexusIO(filename=reader_file)
+    block = reader.read_block()
+
+    # Get the first segment (assumes single recording segment)
+    segment = block.segments[0]
+
+    # Extract all analog signals (EEG + aux + digital inputs)
+    all_data = []
+    all_ch_names = []
+    ch_types_list = []
+    sfreq = None
+
+    for analog_signal in segment.analogsignals:
+        sig_data = analog_signal.magnitude.T
+        all_data.append(sig_data)
+
+        # Get channel names
+        ch_names_raw = analog_signal.array_annotations.get('channel_names', None)
+        if ch_names_raw is not None:
+            sig_ch_names = [str(name) for name in ch_names_raw]
+        else:
+            sig_ch_names = [f'ch_{i}' for i in range(sig_data.shape[0])]
+
+        all_ch_names.extend(sig_ch_names)
+
+        # Determine channel types based on names
+        for ch_name in sig_ch_names:
+            if 'din' in ch_name.lower() or 'digital' in ch_name.lower() or 'stim' in ch_name.lower():
+                ch_types_list.append('stim')
+            elif 'aux' in ch_name.lower():
+                ch_types_list.append('misc')
+            else:
+                ch_types_list.append('eeg')
+
+        # Get sampling frequency (should be same for all signals)
+        if sfreq is None:
+            sfreq = float(analog_signal.sampling_rate.magnitude)
+
+    # Concatenate all data
+    if len(all_data) > 0:
+        data = np.vstack(all_data)
+    else:
+        raise ValueError("No analog signals found in the .xdat file")
+
+    console.print(f"[info]Loaded {len(all_ch_names)} channels:[/info] {', '.join(all_ch_names[:10])}{'...' if len(all_ch_names) > 10 else ''}")
+
+    # Create MNE info structure
+    info = mne.create_info(ch_names=all_ch_names, sfreq=sfreq, ch_types=ch_types_list)
+
+    # Create Raw object
+    raw = mne.io.RawArray(data, info)
+
+    console.print(f"[success]✓[/success] Loaded via Neo: {len(all_ch_names)} channels, {raw.times[-1]:.2f} seconds")
+
+    return raw
+
+
+def load_raw_file(file_path: str) -> mne.io.Raw:
+    """Load EEG file using appropriate MNE reader based on format."""
+    file_format = detect_file_format(file_path)
+
+    console.print(f"[info]Detected format:[/info] {file_format.upper()}")
+
+    if file_format == 'bdf':
+        raw = mne.io.read_raw_bdf(
+            file_path,
+            preload=True,
+            stim_channel="auto",
+            exclude=[],
+            verbose=False
+        )
+    elif file_format == 'edf':
+        raw = mne.io.read_raw_edf(
+            file_path,
+            preload=True,
+            stim_channel="auto",
+            exclude=[],
+            verbose=False
+        )
+    elif file_format == 'egi':
+        raw = mne.io.read_raw_egi(
+            file_path,
+            preload=True,
+            verbose=False
+        )
+    elif file_format == 'egi_mff':
+        raw = mne.io.read_raw_egi(
+            file_path,
+            preload=True,
+            verbose=False
+        )
+    elif file_format == 'brainvision':
+        raw = mne.io.read_raw_brainvision(
+            file_path,
+            preload=True,
+            verbose=False
+        )
+    elif file_format == 'fif':
+        raw = mne.io.read_raw_fif(
+            file_path,
+            preload=True,
+            verbose=False
+        )
+    elif file_format == 'eeglab':
+        raw = mne.io.read_raw_eeglab(
+            file_path,
+            preload=True,
+            verbose=False
+        )
+    elif file_format == 'neuronexus_xdat':
+        if not NEO_AVAILABLE:
+            raise ImportError(
+                "Neo package is required to read .xdat files.\n"
+                "Install with: uv pip install neo"
+            )
+        # Use Neo to read the .xdat file and convert to MNE Raw
+        raw = load_xdat_via_neo(file_path)
+    else:
+        # Check if there's companion JSON metadata for unsupported formats
+        json_file = Path(str(file_path) + '.json')
+        error_msg = f"Unsupported file format: {file_format} (extension: {Path(file_path).suffix})"
+
+        if json_file.exists():
+            error_msg += f"\n\nFound metadata file: {json_file.name}"
+            error_msg += "\nThis appears to be a proprietary format with JSON metadata."
+            error_msg += "\n\nSupported formats: BDF, EDF, EGI (.raw/.mff), BrainVision, FIF, EEGLAB, XDAT (via Neo)"
+            error_msg += "\n\nSuggestion: Install Neo (uv pip install neo) or convert to supported format"
+        else:
+            error_msg += f"\n\nSupported formats: BDF, EDF, EGI (.raw/.mff), BrainVision, FIF, EEGLAB, XDAT (via Neo)"
+
+        raise ValueError(error_msg)
+
+    return raw
+
+
 def extract_events_from_bdf(bdf_file: str) -> Tuple[np.ndarray, Dict, pd.DataFrame, mne.io.Raw, Dict]:
-    """Extract events from BDF file using MNE.
+    """Extract events from EEG file using MNE.
+
+    Args:
+        bdf_file: Path to EEG file (supports BDF, EGI, BrainVision, EDF, FIF, etc.)
 
     Returns:
         events: MNE events array (n_events, 3) with [sample, duration, code]
@@ -65,16 +283,10 @@ def extract_events_from_bdf(bdf_file: str) -> Tuple[np.ndarray, Dict, pd.DataFra
         raw: MNE Raw object for metadata extraction
         status_info: Dictionary with status channel diagnostic information
     """
-    console.print(f"[info]Loading BDF file:[/info] {Path(bdf_file).name}")
+    console.print(f"[info]Loading file:[/info] {Path(bdf_file).name}")
 
-    # Load BDF with automatic status channel detection
-    raw = mne.io.read_raw_bdf(
-        bdf_file,
-        preload=True,
-        stim_channel="auto",  # Auto-detect status channel
-        exclude=[],
-        verbose=False
-    )
+    # Load file with appropriate reader
+    raw = load_raw_file(bdf_file)
 
     console.print(f"[success]✓[/success] Loaded {len(raw.ch_names)} channels, {raw.times[-1]:.2f} seconds")
 
@@ -107,9 +319,21 @@ def extract_events_from_bdf(bdf_file: str) -> Tuple[np.ndarray, Dict, pd.DataFra
 
     # Extract events from annotations
     console.print("[info]Extracting events from annotations...[/info]")
-    events, event_id = mne.events_from_annotations(raw, verbose=False)
+    events = np.array([])
+    event_id = {}
 
-    console.print(f"[success]✓[/success] Found {len(events)} events with {len(event_id)} unique event types")
+    try:
+        events, event_id = mne.events_from_annotations(raw, verbose=False)
+        console.print(f"[success]✓[/success] Found {len(events)} events with {len(event_id)} unique event types")
+    except ValueError as e:
+        # Annotations exist but are not valid event markers
+        console.print(f"[warning]Annotation extraction failed:[/warning] {e}")
+        events = np.array([])
+        event_id = {}
+    except Exception as e:
+        console.print(f"[warning]Unexpected error in annotation extraction:[/warning] {e}")
+        events = np.array([])
+        event_id = {}
 
     # If no events from annotations, try finding events directly from status channel
     if len(events) == 0 and status_ch_names:
@@ -123,6 +347,8 @@ def extract_events_from_bdf(bdf_file: str) -> Tuple[np.ndarray, Dict, pd.DataFra
                 event_id = {f"Event_{code}": code for code in unique_codes if code != 0}
                 console.print(f"[success]✓[/success] Found {len(events)} events via direct extraction")
                 console.print(f"[info]Event codes:[/info] {sorted(unique_codes)}")
+            else:
+                console.print("[warning]No events found in status channel[/warning]")
         except Exception as e:
             console.print(f"[warning]Direct extraction failed:[/warning] {e}")
 
@@ -289,18 +515,28 @@ def create_interval_analysis(events_df: pd.DataFrame, analysis: Dict) -> str:
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(18, 12))
     fig.suptitle('Event Interval Analysis', fontsize=16, fontweight='bold')
 
+    # Check if we have events
+    has_events = len(events_df) > 0
+
     # Plot 1: Histogram of all inter-event intervals
     ax1.set_title('Distribution of Inter-Event Intervals (All Events)', fontsize=12, fontweight='bold')
     ax1.set_xlabel('Interval (seconds)', fontsize=11)
     ax1.set_ylabel('Frequency', fontsize=11)
     ax1.grid(True, alpha=0.3)
 
-    intervals = events_df['interval_sec'].dropna()
-    if len(intervals) > 0:
-        ax1.hist(intervals, bins=30, color='steelblue', alpha=0.7, edgecolor='black', linewidth=1)
-        ax1.axvline(intervals.mean(), color='red', linestyle='--', linewidth=2,
-                    label=f'Mean: {intervals.mean():.3f}s')
-        ax1.legend(fontsize=10)
+    if has_events:
+        intervals = events_df['interval_sec'].dropna()
+        if len(intervals) > 0:
+            ax1.hist(intervals, bins=30, color='steelblue', alpha=0.7, edgecolor='black', linewidth=1)
+            ax1.axvline(intervals.mean(), color='red', linestyle='--', linewidth=2,
+                        label=f'Mean: {intervals.mean():.3f}s')
+            ax1.legend(fontsize=10)
+        else:
+            ax1.text(0.5, 0.5, 'Insufficient data for intervals',
+                    ha='center', va='center', fontsize=14, transform=ax1.transAxes)
+    else:
+        ax1.text(0.5, 0.5, 'No events found',
+                ha='center', va='center', fontsize=14, transform=ax1.transAxes)
 
     # Plot 2: Intervals over time (to detect changes in event timing)
     ax2.set_title('Inter-Event Intervals Over Time', fontsize=12, fontweight='bold')
@@ -308,9 +544,17 @@ def create_interval_analysis(events_df: pd.DataFrame, analysis: Dict) -> str:
     ax2.set_ylabel('Interval (seconds)', fontsize=11)
     ax2.grid(True, alpha=0.3)
 
-    if len(intervals) > 0:
-        ax2.plot(range(len(intervals)), intervals, 'o-', alpha=0.6, markersize=4)
-        ax2.axhline(intervals.mean(), color='red', linestyle='--', linewidth=2, alpha=0.7)
+    if has_events:
+        intervals = events_df['interval_sec'].dropna()
+        if len(intervals) > 0:
+            ax2.plot(range(len(intervals)), intervals, 'o-', alpha=0.6, markersize=4)
+            ax2.axhline(intervals.mean(), color='red', linestyle='--', linewidth=2, alpha=0.7)
+        else:
+            ax2.text(0.5, 0.5, 'Insufficient data for intervals',
+                    ha='center', va='center', fontsize=14, transform=ax2.transAxes)
+    else:
+        ax2.text(0.5, 0.5, 'No events found',
+                ha='center', va='center', fontsize=14, transform=ax2.transAxes)
 
     # Plot 3: Per-type event counts (bar chart)
     ax3.set_title('Event Type Distribution', fontsize=12, fontweight='bold')
@@ -331,6 +575,9 @@ def create_interval_analysis(events_df: pd.DataFrame, analysis: Dict) -> str:
             ax3.text(bar.get_x() + bar.get_width()/2., height,
                     f'{int(count)}',
                     ha='center', va='bottom', fontsize=9, fontweight='bold')
+    else:
+        ax3.text(0.5, 0.5, 'No event types found',
+                ha='center', va='center', fontsize=14, transform=ax3.transAxes)
 
     # Plot 4: Cumulative event count over time
     ax4.set_title('Cumulative Event Count', fontsize=12, fontweight='bold')
@@ -338,10 +585,14 @@ def create_interval_analysis(events_df: pd.DataFrame, analysis: Dict) -> str:
     ax4.set_ylabel('Cumulative Events', fontsize=11)
     ax4.grid(True, alpha=0.3)
 
-    ax4.plot(events_df['time_sec'], range(len(events_df)),
-             linewidth=2, color='steelblue')
-    ax4.fill_between(events_df['time_sec'], 0, range(len(events_df)),
-                     alpha=0.3, color='steelblue')
+    if has_events:
+        ax4.plot(events_df['time_sec'], range(len(events_df)),
+                 linewidth=2, color='steelblue')
+        ax4.fill_between(events_df['time_sec'], 0, range(len(events_df)),
+                         alpha=0.3, color='steelblue')
+    else:
+        ax4.text(0.5, 0.5, 'No events to display',
+                ha='center', va='center', fontsize=14, transform=ax4.transAxes)
 
     plt.tight_layout()
     return fig_to_base64(fig)
@@ -612,10 +863,10 @@ def generate_html_report(
 <body>
     <div class="container">
         <div class="header">
-            <h1>BDF Event Analysis Report</h1>
+            <h1>EEG Event Analysis Report</h1>
             <div class="subtitle">Raw Event Extraction and Pattern Analysis</div>
             <div class="meta">
-                File: {Path(bdf_file).name} &nbsp;|&nbsp; Generated: {timestamp}
+                File: {Path(bdf_file).name} &nbsp;|&nbsp; Format: {detect_file_format(bdf_file).upper()} &nbsp;|&nbsp; Generated: {timestamp}
             </div>
         </div>
 
@@ -851,10 +1102,11 @@ epochs = mne.Epochs(
         </div>
 
         <div class="footer">
-            <div style="font-weight: bold; margin-bottom: 5px;">BDF Event Analysis Report v1.0</div>
+            <div style="font-weight: bold; margin-bottom: 5px;">EEG Event Analysis Report v2.0</div>
             <div>Generated by AutoClean EEG Pipeline Event Diagnosis Tool</div>
             <div style="margin-top: 8px; font-size: 10px;">
-                This report provides comprehensive event analysis to support epoching configuration
+                This report provides comprehensive event analysis to support epoching configuration<br>
+                Supports: BDF, EGI (.raw/.mff), BrainVision, EDF, FIF, EEGLAB
             </div>
         </div>
     </div>
@@ -881,7 +1133,7 @@ def main():
     output_dir.mkdir(exist_ok=True)
 
     console.print("\n[bold cyan]═══════════════════════════════════════════════════════════[/bold cyan]")
-    console.print("[bold cyan]         BDF Event Analysis Tool v1.0[/bold cyan]")
+    console.print("[bold cyan]         EEG Event Analysis Tool v2.0[/bold cyan]")
     console.print("[bold cyan]═══════════════════════════════════════════════════════════[/bold cyan]\n")
 
     # Extract events
