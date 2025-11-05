@@ -282,43 +282,130 @@ def _print_context(
         except Exception:
             pass
 
-    # Workspace
+    # Gather core configuration data
+    workspace_dir = user_config.config_dir
+    workspace_valid = False
+    workspace_display = str(workspace_dir)
+    active_task_val = None
+    montage_val = None
+    input_val = None
+    input_type = None  # 'file', 'dir', 'missing', or None
+
     try:
-        workspace_dir = user_config.config_dir
-        try:
-            valid_ws = user_config._is_workspace_valid()  # type: ignore[attr-defined]
-        except Exception:
-            valid_ws = workspace_dir.exists() and (workspace_dir / "tasks").exists()
+        workspace_valid = user_config._is_workspace_valid()  # type: ignore[attr-defined]
+    except Exception:
+        workspace_valid = workspace_dir.exists() and (workspace_dir / "tasks").exists()
 
-        home = str(Path.home())
-        display_path = str(workspace_dir)
-        if display_path.startswith(home):
-            display_path = display_path.replace(home, "~", 1)
+    home = str(Path.home())
+    if workspace_display.startswith(home):
+        workspace_display = workspace_display.replace(home, "~", 1)
 
-        if style == "centered":
-            ws = Text()
-            if valid_ws:
-                ws.append("✓ ", style="success")
-                ws.append("Workspace ", style="muted")
-                ws.append(display_path, style="accent")
-            else:
-                ws.append("⚠ ", style="warning")
-                ws.append("Workspace not configured — ", style="muted")
-                ws.append(display_path, style="accent")
-            console.print(Align.center(ws))
-        else:  # compact
-            if valid_ws:
-                console.print(f"[success]Autoclean Workspace Directory:[/success] {workspace_dir}")
-            else:
-                message(
-                    "warning",
-                    f"Workspace directory not configured yet: {workspace_dir} (run 'autocleaneeg-pipeline workspace' to configure)",
-                )
+    try:
+        active_task_val = user_config.get_active_task()
     except Exception:
         pass
 
-    # Task library status (centered style only)
+    try:
+        montage_val = _get_current_montage()
+    except Exception:
+        pass
+
+    try:
+        input_val = user_config.get_active_source()
+        if input_val:
+            p = Path(input_val)
+            input_display = str(p)
+            if input_display.startswith(home):
+                input_display = input_display.replace(home, "~", 1)
+            if p.exists():
+                if p.is_file():
+                    input_type = 'file'
+                elif p.is_dir():
+                    input_type = 'dir'
+                else:
+                    input_type = 'other'
+            else:
+                input_type = 'missing'
+            input_val = input_display
+    except Exception:
+        pass
+
+    # Create configuration table
+    from rich.table import Table
+
     if style == "centered":
+        from rich import box
+        config_table = Table(
+            show_header=False,
+            box=box.ROUNDED,
+            padding=(0, 1),
+            border_style="dim"
+        )
+        config_table.add_column("Property", style="muted", no_wrap=True)
+        config_table.add_column("Value", style="accent")
+    else:  # compact
+        from rich import box
+        config_table = Table(
+            show_header=False,
+            box=box.SIMPLE,
+            padding=(0, 1),
+            show_edge=False
+        )
+        config_table.add_column("Property", style="muted", no_wrap=True)
+        config_table.add_column("Value", style="accent")
+
+    # Add workspace row
+    ws_icon = "✓" if workspace_valid else "⚠"
+    ws_style = "success" if workspace_valid else "warning"
+    ws_label = Text()
+    if style == "centered":
+        ws_label.append(f"{ws_icon} ", style=ws_style)
+    ws_label.append("Workspace", style="muted")
+    config_table.add_row(ws_label, Text(workspace_display, style=ws_style if not workspace_valid else "accent"))
+
+    # Add active task row
+    task_label = Text()
+    if style == "centered":
+        task_label.append("🎯 ", style="muted")
+    task_label.append("Task", style="muted")
+    if active_task_val:
+        config_table.add_row(task_label, Text(active_task_val, style="accent"))
+    else:
+        config_table.add_row(task_label, Text("not set", style="warning"))
+
+    # Add montage row
+    montage_label = Text()
+    if style == "centered":
+        montage_label.append("📊 ", style="muted")
+    montage_label.append("Montage", style="muted")
+    if montage_val:
+        config_table.add_row(montage_label, Text(montage_val, style="accent"))
+    else:
+        montage_status = "not configured" if active_task_val else "not set"
+        config_table.add_row(montage_label, Text(montage_status, style="warning"))
+
+    # Add input row
+    input_label = Text()
+    if style == "centered":
+        if input_type == 'file':
+            input_label.append("📄 ", style="muted")
+        elif input_type == 'dir':
+            input_label.append("📂 ", style="muted")
+        elif input_type == 'missing':
+            input_label.append("⚠ ", style="warning")
+        else:
+            input_label.append("📁 ", style="muted")
+    input_label.append("Input", style="muted")
+    if input_val:
+        input_style = "warning" if input_type == 'missing' else "accent"
+        config_table.add_row(input_label, Text(input_val, style=input_style))
+    else:
+        config_table.add_row(input_label, Text("not set", style="warning"))
+
+    # Print the table
+    if style == "centered":
+        console.print(Align.center(config_table))
+        # Task library status below table
         try:
             registry = BuiltinRegistry()
             registry_info = registry.registry_status()
@@ -353,119 +440,8 @@ def _print_context(
                 console.print(Align.center(err_text))
         except Exception:
             pass
-
-    # Active task
-    try:
-        active_task = user_config.get_active_task()
-        if style == "centered":
-            at = Text()
-            at.append("🎯 ", style="muted")
-            at.append("Active task: ", style="muted")
-            if active_task:
-                at.append(str(active_task), style="accent")
-            else:
-                at.append("not set", style="warning")
-            console.print(Align.center(at))
-        else:  # compact
-            if active_task:
-                console.print(f"[info]Active task:[/info] [accent]{active_task}[/accent]")
-            else:
-                console.print(
-                    "[warning]Active task not set[/warning] [muted](run 'autocleaneeg-pipeline task set')[/muted]"
-                )
-    except Exception:
-        pass
-
-    # Montage
-    try:
-        current_montage = _get_current_montage()
-        if style == "centered":
-            mt = Text()
-            mt.append("📊 ", style="muted")
-            mt.append("Montage: ", style="muted")
-            if current_montage:
-                mt.append(str(current_montage), style="accent")
-            else:
-                try:
-                    active_task = user_config.get_active_task()
-                    if active_task:
-                        mt.append("not configured", style="warning")
-                    else:
-                        mt.append("not set", style="warning")
-                except Exception:
-                    mt.append("not set", style="warning")
-            console.print(Align.center(mt))
-        else:  # compact
-            if current_montage:
-                console.print(f"[info]Montage:[/info] [accent]{current_montage}[/accent]")
-            else:
-                try:
-                    active_task = user_config.get_active_task()
-                    if active_task:
-                        console.print(
-                            "[warning]Montage not configured[/warning] [muted](run 'autocleaneeg-pipeline montage set')[/muted]"
-                        )
-                    else:
-                        console.print(
-                            "[warning]Montage not set[/warning] [muted](set an active task first)[/muted]"
-                        )
-                except Exception:
-                    pass
-    except Exception:
-        pass
-
-    # Active input
-    try:
-        active_source = user_config.get_active_source()
-        home = str(Path.home())
-
-        if style == "centered":
-            src = Text()
-            if active_source:
-                sp = Path(active_source)
-                display_src = str(sp)
-                if display_src.startswith(home):
-                    display_src = display_src.replace(home, "~", 1)
-                if sp.exists():
-                    if sp.is_file():
-                        src.append("📄 ", style="muted")
-                        src.append("Input file: ", style="muted")
-                    elif sp.is_dir():
-                        src.append("📂 ", style="muted")
-                        src.append("Input folder: ", style="muted")
-                    else:
-                        src.append("📁 ", style="muted")
-                        src.append("Input: ", style="muted")
-                    src.append(display_src, style="accent")
-                else:
-                    src.append("⚠ ", style="warning")
-                    src.append("Input missing — ", style="muted")
-                    src.append(display_src, style="accent")
-            else:
-                src.append("📁 ", style="muted")
-                src.append("Active input: ", style="muted")
-                src.append("not set", style="warning")
-            console.print(Align.center(src))
-        else:  # compact
-            if active_source:
-                p = Path(active_source)
-                if p.exists():
-                    if p.is_file():
-                        console.print(f"[info]Input file:[/info] [accent]{active_source}[/accent]")
-                    elif p.is_dir():
-                        console.print(f"[info]Input folder:[/info] [accent]{active_source}[/accent]")
-                    else:
-                        console.print(f"[info]Input:[/info] [accent]{active_source}[/accent]")
-                else:
-                    console.print(
-                        f"[warning]Input missing[/warning] [muted]—[/muted] [accent]{active_source}[/accent]"
-                    )
-            else:
-                console.print(
-                    "[warning]Active input not set[/warning] [muted](run 'autocleaneeg-pipeline input set')[/muted]"
-                )
-    except Exception:
-        pass
+    else:  # compact
+        console.print(config_table)
 
     # Disk space (centered style only)
     if include_disk and style == "centered":
