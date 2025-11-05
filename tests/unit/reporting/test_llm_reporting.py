@@ -47,7 +47,7 @@ def _base_context(**overrides):
         n_channels=None,
         bids_root=None,
         bids_subject_id=None,
-        pipeline_version="2.3.0",
+        pipeline_version="3.0.0-alpha",
         mne_version=None,
         compliance_user=None,
         notes=[],

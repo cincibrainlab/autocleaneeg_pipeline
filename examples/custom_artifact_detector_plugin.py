@@ -32,7 +32,7 @@ __block_metadata__ = {
             "tensorflow": ">=2.10.0",  # Example ML dependency
             "scikit-learn": ">=1.2.0"
         },
-        "autocleaneeg-pipeline": ">=2.4.0"
+        "autocleaneeg-pipeline": ">=3.0.0-alpha"
     }
 }
 

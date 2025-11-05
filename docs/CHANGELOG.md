@@ -1,5 +1,10 @@
 # Changelog
-## [Unreleased]
+## [3.0.0-alpha] - Unreleased
+
+### Breaking
+- **Version System**: Adopted pre-release alpha versioning (3.0.0-alpha) to accurately reflect development status
+- **Single Source of Truth**: Implemented dynamic versioning with `__init__.py` as the single source of truth
+- All version references now sync automatically from the package version
 
 ### Added
 - **BioSemi BDF Support**: Complete plugin-based support for BioSemi BDF files

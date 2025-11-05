@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autocleaneeg-pipeline"
-version = "3.0.0"
+dynamic = ["version"]
 description = "A modular framework for automated EEG data processing, built on MNE-Python"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -134,8 +134,8 @@ Issues = "https://github.com/cincibrainlab/autoclean_pipeline/issues"
 [project.scripts]
 autocleaneeg-pipeline = "autoclean.__main__:main"
 
-[tool.hatch]
-version.path = "src/autoclean/__init__.py"
+[tool.hatch.version]
+path = "src/autoclean/__init__.py"
 
 [tool.hatch.metadata]
 allow-direct-references = true

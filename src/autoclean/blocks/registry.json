@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "commit": "bundled-v3.0.0",
-  "updated_at": "2025-10-05T21:00:00Z",
+  "commit": "bundled-v3.0.0-alpha",
+  "updated_at": "2025-11-04T18:30:00Z",
   "blocks": [
     {
       "name": "wavelet_threshold",
@@ -21,7 +21,7 @@
       "name": "zapline",
       "category": "signal_processing",
       "path": "blocks/signal_processing/zapline",
-      "version": "1.0.0",
+      "version": "1.0.3",
       "description": "Zapline DSS-based line noise removal using Denoising Source Separation for removing power line artifacts from EEG/MEG data"
     },
     {

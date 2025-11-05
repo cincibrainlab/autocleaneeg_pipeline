@@ -26,8 +26,7 @@ copyright = f"2024-{date.today().year}, Cincibrainlab Team"
 author = "Gavin Gammoh, Ernest Pedapati"
 
 # The full version, including alpha/beta/rc tags
-# from autoclean import __version__ as version
-version = "2.2.7"  # Hardcoded to avoid import errors
+from autoclean import __version__ as version
 release = version
 
 # -- General configuration ---------------------------------------------------
