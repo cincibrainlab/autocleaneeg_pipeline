@@ -11,6 +11,21 @@
   - CMS/DRL referencing preserved from acquisition (user can rereference in pipeline)
   - Comprehensive unit tests for all BDF plugins
   - Full integration with existing CLI, task system, and montage selection
+- **BDF Validation**: HTML channel validation reports with comprehensive edge case testing
+- **CLI Enhancements**: Montage test command for generating validation reports
+- **CLI Display**: Current montage display in command headers and improved context formatting
+
+### Changed
+- **CLI Commands**: Refactored blocks commands for improved maintainability
+- **CLI Display**: Unified context display with aligned table format
+
+### Fixed
+- **BDF Processing**: EXG channels now properly dropped to prevent NaN positions in bad channel detection
+- **BDF Channels**: Channel name normalization to handle prefixed BDF channel names
+- **CLI Syntax**: Corrected command syntax to use 'process' instead of 'run'
+
+### Security
+- **Jinja2**: Upgraded from 3.1.4 to 3.1.6 to fix sandbox escape vulnerabilities (CVE-2025-27516, CVE-2024-56201, CVE-2024-56326)
 
 ### Notes
 - BDF format was already registered in the system; these plugins enable full functionality
