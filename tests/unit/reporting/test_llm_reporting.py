@@ -92,7 +92,7 @@ def test_render_methods_full_context(tmp_path: Path) -> None:
 
     assert (
         rendered
-        == "EEG preprocessing was performed using AutoCleanEEG v2.3.0 (MNE-Python 1.10.1). "
+        == "EEG preprocessing was performed using AutoCleanEEG v3.0.0-alpha (MNE-Python 1.10.1). "
         "Data were converted to BIDS and organized under bids-root. Signals were resampled to 250 Hz. "
         "Data were filtered (high-pass at 1 Hz; low-pass at 40 Hz; notch at 60, 120 Hz). "
         "Signals were re-referenced to average. Independent Component Analysis was performed using fastica (20 components). "
@@ -109,6 +109,6 @@ def test_render_methods_minimal_context() -> None:
 
     assert (
         rendered
-        == "EEG preprocessing was performed using AutoCleanEEG v2.3.0 (MNE-Python n/a). "
+        == "EEG preprocessing was performed using AutoCleanEEG v3.0.0-alpha (MNE-Python n/a). "
         "Data were converted to BIDS and organized under a BIDS-compliant folder."
     )

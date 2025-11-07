@@ -44,8 +44,13 @@ config = {
         "value": {
             "l_freq": 1,  # High-pass filter (Hz)
             "h_freq": 100,  # Low-pass filter (Hz)
-            "notch_freqs": [60, 120],  # Notch filter frequencies
-            "notch_widths": 5,  # Notch filter width
+            "notch_freqs": [60, 120],  # Notch filter frequencies (US: 60 Hz, EU: 50 Hz)
+            "notch_widths": 5,  # Notch filter width (Hz)
+            # Advanced options use sensible defaults (not required in config):
+            # - method: 'fir' (linear-phase FIR filter)
+            # - phase: 'zero' (zero-phase, no temporal distortion)
+            # - fir_window: 'hamming' (good spectral resolution)
+            # Override via method call if needed: self.filter_data(method="iir")
         },
     },
     "drop_outerlayer": {
@@ -64,14 +69,14 @@ config = {
     "wavelet_threshold": {
         "enabled": False,
         "value": {
-            "wavelet": "sym4",           # Mother wavelet name
-            "level": 5,                  # Decomposition levels (auto-clamped internally)
-            "threshold_mode": "soft",   # 'soft' or 'hard'
-            "is_erp": False,             # Enable ERP-preserving mode
-            "threshold_scale": 1.0,      # Multiplier for universal threshold
-            "psd_fmax": 45.0,            # Optional PSD ceiling for wavelet QA plots
-            "bandpass": [1.0, 30.0],     # Optional pre-filter band (set to None to skip)
-            "filter_kwargs": None        # Extra args forwarded to MNE filtering
+            "wavelet": "sym4",  # Mother wavelet name
+            "level": 5,  # Decomposition levels (auto-clamped internally)
+            "threshold_mode": "soft",  # 'soft' or 'hard'
+            "is_erp": False,  # Enable ERP-preserving mode
+            "threshold_scale": 1.0,  # Multiplier for universal threshold
+            "psd_fmax": 45.0,  # Optional PSD ceiling for wavelet QA plots
+            "bandpass": [1.0, 30.0],  # Optional pre-filter band (set to None to skip)
+            "filter_kwargs": None,  # Extra args forwarded to MNE filtering
         },
     },
     "reference_step": {
@@ -96,10 +101,10 @@ config = {
         "value": {
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
             "ic_rejection_threshold": 0.3,  # Threshold for automatic rejection
-            "ic_rejection_overrides": {        # Optional per-type overrides
-            "muscle": 0.99                # Very conservative (only 99% confidence)
+            "ic_rejection_overrides": {  # Optional per-type overrides
+                "muscle": 0.99  # Very conservative (only 99% confidence)
             },
-            "psd_fmax": 40.0  # NEW: Limit PSD plots to 40 Hz
+            "psd_fmax": 40.0,  # NEW: Limit PSD plots to 40 Hz
         },
     },
     "epoch_settings": {

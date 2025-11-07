@@ -103,4 +103,3 @@ def test_manual_ica_override_empty_list(monkeypatch, dummy_raw):
     nested = metadata["ica"]
     assert nested["method"] == "ManualOverride"
     assert nested["final_excluded_indices"] == []
-*** End Patch
