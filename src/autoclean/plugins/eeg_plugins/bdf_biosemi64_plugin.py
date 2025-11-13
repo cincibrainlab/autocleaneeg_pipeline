@@ -33,9 +33,7 @@ class BDFBiosemi64Plugin(BaseEEGPlugin):
         self, file_path: Path, autoclean_dict: dict, preload: bool = True
     ):
         """Import BioSemi BDF file and configure biosemi64 montage."""
-        message(
-            "info", f"Loading BioSemi BDF file with biosemi64 montage: {file_path}"
-        )
+        message("info", f"Loading BioSemi BDF file with biosemi64 montage: {file_path}")
 
         try:
             # Step 1: Import the BDF file with auto status channel detection
@@ -89,14 +87,34 @@ class BDFBiosemi64Plugin(BaseEEGPlugin):
 
             # Step 3: Exclude external channels that won't have montage positions
             # EXG channels (EOG, mastoids, etc.) don't have positions in standard montage
-            exg_to_exclude = [ch for ch in raw.ch_names if ch in [
-                'LM', 'RM', 'LVE', 'RVE', 'LHE', 'RHE', 'EXG7', 'EXG8',
-                'EXG1', 'EXG2', 'EXG3', 'EXG4', 'EXG5', 'EXG6'
-            ]]
+            exg_to_exclude = [
+                ch
+                for ch in raw.ch_names
+                if ch
+                in [
+                    "LM",
+                    "RM",
+                    "LVE",
+                    "RVE",
+                    "LHE",
+                    "RHE",
+                    "EXG7",
+                    "EXG8",
+                    "EXG1",
+                    "EXG2",
+                    "EXG3",
+                    "EXG4",
+                    "EXG5",
+                    "EXG6",
+                ]
+            ]
 
             if exg_to_exclude:
                 raw.drop_channels(exg_to_exclude)
-                message("debug", f"Dropped {len(exg_to_exclude)} EXG channels without montage positions")
+                message(
+                    "debug",
+                    f"Dropped {len(exg_to_exclude)} EXG channels without montage positions",
+                )
 
             # Pick EEG and stimulus channels
             # Keep stimulus channels for event extraction
@@ -141,9 +159,11 @@ class BDFBiosemi64Plugin(BaseEEGPlugin):
                         "sample": events[:, 0],
                         "id": events[:, 2],
                         "type": [
-                            list(event_id.keys())[list(event_id.values()).index(id)]
-                            if id in event_id.values()
-                            else f"Unknown-{id}"
+                            (
+                                list(event_id.keys())[list(event_id.values()).index(id)]
+                                if id in event_id.values()
+                                else f"Unknown-{id}"
+                            )
                             for id in events[:, 2]
                         ],
                     }

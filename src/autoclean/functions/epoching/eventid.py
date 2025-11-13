@@ -273,7 +273,9 @@ def create_eventid_epochs(
         if verbose is None:
             epoch_verbose = False
         elif isinstance(verbose, str):
-            epoch_verbose = verbose  # Pass through string verbosity levels like "WARNING"
+            epoch_verbose = (
+                verbose  # Pass through string verbosity levels like "WARNING"
+            )
         else:
             epoch_verbose = verbose  # bool value
         epochs = mne.Epochs(

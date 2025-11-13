@@ -470,7 +470,9 @@ class SetupDisplay(CLIDisplay):
 
 # Global instances for easy import
 # Note: Import at module level to avoid circular imports with console module
-from autoclean.utils.console import get_console as _get_console  # type: ignore # noqa: E402
+from autoclean.utils.console import (  # type: ignore # noqa: E402
+    get_console as _get_console,
+)
 
 cli_display = CLIDisplay(_get_console())
 setup_display = SetupDisplay(_get_console())

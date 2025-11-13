@@ -17,6 +17,7 @@ from autoclean.utils.console import get_console
 # Internal helpers (consistency + DRY)
 # ---------------------------------------------------------------------------
 
+
 def _console(args):
     """
     Return a rich console using the same calling convention as the main CLI.
@@ -29,6 +30,7 @@ def _console(args):
         # Backwards compatibility: some older builds expected a theme string
         theme = getattr(args, "theme", None) if args is not None else None
         return get_console(theme)
+
 
 def _get_block_or_error(registry: BlockRegistry, block_name: str, console):
     """

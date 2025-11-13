@@ -18,6 +18,7 @@ from autoclean.utils.logging import message
 try:
     import neo
     import neo.io
+
     NEO_AVAILABLE = True
 except ImportError:
     NEO_AVAILABLE = False
@@ -53,7 +54,7 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
                 montage = mne.channels.read_custom_montage(str(montage_file))
 
                 # Extract coords_dict from montage
-                coords_dict = montage.get_positions()['ch_pos']
+                coords_dict = montage.get_positions()["ch_pos"]
 
                 message("info", f"Loaded saved montage from {montage_file.name}")
                 return montage, coords_dict
@@ -72,7 +73,9 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
         """
         # Load from package resources
         package_dir = Path(__file__).parent.parent.parent  # src/autoclean
-        csv_file = package_dir / "data" / "probe_maps" / "MouseEEGv2H32_Import_Stage2.csv"
+        csv_file = (
+            package_dir / "data" / "probe_maps" / "MouseEEGv2H32_Import_Stage2.csv"
+        )
 
         if not csv_file.exists():
             raise FileNotFoundError(
@@ -86,17 +89,17 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
         coords_dict = {}
 
         for _, row in stage2_df.iterrows():
-            chan_name = row['chan_name']
-            mea_name = row.get('mea_formatted_name', None)
+            chan_name = row["chan_name"]
+            mea_name = row.get("mea_formatted_name", None)
 
             # Only process valid EEG channels
-            if pd.notna(mea_name) and chan_name.startswith('pri_'):
+            if pd.notna(mea_name) and chan_name.startswith("pri_"):
                 rename_map[chan_name] = mea_name
 
                 # Extract coordinates (micrometers → meters)
-                x = row['site_ctr_x'] / 1e6
-                y = row['site_ctr_y'] / 1e6
-                z = row['site_ctr_z'] / 1e6
+                x = row["site_ctr_x"] / 1e6
+                y = row["site_ctr_y"] / 1e6
+                z = row["site_ctr_z"] / 1e6
                 coords_dict[mea_name] = np.array([x, y, z])
 
         return rename_map, coords_dict
@@ -119,14 +122,14 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
 
         # Handle NeuroNexus file naming patterns
         stem = file_path.stem
-        if stem.endswith('_data'):
+        if stem.endswith("_data"):
             base_stem = stem[:-5]
             json_file = file_path.parent / f"{base_stem}.xdat.json"
-        elif stem.endswith('_timestamp'):
+        elif stem.endswith("_timestamp"):
             base_stem = stem[:-10]
             json_file = file_path.parent / f"{base_stem}.xdat.json"
         else:
-            json_file = file_path.with_suffix('.xdat.json')
+            json_file = file_path.with_suffix(".xdat.json")
 
         reader_file = str(json_file) if json_file.exists() else str(file_path)
 
@@ -148,17 +151,17 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
             if sfreq is None:
                 sfreq = float(analog_signal.sampling_rate.magnitude)
 
-            for ch_name in analog_signal.array_annotations.get('channel_names', []):
+            for ch_name in analog_signal.array_annotations.get("channel_names", []):
                 ch_names.append(str(ch_name))
 
                 # Determine channel type
                 ch_name_lower = ch_name.lower()
-                if 'din' in ch_name_lower or 'dout' in ch_name_lower:
-                    ch_types_list.append('stim')
-                elif 'aux' in ch_name_lower:
-                    ch_types_list.append('misc')
+                if "din" in ch_name_lower or "dout" in ch_name_lower:
+                    ch_types_list.append("stim")
+                elif "aux" in ch_name_lower:
+                    ch_types_list.append("misc")
                 else:
-                    ch_types_list.append('eeg')
+                    ch_types_list.append("eeg")
 
         # Stack channel data
         data = np.vstack(all_data)
@@ -186,7 +189,7 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
 
         try:
             # Write sensor positions file
-            with open(montage_file, 'w') as f:
+            with open(montage_file, "w") as f:
                 # Write header
                 f.write("# NeuroNexus MouseEEGv2 H32 Probe Montage\n")
                 f.write("# 30-channel mouse EEG probe with scrambled routing\n")
@@ -198,7 +201,10 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
                     # .sfp format: label x y z
                     f.write(f"{ch_name}\t{pos[0]:.8f}\t{pos[1]:.8f}\t{pos[2]:.8f}\n")
 
-            message("success", f"Saved montage to {montage_file.relative_to(package_dir.parent)}")
+            message(
+                "success",
+                f"Saved montage to {montage_file.relative_to(package_dir.parent)}",
+            )
 
         except Exception as e:
             message("warning", f"Failed to save montage file: {e}")
@@ -208,13 +214,17 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
     ):
         """Import NeuroNexus XDAT file and configure MouseEEGv2 H32 montage."""
         message(
-            "info", f"Loading NeuroNexus XDAT file with MouseEEGv2 H32 montage: {file_path}"
+            "info",
+            f"Loading NeuroNexus XDAT file with MouseEEGv2 H32 montage: {file_path}",
         )
 
         try:
             # Step 1: Load raw XDAT file via Neo
             raw = self._load_raw_xdat(file_path, preload)
-            message("success", f"Successfully loaded XDAT file with {len(raw.ch_names)} channels")
+            message(
+                "success",
+                f"Successfully loaded XDAT file with {len(raw.ch_names)} channels",
+            )
 
             # Step 2: Try to load saved montage first, fall back to CSV if not found
             saved_result = self._load_saved_montage()
@@ -236,7 +246,7 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
                 # Create montage from coordinates
                 montage = mne.channels.make_dig_montage(
                     ch_pos=coords_dict,
-                    coord_frame='unknown'  # Mouse probe uses local coordinate system
+                    coord_frame="unknown",  # Mouse probe uses local coordinate system
                 )
 
                 # Save for future use
@@ -248,17 +258,21 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
 
             # Step 4: Apply montage to raw object
             message("info", "Applying MouseEEGv2 H32 electrode positions")
-            raw.set_montage(montage, on_missing='ignore')
-            message("success", f"Applied montage with {len(coords_dict)} electrode positions")
+            raw.set_montage(montage, on_missing="ignore")
+            message(
+                "success",
+                f"Applied montage with {len(coords_dict)} electrode positions",
+            )
 
             # Step 6: Pick EEG and stimulus channels
             # Keep aux and digital I/O for complete data preservation
             raw.pick_types(eeg=True, stim=True, misc=True, exclude=[])
 
-            eeg_count = len([ch for ch in raw.ch_names if raw.get_channel_types([ch])[0] == 'eeg'])
+            eeg_count = len(
+                [ch for ch in raw.ch_names if raw.get_channel_types([ch])[0] == "eeg"]
+            )
             message(
-                "info",
-                f"Selected {eeg_count} EEG channels + auxiliary/digital I/O"
+                "info", f"Selected {eeg_count} EEG channels + auxiliary/digital I/O"
             )
 
             # Note: Mouse EEG probe coordinates are in micrometers (< 1mm scale)
@@ -266,7 +280,7 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
             message(
                 "info",
                 "Mouse-scale coordinates detected (probe dimensions: ~0.64 × 0.83 mm). "
-                "Visualizations will auto-scale for visibility."
+                "Visualizations will auto-scale for visibility.",
             )
 
             return raw
@@ -295,12 +309,17 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
 
             # If no events in annotations, check digital channels
             if events is None or len(events) == 0:
-                stim_channels = [ch for ch in raw.ch_names
-                                if raw.get_channel_types([ch])[0] == 'stim']
+                stim_channels = [
+                    ch
+                    for ch in raw.ch_names
+                    if raw.get_channel_types([ch])[0] == "stim"
+                ]
 
                 if stim_channels:
                     # Try first stimulus channel
-                    events = mne.find_events(raw, stim_channel=stim_channels[0], verbose=False)
+                    events = mne.find_events(
+                        raw, stim_channel=stim_channels[0], verbose=False
+                    )
 
                     if events is not None and len(events) > 0:
                         # Create event_id from unique event codes
@@ -321,9 +340,11 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
                         "sample": events[:, 0],
                         "id": events[:, 2],
                         "type": [
-                            list(event_id.keys())[list(event_id.values()).index(id)]
-                            if id in event_id.values()
-                            else f"Unknown-{id}"
+                            (
+                                list(event_id.keys())[list(event_id.values()).index(id)]
+                                if id in event_id.values()
+                                else f"Unknown-{id}"
+                            )
                             for id in events[:, 2]
                         ],
                     }
@@ -331,7 +352,7 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
 
                 message(
                     "info",
-                    f"Found {len(events)} events of {len(event_id)} unique types"
+                    f"Found {len(events)} events of {len(event_id)} unique types",
                 )
 
                 return events, event_id, events_df
@@ -362,5 +383,5 @@ class XDATMouseH32Plugin(BaseEEGPlugin):
                 "H32 probe has scrambled pin routing (e.g., E1 → pri_29)",
                 "Channels pri_1 and pri_31 are unconnected",
                 "Coordinate scale is mouse-specific (~1mm total spread)",
-            ]
+            ],
         }

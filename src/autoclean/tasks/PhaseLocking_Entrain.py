@@ -39,19 +39,15 @@ from autoclean.core.task import Task
 
 config = {
     "schema_version": "2025.09",
-
     # =============================================================================
     # DATASET CONFIGURATION
     # =============================================================================
     "dataset_name": "ENTRAIN_PhaseLockin g",  # Customize for your dataset
     # "input_path": "/path/to/your/data/",  # Uncomment and specify your data path
-
     # Optional: Keep flagged files in standard output (set False to move them)
     "move_flagged_files": False,
-
     # Optional: Enable AI-powered reporting for automated summaries
     "ai_reporting": False,
-
     # =============================================================================
     # MONTAGE CONFIGURATION
     # =============================================================================
@@ -63,7 +59,6 @@ config = {
         "enabled": True,
         "value": "GSN-HydroCel-129",  # UPDATE THIS based on your system
     },
-
     # =============================================================================
     # RESAMPLING
     # =============================================================================
@@ -71,9 +66,8 @@ config = {
     # Note: Protocol doesn't specify resampling, but 250 Hz is standard for this analysis
     "resample_step": {
         "enabled": True,
-        "value": 250  # Hz - adequate for 30 Hz low-pass filter (Nyquist = 125 Hz)
+        "value": 250,  # Hz - adequate for 30 Hz low-pass filter (Nyquist = 125 Hz)
     },
-
     # =============================================================================
     # FILTERING - PROTOCOL SPECIFIED
     # =============================================================================
@@ -94,7 +88,6 @@ config = {
             # which is appropriate for phase-locking analysis
         },
     },
-
     # =============================================================================
     # CHANNEL CONFIGURATION
     # =============================================================================
@@ -103,7 +96,6 @@ config = {
         "enabled": False,
         "value": [],  # e.g., [1, 32, 125, 126, 127, 128] for GSN-129
     },
-
     # EOG channel configuration - mark and optionally drop EOG channels
     # These channels can be used for artifact detection or dropped before analysis
     #
@@ -115,22 +107,13 @@ config = {
             "eog_drop": False,  # Set True to drop EOG channels after marking
         },
     },
-
     # Trim edges - remove initial/final seconds to avoid recording artifacts
-    "trim_step": {
-        "enabled": True,
-        "value": 4  # Trim 4 seconds from start and end
-    },
-
+    "trim_step": {"enabled": True, "value": 4},  # Trim 4 seconds from start and end
     # Crop duration - limit analysis to specific time window if needed
     "crop_step": {
         "enabled": False,
-        "value": {
-            "start": 0,
-            "end": 600  # Limit to first 600 seconds if desired
-        },
+        "value": {"start": 0, "end": 600},  # Limit to first 600 seconds if desired
     },
-
     # =============================================================================
     # RE-REFERENCING - PROTOCOL SPECIFIED
     # =============================================================================
@@ -150,7 +133,6 @@ config = {
         "enabled": True,
         "value": "average",  # Change to ["LM", "RM"] if mastoids are available
     },
-
     # =============================================================================
     # WAVELET DENOISING (Optional - not in original protocol)
     # =============================================================================
@@ -168,7 +150,6 @@ config = {
             "bandpass": [1.0, 30.0],
         },
     },
-
     # =============================================================================
     # ICA CONFIGURATION - PROTOCOL SPECIFIED
     # =============================================================================
@@ -193,7 +174,6 @@ config = {
             "temp_highpass_for_ica": 1.0,  # Hz - creates temporary 1 Hz copy for ICA
         },
     },
-
     # =============================================================================
     # COMPONENT REJECTION - PROTOCOL SPECIFIED
     # =============================================================================
@@ -207,25 +187,21 @@ config = {
         "value": {
             # Reject these artifact types
             "ic_flags_to_reject": ["muscle", "heart", "eog", "ch_noise", "line_noise"],
-
             # Protocol specifies 0.9 threshold for automatic rejection
             # AutoClean uses 0.3 by default, but we override to 0.9 per protocol
             "ic_rejection_threshold": 0.9,  # Only reject if >= 90% confidence
-
             # Optional: per-type overrides (not in protocol, but useful)
             "ic_rejection_overrides": {
-                "eog": 0.9,      # Eye artifacts: 90% threshold
-                "muscle": 0.9,   # Muscle artifacts: 90% threshold
-                "heart": 0.9,    # Cardiac artifacts: 90% threshold
-                "ch_noise": 0.9, # Channel noise: 90% threshold
+                "eog": 0.9,  # Eye artifacts: 90% threshold
+                "muscle": 0.9,  # Muscle artifacts: 90% threshold
+                "heart": 0.9,  # Cardiac artifacts: 90% threshold
+                "ch_noise": 0.9,  # Channel noise: 90% threshold
                 "line_noise": 0.9,  # Line noise: 90% threshold
             },
-
             # PSD plot limit for visualization
             "psd_fmax": 40.0,  # Hz - adequate for viewing entrainment frequencies
         },
     },
-
     # =============================================================================
     # EPOCHING CONFIGURATION - PROTOCOL SPECIFIED
     # =============================================================================
@@ -254,19 +230,16 @@ config = {
             # tmax = num_syllables × 0.3 s = 36 × 0.3 = 10.8 s
             "num_syllables": 36,  # 12 words × 3 syllables/word = 36 syllables
         },
-
         # Event ID configuration - defines which events to use for epoching
         # ⚠️ CLARIFICATION NEEDED: What are the event codes in your data?
         "event_id": None,  # None = auto-detect all events
         # Example: {"syllable_onset": 1, "word_onset": 10}  # UPDATE based on your data
-
         # Baseline correction - typically not used for phase-locking analysis
         # as we're interested in sustained phase consistency, not evoked activity
         "remove_baseline": {
             "enabled": False,
             "window": [None, 0],  # Pre-stimulus baseline
         },
-
         # Threshold rejection - reject epochs with extreme voltages
         # Protocol mentions "manually remove very noisy epochs" but not specific threshold
         # Enable this for automated rejection, or use GFP cleaning below
@@ -277,7 +250,6 @@ config = {
             },
         },
     },
-
     # =============================================================================
     # ITC ANALYSIS CONFIGURATION - PROTOCOL SPECIFIED
     # =============================================================================
@@ -309,34 +281,26 @@ config = {
             # Default: 50 frequencies logarithmically spaced from 0.6 to 5 Hz
             # This captures word (1.11 Hz) and syllable (3.33 Hz) frequencies
             "freqs": None,  # None = use default 0.6-5 Hz range
-
             # Morlet wavelet parameters
             "n_cycles": 7.0,  # Number of cycles for wavelet (7 is standard)
-
             # Multitaper method (alternative to Morlet wavelets)
             "use_multitaper": False,  # Set True to use multitaper instead
             "time_bandwidth": 4.0,  # Time-bandwidth product for multitaper
-
             # Computation parameters
             "decim": 1,  # Decimation factor (1 = no decimation)
             "n_jobs": 4,  # Number of parallel jobs for computation
-
             # Channel selection
             "picks": None,  # None = all EEG channels
-
             # Baseline correction (typically not used for ITC)
             "baseline": None,  # None = no baseline correction for ITC
             "mode": "mean",  # Baseline mode (if baseline is enabled)
-
             # Analysis options
             "analyze_bands": True,  # Compute frequency band summaries
             "time_window": None,  # None = use entire epoch for band analysis
-
             # Word Learning Index (ratio of word ITC to syllable ITC)
             "calculate_wli": True,  # Compute WLI = ITC(1.11 Hz) / ITC(3.33 Hz)
         },
     },
-
     # =============================================================================
     # SOURCE LOCALIZATION CONFIGURATION (Optional)
     # =============================================================================
@@ -619,16 +583,24 @@ class PhaseLockingEntrain(Task):
 
             message("info", "ITC Analysis Summary:")
             message("info", f"  ITC shape: {itc.data.shape}")
-            message("info", f"  Frequency range: {itc.freqs[0]:.2f}-{itc.freqs[-1]:.2f} Hz")
+            message(
+                "info", f"  Frequency range: {itc.freqs[0]:.2f}-{itc.freqs[-1]:.2f} Hz"
+            )
             message("info", f"  Time range: {itc.times[0]:.2f}-{itc.times[-1]:.2f} s")
             message("info", f"  Number of channels: {len(itc.ch_names)}")
 
             if band_results:
                 message("info", "  Frequency Band ITC:")
                 if "word_frequency" in band_results:
-                    message("info", f"    Word (1.0-1.3 Hz): {band_results['word_frequency']:.4f}")
+                    message(
+                        "info",
+                        f"    Word (1.0-1.3 Hz): {band_results['word_frequency']:.4f}",
+                    )
                 if "syllable_frequency" in band_results:
-                    message("info", f"    Syllable (3.0-3.7 Hz): {band_results['syllable_frequency']:.4f}")
+                    message(
+                        "info",
+                        f"    Syllable (3.0-3.7 Hz): {band_results['syllable_frequency']:.4f}",
+                    )
 
             # ⚠️ MISSING: zITC computation from shuffled surrogates
             # This is a key output of the protocol but requires custom development
@@ -641,7 +613,10 @@ class PhaseLockingEntrain(Task):
             # 4. Output zITC at word and syllable frequencies
 
             message("warning", "⚠️ MISSING FEATURE: Shuffled surrogate-based zITC")
-            message("warning", "   Protocol requires 100 surrogate iterations for significance testing")
+            message(
+                "warning",
+                "   Protocol requires 100 surrogate iterations for significance testing",
+            )
             message("warning", "   Current output is raw ITC, not zITC")
             message("warning", "   This feature requires custom development")
 

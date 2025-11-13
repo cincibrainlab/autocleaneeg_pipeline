@@ -478,7 +478,6 @@ def visualize_psd_results(psd_df, output_dir=None, subject_id=None):
         Figure containing the visualization
     """
 
-
     # Set up plotting style
     plt.style.use("seaborn-v0_8-whitegrid")
     sns.set_context("notebook", font_scale=1.1)
