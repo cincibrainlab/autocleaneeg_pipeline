@@ -2,7 +2,7 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-cov test-integration test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-cov test-integration test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy
 
 # Default target
 help: ## Show this help message
@@ -33,6 +33,9 @@ help: ## Show this help message
 	@echo "CI Simulation:"
 	@echo "  ci-check       Run the same checks as CI (format + lint + tests)"
 	@echo "  pre-commit     Run pre-commit hooks manually"
+	@echo ""
+	@echo "Deployment:"
+	@echo "  deploy         Build and publish package to PyPI"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  clean          Clean temporary files and caches"
@@ -193,3 +196,14 @@ docs-build: ## Build documentation
 docs-serve: ## Serve documentation locally
 	@echo "📚 Serving documentation at http://localhost:8000"
 	@cd docs/_build/html && python3 -m http.server 8000
+
+# Deployment
+deploy: clean ## Build and publish package to PyPI
+	@echo "📦 Building package..."
+	@uv build
+	@echo ""
+	@echo "🚀 Publishing to PyPI..."
+	@uvx uv-publish
+	@echo ""
+	@echo "✅ Deployment complete!"
+	@echo "💡 Package is now live at: https://pypi.org/project/autocleaneeg-pipeline/"
