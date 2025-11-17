@@ -578,6 +578,44 @@ def _render_input_summary(console, *, input_path: Path) -> None:
     console.print()
 
 
+def _render_task_set_summary(console, *, task_name: str) -> None:
+    """Display a short summary after setting the active task."""
+
+    task_path: Optional[Path] = None
+    try:
+        task_path = user_config.get_custom_task_path(task_name)
+    except Exception:
+        task_path = None
+
+    details = [
+        f"[success]✓[/success] Active task: [accent]{task_name}[/accent]",
+    ]
+    if task_path:
+        details.append(f"[muted]File:[/muted] [info]{task_path}[/info]")
+    else:
+        details.append("[muted]File:[/muted] workspace task not found on disk")
+
+    next_steps = [
+        "Run [accent]process <file>[/accent] to process data with this task",
+        "Use [accent]task show[/accent] for details or [accent]task edit[/accent] to open it",
+    ]
+
+    body = "\n".join(details) + "\n\n[header]Next steps[/header]\n" + "\n".join(
+        f"  • {step}" for step in next_steps
+    )
+
+    console.print()
+    console.print(
+        Panel(
+            body,
+            title="[title]Active Task[/title]",
+            border_style="border",
+            padding=(1, 2),
+        )
+    )
+    console.print()
+
+
 class RichHelpAction(argparse.Action):
     """Subparser -h/--help: show styled header + context, then default help."""
 
@@ -6370,6 +6408,7 @@ def cmd_task_copy(args) -> int:
 def cmd_task_set(args) -> int:
     """Set the active task."""
     try:
+        console = get_console(args)
         # If task name provided, use it directly
         if hasattr(args, "task_name") and args.task_name:
             task_name = args.task_name
@@ -6393,6 +6432,7 @@ def cmd_task_set(args) -> int:
         if user_config.set_active_task(task_name):
             message("success", f"✓ Active task set to: {task_name}")
             message("info", "Now you can use: autocleaneeg-pipeline process <file>")
+            _render_task_set_summary(console, task_name=task_name)
             return 0
         else:
             message("error", "Failed to save active task configuration.")
