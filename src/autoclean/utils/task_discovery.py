@@ -310,6 +310,7 @@ def safe_discover_tasks() -> (
     seen_names: Dict[str, DiscoveredTask] = {}
     unique_tasks = []
     override_info = []
+    duplicate_workspace_tasks: Dict[str, List[DiscoveredTask]] = {}
 
     for task in all_valid_tasks:
         if task.name not in seen_names:
@@ -322,34 +323,60 @@ def safe_discover_tasks() -> (
             override_source = Path(task.source).name
 
             # Determine if this is a workspace override of a built-in task
-            if "tasks" in existing_task.source and "autoclean.tasks" in task.source:
+            # Check if sources are workspace vs built-in by checking if they're in the workspace tasks dir
+            existing_is_workspace = (
+                USER_CONFIG_AVAILABLE
+                and str(existing_task.source).startswith(str(user_config.tasks_dir))
+            )
+            current_is_workspace = (
+                USER_CONFIG_AVAILABLE
+                and str(task.source).startswith(str(user_config.tasks_dir))
+            )
+            # If it's not a workspace task, it's a built-in task (since we discover custom tasks first)
+            existing_is_builtin = not existing_is_workspace
+            current_is_builtin = not current_is_workspace
+            
+            if existing_is_workspace and current_is_builtin:
                 # Workspace task is already loaded, built-in task is being skipped
-                override_info.append(
-                    InvalidTaskFile(
-                        source=f"override: {existing_source}",
-                        error=f"Workspace task '{task.name}' overrides built-in task from package",
-                    )
-                )
-            elif "autoclean.tasks" in existing_task.source and "tasks" in task.source:
-                # This shouldn't happen with our discovery order, but handle it
-                # Replace built-in with workspace task
+                # This is expected behavior - workspace tasks override built-in ones
+                # Don't add to invalid_files as this is not an error
+                pass
+            elif existing_is_builtin and current_is_workspace:
+                # Replace built-in with workspace task (workspace takes priority)
+                # This is expected behavior - workspace tasks override built-in ones
                 seen_names[task.name] = task
                 unique_tasks = [t for t in unique_tasks if t.name != task.name]
                 unique_tasks.append(task)
-                override_info.append(
-                    InvalidTaskFile(
-                        source=f"override: {override_source}",
-                        error=f"Workspace task '{task.name}' overrides built-in task from package",
-                    )
-                )
+                # Don't add to invalid_files as this is not an error
+                pass
             else:
-                # True duplicate within same source type - still a warning
+                # True duplicate within same source type (workspace tasks)
+                # Track both files involved in the duplicate
+                if task.name not in duplicate_workspace_tasks:
+                    duplicate_workspace_tasks[task.name] = [existing_task]
+                duplicate_workspace_tasks[task.name].append(task)
+                
+                # Remove the first occurrence from unique_tasks since it's actually a duplicate
+                unique_tasks = [t for t in unique_tasks if t.name != task.name]
+                
+                # Flag the second file as invalid (first will be flagged after the loop)
                 override_info.append(
                     InvalidTaskFile(
                         source=override_source,
-                        error=f"Duplicate task definition detected. Update the class name in {override_source} to a unique value.",
+                        error=f"Duplicate task definition detected. Class '{task.name}' exists in multiple files. Update the class name in {override_source} to a unique value.",
                     )
                 )
+    
+    # Flag the first file in each duplicate pair (after loop to avoid double-processing)
+    for task_name, duplicate_files in duplicate_workspace_tasks.items():
+        if len(duplicate_files) > 1:
+            first_file = Path(duplicate_files[0].source).name
+            override_info.append(
+                InvalidTaskFile(
+                    source=first_file,
+                    error=f"Duplicate task definition detected. Class '{task_name}' exists in multiple files. Update the class name in {first_file} to a unique value.",
+                )
+            )
 
     # Add override info to invalid files list for reporting
     all_invalid_files.extend(override_info)
