@@ -540,6 +540,44 @@ def _render_task_install_summary(
     console.print()
 
 
+def _render_input_summary(console, *, input_path: Path) -> None:
+    """Show a concise panel after setting an active input path."""
+
+    exists = input_path.exists()
+    if exists and input_path.is_file():
+        path_kind = "File"
+    elif exists and input_path.is_dir():
+        path_kind = "Folder"
+    else:
+        path_kind = "Path"
+
+    details = [
+        f"[success]✓[/success] Active input saved",
+        f"[muted]Type:[/muted] {path_kind}",
+        f"[muted]Location:[/muted] [info]{input_path}[/info]",
+    ]
+
+    next_steps = [
+        "Run [accent]autocleaneeg-pipeline process[/accent] to use this input by default",
+        "Use [accent]input show[/accent] to verify or [accent]input unset[/accent] to clear",
+    ]
+
+    body = "\n".join(details) + "\n\n[header]Next steps[/header]\n" + "\n".join(
+        f"  • {step}" for step in next_steps
+    )
+
+    console.print()
+    console.print(
+        Panel(
+            body,
+            title="[title]Active Input[/title]",
+            border_style="border",
+            padding=(1, 2),
+        )
+    )
+    console.print()
+
+
 class RichHelpAction(argparse.Action):
     """Subparser -h/--help: show styled header + context, then default help."""
 
@@ -7384,6 +7422,9 @@ def cmd_input(args) -> int:
 def cmd_source_set(args) -> int:
     """Set the active input path (stored internally as 'source')."""
     try:
+        console = get_console(
+            args if isinstance(args, argparse.Namespace) else None
+        )
         source_path = getattr(args, "source_path", None)
         source_path = _strip_wrapping_quotes(source_path)
 
@@ -7396,6 +7437,7 @@ def cmd_source_set(args) -> int:
 
             if user_config.set_active_source(str(path)):
                 message("success", f"Active input set to: {path}")
+                _render_input_summary(console, input_path=path)
                 return 0
             else:
                 message("error", "Failed to save active input configuration")
@@ -7421,6 +7463,7 @@ def cmd_source_set(args) -> int:
             # User selected a path
             if user_config.set_active_source(selected_source):
                 message("success", f"Active input set to: {selected_source}")
+                _render_input_summary(console, input_path=Path(selected_source))
                 return 0
             else:
                 message("error", "Failed to save active input configuration")
