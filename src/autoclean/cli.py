@@ -37,7 +37,7 @@ from autoclean.utils.config import (
     load_user_config,
     save_user_config,
 )
-from autoclean.utils.console import get_console
+from autoclean.utils.console import get_console, make_console
 from autoclean.utils.database import DB_PATH
 from autoclean.utils.file_system import update_status_marker
 from autoclean.utils.logging import has_logged_errors, message
@@ -569,7 +569,6 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
             ("🎯 task set [name]", "Set active task (interactive if omitted)"),
             ("🧹 task unset", "Clear the active task"),
             ("👁️  task show", "Show the current active task"),
-            ("📚 task library …", "Browse and copy official task templates"),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -1055,10 +1054,78 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     task_parser = subparsers.add_parser(
         "task", help="Manage custom tasks", add_help=False
     )
+    # Replace error method with custom handler after subparsers are created
+    original_error = task_parser.error
+    
+    def custom_task_error(message: str) -> None:
+        """Custom error handler for task subcommands."""
+        # Check if this is an invalid choice error for task_action
+        if "invalid choice" in message.lower() and "task_action" in message:
+            # Extract the invalid action from the error message
+            import re
+            match = re.search(r"invalid choice: '([^']+)'", message)
+            invalid_action = match.group(1) if match else "unknown"
+            
+            # Get valid actions from task_parser's subparsers action
+            valid_actions = []
+            for action in task_parser._actions:
+                if isinstance(action, argparse._SubParsersAction):
+                    valid_actions = sorted(action.choices.keys())
+                    break
+            
+            # Show custom error message
+            # Use a throwaway console so we don't mutate the global theme cache
+            console = make_console()
+            console.print()
+            
+            # Build command descriptions dynamically
+            command_descriptions = {
+                "list": "List available tasks",
+                "explore": "Open workspace tasks folder",
+                "edit": "Edit a task",
+                "copy": "Copy a task",
+                "delete": "Delete a task",
+                "set": "Set active task",
+                "unset": "Clear active task",
+                "show": "Show current active task",
+                "use": "Install and activate a task",
+                "install": "Install a task from library/file",
+                "sync": "Check for task updates",
+                "update": "Update task library index",
+                "search": "Search for tasks",
+                "diagnose": "Run workspace health check",
+                "diff": "Compare task versions",
+                "schema": "View task schema",
+            }
+            
+            commands_text = "\n".join(
+                f"  [accent]task {action}[/accent]"
+                f"{' ' * (20 - len(action) - 5)}{command_descriptions.get(action, '')}"
+                for action in valid_actions
+            )
+            
+            console.print(
+                Panel(
+                    f"[error]Unknown task command:[/error] [accent]'{invalid_action}'[/accent]\n\n"
+                    f"[header]Valid task commands:[/header]\n{commands_text}\n\n"
+                    "[muted]Run 'task --help' for detailed help[/muted]",
+                    title="[title]Task Command Help[/title]",
+                    border_style="border",
+                    padding=(1, 2),
+                )
+            )
+            console.print()
+            sys.exit(2)
+        
+        # For other errors, use default argparse behavior
+        original_error(message)
+    
     attach_rich_help(task_parser)
     task_subparsers = task_parser.add_subparsers(
         dest="task_action", help="Task actions"
     )
+    # Replace error method after subparsers are created so we can access valid actions
+    task_parser.error = custom_task_error
 
     # Delete task (alias with path/name support)
     delete_task_parser = task_subparsers.add_parser(
@@ -5502,9 +5569,9 @@ def cmd_task(args) -> int:
         return cmd_task_search(args)
     elif args.task_action == "schema":
         return cmd_task_schema(args)
-    else:
-        message("error", "No task action specified")
-        return 1
+    # This point should be unreachable because argparse enforces valid subcommands.
+    message("error", "Task command dispatch failed")
+    return 1
 
 
 def cmd_task_schema(args) -> int:
@@ -9031,6 +9098,7 @@ def main(argv: Optional[list] = None) -> int:
         # Defer to argparse for normal parsing and help behavior
         pass
 
+    # Parse arguments - custom error handling is done via TaskSubcommandParser
     args = parser.parse_args(argv)
 
     # ------------------------------------------------------------------
