@@ -18,7 +18,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import requests
 from rich.panel import Panel
@@ -26,6 +26,7 @@ from rich.table import Table
 
 # Block management commands
 from autoclean import __version__, cli_blocks
+from autoclean.mixins.signal_processing.eventid_epochs import EventIDEpochsMixin
 from autoclean.utils.audit import verify_access_log_integrity
 from autoclean.utils.auth import get_auth0_manager, is_compliance_mode_enabled
 from autoclean.utils.builtins import BuiltinRegistry
@@ -704,6 +705,31 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         console.print()
         return
 
+    if topic in {"event", "events"}:
+        console.print("[header]Event Commands[/header]")
+        tbl = _Table(show_header=False, box=None, padding=(0, 1))
+        tbl.add_column("Command", style="accent", no_wrap=True)
+        tbl.add_column("Description", style="muted")
+        rows = [
+            (
+                "📊 events discover <file>",
+                "List event codes in a file and print config examples",
+            ),
+            (
+                "📈 events analyze <file>",
+                "Summarize timing, intervals, and transitions",
+            ),
+        ]
+        for c, d in rows:
+            tbl.add_row(c, d)
+        console.print(tbl)
+        console.print()
+        console.print(
+            "[muted]Docs:[/muted] [accent]https://docs.autocleaneeg.org[/accent]"
+        )
+        console.print()
+        return
+
     if topic in {"block", "blocks"}:
         console.print("[header]Block Commands[/header]")
         tbl = _Table(show_header=False, box=None, padding=(0, 1))
@@ -865,6 +891,7 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
         ("🗂\u00a0 task", "Manage tasks (list, explore)"),
         ("🧱 blocks", "Manage bundled processing blocks"),
         ("📁\u00a0 input", "Manage active input path"),
+        ("📊 events", "Inspect and analyze event markers"),
         ("▶\u00a0 process", "Process EEG data"),
         ("👁\u00a0 view", "View EEG file (MNE-QT)"),
         ("🧭\u00a0 montage", "List montages and update active task"),
@@ -977,6 +1004,10 @@ Active Task (Simplified Workflow):
 Custom Tasks:
   autocleaneeg-pipeline task add my_task.py            # Add custom task file
   autocleaneeg-pipeline task list                      # List all tasks
+
+Event Diagnostics:
+  autocleaneeg-pipeline events discover data.set      # Discover event codes
+  autocleaneeg-pipeline events analyze data.set       # Summarize timing & gaps
 
 Montages:
   autocleaneeg-pipeline montage list                  # Show available montages
@@ -1755,6 +1786,72 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         "show", help="Show the current active input path", add_help=False
     )
     attach_rich_help(show_input_parser)
+
+    # Event discovery commands
+    events_parser = subparsers.add_parser(
+        "events", help="Inspect event markers in EEG files", add_help=False
+    )
+    attach_rich_help(events_parser)
+    events_subparsers = events_parser.add_subparsers(
+        dest="events_action", help="Event commands"
+    )
+
+    events_discover_parser = events_subparsers.add_parser(
+        "discover",
+        help="Discover event markers for configuration troubleshooting",
+        add_help=False,
+    )
+    attach_rich_help(events_discover_parser)
+    events_discover_parser.add_argument(
+        "input_file",
+        type=Path,
+        help="EEG file to inspect (.set, .edf, .bdf, .fif, .vhdr, .cnt, .mff, .xdat)",
+    )
+    events_discover_parser.add_argument(
+        "--montage",
+        type=str,
+        help="Montage to use for XDAT files (ignored for other formats)",
+    )
+    events_discover_parser.add_argument(
+        "--no-config",
+        action="store_true",
+        help="Hide configuration snippets in the output",
+    )
+    events_discover_parser.add_argument(
+        "--exclude",
+        action="append",
+        default=None,
+        help="Exclude event names starting with this pattern (repeat to add more)",
+    )
+
+    events_analyze_parser = events_subparsers.add_parser(
+        "analyze",
+        help="Summarize event timing, spacing, and transitions",
+        add_help=False,
+    )
+    attach_rich_help(events_analyze_parser)
+    events_analyze_parser.add_argument(
+        "input_file",
+        type=Path,
+        help="EEG file to analyze (.set, .edf, .bdf, .fif, .vhdr, .cnt, .mff, .xdat)",
+    )
+    events_analyze_parser.add_argument(
+        "--montage",
+        type=str,
+        help="Montage to use for XDAT files (ignored for other formats)",
+    )
+    events_analyze_parser.add_argument(
+        "--gap-threshold",
+        type=float,
+        default=30.0,
+        help="Highlight gaps longer than this many seconds (set 0 to disable)",
+    )
+    events_analyze_parser.add_argument(
+        "--top-transitions",
+        type=int,
+        default=5,
+        help="Show the N most common event-to-event transitions",
+    )
 
     # Show config location
     config_parser = subparsers.add_parser(
@@ -3484,6 +3581,69 @@ def _load_xdat_via_neo(file_path: Path, montage_name: str = "MouseEEGv2_H32"):
         raw = mne.io.RawArray(data, info)
 
         return raw
+
+
+class _EventDiscoveryAdapter(EventIDEpochsMixin):
+    """Lightweight helper that exposes mixin discovery methods for the CLI."""
+
+    def __init__(self, raw_data) -> None:
+        self.raw = raw_data
+        self.epochs = None
+
+    # The mixin expects this helper from the task base class
+    def _get_data_object(self, data=None, use_epochs: bool = False):  # type: ignore[override]
+        if data is not None:
+            return data
+        if use_epochs:
+            raise AttributeError("Epoch data not available for event discovery")
+        if self.raw is None:
+            raise AttributeError("Raw data not loaded")
+        return self.raw
+
+
+def _load_raw_for_event_tools(file_path: Path, montage_name: Optional[str] = None):
+    """Load supported EEG formats for quick event inspection commands."""
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Input file does not exist: {file_path}")
+
+    suffix = file_path.suffix.lower()
+
+    if suffix == ".xdat":
+        return _load_xdat_via_neo(file_path, montage_name or "MouseEEGv2_H32")
+
+    try:
+        import mne
+    except ImportError as exc:  # pragma: no cover - dependency issue surfaced to user
+        raise RuntimeError("mne is required for event discovery commands") from exc
+
+    loader_error_hint = (
+        "Supported formats: .set, .edf, .bdf, .fif, .vhdr, .cnt, .mff/.raw, .xdat"
+    )
+
+    try:
+        if suffix == ".set":
+            return mne.io.read_raw_eeglab(str(file_path), preload=True, verbose=False)
+        if suffix == ".edf":
+            return mne.io.read_raw_edf(str(file_path), preload=True, verbose=False)
+        if suffix == ".bdf":
+            return mne.io.read_raw_bdf(
+                str(file_path), preload=True, stim_channel="auto", verbose=False
+            )
+        if suffix == ".fif":
+            return mne.io.read_raw_fif(str(file_path), preload=True, verbose=False)
+        if suffix == ".vhdr":
+            return mne.io.read_raw_brainvision(
+                str(file_path), preload=True, verbose=False
+            )
+        if suffix == ".cnt":
+            return mne.io.read_raw_cnt(str(file_path), preload=True, verbose=False)
+        if suffix in {".mff", ".raw"}:
+            return mne.io.read_raw_egi(str(file_path), preload=True, verbose=False)
+    except Exception as exc:  # pylint: disable=broad-except
+        raise RuntimeError(f"Failed to load EEG file: {exc}") from exc
+
+    raise ValueError(f"Unsupported file format '{suffix}'. {loader_error_hint}")
 
 
 def cmd_montage_test(args) -> int:
@@ -7559,6 +7719,216 @@ def cmd_source_show(_args) -> int:
         return 1
 
 
+def cmd_events(args) -> int:
+    """Entry point for event discovery and analysis commands."""
+    if not getattr(args, "events_action", None):
+        console = get_console(args)
+        _simple_header(console)
+        _print_startup_context(console)
+        _print_root_help(console, "events")
+        return 0
+
+    if args.events_action == "discover":
+        return cmd_events_discover(args)
+    if args.events_action == "analyze":
+        return cmd_events_analyze(args)
+
+    message("error", "No events action specified")
+    return 1
+
+
+def cmd_events_discover(args) -> int:
+    """Discover event codes in a raw EEG file."""
+    file_path = Path(args.input_file).expanduser()
+
+    try:
+        raw = _load_raw_for_event_tools(file_path, getattr(args, "montage", None))
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        message("error", str(exc))
+        return 1
+
+    inspector = _EventDiscoveryAdapter(raw)
+    exclude_patterns = list(args.exclude) if args.exclude else None
+
+    result = inspector.print_discovered_events(
+        show_config_example=not getattr(args, "no_config", False),
+        exclude_patterns=exclude_patterns,
+    )
+
+    if result:
+        message(
+            "success",
+            f"✓ Discovered {len(result)} unique event type{'s' if len(result) != 1 else ''}",
+        )
+        return 0
+
+    message(
+        "warning",
+        "No events discovered. Ensure your file contains annotations or triggers.",
+    )
+    return 1
+
+
+def cmd_events_analyze(args) -> int:
+    """Provide timing diagnostics for events inside a file."""
+    from collections import Counter
+
+    import numpy as np
+    import mne
+
+    file_path = Path(args.input_file).expanduser()
+
+    try:
+        raw = _load_raw_for_event_tools(file_path, getattr(args, "montage", None))
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        message("error", str(exc))
+        return 1
+
+    console = get_console(args)
+    console.print()
+    console.print("[header]Event Timing Analysis[/header]")
+    console.print()
+
+    try:
+        events_all, event_id = mne.events_from_annotations(raw)
+    except Exception as exc:  # pylint: disable=broad-except
+        message("error", f"Failed to extract events: {exc}")
+        return 1
+
+    if not len(event_id):
+        message("warning", "No annotations with event codes were found in this file")
+        return 1
+
+    total_events = len(events_all)
+    if total_events == 0:
+        message("warning", "Annotation table is empty")
+        return 1
+
+    code_to_name = {code: name for name, code in event_id.items()}
+    times_sec = events_all[:, 0] / raw.info["sfreq"]
+    labels = [code_to_name.get(code, f"code_{code}") for code in events_all[:, 2]]
+
+    def _fmt_interval(value: Optional[float]) -> str:
+        if value is None:
+            return "—"
+        return f"{value * 1000:.1f} ms"
+
+    def _fmt_time(value: Optional[float]) -> str:
+        if value is None:
+            return "—"
+        minutes, seconds = divmod(value, 60)
+        return f"{int(minutes):02d}:{seconds:05.2f}"
+
+    stats = []
+    for name, code in sorted(event_id.items(), key=lambda item: item[0]):
+        mask = events_all[:, 2] == code
+        occurrences = times_sec[mask]
+        intervals = (
+            np.diff(occurrences) if occurrences is not None and len(occurrences) > 1 else np.array([])
+        )
+        stats.append(
+            {
+                "name": name,
+                "code": code,
+                "count": len(occurrences),
+                "pct": (len(occurrences) / total_events) * 100,
+                "first": occurrences[0] if len(occurrences) else None,
+                "last": occurrences[-1] if len(occurrences) else None,
+                "mean": float(intervals.mean()) if len(intervals) else None,
+                "median": float(np.median(intervals)) if len(intervals) else None,
+                "min": float(intervals.min()) if len(intervals) else None,
+                "max": float(intervals.max()) if len(intervals) else None,
+            }
+        )
+
+    stats_sorted = sorted(stats, key=lambda entry: entry["count"], reverse=True)
+
+    table = Table(show_header=True, box=None, padding=(0, 1))
+    table.add_column("Event", style="accent")
+    table.add_column("Code", style="muted")
+    table.add_column("Count", justify="right")
+    table.add_column("%", justify="right")
+    table.add_column("Mean Δt", justify="right")
+    table.add_column("Median Δt", justify="right")
+    table.add_column("First → Last", justify="left")
+
+    for entry in stats_sorted:
+        table.add_row(
+            entry["name"],
+            str(entry["code"]),
+            str(entry["count"]),
+            f"{entry['pct']:.1f}%",
+            _fmt_interval(entry["mean"]),
+            _fmt_interval(entry["median"]),
+            f"{_fmt_time(entry['first'])} → {_fmt_time(entry['last'])}",
+        )
+
+    console.print(table)
+
+    duration = raw.times[-1] if len(raw.times) else 0
+    if duration > 0:
+        rate_per_min = (total_events / duration) * 60
+        console.print(
+            f"\n[muted]Run duration:[/muted] {duration/60:.1f} min • "
+            f"[muted]Average rate:[/muted] {rate_per_min:.1f} events/min"
+        )
+
+    if total_events > 1:
+        diffs = np.diff(times_sec)
+        max_gap = float(diffs.max()) if len(diffs) else 0
+        avg_gap = float(diffs.mean()) if len(diffs) else 0
+        console.print(
+            f"[muted]Average spacing:[/muted] {_fmt_interval(avg_gap)} • "
+            f"[muted]Largest gap:[/muted] {_fmt_interval(max_gap)}"
+        )
+
+        gap_threshold = getattr(args, "gap_threshold", 30.0)
+        if gap_threshold and gap_threshold > 0:
+            long_gaps = []
+            for idx, gap in enumerate(diffs):
+                if gap > gap_threshold:
+                    long_gaps.append(
+                        (
+                            float(gap),
+                            times_sec[idx],
+                            labels[idx],
+                            labels[idx + 1],
+                        )
+                    )
+            if long_gaps:
+                console.print(
+                    f"\n[header]Gaps > {gap_threshold:.1f}s[/header]"
+                )
+                for gap, start_time, from_evt, to_evt in long_gaps[:5]:
+                    console.print(
+                        f"  • {_fmt_time(start_time)} → {_fmt_time(start_time + gap)}"
+                        f" ({gap:.1f}s) between [accent]{from_evt}[/accent] → [accent]{to_evt}[/accent]"
+                    )
+
+        transition_counts = Counter(zip(labels[:-1], labels[1:]))
+        total_transitions = sum(transition_counts.values())
+        top_n = max(0, getattr(args, "top_transitions", 5))
+        if top_n and total_transitions:
+            console.print("\n[header]Common transitions[/header]")
+            trans_table = Table(show_header=True, box=None, padding=(0, 1))
+            trans_table.add_column("From", style="accent")
+            trans_table.add_column("To", style="accent")
+            trans_table.add_column("Count", justify="right")
+            trans_table.add_column("%", justify="right")
+            for (src, dst), count in transition_counts.most_common(top_n):
+                trans_table.add_row(
+                    src,
+                    dst,
+                    str(count),
+                    f"{(count / total_transitions) * 100:.1f}%",
+                )
+            console.print(trans_table)
+
+    console.print()
+    message("success", "✓ Event analysis complete")
+    return 0
+
+
 def cmd_config(args) -> int:
     """Execute configuration management commands."""
     if args.config_action == "show":
@@ -9424,6 +9794,8 @@ def main(argv: Optional[list] = None) -> int:
             return _finish(cmd_blocks(args))
         if args.command == "input":
             return _finish(cmd_input(args))
+        if args.command == "events":
+            return _finish(cmd_events(args))
         if args.command == "source":
             return _finish(cmd_source(args))
         if args.command == "config":
