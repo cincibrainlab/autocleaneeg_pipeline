@@ -492,6 +492,54 @@ def _print_startup_context(console) -> None:
     )
 
 
+def _render_task_install_summary(
+    console,
+    *,
+    task_name: str,
+    installed_path: Path,
+    source_label: str,
+    activated: bool,
+    install_status: str,
+) -> None:
+    """Render a friendly summary after a task install completes."""
+
+    status_text = "Installed" if install_status == "installed" else "Already installed"
+    summary_lines = [
+        f"[success]✓[/success] {status_text} [accent]{task_name}[/accent]",
+        f"[muted]Source:[/muted] {source_label}",
+        f"[muted]Location:[/muted] [info]{installed_path}[/info]",
+    ]
+
+    next_steps: list[str] = []
+    if activated:
+        next_steps.append(
+            "Active now – run [accent]process <file>[/accent] to start processing"
+        )
+    else:
+        next_steps.append(
+            f"Set active with [accent]task set {task_name}[/accent] (or rerun with --activate)"
+        )
+
+    next_steps.append("Edit or review the task file if adjustments are needed")
+    next_steps.append(
+        "Process data via [accent]autocleaneeg-pipeline process <file>[/accent]"
+    )
+
+    steps_text = "\n".join(f"  • {step}" for step in next_steps)
+    body = "\n".join(summary_lines) + "\n\n[header]Next steps[/header]\n" + steps_text
+
+    console.print()
+    console.print(
+        Panel(
+            body,
+            title="[title]Task Install[/title]",
+            border_style="border",
+            padding=(1, 2),
+        )
+    )
+    console.print()
+
+
 class RichHelpAction(argparse.Action):
     """Subparser -h/--help: show styled header + context, then default help."""
 
@@ -6510,6 +6558,9 @@ def cmd_task_install(args) -> int:
     custom_name = args.name
     force = args.force
     activate = args.activate
+    installed_path: Optional[Path] = None
+    installed_from = ""
+    install_status = "installed"
 
     # Auto-detect source type if not specified
     if source_type == "auto":
@@ -6574,10 +6625,8 @@ def cmd_task_install(args) -> int:
                 task_name = class_name
             except Exception:
                 task_name = dest_path.stem
-
-            console.print(
-                f"[success]✓[/success] Installed '{task_name}' from file to [info]{dest_path}[/info]"
-            )
+            installed_path = dest_path
+            installed_from = "local file"
 
         elif source_type == "library":
             # Install from library
@@ -6604,9 +6653,9 @@ def cmd_task_install(args) -> int:
                 status = sync_status.get("status")
 
                 if status == "synced":
-                    console.print(
-                        f"[success]✓[/success] {task_name} already installed and up to date"
-                    )
+                    install_status = "already_installed"
+                    installed_path = dest_path
+                    installed_from = "library registry"
                 elif status == "modified":
                     console.print(
                         f"[warning]⚠[/warning] {task_name} exists with customizations"
@@ -6618,24 +6667,22 @@ def cmd_task_install(args) -> int:
                 else:
                     console.print(
                         f"[error]✗[/error] Task '{task_name}' already exists. Use --force to overwrite."
-                    )
-                    return 1
+                )
+                return 1
             else:
                 # Install task
-                installed_path = registry.materialize_task_to(
+                materialized_path = registry.materialize_task_to(
                     task_source, user_config.tasks_dir
                 )
 
                 # Rename if custom name specified
                 if custom_name and custom_name != task_source:
                     new_path = user_config.tasks_dir / f"{custom_name}.py"
-                    installed_path.rename(new_path)
-                    installed_path = new_path
+                    materialized_path.rename(new_path)
+                    materialized_path = new_path
                     task_name = custom_name
-
-                console.print(
-                    f"[success]✓[/success] Installed '{task_name}' from library to [info]{installed_path}[/info]"
-                )
+                installed_path = materialized_path
+                installed_from = "library registry"
 
         elif source_type == "builtin":
             # Install from built-in
@@ -6671,23 +6718,38 @@ def cmd_task_install(args) -> int:
             import shutil
 
             shutil.copy2(builtin_task.source, dest_path)
-
+            installed_path = dest_path
+            installed_from = "built-in catalog"
+        else:
             console.print(
-                f"[success]✓[/success] Installed '{task_name}' from built-in to [info]{dest_path}[/info]"
+                f"[error]✗[/error] Unknown source type '{source_type}'. Use file, library, or builtin."
             )
+            return 1
+
+        if installed_path is None:
+            console.print(
+                "[error]✗[/error] Task installation completed without determining destination path"
+            )
+            return 1
 
         # Optionally activate
+        activated = False
         if activate:
             if user_config.set_active_task(task_name):
                 console.print(
                     f"[success]✓[/success] Active task set to: [accent]{task_name}[/accent]"
                 )
+                activated = True
             else:
                 console.print("[error]✗[/error] Failed to set active task")
                 return 1
-
-        console.print(
-            "[muted]Use 'task set <name>' to set as active, or 'process <file>' to use it.[/muted]"
+        _render_task_install_summary(
+            console,
+            task_name=task_name,
+            installed_path=installed_path,
+            source_label=installed_from or source_type,
+            activated=activated,
+            install_status=install_status,
         )
         return 0
 
