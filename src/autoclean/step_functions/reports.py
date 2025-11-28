@@ -1420,18 +1420,24 @@ def create_json_summary(run_id: str, flagged_reasons: list[str] = []) -> dict:
         if legacy_path.exists():
             flagged_chs_path = legacy_path
 
-    if flagged_chs_path:
-        with open(flagged_chs_path, "r", encoding="utf8") as f:
-            # Skip the header line
-            next(f)
-            # Read each line and extract the label and channel name
-            for line in f:
-                parts = line.strip().split("\t")
-                if len(parts) == 2:
-                    label, channel = parts
-                    if label not in channel_dict:
-                        channel_dict[label] = []
-                    channel_dict[label].append(channel)
+    if flagged_chs_path and not flagged_chs_path.name.startswith("._"):
+        try:
+            with open(flagged_chs_path, "r", encoding="utf8", errors="strict") as f:
+                # Skip the header line
+                next(f)
+                # Read each line and extract the label and channel name
+                for line in f:
+                    parts = line.strip().split("\t")
+                    if len(parts) == 2:
+                        label, channel = parts
+                        if label not in channel_dict:
+                            channel_dict[label] = []
+                        channel_dict[label].append(channel)
+        except UnicodeDecodeError:
+            message(
+                "warning",
+                f"Skipping flagged-channels file with invalid encoding: {flagged_chs_path.name}",
+            )
 
     # Get all removed channels from unified metadata (preferred) or legacy sources
     if "channel_removals" in metadata:
