@@ -225,6 +225,8 @@ def _epoch_descriptor() -> dict:
         "enabled": "bool",
         "value": {"tmin": "number|null", "tmax": "number|null"},
         "event_id": "dict|null",
+        Optional("strip_other_events"): "bool",
+        Optional("allowed_events"): "list|null",
         "remove_baseline": {
             "enabled": "bool",
             "window": "[start, end]|None",
@@ -335,6 +337,8 @@ def _build_task_settings_schema() -> Schema:
                 "enabled": bool,
                 "value": {"tmin": Or(int, float, None), "tmax": Or(int, float, None)},
                 "event_id": Or(dict, None),
+                Optional("strip_other_events"): bool,
+                Optional("allowed_events"): Or(list[str], None),
                 "remove_baseline": {"enabled": bool, "window": Or(list[float], None)},
                 "threshold_rejection": {
                     "enabled": bool,

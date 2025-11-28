@@ -508,6 +508,8 @@ class EventIDEpochsMixin:
         reject_by_annotation: bool = False,
         keep_all_epochs: bool = False,
         stage_name: str = "post_epochs",
+        strip_other_events: bool = False,
+        allowed_events: Optional[list] = None,
     ) -> Optional[mne.Epochs]:
         """Create epochs based on event IDs from raw data.
 
@@ -531,6 +533,10 @@ class EventIDEpochsMixin:
             If True, no epochs will be dropped - bad epochs will only be marked in metadata, by default False.
         stage_name : str, Optional
             Name for saving and metadata, by default "post_epochs".
+        strip_other_events : bool, Optional
+            If True, drop annotations that are not in event_id (except BAD*) before epoching.
+        allowed_events : list[str], Optional
+            Explicit list of event labels to keep when strip_other_events is True.
 
         Returns
         -------
@@ -580,6 +586,11 @@ class EventIDEpochsMixin:
                 elif isinstance(threshold_config, dict):
                     volt_threshold = {k: float(v) for k, v in threshold_config.items()}
 
+            strip_other_events = epoch_config.get(
+                "strip_other_events", strip_other_events
+            )
+            allowed_events = epoch_config.get("allowed_events", allowed_events)
+
         # Determine which data to use
         data = self._get_data_object(data)
 
@@ -625,6 +636,25 @@ class EventIDEpochsMixin:
                     "debug",
                     "Auto-discovery disabled via config (auto_discover_events=False)",
                 )
+
+            # Optionally strip non-target annotations (always keep BAD*)
+            if strip_other_events:
+                allowed_set = set(
+                    str(ev) for ev in (allowed_events if allowed_events else event_id)
+                )
+                anns = data.annotations
+                keep_idx = [
+                    i
+                    for i, desc in enumerate(anns.description)
+                    if str(desc).startswith("BAD") or str(desc) in allowed_set
+                ]
+                if len(keep_idx) != len(anns):
+                    removed = len(anns) - len(keep_idx)
+                    message(
+                        "info",
+                        f"Stripping {removed} annotations not in allowed events {sorted(allowed_set)}",
+                    )
+                data.set_annotations(anns[keep_idx])
 
             # Get all events from annotations for epoching
             try:

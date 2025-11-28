@@ -438,7 +438,7 @@ class BaseMixin:
         # Map common method names to stage names
         method_to_stage = {
             "run_basic_steps": "post_basic_steps",
-            "run_ica": "post_ica",
+            "run_ica": "pre_ica",
             "create_regular_epochs": "post_epochs",
             "create_epochs": "post_epochs",
             "filter_data": "post_filter",

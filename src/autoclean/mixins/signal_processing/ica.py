@@ -29,7 +29,7 @@ class IcaMixin:
         self,
         eog_channel: str = None,
         use_epochs: bool = False,
-        stage_name: str = "post_ica",
+        stage_name: str = "pre_ica",
         temp_highpass_for_ica: float = None,
         **kwargs,
     ) -> ICA:
@@ -46,7 +46,7 @@ class IcaMixin:
         use_epochs : bool, optional
             If True, epoch data stored in self.epochs will be used.
         stage_name : str, optional
-            Name of the processing stage for export. Default is "post_ica".
+            Name of the processing stage for export. Default is "pre_ica".
         temp_highpass_for_ica : float, optional
             Temporary high-pass filter frequency (Hz) to apply only for ICA decomposition.
             Commonly set to 1.0 Hz for better ICA performance by reducing low-frequency
@@ -137,8 +137,6 @@ class IcaMixin:
         }
 
         self._update_metadata("step_run_ica", metadata)
-
-        self._auto_export_if_enabled(self.raw, stage_name, True)
 
         save_ica_to_fif(self.final_ica, self.config, data)
 
@@ -598,5 +596,8 @@ class IcaMixin:
                 "warning",
                 "_update_metadata method not found. Cannot save metadata for component rejection.",
             )
+
+        # Export post-ICA data after components are removed
+        self._auto_export_if_enabled(target_data, "post_ica", True)
 
         message("success", "ICA component rejection complete.")

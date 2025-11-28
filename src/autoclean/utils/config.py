@@ -130,6 +130,8 @@ def _legacy_build_task_settings_schema():
                 "enabled": bool,
                 "value": {"tmin": Or(int, float, None), "tmax": Or(int, float, None)},
                 "event_id": Or(dict, None),
+                Optional("strip_other_events"): bool,
+                Optional("allowed_events"): Or(list[str], None),
                 "remove_baseline": {"enabled": bool, "window": Or(list[float], None)},
                 "threshold_rejection": {
                     "enabled": bool,
