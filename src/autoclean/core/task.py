@@ -354,7 +354,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
         per_file_csv = None
         for base_dir in [run_reports_dir, reports_root, derivatives_root, logs_root]:
             candidate = base_dir / f"{subj_basename}_processing_log.csv"
-            if candidate.exists():
+            if candidate.exists() and not candidate.name.startswith("._"):
                 per_file_csv = candidate
                 break
 
@@ -362,7 +362,7 @@ class Task(ABC, *DISCOVERED_MIXINS):
             # Also check exports copy as fallback
             final_files_dir = Path(cfg.get("final_files_dir", metadata_dir))
             alt_csv = final_files_dir / f"{subj_basename}_processing_log.csv"
-            if alt_csv.exists():
+            if alt_csv.exists() and not alt_csv.name.startswith("._"):
                 per_file_csv = alt_csv
             else:
                 return None
@@ -372,9 +372,15 @@ class Task(ABC, *DISCOVERED_MIXINS):
         try:
             import csv
 
-            with per_file_csv.open("r", encoding="utf-8") as f:
+            with per_file_csv.open("r", encoding="utf-8", errors="strict") as f:
                 reader = csv.DictReader(f)
                 row = next(reader)
+        except UnicodeDecodeError:
+            message(
+                "warning",
+                f"Skipping per-file log with invalid encoding: {per_file_csv.name}",
+            )
+            return None
         except Exception:
             return None
 

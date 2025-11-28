@@ -1237,11 +1237,11 @@ def update_task_processing_log(
         )
 
         # Handle CSV operations with appropriate error handling
-        if csv_path.exists():
+        if csv_path.exists() and not csv_path.name.startswith("._"):
             try:
                 # Read existing CSV
                 df = pd.read_csv(
-                    csv_path, dtype=str
+                    csv_path, dtype=str, encoding="utf-8"
                 )  # Force all columns to be string type
 
                 # Ensure all columns exist in DataFrame
@@ -1262,6 +1262,12 @@ def update_task_processing_log(
                 else:
                     # Append new entry
                     df = pd.concat([df, pd.DataFrame([details])], ignore_index=True)
+            except UnicodeDecodeError:
+                message(
+                    "warning",
+                    f"Processing log had invalid encoding, recreating: {csv_path.name}",
+                )
+                df = pd.DataFrame([details], dtype=str)
             except Exception as csv_err:  # pylint: disable=broad-except
                 message("error", f"Error processing existing CSV: {str(csv_err)}")
                 # Create new DataFrame as fallback
