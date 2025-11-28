@@ -996,7 +996,10 @@ class Pipeline:
                 console.print()
                 return  # Exit immediately - don't process more files
             except Exception as e:  # pylint: disable=broad-except
+                import traceback
+
                 message("error", f"Failed to process {file_path}: {str(e)}")
+                message("debug", traceback.format_exc())
                 continue
 
     @require_authentication
