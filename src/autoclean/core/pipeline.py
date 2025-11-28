@@ -472,6 +472,8 @@ class Pipeline:
                 "reports_dir": reports_dir,
                 "qa_dir": metadata_dir.parent / "qa",
                 "ica_dir": ica_dir,
+                # BIDS derivatives root (used by FIF exports and other helpers)
+                "derivatives_dir": clean_dir,
                 "final_files_dir": final_files_dir,  # New final files directory
                 "config_hash": config_hash,
                 "config_b64": b64_config,
@@ -531,21 +533,47 @@ class Pipeline:
 
             try:
                 flagged, flagged_reasons = task_object.get_flagged_status()
-                comp_data = task_object.get_epochs()
-                if comp_data is not None:
-                    save_epochs_to_set(
-                        epochs=comp_data,
-                        autoclean_dict=run_dict,
-                        stage="post_comp",
-                        flagged=flagged,
+                saved_post_comp = False
+                try:
+                    comp_data = task_object.get_epochs()
+                    if comp_data is not None:
+                        save_epochs_to_set(
+                            epochs=comp_data,
+                            autoclean_dict=run_dict,
+                            stage="post_comp",
+                            flagged=flagged,
+                        )
+                        comp_data = None  # already saved
+                        saved_post_comp = True
+                except Exception as exc:
+                    message(
+                        "warning",
+                        f"Failed to fetch epochs for post-comp save: {exc}",
                     )
-                else:
-                    comp_data = task_object.get_raw()
-                    save_raw_to_set(
-                        raw=comp_data,
-                        autoclean_dict=run_dict,
-                        stage="post_comp",
-                        flagged=flagged,
+                    comp_data = None
+
+                if not saved_post_comp:
+                    try:
+                        comp_data = task_object.get_raw()
+                        if comp_data is not None:
+                            save_raw_to_set(
+                                raw=comp_data,
+                                autoclean_dict=run_dict,
+                                stage="post_comp",
+                                flagged=flagged,
+                            )
+                            saved_post_comp = True
+                    except Exception as exc:
+                        message(
+                            "warning",
+                            f"Failed to fetch raw for post-comp save: {exc}",
+                        )
+                        comp_data = None
+
+                if not saved_post_comp:
+                    message(
+                        "warning",
+                        "No post-comp data saved (no epochs or raw available).",
                     )
 
                 # Copy final files to the dedicated exports directory
@@ -926,6 +954,9 @@ class Pipeline:
         seen: set[Path] = set()
         for pat in _expand_brace_glob(search_pattern):
             for f in directory.glob(pat):
+                # Exclude macOS shadow/metadata files (._*)
+                if f.name.startswith("._"):
+                    continue
                 if f not in seen:
                     seen.add(f)
                     files.append(f)
@@ -1047,6 +1078,9 @@ class Pipeline:
         seen: set[Path] = set()
         for pat in _expand_brace_glob(search_pattern):
             for f in directory_path.glob(pat):
+                # Exclude macOS shadow/metadata files (._*)
+                if f.name.startswith("._"):
+                    continue
                 if f not in seen:
                     seen.add(f)
                     files.append(f)
