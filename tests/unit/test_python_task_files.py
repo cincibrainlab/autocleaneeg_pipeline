@@ -349,7 +349,7 @@ class TestExportFunctionality:
 
         # Test method name mapping
         assert task._generate_stage_name("run_basic_steps") == "post_basic_steps"
-        assert task._generate_stage_name("run_ica") == "post_ica"
+        assert task._generate_stage_name("run_ica") == "ica_fit"
         assert task._generate_stage_name("create_regular_epochs") == "post_epochs"
         assert task._generate_stage_name("custom_method") == "post_custom_method"
 
