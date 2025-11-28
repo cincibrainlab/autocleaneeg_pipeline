@@ -719,6 +719,10 @@ def _print_root_help(console, topic: Optional[str] = None) -> None:
                 "📈 events analyze <file>",
                 "Summarize timing, intervals, and transitions",
             ),
+            (
+                "🧾 events epochs <epoched-file>",
+                "Count epochs per event label (includes BAD if present)",
+            ),
         ]
         for c, d in rows:
             tbl.add_row(c, d)
@@ -1851,6 +1855,18 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         type=int,
         default=5,
         help="Show the N most common event-to-event transitions",
+    )
+
+    events_epochs_parser = events_subparsers.add_parser(
+        "epochs",
+        help="Summarize an epoched file by event label and write a sidecar CSV",
+        add_help=False,
+    )
+    attach_rich_help(events_epochs_parser)
+    events_epochs_parser.add_argument(
+        "input_file",
+        type=Path,
+        help="Epoched EEG file (.set, .fif/.epo.fif, .vhdr, .cnt, .mff/.raw)",
     )
 
     # Show config location
@@ -7732,6 +7748,8 @@ def cmd_events(args) -> int:
         return cmd_events_discover(args)
     if args.events_action == "analyze":
         return cmd_events_analyze(args)
+    if args.events_action == "epochs":
+        return cmd_events_epochs(args)
 
     message("error", "No events action specified")
     return 1
@@ -7928,6 +7946,138 @@ def cmd_events_analyze(args) -> int:
     message("success", "✓ Event analysis complete")
     return 0
 
+
+def _load_epochs_for_event_tools(file_path: Path):
+    """Load epoched EEG files for quick event counting."""
+
+    if not file_path.exists():
+        raise FileNotFoundError(f"Input file does not exist: {file_path}")
+
+    suffix = file_path.suffix.lower()
+
+    try:
+        import mne
+    except ImportError as exc:  # pragma: no cover - dependency issue surfaced to user
+        raise RuntimeError("mne is required for epoch inspection commands") from exc
+
+    loader_error_hint = (
+        "Supported epoched formats: .set, .fif/.epo.fif, .vhdr, .cnt, .mff/.raw"
+    )
+
+    try:
+        if suffix == ".set":
+            return mne.io.read_epochs_eeglab(str(file_path), verbose=False)
+        if suffix == ".fif" or file_path.name.endswith("-epo.fif"):
+            return mne.read_epochs(str(file_path), verbose=False, preload=True)
+        if suffix == ".vhdr":
+            return mne.io.read_epochs_brainvision(
+                str(file_path), verbose=False, preload=True
+            )
+        if suffix == ".cnt":
+            raw = mne.io.read_raw_cnt(str(file_path), verbose=False, preload=True)
+            return mne.Epochs(raw, events=None, event_id=None, preload=True)
+        if suffix in {".mff", ".raw"}:
+            raw = mne.io.read_raw_egi(str(file_path), verbose=False, preload=True)
+            return mne.Epochs(raw, events=None, event_id=None, preload=True)
+    except Exception as exc:  # pylint: disable=broad-except
+        raise RuntimeError(f"Failed to load epoched file: {exc}") from exc
+
+    raise RuntimeError(f"Unsupported file type '{suffix}'. {loader_error_hint}")
+
+
+def cmd_events_epochs(args) -> int:
+    """Summarize an epoched file by event label and write a sidecar CSV."""
+    import csv
+
+    file_path = Path(args.input_file).expanduser()
+
+    try:
+        epochs = _load_epochs_for_event_tools(file_path)
+    except (FileNotFoundError, ValueError, RuntimeError) as exc:
+        message("error", str(exc))
+        return 1
+
+    if epochs is None or not hasattr(epochs, "events"):
+        message("error", "No epochs available in this file")
+        return 1
+
+    events = getattr(epochs, "events", None)
+    event_id = getattr(epochs, "event_id", {}) or {}
+    if events is None or events.size == 0 or not event_id:
+        message("warning", "No event codes found in the epoched file")
+        return 1
+
+    code_to_label = {code: label for label, code in event_id.items()}
+    total = len(events)
+
+    labels = [code_to_label.get(code, str(code)) for code in events[:, 2]]
+
+    drop_log = getattr(epochs, "drop_log", [])
+    is_bad = [bool(entry) for entry in drop_log] if drop_log else [False] * total
+
+    summary = {}
+    for idx, label in enumerate(labels):
+        rec = summary.setdefault(label, {"count": 0, "bad": 0})
+        rec["count"] += 1
+        if idx < len(is_bad) and is_bad[idx]:
+            rec["bad"] += 1
+
+    def _pct(part, whole):
+        return (part / whole * 100) if whole else 0.0
+
+    console = get_console(args)
+    console.print()
+    console.print("[header]Epoch Counts by Event[/header]")
+    console.print()
+
+    table = Table(show_header=True, box=None, padding=(0, 1))
+    table.add_column("Event", style="accent")
+    table.add_column("Count", justify="right")
+    table.add_column("%", justify="right")
+    table.add_column("Bad", justify="right")
+    table.add_column("Bad %", justify="right")
+
+    rows = []
+    for label, rec in sorted(summary.items(), key=lambda kv: kv[1]["count"], reverse=True):
+        pct = _pct(rec["count"], total)
+        bad_pct = _pct(rec["bad"], rec["count"]) if rec["count"] else 0.0
+        rows.append(
+            {
+                "event": label,
+                "count": rec["count"],
+                "pct": pct,
+                "bad": rec["bad"],
+                "bad_pct": bad_pct,
+            }
+        )
+        table.add_row(
+            label,
+            str(rec["count"]),
+            f"{pct:.1f}%",
+            str(rec["bad"]),
+            f"{bad_pct:.1f}%",
+        )
+
+    console.print(table)
+    console.print(
+        f"\n[muted]Total epochs:[/muted] {total} • [muted]Bad (any reason):[/muted] {sum(r['bad'] for r in rows)}"
+    )
+    console.print()
+
+    sidecar = file_path.with_name(f"{file_path.stem}_event_counts.csv")
+    try:
+        with sidecar.open("w", newline="") as f:
+            writer = csv.DictWriter(
+                f, fieldnames=["event", "count", "pct", "bad", "bad_pct"]
+            )
+            writer.writeheader()
+            for row in rows:
+                writer.writerow(row)
+        message("success", f"✓ Saved summary CSV: {sidecar}")
+    except Exception as exc:  # pylint: disable=broad-except
+        message("warning", f"Could not write sidecar CSV: {exc}")
+
+    return 0
 
 def cmd_config(args) -> int:
     """Execute configuration management commands."""

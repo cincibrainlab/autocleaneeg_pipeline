@@ -358,6 +358,9 @@ for external_path in _EXTERNAL_BLOCK_PATHS:
 
     # Find all Python files in the blocks directory
     for block_file in external_path.rglob("*.py"):
+        # Skip hidden/macOS resource-fork files (._*) and dot directories
+        if any(part.startswith("._") or part.startswith(".") for part in block_file.parts):
+            continue
         # Skip private files and __init__.py
         if block_file.name.startswith("_"):
             continue
