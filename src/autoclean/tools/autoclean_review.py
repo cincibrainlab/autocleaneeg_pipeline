@@ -15,10 +15,10 @@ import matplotlib.pyplot as plt
 import mne
 import scipy.io as sio
 from dotenv import load_dotenv
-from PyQt5.Qt import *  # noqa: F403
-from PyQt5.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
-from PyQt5.QtGui import QColor, QImage, QPalette, QPixmap
-from PyQt5.QtWidgets import (
+from PyQt6.QtWidgets import *  # noqa: F403
+from PyQt6.QtCore import QAbstractItemModel, QModelIndex, Qt, pyqtRemoveInputHook
+from PyQt6.QtGui import QColor, QImage, QPalette, QPixmap
+from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
     QFileDialog,
@@ -47,7 +47,7 @@ def check_gui_dependencies():
     """Check if all required GUI dependencies are installed."""
     missing = []
     try:
-        import PyQt5  # noqa: F401
+        import PyQt6  # noqa: F401
     except ImportError:
         missing.append("PyQt5")
     try:
