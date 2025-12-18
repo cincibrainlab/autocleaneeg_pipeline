@@ -387,7 +387,21 @@ def _generate_reprocess_task_from_original(
     - Manual bad channel list: {bad_channels}
     - Manual ICA component rejection: {rejected_ica}
     """
-            node.body[0] = ast.Expr(value=ast.Constant(value=docstring.strip()))
+            new_docstring = ast.Expr(value=ast.Constant(value=docstring.strip()))
+
+            # Check if the first element is already a docstring (Expr with string Constant)
+            # If so, replace it; otherwise insert the docstring at the beginning
+            if (
+                node.body
+                and isinstance(node.body[0], ast.Expr)
+                and isinstance(node.body[0].value, ast.Constant)
+                and isinstance(node.body[0].value.value, str)
+            ):
+                # Replace existing docstring
+                node.body[0] = new_docstring
+            else:
+                # No docstring exists - insert at beginning (don't replace methods!)
+                node.body.insert(0, new_docstring)
 
             return node
 
