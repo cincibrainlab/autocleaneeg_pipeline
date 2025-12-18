@@ -6531,9 +6531,9 @@ class ExclusionFileSelector(ReviewBase):
                     if bad_selection_indices:
                         epochs.drop(bad_selection_indices, reason="USER", verbose=False)
 
-                # Save to qa/ with same filename using MNE's native save
+                # Save to qa/ with same filename in EEGLAB format
                 dest_file = qa_dir / source_file.name
-                epochs.save(str(dest_file), overwrite=True, verbose=False)
+                epochs.export(str(dest_file), fmt="eeglab", overwrite=True)
 
                 # Update CSV record with export metadata
                 record["qa_export_hash"] = current_hash
