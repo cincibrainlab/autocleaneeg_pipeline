@@ -158,6 +158,8 @@ class IcaMixin:
         reject: bool = True,
         psd_fmax: float | None = None,
         icvision_n_components: int | None = None,
+        base_url: str | None = None,
+        model_name: str | None = None,
         stage_name: str = "ica_clean",
         export: bool = False,
     ):
@@ -283,12 +285,30 @@ class IcaMixin:
                             f"Using icvision_n_components={icvision_n_components} from config",
                         )
 
+                if base_url is None:
+                    base_url = config_params_nested.get("base_url")
+                    if base_url is None and "base_url" in step_config_main_dict:
+                        base_url = step_config_main_dict.get("base_url")
+                    if base_url is not None:
+                        message("info", f"Using base_url from config")
+
+                if model_name is None:
+                    model_name = config_params_nested.get("model_name")
+                    if model_name is None and "model_name" in step_config_main_dict:
+                        model_name = step_config_main_dict.get("model_name")
+                    if model_name is not None:
+                        message("info", f"Using model_name={model_name} from config")
+
         # Build kwargs dict, including optional parameters if provided
         extra_kwargs: Dict[str, object] = {}
         if psd_fmax is not None:
             extra_kwargs["psd_fmax"] = psd_fmax
         if icvision_n_components is not None:
             extra_kwargs["icvision_n_components"] = icvision_n_components
+        if base_url is not None:
+            extra_kwargs["base_url"] = base_url
+        if model_name is not None:
+            extra_kwargs["model_name"] = model_name
 
         if method in {"icvision", "hybrid"}:
             extra_kwargs["generate_report"] = True

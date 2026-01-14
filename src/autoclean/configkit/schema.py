@@ -195,6 +195,8 @@ def _component_rejection_descriptor() -> dict:
     return {
         "enabled": "bool",
         "method": "'iclabel'|'icvision'|'hybrid'",
+        "model_name": "str|None (optional, for icvision)",
+        "base_url": "str|None (optional, custom OpenAI endpoint)",
         "value": {
             "ic_flags_to_reject": "list[str]",
             "ic_rejection_threshold": "number",
@@ -324,6 +326,8 @@ def _build_task_settings_schema() -> Schema:
             "component_rejection": {
                 "enabled": bool,
                 "method": Or(*COMP_REJ_METHODS),
+                Optional("model_name"): Or(str, None),
+                Optional("base_url"): Or(str, None),
                 "value": {
                     "ic_flags_to_reject": And(list, _ic_flags_valid),
                     "ic_rejection_threshold": Or(int, float),

@@ -6,6 +6,19 @@ This module provides a flexible CLI for AutoClean that works both as a
 standalone tool (via uv tool) and within development environments.
 """
 
+# Load .env file early for OpenAI and other environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()  # Load from current directory
+    # Also try common project locations
+    for env_path in [".env", "../.env", "~/.autoclean/.env"]:
+        from pathlib import Path
+        p = Path(env_path).expanduser()
+        if p.exists():
+            load_dotenv(p, override=False)
+except ImportError:
+    pass  # python-dotenv not installed
+
 import argparse
 import csv
 import json

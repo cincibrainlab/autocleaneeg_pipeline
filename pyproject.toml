@@ -70,7 +70,7 @@ dependencies = [
     "requests==2.32.5",
     "cryptography==46.0.1",
     "inquirer==3.4.1",
-    "autocleaneeg-icvision==0.2.0",
+    "autocleaneeg-icvision>=0.2.1",
     "autoclean-eeg2source==0.3.7",
     "autocleaneeg-view==0.1.6",
     # GUI dependencies
