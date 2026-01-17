@@ -145,8 +145,11 @@ def classify_ica_components(
         Control verbosity of output.
     **kwargs
         Additional keyword arguments passed to the classification method.
-        For icvision-related methods, supports 'psd_fmax' to limit PSD plot
-        frequency range. For the ``hybrid`` method, ``icvision_n_components``
+        For icvision-related methods, supports:
+        - ``layout``: Image layout mode ('strip' or 'single'). Default is 'strip'
+          which batches 9 components per API call for ~88% cost reduction.
+        - ``psd_fmax``: Maximum frequency for PSD plots (default: 45Hz).
+        For the ``hybrid`` method, ``icvision_n_components``
         controls how many leading components are reclassified with ICVision.
 
     Returns
@@ -204,9 +207,11 @@ def classify_ica_components(
                 )
 
             # Use ICVision as drop-in replacement, passing through any extra kwargs
+            # Default to strip layout for ~88% API cost reduction (9 components per call)
             # If ICVision fails, fall back to ICLabel
+            icvision_kwargs = {"layout": "strip", **kwargs}  # Allow user override
             try:
-                label_components(raw, ica, **kwargs)
+                label_components(raw, ica, **icvision_kwargs)
                 # Extract and tag results as ICVision outputs
                 component_labels = _icalabel_to_dataframe(ica)
                 component_labels["annotator"] = "ic_vision"
@@ -266,8 +271,10 @@ def classify_ica_components(
             component_indices = list(range(min(icvision_n_components, n_comp)))
 
             # Run ICVision on the subset; if it fails, fall back to ICLabel-only results
+            # Default to strip layout for ~88% API cost reduction
+            icvision_kwargs = {"layout": "strip", **kwargs}  # Allow user override
             try:
-                label_components(raw, ica, component_indices=component_indices, **kwargs)
+                label_components(raw, ica, component_indices=component_indices, **icvision_kwargs)
 
                 # Prepare containers for vision-only metadata
                 vision_ic_type = [None] * n_comp
