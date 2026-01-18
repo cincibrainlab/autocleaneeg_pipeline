@@ -1,0 +1,62 @@
+---
+title: "RFC 005: Serve Workspace Command"
+subtitle: "Initial Workspace Setup and Runtime Provisioning"
+date: 2026-01-18
+---
+
+## Executive Summary
+
+This RFC implements the first `autocleaneeg-pipeline serve workspace` command as scoped in RFC 002. The command creates or links a serve workspace, writes `serve-test.yaml` and `serve-live.yaml`, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses `uv` with an explicit package spec to keep the command reproducible.
+
+## Workspace Layout
+
+| Component | Purpose | Notes |
+|---|---|---|
+| `serve-test.yaml` | Operator-editable test config | Written once at workspace creation. |
+| `serve-live.yaml` | Operator-editable live config | Written once at workspace creation. |
+| `runtimes/test` | Test runtime root | `uv venv` + install package spec. |
+| `runtimes/live` | Live runtime root | `uv venv` + install package spec. |
+| `automations/` | Taskfile-montage workspaces | Output root for automation jobs. |
+
+: Table 1. Serve workspace structure (RFC 002 aligned).
+
+## CLI Interface
+
+| Command | Description |
+|---|---|
+| `serve workspace --mode new --path <dir>` | Create a new workspace and install runtimes. |
+| `serve workspace --mode existing --path <dir>` | Validate and link an existing workspace. |
+| `serve workspace --package <spec>` | Pin runtime package version or local path. |
+| `serve workspace --skip-uv` | Skip runtime install (for pre-provisioned runtimes). |
+
+: Table 2. Serve workspace command surface.
+
+::: callout-note
+## Reproducibility
+Use a pinned package spec (e.g., `autocleaneeg-pipeline==<version>`) or a local path to make runtime provisioning deterministic.
+:::
+
+## Implementation Summary
+
+1. Added `serve workspace` subcommand to create or link a workspace, with `--mode`, `--path`, and `--package` flags.
+2. Persisted the workspace path under `serve_workspace` in the existing setup JSON (no new config file).
+3. Created runtime environments using `uv venv` + `uv pip install --python <venv> <package_spec>`.
+
+## Validation
+
+Command executed:
+
+```bash
+uv run python -m autoclean.cli serve workspace \
+  --mode new \
+  --path "/Volumes/owcssd/test-workspace/serve-workspace" \
+  --package "/Volumes/owcssd/github/autocleaneeg_pipeline"
+```
+
+Result: Workspace created at `/Volumes/owcssd/test-workspace/serve-workspace` using a local package spec (`/Volumes/owcssd/github/autocleaneeg_pipeline`) with `uv venv` and `uv pip install` for both runtimes. A follow-up validation run (`--mode existing --skip-uv --no-test`) confirmed the workspace layout and persisted `serve_workspace` in setup.json. uv emitted a link-mode warning about reflink support when copying cached files; installation completed successfully.
+
+## Appendix A: Files Reviewed
+
+- `src/autoclean/cli.py`
+- `src/autoclean/utils/user_config.py`
+- `plans/005-serve-workspace/005-serve-workspace.md`

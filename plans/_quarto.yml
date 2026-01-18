@@ -7,6 +7,7 @@ project:
     - 002-automation-idempotency/002-automation-idempotency.qmd
     - 003-automation-mode/003-automation-mode.qmd
     - 004-automation-mode-validation/004-automation-mode-validation.qmd
+    - 005-serve-workspace/005-serve-workspace.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -22,6 +23,8 @@ website:
         text: Automation Mode
       - href: 004-automation-mode-validation/004-automation-mode-validation.html
         text: Automation Validation
+      - href: 005-serve-workspace/005-serve-workspace.html
+        text: Serve Workspace
 
 format:
   html:

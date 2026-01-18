@@ -36,8 +36,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import requests
+import yaml
 from rich.panel import Panel
 from rich.table import Table
+
 
 # Block management commands
 from autoclean import __version__, cli_blocks
@@ -2145,7 +2147,7 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
 
     # Serve command
     serve_parser = subparsers.add_parser(
-        "serve", help="Serve the plans quarto website", add_help=False
+        "serve", help="Automation serve commands", add_help=False
     )
     attach_rich_help(serve_parser)
     serve_parser.add_argument(
@@ -2159,6 +2161,45 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         type=str,
         default="127.0.0.1",
         help="Host to bind to (default: 127.0.0.1)",
+    )
+    serve_subparsers = serve_parser.add_subparsers(
+        dest="serve_action", help="Serve actions"
+    )
+
+    serve_docs = serve_subparsers.add_parser(
+        "docs", help="Serve the plans quarto website", add_help=False
+    )
+    attach_rich_help(serve_docs)
+
+    serve_workspace = serve_subparsers.add_parser(
+        "workspace", help="Configure automation serve workspace", add_help=False
+    )
+    attach_rich_help(serve_workspace)
+    serve_workspace.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Path to automation serve workspace",
+    )
+    serve_workspace.add_argument(
+        "--mode",
+        choices=["new", "existing"],
+        help="Create a new workspace or link an existing one",
+    )
+    serve_workspace.add_argument(
+        "--skip-uv",
+        action="store_true",
+        help="Skip uv runtime setup",
+    )
+    serve_workspace.add_argument(
+        "--no-test",
+        action="store_true",
+        help="Skip runtime validation check",
+    )
+    serve_workspace.add_argument(
+        "--package",
+        default="autocleaneeg-pipeline",
+        help="Package spec or path for runtime install",
     )
 
     # Version command
@@ -8889,6 +8930,211 @@ def cmd_view(args) -> int:
 
 
 def cmd_serve(args) -> int:
+    """Serve command dispatcher."""
+    action = getattr(args, "serve_action", None)
+    if action in (None, "docs"):
+        return cmd_serve_docs(args)
+    if action == "workspace":
+        return cmd_serve_workspace(args)
+    message("error", f"Unknown serve action: {action}")
+    return 1
+
+
+def _serve_workspace_paths(workspace_dir: Path) -> dict[str, Path]:
+    runtimes_dir = workspace_dir / "runtimes"
+    return {
+        "serve_test": workspace_dir / "serve-test.yaml",
+        "serve_live": workspace_dir / "serve-live.yaml",
+        "runtimes_test": runtimes_dir / "test",
+        "runtimes_live": runtimes_dir / "live",
+        "automations": workspace_dir / "automations",
+    }
+
+
+def _write_serve_yaml(
+    yaml_path: Path,
+    mode: str,
+    runtime_dir: Path,
+    automations_dir: Path,
+    root: Path,
+    package_spec: str,
+) -> None:
+    if yaml_path.exists():
+        message("warning", f"{yaml_path.name} already exists; leaving unchanged")
+        return
+
+    runtime_ref = str(runtime_dir.relative_to(root))
+    automations_ref = str(automations_dir.relative_to(root))
+    payload = {
+        "mode": mode,
+        "automation_mode": True,
+        "runtime": runtime_ref,
+        "runtime_package": package_spec,
+        "automation_root": automations_ref,
+        "workspace_name": "taskfile-montage-version",
+        "taskfile": "",
+        "montage": "",
+        "ingestion_folders": [],
+    }
+
+    with open(yaml_path, "w", encoding="utf-8") as f:
+        yaml.safe_dump(payload, f, sort_keys=False)
+
+
+def _runtime_python_bin(venv_dir: Path) -> Path:
+    if sys.platform.startswith("win"):
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
+
+
+def _runtime_cli_bin(venv_dir: Path) -> Path:
+    if sys.platform.startswith("win"):
+        return venv_dir / "Scripts" / "autocleaneeg-pipeline.exe"
+    return venv_dir / "bin" / "autocleaneeg-pipeline"
+
+
+def _setup_runtime(
+    runtime_dir: Path,
+    label: str,
+    package_spec: str,
+    skip_uv: bool,
+    run_test: bool,
+) -> bool:
+    runtime_dir.mkdir(parents=True, exist_ok=True)
+    if skip_uv:
+        message("info", f"Skipping uv setup for {label} runtime")
+        return True
+    if not shutil.which("uv"):
+        message("error", "uv not found. Please install uv to set up runtimes.")
+        return False
+
+    venv_dir = runtime_dir / ".venv"
+    try:
+        if not venv_dir.exists():
+            subprocess.run(["uv", "venv", str(venv_dir)], check=True)
+        python_bin = _runtime_python_bin(venv_dir)
+        subprocess.run(
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(python_bin),
+                package_spec,
+            ],
+            check=True,
+        )
+    except subprocess.CalledProcessError as exc:
+        message("error", f"Failed to set up {label} runtime: {exc}")
+        return False
+
+    if run_test:
+        cli_bin = _runtime_cli_bin(venv_dir)
+        if cli_bin.exists():
+            subprocess.run([str(cli_bin), "version"], check=False)
+        else:
+            message("warning", f"Runtime CLI not found at {cli_bin}")
+    return True
+
+
+def _validate_serve_workspace(paths: dict[str, Path]) -> bool:
+    missing = [path for path in paths.values() if not path.exists()]
+    if missing:
+        for path in missing:
+            message("error", f"Missing serve workspace component: {path}")
+        return False
+    return True
+
+
+def cmd_serve_workspace(args) -> int:
+    """Configure or validate the automation serve workspace."""
+    existing = user_config.get_serve_workspace()
+    if existing:
+        message("info", f"Current automation workspace: {existing}")
+    else:
+        message("info", "No automation workspace configured")
+
+    if not args.mode and args.path is None:
+        message("info", "Use --mode new --path <dir> to create a workspace")
+        message(
+            "info", "Use --mode existing --path <dir> to link an existing workspace"
+        )
+        return 0
+
+    mode = args.mode
+    workspace_path = args.path
+    if mode == "existing" and workspace_path is None:
+        workspace_path = existing
+    if workspace_path is None:
+        message("error", "Workspace path is required for this action")
+        return 1
+
+    workspace_dir = workspace_path.expanduser().resolve()
+    if mode is None:
+        mode = "existing" if workspace_dir.exists() else "new"
+    paths = _serve_workspace_paths(workspace_dir)
+
+    if mode == "new":
+        if workspace_dir.exists() and any(workspace_dir.iterdir()):
+            message(
+                "error",
+                "Workspace directory is not empty; use --mode existing to link",
+            )
+            return 1
+        workspace_dir.mkdir(parents=True, exist_ok=True)
+        paths["automations"].mkdir(parents=True, exist_ok=True)
+        paths["runtimes_test"].mkdir(parents=True, exist_ok=True)
+        paths["runtimes_live"].mkdir(parents=True, exist_ok=True)
+        _write_serve_yaml(
+            paths["serve_test"],
+            "test",
+            paths["runtimes_test"],
+            paths["automations"],
+            workspace_dir,
+            args.package,
+        )
+        _write_serve_yaml(
+            paths["serve_live"],
+            "live",
+            paths["runtimes_live"],
+            paths["automations"],
+            workspace_dir,
+            args.package,
+        )
+    elif mode == "existing":
+        if not _validate_serve_workspace(paths):
+            return 1
+    else:
+        message("error", "Serve workspace mode must be 'new' or 'existing'")
+        return 1
+
+    message("info", f"Runtime package: {args.package}")
+
+    if not _setup_runtime(
+        paths["runtimes_test"],
+        "test",
+        args.package,
+        args.skip_uv,
+        not args.no_test,
+    ):
+        return 1
+    if not _setup_runtime(
+        paths["runtimes_live"],
+        "live",
+        args.package,
+        args.skip_uv,
+        not args.no_test,
+    ):
+        return 1
+
+    if not user_config.set_serve_workspace(workspace_dir):
+        message("warning", "Failed to persist serve workspace setting")
+    else:
+        message("success", f"✓ Serve workspace configured: {workspace_dir}")
+    return 0
+
+
+def cmd_serve_docs(args) -> int:
     """Serve the plans quarto website."""
     plans_dir = Path("plans")
     if not plans_dir.exists():

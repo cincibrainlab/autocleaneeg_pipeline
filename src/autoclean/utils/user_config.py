@@ -278,6 +278,62 @@ class UserConfigManager:
             print(f"Warning: Could not save active source config: {e}")
             return False
 
+    def get_serve_workspace(self) -> Optional[Path]:
+        """Get the configured automation serve workspace, if any."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        if not global_config.exists():
+            return None
+
+        try:
+            with open(global_config, "r", encoding="utf-8") as f:
+                config = json.load(f)
+        except (json.JSONDecodeError, FileNotFoundError):
+            return None
+
+        raw_path = config.get("serve_workspace")
+        if not raw_path:
+            return None
+
+        try:
+            return Path(raw_path)
+        except TypeError:
+            return None
+
+    def set_serve_workspace(self, workspace_path: Optional[Path]) -> bool:
+        """Persist the automation serve workspace path."""
+        global_config = (
+            Path(platformdirs.user_config_dir("autoclean", "autoclean")) / "setup.json"
+        )
+
+        config: dict[str, Any] = {}
+        if global_config.exists():
+            try:
+                with open(global_config, "r", encoding="utf-8") as f:
+                    config = json.load(f) or {}
+            except (json.JSONDecodeError, FileNotFoundError):
+                config = {}
+
+        config.setdefault("version", "1.0")
+        config.setdefault("setup_date", self._current_timestamp())
+
+        if workspace_path is None:
+            config.pop("serve_workspace", None)
+        else:
+            config["serve_workspace"] = str(workspace_path)
+        config["serve_workspace_updated"] = self._current_timestamp()
+
+        global_config.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            with open(global_config, "w", encoding="utf-8") as f:
+                json.dump(config, f, indent=2)
+            return True
+        except Exception as e:
+            print(f"Warning: Could not save serve workspace config: {e}")
+            return False
+
     def get_theme(self) -> Optional[str]:
         """Get the configured theme preference."""
         global_config = (
@@ -1005,9 +1061,15 @@ class UserConfigManager:
         if "active_task" in existing_config:
             config["active_task"] = existing_config["active_task"]
 
+        # Preserve any other existing configuration keys
+        for key, value in existing_config.items():
+            if key not in config:
+                config[key] = value
+
         try:
             with open(global_config, "w", encoding="utf-8") as f:
                 json.dump(config, f, indent=2)
+
         except Exception as e:
             print(f"Warning: Could not save global config: {e}")
 

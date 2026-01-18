@@ -11,6 +11,7 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [Automation Idempotency Preparation](002-automation-idempotency/002-automation-idempotency.html)
 - [Automation Mode Implementation](003-automation-mode/003-automation-mode.html)
 - [Automation Mode Validation](004-automation-mode-validation/004-automation-mode-validation.html)
+- [Serve Workspace Command](005-serve-workspace/005-serve-workspace.html)
 
 ## Navigation
 
