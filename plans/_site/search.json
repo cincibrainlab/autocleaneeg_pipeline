@@ -1,94 +1,234 @@
 [
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html",
-    "href": "006-serve-command-family/006-serve-command-family.html",
-    "title": "RFC 006: Serve Command Family",
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html",
+    "href": "007-ingestion-planning/007-ingestion-planning.html",
+    "title": "RFC 007: Ingestion Planning for Automation",
     "section": "",
-    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
+    "text": "Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#executive-summary",
-    "href": "006-serve-command-family/006-serve-command-family.html#executive-summary",
-    "title": "RFC 006: Serve Command Family",
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#executive-summary",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#executive-summary",
+    "title": "RFC 007: Ingestion Planning for Automation",
     "section": "",
-    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
+    "text": "Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#command-overview",
-    "href": "006-serve-command-family/006-serve-command-family.html#command-overview",
-    "title": "RFC 006: Serve Command Family",
-    "section": "Command Overview",
-    "text": "Command Overview\n\nTable 1. Serve command family additions.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve list\nReport workspace path, YAML status, runtime folders, and automation directories.\n\n\nserve validate --mode &lt;test|live&gt;\nValidate the operator YAML for structure, paths, and mode alignment.\n\n\nserve deploy --mode &lt;test|live&gt;\nCopy validated YAML into deploy/ and mark it read-only."
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#ingestion-requirements",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#ingestion-requirements",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Ingestion Requirements",
+    "text": "Ingestion Requirements\n\nTable 1. Core ingestion requirements for automation mode.\n\n\n\n\n\n\n\nRequirement\nRationale\nImplication\n\n\n\n\nDeterministic readiness\nAvoid partial copies\nRequire explicit signals before dispatch.\n\n\nUpdate tolerance\nSupport late-arriving files\nAllow incremental batch updates under controlled rules.\n\n\nAudit trail\nTrace ingestion and run decisions\nRecord readiness checks and validation outcomes.\n\n\nLow operational friction\nMinimize manual steps\nFavor simple, repeatable triggers.\n\n\nRFC 002 alignment\nPreserve serve governance\nEnsure ingestion integrates with serve runtime controls."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
-    "href": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
-    "title": "RFC 006: Serve Command Family",
-    "section": "Deployment Guardrails",
-    "text": "Deployment Guardrails\n\nOperator YAMLs (serve-test.yaml, serve-live.yaml) remain editable.\nDeployed YAMLs live in deploy/ and are marked read-only after deployment.\nValidation checks required keys, runtime paths, automation root paths, and mode alignment."
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#completion-signals-file-vs-batch",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#completion-signals-file-vs-batch",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Completion Signals: File vs Batch",
+    "text": "Completion Signals: File vs Batch\nTwo patterns dominate ingestion completion: per-file sentinels and batch-level manifests. Both can work, but they impose different operational controls. The table below contrasts the approaches and frames a recommended default.\n\nTable 2. Completion signal trade-offs.\n\n\n\n\n\n\n\n\nSignal Type\nMechanism\nStrengths\nRisks\n\n\n\n\nFile-level sentinel\n.done or .ready per file\nFine-grained control; works for rolling arrivals\nMore files to manage; risk of partial batch processing.\n\n\nBatch-level manifest\nSingle manifest for entire batch\nClear batch boundary; simpler audit trail\nDelays partial processing; requires manifest generator.\n\n\nStability window\nTime-based idle check\nNo additional files required\nSensitive to large file transfers or slow networks.\n\n\n\n\n\n\n\n\n\nNoteRecommendation\n\n\n\nDefault to a batch-level manifest when available, with a fallback stability window and optional per-file sentinels for incremental updates. This preserves deterministic batch processing while still allowing controlled updates."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#validation-steps",
-    "href": "006-serve-command-family/006-serve-command-family.html#validation-steps",
-    "title": "RFC 006: Serve Command Family",
-    "section": "Validation Steps",
-    "text": "Validation Steps\nuv run python -m autoclean.cli serve list --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve validate --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve deploy --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nResult: serve list reported expected workspace components and missing deployed YAMLs. serve validate --mode test succeeded with warnings for empty taskfile/montage. serve deploy --mode test created deploy/serve-test.yaml, marked it read-only, and preserved the warnings for incomplete operator fields."
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#watcher-strategy-watchfiles-notify",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#watcher-strategy-watchfiles-notify",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Watcher Strategy (watchfiles + notify)",
+    "text": "Watcher Strategy (watchfiles + notify)\nThe ingestion watcher should use watchfiles with the Rust notify backend to minimize latency while preserving readiness gating. Events feed a debounce window, then a readiness validator that checks manifest completeness, sentinel presence, and size stability before enqueueing a run. When readiness fails, the dataset moves to quarantine or remains pending.\n\n\n\n\n\nflowchart TD\n  A[File event] --&gt; B[Debounce window]\n  B --&gt; C[Readiness validator]\n  C --&gt;|Ready| D[Queue automation run]\n  C --&gt;|Not ready| E[Pending or quarantine]\n  D --&gt; F[Dispatch serve runtime]\n\n\n Figure 1. Ingestion readiness flow with watch-based gating."
   },
   {
-    "objectID": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
-    "href": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
-    "title": "RFC 006: Serve Command Family",
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#end-to-end-automation-chain",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#end-to-end-automation-chain",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "End-to-End Automation Chain",
+    "text": "End-to-End Automation Chain\nThe ingestion plan must describe how readiness transitions into automation execution. The chain below captures the expected order without implementation detail.\n\nFile events trigger watch-based detection and debounce.\nReadiness validation confirms manifest/sentinel completeness and stability.\nA run is queued with taskfile/montage mapping and serve runtime selection.\nAutomation executes via the serve runtime, writing outputs and logs to the workspace.\nRun metadata captures readiness checks, config hashes, and any warnings."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#best-practice-checklist",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#best-practice-checklist",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Best-Practice Checklist",
+    "text": "Best-Practice Checklist\n\nTable 3. Operational best practices for ingestion.\n\n\n\n\n\n\n\nArea\nBest Practice\nReason\n\n\n\n\nIngestion folder\nSeparate staging from ingestion root\nPrevent partial processing.\n\n\nCompletion signal\nPrefer batch manifest\nImproves auditability and batch integrity.\n\n\nUpdate handling\nRequire new manifest for updates\nAvoid silent partial updates.\n\n\nQuarantine\nMove failed readiness to quarantine\nKeeps operators informed and pipeline clean.\n\n\nAudit logs\nPersist readiness decisions\nSupports compliance and debugging."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-open-questions",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-open-questions",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Appendix A: Open Questions",
+    "text": "Appendix A: Open Questions\n\nWhat tool generates the batch manifest in upstream systems?\nShould incremental updates create a new run or amend the original run?\nHow long should pending items remain before quarantine?"
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html",
+    "href": "005-serve-workspace/005-serve-workspace.html",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "",
+    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html#executive-summary",
+    "href": "005-serve-workspace/005-serve-workspace.html#executive-summary",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "",
+    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
+    "href": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "Workspace Layout",
+    "text": "Workspace Layout\n\nTable 1. Serve workspace structure (RFC 002 aligned).\n\n\n\n\n\n\n\nComponent\nPurpose\nNotes\n\n\n\n\nserve-test.yaml\nOperator-editable test config\nWritten once at workspace creation.\n\n\nserve-live.yaml\nOperator-editable live config\nWritten once at workspace creation.\n\n\nruntimes/test\nTest runtime root\nuv venv + install package spec.\n\n\nruntimes/live\nLive runtime root\nuv venv + install package spec.\n\n\nautomations/\nTaskfile-montage workspaces\nOutput root for automation jobs."
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html#cli-interface",
+    "href": "005-serve-workspace/005-serve-workspace.html#cli-interface",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "CLI Interface",
+    "text": "CLI Interface\n\nTable 2. Serve workspace command surface.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve workspace --mode new --path &lt;dir&gt;\nCreate a new workspace and install runtimes.\n\n\nserve workspace --mode existing --path &lt;dir&gt;\nValidate and link an existing workspace.\n\n\nserve workspace --package &lt;spec&gt;\nPin runtime package version or local path.\n\n\nserve workspace --skip-uv\nSkip runtime install (for pre-provisioned runtimes).\n\n\n\n\n\n\n\n\n\nNoteReproducibility\n\n\n\nUse a pinned package spec (e.g., autocleaneeg-pipeline==&lt;version&gt;) or a local path to make runtime provisioning deterministic."
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
+    "href": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "Implementation Summary",
+    "text": "Implementation Summary\n\nAdded serve workspace subcommand to create or link a workspace, with --mode, --path, and --package flags.\nPersisted the workspace path under serve_workspace in the existing setup JSON (no new config file).\nCreated runtime environments using uv venv + uv pip install --python &lt;venv&gt; &lt;package_spec&gt;."
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html#validation",
+    "href": "005-serve-workspace/005-serve-workspace.html#validation",
+    "title": "RFC 005: Serve Workspace Command",
+    "section": "Validation",
+    "text": "Validation\nCommand executed:\nuv run python -m autoclean.cli serve workspace \\\n  --mode new \\\n  --path \"/Volumes/owcssd/test-workspace/serve-workspace\" \\\n  --package \"/Volumes/owcssd/github/autocleaneeg_pipeline\"\nResult: Workspace created at /Volumes/owcssd/test-workspace/serve-workspace using a local package spec (/Volumes/owcssd/github/autocleaneeg_pipeline) with uv venv and uv pip install for both runtimes. A follow-up validation run (--mode existing --skip-uv --no-test) confirmed the workspace layout and persisted serve_workspace in setup.json. uv emitted a link-mode warning about reflink support when copying cached files; installation completed successfully."
+  },
+  {
+    "objectID": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
+    "href": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
+    "title": "RFC 005: Serve Workspace Command",
     "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/006-serve-command-family/006-serve-command-family.md"
+    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/005-serve-workspace/005-serve-workspace.md"
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html",
-    "title": "RFC 004: Automation Mode Validation",
+    "objectID": "003-automation-mode/003-automation-mode.html",
+    "href": "003-automation-mode/003-automation-mode.html",
+    "title": "RFC 003: Automation Mode Implementation",
     "section": "",
-    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
+    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
-    "title": "RFC 004: Automation Mode Validation",
+    "objectID": "003-automation-mode/003-automation-mode.html#executive-summary",
+    "href": "003-automation-mode/003-automation-mode.html#executive-summary",
+    "title": "RFC 003: Automation Mode Implementation",
     "section": "",
-    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
+    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Test Plan",
-    "text": "Test Plan\n\nTable 1. Automation validation commands and output roots.\n\n\n\n\n\n\n\nStep\nCommand\nOutput Root\n\n\n\n\nBatch mode\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --dir \"/Volumes/owcssd/test-data/resting-eeg-32ch\" --format \"*.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/batch\" --automation --yes\n.../automation-validation/batch\n\n\nSingle file 1\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual\n\n\nSingle file 2\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EC.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual"
+    "objectID": "003-automation-mode/003-automation-mode.html#requirements",
+    "href": "003-automation-mode/003-automation-mode.html#requirements",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Requirements",
+    "text": "Requirements\n\nTable 1. Automation mode requirements and implications.\n\n\n\n\n\n\n\nRequirement\nRationale\nImplementation Implication\n\n\n\n\nDual activation sources\nOperators want CLI overrides and config defaults\nCLI flag takes precedence over task config.\n\n\nBackup suppression\nAutomation needs idempotent output roots\nDisable backups when automation mode is resolved True.\n\n\nAudit traceability\nCompliance and debugging require evidence\nPersist automation mode and source in metadata.\n\n\nDefault safety\nManual workflows must remain unchanged\nMaintain auto-backup when automation is not enabled."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#results",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#results",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Results",
-    "text": "Results\nBatch mode completed successfully for both .set files, producing exports under /Volumes/owcssd/test-workspace/automation-validation/batch/BiotrialResting1020. The two single-file runs also completed successfully, reusing /Volumes/owcssd/test-workspace/automation-validation/individual/BiotrialResting1020 on the second run with auto-backup disabled. Both modes generated identical export filenames and per-run report artifacts.\n\nBatch run IDs: 01KF9E7S7ZDMT3FGH10TV0HAHS (EO), 01KF9E88T8PS4WKGDBH691EZP1 (EC)\nIndividual run IDs: 01KF9E9WHKQ402RTSZDP6AFCMT (EO), 01KF9ET66JF0RNV9MD6RSGDZQ8 (EC)\nExports: 201001_D1BL_EO_comp_epo.set, 201001_D1BL_EC_comp_epo.set, plus per-file processing logs in exports/\nReports: per-file PDF, metadata JSON, flagged-channel TSV, and processing logs in reports/run_reports/"
+    "objectID": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
+    "href": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Automation Mode Precedence",
+    "text": "Automation Mode Precedence\n\nTable 2. Automation mode precedence rules.\n\n\n\n\n\n\n\n\nInput\nScope\nPrecedence\nOutcome\n\n\n\n\nCLI --automation\nPer run\nHighest\nOverrides task config for that invocation.\n\n\nTask config automation_mode\nPer task\nDefault\nUsed when CLI flag is absent.\n\n\nDefault\nGlobal\nLowest\nFalls back to False.\n\n\n\n\n\n\n\n\n\nNotePrecedence Rule\n\n\n\nCLI activation is explicit and must override any task-level default. The resolved source is logged alongside the run metadata for auditability."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Comparison Summary",
-    "text": "Comparison Summary\n\nTable 2. Batch vs single-file parity checkpoints.\n\n\n\n\n\n\n\n\nCheckpoint\nBatch Mode\nSingle-File Runs\nOutcome\n\n\n\n\nExported .set files\n2 files (EO, EC)\n2 files (EO, EC)\nMatch\n\n\nProcessing log entries\npreprocessing_log.csv has 2 rows\npreprocessing_log.csv has 2 rows\nMatch\n\n\nAutomation mode recorded\nCLI enabled; backups disabled\nCLI enabled; reuse existing task root\nMatch"
+    "objectID": "003-automation-mode/003-automation-mode.html#implementation-summary",
+    "href": "003-automation-mode/003-automation-mode.html#implementation-summary",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Implementation Summary",
+    "text": "Implementation Summary\n\nExtend step_prepare_directories to accept an auto_backup flag that controls whether existing task roots are backed up.\nAdd an automation_mode override to Pipeline, with resolution logic that prefers CLI over task config.\nPropagate automation metadata into run records (automation_mode, automation_source, auto_backup_enabled).\nAdd --automation to the process command and pass the override into the pipeline.\nAllow automation_mode in task module config via schema validation."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
-    "title": "RFC 004: Automation Mode Validation",
-    "section": "Warnings and Observations",
-    "text": "Warnings and Observations\nRecurring warnings included EOG montage position defaults, initial empty participants.tsv, BrainVision conversion with float32 casting, ICLabel bandpass expectations, ICA report pre-computation fallback (mixing_ missing), and channel-count mismatches (actual 30 vs expected 27–28). None of these warnings prevented completion, and outputs remained consistent across batch and individual runs."
+    "objectID": "003-automation-mode/003-automation-mode.html#code-changes",
+    "href": "003-automation-mode/003-automation-mode.html#code-changes",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Code Changes",
+    "text": "Code Changes\n\nTable 3. Code updates for automation mode.\n\n\n\n\n\n\n\nArea\nChange\nRationale\n\n\n\n\nsrc/autoclean/utils/file_system.py\nauto_backup flag for directory prep\nAllows reuse of task roots under automation.\n\n\nsrc/autoclean/core/pipeline.py\nResolve automation mode + metadata logging\nCentralizes precedence and audit trail.\n\n\nsrc/autoclean/cli.py\n--automation process flag\nEnables explicit CLI activation.\n\n\nsrc/autoclean/configkit/schema.py\nAllow automation_mode key\nValidates task-level defaults."
   },
   {
-    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
-    "href": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
-    "title": "RFC 004: Automation Mode Validation",
+    "objectID": "003-automation-mode/003-automation-mode.html#validation",
+    "href": "003-automation-mode/003-automation-mode.html#validation",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Validation",
+    "text": "Validation\nBaseline CLI test command (run from repo root using uv):\nuv run python -m autoclean.cli process \\\n  --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" \\\n  --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" \\\n  --output \"/Volumes/owcssd/test-workspace\" \\\n  --automation --yes\nResult: The command completed successfully with automation mode enabled via CLI, creating outputs under /Volumes/owcssd/test-workspace/BiotrialResting1020 and logging automation_source=cli in run metadata. Warnings observed included montage EOG channel positions, empty participants.tsv on first creation, BrainVision conversion notices, an ICLabel bandpass warning, ICA report pre-compute fallback (mixing_ missing), and a channel-count mismatch (actual 30 vs expected 28)."
+  },
+  {
+    "objectID": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
+    "href": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
+    "title": "RFC 003: Automation Mode Implementation",
+    "section": "Risks and Follow-Up",
+    "text": "Risks and Follow-Up\n\nIf task configs omit automation_mode, CLI activation remains the only automation trigger.\nThe automation flag does not currently allow an explicit CLI override to disable a true task default; add --no-automation if operators need that control.\nRepeated automation runs rely on file-naming conventions to avoid overwrites; enforce policies from RFC 002 during implementation."
+  },
+  {
+    "objectID": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
+    "href": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
+    "title": "RFC 003: Automation Mode Implementation",
     "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nplans/004-automation-mode-validation/004-automation-mode-validation.md"
+    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/utils/file_system.py\nsrc/autoclean/core/pipeline.py\nsrc/autoclean/cli.py\nsrc/autoclean/configkit/schema.py\nplans/003-automation-mode/003-automation-mode.md"
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html",
+    "href": "001-intro-big-picture/001-intro-big-picture.html",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.\n\n\n\nBased on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms\n\n\n\n\nAutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.\n\n\n\n\nThis introduction is saved as a dedicated page in the plans website and linked in the navigation."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#overview",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#overview",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms"
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#introduction",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#introduction",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#integration",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#integration",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This introduction is saved as a dedicated page in the plans website and linked in the navigation."
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning\n\n\n\n\nUse the navbar above to navigate the site."
+  },
+  {
+    "objectID": "index.html#documents",
+    "href": "index.html#documents",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "Main Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\nIngestion Planning"
+  },
+  {
+    "objectID": "index.html#navigation",
+    "href": "index.html#navigation",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "Use the navbar above to navigate the site."
+  },
+  {
+    "objectID": "main-plan.html",
+    "href": "main-plan.html",
+    "title": "AutoCleanEEG Pipeline Plans",
+    "section": "",
+    "text": "pre-instruction hooks: - please make a surgical git commit before edits - do not edit this file under any circumstance overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs. appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf\nInstruction sets:\nnew rfc for implementing automation mode (activated by cli or yaml key) plan carefully and implement\nyou can easily test as I placed an area for you to define the workspace to this folder /Volumes/owcssd/test-workspace\nand sample resting data is here: /Volumes/owcssd/test-data/resting-eeg-32ch\nand proper task file (with proper montage here) /Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\nand do a baseline test with autocleaneeg-pipeline cli\n[Done] new task: do a test on 2 files as separate runs with the flag the output should be the same as batch mode (i.e. doing a folder of files) two resultant files should be there the logs should be additive you can actually run folder mode and then the individual files twice and compare the two\nnew task: Let’s implement the first autocleaneeg-pipeline serve cli command workspace this will setup the serve-test.yaml and serve-live.yaml setup the automation folder we should have runtimes of autocleaneeg-pipeline for test and live use uv tools to setup the environment in each test and live runtime folder when users type autocleaneeg-pipeline serve workspace if an existing automation workspace folder parameter is already in the autocleaneeg json (like the workspace folder and other settings) you display it or you show now automation workspace folder defined 1. define new automation workspace folder 2. link to existing automation workspace folder the user can do this if a new folder it is setup if it old folder it is validated you and implement and start basic testing\nupdated: the autocleaneeg-pipeline serve  family includes workspace - set or edit current autocleaneeg-pipeline serve workspace directory list - what automations are configured in the directory (test and live clearly labeled) validate - test the config file with a dry run (live or test) deploy - deploy (live or test)\nsince we want to have 100% uptime the serve-test.yaml and serve-live.yaml sit in the autocleaneeg-pipeline serve workspace dir (as it is now) the user can edit these, but there is a production set of yaml files that the automations run on that are read only until it is deployed so prior to replacing them the autocleaneeg-pipeline serve command must validate those rigorously and then replace the deployed versions\nnew task: Let’s setup ingestion work through this with planning doc first best practices we don’t want automations to start until the ingestion folder is completed copying we also may have updates in the future in the ingestion folder do we do “done” ext at the file level or at the total copy level could these tools help us Python watchfiles (Rust notify underneath)? how does the actual automation work after we figure out ingestion? work out the whole chain and plan in the next round in a rfc do not implement or code\nClean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder\nPost Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - specific project instructions if needed:"
   },
   {
     "objectID": "002-automation-idempotency/002-automation-idempotency.html",
@@ -210,178 +350,94 @@
     "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/utils/file_system.py\nsrc/autoclean/core/pipeline.py\nsrc/autoclean/utils/path_resolution.py\nsrc/autoclean/utils/config.py\ndocs/CODEBASE_MAP.md"
   },
   {
-    "objectID": "main-plan.html",
-    "href": "main-plan.html",
-    "title": "AutoCleanEEG Pipeline Plans",
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html",
+    "title": "RFC 004: Automation Mode Validation",
     "section": "",
-    "text": "pre-instruction hooks: - please make a surgical git commit before edits - do not edit this file under any circumstance overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs. appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf\nInstruction sets:\nnew rfc for implementing automation mode (activated by cli or yaml key) plan carefully and implement\nyou can easily test as I placed an area for you to define the workspace to this folder /Volumes/owcssd/test-workspace\nand sample resting data is here: /Volumes/owcssd/test-data/resting-eeg-32ch\nand proper task file (with proper montage here) /Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\nand do a baseline test with autocleaneeg-pipeline cli\n[Done] new task: do a test on 2 files as separate runs with the flag the output should be the same as batch mode (i.e. doing a folder of files) two resultant files should be there the logs should be additive you can actually run folder mode and then the individual files twice and compare the two\nnew task: Let’s implement the first autocleaneeg-pipeline serve cli command workspace this will setup the serve-test.yaml and serve-live.yaml setup the automation folder we should have runtimes of autocleaneeg-pipeline for test and live use uv tools to setup the environment in each test and live runtime folder when users type autocleaneeg-pipeline serve workspace if an existing automation workspace folder parameter is already in the autocleaneeg json (like the workspace folder and other settings) you display it or you show now automation workspace folder defined 1. define new automation workspace folder 2. link to existing automation workspace folder the user can do this if a new folder it is setup if it old folder it is validated you and implement and start basic testing\nupdated: the autocleaneeg-pipeline serve  family includes workspace - set or edit current autocleaneeg-pipeline serve workspace directory list - what automations are configured in the directory (test and live clearly labeled) validate - test the config file with a dry run (live or test) deploy - deploy (live or test)\nsince we want to have 100% uptime the serve-test.yaml and serve-live.yaml sit in the autocleaneeg-pipeline serve workspace dir (as it is now) the user can edit these, but there is a production set of yaml files that the automations run on that are read only until it is deployed so prior to replacing them the autocleaneeg-pipeline serve command must validate those rigorously and then replace the deployed versions\nnew task: Let’s setup ingestion work through this with planning doc first best practices we don’t want automations to start until the ingestion folder is completed copying we also may have updates in the future in the ingestion folder do we do “done” ext at the file level or at the total copy level could these tools help us Python watchfiles (Rust notify underneath)? how does the actual automation work after we figure out ingestion? work out the whole chain and plan in the next round in a rfc do not implement or code\nClean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder\nPost Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - specific project instructions if needed:"
+    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
   },
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "AutoCleanEEG Pipeline Plans",
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#executive-summary",
+    "title": "RFC 004: Automation Mode Validation",
     "section": "",
-    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family\n\n\n\n\nUse the navbar above to navigate the site."
+    "text": "This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the --automation flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity."
   },
   {
-    "objectID": "index.html#documents",
-    "href": "index.html#documents",
-    "title": "AutoCleanEEG Pipeline Plans",
-    "section": "",
-    "text": "Main Plan\nIntroduction\nAutomation Idempotency Preparation\nAutomation Mode Implementation\nAutomation Mode Validation\nServe Workspace Command\nServe Command Family"
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#test-plan",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Test Plan",
+    "text": "Test Plan\n\nTable 1. Automation validation commands and output roots.\n\n\n\n\n\n\n\nStep\nCommand\nOutput Root\n\n\n\n\nBatch mode\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --dir \"/Volumes/owcssd/test-data/resting-eeg-32ch\" --format \"*.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/batch\" --automation --yes\n.../automation-validation/batch\n\n\nSingle file 1\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual\n\n\nSingle file 2\nuv run python -m autoclean.cli process --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EC.set\" --output \"/Volumes/owcssd/test-workspace/automation-validation/individual\" --automation --yes\n.../automation-validation/individual"
   },
   {
-    "objectID": "index.html#navigation",
-    "href": "index.html#navigation",
-    "title": "AutoCleanEEG Pipeline Plans",
-    "section": "",
-    "text": "Use the navbar above to navigate the site."
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#results",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#results",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Results",
+    "text": "Results\nBatch mode completed successfully for both .set files, producing exports under /Volumes/owcssd/test-workspace/automation-validation/batch/BiotrialResting1020. The two single-file runs also completed successfully, reusing /Volumes/owcssd/test-workspace/automation-validation/individual/BiotrialResting1020 on the second run with auto-backup disabled. Both modes generated identical export filenames and per-run report artifacts.\n\nBatch run IDs: 01KF9E7S7ZDMT3FGH10TV0HAHS (EO), 01KF9E88T8PS4WKGDBH691EZP1 (EC)\nIndividual run IDs: 01KF9E9WHKQ402RTSZDP6AFCMT (EO), 01KF9ET66JF0RNV9MD6RSGDZQ8 (EC)\nExports: 201001_D1BL_EO_comp_epo.set, 201001_D1BL_EC_comp_epo.set, plus per-file processing logs in exports/\nReports: per-file PDF, metadata JSON, flagged-channel TSV, and processing logs in reports/run_reports/"
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html",
-    "href": "001-intro-big-picture/001-intro-big-picture.html",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.\n\n\n\nBased on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms\n\n\n\n\nAutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.\n\n\n\n\nThis introduction is saved as a dedicated page in the plans website and linked in the navigation."
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#comparison-summary",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Comparison Summary",
+    "text": "Comparison Summary\n\nTable 2. Batch vs single-file parity checkpoints.\n\n\n\n\n\n\n\n\nCheckpoint\nBatch Mode\nSingle-File Runs\nOutcome\n\n\n\n\nExported .set files\n2 files (EO, EC)\n2 files (EO, EC)\nMatch\n\n\nProcessing log entries\npreprocessing_log.csv has 2 rows\npreprocessing_log.csv has 2 rows\nMatch\n\n\nAutomation mode recorded\nCLI enabled; backups disabled\nCLI enabled; reuse existing task root\nMatch"
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#overview",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#overview",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is."
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#warnings-and-observations",
+    "title": "RFC 004: Automation Mode Validation",
+    "section": "Warnings and Observations",
+    "text": "Warnings and Observations\nRecurring warnings included EOG montage position defaults, initial empty participants.tsv, BrainVision conversion with float32 casting, ICLabel bandpass expectations, ICA report pre-computation fallback (mixing_ missing), and channel-count mismatches (actual 30 vs expected 27–28). None of these warnings prevented completion, and outputs remained consistent across batch and individual runs."
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms"
-  },
-  {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#introduction",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#introduction",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency."
-  },
-  {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#integration",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#integration",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "This introduction is saved as a dedicated page in the plans website and linked in the navigation."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html",
-    "href": "003-automation-mode/003-automation-mode.html",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "",
-    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#executive-summary",
-    "href": "003-automation-mode/003-automation-mode.html#executive-summary",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "",
-    "text": "Automation mode is now designed to be activated by either a CLI flag (--automation) or a task-config key (automation_mode) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#requirements",
-    "href": "003-automation-mode/003-automation-mode.html#requirements",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Requirements",
-    "text": "Requirements\n\nTable 1. Automation mode requirements and implications.\n\n\n\n\n\n\n\nRequirement\nRationale\nImplementation Implication\n\n\n\n\nDual activation sources\nOperators want CLI overrides and config defaults\nCLI flag takes precedence over task config.\n\n\nBackup suppression\nAutomation needs idempotent output roots\nDisable backups when automation mode is resolved True.\n\n\nAudit traceability\nCompliance and debugging require evidence\nPersist automation mode and source in metadata.\n\n\nDefault safety\nManual workflows must remain unchanged\nMaintain auto-backup when automation is not enabled."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
-    "href": "003-automation-mode/003-automation-mode.html#automation-mode-precedence",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Automation Mode Precedence",
-    "text": "Automation Mode Precedence\n\nTable 2. Automation mode precedence rules.\n\n\n\n\n\n\n\n\nInput\nScope\nPrecedence\nOutcome\n\n\n\n\nCLI --automation\nPer run\nHighest\nOverrides task config for that invocation.\n\n\nTask config automation_mode\nPer task\nDefault\nUsed when CLI flag is absent.\n\n\nDefault\nGlobal\nLowest\nFalls back to False.\n\n\n\n\n\n\n\n\n\nNotePrecedence Rule\n\n\n\nCLI activation is explicit and must override any task-level default. The resolved source is logged alongside the run metadata for auditability."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#implementation-summary",
-    "href": "003-automation-mode/003-automation-mode.html#implementation-summary",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Implementation Summary",
-    "text": "Implementation Summary\n\nExtend step_prepare_directories to accept an auto_backup flag that controls whether existing task roots are backed up.\nAdd an automation_mode override to Pipeline, with resolution logic that prefers CLI over task config.\nPropagate automation metadata into run records (automation_mode, automation_source, auto_backup_enabled).\nAdd --automation to the process command and pass the override into the pipeline.\nAllow automation_mode in task module config via schema validation."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#code-changes",
-    "href": "003-automation-mode/003-automation-mode.html#code-changes",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Code Changes",
-    "text": "Code Changes\n\nTable 3. Code updates for automation mode.\n\n\n\n\n\n\n\nArea\nChange\nRationale\n\n\n\n\nsrc/autoclean/utils/file_system.py\nauto_backup flag for directory prep\nAllows reuse of task roots under automation.\n\n\nsrc/autoclean/core/pipeline.py\nResolve automation mode + metadata logging\nCentralizes precedence and audit trail.\n\n\nsrc/autoclean/cli.py\n--automation process flag\nEnables explicit CLI activation.\n\n\nsrc/autoclean/configkit/schema.py\nAllow automation_mode key\nValidates task-level defaults."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#validation",
-    "href": "003-automation-mode/003-automation-mode.html#validation",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Validation",
-    "text": "Validation\nBaseline CLI test command (run from repo root using uv):\nuv run python -m autoclean.cli process \\\n  --task-file \"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py\" \\\n  --file \"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set\" \\\n  --output \"/Volumes/owcssd/test-workspace\" \\\n  --automation --yes\nResult: The command completed successfully with automation mode enabled via CLI, creating outputs under /Volumes/owcssd/test-workspace/BiotrialResting1020 and logging automation_source=cli in run metadata. Warnings observed included montage EOG channel positions, empty participants.tsv on first creation, BrainVision conversion notices, an ICLabel bandpass warning, ICA report pre-compute fallback (mixing_ missing), and a channel-count mismatch (actual 30 vs expected 28)."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
-    "href": "003-automation-mode/003-automation-mode.html#risks-and-follow-up",
-    "title": "RFC 003: Automation Mode Implementation",
-    "section": "Risks and Follow-Up",
-    "text": "Risks and Follow-Up\n\nIf task configs omit automation_mode, CLI activation remains the only automation trigger.\nThe automation flag does not currently allow an explicit CLI override to disable a true task default; add --no-automation if operators need that control.\nRepeated automation runs rely on file-naming conventions to avoid overwrites; enforce policies from RFC 002 during implementation."
-  },
-  {
-    "objectID": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
-    "href": "003-automation-mode/003-automation-mode.html#appendix-a-files-reviewed",
-    "title": "RFC 003: Automation Mode Implementation",
+    "objectID": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
+    "href": "004-automation-mode-validation/004-automation-mode-validation.html#appendix-a-files-reviewed",
+    "title": "RFC 004: Automation Mode Validation",
     "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/utils/file_system.py\nsrc/autoclean/core/pipeline.py\nsrc/autoclean/cli.py\nsrc/autoclean/configkit/schema.py\nplans/003-automation-mode/003-automation-mode.md"
+    "text": "Appendix A: Files Reviewed\n\nplans/004-automation-mode-validation/004-automation-mode-validation.md"
   },
   {
-    "objectID": "005-serve-workspace/005-serve-workspace.html",
-    "href": "005-serve-workspace/005-serve-workspace.html",
-    "title": "RFC 005: Serve Workspace Command",
+    "objectID": "006-serve-command-family/006-serve-command-family.html",
+    "href": "006-serve-command-family/006-serve-command-family.html",
+    "title": "RFC 006: Serve Command Family",
     "section": "",
-    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
+    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
   },
   {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#executive-summary",
-    "href": "005-serve-workspace/005-serve-workspace.html#executive-summary",
-    "title": "RFC 005: Serve Workspace Command",
+    "objectID": "006-serve-command-family/006-serve-command-family.html#executive-summary",
+    "href": "006-serve-command-family/006-serve-command-family.html#executive-summary",
+    "title": "RFC 006: Serve Command Family",
     "section": "",
-    "text": "This RFC implements the first autocleaneeg-pipeline serve workspace command as scoped in RFC 002. The command creates or links a serve workspace, writes serve-test.yaml and serve-live.yaml, provisions test/live runtime folders, and persists the workspace path in the existing setup JSON. Runtime setup uses uv with an explicit package spec to keep the command reproducible."
+    "text": "This RFC implements the additional autocleaneeg-pipeline serve commands required by RFC 002: list, validate, and deploy. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under deploy/ after successful validation."
   },
   {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
-    "href": "005-serve-workspace/005-serve-workspace.html#workspace-layout",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "Workspace Layout",
-    "text": "Workspace Layout\n\nTable 1. Serve workspace structure (RFC 002 aligned).\n\n\n\n\n\n\n\nComponent\nPurpose\nNotes\n\n\n\n\nserve-test.yaml\nOperator-editable test config\nWritten once at workspace creation.\n\n\nserve-live.yaml\nOperator-editable live config\nWritten once at workspace creation.\n\n\nruntimes/test\nTest runtime root\nuv venv + install package spec.\n\n\nruntimes/live\nLive runtime root\nuv venv + install package spec.\n\n\nautomations/\nTaskfile-montage workspaces\nOutput root for automation jobs."
+    "objectID": "006-serve-command-family/006-serve-command-family.html#command-overview",
+    "href": "006-serve-command-family/006-serve-command-family.html#command-overview",
+    "title": "RFC 006: Serve Command Family",
+    "section": "Command Overview",
+    "text": "Command Overview\n\nTable 1. Serve command family additions.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve list\nReport workspace path, YAML status, runtime folders, and automation directories.\n\n\nserve validate --mode &lt;test|live&gt;\nValidate the operator YAML for structure, paths, and mode alignment.\n\n\nserve deploy --mode &lt;test|live&gt;\nCopy validated YAML into deploy/ and mark it read-only."
   },
   {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#cli-interface",
-    "href": "005-serve-workspace/005-serve-workspace.html#cli-interface",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "CLI Interface",
-    "text": "CLI Interface\n\nTable 2. Serve workspace command surface.\n\n\n\n\n\n\nCommand\nDescription\n\n\n\n\nserve workspace --mode new --path &lt;dir&gt;\nCreate a new workspace and install runtimes.\n\n\nserve workspace --mode existing --path &lt;dir&gt;\nValidate and link an existing workspace.\n\n\nserve workspace --package &lt;spec&gt;\nPin runtime package version or local path.\n\n\nserve workspace --skip-uv\nSkip runtime install (for pre-provisioned runtimes).\n\n\n\n\n\n\n\n\n\nNoteReproducibility\n\n\n\nUse a pinned package spec (e.g., autocleaneeg-pipeline==&lt;version&gt;) or a local path to make runtime provisioning deterministic."
+    "objectID": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
+    "href": "006-serve-command-family/006-serve-command-family.html#deployment-guardrails",
+    "title": "RFC 006: Serve Command Family",
+    "section": "Deployment Guardrails",
+    "text": "Deployment Guardrails\n\nOperator YAMLs (serve-test.yaml, serve-live.yaml) remain editable.\nDeployed YAMLs live in deploy/ and are marked read-only after deployment.\nValidation checks required keys, runtime paths, automation root paths, and mode alignment."
   },
   {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
-    "href": "005-serve-workspace/005-serve-workspace.html#implementation-summary",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "Implementation Summary",
-    "text": "Implementation Summary\n\nAdded serve workspace subcommand to create or link a workspace, with --mode, --path, and --package flags.\nPersisted the workspace path under serve_workspace in the existing setup JSON (no new config file).\nCreated runtime environments using uv venv + uv pip install --python &lt;venv&gt; &lt;package_spec&gt;."
+    "objectID": "006-serve-command-family/006-serve-command-family.html#validation-steps",
+    "href": "006-serve-command-family/006-serve-command-family.html#validation-steps",
+    "title": "RFC 006: Serve Command Family",
+    "section": "Validation Steps",
+    "text": "Validation Steps\nuv run python -m autoclean.cli serve list --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve validate --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nuv run python -m autoclean.cli serve deploy --mode test --path \"/Volumes/owcssd/test-workspace/serve-workspace\"\nResult: serve list reported expected workspace components and missing deployed YAMLs. serve validate --mode test succeeded with warnings for empty taskfile/montage. serve deploy --mode test created deploy/serve-test.yaml, marked it read-only, and preserved the warnings for incomplete operator fields."
   },
   {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#validation",
-    "href": "005-serve-workspace/005-serve-workspace.html#validation",
-    "title": "RFC 005: Serve Workspace Command",
-    "section": "Validation",
-    "text": "Validation\nCommand executed:\nuv run python -m autoclean.cli serve workspace \\\n  --mode new \\\n  --path \"/Volumes/owcssd/test-workspace/serve-workspace\" \\\n  --package \"/Volumes/owcssd/github/autocleaneeg_pipeline\"\nResult: Workspace created at /Volumes/owcssd/test-workspace/serve-workspace using a local package spec (/Volumes/owcssd/github/autocleaneeg_pipeline) with uv venv and uv pip install for both runtimes. A follow-up validation run (--mode existing --skip-uv --no-test) confirmed the workspace layout and persisted serve_workspace in setup.json. uv emitted a link-mode warning about reflink support when copying cached files; installation completed successfully."
-  },
-  {
-    "objectID": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
-    "href": "005-serve-workspace/005-serve-workspace.html#appendix-a-files-reviewed",
-    "title": "RFC 005: Serve Workspace Command",
+    "objectID": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
+    "href": "006-serve-command-family/006-serve-command-family.html#appendix-a-files-reviewed",
+    "title": "RFC 006: Serve Command Family",
     "section": "Appendix A: Files Reviewed",
-    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/005-serve-workspace/005-serve-workspace.md"
+    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/cli.py\nsrc/autoclean/utils/user_config.py\nplans/006-serve-command-family/006-serve-command-family.md"
   }
 ]

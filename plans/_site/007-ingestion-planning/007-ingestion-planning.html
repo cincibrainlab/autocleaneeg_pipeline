@@ -8,7 +8,7 @@
 
 <meta name="dcterms.date" content="2026-01-18">
 
-<title>RFC 003: Automation Mode Implementation – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 007: Ingestion Planning for Automation – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,41 +20,6 @@ ul.task-list li input[type="checkbox"] {
   width: 0.8em;
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
-}
-/* CSS for syntax highlighting */
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-  { counter-reset: source-line 0; }
-pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-  }
-pre.numberSource { margin-left: 3em;  padding-left: 4px; }
-div.sourceCode
-  {   }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -104,6 +69,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
+<script src="../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
 
 
 </head>
@@ -140,7 +108,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Automation Idempotency</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../003-automation-mode/003-automation-mode.html" aria-current="page"> 
+    <a class="nav-link" href="../003-automation-mode/003-automation-mode.html"> 
 <span class="menu-text">Automation Mode</span></a>
   </li>  
   <li class="nav-item">
@@ -156,7 +124,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Serve Commands</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../007-ingestion-planning/007-ingestion-planning.html"> 
+    <a class="nav-link active" href="../007-ingestion-planning/007-ingestion-planning.html" aria-current="page"> 
 <span class="menu-text">Ingestion Planning</span></a>
   </li>  
 </ul>
@@ -176,8 +144,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 003: Automation Mode Implementation</h1>
-<p class="subtitle lead">CLI and Task-Config Activation with Audit-Safe Backup Control</p>
+<h1 class="title">RFC 007: Ingestion Planning for Automation</h1>
+<p class="subtitle lead">Readiness Gates, Watcher Strategy, and End-to-End Automation Chain</p>
 </div>
 
 
@@ -202,12 +170,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>Automation mode is now designed to be activated by either a CLI flag (<code>--automation</code>) or a task-config key (<code>automation_mode</code>) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows.</p>
+<p>Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase.</p>
 </section>
-<section id="requirements" class="level2">
-<h2 class="anchored" data-anchor-id="requirements">Requirements</h2>
+<section id="ingestion-requirements" class="level2">
+<h2 class="anchored" data-anchor-id="ingestion-requirements">Ingestion Requirements</h2>
 <table class="caption-top table">
-<caption>Table 1. Automation mode requirements and implications.</caption>
+<caption>Table 1. Core ingestion requirements for automation mode.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -217,37 +185,43 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="header">
 <th>Requirement</th>
 <th>Rationale</th>
-<th>Implementation Implication</th>
+<th>Implication</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Dual activation sources</td>
-<td>Operators want CLI overrides and config defaults</td>
-<td>CLI flag takes precedence over task config.</td>
+<td>Deterministic readiness</td>
+<td>Avoid partial copies</td>
+<td>Require explicit signals before dispatch.</td>
 </tr>
 <tr class="even">
-<td>Backup suppression</td>
-<td>Automation needs idempotent output roots</td>
-<td>Disable backups when automation mode is resolved <code>True</code>.</td>
+<td>Update tolerance</td>
+<td>Support late-arriving files</td>
+<td>Allow incremental batch updates under controlled rules.</td>
 </tr>
 <tr class="odd">
-<td>Audit traceability</td>
-<td>Compliance and debugging require evidence</td>
-<td>Persist automation mode and source in metadata.</td>
+<td>Audit trail</td>
+<td>Trace ingestion and run decisions</td>
+<td>Record readiness checks and validation outcomes.</td>
 </tr>
 <tr class="even">
-<td>Default safety</td>
-<td>Manual workflows must remain unchanged</td>
-<td>Maintain auto-backup when automation is not enabled.</td>
+<td>Low operational friction</td>
+<td>Minimize manual steps</td>
+<td>Favor simple, repeatable triggers.</td>
+</tr>
+<tr class="odd">
+<td>RFC 002 alignment</td>
+<td>Preserve serve governance</td>
+<td>Ensure ingestion integrates with serve runtime controls.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="automation-mode-precedence" class="level2">
-<h2 class="anchored" data-anchor-id="automation-mode-precedence">Automation Mode Precedence</h2>
+<section id="completion-signals-file-vs-batch" class="level2">
+<h2 class="anchored" data-anchor-id="completion-signals-file-vs-batch">Completion Signals: File vs Batch</h2>
+<p>Two patterns dominate ingestion completion: per-file sentinels and batch-level manifests. Both can work, but they impose different operational controls. The table below contrasts the approaches and frames a recommended default.</p>
 <table class="caption-top table">
-<caption>Table 2. Automation mode precedence rules.</caption>
+<caption>Table 2. Completion signal trade-offs.</caption>
 <colgroup>
 <col style="width: 25%">
 <col style="width: 25%">
@@ -256,30 +230,30 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </colgroup>
 <thead>
 <tr class="header">
-<th>Input</th>
-<th>Scope</th>
-<th>Precedence</th>
-<th>Outcome</th>
+<th>Signal Type</th>
+<th>Mechanism</th>
+<th>Strengths</th>
+<th>Risks</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>CLI <code>--automation</code></td>
-<td>Per run</td>
-<td>Highest</td>
-<td>Overrides task config for that invocation.</td>
+<td>File-level sentinel</td>
+<td><code>.done</code> or <code>.ready</code> per file</td>
+<td>Fine-grained control; works for rolling arrivals</td>
+<td>More files to manage; risk of partial batch processing.</td>
 </tr>
 <tr class="even">
-<td>Task config <code>automation_mode</code></td>
-<td>Per task</td>
-<td>Default</td>
-<td>Used when CLI flag is absent.</td>
+<td>Batch-level manifest</td>
+<td>Single manifest for entire batch</td>
+<td>Clear batch boundary; simpler audit trail</td>
+<td>Delays partial processing; requires manifest generator.</td>
 </tr>
 <tr class="odd">
-<td>Default</td>
-<td>Global</td>
-<td>Lowest</td>
-<td>Falls back to <code>False</code>.</td>
+<td>Stability window</td>
+<td>Time-based idle check</td>
+<td>No additional files required</td>
+<td>Sensitive to large file transfers or slow networks.</td>
 </tr>
 </tbody>
 </table>
@@ -289,28 +263,50 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Precedence Rule
+<span class="screen-reader-only">Note</span>Recommendation
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>CLI activation is explicit and must override any task-level default. The resolved source is logged alongside the run metadata for auditability.</p>
+<p>Default to a batch-level manifest when available, with a fallback stability window and optional per-file sentinels for incremental updates. This preserves deterministic batch processing while still allowing controlled updates.</p>
 </div>
 </div>
 </section>
-<section id="implementation-summary" class="level2">
-<h2 class="anchored" data-anchor-id="implementation-summary">Implementation Summary</h2>
+<section id="watcher-strategy-watchfiles-notify" class="level2">
+<h2 class="anchored" data-anchor-id="watcher-strategy-watchfiles-notify">Watcher Strategy (watchfiles + notify)</h2>
+<p>The ingestion watcher should use <code>watchfiles</code> with the Rust <code>notify</code> backend to minimize latency while preserving readiness gating. Events feed a debounce window, then a readiness validator that checks manifest completeness, sentinel presence, and size stability before enqueueing a run. When readiness fails, the dataset moves to quarantine or remains pending.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TD
+  A[File event] --&gt; B[Debounce window]
+  B --&gt; C[Readiness validator]
+  C --&gt;|Ready| D[Queue automation run]
+  C --&gt;|Not ready| E[Pending or quarantine]
+  D --&gt; F[Dispatch serve runtime]
+</pre>
+</div>
+<p></p><figcaption> Figure 1. Ingestion readiness flow with watch-based gating.</figcaption> </figure><p></p>
+</div>
+</div>
+</div>
+</section>
+<section id="end-to-end-automation-chain" class="level2">
+<h2 class="anchored" data-anchor-id="end-to-end-automation-chain">End-to-End Automation Chain</h2>
+<p>The ingestion plan must describe how readiness transitions into automation execution. The chain below captures the expected order without implementation detail.</p>
 <ol type="1">
-<li>Extend <code>step_prepare_directories</code> to accept an <code>auto_backup</code> flag that controls whether existing task roots are backed up.</li>
-<li>Add an <code>automation_mode</code> override to <code>Pipeline</code>, with resolution logic that prefers CLI over task config.</li>
-<li>Propagate automation metadata into run records (<code>automation_mode</code>, <code>automation_source</code>, <code>auto_backup_enabled</code>).</li>
-<li>Add <code>--automation</code> to the <code>process</code> command and pass the override into the pipeline.</li>
-<li>Allow <code>automation_mode</code> in task module config via schema validation.</li>
+<li>File events trigger watch-based detection and debounce.</li>
+<li>Readiness validation confirms manifest/sentinel completeness and stability.</li>
+<li>A run is queued with taskfile/montage mapping and serve runtime selection.</li>
+<li>Automation executes via the serve runtime, writing outputs and logs to the workspace.</li>
+<li>Run metadata captures readiness checks, config hashes, and any warnings.</li>
 </ol>
 </section>
-<section id="code-changes" class="level2">
-<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
+<section id="best-practice-checklist" class="level2">
+<h2 class="anchored" data-anchor-id="best-practice-checklist">Best-Practice Checklist</h2>
 <table class="caption-top table">
-<caption>Table 3. Code updates for automation mode.</caption>
+<caption>Table 3. Operational best practices for ingestion.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -319,60 +315,45 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <thead>
 <tr class="header">
 <th>Area</th>
-<th>Change</th>
-<th>Rationale</th>
+<th>Best Practice</th>
+<th>Reason</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>src/autoclean/utils/file_system.py</code></td>
-<td><code>auto_backup</code> flag for directory prep</td>
-<td>Allows reuse of task roots under automation.</td>
+<td>Ingestion folder</td>
+<td>Separate staging from ingestion root</td>
+<td>Prevent partial processing.</td>
 </tr>
 <tr class="even">
-<td><code>src/autoclean/core/pipeline.py</code></td>
-<td>Resolve automation mode + metadata logging</td>
-<td>Centralizes precedence and audit trail.</td>
+<td>Completion signal</td>
+<td>Prefer batch manifest</td>
+<td>Improves auditability and batch integrity.</td>
 </tr>
 <tr class="odd">
-<td><code>src/autoclean/cli.py</code></td>
-<td><code>--automation</code> process flag</td>
-<td>Enables explicit CLI activation.</td>
+<td>Update handling</td>
+<td>Require new manifest for updates</td>
+<td>Avoid silent partial updates.</td>
 </tr>
 <tr class="even">
-<td><code>src/autoclean/configkit/schema.py</code></td>
-<td>Allow <code>automation_mode</code> key</td>
-<td>Validates task-level defaults.</td>
+<td>Quarantine</td>
+<td>Move failed readiness to quarantine</td>
+<td>Keeps operators informed and pipeline clean.</td>
+</tr>
+<tr class="odd">
+<td>Audit logs</td>
+<td>Persist readiness decisions</td>
+<td>Supports compliance and debugging.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="validation" class="level2">
-<h2 class="anchored" data-anchor-id="validation">Validation</h2>
-<p>Baseline CLI test command (run from repo root using <code>uv</code>):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli process <span class="dt">\</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--task-file</span> <span class="st">"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py"</span> <span class="dt">\</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--file</span> <span class="st">"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set"</span> <span class="dt">\</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--output</span> <span class="st">"/Volumes/owcssd/test-workspace"</span> <span class="dt">\</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--automation</span> <span class="at">--yes</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: The command completed successfully with automation mode enabled via CLI, creating outputs under <code>/Volumes/owcssd/test-workspace/BiotrialResting1020</code> and logging <code>automation_source=cli</code> in run metadata. Warnings observed included montage EOG channel positions, empty <code>participants.tsv</code> on first creation, BrainVision conversion notices, an ICLabel bandpass warning, ICA report pre-compute fallback (<code>mixing_</code> missing), and a channel-count mismatch (actual 30 vs expected 28).</p>
-</section>
-<section id="risks-and-follow-up" class="level2">
-<h2 class="anchored" data-anchor-id="risks-and-follow-up">Risks and Follow-Up</h2>
+<section id="appendix-a-open-questions" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-open-questions">Appendix A: Open Questions</h2>
 <ul>
-<li>If task configs omit <code>automation_mode</code>, CLI activation remains the only automation trigger.</li>
-<li>The automation flag does not currently allow an explicit CLI override to disable a <code>true</code> task default; add <code>--no-automation</code> if operators need that control.</li>
-<li>Repeated automation runs rely on file-naming conventions to avoid overwrites; enforce policies from RFC 002 during implementation.</li>
-</ul>
-</section>
-<section id="appendix-a-files-reviewed" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
-<ul>
-<li><code>src/autoclean/utils/file_system.py</code></li>
-<li><code>src/autoclean/core/pipeline.py</code></li>
-<li><code>src/autoclean/cli.py</code></li>
-<li><code>src/autoclean/configkit/schema.py</code></li>
-<li><code>plans/003-automation-mode/003-automation-mode.md</code></li>
+<li>What tool generates the batch manifest in upstream systems?</li>
+<li>Should incremental updates create a new run or amend the original run?</li>
+<li>How long should pending items remain before quarantine?</li>
 </ul>
 
 

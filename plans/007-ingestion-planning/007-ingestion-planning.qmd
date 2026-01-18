@@ -1,0 +1,80 @@
+---
+title: "RFC 007: Ingestion Planning for Automation"
+subtitle: "Readiness Gates, Watcher Strategy, and End-to-End Automation Chain"
+date: 2026-01-18
+---
+
+## Executive Summary
+
+Automation must never process partially copied data. This RFC, aligned to RFC 002, defines ingestion readiness criteria, compares file-level and batch-level completion signals, and describes the watch-based chain from ingestion detection to automation execution. The focus is on deterministic gating, auditability, and minimal operational burden, with no implementation changes in this phase.
+
+## Ingestion Requirements
+
+| Requirement | Rationale | Implication |
+|---|---|---|
+| Deterministic readiness | Avoid partial copies | Require explicit signals before dispatch. |
+| Update tolerance | Support late-arriving files | Allow incremental batch updates under controlled rules. |
+| Audit trail | Trace ingestion and run decisions | Record readiness checks and validation outcomes. |
+| Low operational friction | Minimize manual steps | Favor simple, repeatable triggers. |
+| RFC 002 alignment | Preserve serve governance | Ensure ingestion integrates with serve runtime controls. |
+
+: Table 1. Core ingestion requirements for automation mode.
+
+## Completion Signals: File vs Batch
+
+Two patterns dominate ingestion completion: per-file sentinels and batch-level manifests. Both can work, but they impose different operational controls. The table below contrasts the approaches and frames a recommended default.
+
+| Signal Type | Mechanism | Strengths | Risks |
+|---|---|---|---|
+| File-level sentinel | `.done` or `.ready` per file | Fine-grained control; works for rolling arrivals | More files to manage; risk of partial batch processing. |
+| Batch-level manifest | Single manifest for entire batch | Clear batch boundary; simpler audit trail | Delays partial processing; requires manifest generator. |
+| Stability window | Time-based idle check | No additional files required | Sensitive to large file transfers or slow networks. |
+
+: Table 2. Completion signal trade-offs.
+
+::: callout-note
+## Recommendation
+Default to a batch-level manifest when available, with a fallback stability window and optional per-file sentinels for incremental updates. This preserves deterministic batch processing while still allowing controlled updates.
+:::
+
+## Watcher Strategy (watchfiles + notify)
+
+The ingestion watcher should use `watchfiles` with the Rust `notify` backend to minimize latency while preserving readiness gating. Events feed a debounce window, then a readiness validator that checks manifest completeness, sentinel presence, and size stability before enqueueing a run. When readiness fails, the dataset moves to quarantine or remains pending.
+
+```{mermaid}
+%%| fig-cap: "Figure 1. Ingestion readiness flow with watch-based gating."
+flowchart TD
+  A[File event] --> B[Debounce window]
+  B --> C[Readiness validator]
+  C -->|Ready| D[Queue automation run]
+  C -->|Not ready| E[Pending or quarantine]
+  D --> F[Dispatch serve runtime]
+```
+
+## End-to-End Automation Chain
+
+The ingestion plan must describe how readiness transitions into automation execution. The chain below captures the expected order without implementation detail.
+
+1. File events trigger watch-based detection and debounce.
+2. Readiness validation confirms manifest/sentinel completeness and stability.
+3. A run is queued with taskfile/montage mapping and serve runtime selection.
+4. Automation executes via the serve runtime, writing outputs and logs to the workspace.
+5. Run metadata captures readiness checks, config hashes, and any warnings.
+
+## Best-Practice Checklist
+
+| Area | Best Practice | Reason |
+|---|---|---|
+| Ingestion folder | Separate staging from ingestion root | Prevent partial processing. |
+| Completion signal | Prefer batch manifest | Improves auditability and batch integrity. |
+| Update handling | Require new manifest for updates | Avoid silent partial updates. |
+| Quarantine | Move failed readiness to quarantine | Keeps operators informed and pipeline clean. |
+| Audit logs | Persist readiness decisions | Supports compliance and debugging. |
+
+: Table 3. Operational best practices for ingestion.
+
+## Appendix A: Open Questions
+
+- What tool generates the batch manifest in upstream systems?
+- Should incremental updates create a new run or amend the original run?
+- How long should pending items remain before quarantine?

@@ -9,6 +9,7 @@ project:
     - 004-automation-mode-validation/004-automation-mode-validation.qmd
     - 005-serve-workspace/005-serve-workspace.qmd
     - 006-serve-command-family/006-serve-command-family.qmd
+    - 007-ingestion-planning/007-ingestion-planning.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -28,6 +29,8 @@ website:
         text: Serve Workspace
       - href: 006-serve-command-family/006-serve-command-family.html
         text: Serve Commands
+      - href: 007-ingestion-planning/007-ingestion-planning.html
+        text: Ingestion Planning
 
 format:
   html:
