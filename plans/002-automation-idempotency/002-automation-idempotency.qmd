@@ -6,7 +6,22 @@ date: 2026-01-18
 
 ## Executive Summary
 
-Automation requires repeatable runs that reuse a stable output root, yet the current pipeline backs up existing task directories on the first encounter per process. The proposed `autocleaneeg-pipeline serve` workflow introduces a dedicated, self-contained automation workspace with explicit test/live separation and managed runtime installs. This document extends the original idempotency analysis to incorporate that workspace concept, clarify command semantics, and define a configuration governance model that preserves uptime, auditability, and reproducible outputs.
+Automation requires repeatable runs that reuse a stable output root, yet the current pipeline backs up existing task directories on the first encounter per process. The refined `autocleaneeg-pipeline serve` model introduces a dedicated automation workspace with test/live runtime isolation, operator-facing YAMLs, hidden deployed configs, and event-driven ingestion using Python `watchfiles` backed by Rust `notify`. This revision strengthens the idempotency plan by specifying workspace governance, config promotion, file-watching safety gates, and output policies that preserve uptime, auditability, and reproducibility.
+
+## Operating Requirements
+
+The automation manager must support high uptime, safe configuration promotion, and deterministic workspace management while preserving the existing audit trail. The requirements below constrain the design and inform the idempotency strategy.
+
+| Requirement | Rationale | Implication |
+|---|---|---|
+| Uptime-safe config promotion | Operators edit YAMLs directly | Promote to hidden deployed configs with atomic swaps. |
+| Runtime isolation | Test changes cannot touch live runs | Maintain `runtimes/test` and `runtimes/live`. |
+| Idempotent outputs | Repeated runs must reuse folders | Adopt run-scoped naming and overwrite policy. |
+| Ingestion readiness | Avoid partial file ingestion | Use `watchfiles` + `notify` with stability windows. |
+| Auditability | Trace config and runtime changes | Append-only metadata and deployment logs. |
+| Workspace determinism | Taskfile + montage define automation | Enforce `taskfile-montage-version` naming. |
+
+: Table 1. Operational requirements for serve-mode automation.
 
 ## Current Backup Mechanism
 
@@ -25,7 +40,7 @@ in process?}
 
 ## Serve Workspace Architecture
 
-The serve workflow introduces a distinct automation workspace that is self-contained and deliberately structured to maintain separation between test and live operations. Within this folder, `runtimes/test` and `runtimes/live` host isolated pipeline runtimes, while `serve-test.yaml` and `serve-live.yaml` live at the workspace root for operator edits. Each automation workspace under the parent folder is named using the `taskfile-montage-version` convention to make provenance explicit and to align with the stated requirement that a task file plus montage uniquely define an automation instance.
+The serve workflow introduces a distinct automation workspace that is self-contained and deliberately structured to maintain separation between test and live operations. Within this folder, `runtimes/test` and `runtimes/live` host isolated pipeline runtimes, while `serve-test.yaml` and `serve-live.yaml` live at the workspace root for operator edits. Each automation workspace under the parent folder is named using the `taskfile-montage-version` convention to make provenance explicit and to align with the stated requirement that a task file plus montage uniquely define an automation instance. A lightweight workspace registry should track the active serve root, enforce naming conventions, and prevent accidental mixing of test and live artifacts.
 
 ```{mermaid}
 %%| fig-cap: "Figure 2. Proposed autocleaneeg-serve workspace layout."
@@ -48,7 +63,20 @@ flowchart TD
 | `deploy/` | Hidden deployed YAMLs | Replaced only after validation passes. |
 | `taskfile-montage-version/` | Automation workspace | Contains per-automation task outputs and logs. |
 
-: Table 1. Serve workspace components and responsibilities.
+: Table 2. Serve workspace components and responsibilities.
+
+## Runtime Management and Versioning
+
+The serve workspace isolates runtime installs to preserve reproducibility and allow safe upgrades. The test runtime is the proving ground for new versions and configuration changes, while the live runtime stays pinned to the deployed YAML until a validated promotion occurs.
+
+| Action | Test Runtime | Live Runtime | Notes |
+|---|---|---|---|
+| Install | Allow new builds | Not touched | Track semantic version and build metadata. |
+| Upgrade | Validate with test config | Promote after deploy | Require rollback plan. |
+| Rollback | Reset to prior build | Restore last known good | Keep archived runtimes. |
+| Health check | Run validation suite | Monitor uptime | Log to audit records. |
+
+: Table 3. Runtime management responsibilities in the serve workspace.
 
 ## Command Family and Governance
 
@@ -61,7 +89,7 @@ The `autocleaneeg-pipeline serve` command family acts as the automation manager.
 | `serve validate` | Dry-run config validation | Runs against test or live config without deployment. |
 | `serve deploy` | Promote validated config | Replaces hidden deployed YAML and activates runtime. |
 
-: Table 2. Serve command family expectations.
+: Table 4. Serve command family expectations.
 
 ::: callout-note
 ## Configuration Safety
@@ -83,19 +111,64 @@ flowchart TD
   E --> G[serve deploy activates runtime]
 ```
 
+## Ingestion Monitoring and Watch Strategy
+
+Automation should avoid blind polling of ingestion folders. A hybrid event-driven approach using Python `watchfiles` with the Rust `notify` backend provides low-latency file events while allowing deterministic readiness checks before a run is dispatched. The ingestion system should debounce file events, verify size stability, and optionally require a sentinel file (e.g., `.ready`) before a dataset is queued.
+
+```{mermaid}
+%%| fig-cap: "Figure 4. Event-driven ingestion and run dispatch sequence."
+flowchart LR
+  A[watchfiles + notify events] --> B[debounce window]
+  B --> C[readiness checks]
+  C -->|Pass| D[queue automation run]
+  C -->|Fail| E[quarantine + retry]
+  D --> F[dispatch pipeline runtime]
+```
+
+| Check | Signal | Action |
+|---|---|---|
+| Stability window | File size unchanged for N seconds | Mark dataset ready for validation. |
+| Sentinel file | `.ready` marker or manifest present | Allow immediate queueing. |
+| Extension filter | Only accept configured extensions | Ignore partial or hidden files. |
+| Quarantine rule | Missing metadata or corrupt header | Move to quarantine folder and alert. |
+| Retry policy | Transient IO errors | Backoff and re-check. |
+
+: Table 5. Ingestion readiness checks for watch-based automation.
+
 ## YAML Configuration Intent
 
-The serve YAML files encode runtime selection, ingestion boundaries, and the taskfile/montage combinations used to derive automation workspace names. The intent is to minimize operator input while preserving rigorous controls over what the automation engine executes. Ingestion folders should explicitly avoid partially staged data, and the runtime path should point to the intended `autocleaneeg` executable within the test or live runtime tree.
+The serve YAML files encode runtime selection, ingestion boundaries, watch settings, and the taskfile/montage combinations used to derive automation workspace names. The intent is to minimize operator input while preserving rigorous controls over what the automation engine executes, including explicit readiness windows and ingestion guards. Operator-facing YAMLs must be validated and copied into hidden deployed configs before activation.
+
+| Key | Purpose | Notes |
+|---|---|---|
+| `mode` | Test/live switch | Directs validation or deployment. |
+| `runtime` | Runtime path | Must point to `runtimes/test` or `runtimes/live`. |
+| `watch_backend` | File watcher | Use `notify` via `watchfiles`. |
+| `settle_seconds` | Stability window | Prevents partial ingestion. |
+| `ingestion_folders` | Ingestion roots | Avoid incomplete staging areas. |
+| `ingestion_sentinel` | Ready marker | Overrides stability window when present. |
+| `quarantine_dir` | Quarantine root | Holds failed or incomplete datasets. |
+| `workspace_name` | Naming template | Use `taskfile-montage-version`. |
+| `taskfile` | Task definition | Combined with montage for workspace naming. |
+| `montage` | Montage ID | Aligns with taskfile choice. |
+| `output_policy` | Idempotency rule | Example `run_id_suffix`. |
+
+: Table 6. Candidate YAML keys for serve automation.
 
 ```yaml
-runtime: runtimes/live
 mode: live
+runtime: runtimes/live
+watch_backend: notify
+settle_seconds: 30
 ingestion_folders:
   - /data/inbox/live
   - /data/inbox/archive
+ingestion_sentinel: ".ready"
+quarantine_dir: quarantine
 workspace_name: "taskfile-montage-version"
 taskfile: RestingEyesOpen
 montage: standard_1020
+output_policy: run_id_suffix
 ```
 
 The listing above illustrates the minimal schema elements implied by the user requirements, emphasizing runtime selection, ingestion boundaries, and the taskfile/montage pairing that drives workspace naming. Any implementation must ensure that the deployed YAML is versioned and that updates are atomic after validation.
@@ -114,7 +187,21 @@ Disabling backups changes how several output families accumulate across runs. Th
 | `status/` | `run_id`.json markers | Task-level markers can be overwritten; run-level markers remain additive. |
 | `pipeline.db` | Run metadata, audit log | Single DB becomes authoritative; must remain append-only for compliance. |
 
-: Table 3. Output artifacts affected by disabling task-root backups.
+: Table 7. Output artifacts affected by disabling task-root backups.
+
+## Idempotency and Output Policy
+
+Automation mode disables the task-root backup, so idempotency must be enforced by output naming conventions and append-only metadata practices rather than directory rotation. The following policies keep repeated runs traceable while allowing the workspace to accumulate results.
+
+1. Append a `run_id` suffix to reports, exports, and non-append files.
+2. Keep `pipeline.db` append-only and record the active runtime, config hash, and validation status.
+3. Preserve run-level status markers; avoid deleting previous run outputs unless explicitly archived.
+4. Allow optional per-run subfolders for artifacts that cannot safely overwrite.
+
+::: callout-tip
+## Idempotency Default
+Default to a `run_id` suffix policy unless an automation explicitly opts into overwrite semantics.
+:::
 
 ## Toggle Options and Automation Mode
 
@@ -126,7 +213,7 @@ A surgical toggle should avoid global behavior changes while enabling automation
 | Config override `workspace.auto_backup` | Workspace | Aligns with existing config model | Needs guardrails to avoid accidental permanent disable. |
 | Environment variable `AUTOCLEAN_AUTOMATION=1` | Session | Easy for automation scripts | Less discoverable; must be documented. |
 
-: Table 4. Candidate toggle mechanisms for automation mode.
+: Table 8. Candidate toggle mechanisms for automation mode.
 
 ::: callout-note
 ## Recommendation
@@ -135,15 +222,17 @@ Use a per-run automation flag that sets `auto_backup=False` only for that invoca
 
 ## First-Step Plan
 
-1. Introduce a serve workspace registry that records the active automation root and enforces the test/live runtime layout.
-2. Define a single automation entry point (`autocleaneeg-pipeline serve`) that carries an `automation_mode` flag through the CLI, `Pipeline`, and `step_prepare_directories`.
-3. Add configuration validation that promotes operator YAMLs into hidden deployed YAMLs only after dry-run checks succeed.
-4. Document an overwrite policy for artifact families (reports, exports, derivatives) and recommend run-scoped filenames where collisions are likely.
-5. Add an audit note to run metadata explaining that automation mode preserved the existing task root.
+1. Finalize the serve workspace specification (layout, registry, naming conventions).
+2. Implement the `serve workspace` and `serve list` commands to manage workspace selection and reporting.
+3. Add `serve validate` and `serve deploy` to promote operator YAMLs into hidden deployed configs with atomic swaps.
+4. Build the ingestion watcher using `watchfiles` + `notify` with debounce, sentinel, and quarantine policies.
+5. Introduce the `automation_mode` toggle to bypass backups and enforce run-scoped output naming.
+6. Extend run metadata to capture runtime version, config hash, and ingestion events for auditability.
+7. Document overwrite policies and rollback procedures for test/live runtime promotion.
 
 ## Discussion: Idempotency and Run Coexistence
 
-Idempotency requires that a run can be repeated without corrupting or fragmenting outputs. Skipping the backup restores folder stability but raises overwrite risks for deterministic filenames. The safest mitigation is to append `run_id` or timestamp suffixes for files that are not inherently append-only, while leaving database and status logging as append-only records. Test/live separation inside the serve workspace provides an additional safety valve: validation runs can exercise the exact runtime and config layout without touching production outputs, and deployment only proceeds when validation results are clean.
+Idempotency requires that a run can be repeated without corrupting or fragmenting outputs. Skipping the backup restores folder stability but raises overwrite risks for deterministic filenames. The safest mitigation is to append `run_id` or timestamp suffixes for files that are not inherently append-only, while leaving database and status logging as append-only records. Test/live separation and watch-based ingestion provide additional safety valves: validation runs exercise the exact runtime and config layout without touching production outputs, and readiness gates prevent incomplete data from entering live automation.
 
 ## Appendix A: Files Reviewed
 

@@ -2,16 +2,16 @@
 
 ## Intent
 
-Document a careful analysis, plan, and discussion for enabling automation runs to reuse a single output folder without triggering automatic backups, while integrating the new serve-workspace architecture with test/live runtimes and configuration governance.
+Document a careful analysis, plan, and discussion for enabling automation runs to reuse a single output folder without triggering automatic backups, while integrating the serve-workspace architecture, test/live runtime separation, configuration governance, and file-watching ingestion strategy (watchfiles/notify).
 
 ## Ordered Steps
 
-1. Review current output directory backup behavior in `src/autoclean/utils/file_system.py` and its orchestration in `src/autoclean/core/pipeline.py`.
-2. Map the proposed `autocleaneeg-pipeline serve` workspace layout, including `runtimes/test`, `runtimes/live`, and named task workspaces.
-3. Define the serve command family (`workspace`, `list`, `validate`, `deploy`) and its expected governance responsibilities.
-4. Specify YAML governance, including operator-edited configs, hidden deployed configs, and validation gates for uptime.
-5. Enumerate downstream artifacts and metadata that depend on backup behavior, noting overwrite risk under automation.
-6. Draft an APA-style analysis and a first-step plan for a minimal toggle that preserves auditability, uptime, and configuration safety.
+1. Review current output directory backup behavior and metadata logging in `src/autoclean/utils/file_system.py`, `src/autoclean/core/pipeline.py`, and `src/autoclean/utils/path_resolution.py`.
+2. Define the serve workspace model (workspace root, `runtimes/test`, `runtimes/live`, taskfile-montage-version naming, workspace registry).
+3. Specify control-plane commands (`workspace`, `list`, `validate`, `deploy`) plus operator-versus-deployed YAML governance.
+4. Design ingestion monitoring with watchfiles + Rust notify, including debounce, readiness, and quarantine rules.
+5. Enumerate output/idempotency policies for artifacts, metadata, and audit logging across repeated runs.
+6. Draft an APA-style analysis and first-step plan that prioritizes a minimal automation toggle with strong safety gates.
 
 
 
