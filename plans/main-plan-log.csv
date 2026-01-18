@@ -1,0 +1,2 @@
+decision,why_reasonable,evidence,validation,timestamp
+Added autocleaneeg-pipeline serve command to CLI,To automate serving the plans quarto website for documentation access,The plan specifies using quarto for website output and the new command,Command added, quarto render successful, no errors,2024-01-18T12:00:00

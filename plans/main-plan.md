@@ -34,11 +34,7 @@ overall strategy:
 
 Instruction sets:
 
-    We are making surgical edits to the pipeline for automation
-    the new command will be autocleaneeg-pipeline serve
-    do not make any code changes
 
-task:
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
@@ -56,6 +52,6 @@ Post Instruction hooks:
 - make a surgical git commit of your edits
 - update plans/main-plan-log.csv
     Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters.
-
+- serve the website on localhost on port 10910 as a background process to not interfer
 - specific project instructions
     if needed:

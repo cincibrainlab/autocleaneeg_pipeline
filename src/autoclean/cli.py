@@ -8895,17 +8895,17 @@ def cmd_serve(args) -> int:
         message("error", "Quarto not found. Please install quarto CLI.")
         return 1
 
-    # Run quarto serve
+    # Run quarto preview
     cmd = [
         "quarto",
-        "serve",
+        "preview",
         str(plans_dir),
         "--port",
         str(args.port),
         "--host",
         args.host,
     ]
-    message("info", f"Starting quarto serve on http://{args.host}:{args.port}")
+    message("info", f"Starting quarto preview on http://{args.host}:{args.port}")
     try:
         subprocess.run(cmd)
         return 0

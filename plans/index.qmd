@@ -1,0 +1,13 @@
+# AutoCleanEEG Pipeline Plans
+
+Welcome to the AutoCleanEEG Pipeline Plans website.
+
+This site contains the planning documents and instruction sets for the pipeline development.
+
+## Documents
+
+- [Main Plan](main-plan.html)
+
+## Navigation
+
+Use the navbar above to navigate the site.
