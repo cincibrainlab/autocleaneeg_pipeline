@@ -267,6 +267,7 @@ def _build_task_settings_schema() -> Schema:
             Optional("ai_reporting"): Or(bool, None),
             Optional("move_flagged_files"): Or(bool, None),
             Optional("dataset_name"): Or(str, None),
+            Optional("automation_mode"): Or(bool, str, None),
             # Basic preprocessing
             "resample_step": step_value_num,
             "filtering": {

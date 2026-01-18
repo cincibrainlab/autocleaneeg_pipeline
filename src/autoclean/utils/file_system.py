@@ -2,6 +2,7 @@
 """
 This module contains functions for setting up and validating directory structures.
 """
+
 import json
 import os
 import shutil
@@ -21,8 +22,13 @@ STATUS_DIR_NAME = "status"
 
 
 def step_prepare_directories(
-    task: str, autoclean_dir_str: Path, dataset_name: str = None
-) -> tuple[Path, Path, Path, Path, Path, Path, Path, Path, Path | None]:
+    task: str,
+    autoclean_dir_str: Path,
+    dataset_name: str | None = None,
+    auto_backup: bool = True,
+) -> tuple[
+    Path, Path, Path, Path, Path, Path, Path, Path, Path, dict[str, object] | None
+]:
     """Set up and validate BIDS-compliant directory structure for processing pipeline.
 
     Parameters
@@ -34,6 +40,10 @@ def step_prepare_directories(
     dataset_name : str, optional
         Optional dataset name to use instead of task name for directory structure.
         If provided, creates directories using dataset_name + timestamp format.
+    auto_backup : bool, optional
+        Whether to backup existing task roots before processing.
+        Defaults to True; set False for automation mode.
+
 
     Returns
     -------
@@ -88,23 +98,30 @@ def step_prepare_directories(
     # the current process.
     backup_info = None
     if first_time and task_root.exists():
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        backup_name = f"{dir_name}_backup_{timestamp}"
-        backup_path = (autoclean_dir / backup_name).resolve()
+        if auto_backup:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f"{dir_name}_backup_{timestamp}"
+            backup_path = (autoclean_dir / backup_name).resolve()
 
-        message(
-            "warning", f"Directory '{dir_name}' exists, backing up to: {backup_name}"
-        )
-        shutil.move(str(task_root_resolved), str(backup_path))
-        message("info", "Backup complete, creating fresh directory")
-        backup_info = {
-            "moved_from": str(task_root_resolved),
-            "moved_to": str(backup_path),
-            "effective_at": datetime.now().isoformat(),
-            "initiated_by_run_id": None,  # Filled by caller with actual run_id
-            "scope": {"task_root": str(task_root)},
-            "reason": "existing directory found; moved to backup",
-        }
+            message(
+                "warning",
+                f"Directory '{dir_name}' exists, backing up to: {backup_name}",
+            )
+            shutil.move(str(task_root_resolved), str(backup_path))
+            message("info", "Backup complete, creating fresh directory")
+            backup_info = {
+                "moved_from": str(task_root_resolved),
+                "moved_to": str(backup_path),
+                "effective_at": datetime.now().isoformat(),
+                "initiated_by_run_id": None,  # Filled by caller with actual run_id
+                "scope": {"task_root": str(task_root)},
+                "reason": "existing directory found; moved to backup",
+            }
+        else:
+            message(
+                "info",
+                f"Auto-backup disabled; reusing existing directory: {task_root}",
+            )
 
     # Derivatives for this pipeline under BIDS (versionless)
     derivatives_root = bids_root / "derivatives"

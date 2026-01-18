@@ -1146,10 +1146,17 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         action="store_true",
         help="Skip confirmation prompts (non-interactive mode for automation)",
     )
+    process_parser.add_argument(
+        "--automation",
+        action="store_true",
+        default=None,
+        help="Enable automation mode (disables backups, overrides task config)",
+    )
 
     process_subparsers = process_parser.add_subparsers(
         dest="process_action", help="Process subcommands"
     )
+
     ica_parser = process_subparsers.add_parser(
         "ica", help="Apply ICA control sheet edits", add_help=False
     )
@@ -2746,7 +2753,10 @@ def cmd_process(args) -> int:
             return 1
 
         # Initialize pipeline with verbose logging if requested
-        pipeline_kwargs = {"output_dir": args.output}
+        pipeline_kwargs = {
+            "output_dir": args.output,
+            "automation_mode": args.automation,
+        }
         if args.verbose:
             pipeline_kwargs["verbose"] = "debug"
 
@@ -2779,6 +2789,8 @@ def cmd_process(args) -> int:
             message("info", f"Would process: {args.final_input}")
             message("info", f"Task: {task_name}")
             message("info", f"Output: {args.output}")
+            if args.automation is not None:
+                message("info", f"Automation mode override: {args.automation}")
             if args.final_input.is_dir():
                 message("info", f"File format: {args.format}")
                 if args.recursive:

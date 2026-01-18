@@ -5,6 +5,7 @@ project:
     - main-plan.md
     - 001-intro-big-picture/001-intro-big-picture.qmd
     - 002-automation-idempotency/002-automation-idempotency.qmd
+    - 003-automation-mode/003-automation-mode.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -16,6 +17,8 @@ website:
         text: Introduction
       - href: 002-automation-idempotency/002-automation-idempotency.html
         text: Automation Idempotency
+      - href: 003-automation-mode/003-automation-mode.html
+        text: Automation Mode
 
 format:
   html:

@@ -9,6 +9,7 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [Main Plan](main-plan.html)
 - [Introduction](001-intro-big-picture/001-intro-big-picture.html)
 - [Automation Idempotency Preparation](002-automation-idempotency/002-automation-idempotency.html)
+- [Automation Mode Implementation](003-automation-mode/003-automation-mode.html)
 
 ## Navigation
 

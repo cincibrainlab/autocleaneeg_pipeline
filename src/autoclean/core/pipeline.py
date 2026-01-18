@@ -89,6 +89,7 @@ from autoclean.utils.auth import (
 from autoclean.utils.block_errors import BlockDependencyError
 from autoclean.utils.config import (
     hash_and_encode_yaml,
+    load_user_config,
 )
 from autoclean.utils.database import (
     create_isolated_database,
@@ -151,13 +152,17 @@ class Pipeline:
     autoclean_config : str or Path
         Path to the YAML configuration file that defines
         processing parameters for all tasks.
-    verbose : bool, str, int, or None, optional
-        Controls logging verbosity, by default None.
+        verbose : bool, str, int, or None, optional
+            Controls logging verbosity, by default None.
 
-        * bool: True for INFO, False for WARNING.
-        * str: One of 'debug', 'info', 'warning', 'error', or 'critical'.
-        * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
-        * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.
+            * bool: True for INFO, False for WARNING.
+            * str: One of 'debug', 'info', 'warning', 'error', or 'critical'.
+            * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
+            * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.
+        automation_mode : bool, optional
+            Optional override to enable automation mode (disables backups).
+            If None, defers to task config or defaults to False.
+
 
     Attributes
     ----------
@@ -186,6 +191,7 @@ class Pipeline:
         self,
         output_dir: Optional[str | Path] = None,
         verbose: Optional[Union[bool, str, int]] = None,
+        automation_mode: Optional[bool] = None,
     ):
         """Initialize a new processing pipeline.
 
@@ -202,9 +208,13 @@ class Pipeline:
             * str: One of 'debug', 'info', 'warning', 'error', or 'critical'.
             * int: Standard Python logging level (10=DEBUG, 20=INFO, etc.).
             * None: Reads MNE_LOGGING_LEVEL environment variable, defaults to INFO.
+        automation_mode : bool, optional
+            Optional override to enable automation mode (disables backups).
+            If None, defers to task config or defaults to False.
 
 
         Examples
+
         --------
         >>> # Simple usage with custom output directory
         >>> pipeline = Pipeline(output_dir="results/", verbose="debug")
@@ -229,6 +239,7 @@ class Pipeline:
 
         # Configure logging first with output directory
         self.verbose = verbose
+        self.automation_mode_override = automation_mode
         mne_verbose = configure_logger(verbose, output_dir=self.output_dir)
         mne.set_log_level(mne_verbose)
 
@@ -262,6 +273,44 @@ class Pipeline:
             "success",
             f"✓ Pipeline initialized with output directory: {self.output_dir}",
         )
+
+    @staticmethod
+    def _coerce_bool(value: object) -> Optional[bool]:
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"true", "1", "yes", "y"}:
+                return True
+            if normalized in {"false", "0", "no", "n"}:
+                return False
+        return None
+
+    def _resolve_automation_mode(self, task: str) -> tuple[bool, str]:
+        if self.automation_mode_override is not None:
+            return self.automation_mode_override, "cli"
+
+        task_config = self.session_task_configs.get(task.lower()) or {}
+        config_value = task_config.get("automation_mode")
+        if config_value is None:
+            from autoclean.utils.task_discovery import extract_config_from_task
+
+            config_value = extract_config_from_task(task, "automation_mode")
+        resolved = self._coerce_bool(config_value)
+        if resolved is None:
+            return False, "default"
+        return resolved, "task_config"
+
+    def _resolve_auto_backup(self, automation_mode: bool) -> bool:
+        user_config_data = load_user_config()
+        auto_backup = user_config_data.get("workspace", {}).get("auto_backup", True)
+        if automation_mode:
+            return False
+        return bool(auto_backup)
 
     def _entrypoint(
         self, unprocessed_file: Path, task: str, run_id: Optional[str] = None
@@ -347,6 +396,14 @@ class Pipeline:
 
                 dataset_name = extract_config_from_task(task, "dataset_name")
 
+            automation_mode, automation_source = self._resolve_automation_mode(task)
+            auto_backup_enabled = self._resolve_auto_backup(automation_mode)
+            if automation_mode:
+                message(
+                    "info",
+                    f"Automation mode enabled ({automation_source}); backups disabled.",
+                )
+
             # Prepare directory structure for processing outputs
             (
                 autoclean_dir,  # Root output directory
@@ -359,7 +416,12 @@ class Pipeline:
                 ica_dir,  # ICA FIF storage directory
                 final_files_dir,  # Final processed files directory
                 backup_info,  # Optional backup move details
-            ) = step_prepare_directories(task, self.output_dir, dataset_name)
+            ) = step_prepare_directories(
+                task,
+                self.output_dir,
+                dataset_name,
+                auto_backup=auto_backup_enabled,
+            )
 
             task_root = logs_dir.parent
 
@@ -446,6 +508,9 @@ class Pipeline:
                             "ica": str(ica_dir),
                             "exports": str(final_files_dir),
                             "qa": str(metadata_dir.parent / "qa"),
+                            "auto_backup_enabled": auto_backup_enabled,
+                            "automation_mode": automation_mode,
+                            "automation_source": automation_source,
                         }
                     },
                 },
@@ -475,11 +540,15 @@ class Pipeline:
                 # BIDS derivatives root (used by FIF exports and other helpers)
                 "derivatives_dir": clean_dir,
                 "final_files_dir": final_files_dir,  # New final files directory
+                "automation_mode": automation_mode,
+                "automation_source": automation_source,
+                "auto_backup_enabled": auto_backup_enabled,
                 "config_hash": config_hash,
                 "config_b64": b64_config,
                 "task_hash": task_hash,
                 "task_b64": b64_task,
             }
+
             run_dict["participants_tsv_lock"] = self.participants_tsv_lock
 
             # Record full run configuration using audit protection

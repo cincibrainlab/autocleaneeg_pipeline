@@ -1,0 +1,82 @@
+---
+title: "RFC 003: Automation Mode Implementation"
+subtitle: "CLI and Task-Config Activation with Audit-Safe Backup Control"
+date: 2026-01-18
+---
+
+## Executive Summary
+
+Automation mode is now designed to be activated by either a CLI flag (`--automation`) or a task-config key (`automation_mode`) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows.
+
+## Requirements
+
+| Requirement | Rationale | Implementation Implication |
+|---|---|---|
+| Dual activation sources | Operators want CLI overrides and config defaults | CLI flag takes precedence over task config. |
+| Backup suppression | Automation needs idempotent output roots | Disable backups when automation mode is resolved `True`. |
+| Audit traceability | Compliance and debugging require evidence | Persist automation mode and source in metadata. |
+| Default safety | Manual workflows must remain unchanged | Maintain auto-backup when automation is not enabled. |
+
+: Table 1. Automation mode requirements and implications.
+
+## Automation Mode Precedence
+
+| Input | Scope | Precedence | Outcome |
+|---|---|---|---|
+| CLI `--automation` | Per run | Highest | Overrides task config for that invocation. |
+| Task config `automation_mode` | Per task | Default | Used when CLI flag is absent. |
+| Default | Global | Lowest | Falls back to `False`. |
+
+: Table 2. Automation mode precedence rules.
+
+::: callout-note
+## Precedence Rule
+CLI activation is explicit and must override any task-level default. The resolved source is logged alongside the run metadata for auditability.
+:::
+
+## Implementation Summary
+
+1. Extend `step_prepare_directories` to accept an `auto_backup` flag that controls whether existing task roots are backed up.
+2. Add an `automation_mode` override to `Pipeline`, with resolution logic that prefers CLI over task config.
+3. Propagate automation metadata into run records (`automation_mode`, `automation_source`, `auto_backup_enabled`).
+4. Add `--automation` to the `process` command and pass the override into the pipeline.
+5. Allow `automation_mode` in task module config via schema validation.
+
+## Code Changes
+
+| Area | Change | Rationale |
+|---|---|---|
+| `src/autoclean/utils/file_system.py` | `auto_backup` flag for directory prep | Allows reuse of task roots under automation. |
+| `src/autoclean/core/pipeline.py` | Resolve automation mode + metadata logging | Centralizes precedence and audit trail. |
+| `src/autoclean/cli.py` | `--automation` process flag | Enables explicit CLI activation. |
+| `src/autoclean/configkit/schema.py` | Allow `automation_mode` key | Validates task-level defaults. |
+
+: Table 3. Code updates for automation mode.
+
+## Validation
+
+Baseline CLI test command (run from repo root using `uv`):
+
+```bash
+uv run python -m autoclean.cli process \
+  --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" \
+  --file "/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set" \
+  --output "/Volumes/owcssd/test-workspace" \
+  --automation --yes
+```
+
+Result: The command completed successfully with automation mode enabled via CLI, creating outputs under `/Volumes/owcssd/test-workspace/BiotrialResting1020` and logging `automation_source=cli` in run metadata. Warnings observed included montage EOG channel positions, empty `participants.tsv` on first creation, BrainVision conversion notices, an ICLabel bandpass warning, ICA report pre-compute fallback (`mixing_` missing), and a channel-count mismatch (actual 30 vs expected 28).
+
+## Risks and Follow-Up
+
+- If task configs omit `automation_mode`, CLI activation remains the only automation trigger.
+- The automation flag does not currently allow an explicit CLI override to disable a `true` task default; add `--no-automation` if operators need that control.
+- Repeated automation runs rely on file-naming conventions to avoid overwrites; enforce policies from RFC 002 during implementation.
+
+## Appendix A: Files Reviewed
+
+- `src/autoclean/utils/file_system.py`
+- `src/autoclean/core/pipeline.py`
+- `src/autoclean/cli.py`
+- `src/autoclean/configkit/schema.py`
+- `plans/003-automation-mode/003-automation-mode.md`
