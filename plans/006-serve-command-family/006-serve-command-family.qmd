@@ -1,0 +1,41 @@
+---
+title: "RFC 006: Serve Command Family"
+subtitle: "List, Validate, Deploy for Serve Workspace Governance"
+date: 2026-01-18
+---
+
+## Executive Summary
+
+This RFC implements the additional `autocleaneeg-pipeline serve` commands required by RFC 002: `list`, `validate`, and `deploy`. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under `deploy/` after successful validation.
+
+## Command Overview
+
+| Command | Description |
+|---|---|
+| `serve list` | Report workspace path, YAML status, runtime folders, and automation directories. |
+| `serve validate --mode <test|live>` | Validate the operator YAML for structure, paths, and mode alignment. |
+| `serve deploy --mode <test|live>` | Copy validated YAML into `deploy/` and mark it read-only. |
+
+: Table 1. Serve command family additions.
+
+## Deployment Guardrails
+
+- Operator YAMLs (`serve-test.yaml`, `serve-live.yaml`) remain editable.
+- Deployed YAMLs live in `deploy/` and are marked read-only after deployment.
+- Validation checks required keys, runtime paths, automation root paths, and mode alignment.
+
+## Validation Steps
+
+```bash
+uv run python -m autoclean.cli serve list --path "/Volumes/owcssd/test-workspace/serve-workspace"
+uv run python -m autoclean.cli serve validate --mode test --path "/Volumes/owcssd/test-workspace/serve-workspace"
+uv run python -m autoclean.cli serve deploy --mode test --path "/Volumes/owcssd/test-workspace/serve-workspace"
+```
+
+Result: `serve list` reported expected workspace components and missing deployed YAMLs. `serve validate --mode test` succeeded with warnings for empty `taskfile`/`montage`. `serve deploy --mode test` created `deploy/serve-test.yaml`, marked it read-only, and preserved the warnings for incomplete operator fields.
+
+## Appendix A: Files Reviewed
+
+- `src/autoclean/cli.py`
+- `src/autoclean/utils/user_config.py`
+- `plans/006-serve-command-family/006-serve-command-family.md`

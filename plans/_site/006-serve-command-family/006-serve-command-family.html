@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-01-18">
 
-<title>main-plan – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 006: Serve Command Family – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,27 +21,62 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -79,9 +115,9 @@ ul.task-list li input[type="checkbox"] {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a href="./index.html" class="navbar-brand navbar-brand-logo">
+    <a href="../index.html" class="navbar-brand navbar-brand-logo">
     </a>
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">AutoCleanEEG Pipeline Plans</span>
     </a>
   </div>
@@ -92,31 +128,31 @@ ul.task-list li input[type="checkbox"] {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="./index.html"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./001-intro-big-picture/001-intro-big-picture.html"> 
+    <a class="nav-link" href="../001-intro-big-picture/001-intro-big-picture.html"> 
 <span class="menu-text">Introduction</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./002-automation-idempotency/002-automation-idempotency.html"> 
+    <a class="nav-link" href="../002-automation-idempotency/002-automation-idempotency.html"> 
 <span class="menu-text">Automation Idempotency</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./003-automation-mode/003-automation-mode.html"> 
+    <a class="nav-link" href="../003-automation-mode/003-automation-mode.html"> 
 <span class="menu-text">Automation Mode</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./004-automation-mode-validation/004-automation-mode-validation.html"> 
+    <a class="nav-link" href="../004-automation-mode-validation/004-automation-mode-validation.html"> 
 <span class="menu-text">Automation Validation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./005-serve-workspace/005-serve-workspace.html"> 
+    <a class="nav-link" href="../005-serve-workspace/005-serve-workspace.html"> 
 <span class="menu-text">Serve Workspace</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./006-serve-command-family/006-serve-command-family.html"> 
+    <a class="nav-link active" href="../006-serve-command-family/006-serve-command-family.html" aria-current="page"> 
 <span class="menu-text">Serve Commands</span></a>
   </li>  
 </ul>
@@ -132,26 +168,93 @@ ul.task-list li input[type="checkbox"] {
 <!-- margin-sidebar -->
     
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">RFC 006: Serve Command Family</h1>
+<p class="subtitle lead">List, Validate, Deploy for Serve Workspace Governance</p>
+</div>
 
 
 
+<div class="quarto-title-meta">
 
-<p>pre-instruction hooks: - please make a surgical git commit before edits - do not edit this file under any circumstance overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs.&nbsp;appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf</p>
-<p>Instruction sets:</p>
-<p>new rfc for implementing automation mode (activated by cli or yaml key) plan carefully and implement</p>
-<p>you can easily test as I placed an area for you to define the workspace to this folder /Volumes/owcssd/test-workspace</p>
-<p>and sample resting data is here: /Volumes/owcssd/test-data/resting-eeg-32ch</p>
-<p>and proper task file (with proper montage here) /Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py</p>
-<p>and do a baseline test with autocleaneeg-pipeline cli</p>
-<p>[Done] new task: do a test on 2 files as separate runs with the flag the output should be the same as batch mode (i.e.&nbsp;doing a folder of files) two resultant files should be there the logs should be additive you can actually run folder mode and then the individual files twice and compare the two</p>
-<p>new task: Let’s implement the first autocleaneeg-pipeline serve cli command workspace this will setup the serve-test.yaml and serve-live.yaml setup the automation folder we should have runtimes of autocleaneeg-pipeline for test and live use uv tools to setup the environment in each test and live runtime folder when users type autocleaneeg-pipeline serve workspace if an existing automation workspace folder parameter is already in the autocleaneeg json (like the workspace folder and other settings) you display it or you show now automation workspace folder defined 1. define new automation workspace folder 2. link to existing automation workspace folder the user can do this if a new folder it is setup if it old folder it is validated you and implement and start basic testing</p>
-<p>updated: the autocleaneeg-pipeline serve <cmd> family includes workspace - set or edit current autocleaneeg-pipeline serve workspace directory list - what automations are configured in the directory (test and live clearly labeled) validate - test the config file with a dry run (live or test) deploy - deploy (live or test)</cmd></p>
-<p>since we want to have 100% uptime the serve-test.yaml and serve-live.yaml sit in the autocleaneeg-pipeline serve workspace dir (as it is now) the user can edit these, but there is a production set of yaml files that the automations run on that are read only until it is deployed so prior to replacing them the autocleaneeg-pipeline serve command must validate those rigorously and then replace the deployed versions</p>
-<p>Clean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder</p>
-<p>Post Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - specific project instructions if needed:</p>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 18, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
 
 
+</header>
+
+
+<section id="executive-summary" class="level2">
+<h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
+<p>This RFC implements the additional <code>autocleaneeg-pipeline serve</code> commands required by RFC 002: <code>list</code>, <code>validate</code>, and <code>deploy</code>. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under <code>deploy/</code> after successful validation.</p>
+</section>
+<section id="command-overview" class="level2">
+<h2 class="anchored" data-anchor-id="command-overview">Command Overview</h2>
+<table class="caption-top table">
+<caption>Table 1. Serve command family additions.</caption>
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Command</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>serve list</code></td>
+<td>Report workspace path, YAML status, runtime folders, and automation directories.</td>
+</tr>
+<tr class="even">
+<td><code>serve validate --mode &lt;test|live&gt;</code></td>
+<td>Validate the operator YAML for structure, paths, and mode alignment.</td>
+</tr>
+<tr class="odd">
+<td><code>serve deploy --mode &lt;test|live&gt;</code></td>
+<td>Copy validated YAML into <code>deploy/</code> and mark it read-only.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="deployment-guardrails" class="level2">
+<h2 class="anchored" data-anchor-id="deployment-guardrails">Deployment Guardrails</h2>
+<ul>
+<li>Operator YAMLs (<code>serve-test.yaml</code>, <code>serve-live.yaml</code>) remain editable.</li>
+<li>Deployed YAMLs live in <code>deploy/</code> and are marked read-only after deployment.</li>
+<li>Validation checks required keys, runtime paths, automation root paths, and mode alignment.</li>
+</ul>
+</section>
+<section id="validation-steps" class="level2">
+<h2 class="anchored" data-anchor-id="validation-steps">Validation Steps</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli serve list <span class="at">--path</span> <span class="st">"/Volumes/owcssd/test-workspace/serve-workspace"</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli serve validate <span class="at">--mode</span> test <span class="at">--path</span> <span class="st">"/Volumes/owcssd/test-workspace/serve-workspace"</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli serve deploy <span class="at">--mode</span> test <span class="at">--path</span> <span class="st">"/Volumes/owcssd/test-workspace/serve-workspace"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Result: <code>serve list</code> reported expected workspace components and missing deployed YAMLs. <code>serve validate --mode test</code> succeeded with warnings for empty <code>taskfile</code>/<code>montage</code>. <code>serve deploy --mode test</code> created <code>deploy/serve-test.yaml</code>, marked it read-only, and preserved the warnings for incomplete operator fields.</p>
+</section>
+<section id="appendix-a-files-reviewed" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
+<ul>
+<li><code>src/autoclean/cli.py</code></li>
+<li><code>src/autoclean/utils/user_config.py</code></li>
+<li><code>plans/006-serve-command-family/006-serve-command-family.md</code></li>
+</ul>
+
+
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

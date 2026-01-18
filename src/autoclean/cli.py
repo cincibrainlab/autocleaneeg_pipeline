@@ -2202,7 +2202,53 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Package spec or path for runtime install",
     )
 
+    serve_list = serve_subparsers.add_parser(
+        "list", help="List serve workspace status", add_help=False
+    )
+    attach_rich_help(serve_list)
+    serve_list.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
+    serve_validate = serve_subparsers.add_parser(
+        "validate", help="Validate serve YAML configuration", add_help=False
+    )
+    attach_rich_help(serve_validate)
+    serve_validate.add_argument(
+        "--mode",
+        choices=["test", "live"],
+        default="test",
+        help="Config mode to validate",
+    )
+    serve_validate.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
+    serve_deploy = serve_subparsers.add_parser(
+        "deploy", help="Deploy serve YAML configuration", add_help=False
+    )
+    attach_rich_help(serve_deploy)
+    serve_deploy.add_argument(
+        "--mode",
+        choices=["test", "live"],
+        default="test",
+        help="Config mode to deploy",
+    )
+    serve_deploy.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+
     # Version command
+
     _version = subparsers.add_parser(
         "version", help="Show version information", add_help=False
     )  # Help command (for consistency)
@@ -8936,19 +8982,130 @@ def cmd_serve(args) -> int:
         return cmd_serve_docs(args)
     if action == "workspace":
         return cmd_serve_workspace(args)
+    if action == "list":
+        return cmd_serve_list(args)
+    if action == "validate":
+        return cmd_serve_validate(args)
+    if action == "deploy":
+        return cmd_serve_deploy(args)
     message("error", f"Unknown serve action: {action}")
     return 1
 
 
 def _serve_workspace_paths(workspace_dir: Path) -> dict[str, Path]:
     runtimes_dir = workspace_dir / "runtimes"
+    deploy_dir = workspace_dir / "deploy"
     return {
         "serve_test": workspace_dir / "serve-test.yaml",
         "serve_live": workspace_dir / "serve-live.yaml",
         "runtimes_test": runtimes_dir / "test",
         "runtimes_live": runtimes_dir / "live",
         "automations": workspace_dir / "automations",
+        "deploy": deploy_dir,
+        "deploy_test": deploy_dir / "serve-test.yaml",
+        "deploy_live": deploy_dir / "serve-live.yaml",
     }
+
+
+def _resolve_serve_workspace_dir(path_arg: Optional[Path]) -> Optional[Path]:
+    if path_arg is not None:
+        return path_arg.expanduser().resolve()
+    stored = user_config.get_serve_workspace()
+    if stored is None:
+        return None
+    return stored.expanduser().resolve()
+
+
+def _ensure_deploy_dir(paths: dict[str, Path]) -> None:
+    deploy_dir = paths["deploy"]
+    if not deploy_dir.exists():
+        deploy_dir.mkdir(parents=True, exist_ok=True)
+        message("info", f"Created deploy directory: {deploy_dir}")
+
+
+def _resolve_config_path(paths: dict[str, Path], mode: str, deployed: bool) -> Path:
+    key = "deploy_test" if deployed else "serve_test"
+    if mode == "live":
+        key = "deploy_live" if deployed else "serve_live"
+    return paths[key]
+
+
+def _load_serve_yaml(config_path: Path) -> Optional[dict]:
+    if not config_path.exists():
+        message("error", f"Missing config: {config_path}")
+        return None
+    try:
+        with open(config_path, "r", encoding="utf-8") as f:
+            data = yaml.safe_load(f)
+    except Exception as exc:
+        message("error", f"Failed to read {config_path}: {exc}")
+        return None
+    if not isinstance(data, dict):
+        message("error", f"Config must be a mapping: {config_path}")
+        return None
+    return data
+
+
+def _validate_serve_yaml(config: dict, mode: str, workspace_dir: Path) -> bool:
+    errors = []
+    warnings = []
+    required_keys = [
+        "mode",
+        "runtime",
+        "automation_root",
+        "workspace_name",
+        "ingestion_folders",
+    ]
+    for key in required_keys:
+        if key not in config:
+            errors.append(f"Missing required key: {key}")
+
+    if errors:
+        for err in errors:
+            message("error", err)
+        return False
+
+    if str(config.get("mode")) != mode:
+        message("error", f"Config mode '{config.get('mode')}' does not match '{mode}'")
+        return False
+
+    runtime_value = config.get("runtime")
+    if not isinstance(runtime_value, str):
+        message("error", "runtime must be a string path")
+        return False
+    runtime_path = Path(runtime_value)
+    if not runtime_path.is_absolute():
+        runtime_path = (workspace_dir / runtime_path).resolve()
+    if not runtime_path.exists():
+        message("error", f"Runtime path not found: {runtime_path}")
+        return False
+
+    automation_root = config.get("automation_root")
+    if not isinstance(automation_root, str):
+        message("error", "automation_root must be a string path")
+        return False
+    automation_path = Path(automation_root)
+    if not automation_path.is_absolute():
+        automation_path = (workspace_dir / automation_path).resolve()
+    if not automation_path.exists():
+        message("error", f"Automation root not found: {automation_path}")
+        return False
+
+    ingestion_folders = config.get("ingestion_folders")
+    if not isinstance(ingestion_folders, list):
+        message("error", "ingestion_folders must be a list")
+        return False
+
+    if not config.get("taskfile"):
+        warnings.append("taskfile is empty")
+    if not config.get("montage"):
+        warnings.append("montage is empty")
+    if config.get("automation_mode") is not True:
+        warnings.append("automation_mode is not true")
+
+    for warn in warnings:
+        message("warning", warn)
+    return True
 
 
 def _write_serve_yaml(
@@ -9038,7 +9195,14 @@ def _setup_runtime(
 
 
 def _validate_serve_workspace(paths: dict[str, Path]) -> bool:
-    missing = [path for path in paths.values() if not path.exists()]
+    required_keys = [
+        "serve_test",
+        "serve_live",
+        "runtimes_test",
+        "runtimes_live",
+        "automations",
+    ]
+    missing = [paths[key] for key in required_keys if not paths[key].exists()]
     if missing:
         for path in missing:
             message("error", f"Missing serve workspace component: {path}")
@@ -9101,7 +9265,9 @@ def cmd_serve_workspace(args) -> int:
             workspace_dir,
             args.package,
         )
+        _ensure_deploy_dir(paths)
     elif mode == "existing":
+        _ensure_deploy_dir(paths)
         if not _validate_serve_workspace(paths):
             return 1
     else:
@@ -9131,6 +9297,92 @@ def cmd_serve_workspace(args) -> int:
         message("warning", "Failed to persist serve workspace setting")
     else:
         message("success", f"✓ Serve workspace configured: {workspace_dir}")
+    return 0
+
+
+def cmd_serve_list(args) -> int:
+    """List serve workspace status and automations."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    paths = _serve_workspace_paths(workspace_dir)
+    message("info", f"Serve workspace: {workspace_dir}")
+
+    items = [
+        ("serve-test.yaml", paths["serve_test"]),
+        ("serve-live.yaml", paths["serve_live"]),
+        ("deploy/serve-test.yaml", paths["deploy_test"]),
+        ("deploy/serve-live.yaml", paths["deploy_live"]),
+        ("runtimes/test", paths["runtimes_test"]),
+        ("runtimes/live", paths["runtimes_live"]),
+    ]
+    for label, path in items:
+        status = "present" if path.exists() else "missing"
+        message("info", f"{label}: {status}")
+
+    automations_dir = paths["automations"]
+    if automations_dir.exists():
+        automations = sorted([p.name for p in automations_dir.iterdir() if p.is_dir()])
+        message("info", f"Automations: {len(automations)}")
+        for name in automations:
+            message("info", f"- {name}")
+    else:
+        message("warning", f"Automations directory missing: {automations_dir}")
+    return 0
+
+
+def cmd_serve_validate(args) -> int:
+    """Validate serve configuration YAML."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    mode = args.mode
+    paths = _serve_workspace_paths(workspace_dir)
+    config_path = _resolve_config_path(paths, mode, deployed=False)
+    config = _load_serve_yaml(config_path)
+    if config is None:
+        return 1
+
+    if not _validate_serve_yaml(config, mode, workspace_dir):
+        return 1
+
+    message("success", f"✓ Serve {mode} config validated: {config_path}")
+    return 0
+
+
+def cmd_serve_deploy(args) -> int:
+    """Deploy serve configuration YAML after validation."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    mode = args.mode
+    paths = _serve_workspace_paths(workspace_dir)
+    config_path = _resolve_config_path(paths, mode, deployed=False)
+    config = _load_serve_yaml(config_path)
+    if config is None:
+        return 1
+
+    if not _validate_serve_yaml(config, mode, workspace_dir):
+        return 1
+
+    _ensure_deploy_dir(paths)
+    deploy_path = _resolve_config_path(paths, mode, deployed=True)
+    try:
+        if deploy_path.exists():
+            deploy_path.chmod(0o644)
+        shutil.copy2(config_path, deploy_path)
+        deploy_path.chmod(0o444)
+    except Exception as exc:
+        message("error", f"Failed to deploy config: {exc}")
+        return 1
+
+    message("success", f"✓ Deployed {mode} config to {deploy_path}")
     return 0
 
 
