@@ -71,7 +71,16 @@ new task:
     if it old folder it is validated
     you and implement and start basic testing
     
+updated:
+the autocleaneeg-pipeline serve <cmd> family includes
+    workspace - set or edit current autocleaneeg-pipeline serve workspace directory
+    list - what automations are configured in the directory (test and live clearly labeled)
+    validate - test the config file with a dry run (live or test)
+    deploy  - deploy (live or test)
 
+since we want to have 100% uptime the serve-test.yaml and serve-live.yaml sit in the autocleaneeg-pipeline serve workspace dir (as it is now)
+the user can edit these, but there is a production set of yaml files that the automations run on that are read only until it is deployed
+so prior to replacing them the autocleaneeg-pipeline serve command must validate those rigorously and then replace the deployed versions
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
