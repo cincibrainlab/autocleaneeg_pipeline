@@ -9,10 +9,12 @@ standalone tool (via uv tool) and within development environments.
 # Load .env file early for OpenAI and other environment variables
 try:
     from dotenv import load_dotenv
+
     load_dotenv()  # Load from current directory
     # Also try common project locations
     for env_path in [".env", "../.env", "~/.autoclean/.env"]:
         from pathlib import Path
+
         p = Path(env_path).expanduser()
         if p.exists():
             load_dotenv(p, override=False)
@@ -576,8 +578,10 @@ def _render_input_summary(console, *, input_path: Path) -> None:
         "Use [accent]input show[/accent] to verify or [accent]input unset[/accent] to clear",
     ]
 
-    body = "\n".join(details) + "\n\n[header]Next steps[/header]\n" + "\n".join(
-        f"  • {step}" for step in next_steps
+    body = (
+        "\n".join(details)
+        + "\n\n[header]Next steps[/header]\n"
+        + "\n".join(f"  • {step}" for step in next_steps)
     )
 
     console.print()
@@ -614,8 +618,10 @@ def _render_task_set_summary(console, *, task_name: str) -> None:
         "Use [accent]task show[/accent] for details or [accent]task edit[/accent] to open it",
     ]
 
-    body = "\n".join(details) + "\n\n[header]Next steps[/header]\n" + "\n".join(
-        f"  • {step}" for step in next_steps
+    body = (
+        "\n".join(details)
+        + "\n\n[header]Next steps[/header]\n"
+        + "\n".join(f"  • {step}" for step in next_steps)
     )
 
     console.print()
@@ -1228,28 +1234,29 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     )
     # Replace error method with custom handler after subparsers are created
     original_error = task_parser.error
-    
+
     def custom_task_error(message: str) -> None:
         """Custom error handler for task subcommands."""
         # Check if this is an invalid choice error for task_action
         if "invalid choice" in message.lower() and "task_action" in message:
             # Extract the invalid action from the error message
             import re
+
             match = re.search(r"invalid choice: '([^']+)'", message)
             invalid_action = match.group(1) if match else "unknown"
-            
+
             # Get valid actions from task_parser's subparsers action
             valid_actions = []
             for action in task_parser._actions:
                 if isinstance(action, argparse._SubParsersAction):
                     valid_actions = sorted(action.choices.keys())
                     break
-            
+
             # Show custom error message
             # Use a throwaway console so we don't mutate the global theme cache
             console = make_console()
             console.print()
-            
+
             # Build command descriptions dynamically
             command_descriptions = {
                 "list": "List available tasks",
@@ -1269,13 +1276,13 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
                 "diff": "Compare task versions",
                 "schema": "View task schema",
             }
-            
+
             commands_text = "\n".join(
                 f"  [accent]task {action}[/accent]"
                 f"{' ' * (20 - len(action) - 5)}{command_descriptions.get(action, '')}"
                 for action in valid_actions
             )
-            
+
             console.print(
                 Panel(
                     f"[error]Unknown task command:[/error] [accent]'{invalid_action}'[/accent]\n\n"
@@ -1288,10 +1295,10 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
             )
             console.print()
             sys.exit(2)
-        
+
         # For other errors, use default argparse behavior
         original_error(message)
-    
+
     attach_rich_help(task_parser)
     task_subparsers = task_parser.add_subparsers(
         dest="task_action", help="Task actions"
@@ -2127,6 +2134,24 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
     view_parser.add_argument("file", nargs="?", type=Path, help="Path to EEG file")
     view_parser.add_argument(
         "--no-view", action="store_true", help="Validate without viewing"
+    )
+
+    # Serve command
+    serve_parser = subparsers.add_parser(
+        "serve", help="Serve the plans quarto website", add_help=False
+    )
+    attach_rich_help(serve_parser)
+    serve_parser.add_argument(
+        "--port",
+        type=int,
+        default=4000,
+        help="Port to serve on (default: 4000)",
+    )
+    serve_parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Host to bind to (default: 127.0.0.1)",
     )
 
     # Version command
@@ -3559,8 +3584,7 @@ def _load_xdat_via_neo(file_path: Path, montage_name: str = "MouseEEGv2_H32"):
 
         if not NEO_AVAILABLE:
             raise ImportError(
-                "Neo package is required for XDAT files. "
-                "Install with: pip install neo"
+                "Neo package is required for XDAT files. Install with: pip install neo"
             )
 
         import mne
@@ -4627,9 +4651,9 @@ def _simple_header(
     console.print()
 
 
-def _wizard_collect_state() -> (
-    Tuple[Path, bool, Optional[str], Optional[Path], Optional[str], Optional[str]]
-):
+def _wizard_collect_state() -> Tuple[
+    Path, bool, Optional[str], Optional[Path], Optional[str], Optional[str]
+]:
     """Gather current workspace, task, montage, and input state for summaries."""
 
     workspace_dir = user_config.config_dir
@@ -5562,9 +5586,9 @@ def _setup_compliance_mode() -> int:
         user_config_data["compliance"]["require_electronic_signatures"] = (
             signature_answer["require_signatures"]
         )
-        user_config_data["workspace"][
-            "auto_backup"
-        ] = True  # Always enabled for compliance
+        user_config_data["workspace"]["auto_backup"] = (
+            True  # Always enabled for compliance
+        )
 
         save_user_config(user_config_data)
 
@@ -6934,7 +6958,7 @@ def cmd_task_install(args) -> int:
                 else:
                     console.print(
                         f"[error]✗[/error] Task '{task_name}' already exists. Use --force to overwrite."
-                )
+                    )
                 return 1
             else:
                 # Install task
@@ -7309,7 +7333,7 @@ def cmd_task_diagnose(args) -> int:
             for f in filenames:
                 fp = os.path.join(dirpath, f)
                 total_size += os.path.getsize(fp)
-        cache_size = f"{total_size / (1024*1024):.1f} MB"
+        cache_size = f"{total_size / (1024 * 1024):.1f} MB"
     except Exception:
         pass
 
@@ -7518,7 +7542,6 @@ def cmd_task_search(args) -> int:
                     or query in description.lower()
                     or query in category.lower()
                 ):
-
                     # Check if installed
                     workspace_path = user_config.tasks_dir / f"{name}.py"
                     status = "installed" if workspace_path.exists() else "available"
@@ -7651,9 +7674,7 @@ def cmd_input(args) -> int:
 def cmd_source_set(args) -> int:
     """Set the active input path (stored internally as 'source')."""
     try:
-        console = get_console(
-            args if isinstance(args, argparse.Namespace) else None
-        )
+        console = get_console(args if isinstance(args, argparse.Namespace) else None)
         source_path = getattr(args, "source_path", None)
         source_path = _strip_wrapping_quotes(source_path)
 
@@ -7855,7 +7876,9 @@ def cmd_events_analyze(args) -> int:
         mask = events_all[:, 2] == code
         occurrences = times_sec[mask]
         intervals = (
-            np.diff(occurrences) if occurrences is not None and len(occurrences) > 1 else np.array([])
+            np.diff(occurrences)
+            if occurrences is not None and len(occurrences) > 1
+            else np.array([])
         )
         stats.append(
             {
@@ -7900,7 +7923,7 @@ def cmd_events_analyze(args) -> int:
     if duration > 0:
         rate_per_min = (total_events / duration) * 60
         console.print(
-            f"\n[muted]Run duration:[/muted] {duration/60:.1f} min • "
+            f"\n[muted]Run duration:[/muted] {duration / 60:.1f} min • "
             f"[muted]Average rate:[/muted] {rate_per_min:.1f} events/min"
         )
 
@@ -7927,9 +7950,7 @@ def cmd_events_analyze(args) -> int:
                         )
                     )
             if long_gaps:
-                console.print(
-                    f"\n[header]Gaps > {gap_threshold:.1f}s[/header]"
-                )
+                console.print(f"\n[header]Gaps > {gap_threshold:.1f}s[/header]")
                 for gap, start_time, from_evt, to_evt in long_gaps[:5]:
                     console.print(
                         f"  • {_fmt_time(start_time)} → {_fmt_time(start_time + gap)}"
@@ -8051,7 +8072,9 @@ def cmd_events_epochs(args) -> int:
     table.add_column("Bad %", justify="right")
 
     rows = []
-    for label, rec in sorted(summary.items(), key=lambda kv: kv[1]["count"], reverse=True):
+    for label, rec in sorted(
+        summary.items(), key=lambda kv: kv[1]["count"], reverse=True
+    ):
         pct = _pct(rec["count"], total)
         bad_pct = _pct(rec["bad"], rec["count"]) if rec["count"] else 0.0
         rows.append(
@@ -8091,6 +8114,7 @@ def cmd_events_epochs(args) -> int:
         message("warning", f"Could not write sidecar CSV: {exc}")
 
     return 0
+
 
 def cmd_config(args) -> int:
     """Execute configuration management commands."""
@@ -8849,6 +8873,44 @@ def cmd_view(args) -> int:
         return 1
     except Exception as exc:  # Broad guard: renderer/backend issues, etc.
         message("error", f"Failed to launch viewer: {exc}")
+        return 1
+
+
+def cmd_serve(args) -> int:
+    """Serve the plans quarto website."""
+    plans_dir = Path("plans")
+    if not plans_dir.exists():
+        message("error", "Plans directory not found")
+        return 1
+
+    # Check if quarto is available
+    try:
+        import subprocess
+
+        result = subprocess.run(["quarto", "--version"], capture_output=True, text=True)
+        if result.returncode != 0:
+            message("error", "Quarto not found. Please install quarto CLI.")
+            return 1
+    except FileNotFoundError:
+        message("error", "Quarto not found. Please install quarto CLI.")
+        return 1
+
+    # Run quarto serve
+    cmd = [
+        "quarto",
+        "serve",
+        str(plans_dir),
+        "--port",
+        str(args.port),
+        "--host",
+        args.host,
+    ]
+    message("info", f"Starting quarto serve on http://{args.host}:{args.port}")
+    try:
+        subprocess.run(cmd)
+        return 0
+    except Exception as e:
+        message("error", f"Failed to serve: {e}")
         return 1
 
 
@@ -9983,6 +10045,8 @@ def main(argv: Optional[list] = None) -> int:
             return _finish(cmd_clean_task(args))
         if args.command == "view":
             return _finish(cmd_view(args))
+        if args.command == "serve":
+            return _finish(cmd_serve(args))
         if args.command == "report":
             return _finish(cmd_report(args))
         if args.command == "version":
