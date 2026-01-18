@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-01-18">
 
-<title>AutoCleanEEG Pipeline Plans</title>
+<title>RFC 004: Automation Mode Validation – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -23,24 +24,24 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -79,9 +80,9 @@ ul.task-list li input[type="checkbox"] {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a href="./index.html" class="navbar-brand navbar-brand-logo">
+    <a href="../index.html" class="navbar-brand navbar-brand-logo">
     </a>
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">AutoCleanEEG Pipeline Plans</span>
     </a>
   </div>
@@ -92,23 +93,23 @@ ul.task-list li input[type="checkbox"] {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link active" href="./index.html" aria-current="page"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./001-intro-big-picture/001-intro-big-picture.html"> 
+    <a class="nav-link" href="../001-intro-big-picture/001-intro-big-picture.html"> 
 <span class="menu-text">Introduction</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./002-automation-idempotency/002-automation-idempotency.html"> 
+    <a class="nav-link" href="../002-automation-idempotency/002-automation-idempotency.html"> 
 <span class="menu-text">Automation Idempotency</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./003-automation-mode/003-automation-mode.html"> 
+    <a class="nav-link" href="../003-automation-mode/003-automation-mode.html"> 
 <span class="menu-text">Automation Mode</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./004-automation-mode-validation/004-automation-mode-validation.html"> 
+    <a class="nav-link active" href="../004-automation-mode-validation/004-automation-mode-validation.html" aria-current="page"> 
 <span class="menu-text">Automation Validation</span></a>
   </li>  
 </ul>
@@ -124,31 +125,134 @@ ul.task-list li input[type="checkbox"] {
 <!-- margin-sidebar -->
     
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">RFC 004: Automation Mode Validation</h1>
+<p class="subtitle lead">Batch vs Single-File Parity under Automation Flag</p>
+</div>
 
 
 
+<div class="quarto-title-meta">
 
-<section id="autocleaneeg-pipeline-plans" class="level1">
-<h1>AutoCleanEEG Pipeline Plans</h1>
-<p>Welcome to the AutoCleanEEG Pipeline Plans website.</p>
-<p>This site contains the planning documents and instruction sets for the pipeline development.</p>
-<section id="documents" class="level2">
-<h2 class="anchored" data-anchor-id="documents">Documents</h2>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 18, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="executive-summary" class="level2">
+<h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
+<p>This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the <code>--automation</code> flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity.</p>
+</section>
+<section id="test-plan" class="level2">
+<h2 class="anchored" data-anchor-id="test-plan">Test Plan</h2>
+<table class="caption-top table">
+<caption>Table 1. Automation validation commands and output roots.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Step</th>
+<th>Command</th>
+<th>Output Root</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Batch mode</td>
+<td><code>uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --dir "/Volumes/owcssd/test-data/resting-eeg-32ch" --format "*.set" --output "/Volumes/owcssd/test-workspace/automation-validation/batch" --automation --yes</code></td>
+<td><code>.../automation-validation/batch</code></td>
+</tr>
+<tr class="even">
+<td>Single file 1</td>
+<td><code>uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --file "/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set" --output "/Volumes/owcssd/test-workspace/automation-validation/individual" --automation --yes</code></td>
+<td><code>.../automation-validation/individual</code></td>
+</tr>
+<tr class="odd">
+<td>Single file 2</td>
+<td><code>uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --file "/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EC.set" --output "/Volumes/owcssd/test-workspace/automation-validation/individual" --automation --yes</code></td>
+<td><code>.../automation-validation/individual</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="results" class="level2">
+<h2 class="anchored" data-anchor-id="results">Results</h2>
+<p>Batch mode completed successfully for both <code>.set</code> files, producing exports under <code>/Volumes/owcssd/test-workspace/automation-validation/batch/BiotrialResting1020</code>. The two single-file runs also completed successfully, reusing <code>/Volumes/owcssd/test-workspace/automation-validation/individual/BiotrialResting1020</code> on the second run with auto-backup disabled. Both modes generated identical export filenames and per-run report artifacts.</p>
 <ul>
-<li><a href="main-plan.html">Main Plan</a></li>
-<li><a href="001-intro-big-picture/001-intro-big-picture.html">Introduction</a></li>
-<li><a href="002-automation-idempotency/002-automation-idempotency.html">Automation Idempotency Preparation</a></li>
-<li><a href="003-automation-mode/003-automation-mode.html">Automation Mode Implementation</a></li>
-<li><a href="004-automation-mode-validation/004-automation-mode-validation.html">Automation Mode Validation</a></li>
+<li>Batch run IDs: <code>01KF9E7S7ZDMT3FGH10TV0HAHS</code> (EO), <code>01KF9E88T8PS4WKGDBH691EZP1</code> (EC)</li>
+<li>Individual run IDs: <code>01KF9E9WHKQ402RTSZDP6AFCMT</code> (EO), <code>01KF9ET66JF0RNV9MD6RSGDZQ8</code> (EC)</li>
+<li>Exports: <code>201001_D1BL_EO_comp_epo.set</code>, <code>201001_D1BL_EC_comp_epo.set</code>, plus per-file processing logs in <code>exports/</code></li>
+<li>Reports: per-file PDF, metadata JSON, flagged-channel TSV, and processing logs in <code>reports/run_reports/</code></li>
 </ul>
 </section>
-<section id="navigation" class="level2">
-<h2 class="anchored" data-anchor-id="navigation">Navigation</h2>
-<p>Use the navbar above to navigate the site.</p>
-
-
+<section id="comparison-summary" class="level2">
+<h2 class="anchored" data-anchor-id="comparison-summary">Comparison Summary</h2>
+<table class="caption-top table">
+<caption>Table 2. Batch vs single-file parity checkpoints.</caption>
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Checkpoint</th>
+<th>Batch Mode</th>
+<th>Single-File Runs</th>
+<th>Outcome</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Exported <code>.set</code> files</td>
+<td>2 files (<code>EO</code>, <code>EC</code>)</td>
+<td>2 files (<code>EO</code>, <code>EC</code>)</td>
+<td>Match</td>
+</tr>
+<tr class="even">
+<td>Processing log entries</td>
+<td><code>preprocessing_log.csv</code> has 2 rows</td>
+<td><code>preprocessing_log.csv</code> has 2 rows</td>
+<td>Match</td>
+</tr>
+<tr class="odd">
+<td>Automation mode recorded</td>
+<td>CLI enabled; backups disabled</td>
+<td>CLI enabled; reuse existing task root</td>
+<td>Match</td>
+</tr>
+</tbody>
+</table>
 </section>
+<section id="warnings-and-observations" class="level2">
+<h2 class="anchored" data-anchor-id="warnings-and-observations">Warnings and Observations</h2>
+<p>Recurring warnings included EOG montage position defaults, initial empty <code>participants.tsv</code>, BrainVision conversion with float32 casting, ICLabel bandpass expectations, ICA report pre-computation fallback (<code>mixing_</code> missing), and channel-count mismatches (actual 30 vs expected 27–28). None of these warnings prevented completion, and outputs remained consistent across batch and individual runs.</p>
+</section>
+<section id="appendix-a-files-reviewed" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
+<ul>
+<li><code>plans/004-automation-mode-validation/004-automation-mode-validation.md</code></li>
+</ul>
+
+
 </section>
 
 </main> <!-- /main -->

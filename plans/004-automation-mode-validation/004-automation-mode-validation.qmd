@@ -20,21 +20,26 @@ This RFC validates that automation mode produces equivalent outputs when process
 
 ## Results
 
-_Result details will be populated after execution._
+Batch mode completed successfully for both `.set` files, producing exports under `/Volumes/owcssd/test-workspace/automation-validation/batch/BiotrialResting1020`. The two single-file runs also completed successfully, reusing `/Volumes/owcssd/test-workspace/automation-validation/individual/BiotrialResting1020` on the second run with auto-backup disabled. Both modes generated identical export filenames and per-run report artifacts.
+
+- Batch run IDs: `01KF9E7S7ZDMT3FGH10TV0HAHS` (EO), `01KF9E88T8PS4WKGDBH691EZP1` (EC)
+- Individual run IDs: `01KF9E9WHKQ402RTSZDP6AFCMT` (EO), `01KF9ET66JF0RNV9MD6RSGDZQ8` (EC)
+- Exports: `201001_D1BL_EO_comp_epo.set`, `201001_D1BL_EC_comp_epo.set`, plus per-file processing logs in `exports/`
+- Reports: per-file PDF, metadata JSON, flagged-channel TSV, and processing logs in `reports/run_reports/`
 
 ## Comparison Summary
 
 | Checkpoint | Batch Mode | Single-File Runs | Outcome |
 |---|---|---|---|
-| Exported `.set` files | Pending | Pending | Pending |
-| Processing log entries | Pending | Pending | Pending |
-| Automation mode recorded | Pending | Pending | Pending |
+| Exported `.set` files | 2 files (`EO`, `EC`) | 2 files (`EO`, `EC`) | Match |
+| Processing log entries | `preprocessing_log.csv` has 2 rows | `preprocessing_log.csv` has 2 rows | Match |
+| Automation mode recorded | CLI enabled; backups disabled | CLI enabled; reuse existing task root | Match |
 
 : Table 2. Batch vs single-file parity checkpoints.
 
 ## Warnings and Observations
 
-Pending execution.
+Recurring warnings included EOG montage position defaults, initial empty `participants.tsv`, BrainVision conversion with float32 casting, ICLabel bandpass expectations, ICA report pre-computation fallback (`mixing_` missing), and channel-count mismatches (actual 30 vs expected 27–28). None of these warnings prevented completion, and outputs remained consistent across batch and individual runs.
 
 ## Appendix A: Files Reviewed
 

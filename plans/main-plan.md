@@ -72,6 +72,5 @@ Post Instruction hooks:
 - make a surgical git commit of your edits
 - update plans/main-plan-log.csv
     Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters.
-- serve the website on localhost on port 10910 as a background process to not interfer
 - specific project instructions
     if needed:
