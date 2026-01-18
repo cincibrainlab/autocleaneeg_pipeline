@@ -99,6 +99,14 @@ new task:
     i think hashing (which the pipeline already does for original files) may help with duplicates
     i want to hear more
 
+new task:
+    for data provinance data should be copied into subfolders
+    should we use the directory path hash so when adding files it's determistic back to the folder when new files are added
+    that will help i think organize things easier for manual review
+    add a json sidecar receipt in the directory with the same directory name
+    this is a new area for me please add discussion, no code changes so i understand best practices
+    things that have been successful in the past
+
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
 - Archive: move instruction set and output to archive folder
