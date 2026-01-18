@@ -2,14 +2,15 @@
 
 ## Intent
 
-Document a careful analysis, plan, and discussion for enabling automation runs to reuse a single output folder without triggering automatic backups.
+Document a careful analysis, plan, and discussion for enabling automation runs to reuse a single output folder without triggering automatic backups, while integrating the new serve-workspace architecture with test/live runtimes and configuration governance.
 
 ## Ordered Steps
 
 1. Review current output directory backup behavior in `src/autoclean/utils/file_system.py` and its orchestration in `src/autoclean/core/pipeline.py`.
-2. Identify existing configuration knobs (e.g., `workspace.auto_backup`) and potential automation mode entry points in the CLI.
-3. Enumerate downstream artifacts and metadata that depend on backup behavior.
-4. Draft an APA-style analysis and a first-step plan for a minimal toggle that preserves auditability.
+2. Map the proposed `autocleaneeg-pipeline serve` workspace layout, including `runtimes/test`, `runtimes/live`, and named task workspaces.
+3. Identify configuration knobs (e.g., `workspace.auto_backup`) plus serve-specific YAML controls and validation handoffs.
+4. Enumerate downstream artifacts and metadata that depend on backup behavior, noting overwrite risk under automation.
+5. Draft an APA-style analysis and a first-step plan for a minimal toggle that preserves auditability, uptime, and configuration safety.
 
 ## Rationale
 
