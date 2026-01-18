@@ -2,7 +2,7 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-cov test-integration test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-cov test-integration test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop
 
 # Default target
 help: ## Show this help message
@@ -36,6 +36,10 @@ help: ## Show this help message
 	@echo ""
 	@echo "Deployment:"
 	@echo "  deploy         Build and publish package to PyPI"
+	@echo ""
+	@echo "Plans Server:"
+	@echo "  plans-serve    Start HTTP server for plans/_site on port 7933"
+	@echo "  plans-stop     Stop the plans server"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  clean          Clean temporary files and caches"
@@ -207,3 +211,18 @@ deploy: clean ## Build and publish package to PyPI
 	@echo ""
 	@echo "✅ Deployment complete!"
 	@echo "💡 Package is now live at: https://pypi.org/project/autocleaneeg-pipeline/"
+
+# Plans Server
+PLANS_PORT := 7933
+PLANS_DIR := plans/_site
+
+plans-serve: ## Start HTTP server for plans/_site on port 7933
+	@echo "🌐 Starting plans server on http://localhost:$(PLANS_PORT)"
+	@cd $(PLANS_DIR) && python3 -m http.server $(PLANS_PORT) &
+	@echo "✅ Server running in background"
+	@echo "💡 Stop with: make plans-stop"
+
+plans-stop: ## Stop the plans server
+	@echo "🛑 Stopping plans server on port $(PLANS_PORT)..."
+	@-lsof -ti:$(PLANS_PORT) | xargs kill -9 2>/dev/null || true
+	@echo "✅ Server stopped"

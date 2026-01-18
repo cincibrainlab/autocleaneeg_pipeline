@@ -35,7 +35,19 @@ overall strategy:
 
 Instruction sets:
 
-new rfc for implementing automation mode (a)
+new rfc for implementing automation mode (activated by cli or yaml key)
+plan carefully and implement
+
+you can easily test as I placed an area for you to define the workspace to this folder
+/Volumes/owcssd/test-workspace
+
+and sample resting data is here:
+/Volumes/owcssd/test-data/resting-eeg-32ch
+
+and proper task file (with proper montage here)
+/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py
+
+and do a baseline test with autocleaneeg-pipeline cli
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
