@@ -49,12 +49,29 @@ and proper task file (with proper montage here)
 
 and do a baseline test with autocleaneeg-pipeline cli
 
-new task:
+[Done] new task:
     do a test on 2 files as separate runs with the flag
     the output should be the same as batch mode (i.e. doing a folder of files)
     two resultant files should be there
     the logs should be additive
     you can actually run folder mode and then the individual files twice and compare the two
+
+new task:
+    Let's implement the first autocleaneeg-pipeline serve cli command workspace
+    this will setup the serve-test.yaml and serve-live.yaml
+    setup the automation folder
+    we should have runtimes of autocleaneeg-pipeline for test and live
+    use uv tools to setup the environment in each test and live runtime folder
+    when users type autocleaneeg-pipeline serve workspace
+    if an existing automation workspace folder parameter is already in the autocleaneeg json (like the workspace folder and other settings) you display it or you show now automation workspace folder defined
+    1. define new automation workspace folder
+    2. link to existing automation workspace folder
+    the user can do this
+    if a new folder it is setup
+    if it old folder it is validated
+    you and implement and start basic testing
+    
+
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
