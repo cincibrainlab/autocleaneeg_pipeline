@@ -121,6 +121,12 @@ How long should receipts be retained before archiving?
 After answering these qeustions, now start working on an execution plan laying out details and phases to complete the work 
 use a TDD form of development and you have access to test data etc.
 
+
+new task:
+
+using the /Volumes/owcssd/github/autocleaneeg_pipeline/docs/CODEBASE_MAP.md
+and the 007 ingestion planning create a new RFC full on PRD for this next stage so we can make sure it's sufficientrly detailed to implement it begining to end
+
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
 - Archive: move instruction set and output to archive folder
