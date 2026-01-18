@@ -25,7 +25,14 @@
     "href": "007-ingestion-planning/007-ingestion-planning.html#completion-signals-file-vs-batch",
     "title": "RFC 007: Ingestion Planning for Automation",
     "section": "Completion Signals: File vs Batch",
-    "text": "Completion Signals: File vs Batch\nTwo patterns dominate ingestion completion: per-file sentinels and batch-level manifests. Both can work, but they impose different operational controls. The table below contrasts the approaches and frames a recommended default.\n\nTable 2. Completion signal trade-offs.\n\n\n\n\n\n\n\n\nSignal Type\nMechanism\nStrengths\nRisks\n\n\n\n\nFile-level sentinel\n.done or .ready per file\nFine-grained control; works for rolling arrivals\nMore files to manage; risk of partial batch processing.\n\n\nBatch-level manifest\nSingle manifest for entire batch\nClear batch boundary; simpler audit trail\nDelays partial processing; requires manifest generator.\n\n\nStability window\nTime-based idle check\nNo additional files required\nSensitive to large file transfers or slow networks.\n\n\n\n\n\n\n\n\n\nNoteRecommendation\n\n\n\nDefault to a batch-level manifest when available, with a fallback stability window and optional per-file sentinels for incremental updates. This preserves deterministic batch processing while still allowing controlled updates."
+    "text": "Completion Signals: File vs Batch\nTwo patterns dominate ingestion completion: per-file sentinels and batch-level manifests. Both can work, but they impose different operational controls. The table below contrasts the approaches and frames a recommended default.\n\nTable 2. Completion signal trade-offs.\n\n\n\n\n\n\n\n\nSignal Type\nMechanism\nStrengths\nRisks\n\n\n\n\nFile-level sentinel\n.done or .ready per file\nFine-grained control; works for rolling arrivals\nMore files to manage; risk of partial batch processing.\n\n\nBatch-level manifest\nSingle manifest for entire batch\nClear batch boundary; simpler audit trail\nDelays partial processing; requires manifest generator.\n\n\nStability window\nTime-based idle check\nNo additional files required\nSensitive to large file transfers or slow networks.\n\n\n\n\n\n\n\n\n\nNoteRecommendation\n\n\n\nAdopt per-file completion signals as the default, backed by hash-based deduplication, and allow batch manifests as an optional higher-level gate when upstream systems can provide them. This aligns with rolling ingestion while preventing duplicate processing and preserving deterministic readiness."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#discussion-per-file-readiness-and-hashing",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#discussion-per-file-readiness-and-hashing",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Discussion: Per-File Readiness and Hashing",
+    "text": "Discussion: Per-File Readiness and Hashing\nA per-file readiness marker (e.g., .done or .ready) matches the expected operational flow for rolling ingestion and keeps the automation responsive. To prevent duplicates, the pipeline should compute or reuse existing file hashes and store them in an ingestion ledger keyed by source path, hash, and timestamp. When a file arrives with a previously seen hash, the system can skip processing or route it to a review queue, preserving idempotency without blocking new data. Hashing also enables integrity verification after transfers and provides an audit-ready fingerprint for compliance reporting.\nBatch-level manifests still have value for sites that can generate them reliably, but they should be treated as an optional super-signal rather than the sole gating mechanism. In practice, the watcher can require both a per-file sentinel and hash match, while treating a manifest as a shortcut to mark a group as ready when all entries are present."
   },
   {
     "objectID": "007-ingestion-planning/007-ingestion-planning.html#watcher-strategy-watchfiles-notify",
@@ -46,14 +53,14 @@
     "href": "007-ingestion-planning/007-ingestion-planning.html#best-practice-checklist",
     "title": "RFC 007: Ingestion Planning for Automation",
     "section": "Best-Practice Checklist",
-    "text": "Best-Practice Checklist\n\nTable 3. Operational best practices for ingestion.\n\n\n\n\n\n\n\nArea\nBest Practice\nReason\n\n\n\n\nIngestion folder\nSeparate staging from ingestion root\nPrevent partial processing.\n\n\nCompletion signal\nPrefer batch manifest\nImproves auditability and batch integrity.\n\n\nUpdate handling\nRequire new manifest for updates\nAvoid silent partial updates.\n\n\nQuarantine\nMove failed readiness to quarantine\nKeeps operators informed and pipeline clean.\n\n\nAudit logs\nPersist readiness decisions\nSupports compliance and debugging."
+    "text": "Best-Practice Checklist\n\nTable 3. Operational best practices for ingestion.\n\n\n\n\n\n\n\nArea\nBest Practice\nReason\n\n\n\n\nIngestion folder\nSeparate staging from ingestion root\nPrevent partial processing.\n\n\nCompletion signal\nPrefer batch manifest\nImproves auditability and batch integrity.\n\n\nUpdate handling\nRequire new manifest for updates\nAvoid silent partial updates.\n\n\nDeduplication\nHash files before dispatch\nPrevent duplicate processing.\n\n\nQuarantine\nMove failed readiness to quarantine\nKeeps operators informed and pipeline clean.\n\n\nAudit logs\nPersist readiness decisions\nSupports compliance and debugging."
   },
   {
     "objectID": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-open-questions",
     "href": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-open-questions",
     "title": "RFC 007: Ingestion Planning for Automation",
     "section": "Appendix A: Open Questions",
-    "text": "Appendix A: Open Questions\n\nWhat tool generates the batch manifest in upstream systems?\nShould incremental updates create a new run or amend the original run?\nHow long should pending items remain before quarantine?"
+    "text": "Appendix A: Open Questions\n\nWhat tool generates the batch manifest in upstream systems?\nShould incremental updates create a new run or amend the original run?\nHow long should pending items remain before quarantine?\nShould duplicate hashes be skipped automatically or routed for review?"
   },
   {
     "objectID": "005-serve-workspace/005-serve-workspace.html",

@@ -7,7 +7,7 @@ Develop a planning document for ingestion best practices that prevent automation
 ## Ordered Steps
 
 1. Enumerate ingestion risks (partial copies, retries, updates) and define readiness criteria.
-2. Compare file-level versus batch-level completion signals, including sentinel files and stability windows.
+2. Compare file-level versus batch-level completion signals, including sentinel files, hashing, and stability windows.
 3. Specify watch-based monitoring using `watchfiles` with Rust `notify` backend and debounce policies.
 4. Describe the automation chain from ingest detection to task dispatch and output logging.
 5. Identify governance controls for operator overrides, quarantine, and audit trail capture.
