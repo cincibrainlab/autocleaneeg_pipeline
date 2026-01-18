@@ -9,9 +9,10 @@ Document a careful analysis, plan, and discussion for enabling automation runs t
 1. Review current output directory backup behavior and metadata logging in `src/autoclean/utils/file_system.py`, `src/autoclean/core/pipeline.py`, and `src/autoclean/utils/path_resolution.py`.
 2. Define the serve workspace model (workspace root, `runtimes/test`, `runtimes/live`, taskfile-montage-version naming, workspace registry).
 3. Specify control-plane commands (`workspace`, `list`, `validate`, `deploy`) plus operator-versus-deployed YAML governance.
-4. Design ingestion monitoring with watchfiles + Rust notify, including debounce, readiness, and quarantine rules.
-5. Enumerate output/idempotency policies for artifacts, metadata, and audit logging across repeated runs.
-6. Draft an APA-style analysis and first-step plan that prioritizes a minimal automation toggle with strong safety gates.
+4. Formalize dual automation-mode inputs (CLI `--automation` flag and YAML key) with clear precedence and audit logging.
+5. Design ingestion monitoring with watchfiles + Rust notify, including debounce, readiness, and quarantine rules.
+6. Enumerate output/idempotency policies for artifacts, metadata, and audit logging across repeated runs.
+7. Draft an APA-style analysis and first-step plan that prioritizes a minimal automation toggle with strong safety gates.
 
 
 

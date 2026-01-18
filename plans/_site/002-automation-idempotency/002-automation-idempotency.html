@@ -540,51 +540,56 @@ in process?}
 <td>Directs validation or deployment.</td>
 </tr>
 <tr class="even">
+<td><code>automation_mode</code></td>
+<td>Backup bypass</td>
+<td>Default automation flag when CLI absent.</td>
+</tr>
+<tr class="odd">
 <td><code>runtime</code></td>
 <td>Runtime path</td>
 <td>Must point to <code>runtimes/test</code> or <code>runtimes/live</code>.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>watch_backend</code></td>
 <td>File watcher</td>
 <td>Use <code>notify</code> via <code>watchfiles</code>.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>settle_seconds</code></td>
 <td>Stability window</td>
 <td>Prevents partial ingestion.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>ingestion_folders</code></td>
 <td>Ingestion roots</td>
 <td>Avoid incomplete staging areas.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>ingestion_sentinel</code></td>
 <td>Ready marker</td>
 <td>Overrides stability window when present.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>quarantine_dir</code></td>
 <td>Quarantine root</td>
 <td>Holds failed or incomplete datasets.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>workspace_name</code></td>
 <td>Naming template</td>
 <td>Use <code>taskfile-montage-version</code>.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>taskfile</code></td>
 <td>Task definition</td>
 <td>Combined with montage for workspace naming.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>montage</code></td>
 <td>Montage ID</td>
 <td>Aligns with taskfile choice.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>output_policy</code></td>
 <td>Idempotency rule</td>
 <td>Example <code>run_id_suffix</code>.</td>
@@ -592,25 +597,26 @@ in process?}
 </tbody>
 </table>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">mode</span><span class="kw">:</span><span class="at"> live</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">runtime</span><span class="kw">:</span><span class="at"> runtimes/live</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">watch_backend</span><span class="kw">:</span><span class="at"> notify</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">settle_seconds</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ingestion_folders</span><span class="kw">:</span></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> /data/inbox/live</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> /data/inbox/archive</span></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">ingestion_sentinel</span><span class="kw">:</span><span class="at"> </span><span class="st">".ready"</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">quarantine_dir</span><span class="kw">:</span><span class="at"> quarantine</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">workspace_name</span><span class="kw">:</span><span class="at"> </span><span class="st">"taskfile-montage-version"</span></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">taskfile</span><span class="kw">:</span><span class="at"> RestingEyesOpen</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">montage</span><span class="kw">:</span><span class="at"> standard_1020</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">output_policy</span><span class="kw">:</span><span class="at"> run_id_suffix</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">automation_mode</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">runtime</span><span class="kw">:</span><span class="at"> runtimes/live</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">watch_backend</span><span class="kw">:</span><span class="at"> notify</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">settle_seconds</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ingestion_folders</span><span class="kw">:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> /data/inbox/live</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> /data/inbox/archive</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="fu">ingestion_sentinel</span><span class="kw">:</span><span class="at"> </span><span class="st">".ready"</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="fu">quarantine_dir</span><span class="kw">:</span><span class="at"> quarantine</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">workspace_name</span><span class="kw">:</span><span class="at"> </span><span class="st">"taskfile-montage-version"</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="fu">taskfile</span><span class="kw">:</span><span class="at"> RestingEyesOpen</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="fu">montage</span><span class="kw">:</span><span class="at"> standard_1020</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">output_policy</span><span class="kw">:</span><span class="at"> run_id_suffix</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The listing above illustrates the minimal schema elements implied by the user requirements, emphasizing runtime selection, ingestion boundaries, and the taskfile/montage pairing that drives workspace naming. Any implementation must ensure that the deployed YAML is versioned and that updates are atomic after validation.</p>
 </section>
 <section id="downstream-artifacts-affected" class="level2">
 <h2 class="anchored" data-anchor-id="downstream-artifacts-affected">Downstream Artifacts Affected</h2>
 <p>Disabling backups changes how several output families accumulate across runs. The core directories are created under the task root, and many downstream tools assume those paths are stable. The table below summarizes the primary artifacts affected if backups are skipped.</p>
 <table class="caption-top table">
-<caption>Table 7. Output artifacts affected by disabling task-root backups.</caption>
+<caption>Table 8. Output artifacts affected by disabling task-root backups.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -662,6 +668,60 @@ in process?}
 </tbody>
 </table>
 </section>
+<section id="automation-mode-precedence" class="level2">
+<h2 class="anchored" data-anchor-id="automation-mode-precedence">Automation Mode Precedence</h2>
+<p>Automation mode can be set either through a CLI flag (<code>--automation</code>) or a YAML key in the deployed serve configuration. To avoid ambiguity, the system must define precedence and record the resolved value in the run metadata.</p>
+<table class="caption-top table">
+<caption>Table 7. Automation mode precedence and audit rules.</caption>
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Input</th>
+<th>Scope</th>
+<th>Precedence</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CLI <code>--automation</code></td>
+<td>Per-run</td>
+<td>Highest</td>
+<td>Overrides YAML for that invocation.</td>
+</tr>
+<tr class="even">
+<td>YAML <code>automation_mode</code></td>
+<td>Deployed config</td>
+<td>Default</td>
+<td>Applied when CLI flag is absent.</td>
+</tr>
+<tr class="odd">
+<td>Runtime metadata</td>
+<td>Per-run</td>
+<td>Recorded</td>
+<td>Logs resolved mode and source.</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Precedence Rule
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>If a CLI flag is provided, it supersedes the YAML key for that run. The resolved value is persisted in metadata to keep audit trails deterministic.</p>
+</div>
+</div>
+</section>
 <section id="idempotency-and-output-policy" class="level2">
 <h2 class="anchored" data-anchor-id="idempotency-and-output-policy">Idempotency and Output Policy</h2>
 <p>Automation mode disables the task-root backup, so idempotency must be enforced by output naming conventions and append-only metadata practices rather than directory rotation. The following policies keep repeated runs traceable while allowing the workspace to accumulate results.</p>
@@ -689,7 +749,7 @@ in process?}
 <h2 class="anchored" data-anchor-id="toggle-options-and-automation-mode">Toggle Options and Automation Mode</h2>
 <p>A surgical toggle should avoid global behavior changes while enabling automation use cases. The most constrained options are (a) a CLI or API flag that disables the backup only for a single run, or (b) reusing the existing <code>workspace.auto_backup</code> configuration as a feature flag. The latter already defaults to <code>True</code> in <code>src/autoclean/utils/config.py</code> and is enforced during setup, so a new automation command could temporarily set it to <code>False</code> for an isolated run without altering user defaults.</p>
 <table class="caption-top table">
-<caption>Table 8. Candidate toggle mechanisms for automation mode.</caption>
+<caption>Table 9. Candidate toggle mechanisms for automation mode.</caption>
 <colgroup>
 <col style="width: 25%">
 <col style="width: 25%">

@@ -142,6 +142,7 @@ The serve YAML files encode runtime selection, ingestion boundaries, watch setti
 | Key | Purpose | Notes |
 |---|---|---|
 | `mode` | Test/live switch | Directs validation or deployment. |
+| `automation_mode` | Backup bypass | Default automation flag when CLI absent. |
 | `runtime` | Runtime path | Must point to `runtimes/test` or `runtimes/live`. |
 | `watch_backend` | File watcher | Use `notify` via `watchfiles`. |
 | `settle_seconds` | Stability window | Prevents partial ingestion. |
@@ -157,6 +158,7 @@ The serve YAML files encode runtime selection, ingestion boundaries, watch setti
 
 ```yaml
 mode: live
+automation_mode: true
 runtime: runtimes/live
 watch_backend: notify
 settle_seconds: 30
@@ -187,7 +189,24 @@ Disabling backups changes how several output families accumulate across runs. Th
 | `status/` | `run_id`.json markers | Task-level markers can be overwritten; run-level markers remain additive. |
 | `pipeline.db` | Run metadata, audit log | Single DB becomes authoritative; must remain append-only for compliance. |
 
-: Table 7. Output artifacts affected by disabling task-root backups.
+: Table 8. Output artifacts affected by disabling task-root backups.
+
+## Automation Mode Precedence
+
+Automation mode can be set either through a CLI flag (`--automation`) or a YAML key in the deployed serve configuration. To avoid ambiguity, the system must define precedence and record the resolved value in the run metadata.
+
+| Input | Scope | Precedence | Behavior |
+|---|---|---|---|
+| CLI `--automation` | Per-run | Highest | Overrides YAML for that invocation. |
+| YAML `automation_mode` | Deployed config | Default | Applied when CLI flag is absent. |
+| Runtime metadata | Per-run | Recorded | Logs resolved mode and source. |
+
+: Table 7. Automation mode precedence and audit rules.
+
+::: callout-note
+## Precedence Rule
+If a CLI flag is provided, it supersedes the YAML key for that run. The resolved value is persisted in metadata to keep audit trails deterministic.
+:::
 
 ## Idempotency and Output Policy
 
@@ -213,7 +232,7 @@ A surgical toggle should avoid global behavior changes while enabling automation
 | Config override `workspace.auto_backup` | Workspace | Aligns with existing config model | Needs guardrails to avoid accidental permanent disable. |
 | Environment variable `AUTOCLEAN_AUTOMATION=1` | Session | Easy for automation scripts | Less discoverable; must be documented. |
 
-: Table 8. Candidate toggle mechanisms for automation mode.
+: Table 9. Candidate toggle mechanisms for automation mode.
 
 ::: callout-note
 ## Recommendation
