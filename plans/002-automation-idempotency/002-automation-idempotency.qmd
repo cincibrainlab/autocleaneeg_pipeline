@@ -103,12 +103,12 @@ The serve workspace must support a predictable lifecycle that separates operator
 ```{mermaid}
 %%| fig-cap: "Figure 3. Serve workspace lifecycle and deployment flow."
 flowchart TD
-  A[User selects or creates serve workspace] --> B[Initialize runtimes/test and runtimes/live]
-  B --> C[Edit serve-test.yaml or serve-live.yaml]
-  C --> D[serve validate (dry-run)]
-  D -->|Pass| E[Promote to deploy/hidden YAML]
-  D -->|Fail| F[Reject and report errors]
-  E --> G[serve deploy activates runtime]
+  A["Select or create serve workspace"] --> B["Initialize runtimes test/live"]
+  B --> C["Edit serve-test.yaml or serve-live.yaml"]
+  C --> D["serve validate dry-run"]
+  D -->|Pass| E["Promote to deploy hidden YAML"]
+  D -->|Fail| F["Reject and report errors"]
+  E --> G["serve deploy activates runtime"]
 ```
 
 ## Ingestion Monitoring and Watch Strategy

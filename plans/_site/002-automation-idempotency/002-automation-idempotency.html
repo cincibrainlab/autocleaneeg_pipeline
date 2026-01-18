@@ -440,12 +440,12 @@ in process?}
 <p></p><figure class="figure"><p></p>
 <div>
 <pre class="mermaid mermaid-js">flowchart TD
-  A[User selects or creates serve workspace] --&gt; B[Initialize runtimes/test and runtimes/live]
-  B --&gt; C[Edit serve-test.yaml or serve-live.yaml]
-  C --&gt; D[serve validate (dry-run)]
-  D --&gt;|Pass| E[Promote to deploy/hidden YAML]
-  D --&gt;|Fail| F[Reject and report errors]
-  E --&gt; G[serve deploy activates runtime]
+  A["Select or create serve workspace"] --&gt; B["Initialize runtimes test/live"]
+  B --&gt; C["Edit serve-test.yaml or serve-live.yaml"]
+  C --&gt; D["serve validate dry-run"]
+  D --&gt;|Pass| E["Promote to deploy hidden YAML"]
+  D --&gt;|Fail| F["Reject and report errors"]
+  E --&gt; G["serve deploy activates runtime"]
 </pre>
 </div>
 <p></p><figcaption> Figure 3. Serve workspace lifecycle and deployment flow.</figcaption> </figure><p></p>

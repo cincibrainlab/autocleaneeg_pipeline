@@ -35,9 +35,7 @@ overall strategy:
 
 Instruction sets:
 
-response to 002 - can we have this CLI flag --automation but also have the yaml have the flag also?
-
-
+new rfc for implementing automation mode (a)
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
