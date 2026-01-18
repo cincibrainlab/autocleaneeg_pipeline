@@ -1,0 +1,41 @@
+---
+title: "RFC 004: Automation Mode Validation"
+subtitle: "Batch vs Single-File Parity under Automation Flag"
+date: 2026-01-18
+---
+
+## Executive Summary
+
+This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the `--automation` flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity.
+
+## Test Plan
+
+| Step | Command | Output Root |
+|---|---|---|
+| Batch mode | `uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --dir "/Volumes/owcssd/test-data/resting-eeg-32ch" --format "*.set" --output "/Volumes/owcssd/test-workspace/automation-validation/batch" --automation --yes` | `.../automation-validation/batch` |
+| Single file 1 | `uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --file "/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set" --output "/Volumes/owcssd/test-workspace/automation-validation/individual" --automation --yes` | `.../automation-validation/individual` |
+| Single file 2 | `uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --file "/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EC.set" --output "/Volumes/owcssd/test-workspace/automation-validation/individual" --automation --yes` | `.../automation-validation/individual` |
+
+: Table 1. Automation validation commands and output roots.
+
+## Results
+
+_Result details will be populated after execution._
+
+## Comparison Summary
+
+| Checkpoint | Batch Mode | Single-File Runs | Outcome |
+|---|---|---|---|
+| Exported `.set` files | Pending | Pending | Pending |
+| Processing log entries | Pending | Pending | Pending |
+| Automation mode recorded | Pending | Pending | Pending |
+
+: Table 2. Batch vs single-file parity checkpoints.
+
+## Warnings and Observations
+
+Pending execution.
+
+## Appendix A: Files Reviewed
+
+- `plans/004-automation-mode-validation/004-automation-mode-validation.md`
