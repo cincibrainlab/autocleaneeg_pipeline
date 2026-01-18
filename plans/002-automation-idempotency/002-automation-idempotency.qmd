@@ -68,9 +68,24 @@ The `autocleaneeg-pipeline serve` command family acts as the automation manager.
 Live uptime requires that `serve-test.yaml` and `serve-live.yaml` are never used directly by automation. The system should validate these files, then atomically replace hidden deployed YAMLs in the `deploy/` path to avoid partial or invalid updates.
 :::
 
+## Workspace Lifecycle and Deployment Workflow
+
+The serve workspace must support a predictable lifecycle that separates operator edits, validation, and deployment while keeping the runtime isolation intact. The workflow below formalizes how the automation manager should create or attach to a workspace, validate YAML updates, and promote them into the hidden deployed set used by the automation engine.
+
+```{mermaid}
+%%| fig-cap: "Figure 3. Serve workspace lifecycle and deployment flow."
+flowchart TD
+  A[User selects or creates serve workspace] --> B[Initialize runtimes/test and runtimes/live]
+  B --> C[Edit serve-test.yaml or serve-live.yaml]
+  C --> D[serve validate (dry-run)]
+  D -->|Pass| E[Promote to deploy/hidden YAML]
+  D -->|Fail| F[Reject and report errors]
+  E --> G[serve deploy activates runtime]
+```
+
 ## YAML Configuration Intent
 
-The serve YAML files encode runtime selection, ingestion boundaries, and the taskfile/montage combinations used to derive automation workspace names. The intent is to minimize operator input while preserving rigorous controls over what the automation engine executes.
+The serve YAML files encode runtime selection, ingestion boundaries, and the taskfile/montage combinations used to derive automation workspace names. The intent is to minimize operator input while preserving rigorous controls over what the automation engine executes. Ingestion folders should explicitly avoid partially staged data, and the runtime path should point to the intended `autocleaneeg` executable within the test or live runtime tree.
 
 ```yaml
 runtime: runtimes/live

@@ -21,6 +21,41 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
@@ -150,7 +185,7 @@ ul.task-list li input[type="checkbox"] {
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>Automation requires that repeated pipeline runs reuse a stable output root rather than creating a backup on each invocation. Today, <code>step_prepare_directories</code> in <code>src/autoclean/utils/file_system.py</code> relocates the existing task root to a timestamped backup on the first encounter per process, and <code>Pipeline</code> in <code>src/autoclean/core/pipeline.py</code> records that move in run metadata. This design is safe for manual runs but blocks automation workflows that expect a single accumulating folder. The first step is to design a minimal toggle that bypasses directory backups only when an explicit automation mode is requested (e.g., the new <code>autocleaneeg serve</code> workflow) while preserving auditability and backward compatibility.</p>
+<p>Automation requires repeatable runs that reuse a stable output root, yet the current pipeline backs up existing task directories on the first encounter per process. The proposed <code>autocleaneeg-pipeline serve</code> workflow introduces a dedicated, self-contained automation workspace with explicit test/live separation and managed runtime installs. This document extends the original idempotency analysis to incorporate that workspace concept, clarify command semantics, and define a configuration governance model that preserves uptime, auditability, and reproducible outputs.</p>
 </section>
 <section id="current-backup-mechanism" class="level2">
 <h2 class="anchored" data-anchor-id="current-backup-mechanism">Current Backup Mechanism</h2>
@@ -174,11 +209,170 @@ in process?}
 </div>
 </div>
 </section>
+<section id="serve-workspace-architecture" class="level2">
+<h2 class="anchored" data-anchor-id="serve-workspace-architecture">Serve Workspace Architecture</h2>
+<p>The serve workflow introduces a distinct automation workspace that is self-contained and deliberately structured to maintain separation between test and live operations. Within this folder, <code>runtimes/test</code> and <code>runtimes/live</code> host isolated pipeline runtimes, while <code>serve-test.yaml</code> and <code>serve-live.yaml</code> live at the workspace root for operator edits. Each automation workspace under the parent folder is named using the <code>taskfile-montage-version</code> convention to make provenance explicit and to align with the stated requirement that a task file plus montage uniquely define an automation instance.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TD
+  A[serve-workspace/] --&gt; B[runtimes/]
+  B --&gt; C[test/]
+  B --&gt; D[live/]
+  A --&gt; E[serve-test.yaml]
+  A --&gt; F[serve-live.yaml]
+  A --&gt; G[deploy/validated-yaml]
+  A --&gt; H[taskfile-montage-version/]
+</pre>
+</div>
+<p></p><figcaption> Figure 2. Proposed autocleaneeg-serve workspace layout.</figcaption> </figure><p></p>
+</div>
+</div>
+</div>
+<table class="caption-top table">
+<caption>Table 1. Serve workspace components and responsibilities.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Component</th>
+<th>Purpose</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>runtimes/test</code></td>
+<td>Isolated test runtime installation</td>
+<td>Enables safe validation without disrupting live runs.</td>
+</tr>
+<tr class="even">
+<td><code>runtimes/live</code></td>
+<td>Production runtime installation</td>
+<td>Serves active workloads with pinned versions.</td>
+</tr>
+<tr class="odd">
+<td><code>serve-test.yaml</code></td>
+<td>Operator-facing test configuration</td>
+<td>Edited directly; validated before deployment.</td>
+</tr>
+<tr class="even">
+<td><code>serve-live.yaml</code></td>
+<td>Operator-facing live configuration</td>
+<td>Edited directly; validated before deployment.</td>
+</tr>
+<tr class="odd">
+<td><code>deploy/</code></td>
+<td>Hidden deployed YAMLs</td>
+<td>Replaced only after validation passes.</td>
+</tr>
+<tr class="even">
+<td><code>taskfile-montage-version/</code></td>
+<td>Automation workspace</td>
+<td>Contains per-automation task outputs and logs.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="command-family-and-governance" class="level2">
+<h2 class="anchored" data-anchor-id="command-family-and-governance">Command Family and Governance</h2>
+<p>The <code>autocleaneeg-pipeline serve</code> command family acts as the automation manager. It must accept either an existing serve workspace path or create a new one, then provide a consistent set of control verbs so operators can manage configuration, validation, and deployment without manual file shuffling.</p>
+<table class="caption-top table">
+<caption>Table 2. Serve command family expectations.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Command</th>
+<th>Purpose</th>
+<th>Expected Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>serve workspace</code></td>
+<td>Set or edit serve workspace</td>
+<td>Creates or updates the active automation workspace pointer.</td>
+</tr>
+<tr class="even">
+<td><code>serve list</code></td>
+<td>Enumerate automations</td>
+<td>Lists test/live configurations and workspace status.</td>
+</tr>
+<tr class="odd">
+<td><code>serve validate</code></td>
+<td>Dry-run config validation</td>
+<td>Runs against test or live config without deployment.</td>
+</tr>
+<tr class="even">
+<td><code>serve deploy</code></td>
+<td>Promote validated config</td>
+<td>Replaces hidden deployed YAML and activates runtime.</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Configuration Safety
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Live uptime requires that <code>serve-test.yaml</code> and <code>serve-live.yaml</code> are never used directly by automation. The system should validate these files, then atomically replace hidden deployed YAMLs in the <code>deploy/</code> path to avoid partial or invalid updates.</p>
+</div>
+</div>
+</section>
+<section id="workspace-lifecycle-and-deployment-workflow" class="level2">
+<h2 class="anchored" data-anchor-id="workspace-lifecycle-and-deployment-workflow">Workspace Lifecycle and Deployment Workflow</h2>
+<p>The serve workspace must support a predictable lifecycle that separates operator edits, validation, and deployment while keeping the runtime isolation intact. The workflow below formalizes how the automation manager should create or attach to a workspace, validate YAML updates, and promote them into the hidden deployed set used by the automation engine.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart TD
+  A[User selects or creates serve workspace] --&gt; B[Initialize runtimes/test and runtimes/live]
+  B --&gt; C[Edit serve-test.yaml or serve-live.yaml]
+  C --&gt; D[serve validate (dry-run)]
+  D --&gt;|Pass| E[Promote to deploy/hidden YAML]
+  D --&gt;|Fail| F[Reject and report errors]
+  E --&gt; G[serve deploy activates runtime]
+</pre>
+</div>
+<p></p><figcaption> Figure 3. Serve workspace lifecycle and deployment flow.</figcaption> </figure><p></p>
+</div>
+</div>
+</div>
+</section>
+<section id="yaml-configuration-intent" class="level2">
+<h2 class="anchored" data-anchor-id="yaml-configuration-intent">YAML Configuration Intent</h2>
+<p>The serve YAML files encode runtime selection, ingestion boundaries, and the taskfile/montage combinations used to derive automation workspace names. The intent is to minimize operator input while preserving rigorous controls over what the automation engine executes. Ingestion folders should explicitly avoid partially staged data, and the runtime path should point to the intended <code>autocleaneeg</code> executable within the test or live runtime tree.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">runtime</span><span class="kw">:</span><span class="at"> runtimes/live</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">mode</span><span class="kw">:</span><span class="at"> live</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">ingestion_folders</span><span class="kw">:</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> /data/inbox/live</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> /data/inbox/archive</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="fu">workspace_name</span><span class="kw">:</span><span class="at"> </span><span class="st">"taskfile-montage-version"</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">taskfile</span><span class="kw">:</span><span class="at"> RestingEyesOpen</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">montage</span><span class="kw">:</span><span class="at"> standard_1020</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The listing above illustrates the minimal schema elements implied by the user requirements, emphasizing runtime selection, ingestion boundaries, and the taskfile/montage pairing that drives workspace naming. Any implementation must ensure that the deployed YAML is versioned and that updates are atomic after validation.</p>
+</section>
 <section id="downstream-artifacts-affected" class="level2">
 <h2 class="anchored" data-anchor-id="downstream-artifacts-affected">Downstream Artifacts Affected</h2>
 <p>Disabling backups changes how several output families accumulate across runs. The core directories are created under the task root, and many downstream tools assume those paths are stable. The table below summarizes the primary artifacts affected if backups are skipped.</p>
 <table class="caption-top table">
-<caption>Table 1. Output artifacts affected by disabling task-root backups.</caption>
+<caption>Table 3. Output artifacts affected by disabling task-root backups.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -234,7 +428,7 @@ in process?}
 <h2 class="anchored" data-anchor-id="toggle-options-and-automation-mode">Toggle Options and Automation Mode</h2>
 <p>A surgical toggle should avoid global behavior changes while enabling automation use cases. The most constrained options are (a) a CLI or API flag that disables the backup only for a single run, or (b) reusing the existing <code>workspace.auto_backup</code> configuration as a feature flag. The latter already defaults to <code>True</code> in <code>src/autoclean/utils/config.py</code> and is enforced during setup, so a new automation command could temporarily set it to <code>False</code> for an isolated run without altering user defaults.</p>
 <table class="caption-top table">
-<caption>Table 2. Candidate toggle mechanisms for automation mode.</caption>
+<caption>Table 4. Candidate toggle mechanisms for automation mode.</caption>
 <colgroup>
 <col style="width: 25%">
 <col style="width: 25%">
@@ -287,15 +481,16 @@ in process?}
 <section id="first-step-plan" class="level2">
 <h2 class="anchored" data-anchor-id="first-step-plan">First-Step Plan</h2>
 <ol type="1">
-<li>Define a single automation entry point (e.g., <code>autocleaneeg serve</code>) that carries an <code>automation_mode</code> flag through the CLI, <code>Pipeline</code>, and <code>step_prepare_directories</code>.</li>
-<li>Introduce a guard in <code>step_prepare_directories</code> that skips the backup move when <code>automation_mode</code> is enabled, but still logs the decision in run metadata.</li>
+<li>Introduce a serve workspace registry that records the active automation root and enforces the test/live runtime layout.</li>
+<li>Define a single automation entry point (<code>autocleaneeg-pipeline serve</code>) that carries an <code>automation_mode</code> flag through the CLI, <code>Pipeline</code>, and <code>step_prepare_directories</code>.</li>
+<li>Add configuration validation that promotes operator YAMLs into hidden deployed YAMLs only after dry-run checks succeed.</li>
 <li>Document an overwrite policy for artifact families (reports, exports, derivatives) and recommend run-scoped filenames where collisions are likely.</li>
-<li>Add an audit note to the run metadata explaining that automation mode preserved the existing task root.</li>
+<li>Add an audit note to run metadata explaining that automation mode preserved the existing task root.</li>
 </ol>
 </section>
 <section id="discussion-idempotency-and-run-coexistence" class="level2">
 <h2 class="anchored" data-anchor-id="discussion-idempotency-and-run-coexistence">Discussion: Idempotency and Run Coexistence</h2>
-<p>Idempotency requires that a run can be repeated without corrupting or fragmenting outputs. Skipping the backup restores folder stability but raises overwrite risks for deterministic filenames. The safest mitigation is to append <code>run_id</code> or timestamp suffixes for files that are not inherently append-only, while leaving database and status logging as append-only records. The automation toggle should therefore be paired with a file-naming policy that makes reprocessing predictable, transparent, and reversible.</p>
+<p>Idempotency requires that a run can be repeated without corrupting or fragmenting outputs. Skipping the backup restores folder stability but raises overwrite risks for deterministic filenames. The safest mitigation is to append <code>run_id</code> or timestamp suffixes for files that are not inherently append-only, while leaving database and status logging as append-only records. Test/live separation inside the serve workspace provides an additional safety valve: validation runs can exercise the exact runtime and config layout without touching production outputs, and deployment only proceeds when validation results are clean.</p>
 </section>
 <section id="appendix-a-files-reviewed" class="level2">
 <h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>

@@ -8,9 +8,10 @@ Document a careful analysis, plan, and discussion for enabling automation runs t
 
 1. Review current output directory backup behavior in `src/autoclean/utils/file_system.py` and its orchestration in `src/autoclean/core/pipeline.py`.
 2. Map the proposed `autocleaneeg-pipeline serve` workspace layout, including `runtimes/test`, `runtimes/live`, and named task workspaces.
-3. Identify configuration knobs (e.g., `workspace.auto_backup`) plus serve-specific YAML controls and validation handoffs.
-4. Enumerate downstream artifacts and metadata that depend on backup behavior, noting overwrite risk under automation.
-5. Draft an APA-style analysis and a first-step plan for a minimal toggle that preserves auditability, uptime, and configuration safety.
+3. Define the serve command family (`workspace`, `list`, `validate`, `deploy`) and its expected governance responsibilities.
+4. Specify YAML governance, including operator-edited configs, hidden deployed configs, and validation gates for uptime.
+5. Enumerate downstream artifacts and metadata that depend on backup behavior, noting overwrite risk under automation.
+6. Draft an APA-style analysis and a first-step plan for a minimal toggle that preserves auditability, uptime, and configuration safety.
 
 
 
