@@ -107,6 +107,20 @@ new task:
     this is a new area for me please add discussion, no code changes so i understand best practices
     things that have been successful in the past
 
+new discussion:
+
+given what we have discussed, please bring in a consultant familiar with this work and revise appendix A to answer the following questions
+the goals is prep for development
+What tool generates the batch manifest in upstream systems?
+Should incremental updates create a new run or amend the original run?
+How long should pending items remain before quarantine?
+Should duplicate hashes be skipped automatically or routed for review?
+Which metadata fields should be included in the directory hash input?
+How long should receipts be retained before archiving? 
+
+After answering these qeustions, now start working on an execution plan laying out details and phases to complete the work 
+use a TDD form of development and you have access to test data etc.
+
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
 - Archive: move instruction set and output to archive folder
