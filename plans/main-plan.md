@@ -49,6 +49,13 @@ and proper task file (with proper montage here)
 
 and do a baseline test with autocleaneeg-pipeline cli
 
+new task:
+    do a test on 2 files as separate runs with the flag
+    the output should be the same as batch mode (i.e. doing a folder of files)
+    two resultant files should be there
+    the logs should be additive
+    you can actually run folder mode and then the individual files twice and compare the two
+
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
 - Archive: move instruction set and output to archive folder
