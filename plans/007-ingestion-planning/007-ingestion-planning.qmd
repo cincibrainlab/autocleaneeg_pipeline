@@ -43,6 +43,18 @@ A per-file readiness marker (e.g., `.done` or `.ready`) matches the expected ope
 
 Batch-level manifests still have value for sites that can generate them reliably, but they should be treated as an optional super-signal rather than the sole gating mechanism. In practice, the watcher can require both a per-file sentinel and hash match, while treating a manifest as a shortcut to mark a group as ready when all entries are present.
 
+## Discussion: Provenance Subfolders and Receipts
+
+A provenance-first layout benefits from deterministic subfolders that allow manual review and reproducible ingestion. A practical pattern is to compute a stable hash from the ingest path _relative to the workspace_ plus a minimal metadata payload (e.g., site ID, modality, acquisition date). This avoids reliance on absolute paths while keeping folder names deterministic across replays. The hashed folder becomes the canonical landing zone for copied data, ensuring repeat runs resolve to the same location.
+
+Add a JSON sidecar receipt in each ingestion subfolder (same basename as the folder) containing the source path, hash inputs, hash output, file list, file hashes, timestamps, and validation status. This receipt enables deduplication, supports audit trails, and simplifies manual review without opening large data files. When updates arrive, the receipt should record a new revision entry rather than overwrite prior metadata.
+
+Best-practice patterns observed in similar pipelines include:
+
+- Stable hash inputs that ignore absolute machine paths.
+- Human-readable aliases stored alongside the hash for review.
+- Immutable receipts with revision history and operator notes.
+
 ## Watcher Strategy (watchfiles + notify)
 
 The ingestion watcher should use `watchfiles` with the Rust `notify` backend to minimize latency while preserving readiness gating. Events feed a debounce window, then a readiness validator that checks manifest completeness, sentinel presence, and size stability before enqueueing a run. When readiness fails, the dataset moves to quarantine or remains pending.
@@ -72,8 +84,8 @@ The ingestion plan must describe how readiness transitions into automation execu
 | Area | Best Practice | Reason |
 |---|---|---|
 | Ingestion folder | Separate staging from ingestion root | Prevent partial processing. |
-| Completion signal | Prefer batch manifest | Improves auditability and batch integrity. |
-| Update handling | Require new manifest for updates | Avoid silent partial updates. |
+| Completion signal | Prefer per-file sentinel + hash | Keeps rolling ingestion responsive. |
+| Update handling | Require new manifest or receipt revision | Avoid silent partial updates. |
 | Deduplication | Hash files before dispatch | Prevent duplicate processing. |
 | Quarantine | Move failed readiness to quarantine | Keeps operators informed and pipeline clean. |
 | Audit logs | Persist readiness decisions | Supports compliance and debugging. |
@@ -86,3 +98,5 @@ The ingestion plan must describe how readiness transitions into automation execu
 - Should incremental updates create a new run or amend the original run?
 - How long should pending items remain before quarantine?
 - Should duplicate hashes be skipped automatically or routed for review?
+- Which metadata fields should be included in the directory hash input?
+- How long should receipts be retained before archiving?

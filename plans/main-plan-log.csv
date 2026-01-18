@@ -15,3 +15,4 @@ Implemented serve workspace command and initial setup,To enable RFC 002 workspac
 Added serve list/validate/deploy commands,To align serve command family with RFC 002 deployment workflow,Implemented status listing and deployable YAML validation plus read-only deploys,uv run serve validation commands executed,2026-01-18T23:30:00
 Authored RFC 007 ingestion planning,To define readiness gates and automation chain without implementation,Drafted requirements, signal trade-offs, and watch-based flow,Rendered successfully,2026-01-18T23:45:00
 Expanded RFC 007 with per-file hashing discussion,To address preference for per-file readiness and deduplication,Added discussion and best-practice updates for hashing and sentinels,Rendered successfully,2026-01-18T23:55:00
+Added provenance subfolder and receipt discussion,To answer new guidance on deterministic ingestion layouts,Documented hash-based subfolders and JSON receipt best practices,Rendered successfully,2026-01-19T00:05:00
