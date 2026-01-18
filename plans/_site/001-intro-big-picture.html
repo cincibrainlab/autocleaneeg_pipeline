@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>main-plan – AutoCleanEEG Pipeline Plans</title>
+<title>intro-big-picture – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -96,11 +96,11 @@ ul.task-list li input[type="checkbox"] {
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="./main-plan.html" aria-current="page"> 
+    <a class="nav-link" href="./main-plan.html"> 
 <span class="menu-text">Main Plan</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./001-intro-big-picture.html"> 
+    <a class="nav-link active" href="./001-intro-big-picture.html" aria-current="page"> 
 <span class="menu-text">Introduction</span></a>
   </li>  
 </ul>
@@ -121,15 +121,64 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<p>pre-instruction hooks: - please make a surgical git commit before edits overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs.&nbsp;appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf</p>
-<p>Instruction sets:</p>
-<ol type="1">
-<li>write an intro to big picture of what autocleaneeg-pipeline is</li>
-</ol>
-<p>Clean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder</p>
-<p>Post Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - serve the website on localhost on port 10910 as a background process to not interfer - specific project instructions if needed:</p>
+<section id="executed-document-rfc-001---introduction-to-autocleaneeg-pipeline" class="level1">
+<h1>Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline</h1>
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.</p>
+</section>
+<section id="analysis-of-codebase" class="level2">
+<h2 class="anchored" data-anchor-id="analysis-of-codebase">Analysis of Codebase</h2>
+<p>Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:</p>
+<ul>
+<li>Core pipeline orchestration</li>
+<li>Modular processing functions (preprocessing, ICA, epoching, artifacts)</li>
+<li>Plugin system for file formats</li>
+<li>CLI interface</li>
+<li>Task configuration system</li>
+<li>BIDS support</li>
+<li>Built-in tasks for various paradigms</li>
+</ul>
+</section>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.</p>
+<p>The pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.</p>
+<section id="key-features" class="level3">
+<h3 class="anchored" data-anchor-id="key-features">Key Features</h3>
+<ul>
+<li><p><strong>Modular Architecture</strong>: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.</p></li>
+<li><p><strong>Automated Quality Assurance</strong>: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.</p></li>
+<li><p><strong>BIDS Compliance</strong>: Standard data organization and metadata handling for reproducible research.</p></li>
+<li><p><strong>Extensible System</strong>: Plugin architecture for custom file formats and processing steps.</p></li>
+<li><p><strong>Batch Processing</strong>: Efficient handling of multiple files with parallel execution and database logging.</p></li>
+<li><p><strong>Comprehensive Reporting</strong>: PDF reports, visualizations, and metadata summaries for transparency.</p></li>
+<li><p><strong>Task System</strong>: Pre-configured tasks for common paradigms with customizable parameters.</p></li>
+</ul>
+</section>
+<section id="target-audience" class="level3">
+<h3 class="anchored" data-anchor-id="target-audience">Target Audience</h3>
+<p>The pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:</p>
+<ul>
+<li><strong>Researchers</strong>: Automate routine preprocessing to focus on scientific questions</li>
+<li><strong>Clinicians</strong>: Standardize processing for consistent clinical EEG analysis<br>
+</li>
+<li><strong>Developers</strong>: Extensible framework for custom EEG processing tools</li>
+</ul>
+</section>
+<section id="workflow-integration" class="level3">
+<h3 class="anchored" data-anchor-id="workflow-integration">Workflow Integration</h3>
+<p>AutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.</p>
+<p>By automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.</p>
+</section>
+</section>
+<section id="integration" class="level2">
+<h2 class="anchored" data-anchor-id="integration">Integration</h2>
+<p>This introduction is saved as a dedicated page in the plans website and linked in the navigation.</p>
 
 
+</section>
+</section>
 
 </main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">

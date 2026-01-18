@@ -1,0 +1,57 @@
+# Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline
+
+## Overview
+
+This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.
+
+## Analysis of Codebase
+
+Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:
+
+- Core pipeline orchestration
+- Modular processing functions (preprocessing, ICA, epoching, artifacts)
+- Plugin system for file formats
+- CLI interface
+- Task configuration system
+- BIDS support
+- Built-in tasks for various paradigms
+
+## Introduction
+
+AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular "lego block" approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.
+
+The pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.
+
+### Key Features
+
+- **Modular Architecture**: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.
+
+- **Automated Quality Assurance**: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.
+
+- **BIDS Compliance**: Standard data organization and metadata handling for reproducible research.
+
+- **Extensible System**: Plugin architecture for custom file formats and processing steps.
+
+- **Batch Processing**: Efficient handling of multiple files with parallel execution and database logging.
+
+- **Comprehensive Reporting**: PDF reports, visualizations, and metadata summaries for transparency.
+
+- **Task System**: Pre-configured tasks for common paradigms with customizable parameters.
+
+### Target Audience
+
+The pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:
+
+- **Researchers**: Automate routine preprocessing to focus on scientific questions
+- **Clinicians**: Standardize processing for consistent clinical EEG analysis  
+- **Developers**: Extensible framework for custom EEG processing tools
+
+### Workflow Integration
+
+AutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.
+
+By automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.
+
+## Integration
+
+This introduction is saved as a dedicated page in the plans website and linked in the navigation.

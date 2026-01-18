@@ -253,15 +253,23 @@ Processing stages automatically numbered in BIDS derivatives:
 - Replaces legacy `stage_files` approach
 
 ## Development Requirements
-- **Python**: 3.10-3.13 (requires-python = ">=3.10,<3.14")
-- **Core deps**: MNE>=1.10.1, PyTorch==2.8.0, NumPy>=1.20.0
+- **Python**: 3.11-3.13 (requires-python = ">=3.11,<3.14")
+- **Core deps**: MNE>=1.10.1, PyTorch==2.8.0, NumPy>=2.3.3
 - **GUI deps**: PyQt6, mne-qt-browser, textual
 - **Build**: hatchling backend, UV package manager
 - **Style**: Black (88 char), isort, ruff
 - **Testing**: pytest with >85% coverage target
 
+## Codebase Overview
+
+**Stack**: Python 3.11-3.13, MNE-Python, PyTorch, NumPy, SQLite
+
+**Structure**: Modular mixin-based architecture with dynamic discovery, plugin system for formats/events, block system for analysis methods.
+
+For detailed architecture, module guides, data flow diagrams, and navigation guides, see [docs/CODEBASE_MAP.md](../CODEBASE_MAP.md).
+
 ## Current Status
-- **Version**: 2.3.0 (see pyproject.toml)
+- **Version**: 3.0.0-alpha.3 (see pyproject.toml)
 - **PyPI**: `autocleaneeg-pipeline`
-- **Documentation**: https://cincibrainlab.github.io/autoclean_pipeline/
+- **Documentation**: https://docs.autocleaneeg.org
 - **CI/CD**: GitHub Actions with automated testing
