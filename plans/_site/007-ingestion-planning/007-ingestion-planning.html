@@ -369,16 +369,94 @@ ul.task-list li input[type="checkbox"] {
 </tbody>
 </table>
 </section>
-<section id="appendix-a-open-questions" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-open-questions">Appendix A: Open Questions</h2>
-<ul>
-<li>What tool generates the batch manifest in upstream systems?</li>
-<li>Should incremental updates create a new run or amend the original run?</li>
-<li>How long should pending items remain before quarantine?</li>
-<li>Should duplicate hashes be skipped automatically or routed for review?</li>
-<li>Which metadata fields should be included in the directory hash input?</li>
-<li>How long should receipts be retained before archiving?</li>
-</ul>
+<section id="appendix-a-consultant-qa" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-consultant-qa">Appendix A: Consultant Q&amp;A</h2>
+<table class="caption-top table">
+<caption>Table 4. Consultant responses to ingestion planning questions.</caption>
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Question</th>
+<th>Consultant Answer</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>What tool generates the batch manifest in upstream systems?</td>
+<td>Prefer manifests emitted by the acquisition or export system (CSV/JSON with checksums) so ingestion is deterministic and audit‑ready.</td>
+</tr>
+<tr class="even">
+<td>Should incremental updates create a new run or amend the original run?</td>
+<td>Default to a new run using a stable <code>batch_id</code>; allow amendments only within a short correction window with a full audit trail.</td>
+</tr>
+<tr class="odd">
+<td>How long should pending items remain before quarantine?</td>
+<td>Keep pending for 24–72 hours; quarantine after 7–14 days without resolution (configurable by site).</td>
+</tr>
+<tr class="even">
+<td>Should duplicate hashes be skipped automatically or routed for review?</td>
+<td>Treat duplicates as idempotent, skip re‑ingest, and log a duplicate event; optionally route for review in compliance modes.</td>
+</tr>
+<tr class="odd">
+<td>Which metadata fields should be included in the directory hash input?</td>
+<td><code>batch_id</code>, <code>subject_id</code>, <code>session_id</code>, <code>recording_id</code>, <code>site_id</code>, <code>device_id</code>, <code>export_time</code>, <code>timezone</code>, <code>file_count</code>, <code>total_bytes</code>, <code>manifest_checksum</code>, <code>operator</code>.</td>
+</tr>
+<tr class="even">
+<td>How long should receipts be retained before archiving?</td>
+<td>Retain 2–7 years depending on IRB/clinical policy; keep receipts immutable and archive rather than delete.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="execution-plan-tdd" class="level2">
+<h2 class="anchored" data-anchor-id="execution-plan-tdd">Execution Plan (TDD)</h2>
+<p>The execution plan below follows a test‑first sequence so ingestion logic is validated before operational rollout. Each phase assumes use of the existing test data and workspace to validate behavior in a controlled setting.</p>
+<table class="caption-top table">
+<caption>Table 5. TDD execution phases for ingestion work.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Phase</th>
+<th>TDD Focus</th>
+<th>Example Tests</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Phase 1: Readiness gates</td>
+<td>Manifest/sentinel validation</td>
+<td>Missing fields, file count mismatch, size stability enforcement.</td>
+</tr>
+<tr class="even">
+<td>Phase 2: Hashing + dedup</td>
+<td>Deterministic hashes</td>
+<td>Stable hash output, duplicate detection, checksum mismatch detection.</td>
+</tr>
+<tr class="odd">
+<td>Phase 3: Receipts</td>
+<td>Immutable audit trail</td>
+<td>Receipt creation, append‑only revisions, retention policy checks.</td>
+</tr>
+<tr class="even">
+<td>Phase 4: Watcher chain</td>
+<td>Event handling</td>
+<td>Debounce windows, quarantine triggers, alert emission.</td>
+</tr>
+<tr class="odd">
+<td>Phase 5: Automation dispatch</td>
+<td>End‑to‑end flow</td>
+<td>Readiness → queue → run metadata capture.</td>
+</tr>
+</tbody>
+</table>
+<p>TDD sequencing keeps ingestion behavior predictable: write tests for readiness and hashing first, implement minimal logic to satisfy them, then expand into watcher and dispatch integration while preserving audit logs and receipt integrity.</p>
 
 
 </section>

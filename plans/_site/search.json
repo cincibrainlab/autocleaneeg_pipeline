@@ -63,11 +63,18 @@
     "text": "Best-Practice Checklist\n\nTable 3. Operational best practices for ingestion.\n\n\n\n\n\n\n\nArea\nBest Practice\nReason\n\n\n\n\nIngestion folder\nSeparate staging from ingestion root\nPrevent partial processing.\n\n\nCompletion signal\nPrefer per-file sentinel + hash\nKeeps rolling ingestion responsive.\n\n\nUpdate handling\nRequire new manifest or receipt revision\nAvoid silent partial updates.\n\n\nDeduplication\nHash files before dispatch\nPrevent duplicate processing.\n\n\nQuarantine\nMove failed readiness to quarantine\nKeeps operators informed and pipeline clean.\n\n\nAudit logs\nPersist readiness decisions\nSupports compliance and debugging."
   },
   {
-    "objectID": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-open-questions",
-    "href": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-open-questions",
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-consultant-qa",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#appendix-a-consultant-qa",
     "title": "RFC 007: Ingestion Planning for Automation",
-    "section": "Appendix A: Open Questions",
-    "text": "Appendix A: Open Questions\n\nWhat tool generates the batch manifest in upstream systems?\nShould incremental updates create a new run or amend the original run?\nHow long should pending items remain before quarantine?\nShould duplicate hashes be skipped automatically or routed for review?\nWhich metadata fields should be included in the directory hash input?\nHow long should receipts be retained before archiving?"
+    "section": "Appendix A: Consultant Q&A",
+    "text": "Appendix A: Consultant Q&A\n\nTable 4. Consultant responses to ingestion planning questions.\n\n\n\n\n\n\nQuestion\nConsultant Answer\n\n\n\n\nWhat tool generates the batch manifest in upstream systems?\nPrefer manifests emitted by the acquisition or export system (CSV/JSON with checksums) so ingestion is deterministic and audit‑ready.\n\n\nShould incremental updates create a new run or amend the original run?\nDefault to a new run using a stable batch_id; allow amendments only within a short correction window with a full audit trail.\n\n\nHow long should pending items remain before quarantine?\nKeep pending for 24–72 hours; quarantine after 7–14 days without resolution (configurable by site).\n\n\nShould duplicate hashes be skipped automatically or routed for review?\nTreat duplicates as idempotent, skip re‑ingest, and log a duplicate event; optionally route for review in compliance modes.\n\n\nWhich metadata fields should be included in the directory hash input?\nbatch_id, subject_id, session_id, recording_id, site_id, device_id, export_time, timezone, file_count, total_bytes, manifest_checksum, operator.\n\n\nHow long should receipts be retained before archiving?\nRetain 2–7 years depending on IRB/clinical policy; keep receipts immutable and archive rather than delete."
+  },
+  {
+    "objectID": "007-ingestion-planning/007-ingestion-planning.html#execution-plan-tdd",
+    "href": "007-ingestion-planning/007-ingestion-planning.html#execution-plan-tdd",
+    "title": "RFC 007: Ingestion Planning for Automation",
+    "section": "Execution Plan (TDD)",
+    "text": "Execution Plan (TDD)\nThe execution plan below follows a test‑first sequence so ingestion logic is validated before operational rollout. Each phase assumes use of the existing test data and workspace to validate behavior in a controlled setting.\n\nTable 5. TDD execution phases for ingestion work.\n\n\n\n\n\n\n\nPhase\nTDD Focus\nExample Tests\n\n\n\n\nPhase 1: Readiness gates\nManifest/sentinel validation\nMissing fields, file count mismatch, size stability enforcement.\n\n\nPhase 2: Hashing + dedup\nDeterministic hashes\nStable hash output, duplicate detection, checksum mismatch detection.\n\n\nPhase 3: Receipts\nImmutable audit trail\nReceipt creation, append‑only revisions, retention policy checks.\n\n\nPhase 4: Watcher chain\nEvent handling\nDebounce windows, quarantine triggers, alert emission.\n\n\nPhase 5: Automation dispatch\nEnd‑to‑end flow\nReadiness → queue → run metadata capture.\n\n\n\nTDD sequencing keeps ingestion behavior predictable: write tests for readiness and hashing first, implement minimal logic to satisfy them, then expand into watcher and dispatch integration while preserving audit logs and receipt integrity."
   },
   {
     "objectID": "005-serve-workspace/005-serve-workspace.html",

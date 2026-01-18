@@ -92,11 +92,31 @@ The ingestion plan must describe how readiness transitions into automation execu
 
 : Table 3. Operational best practices for ingestion.
 
-## Appendix A: Open Questions
+## Appendix A: Consultant Q&A
 
-- What tool generates the batch manifest in upstream systems?
-- Should incremental updates create a new run or amend the original run?
-- How long should pending items remain before quarantine?
-- Should duplicate hashes be skipped automatically or routed for review?
-- Which metadata fields should be included in the directory hash input?
-- How long should receipts be retained before archiving?
+| Question | Consultant Answer |
+|---|---|
+| What tool generates the batch manifest in upstream systems? | Prefer manifests emitted by the acquisition or export system (CSV/JSON with checksums) so ingestion is deterministic and audit‑ready. |
+| Should incremental updates create a new run or amend the original run? | Default to a new run using a stable `batch_id`; allow amendments only within a short correction window with a full audit trail. |
+| How long should pending items remain before quarantine? | Keep pending for 24–72 hours; quarantine after 7–14 days without resolution (configurable by site). |
+| Should duplicate hashes be skipped automatically or routed for review? | Treat duplicates as idempotent, skip re‑ingest, and log a duplicate event; optionally route for review in compliance modes. |
+| Which metadata fields should be included in the directory hash input? | `batch_id`, `subject_id`, `session_id`, `recording_id`, `site_id`, `device_id`, `export_time`, `timezone`, `file_count`, `total_bytes`, `manifest_checksum`, `operator`. |
+| How long should receipts be retained before archiving? | Retain 2–7 years depending on IRB/clinical policy; keep receipts immutable and archive rather than delete. |
+
+: Table 4. Consultant responses to ingestion planning questions.
+
+## Execution Plan (TDD)
+
+The execution plan below follows a test‑first sequence so ingestion logic is validated before operational rollout. Each phase assumes use of the existing test data and workspace to validate behavior in a controlled setting.
+
+| Phase | TDD Focus | Example Tests |
+|---|---|---|
+| Phase 1: Readiness gates | Manifest/sentinel validation | Missing fields, file count mismatch, size stability enforcement. |
+| Phase 2: Hashing + dedup | Deterministic hashes | Stable hash output, duplicate detection, checksum mismatch detection. |
+| Phase 3: Receipts | Immutable audit trail | Receipt creation, append‑only revisions, retention policy checks. |
+| Phase 4: Watcher chain | Event handling | Debounce windows, quarantine triggers, alert emission. |
+| Phase 5: Automation dispatch | End‑to‑end flow | Readiness → queue → run metadata capture. |
+
+: Table 5. TDD execution phases for ingestion work.
+
+TDD sequencing keeps ingestion behavior predictable: write tests for readiness and hashing first, implement minimal logic to satisfy them, then expand into watcher and dispatch integration while preserving audit logs and receipt integrity.
