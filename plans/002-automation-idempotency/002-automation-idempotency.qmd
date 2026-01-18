@@ -1,0 +1,76 @@
+---
+title: "RFC 002: Automation Idempotency Preparation"
+subtitle: "Analysis, Plan, and Discussion for Output Backup Toggle"
+date: 2026-01-18
+---
+
+## Executive Summary
+
+Automation requires that repeated pipeline runs reuse a stable output root rather than creating a backup on each invocation. Today, `step_prepare_directories` in `src/autoclean/utils/file_system.py` relocates the existing task root to a timestamped backup on the first encounter per process, and `Pipeline` in `src/autoclean/core/pipeline.py` records that move in run metadata. This design is safe for manual runs but blocks automation workflows that expect a single accumulating folder. The first step is to design a minimal toggle that bypasses directory backups only when an explicit automation mode is requested (e.g., the new `autocleaneeg serve` workflow) while preserving auditability and backward compatibility.
+
+## Current Backup Mechanism
+
+The backup trigger lives in `step_prepare_directories`, where an existing task root is moved to a timestamped backup directory before new BIDS-compliant subdirectories are created. The behavior is invoked by `Pipeline` during every run, and any backup event is captured in the database metadata as `directory_backup`, then used by `resolve_moved_path` in `src/autoclean/utils/path_resolution.py` to repair legacy paths. The net effect is that every new CLI invocation generates a fresh output root, which is ideal for safety but unsuitable for automation workflows that must append artifacts to a single target.
+
+```{mermaid}
+%%| fig-cap: "Figure 1. Task-root backup flow during directory preparation."
+flowchart LR
+  A[Existing task root] --> B{First encounter
+in process?}
+  B -->|Yes| C[Move to task_backup_timestamp]
+  B -->|No| D[Reuse task root]
+  C --> D
+  D --> E[Create/ensure BIDS, reports, exports, QA]
+```
+
+## Downstream Artifacts Affected
+
+Disabling backups changes how several output families accumulate across runs. The core directories are created under the task root, and many downstream tools assume those paths are stable. The table below summarizes the primary artifacts affected if backups are skipped.
+
+| Artifact/Directory | Examples | Impact When Backups Are Disabled |
+|---|---|---|
+| `bids/derivatives` | Cleaned data, staged FIF/SET files | Files may be overwritten if naming is deterministic; may need run-scoped subfolders. |
+| `reports/` | PDF QA reports, summaries | Reports accumulate; repeated run outputs may need versioning. |
+| `exports/` | Final exported datasets | Overwrite risk if filenames repeat; automation should define overwrite policy. |
+| `ica/` | ICA FIF caches, component notes | Cache reuse may be beneficial but needs collision awareness. |
+| `qa/` | QA images and metrics | Re-runs can append; consider run identifier in filenames. |
+| `status/` | `run_id`.json markers | Task-level markers can be overwritten; run-level markers remain additive. |
+| `pipeline.db` | Run metadata, audit log | Single DB becomes authoritative; must remain append-only for compliance. |
+
+: Table 1. Output artifacts affected by disabling task-root backups.
+
+## Toggle Options and Automation Mode
+
+A surgical toggle should avoid global behavior changes while enabling automation use cases. The most constrained options are (a) a CLI or API flag that disables the backup only for a single run, or (b) reusing the existing `workspace.auto_backup` configuration as a feature flag. The latter already defaults to `True` in `src/autoclean/utils/config.py` and is enforced during setup, so a new automation command could temporarily set it to `False` for an isolated run without altering user defaults.
+
+| Option | Scope | Pros | Risks |
+|---|---|---|---|
+| CLI flag `--automation` | Per-run | Minimal blast radius; explicit intent | Must be propagated through CLI → Pipeline → `step_prepare_directories`. |
+| Config override `workspace.auto_backup` | Workspace | Aligns with existing config model | Needs guardrails to avoid accidental permanent disable. |
+| Environment variable `AUTOCLEAN_AUTOMATION=1` | Session | Easy for automation scripts | Less discoverable; must be documented. |
+
+: Table 2. Candidate toggle mechanisms for automation mode.
+
+::: callout-note
+## Recommendation
+Use a per-run automation flag that sets `auto_backup=False` only for that invocation, leaving the default safety posture intact. This supports the proposed `autocleaneeg serve` workflow without permanently altering workspace configuration.
+:::
+
+## First-Step Plan
+
+1. Define a single automation entry point (e.g., `autocleaneeg serve`) that carries an `automation_mode` flag through the CLI, `Pipeline`, and `step_prepare_directories`.
+2. Introduce a guard in `step_prepare_directories` that skips the backup move when `automation_mode` is enabled, but still logs the decision in run metadata.
+3. Document an overwrite policy for artifact families (reports, exports, derivatives) and recommend run-scoped filenames where collisions are likely.
+4. Add an audit note to the run metadata explaining that automation mode preserved the existing task root.
+
+## Discussion: Idempotency and Run Coexistence
+
+Idempotency requires that a run can be repeated without corrupting or fragmenting outputs. Skipping the backup restores folder stability but raises overwrite risks for deterministic filenames. The safest mitigation is to append `run_id` or timestamp suffixes for files that are not inherently append-only, while leaving database and status logging as append-only records. The automation toggle should therefore be paired with a file-naming policy that makes reprocessing predictable, transparent, and reversible.
+
+## Appendix A: Files Reviewed
+
+- `src/autoclean/utils/file_system.py`
+- `src/autoclean/core/pipeline.py`
+- `src/autoclean/utils/path_resolution.py`
+- `src/autoclean/utils/config.py`
+- `docs/CODEBASE_MAP.md`

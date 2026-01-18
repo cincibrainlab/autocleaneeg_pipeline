@@ -1,14 +1,21 @@
 project:
   type: website
+  render:
+    - index.qmd
+    - main-plan.md
+    - 001-intro-big-picture/001-intro-big-picture.qmd
+    - 002-automation-idempotency/002-automation-idempotency.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
   navbar:
-     left:
+    left:
       - href: index.qmd
         text: Home
-      - href: 001-intro-big-picture.html
+      - href: 001-intro-big-picture/001-intro-big-picture.html
         text: Introduction
+      - href: 002-automation-idempotency/002-automation-idempotency.html
+        text: Automation Idempotency
 
 format:
   html:

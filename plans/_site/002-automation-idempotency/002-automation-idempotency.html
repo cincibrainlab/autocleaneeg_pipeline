@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-01-18">
 
-<title>intro-big-picture – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 002: Automation Idempotency Preparation – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -23,24 +24,24 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -68,6 +69,9 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
+<script src="../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
 
 
 </head>
@@ -79,9 +83,9 @@ ul.task-list li input[type="checkbox"] {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a href="./index.html" class="navbar-brand navbar-brand-logo">
+    <a href="../index.html" class="navbar-brand navbar-brand-logo">
     </a>
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">AutoCleanEEG Pipeline Plans</span>
     </a>
   </div>
@@ -92,12 +96,16 @@ ul.task-list li input[type="checkbox"] {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="./index.html"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="./001-intro-big-picture.html" aria-current="page"> 
+    <a class="nav-link" href="../001-intro-big-picture/001-intro-big-picture.html"> 
 <span class="menu-text">Introduction</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link active" href="../002-automation-idempotency/002-automation-idempotency.html" aria-current="page"> 
+<span class="menu-text">Automation Idempotency</span></a>
   </li>  
 </ul>
           </div> <!-- /navcollapse -->
@@ -112,68 +120,194 @@ ul.task-list li input[type="checkbox"] {
 <!-- margin-sidebar -->
     
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">RFC 002: Automation Idempotency Preparation</h1>
+<p class="subtitle lead">Analysis, Plan, and Discussion for Output Backup Toggle</p>
+</div>
 
 
 
+<div class="quarto-title-meta">
 
-<section id="executed-document-rfc-001---introduction-to-autocleaneeg-pipeline" class="level1">
-<h1>Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline</h1>
-<section id="overview" class="level2">
-<h2 class="anchored" data-anchor-id="overview">Overview</h2>
-<p>This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.</p>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 18, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="executive-summary" class="level2">
+<h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
+<p>Automation requires that repeated pipeline runs reuse a stable output root rather than creating a backup on each invocation. Today, <code>step_prepare_directories</code> in <code>src/autoclean/utils/file_system.py</code> relocates the existing task root to a timestamped backup on the first encounter per process, and <code>Pipeline</code> in <code>src/autoclean/core/pipeline.py</code> records that move in run metadata. This design is safe for manual runs but blocks automation workflows that expect a single accumulating folder. The first step is to design a minimal toggle that bypasses directory backups only when an explicit automation mode is requested (e.g., the new <code>autocleaneeg serve</code> workflow) while preserving auditability and backward compatibility.</p>
 </section>
-<section id="analysis-of-codebase" class="level2">
-<h2 class="anchored" data-anchor-id="analysis-of-codebase">Analysis of Codebase</h2>
-<p>Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:</p>
+<section id="current-backup-mechanism" class="level2">
+<h2 class="anchored" data-anchor-id="current-backup-mechanism">Current Backup Mechanism</h2>
+<p>The backup trigger lives in <code>step_prepare_directories</code>, where an existing task root is moved to a timestamped backup directory before new BIDS-compliant subdirectories are created. The behavior is invoked by <code>Pipeline</code> during every run, and any backup event is captured in the database metadata as <code>directory_backup</code>, then used by <code>resolve_moved_path</code> in <code>src/autoclean/utils/path_resolution.py</code> to repair legacy paths. The net effect is that every new CLI invocation generates a fresh output root, which is ideal for safety but unsuitable for automation workflows that must append artifacts to a single target.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class="figure"><p></p>
+<div>
+<pre class="mermaid mermaid-js">flowchart LR
+  A[Existing task root] --&gt; B{First encounter
+in process?}
+  B --&gt;|Yes| C[Move to task_backup_timestamp]
+  B --&gt;|No| D[Reuse task root]
+  C --&gt; D
+  D --&gt; E[Create/ensure BIDS, reports, exports, QA]
+</pre>
+</div>
+<p></p><figcaption> Figure 1. Task-root backup flow during directory preparation.</figcaption> </figure><p></p>
+</div>
+</div>
+</div>
+</section>
+<section id="downstream-artifacts-affected" class="level2">
+<h2 class="anchored" data-anchor-id="downstream-artifacts-affected">Downstream Artifacts Affected</h2>
+<p>Disabling backups changes how several output families accumulate across runs. The core directories are created under the task root, and many downstream tools assume those paths are stable. The table below summarizes the primary artifacts affected if backups are skipped.</p>
+<table class="caption-top table">
+<caption>Table 1. Output artifacts affected by disabling task-root backups.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Artifact/Directory</th>
+<th>Examples</th>
+<th>Impact When Backups Are Disabled</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>bids/derivatives</code></td>
+<td>Cleaned data, staged FIF/SET files</td>
+<td>Files may be overwritten if naming is deterministic; may need run-scoped subfolders.</td>
+</tr>
+<tr class="even">
+<td><code>reports/</code></td>
+<td>PDF QA reports, summaries</td>
+<td>Reports accumulate; repeated run outputs may need versioning.</td>
+</tr>
+<tr class="odd">
+<td><code>exports/</code></td>
+<td>Final exported datasets</td>
+<td>Overwrite risk if filenames repeat; automation should define overwrite policy.</td>
+</tr>
+<tr class="even">
+<td><code>ica/</code></td>
+<td>ICA FIF caches, component notes</td>
+<td>Cache reuse may be beneficial but needs collision awareness.</td>
+</tr>
+<tr class="odd">
+<td><code>qa/</code></td>
+<td>QA images and metrics</td>
+<td>Re-runs can append; consider run identifier in filenames.</td>
+</tr>
+<tr class="even">
+<td><code>status/</code></td>
+<td><code>run_id</code>.json markers</td>
+<td>Task-level markers can be overwritten; run-level markers remain additive.</td>
+</tr>
+<tr class="odd">
+<td><code>pipeline.db</code></td>
+<td>Run metadata, audit log</td>
+<td>Single DB becomes authoritative; must remain append-only for compliance.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="toggle-options-and-automation-mode" class="level2">
+<h2 class="anchored" data-anchor-id="toggle-options-and-automation-mode">Toggle Options and Automation Mode</h2>
+<p>A surgical toggle should avoid global behavior changes while enabling automation use cases. The most constrained options are (a) a CLI or API flag that disables the backup only for a single run, or (b) reusing the existing <code>workspace.auto_backup</code> configuration as a feature flag. The latter already defaults to <code>True</code> in <code>src/autoclean/utils/config.py</code> and is enforced during setup, so a new automation command could temporarily set it to <code>False</code> for an isolated run without altering user defaults.</p>
+<table class="caption-top table">
+<caption>Table 2. Candidate toggle mechanisms for automation mode.</caption>
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Option</th>
+<th>Scope</th>
+<th>Pros</th>
+<th>Risks</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>CLI flag <code>--automation</code></td>
+<td>Per-run</td>
+<td>Minimal blast radius; explicit intent</td>
+<td>Must be propagated through CLI → Pipeline → <code>step_prepare_directories</code>.</td>
+</tr>
+<tr class="even">
+<td>Config override <code>workspace.auto_backup</code></td>
+<td>Workspace</td>
+<td>Aligns with existing config model</td>
+<td>Needs guardrails to avoid accidental permanent disable.</td>
+</tr>
+<tr class="odd">
+<td>Environment variable <code>AUTOCLEAN_AUTOMATION=1</code></td>
+<td>Session</td>
+<td>Easy for automation scripts</td>
+<td>Less discoverable; must be documented.</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Recommendation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Use a per-run automation flag that sets <code>auto_backup=False</code> only for that invocation, leaving the default safety posture intact. This supports the proposed <code>autocleaneeg serve</code> workflow without permanently altering workspace configuration.</p>
+</div>
+</div>
+</section>
+<section id="first-step-plan" class="level2">
+<h2 class="anchored" data-anchor-id="first-step-plan">First-Step Plan</h2>
+<ol type="1">
+<li>Define a single automation entry point (e.g., <code>autocleaneeg serve</code>) that carries an <code>automation_mode</code> flag through the CLI, <code>Pipeline</code>, and <code>step_prepare_directories</code>.</li>
+<li>Introduce a guard in <code>step_prepare_directories</code> that skips the backup move when <code>automation_mode</code> is enabled, but still logs the decision in run metadata.</li>
+<li>Document an overwrite policy for artifact families (reports, exports, derivatives) and recommend run-scoped filenames where collisions are likely.</li>
+<li>Add an audit note to the run metadata explaining that automation mode preserved the existing task root.</li>
+</ol>
+</section>
+<section id="discussion-idempotency-and-run-coexistence" class="level2">
+<h2 class="anchored" data-anchor-id="discussion-idempotency-and-run-coexistence">Discussion: Idempotency and Run Coexistence</h2>
+<p>Idempotency requires that a run can be repeated without corrupting or fragmenting outputs. Skipping the backup restores folder stability but raises overwrite risks for deterministic filenames. The safest mitigation is to append <code>run_id</code> or timestamp suffixes for files that are not inherently append-only, while leaving database and status logging as append-only records. The automation toggle should therefore be paired with a file-naming policy that makes reprocessing predictable, transparent, and reversible.</p>
+</section>
+<section id="appendix-a-files-reviewed" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
 <ul>
-<li>Core pipeline orchestration</li>
-<li>Modular processing functions (preprocessing, ICA, epoching, artifacts)</li>
-<li>Plugin system for file formats</li>
-<li>CLI interface</li>
-<li>Task configuration system</li>
-<li>BIDS support</li>
-<li>Built-in tasks for various paradigms</li>
+<li><code>src/autoclean/utils/file_system.py</code></li>
+<li><code>src/autoclean/core/pipeline.py</code></li>
+<li><code>src/autoclean/utils/path_resolution.py</code></li>
+<li><code>src/autoclean/utils/config.py</code></li>
+<li><code>docs/CODEBASE_MAP.md</code></li>
 </ul>
-</section>
-<section id="introduction" class="level2">
-<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<p>AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.</p>
-<p>The pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.</p>
-<section id="key-features" class="level3">
-<h3 class="anchored" data-anchor-id="key-features">Key Features</h3>
-<ul>
-<li><p><strong>Modular Architecture</strong>: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.</p></li>
-<li><p><strong>Automated Quality Assurance</strong>: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.</p></li>
-<li><p><strong>BIDS Compliance</strong>: Standard data organization and metadata handling for reproducible research.</p></li>
-<li><p><strong>Extensible System</strong>: Plugin architecture for custom file formats and processing steps.</p></li>
-<li><p><strong>Batch Processing</strong>: Efficient handling of multiple files with parallel execution and database logging.</p></li>
-<li><p><strong>Comprehensive Reporting</strong>: PDF reports, visualizations, and metadata summaries for transparency.</p></li>
-<li><p><strong>Task System</strong>: Pre-configured tasks for common paradigms with customizable parameters.</p></li>
-</ul>
-</section>
-<section id="target-audience" class="level3">
-<h3 class="anchored" data-anchor-id="target-audience">Target Audience</h3>
-<p>The pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:</p>
-<ul>
-<li><strong>Researchers</strong>: Automate routine preprocessing to focus on scientific questions</li>
-<li><strong>Clinicians</strong>: Standardize processing for consistent clinical EEG analysis<br>
-</li>
-<li><strong>Developers</strong>: Extensible framework for custom EEG processing tools</li>
-</ul>
-</section>
-<section id="workflow-integration" class="level3">
-<h3 class="anchored" data-anchor-id="workflow-integration">Workflow Integration</h3>
-<p>AutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.</p>
-<p>By automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.</p>
-</section>
-</section>
-<section id="integration" class="level2">
-<h2 class="anchored" data-anchor-id="integration">Integration</h2>
-<p>This introduction is saved as a dedicated page in the plans website and linked in the navigation.</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->

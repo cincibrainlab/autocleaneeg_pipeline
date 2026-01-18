@@ -1,94 +1,80 @@
 [
   {
-    "objectID": "001-intro-big-picture.html",
-    "href": "001-intro-big-picture.html",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html",
+    "href": "002-automation-idempotency/002-automation-idempotency.html",
+    "title": "RFC 002: Automation Idempotency Preparation",
     "section": "",
-    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.\n\n\n\nBased on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms\n\n\n\n\nAutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.\n\n\n\n\nThis introduction is saved as a dedicated page in the plans website and linked in the navigation."
+    "text": "Automation requires that repeated pipeline runs reuse a stable output root rather than creating a backup on each invocation. Today, step_prepare_directories in src/autoclean/utils/file_system.py relocates the existing task root to a timestamped backup on the first encounter per process, and Pipeline in src/autoclean/core/pipeline.py records that move in run metadata. This design is safe for manual runs but blocks automation workflows that expect a single accumulating folder. The first step is to design a minimal toggle that bypasses directory backups only when an explicit automation mode is requested (e.g., the new autocleaneeg serve workflow) while preserving auditability and backward compatibility."
   },
   {
-    "objectID": "001-intro-big-picture.html#overview",
-    "href": "001-intro-big-picture.html#overview",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html#executive-summary",
+    "href": "002-automation-idempotency/002-automation-idempotency.html#executive-summary",
+    "title": "RFC 002: Automation Idempotency Preparation",
     "section": "",
-    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is."
+    "text": "Automation requires that repeated pipeline runs reuse a stable output root rather than creating a backup on each invocation. Today, step_prepare_directories in src/autoclean/utils/file_system.py relocates the existing task root to a timestamped backup on the first encounter per process, and Pipeline in src/autoclean/core/pipeline.py records that move in run metadata. This design is safe for manual runs but blocks automation workflows that expect a single accumulating folder. The first step is to design a minimal toggle that bypasses directory backups only when an explicit automation mode is requested (e.g., the new autocleaneeg serve workflow) while preserving auditability and backward compatibility."
   },
   {
-    "objectID": "001-intro-big-picture.html#analysis-of-codebase",
-    "href": "001-intro-big-picture.html#analysis-of-codebase",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms"
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html#current-backup-mechanism",
+    "href": "002-automation-idempotency/002-automation-idempotency.html#current-backup-mechanism",
+    "title": "RFC 002: Automation Idempotency Preparation",
+    "section": "Current Backup Mechanism",
+    "text": "Current Backup Mechanism\nThe backup trigger lives in step_prepare_directories, where an existing task root is moved to a timestamped backup directory before new BIDS-compliant subdirectories are created. The behavior is invoked by Pipeline during every run, and any backup event is captured in the database metadata as directory_backup, then used by resolve_moved_path in src/autoclean/utils/path_resolution.py to repair legacy paths. The net effect is that every new CLI invocation generates a fresh output root, which is ideal for safety but unsuitable for automation workflows that must append artifacts to a single target.\n\n\n\n\n\nflowchart LR\n  A[Existing task root] --&gt; B{First encounter\nin process?}\n  B --&gt;|Yes| C[Move to task_backup_timestamp]\n  B --&gt;|No| D[Reuse task root]\n  C --&gt; D\n  D --&gt; E[Create/ensure BIDS, reports, exports, QA]\n\n\n Figure 1. Task-root backup flow during directory preparation."
   },
   {
-    "objectID": "001-intro-big-picture.html#introduction",
-    "href": "001-intro-big-picture.html#introduction",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency."
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html#downstream-artifacts-affected",
+    "href": "002-automation-idempotency/002-automation-idempotency.html#downstream-artifacts-affected",
+    "title": "RFC 002: Automation Idempotency Preparation",
+    "section": "Downstream Artifacts Affected",
+    "text": "Downstream Artifacts Affected\nDisabling backups changes how several output families accumulate across runs. The core directories are created under the task root, and many downstream tools assume those paths are stable. The table below summarizes the primary artifacts affected if backups are skipped.\n\nTable 1. Output artifacts affected by disabling task-root backups.\n\n\n\n\n\n\n\nArtifact/Directory\nExamples\nImpact When Backups Are Disabled\n\n\n\n\nbids/derivatives\nCleaned data, staged FIF/SET files\nFiles may be overwritten if naming is deterministic; may need run-scoped subfolders.\n\n\nreports/\nPDF QA reports, summaries\nReports accumulate; repeated run outputs may need versioning.\n\n\nexports/\nFinal exported datasets\nOverwrite risk if filenames repeat; automation should define overwrite policy.\n\n\nica/\nICA FIF caches, component notes\nCache reuse may be beneficial but needs collision awareness.\n\n\nqa/\nQA images and metrics\nRe-runs can append; consider run identifier in filenames.\n\n\nstatus/\nrun_id.json markers\nTask-level markers can be overwritten; run-level markers remain additive.\n\n\npipeline.db\nRun metadata, audit log\nSingle DB becomes authoritative; must remain append-only for compliance."
   },
   {
-    "objectID": "001-intro-big-picture.html#integration",
-    "href": "001-intro-big-picture.html#integration",
-    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
-    "section": "",
-    "text": "This introduction is saved as a dedicated page in the plans website and linked in the navigation."
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html#toggle-options-and-automation-mode",
+    "href": "002-automation-idempotency/002-automation-idempotency.html#toggle-options-and-automation-mode",
+    "title": "RFC 002: Automation Idempotency Preparation",
+    "section": "Toggle Options and Automation Mode",
+    "text": "Toggle Options and Automation Mode\nA surgical toggle should avoid global behavior changes while enabling automation use cases. The most constrained options are (a) a CLI or API flag that disables the backup only for a single run, or (b) reusing the existing workspace.auto_backup configuration as a feature flag. The latter already defaults to True in src/autoclean/utils/config.py and is enforced during setup, so a new automation command could temporarily set it to False for an isolated run without altering user defaults.\n\nTable 2. Candidate toggle mechanisms for automation mode.\n\n\n\n\n\n\n\n\nOption\nScope\nPros\nRisks\n\n\n\n\nCLI flag --automation\nPer-run\nMinimal blast radius; explicit intent\nMust be propagated through CLI → Pipeline → step_prepare_directories.\n\n\nConfig override workspace.auto_backup\nWorkspace\nAligns with existing config model\nNeeds guardrails to avoid accidental permanent disable.\n\n\nEnvironment variable AUTOCLEAN_AUTOMATION=1\nSession\nEasy for automation scripts\nLess discoverable; must be documented.\n\n\n\n\n\n\n\n\n\nNoteRecommendation\n\n\n\nUse a per-run automation flag that sets auto_backup=False only for that invocation, leaving the default safety posture intact. This supports the proposed autocleaneeg serve workflow without permanently altering workspace configuration."
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html",
-    "href": "001-intro-big-picture/001-intro-big-picture.html",
-    "title": "RFC 001: Write Introduction to AutoCleanEEG Pipeline Big Picture",
-    "section": "",
-    "text": "Write a comprehensive introduction that explains the big picture of what the AutoCleanEEG Pipeline is, its purpose, key features, and target users.\n\n\n\nNew users and contributors need a clear understanding of the project’s scope and capabilities to effectively use and develop the pipeline.\n\n\n\n\nAnalyze the codebase and documentation\nDraft an introduction covering:\n\nWhat it is\nKey features\nTarget audience\nHow it fits into EEG processing workflows\n\nIntegrate into the plans website as a dedicated page\n\n\n\n\nCreate the introduction in the executed document and integrate into the website navigation."
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html#first-step-plan",
+    "href": "002-automation-idempotency/002-automation-idempotency.html#first-step-plan",
+    "title": "RFC 002: Automation Idempotency Preparation",
+    "section": "First-Step Plan",
+    "text": "First-Step Plan\n\nDefine a single automation entry point (e.g., autocleaneeg serve) that carries an automation_mode flag through the CLI, Pipeline, and step_prepare_directories.\nIntroduce a guard in step_prepare_directories that skips the backup move when automation_mode is enabled, but still logs the decision in run metadata.\nDocument an overwrite policy for artifact families (reports, exports, derivatives) and recommend run-scoped filenames where collisions are likely.\nAdd an audit note to the run metadata explaining that automation mode preserved the existing task root."
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#summary",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#summary",
-    "title": "RFC 001: Write Introduction to AutoCleanEEG Pipeline Big Picture",
-    "section": "",
-    "text": "Write a comprehensive introduction that explains the big picture of what the AutoCleanEEG Pipeline is, its purpose, key features, and target users."
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html#discussion-idempotency-and-run-coexistence",
+    "href": "002-automation-idempotency/002-automation-idempotency.html#discussion-idempotency-and-run-coexistence",
+    "title": "RFC 002: Automation Idempotency Preparation",
+    "section": "Discussion: Idempotency and Run Coexistence",
+    "text": "Discussion: Idempotency and Run Coexistence\nIdempotency requires that a run can be repeated without corrupting or fragmenting outputs. Skipping the backup restores folder stability but raises overwrite risks for deterministic filenames. The safest mitigation is to append run_id or timestamp suffixes for files that are not inherently append-only, while leaving database and status logging as append-only records. The automation toggle should therefore be paired with a file-naming policy that makes reprocessing predictable, transparent, and reversible."
   },
   {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#motivation",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#motivation",
-    "title": "RFC 001: Write Introduction to AutoCleanEEG Pipeline Big Picture",
-    "section": "",
-    "text": "New users and contributors need a clear understanding of the project’s scope and capabilities to effectively use and develop the pipeline."
-  },
-  {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#design",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#design",
-    "title": "RFC 001: Write Introduction to AutoCleanEEG Pipeline Big Picture",
-    "section": "",
-    "text": "Analyze the codebase and documentation\nDraft an introduction covering:\n\nWhat it is\nKey features\nTarget audience\nHow it fits into EEG processing workflows\n\nIntegrate into the plans website as a dedicated page"
-  },
-  {
-    "objectID": "001-intro-big-picture/001-intro-big-picture.html#implementation",
-    "href": "001-intro-big-picture/001-intro-big-picture.html#implementation",
-    "title": "RFC 001: Write Introduction to AutoCleanEEG Pipeline Big Picture",
-    "section": "",
-    "text": "Create the introduction in the executed document and integrate into the website navigation."
+    "objectID": "002-automation-idempotency/002-automation-idempotency.html#appendix-a-files-reviewed",
+    "href": "002-automation-idempotency/002-automation-idempotency.html#appendix-a-files-reviewed",
+    "title": "RFC 002: Automation Idempotency Preparation",
+    "section": "Appendix A: Files Reviewed",
+    "text": "Appendix A: Files Reviewed\n\nsrc/autoclean/utils/file_system.py\nsrc/autoclean/core/pipeline.py\nsrc/autoclean/utils/path_resolution.py\nsrc/autoclean/utils/config.py\ndocs/CODEBASE_MAP.md"
   },
   {
     "objectID": "main-plan.html",
     "href": "main-plan.html",
     "title": "AutoCleanEEG Pipeline Plans",
     "section": "",
-    "text": "pre-instruction hooks: - please make a surgical git commit before edits overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs. appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf\nInstruction sets:\nsurgical integration of automation to autocleaneeg-pipeline preparation step the new command will be autocleaneeg serve however, currently when repeatedly running the pipeline the pipeline will backup the output folder this prevents automation since everytime a file is run it will end up going to an output folder with just 1 file for automation we need to keep adding to the same folder investigate the most surgical way to toggle this when we are running automation mode examine downstream artifacts and outputs how many would be affected by this ultimately the pipeline has to become ideopotent we have build a robust code map here docs/CODEBASE_MAP.md for your reference and planning write out a careful analysis, plan, and discussion for this first important step\nClean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder\nPost Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - serve the website on localhost on port 10910 as a background process to not interfer - specific project instructions if needed:"
+    "text": "pre-instruction hooks: - please make a surgical git commit before edits overall strategy: - use quarto (qmd) website output - strategically implement all quarto elements including callouts - organization of pages: strategic, senior PM, scalable - should be unified quarto website in the plans folder. be familiar with the docs: https://quarto.org/docs/reference/projects/websites.html - formating: - APA 7 throughout (headings, citations if present, tables/figures, tone). - NIH-like formatting (whitespace/margins/typography) - use dense prose to explain reasoning and steps - use formal tables and figures with captions - strategically decide which belong in the main body vs. appendices - clear section headers and strict, consistent organization - coding: - explain each code listing clearly and concisely - prefer linear scripts over deeply nested functions - deliverable should be reproducible and self-contained - minimize and optimize file outputs to avoid directory clutter - group / consolidate code to avoid excessive code blocks. - Following instructions + filenaming strategy - RFC-style Design Docs (numbered, reviewed, archived) - For each set of instructions render a pair of files in a subfolder that share the same basename. - Reasoning Plan (.md): Record the intended instructions, their order, and the rationale at a high level, without results or execution details; keep it short and editable to steer or revise the downstream work. - Executed Document (.qmd): Implement and execute the full instruction set, including code, analysis, and outputs, producing the authoritative rendered result. This is organized and integrated into the larger quarto website. The .md file captures thinking and order, the .qmd file captures execution and results and they are always side by side in the same place. - Be mindful that this file will be run over and over again as ideopotent instructions - for each instruction set be an energetic assistant and deploy subagents as necessary - Available tools: - Autenticated Github CLI (version control, issues, etc.) - quarto CLI - prefer the use of trash (homebrew) rather than rm -rf\nInstruction sets:\nClean up rules: Will provide explit remove: and archive: and reactivate: blocks when needed - Archive: move instruction set and output to archive folder - Remove: delete instruction set and output - Reactivate: move instruction set and output to active folder\nPost Instruction hooks: - give direct, essential feedback to user for edits needed to align the current file based on your actions. - obsolute or outdated instructions - breaking ideopotency - critical thinking errors - output should be 1-2 lines, elegant and formatted - render quarto after every change (no warnings/errors that affect output integrity). - make a surgical git commit of your edits - update plans/main-plan-log.csv Maintain a CSV-based decision log that records what was decided, why it was reasonable, what evidence supported it, and how it was validated, across both data science and general work; include timestamps only when sequencing or causality matters. - serve the website on localhost on port 10910 as a background process to not interfer - specific project instructions if needed:"
   },
   {
     "objectID": "index.html",
     "href": "index.html",
     "title": "AutoCleanEEG Pipeline Plans",
     "section": "",
-    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\n\n\n\n\nUse the navbar above to navigate the site."
+    "text": "Welcome to the AutoCleanEEG Pipeline Plans website.\nThis site contains the planning documents and instruction sets for the pipeline development.\n\n\n\nMain Plan\nIntroduction\nAutomation Idempotency Preparation\n\n\n\n\nUse the navbar above to navigate the site."
   },
   {
     "objectID": "index.html#documents",
     "href": "index.html#documents",
     "title": "AutoCleanEEG Pipeline Plans",
     "section": "",
-    "text": "Main Plan"
+    "text": "Main Plan\nIntroduction\nAutomation Idempotency Preparation"
   },
   {
     "objectID": "index.html#navigation",
@@ -98,10 +84,38 @@
     "text": "Use the navbar above to navigate the site."
   },
   {
-    "objectID": "scratch.html",
-    "href": "scratch.html",
-    "title": "AutoCleanEEG Pipeline Plans",
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html",
+    "href": "001-intro-big-picture/001-intro-big-picture.html",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
     "section": "",
-    "text": "surgical integration of automation to autocleaneeg-pipeline preparation step the new command will be autocleaneeg serve however, currently when repeatedly running the pipeline the pipeline will backup the output folder this prevents automation since everytime a file is run it will end up going to an output folder with just 1 file for automation we need to keep adding to the same folder investigate the most surgical way to toggle this when we are running automation mode examine downstream artifacts and outputs how many would be affected by this ultimately the pipeline has to become ideopotent we have build a robust code map here docs/CODEBASE_MAP.md for your reference and planning write out a careful analysis, plan, and discussion for this first important step"
+    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.\n\n\n\nBased on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms\n\n\n\n\nAutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.\n\n\n\n\nThis introduction is saved as a dedicated page in the plans website and linked in the navigation."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#overview",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#overview",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#analysis-of-codebase",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:\n\nCore pipeline orchestration\nModular processing functions (preprocessing, ICA, epoching, artifacts)\nPlugin system for file formats\nCLI interface\nTask configuration system\nBIDS support\nBuilt-in tasks for various paradigms"
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#introduction",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#introduction",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.\nThe pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.\n\n\n\nModular Architecture: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.\nAutomated Quality Assurance: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.\nBIDS Compliance: Standard data organization and metadata handling for reproducible research.\nExtensible System: Plugin architecture for custom file formats and processing steps.\nBatch Processing: Efficient handling of multiple files with parallel execution and database logging.\nComprehensive Reporting: PDF reports, visualizations, and metadata summaries for transparency.\nTask System: Pre-configured tasks for common paradigms with customizable parameters.\n\n\n\n\nThe pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:\n\nResearchers: Automate routine preprocessing to focus on scientific questions\nClinicians: Standardize processing for consistent clinical EEG analysis\n\nDevelopers: Extensible framework for custom EEG processing tools\n\n\n\n\nAutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.\nBy automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency."
+  },
+  {
+    "objectID": "001-intro-big-picture/001-intro-big-picture.html#integration",
+    "href": "001-intro-big-picture/001-intro-big-picture.html#integration",
+    "title": "Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline",
+    "section": "",
+    "text": "This introduction is saved as a dedicated page in the plans website and linked in the navigation."
   }
 ]

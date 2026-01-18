@@ -96,8 +96,12 @@ ul.task-list li input[type="checkbox"] {
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../001-intro-big-picture.html"> 
+    <a class="nav-link active" href="../001-intro-big-picture/001-intro-big-picture.html" aria-current="page"> 
 <span class="menu-text">Introduction</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../002-automation-idempotency/002-automation-idempotency.html"> 
+<span class="menu-text">Automation Idempotency</span></a>
   </li>  
 </ul>
           </div> <!-- /navcollapse -->
@@ -117,33 +121,60 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<section id="rfc-001-write-introduction-to-autocleaneeg-pipeline-big-picture" class="level1">
-<h1>RFC 001: Write Introduction to AutoCleanEEG Pipeline Big Picture</h1>
-<section id="summary" class="level2">
-<h2 class="anchored" data-anchor-id="summary">Summary</h2>
-<p>Write a comprehensive introduction that explains the big picture of what the AutoCleanEEG Pipeline is, its purpose, key features, and target users.</p>
+<section id="executed-document-rfc-001---introduction-to-autocleaneeg-pipeline" class="level1">
+<h1>Executed Document: RFC 001 - Introduction to AutoCleanEEG Pipeline</h1>
+<section id="overview" class="level2">
+<h2 class="anchored" data-anchor-id="overview">Overview</h2>
+<p>This document executes the instruction to write an introduction to the big picture of what AutoCleanEEG Pipeline is.</p>
 </section>
-<section id="motivation" class="level2">
-<h2 class="anchored" data-anchor-id="motivation">Motivation</h2>
-<p>New users and contributors need a clear understanding of the project’s scope and capabilities to effectively use and develop the pipeline.</p>
-</section>
-<section id="design" class="level2">
-<h2 class="anchored" data-anchor-id="design">Design</h2>
+<section id="analysis-of-codebase" class="level2">
+<h2 class="anchored" data-anchor-id="analysis-of-codebase">Analysis of Codebase</h2>
+<p>Based on the codebase exploration, AutoCleanEEG Pipeline is a modular framework for automated EEG data processing. Key components include:</p>
 <ul>
-<li>Analyze the codebase and documentation</li>
-<li>Draft an introduction covering:
-<ul>
-<li>What it is</li>
-<li>Key features</li>
-<li>Target audience</li>
-<li>How it fits into EEG processing workflows</li>
-</ul></li>
-<li>Integrate into the plans website as a dedicated page</li>
+<li>Core pipeline orchestration</li>
+<li>Modular processing functions (preprocessing, ICA, epoching, artifacts)</li>
+<li>Plugin system for file formats</li>
+<li>CLI interface</li>
+<li>Task configuration system</li>
+<li>BIDS support</li>
+<li>Built-in tasks for various paradigms</li>
 </ul>
 </section>
-<section id="implementation" class="level2">
-<h2 class="anchored" data-anchor-id="implementation">Implementation</h2>
-<p>Create the introduction in the executed document and integrate into the website navigation.</p>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<p>AutoCleanEEG Pipeline is a comprehensive, automated framework for EEG data preprocessing that streamlines the complex process of cleaning and preparing electroencephalography (EEG) data for analysis. Built on the robust MNE-Python library, it offers a modular “lego block” approach that allows users to construct customized preprocessing pipelines tailored to their specific experimental paradigms and data characteristics.</p>
+<p>The pipeline supports a wide range of EEG paradigms including Auditory Steady-State Response (ASSR), Mismatch Negativity (MMN), resting state, and more, making it versatile for both research and clinical applications. Its design emphasizes research workflows, BIDS compatibility for standardized data organization, and detailed quality control outputs to ensure data integrity.</p>
+<section id="key-features" class="level3">
+<h3 class="anchored" data-anchor-id="key-features">Key Features</h3>
+<ul>
+<li><p><strong>Modular Architecture</strong>: Processing steps are provided as interchangeable blocks, allowing flexible pipeline construction without coding.</p></li>
+<li><p><strong>Automated Quality Assurance</strong>: Built-in artifact detection, channel rejection, and epoch quality flagging with statistical methods.</p></li>
+<li><p><strong>BIDS Compliance</strong>: Standard data organization and metadata handling for reproducible research.</p></li>
+<li><p><strong>Extensible System</strong>: Plugin architecture for custom file formats and processing steps.</p></li>
+<li><p><strong>Batch Processing</strong>: Efficient handling of multiple files with parallel execution and database logging.</p></li>
+<li><p><strong>Comprehensive Reporting</strong>: PDF reports, visualizations, and metadata summaries for transparency.</p></li>
+<li><p><strong>Task System</strong>: Pre-configured tasks for common paradigms with customizable parameters.</p></li>
+</ul>
+</section>
+<section id="target-audience" class="level3">
+<h3 class="anchored" data-anchor-id="target-audience">Target Audience</h3>
+<p>The pipeline is designed for neuroscientists, clinicians, and data analysts who need reliable, reproducible EEG preprocessing. It serves:</p>
+<ul>
+<li><strong>Researchers</strong>: Automate routine preprocessing to focus on scientific questions</li>
+<li><strong>Clinicians</strong>: Standardize processing for consistent clinical EEG analysis<br>
+</li>
+<li><strong>Developers</strong>: Extensible framework for custom EEG processing tools</li>
+</ul>
+</section>
+<section id="workflow-integration" class="level3">
+<h3 class="anchored" data-anchor-id="workflow-integration">Workflow Integration</h3>
+<p>AutoCleanEEG fits into the EEG processing workflow as the preprocessing stage, taking raw EEG data and producing clean, analysis-ready datasets. It bridges the gap between data acquisition and statistical analysis, ensuring data quality while reducing manual processing time.</p>
+<p>By automating routine cleaning tasks, it allows researchers to focus on their scientific questions while maintaining high standards of data quality and processing transparency.</p>
+</section>
+</section>
+<section id="integration" class="level2">
+<h2 class="anchored" data-anchor-id="integration">Integration</h2>
+<p>This introduction is saved as a dedicated page in the plans website and linked in the navigation.</p>
 
 
 </section>
