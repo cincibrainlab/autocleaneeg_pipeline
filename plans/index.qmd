@@ -14,6 +14,7 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [Serve Workspace Command](005-serve-workspace/005-serve-workspace.html)
 - [Serve Command Family](006-serve-command-family/006-serve-command-family.html)
 - [Ingestion Planning](007-ingestion-planning/007-ingestion-planning.html)
+- [Ingestion PRD](008-ingestion-prd/008-ingestion-prd.html)
 
 ## Navigation
 

@@ -17,3 +17,4 @@ Authored RFC 007 ingestion planning,To define readiness gates and automation cha
 Expanded RFC 007 with per-file hashing discussion,To address preference for per-file readiness and deduplication,Added discussion and best-practice updates for hashing and sentinels,Rendered successfully,2026-01-18T23:55:00
 Added provenance subfolder and receipt discussion,To answer new guidance on deterministic ingestion layouts,Documented hash-based subfolders and JSON receipt best practices,Rendered successfully,2026-01-19T00:05:00
 Added consultant Q&A and TDD execution plan,To answer ingestion planning questions and prep development phases,Documented recommended defaults and phased test-first plan,Rendered successfully,2026-01-19T00:20:00
+Authored RFC 008 ingestion PRD,To prepare a full implementation-ready specification,Documented requirements, module mappings, and TDD phases based on CODEBASE_MAP,Rendered successfully,2026-01-19T00:35:00

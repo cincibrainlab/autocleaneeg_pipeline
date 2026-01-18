@@ -1,0 +1,139 @@
+---
+title: "RFC 008: Ingestion Product Requirements Document"
+subtitle: "Deterministic Readiness, Provenance, and Automation Dispatch"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This PRD defines the next implementation stage for ingestion in AutoCleanEEG automation. Building on RFC 007, it specifies per‑file readiness, hash‑based deduplication, provenance subfolders, and JSON receipts, then maps these requirements to the existing codebase structure documented in `docs/CODEBASE_MAP.md`. The outcome is a detailed, test‑first execution plan that is sufficiently precise for end‑to‑end implementation while preserving auditability, uptime, and reproducibility.
+
+## Background and Context
+
+Automation mode must safely ingest files without processing partial copies or duplicating runs. The pipeline already computes file hashes and maintains run metadata; the ingestion layer must formalize readiness gating, provenance receipts, and dispatch rules so automation can operate continuously without operator intervention. RFC 002 defines the serve workspace governance, and RFC 007 established per‑file readiness with hashing as the default. This PRD translates those decisions into implementable requirements and measurable outcomes.
+
+## Goals and Non‑Goals
+
+| Goals | Non‑Goals |
+|---|---|
+| Deterministic readiness gating for per‑file ingestion | Implement the ingestion service in this phase |
+| Hash‑based deduplication with audit‑ready receipts | Replace existing pipeline hashing mechanisms |
+| Clear mapping from ingestion to serve dispatch | Support non‑serve legacy workflows |
+| Test‑first delivery plan with staged rollout | UI redesign for ingestion monitoring |
+
+: Table 1. Product goals and non‑goals.
+
+## Stakeholders and Personas
+
+| Persona | Responsibilities | Pain Points |
+|---|---|---|
+| Automation Operator | Configure ingestion and monitor runs | Avoid partial ingestion and duplicates |
+| Data Manager | Ensure provenance and audit readiness | Track source files and receipt history |
+| Engineer | Implement and test ingestion logic | Clear requirements and module mapping |
+
+: Table 2. Key personas.
+
+## Requirements
+
+### Functional Requirements
+
+| ID | Requirement | Priority |
+|---|---|---|
+| FR‑1 | Accept per‑file completion signals (`.ready`/`.done`) before dispatch | High |
+| FR‑2 | Compute or reuse file hashes and skip duplicates by default | High |
+| FR‑3 | Create deterministic provenance subfolders based on relative path + metadata hash | High |
+| FR‑4 | Write immutable JSON receipts with revision history | High |
+| FR‑5 | Support optional batch manifest gate when available | Medium |
+| FR‑6 | Quarantine files failing readiness validation | Medium |
+| FR‑7 | Record readiness decisions in run metadata | High |
+
+: Table 3. Functional requirements.
+
+### Non‑Functional Requirements
+
+| ID | Requirement | Target |
+|---|---|---|
+| NFR‑1 | Readiness decision latency | < 60 seconds after sentinel |
+| NFR‑2 | Hash determinism | Stable across machines | 
+| NFR‑3 | Auditability | Append‑only receipts and logs | 
+| NFR‑4 | Operational simplicity | Minimal manual steps | 
+
+: Table 4. Non‑functional requirements.
+
+::: callout-tip
+## Default Strategy
+Per‑file completion + hash‑based deduplication is the default readiness strategy. Batch manifests remain optional and can be treated as a higher‑level gate when upstream systems support them.
+:::
+
+## Provenance Model and Receipts
+
+A deterministic ingestion layout requires stable subfolders. The recommended approach hashes the **relative ingest path + minimal metadata** (site, subject, session, acquisition date, batch ID) so the same dataset maps to the same folder across machines. Each folder contains a JSON receipt (same basename as the folder) capturing hash inputs, file list, file hashes, timestamps, and validation status, with revisions appended on updates rather than overwriting prior entries.
+
+| Receipt Field | Description |
+|---|---|
+| `receipt_version` | Schema version for backward compatibility |
+| `hash_inputs` | Relative path + metadata used in hash |
+| `hash_value` | Deterministic folder hash |
+| `files` | File list with per‑file hashes and sizes |
+| `timestamps` | Copy, validation, and update times |
+| `status` | Ready, pending, quarantined, or deployed |
+| `revisions` | Append‑only history of changes |
+
+: Table 5. JSON receipt schema (high‑level).
+
+## Automation Chain and State Flow
+
+```{mermaid}
+%%| fig-cap: "Figure 1. Ingestion readiness to automation dispatch flow."
+flowchart TD
+  A[File arrives + sentinel] --> B[Hash + receipt update]
+  B --> C[Readiness validation]
+  C -->|Ready| D[Queue run]
+  C -->|Not ready| E[Pending or quarantine]
+  D --> F[Serve runtime dispatch]
+  F --> G[Run metadata + receipt revision]
+```
+
+## Codebase Alignment (from CODEBASE_MAP)
+
+The ingestion system should integrate with existing modules rather than creating a parallel stack. The table below maps requirements to current code areas identified in `docs/CODEBASE_MAP.md`.
+
+| Requirement | Primary Module | Supporting Modules |
+|---|---|---|
+| Readiness gating | `src/autoclean/utils/` (new ingestion util) | `utils/logging.py`, `utils/audit.py` |
+| Hash + receipts | `utils/database.py` (ledger) + new receipt helper | `utils/config.py`, `utils/task_discovery.py` |
+| Serve dispatch | `core/pipeline.py` | `cli.py`, `utils/user_config.py` |
+| CLI surface | `cli.py` serve commands | `configkit/schema.py` |
+
+: Table 6. Module mapping for ingestion implementation.
+
+## Execution Plan (TDD)
+
+| Phase | Scope | Example Tests |
+|---|---|---|
+| Phase 1 | Readiness validators | Missing sentinels, file count mismatch, size stability windows |
+| Phase 2 | Hash + dedup | Deterministic hash, duplicate skip, receipt append‑only |
+| Phase 3 | Provenance layout | Stable folder naming across hosts, metadata‑driven hash |
+| Phase 4 | Watcher integration | Debounce timing, quarantine rules, manifest overrides |
+| Phase 5 | Dispatch integration | Ready → queue → run metadata capture |
+
+: Table 7. TDD phases for ingestion delivery.
+
+## Success Metrics
+
+- <5% manual interventions per 100 ingested batches
+- 0 duplicate runs for identical hashes
+- 100% receipt coverage for ingested files
+
+## Appendix A: Consultant Q&A Summary
+
+| Question | Answer |
+|---|---|
+| Batch manifest tooling | Use upstream export/acquisition manifests with checksums. |
+| Incremental updates | New run by default; allow short amendment window. |
+| Pending → quarantine | 24–72 hours pending; quarantine after 7–14 days. |
+| Duplicate hashes | Skip by default; review only when compliance requires it. |
+| Hash inputs | `batch_id`, `subject_id`, `session_id`, `recording_id`, `site_id`, `device_id`, `export_time`, `timezone`, `file_count`, `total_bytes`, `manifest_checksum`, `operator`. |
+| Receipt retention | 2–7 years per IRB/clinical policy. |
+
+: Table 8. Consultant responses retained for implementation.
