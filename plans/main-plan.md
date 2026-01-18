@@ -34,8 +34,8 @@ overall strategy:
 
 Instruction sets:
 
+1. write an intro to big picture of what autocleaneeg-pipeline is
 2. 
-
 
 
 Clean up rules:

@@ -4,11 +4,9 @@ project:
 website:
   title: "AutoCleanEEG Pipeline Plans"
   navbar:
-    left:
+     left:
       - href: index.qmd
         text: Home
-      - href: main-plan.html
-        text: Main Plan
       - href: 001-intro-big-picture.html
         text: Introduction
 
