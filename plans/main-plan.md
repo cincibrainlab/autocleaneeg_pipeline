@@ -68,6 +68,8 @@ defines what the ingestion folders (so we don't ahve to scan incomplete folders)
 defines the taskfile montage combination to define the automation workspace folders etc
 and as you think about it whatever else would be helpful
 
+we will use a combo of python and rust base file tools like python watchfiles with rust notify underneath
+
 please incorporate thisinto your current planning for 002
 
 
