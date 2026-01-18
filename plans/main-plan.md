@@ -82,6 +82,18 @@ since we want to have 100% uptime the serve-test.yaml and serve-live.yaml sit in
 the user can edit these, but there is a production set of yaml files that the automations run on that are read only until it is deployed
 so prior to replacing them the autocleaneeg-pipeline serve command must validate those rigorously and then replace the deployed versions
 
+new task:
+    Let's setup ingestion
+    work through this with planning doc first
+    best practices
+    we don't want automations to start until the ingestion folder is completed copying
+    we also may have updates in the future in the ingestion folder
+    do we do "done" ext at the file level or at the total copy level
+    could these tools help us Python watchfiles (Rust notify underneath)?
+    how does the actual automation work after we figure out ingestion?
+    work out the whole chain and plan in the next round in a rfc
+    do not implement or code
+
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
 - Archive: move instruction set and output to archive folder
