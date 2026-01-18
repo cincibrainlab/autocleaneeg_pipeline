@@ -94,6 +94,11 @@ new task:
     work out the whole chain and plan in the next round in a rfc
     do not implement or code
 
+    please repond with discussion:
+    i like per file
+    i think hashing (which the pipeline already does for original files) may help with duplicates
+    i want to hear more
+
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
 - Archive: move instruction set and output to archive folder
