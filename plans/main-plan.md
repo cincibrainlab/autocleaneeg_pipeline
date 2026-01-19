@@ -37,7 +37,12 @@ Instruction sets:
 
 New Task:
 
-now follow the directions in RFC 19 and RFC 20 an implement the feature
+please add discussion on these topics at the end of rfc 21 in plain english
+  Questions / Assumptions
+
+  - Should multi-route configs auto-assign legacy queue entries without route_id, or fail fast and require migration?
+  - Do you want overlap validation to consider file_globs intersections to allow disjoint globs at equal priority?
+  - Should ingestion root existence be enforced in strict mode?
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
