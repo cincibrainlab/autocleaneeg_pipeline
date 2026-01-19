@@ -2,7 +2,7 @@
 # Provides convenient commands for local development and code quality checks
 # Uses uv tool for isolated tool management (no dependency conflicts!)
 
-.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-cov test-integration test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop
 
 # Default target
 help: ## Show this help message
@@ -27,8 +27,12 @@ help: ## Show this help message
 	@echo ""
 	@echo "Testing:"
 	@echo "  test           Run unit tests"
+	@echo "  test-quick     Run fast ingestion unit tests"
+	@echo "  test-unit-short Run unit tests (fail fast)"
+	@echo "  test-ingestion Run ingestion unit tests"
 	@echo "  test-cov       Run tests with coverage"
 	@echo "  test-perf      Run performance benchmarks"
+	@echo "  test-integration-short Run integration tests (fail fast)"
 	@echo ""
 	@echo "CI Simulation:"
 	@echo "  ci-check       Run the same checks as CI (format + lint + tests)"
@@ -125,6 +129,18 @@ test: ## Run unit tests
 	@echo "🧪 Running unit tests..."
 	@pytest tests/unit/ -v
 
+test-quick: ## Run fast ingestion unit tests
+	@echo "🧪 Running ingestion unit tests..."
+	@pytest tests/unit/utils/test_ingestion.py -v
+
+test-unit-short: ## Run unit tests (fail fast)
+	@echo "🧪 Running unit tests (fast fail)..."
+	@pytest tests/unit/ -q --maxfail=1
+
+test-ingestion: ## Run ingestion unit tests
+	@echo "🧪 Running ingestion unit tests..."
+	@pytest tests/unit/utils/test_ingestion.py -v
+
 test-cov: ## Run tests with coverage reporting
 	@echo "🧪 Running tests with coverage..."
 	@pytest tests/unit/ --cov=autoclean --cov-report=term-missing --cov-report=html
@@ -132,6 +148,10 @@ test-cov: ## Run tests with coverage reporting
 test-integration: ## Run integration tests
 	@echo "🧪 Running integration tests..."
 	@pytest tests/integration/ -v --tb=short
+
+test-integration-short: ## Run integration tests (fail fast)
+	@echo "🧪 Running integration tests (fast fail)..."
+	@pytest tests/integration/ -q --tb=short --maxfail=1
 
 test-perf: ## Run performance benchmarks
 	@echo "🏃 Running performance benchmarks..."
