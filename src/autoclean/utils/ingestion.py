@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 DEFAULT_RECEIPT_VERSION = "1.0"
 DEFAULT_STATUS = "pending"
@@ -192,6 +192,18 @@ class ReadinessResult:
     unstable_files: list[Path] = field(default_factory=list)
 
 
+@dataclass
+class ReadyScanResult:
+    ready_files: list[Path] = field(default_factory=list)
+    pending_files: list[Path] = field(default_factory=list)
+    missing_sentinels: list[Path] = field(default_factory=list)
+    unstable_files: list[Path] = field(default_factory=list)
+
+    @property
+    def ready(self) -> bool:
+        return bool(self.ready_files)
+
+
 def _sentinel_path(file_path: Path, sentinel_ext: str) -> Path:
     return file_path.with_name(f"{file_path.name}{sentinel_ext}")
 
@@ -236,6 +248,138 @@ def evaluate_readiness(
         missing_sentinels=missing,
         unstable_files=unstable,
     )
+
+
+def list_ingestion_files(
+    root: Path, *, file_glob: str, sentinel_ext: str
+) -> list[Path]:
+    """Return candidate ingestion files under root."""
+    files: list[Path] = []
+    for path in root.rglob(file_glob):
+        if not path.is_file():
+            continue
+        if path.name.endswith(sentinel_ext):
+            continue
+        files.append(path)
+    return sorted(files)
+
+
+def scan_ready_files(
+    files: Iterable[Path],
+    *,
+    sentinel_ext: str = ".ready",
+    require_sentinel: bool = True,
+    stability_window_seconds: int = 0,
+) -> ReadyScanResult:
+    """Scan files and separate ready vs pending items."""
+    ready = []
+    pending = []
+    missing: list[Path] = []
+    unstable: list[Path] = []
+    for path in files:
+        result = evaluate_readiness(
+            [path],
+            sentinel_ext=sentinel_ext,
+            require_sentinel=require_sentinel,
+            stability_window_seconds=stability_window_seconds,
+        )
+        if result.ready:
+            ready.append(path)
+        else:
+            pending.append(path)
+        missing.extend(result.missing_sentinels)
+        unstable.extend(result.unstable_files)
+    return ReadyScanResult(
+        ready_files=ready,
+        pending_files=pending,
+        missing_sentinels=missing,
+        unstable_files=unstable,
+    )
+
+
+def poll_ready_files(
+    root: Path,
+    *,
+    file_glob: str = "*",
+    sentinel_ext: str = ".ready",
+    require_sentinel: bool = True,
+    stability_window_seconds: int = 0,
+    poll_interval_seconds: float = 1.0,
+    max_loops: int = 1,
+    sleep_fn: Optional[Callable[[float], None]] = None,
+) -> ReadyScanResult:
+    """Poll ingestion root until ready files are detected or loops exhausted."""
+    sleep = sleep_fn or time.sleep
+    result = ReadyScanResult()
+    loops = max(1, max_loops)
+    for _ in range(loops):
+        files = list_ingestion_files(
+            root, file_glob=file_glob, sentinel_ext=sentinel_ext
+        )
+        result = scan_ready_files(
+            files,
+            sentinel_ext=sentinel_ext,
+            require_sentinel=require_sentinel,
+            stability_window_seconds=stability_window_seconds,
+        )
+        if result.ready:
+            return result
+        sleep(poll_interval_seconds)
+    return result
+
+
+def watch_ready_files(
+    root: Path,
+    *,
+    file_glob: str = "*",
+    sentinel_ext: str = ".ready",
+    require_sentinel: bool = True,
+    stability_window_seconds: int = 0,
+    poll_interval_seconds: float = 1.0,
+    max_events: int = 25,
+    use_watchfiles: bool = True,
+) -> ReadyScanResult:
+    """Watch for ingestion events and return first ready scan result."""
+    if not use_watchfiles:
+        return poll_ready_files(
+            root,
+            file_glob=file_glob,
+            sentinel_ext=sentinel_ext,
+            require_sentinel=require_sentinel,
+            stability_window_seconds=stability_window_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            max_loops=max_events,
+        )
+
+    try:
+        from watchfiles import watch
+    except ImportError:
+        return poll_ready_files(
+            root,
+            file_glob=file_glob,
+            sentinel_ext=sentinel_ext,
+            require_sentinel=require_sentinel,
+            stability_window_seconds=stability_window_seconds,
+            poll_interval_seconds=poll_interval_seconds,
+            max_loops=max_events,
+        )
+
+    result = ReadyScanResult()
+    for idx, _ in enumerate(watch(root)):
+        files = list_ingestion_files(
+            root, file_glob=file_glob, sentinel_ext=sentinel_ext
+        )
+        result = scan_ready_files(
+            files,
+            sentinel_ext=sentinel_ext,
+            require_sentinel=require_sentinel,
+            stability_window_seconds=stability_window_seconds,
+        )
+        if result.ready:
+            return result
+        if idx + 1 >= max_events:
+            break
+    return result
 
 
 class IngestionLedger:

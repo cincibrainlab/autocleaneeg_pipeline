@@ -10,10 +10,14 @@ from autoclean.utils.ingestion import (
     build_receipt,
     compute_provenance_hash,
     evaluate_readiness,
+    list_ingestion_files,
     load_receipt,
+    poll_ready_files,
     receipt_path,
     resolve_provenance_folder,
+    scan_ready_files,
     stage_provenance_receipt,
+    watch_ready_files,
     write_receipt,
 )
 
@@ -38,6 +42,28 @@ def test_resolve_provenance_folder(tmp_path: Path) -> None:
     folder, hash_value = resolve_provenance_folder(root, relative, metadata)
     assert folder == root / hash_value
     assert hash_value == compute_provenance_hash(relative, metadata)
+
+
+def test_list_ingestion_files_filters_sentinels(tmp_path: Path) -> None:
+    data_file = tmp_path / "sample.set"
+    sentinel = tmp_path / "sample.set.ready"
+    _write_file(data_file)
+    _write_file(sentinel)
+    files = list_ingestion_files(tmp_path, file_glob="*.set", sentinel_ext=".ready")
+    assert data_file in files
+    assert sentinel not in files
+
+
+def test_scan_ready_files_separates_pending(tmp_path: Path) -> None:
+    ready_file = tmp_path / "ready.set"
+    pending_file = tmp_path / "pending.set"
+    _write_file(ready_file)
+    _write_file(pending_file)
+    _write_file(tmp_path / "ready.set.ready")
+    result = scan_ready_files([ready_file, pending_file], sentinel_ext=".ready")
+    assert ready_file in result.ready_files
+    assert pending_file in result.pending_files
+    assert result.missing_sentinels
 
 
 def test_receipt_roundtrip(tmp_path: Path) -> None:
@@ -95,6 +121,45 @@ def test_stage_provenance_receipt_records_ledger(tmp_path: Path) -> None:
         ledger=ledger,
     )
     assert repeat["duplicate"] is True
+
+
+def test_poll_ready_files(tmp_path: Path) -> None:
+    data_file = tmp_path / "sample.set"
+    _write_file(data_file)
+    result = poll_ready_files(
+        tmp_path,
+        file_glob="*.set",
+        sentinel_ext=".ready",
+        poll_interval_seconds=0,
+        max_loops=1,
+        sleep_fn=lambda _: None,
+    )
+    assert result.ready is False
+    _write_file(tmp_path / "sample.set.ready")
+    ready_result = poll_ready_files(
+        tmp_path,
+        file_glob="*.set",
+        sentinel_ext=".ready",
+        poll_interval_seconds=0,
+        max_loops=1,
+        sleep_fn=lambda _: None,
+    )
+    assert ready_result.ready is True
+
+
+def test_watch_ready_files_fallback(tmp_path: Path) -> None:
+    data_file = tmp_path / "sample.set"
+    _write_file(data_file)
+    _write_file(tmp_path / "sample.set.ready")
+    result = watch_ready_files(
+        tmp_path,
+        file_glob="*.set",
+        sentinel_ext=".ready",
+        poll_interval_seconds=0,
+        max_events=1,
+        use_watchfiles=False,
+    )
+    assert result.ready is True
 
 
 def test_readiness_requires_sentinel(tmp_path: Path) -> None:

@@ -8,7 +8,7 @@
 
 <meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 009: Ingestion Implementation – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 011: Ingestion Watcher Phase – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -164,7 +164,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Ingestion PRD</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../009-ingestion-implementation/009-ingestion-implementation.html" aria-current="page"> 
+    <a class="nav-link" href="../009-ingestion-implementation/009-ingestion-implementation.html"> 
 <span class="menu-text">Ingestion Implementation</span></a>
   </li>  
   <li class="nav-item">
@@ -172,7 +172,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Ingestion Provenance</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../011-ingestion-watcher/011-ingestion-watcher.html"> 
+    <a class="nav-link active" href="../011-ingestion-watcher/011-ingestion-watcher.html" aria-current="page"> 
 <span class="menu-text">Ingestion Watcher</span></a>
   </li>  
 </ul>
@@ -192,8 +192,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 009: Ingestion Implementation</h1>
-<p class="subtitle lead">Core Readiness, Hashing, and Receipt Utilities</p>
+<h1 class="title">RFC 011: Ingestion Watcher Phase</h1>
+<p class="subtitle lead">Scan, Poll, and Watchfiles Integration</p>
 </div>
 
 
@@ -218,12 +218,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>This RFC implements the ingestion foundations defined in RFC 008. The scope focuses on deterministic hashing, receipt management, readiness evaluation, and a ledger for duplicate detection. These utilities provide the core building blocks for a future watcher and dispatch service without introducing runtime daemons in this phase.</p>
+<p>This phase implements watcher integration from RFC 008 by adding scan and polling helpers plus a <code>watchfiles</code>-backed watcher with a polling fallback. The watcher utilities provide ready‑file detection without a full daemon, ensuring testability and deterministic behavior.</p>
 </section>
 <section id="implementation-scope" class="level2">
 <h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
 <table class="caption-top table">
-<caption>Table 1. Implemented ingestion components.</caption>
+<caption>Table 1. Watcher phase deliverables.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -238,24 +238,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </thead>
 <tbody>
 <tr class="odd">
-<td>Hashing</td>
-<td>Deterministic file and provenance hashes</td>
-<td>Uses SHA‑256 with stable metadata ordering.</td>
+<td>Scan helpers</td>
+<td><code>list_ingestion_files</code>, <code>scan_ready_files</code></td>
+<td>Separate ready vs pending files.</td>
 </tr>
 <tr class="even">
-<td>Receipts</td>
-<td>JSON sidecar with revisions</td>
-<td>Immutable receipt with append‑only revisions.</td>
+<td>Polling</td>
+<td><code>poll_ready_files</code></td>
+<td>Loop with configurable max cycles.</td>
 </tr>
 <tr class="odd">
-<td>Readiness</td>
-<td>Sentinel + stability checks</td>
-<td>Per‑file sentinels plus optional size window.</td>
-</tr>
-<tr class="even">
-<td>Dedup</td>
-<td>Ledger JSON</td>
-<td>Tracks seen hashes to skip duplicates.</td>
+<td>Watcher</td>
+<td><code>watch_ready_files</code></td>
+<td>Uses watchfiles when available, falls back to polling.</td>
 </tr>
 </tbody>
 </table>
@@ -277,11 +272,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tbody>
 <tr class="odd">
 <td><code>src/autoclean/utils/ingestion.py</code></td>
-<td>New ingestion utilities for hashes, receipts, readiness, and ledger.</td>
+<td>Added scan, poll, and watch utilities.</td>
 </tr>
 <tr class="even">
 <td><code>tests/unit/utils/test_ingestion.py</code></td>
-<td>Unit tests covering determinism, receipts, ledger, and sentinel checks.</td>
+<td>Added scan/poll/watch fallback tests.</td>
+</tr>
+<tr class="odd">
+<td><code>pyproject.toml</code></td>
+<td>Added <code>watchfiles</code> dependency.</td>
 </tr>
 </tbody>
 </table>
@@ -290,22 +289,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: 4 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) because repository defaults expect broader coverage. A warning about an unknown <code>timeout</code> pytest config option was emitted by pytest.</p>
+<p>Result: 10 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) due to repository defaults. Pytest emitted an unknown <code>timeout</code> config warning; uv reported a link‑mode fallback warning when installing the updated dependency set.</p>
 </section>
 <section id="followup-work" class="level2">
 <h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
 <ol type="1">
-<li>Integrate watcher loop with <code>watchfiles</code> in a dedicated ingestion service.</li>
-<li>Persist ledger state in database for compliance mode.</li>
-<li>Wire readiness decisions into serve dispatch.</li>
+<li>Extend watcher to emit structured events into serve dispatch.</li>
+<li>Add integration tests for watchfiles event handling.</li>
 </ol>
 </section>
-<section id="appendix-a-key-behaviors" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-key-behaviors">Appendix A: Key Behaviors</h2>
+<section id="appendix-a-behaviors" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-behaviors">Appendix A: Behaviors</h2>
 <ul>
-<li>Receipts are written atomically and revisions append without overwriting prior entries.</li>
-<li>Duplicate hashes are detected via the ledger and can be skipped by default.</li>
-<li>Readiness requires per‑file sentinels unless overridden by configuration.</li>
+<li>Ready files are detected per‑file using sentinels; pending items remain until signals are present.</li>
+<li>Watchfiles is optional; polling fallback preserves deterministic behavior in constrained environments.</li>
 </ul>
 
 

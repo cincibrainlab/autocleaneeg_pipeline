@@ -1,0 +1,48 @@
+---
+title: "RFC 011: Ingestion Watcher Phase"
+subtitle: "Scan, Poll, and Watchfiles Integration"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase implements watcher integration from RFC 008 by adding scan and polling helpers plus a `watchfiles`-backed watcher with a polling fallback. The watcher utilities provide ready‑file detection without a full daemon, ensuring testability and deterministic behavior.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Scan helpers | `list_ingestion_files`, `scan_ready_files` | Separate ready vs pending files. |
+| Polling | `poll_ready_files` | Loop with configurable max cycles. |
+| Watcher | `watch_ready_files` | Uses watchfiles when available, falls back to polling. |
+
+: Table 1. Watcher phase deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added scan, poll, and watch utilities. |
+| `tests/unit/utils/test_ingestion.py` | Added scan/poll/watch fallback tests. |
+| `pyproject.toml` | Added `watchfiles` dependency. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 10 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning; uv reported a link‑mode fallback warning when installing the updated dependency set.
+
+## Follow‑Up Work
+
+1. Extend watcher to emit structured events into serve dispatch.
+2. Add integration tests for watchfiles event handling.
+
+## Appendix A: Behaviors
+
+- Ready files are detected per‑file using sentinels; pending items remain until signals are present.
+- Watchfiles is optional; polling fallback preserves deterministic behavior in constrained environments.

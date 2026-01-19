@@ -57,6 +57,8 @@ dependencies = [
     "defusedxml==0.7.1",
     "pyyaml==6.0.2",
     "schema==0.7.7",
+    "watchfiles==0.22.0",
+
     "Jinja2==3.1.6",
     "python-ulid==3.1.0",
     "cython==3.1.4",
