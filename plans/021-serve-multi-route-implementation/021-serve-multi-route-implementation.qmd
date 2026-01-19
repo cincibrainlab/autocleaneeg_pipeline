@@ -90,8 +90,8 @@ The pytest run emitted a warning about an unknown `timeout` config option in `py
 
 ## Questions and Assumptions
 
-These open choices affect safety, operator burden, and how much validation logic we carry forward.
+These open choices affect safety, operator burden, and how much validation logic we carry forward. The decisions below reflect the current development posture.
 
-- Legacy queue entries without `route_id`: Auto-assigning keeps work moving but can route files to the wrong pipeline; failing fast forces an explicit migration and makes behavior easier to audit.
-- Overlap validation vs. `file_globs`: Allowing disjoint globs at equal priority increases flexibility but requires reasoning about pattern intersections; the current strict rule is simpler and avoids hidden collisions.
-- Ingestion root existence in strict mode: Enforcing it surfaces problems early and keeps runs predictable, but it can block startup when roots appear later or are mounted on demand.
+- Legacy queue entries without `route_id`: We are still in development, so backward compatibility is not a requirement. Legacy entries should fail fast unless they are explicitly migrated to include `route_id`.
+- Overlap validation vs. `file_globs`: Stick with the simple rule. Overlaps at the same priority remain validation errors even if glob patterns appear disjoint.
+- Ingestion root existence in strict mode: Enforce root existence in strict mode. Missing roots should be reported as validation failures rather than deferred to runtime.
