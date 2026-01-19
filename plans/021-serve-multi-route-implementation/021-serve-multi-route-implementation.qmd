@@ -87,3 +87,11 @@ The implementation aligns with the RFC 019 model, but several enhancements remai
 ## Appendix A: Test Output Notes
 
 The pytest run emitted a warning about an unknown `timeout` config option in `pytest.ini`. This warning is pre-existing and does not affect the ingestion tests executed for this implementation.
+
+## Questions and Assumptions
+
+These open choices affect safety, operator burden, and how much validation logic we carry forward.
+
+- Legacy queue entries without `route_id`: Auto-assigning keeps work moving but can route files to the wrong pipeline; failing fast forces an explicit migration and makes behavior easier to audit.
+- Overlap validation vs. `file_globs`: Allowing disjoint globs at equal priority increases flexibility but requires reasoning about pattern intersections; the current strict rule is simpler and avoids hidden collisions.
+- Ingestion root existence in strict mode: Enforcing it surfaces problems early and keeps runs predictable, but it can block startup when roots appear later or are mounted on demand.

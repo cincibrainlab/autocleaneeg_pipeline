@@ -426,6 +426,15 @@ Figure&nbsp;1: Figure 1. Implemented route selection and dispatch flow.
 <section id="appendix-a-test-output-notes" class="level2">
 <h2 class="anchored" data-anchor-id="appendix-a-test-output-notes">Appendix A: Test Output Notes</h2>
 <p>The pytest run emitted a warning about an unknown <code>timeout</code> config option in <code>pytest.ini</code>. This warning is pre-existing and does not affect the ingestion tests executed for this implementation.</p>
+</section>
+<section id="questions-and-assumptions" class="level2">
+<h2 class="anchored" data-anchor-id="questions-and-assumptions">Questions and Assumptions</h2>
+<p>These open choices affect safety, operator burden, and how much validation logic we carry forward.</p>
+<ul>
+<li>Legacy queue entries without <code>route_id</code>: Auto-assigning keeps work moving but can route files to the wrong pipeline; failing fast forces an explicit migration and makes behavior easier to audit.</li>
+<li>Overlap validation vs.&nbsp;<code>file_globs</code>: Allowing disjoint globs at equal priority increases flexibility but requires reasoning about pattern intersections; the current strict rule is simpler and avoids hidden collisions.</li>
+<li>Ingestion root existence in strict mode: Enforcing it surfaces problems early and keeps runs predictable, but it can block startup when roots appear later or are mounted on demand.</li>
+</ul>
 
 
 </section>
