@@ -12,6 +12,8 @@ from autoclean.utils.ingestion import (
     evaluate_readiness,
     load_receipt,
     receipt_path,
+    resolve_provenance_folder,
+    stage_provenance_receipt,
     write_receipt,
 )
 
@@ -27,6 +29,15 @@ def test_provenance_hash_deterministic(tmp_path: Path) -> None:
     hash_a = compute_provenance_hash(relative, metadata_a)
     hash_b = compute_provenance_hash(relative, metadata_b)
     assert hash_a == hash_b
+
+
+def test_resolve_provenance_folder(tmp_path: Path) -> None:
+    root = tmp_path / "ingest"
+    relative = Path("incoming/sample.set")
+    metadata = {"site_id": "SITE", "subject_id": "S1"}
+    folder, hash_value = resolve_provenance_folder(root, relative, metadata)
+    assert folder == root / hash_value
+    assert hash_value == compute_provenance_hash(relative, metadata)
 
 
 def test_receipt_roundtrip(tmp_path: Path) -> None:
@@ -57,6 +68,33 @@ def test_ingestion_ledger(tmp_path: Path) -> None:
     assert ledger.is_duplicate("hash") is False
     ledger.record("hash", {"path": "file.set"})
     assert ledger.is_duplicate("hash") is True
+
+
+def test_stage_provenance_receipt_records_ledger(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    data_file = tmp_path / "sample.set"
+    _write_file(data_file)
+    ledger = IngestionLedger(tmp_path / "ledger.json")
+    result = stage_provenance_receipt(
+        root=root,
+        relative_path=Path("incoming/sample.set"),
+        metadata={"site_id": "SITE"},
+        files=[data_file],
+        status="pending",
+        ledger=ledger,
+    )
+    assert result["folder"].exists()
+    assert receipt_path(result["folder"]).exists()
+    assert ledger.is_duplicate(result["hash"]) is True
+    repeat = stage_provenance_receipt(
+        root=root,
+        relative_path=Path("incoming/sample.set"),
+        metadata={"site_id": "SITE"},
+        files=[data_file],
+        status="pending",
+        ledger=ledger,
+    )
+    assert repeat["duplicate"] is True
 
 
 def test_readiness_requires_sentinel(tmp_path: Path) -> None:

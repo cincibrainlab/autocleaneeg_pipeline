@@ -42,6 +42,14 @@ def compute_provenance_hash(relative_path: Path, metadata: dict[str, Any]) -> st
     return _hash_bytes(json.dumps(payload, sort_keys=True).encode("utf-8"))
 
 
+def resolve_provenance_folder(
+    root: Path, relative_path: Path, metadata: dict[str, Any]
+) -> tuple[Path, str]:
+    """Resolve deterministic provenance folder and hash value."""
+    hash_value = compute_provenance_hash(relative_path, metadata)
+    return root / hash_value, hash_value
+
+
 def receipt_path(folder: Path) -> Path:
     """Return receipt JSON sidecar path for a folder."""
     return folder / f"{folder.name}.json"
@@ -134,6 +142,46 @@ def append_receipt_revision(
     receipt.setdefault("timestamps", {})["updated_at"] = _timestamp()
     write_receipt(folder, receipt)
     return receipt
+
+
+def stage_provenance_receipt(
+    *,
+    root: Path,
+    relative_path: Path,
+    metadata: dict[str, Any],
+    files: Iterable[Path],
+    status: str = DEFAULT_STATUS,
+    ledger: Optional["IngestionLedger"] = None,
+) -> dict[str, Any]:
+    """Create provenance folder, write receipt, and optionally record ledger."""
+    folder, hash_value = resolve_provenance_folder(root, relative_path, metadata)
+    receipt = build_receipt(
+        folder=folder,
+        relative_path=relative_path,
+        metadata=metadata,
+        files=files,
+        status=status,
+    )
+    write_receipt(folder, receipt)
+
+    duplicate = False
+    if ledger is not None:
+        duplicate = ledger.is_duplicate(hash_value)
+        if not duplicate:
+            ledger.record(
+                hash_value,
+                {
+                    "relative_path": relative_path.as_posix(),
+                    "folder": str(folder),
+                },
+            )
+
+    return {
+        "folder": folder,
+        "hash": hash_value,
+        "receipt": receipt,
+        "duplicate": duplicate,
+    }
 
 
 @dataclass

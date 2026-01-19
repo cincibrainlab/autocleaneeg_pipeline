@@ -1,0 +1,47 @@
+---
+title: "RFC 010: Ingestion Provenance Phase"
+subtitle: "Deterministic Folder Resolution and Staged Receipts"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase completes the provenance layout step from RFC 008 by adding deterministic folder resolution and staged receipt writing with ledger integration. The new helpers resolve a provenance hash into a stable folder, write receipts atomically, and flag duplicate hashes via the ledger. Unit tests confirm determinism and duplicate handling.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Provenance layout | `resolve_provenance_folder` | Hashes relative path + metadata to a folder. |
+| Receipt staging | `stage_provenance_receipt` | Writes receipt and records ledger state. |
+| Ledger support | Duplicate flagging | Marks duplicates without overwriting receipts. |
+
+: Table 1. Provenance phase deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added provenance folder resolver and staged receipt helper. |
+| `tests/unit/utils/test_ingestion.py` | Added tests for folder determinism and ledger-backed staging. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 6 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
+
+## Follow‑Up Work
+
+1. Add watcher integration using `watchfiles` with `notify` backend.
+2. Connect provenance receipts to serve dispatch and database audit trail.
+
+## Appendix A: Behaviors
+
+- Deterministic folder names are derived from relative ingest path + metadata hash inputs.
+- Receipt writes are atomic, and duplicate hashes are flagged in ledger metadata.

@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-01-18">
+<meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 006: Serve Command Family – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 010: Ingestion Provenance Phase – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -152,7 +152,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Serve Workspace</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../006-serve-command-family/006-serve-command-family.html" aria-current="page"> 
+    <a class="nav-link" href="../006-serve-command-family/006-serve-command-family.html"> 
 <span class="menu-text">Serve Commands</span></a>
   </li>  
   <li class="nav-item">
@@ -168,7 +168,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Ingestion Implementation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../010-ingestion-provenance/010-ingestion-provenance.html"> 
+    <a class="nav-link active" href="../010-ingestion-provenance/010-ingestion-provenance.html" aria-current="page"> 
 <span class="menu-text">Ingestion Provenance</span></a>
   </li>  
 </ul>
@@ -188,8 +188,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 006: Serve Command Family</h1>
-<p class="subtitle lead">List, Validate, Deploy for Serve Workspace Governance</p>
+<h1 class="title">RFC 010: Ingestion Provenance Phase</h1>
+<p class="subtitle lead">Deterministic Folder Resolution and Staged Receipts</p>
 </div>
 
 
@@ -200,7 +200,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 18, 2026</p>
+      <p class="date">January 19, 2026</p>
     </div>
   </div>
   
@@ -214,59 +214,87 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>This RFC implements the additional <code>autocleaneeg-pipeline serve</code> commands required by RFC 002: <code>list</code>, <code>validate</code>, and <code>deploy</code>. The commands surface workspace status, validate operator-edited YAMLs, and promote configurations into a read-only deployed set under <code>deploy/</code> after successful validation.</p>
+<p>This phase completes the provenance layout step from RFC 008 by adding deterministic folder resolution and staged receipt writing with ledger integration. The new helpers resolve a provenance hash into a stable folder, write receipts atomically, and flag duplicate hashes via the ledger. Unit tests confirm determinism and duplicate handling.</p>
 </section>
-<section id="command-overview" class="level2">
-<h2 class="anchored" data-anchor-id="command-overview">Command Overview</h2>
+<section id="implementation-scope" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
 <table class="caption-top table">
-<caption>Table 1. Serve command family additions.</caption>
+<caption>Table 1. Provenance phase deliverables.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Area</th>
+<th>Deliverable</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Provenance layout</td>
+<td><code>resolve_provenance_folder</code></td>
+<td>Hashes relative path + metadata to a folder.</td>
+</tr>
+<tr class="even">
+<td>Receipt staging</td>
+<td><code>stage_provenance_receipt</code></td>
+<td>Writes receipt and records ledger state.</td>
+</tr>
+<tr class="odd">
+<td>Ledger support</td>
+<td>Duplicate flagging</td>
+<td>Marks duplicates without overwriting receipts.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="code-changes" class="level2">
+<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
+<table class="caption-top table">
+<caption>Table 2. Code updates delivered.</caption>
 <colgroup>
 <col style="width: 50%">
 <col style="width: 50%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>Command</th>
-<th>Description</th>
+<th>File</th>
+<th>Change</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>serve list</code></td>
-<td>Report workspace path, YAML status, runtime folders, and automation directories.</td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
+<td>Added provenance folder resolver and staged receipt helper.</td>
 </tr>
 <tr class="even">
-<td><code>serve validate --mode &lt;test|live&gt;</code></td>
-<td>Validate the operator YAML for structure, paths, and mode alignment.</td>
-</tr>
-<tr class="odd">
-<td><code>serve deploy --mode &lt;test|live&gt;</code></td>
-<td>Copy validated YAML into <code>deploy/</code> and mark it read-only.</td>
+<td><code>tests/unit/utils/test_ingestion.py</code></td>
+<td>Added tests for folder determinism and ledger-backed staging.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="deployment-guardrails" class="level2">
-<h2 class="anchored" data-anchor-id="deployment-guardrails">Deployment Guardrails</h2>
-<ul>
-<li>Operator YAMLs (<code>serve-test.yaml</code>, <code>serve-live.yaml</code>) remain editable.</li>
-<li>Deployed YAMLs live in <code>deploy/</code> and are marked read-only after deployment.</li>
-<li>Validation checks required keys, runtime paths, automation root paths, and mode alignment.</li>
-</ul>
+<section id="test-results" class="level2">
+<h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Result: 6 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) due to repository defaults. Pytest emitted an unknown <code>timeout</code> config warning.</p>
 </section>
-<section id="validation-steps" class="level2">
-<h2 class="anchored" data-anchor-id="validation-steps">Validation Steps</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli serve list <span class="at">--path</span> <span class="st">"/Volumes/owcssd/test-workspace/serve-workspace"</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli serve validate <span class="at">--mode</span> test <span class="at">--path</span> <span class="st">"/Volumes/owcssd/test-workspace/serve-workspace"</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli serve deploy <span class="at">--mode</span> test <span class="at">--path</span> <span class="st">"/Volumes/owcssd/test-workspace/serve-workspace"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: <code>serve list</code> reported expected workspace components and missing deployed YAMLs. <code>serve validate --mode test</code> succeeded with warnings for empty <code>taskfile</code>/<code>montage</code>. <code>serve deploy --mode test</code> created <code>deploy/serve-test.yaml</code>, marked it read-only, and preserved the warnings for incomplete operator fields.</p>
+<section id="followup-work" class="level2">
+<h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
+<ol type="1">
+<li>Add watcher integration using <code>watchfiles</code> with <code>notify</code> backend.</li>
+<li>Connect provenance receipts to serve dispatch and database audit trail.</li>
+</ol>
 </section>
-<section id="appendix-a-files-reviewed" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
+<section id="appendix-a-behaviors" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-behaviors">Appendix A: Behaviors</h2>
 <ul>
-<li><code>src/autoclean/cli.py</code></li>
-<li><code>src/autoclean/utils/user_config.py</code></li>
-<li><code>plans/006-serve-command-family/006-serve-command-family.md</code></li>
+<li>Deterministic folder names are derived from relative ingest path + metadata hash inputs.</li>
+<li>Receipt writes are atomic, and duplicate hashes are flagged in ledger metadata.</li>
 </ul>
 
 

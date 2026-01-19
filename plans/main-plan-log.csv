@@ -19,3 +19,4 @@ Added provenance subfolder and receipt discussion,To answer new guidance on dete
 Added consultant Q&A and TDD execution plan,To answer ingestion planning questions and prep development phases,Documented recommended defaults and phased test-first plan,Rendered successfully,2026-01-19T00:20:00
 Authored RFC 008 ingestion PRD,To prepare a full implementation-ready specification,Documented requirements, module mappings, and TDD phases based on CODEBASE_MAP,Rendered successfully,2026-01-19T00:35:00
 Implemented RFC 008 ingestion utilities,To deliver core readiness, receipts, and dedup building blocks,Added ingestion module with ledger plus unit tests and documentation,Tests executed with coverage override,2026-01-19T00:55:00
+Implemented provenance layout phase,To advance RFC 008 TDD phases with deterministic foldering,Added provenance resolver and staged receipts with ledger tests,Tests executed with coverage override,2026-01-19T01:15:00
