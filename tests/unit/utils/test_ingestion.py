@@ -8,6 +8,7 @@ from pathlib import Path
 from autoclean.utils.ingestion import (
     DispatchPlan,
     DispatchResult,
+    IngestionDispatchResult,
     IngestionLedger,
     append_receipt_revision,
     build_dispatch_plan,
@@ -15,6 +16,7 @@ from autoclean.utils.ingestion import (
     build_receipt,
     build_workspace_name,
     compute_provenance_hash,
+    dispatch_ready_ingestion,
     evaluate_readiness,
     execute_dispatch_plan,
     list_ingestion_files,
@@ -260,6 +262,52 @@ def test_run_dispatch_plan_uses_runner(tmp_path: Path) -> None:
     result = run_dispatch_plan(plan, runner=runner, max_attempts=1)
     assert not result.failed
     assert len(calls) == 2
+
+
+def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtimes" / "test"
+    _runtime_cli_path(runtime_dir)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    data_file = ingestion_root / "sample.set"
+    _write_file(data_file)
+    _write_file(ingestion_root / "sample.set.ready")
+    config_path = tmp_path / "serve-test.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "taskfile: Resting",
+                "montage: standard_1020",
+                "runtime: runtimes/test",
+                "automation_root: automations",
+                "workspace_name: taskfile-montage-version",
+                "ingestion_folders:",
+                "  - ingest",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / "automations").mkdir()
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str]) -> None:
+        calls.append(cmd)
+
+    result = dispatch_ready_ingestion(
+        config_path=config_path,
+        workspace_dir=tmp_path,
+        ingestion_root=ingestion_root,
+        file_glob="*.set",
+        sentinel_ext=".ready",
+        use_watchfiles=False,
+        max_events=1,
+        runner=runner,
+    )
+    assert isinstance(result, IngestionDispatchResult)
+    assert result.plan is not None
+    assert result.result is not None
+    assert len(calls) == 1
 
 
 def test_execute_dispatch_plan_retries(tmp_path: Path) -> None:

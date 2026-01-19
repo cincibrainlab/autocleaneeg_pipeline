@@ -21,6 +21,7 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [Ingestion Dispatch](012-ingestion-dispatch/012-ingestion-dispatch.html)
 - [Dispatch Execution](013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html)
 - [Runtime Dispatch](014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html)
+- [Ingestion Integration](015-ingestion-integration/015-ingestion-integration.html)
 
 ## Navigation
 

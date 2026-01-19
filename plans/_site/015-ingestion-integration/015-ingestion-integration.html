@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-01-19">
 
-<title>AutoCleanEEG Pipeline Plans</title>
+<title>RFC 015: Ingestion Integration Phase – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,27 +21,62 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7b89279ff1a6dce999919e0e67d4d9ec.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-5b4ad623e5705c0698d39aec6f10cf02.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -79,9 +115,9 @@ ul.task-list li input[type="checkbox"] {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a href="./index.html" class="navbar-brand navbar-brand-logo">
+    <a href="../index.html" class="navbar-brand navbar-brand-logo">
     </a>
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">AutoCleanEEG Pipeline Plans</span>
     </a>
   </div>
@@ -92,67 +128,67 @@ ul.task-list li input[type="checkbox"] {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link active" href="./index.html" aria-current="page"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">Home</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./001-intro-big-picture/001-intro-big-picture.html"> 
+    <a class="nav-link" href="../001-intro-big-picture/001-intro-big-picture.html"> 
 <span class="menu-text">Introduction</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./002-automation-idempotency/002-automation-idempotency.html"> 
+    <a class="nav-link" href="../002-automation-idempotency/002-automation-idempotency.html"> 
 <span class="menu-text">Automation Idempotency</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./003-automation-mode/003-automation-mode.html"> 
+    <a class="nav-link" href="../003-automation-mode/003-automation-mode.html"> 
 <span class="menu-text">Automation Mode</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./004-automation-mode-validation/004-automation-mode-validation.html"> 
+    <a class="nav-link" href="../004-automation-mode-validation/004-automation-mode-validation.html"> 
 <span class="menu-text">Automation Validation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./005-serve-workspace/005-serve-workspace.html"> 
+    <a class="nav-link" href="../005-serve-workspace/005-serve-workspace.html"> 
 <span class="menu-text">Serve Workspace</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./006-serve-command-family/006-serve-command-family.html"> 
+    <a class="nav-link" href="../006-serve-command-family/006-serve-command-family.html"> 
 <span class="menu-text">Serve Commands</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./007-ingestion-planning/007-ingestion-planning.html"> 
+    <a class="nav-link" href="../007-ingestion-planning/007-ingestion-planning.html"> 
 <span class="menu-text">Ingestion Planning</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./008-ingestion-prd/008-ingestion-prd.html"> 
+    <a class="nav-link" href="../008-ingestion-prd/008-ingestion-prd.html"> 
 <span class="menu-text">Ingestion PRD</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./009-ingestion-implementation/009-ingestion-implementation.html"> 
+    <a class="nav-link" href="../009-ingestion-implementation/009-ingestion-implementation.html"> 
 <span class="menu-text">Ingestion Implementation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./010-ingestion-provenance/010-ingestion-provenance.html"> 
+    <a class="nav-link" href="../010-ingestion-provenance/010-ingestion-provenance.html"> 
 <span class="menu-text">Ingestion Provenance</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./011-ingestion-watcher/011-ingestion-watcher.html"> 
+    <a class="nav-link" href="../011-ingestion-watcher/011-ingestion-watcher.html"> 
 <span class="menu-text">Ingestion Watcher</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./012-ingestion-dispatch/012-ingestion-dispatch.html"> 
+    <a class="nav-link" href="../012-ingestion-dispatch/012-ingestion-dispatch.html"> 
 <span class="menu-text">Ingestion Dispatch</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html"> 
+    <a class="nav-link" href="../013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html"> 
 <span class="menu-text">Dispatch Execution</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html"> 
+    <a class="nav-link" href="../014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html"> 
 <span class="menu-text">Runtime Dispatch</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./015-ingestion-integration/015-ingestion-integration.html"> 
+    <a class="nav-link active" href="../015-ingestion-integration/015-ingestion-integration.html" aria-current="page"> 
 <span class="menu-text">Ingestion Integration</span></a>
   </li>  
 </ul>
@@ -168,42 +204,120 @@ ul.task-list li input[type="checkbox"] {
 <!-- margin-sidebar -->
     
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">RFC 015: Ingestion Integration Phase</h1>
+<p class="subtitle lead">Readiness to Dispatch Bridge</p>
+</div>
 
 
 
+<div class="quarto-title-meta">
 
-<section id="autocleaneeg-pipeline-plans" class="level1">
-<h1>AutoCleanEEG Pipeline Plans</h1>
-<p>Welcome to the AutoCleanEEG Pipeline Plans website.</p>
-<p>This site contains the planning documents and instruction sets for the pipeline development.</p>
-<section id="documents" class="level2">
-<h2 class="anchored" data-anchor-id="documents">Documents</h2>
+    
+    <div>
+    <div class="quarto-title-meta-heading">Published</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">January 19, 2026</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="executive-summary" class="level2">
+<h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
+<p>This phase completes the integration bridge for RFC 008 by connecting readiness scanning to dispatch execution. A new helper loads serve configuration, validates ingestion roots, scans readiness via the watcher utilities, and dispatches ready files through the runtime runner. Unit tests validate the end‑to‑end flow without invoking the pipeline.</p>
+</section>
+<section id="implementation-scope" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
+<table class="caption-top table">
+<caption>Table 1. Integration phase deliverables.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Area</th>
+<th>Deliverable</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Integration helper</td>
+<td><code>dispatch_ready_ingestion</code></td>
+<td>Loads config, checks ingestion root, dispatches ready files.</td>
+</tr>
+<tr class="even">
+<td>Result model</td>
+<td><code>IngestionDispatchResult</code></td>
+<td>Captures readiness, plan, and dispatch result.</td>
+</tr>
+<tr class="odd">
+<td>Tests</td>
+<td>Ready‑file dispatch</td>
+<td>Uses runner stub to avoid pipeline invocation.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="code-changes" class="level2">
+<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
+<table class="caption-top table">
+<caption>Table 2. Code updates delivered.</caption>
+<colgroup>
+<col style="width: 50%">
+<col style="width: 50%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>File</th>
+<th>Change</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>src/autoclean/utils/ingestion.py</code></td>
+<td>Added integration helper and result model.</td>
+</tr>
+<tr class="even">
+<td><code>tests/unit/utils/test_ingestion.py</code></td>
+<td>Added integrated readiness → dispatch test.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="test-results" class="level2">
+<h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Result: 17 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) due to repository defaults. Pytest emitted an unknown <code>timeout</code> config warning.</p>
+</section>
+<section id="followup-work" class="level2">
+<h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
+<ol type="1">
+<li>Promote ingestion events into serve scheduling and queue management.</li>
+<li>Add long‑running service harness for production use.</li>
+</ol>
+</section>
+<section id="appendix-a-behaviors" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-behaviors">Appendix A: Behaviors</h2>
 <ul>
-<li><a href="main-plan.html">Main Plan</a></li>
-<li><a href="001-intro-big-picture/001-intro-big-picture.html">Introduction</a></li>
-<li><a href="002-automation-idempotency/002-automation-idempotency.html">Automation Idempotency Preparation</a></li>
-<li><a href="003-automation-mode/003-automation-mode.html">Automation Mode Implementation</a></li>
-<li><a href="004-automation-mode-validation/004-automation-mode-validation.html">Automation Mode Validation</a></li>
-<li><a href="005-serve-workspace/005-serve-workspace.html">Serve Workspace Command</a></li>
-<li><a href="006-serve-command-family/006-serve-command-family.html">Serve Command Family</a></li>
-<li><a href="007-ingestion-planning/007-ingestion-planning.html">Ingestion Planning</a></li>
-<li><a href="008-ingestion-prd/008-ingestion-prd.html">Ingestion PRD</a></li>
-<li><a href="009-ingestion-implementation/009-ingestion-implementation.html">Ingestion Implementation</a></li>
-<li><a href="010-ingestion-provenance/010-ingestion-provenance.html">Ingestion Provenance</a></li>
-<li><a href="011-ingestion-watcher/011-ingestion-watcher.html">Ingestion Watcher</a></li>
-<li><a href="012-ingestion-dispatch/012-ingestion-dispatch.html">Ingestion Dispatch</a></li>
-<li><a href="013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html">Dispatch Execution</a></li>
-<li><a href="014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html">Runtime Dispatch</a></li>
-<li><a href="015-ingestion-integration/015-ingestion-integration.html">Ingestion Integration</a></li>
+<li>If no ready files are found, dispatch returns without executing.</li>
+<li>Ingestion roots must match serve config entries to prevent misrouting.</li>
 </ul>
-</section>
-<section id="navigation" class="level2">
-<h2 class="anchored" data-anchor-id="navigation">Navigation</h2>
-<p>Use the navbar above to navigate the site.</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->

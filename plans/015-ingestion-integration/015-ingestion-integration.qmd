@@ -1,0 +1,47 @@
+---
+title: "RFC 015: Ingestion Integration Phase"
+subtitle: "Readiness to Dispatch Bridge"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase completes the integration bridge for RFC 008 by connecting readiness scanning to dispatch execution. A new helper loads serve configuration, validates ingestion roots, scans readiness via the watcher utilities, and dispatches ready files through the runtime runner. Unit tests validate the end‑to‑end flow without invoking the pipeline.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Integration helper | `dispatch_ready_ingestion` | Loads config, checks ingestion root, dispatches ready files. |
+| Result model | `IngestionDispatchResult` | Captures readiness, plan, and dispatch result. |
+| Tests | Ready‑file dispatch | Uses runner stub to avoid pipeline invocation. |
+
+: Table 1. Integration phase deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added integration helper and result model. |
+| `tests/unit/utils/test_ingestion.py` | Added integrated readiness → dispatch test. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 17 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
+
+## Follow‑Up Work
+
+1. Promote ingestion events into serve scheduling and queue management.
+2. Add long‑running service harness for production use.
+
+## Appendix A: Behaviors
+
+- If no ready files are found, dispatch returns without executing.
+- Ingestion roots must match serve config entries to prevent misrouting.

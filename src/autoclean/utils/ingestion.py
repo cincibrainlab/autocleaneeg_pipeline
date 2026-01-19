@@ -445,6 +445,70 @@ def run_dispatch_plan(
 
 
 @dataclass
+class IngestionDispatchResult:
+    ready: "ReadyScanResult"
+    plan: Optional[DispatchPlan]
+    result: Optional[DispatchResult]
+
+
+def dispatch_ready_ingestion(
+    *,
+    config_path: Path,
+    workspace_dir: Path,
+    ingestion_root: Path,
+    file_glob: str = "*",
+    sentinel_ext: str = ".ready",
+    require_sentinel: bool = True,
+    stability_window_seconds: int = 0,
+    use_watchfiles: bool = True,
+    max_events: int = 1,
+    automation: bool = True,
+    yes: bool = True,
+    max_attempts: int = 1,
+    runner: Optional[Callable[[list[str]], None]] = None,
+) -> IngestionDispatchResult:
+    """Dispatch ready ingestion files using serve configuration."""
+    config = load_serve_config(config_path)
+    ingestion_paths: list[Path] = []
+    for entry in config.get("ingestion_folders", []):
+        if not isinstance(entry, str):
+            continue
+        path = Path(entry)
+        if not path.is_absolute():
+            path = (workspace_dir / path).resolve()
+        ingestion_paths.append(path)
+
+    if ingestion_paths and ingestion_root.resolve() not in ingestion_paths:
+        raise ValueError("ingestion_root is not listed in ingestion_folders")
+
+    ready = watch_ready_files(
+        ingestion_root,
+        file_glob=file_glob,
+        sentinel_ext=sentinel_ext,
+        require_sentinel=require_sentinel,
+        stability_window_seconds=stability_window_seconds,
+        max_events=max_events,
+        use_watchfiles=use_watchfiles,
+    )
+    if not ready.ready:
+        return IngestionDispatchResult(ready=ready, plan=None, result=None)
+
+    plan = build_dispatch_plan(
+        config=config,
+        workspace_dir=workspace_dir,
+        files=ready.ready_files,
+    )
+    result = run_dispatch_plan(
+        plan,
+        automation=automation,
+        yes=yes,
+        max_attempts=max_attempts,
+        runner=runner,
+    )
+    return IngestionDispatchResult(ready=ready, plan=plan, result=result)
+
+
+@dataclass
 class ReadinessResult:
     ready: bool
     reasons: list[str] = field(default_factory=list)
