@@ -35,97 +35,10 @@ overall strategy:
 
 Instruction sets:
 
-new rfc for implementing automation mode (activated by cli or yaml key)
-plan carefully and implement
+New Task:
 
-you can easily test as I placed an area for you to define the workspace to this folder
-/Volumes/owcssd/test-workspace
-
-and sample resting data is here:
-/Volumes/owcssd/test-data/resting-eeg-32ch
-
-and proper task file (with proper montage here)
-/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py
-
-and do a baseline test with autocleaneeg-pipeline cli
-
-[Done] new task:
-    do a test on 2 files as separate runs with the flag
-    the output should be the same as batch mode (i.e. doing a folder of files)
-    two resultant files should be there
-    the logs should be additive
-    you can actually run folder mode and then the individual files twice and compare the two
-
-new task:
-    Let's implement the first autocleaneeg-pipeline serve cli command workspace
-    this will setup the serve-test.yaml and serve-live.yaml
-    setup the automation folder
-    we should have runtimes of autocleaneeg-pipeline for test and live
-    use uv tools to setup the environment in each test and live runtime folder
-    when users type autocleaneeg-pipeline serve workspace
-    if an existing automation workspace folder parameter is already in the autocleaneeg json (like the workspace folder and other settings) you display it or you show now automation workspace folder defined
-    1. define new automation workspace folder
-    2. link to existing automation workspace folder
-    the user can do this
-    if a new folder it is setup
-    if it old folder it is validated
-    you and implement and start basic testing
-    
-updated:
-the autocleaneeg-pipeline serve <cmd> family includes
-    workspace - set or edit current autocleaneeg-pipeline serve workspace directory
-    list - what automations are configured in the directory (test and live clearly labeled)
-    validate - test the config file with a dry run (live or test)
-    deploy  - deploy (live or test)
-
-since we want to have 100% uptime the serve-test.yaml and serve-live.yaml sit in the autocleaneeg-pipeline serve workspace dir (as it is now)
-the user can edit these, but there is a production set of yaml files that the automations run on that are read only until it is deployed
-so prior to replacing them the autocleaneeg-pipeline serve command must validate those rigorously and then replace the deployed versions
-
-new task:
-    Let's setup ingestion
-    work through this with planning doc first
-    best practices
-    we don't want automations to start until the ingestion folder is completed copying
-    we also may have updates in the future in the ingestion folder
-    do we do "done" ext at the file level or at the total copy level
-    could these tools help us Python watchfiles (Rust notify underneath)?
-    how does the actual automation work after we figure out ingestion?
-    work out the whole chain and plan in the next round in a rfc
-    do not implement or code
-
-    please repond with discussion:
-    i like per file
-    i think hashing (which the pipeline already does for original files) may help with duplicates
-    i want to hear more
-
-new task:
-    for data provinance data should be copied into subfolders
-    should we use the directory path hash so when adding files it's determistic back to the folder when new files are added
-    that will help i think organize things easier for manual review
-    add a json sidecar receipt in the directory with the same directory name
-    this is a new area for me please add discussion, no code changes so i understand best practices
-    things that have been successful in the past
-
-new discussion:
-
-given what we have discussed, please bring in a consultant familiar with this work and revise appendix A to answer the following questions
-the goals is prep for development
-What tool generates the batch manifest in upstream systems?
-Should incremental updates create a new run or amend the original run?
-How long should pending items remain before quarantine?
-Should duplicate hashes be skipped automatically or routed for review?
-Which metadata fields should be included in the directory hash input?
-How long should receipts be retained before archiving? 
-
-After answering these qeustions, now start working on an execution plan laying out details and phases to complete the work 
-use a TDD form of development and you have access to test data etc.
-
-
-new task:
-
-using the /Volumes/owcssd/github/autocleaneeg_pipeline/docs/CODEBASE_MAP.md
-and the 007 ingestion planning create a new RFC full on PRD for this next stage so we can make sure it's sufficientrly detailed to implement it begining to end
+    carefully and perfectly implement 008
+    use loops until complete
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
