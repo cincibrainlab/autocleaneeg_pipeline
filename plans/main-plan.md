@@ -37,8 +37,7 @@ Instruction sets:
 
 New Task:
 
-EXECUTE RFC 19 WITH YOUR DEVELOPMENT TEAM
-
+now follow the directions in RFC 19 and RFC 20 an implement the feature
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
