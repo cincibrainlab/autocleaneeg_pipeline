@@ -29,6 +29,7 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [Serve Multi-route Implementation](021-serve-multi-route-implementation/021-serve-multi-route-implementation.html)
 - [Serve Multi-route Enforcement](022-serve-multi-route-enforcement/022-serve-multi-route-enforcement.html)
 - [Resting State Automation Test](023-resting-state-automation-test/023-resting-state-automation-test.html)
+- [Testing Make Targets](024-testing-make-targets/024-testing-make-targets.html)
 
 ## Navigation
 

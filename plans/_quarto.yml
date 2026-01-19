@@ -25,6 +25,7 @@ project:
     - 021-serve-multi-route-implementation/021-serve-multi-route-implementation.qmd
     - 022-serve-multi-route-enforcement/022-serve-multi-route-enforcement.qmd
     - 023-resting-state-automation-test/023-resting-state-automation-test.qmd
+    - 024-testing-make-targets/024-testing-make-targets.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -76,6 +77,8 @@ website:
         text: Serve Multi-route Enforcement
       - href: 023-resting-state-automation-test/023-resting-state-automation-test.html
         text: Resting State Automation Test
+      - href: 024-testing-make-targets/024-testing-make-targets.html
+        text: Testing Make Targets
 
 format:
   html:

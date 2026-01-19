@@ -1,0 +1,46 @@
+---
+title: "RFC 024: Testing Make Targets"
+subtitle: "Short Commands for Common Test Runs"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+New Makefile targets provide quick, discoverable commands for fast unit checks, ingestion-focused tests, and fail-fast unit or integration runs. The goal is to reduce friction for frequent local validation while keeping full test targets unchanged.
+
+## Targets Added
+
+| Target | Purpose | Command |
+|---|---|---|
+| `test-quick` | Fast ingestion unit tests | `pytest tests/unit/utils/test_ingestion.py -v` |
+| `test-unit-short` | Unit tests with fast failure | `pytest tests/unit/ -q --maxfail=1` |
+| `test-ingestion` | Ingestion unit tests | `pytest tests/unit/utils/test_ingestion.py -v` |
+| `test-integration-short` | Integration tests with fast failure | `pytest tests/integration/ -q --tb=short --maxfail=1` |
+
+: Table 1. New Makefile test targets.
+
+## Makefile Updates
+
+The new targets were added to the `.PHONY` list and surfaced in the `help` output so they are discoverable alongside existing `test`, `test-cov`, and `test-integration` commands.
+
+```makefile
+.PHONY: help install-dev install-uv-tool upgrade-tools list-tools uninstall-uv-tool check check-fix format lint format-direct lint-direct test test-quick test-unit-short test-ingestion test-cov test-integration test-integration-short test-perf test-all ci-check pre-commit dev-setup clean all docs-setup docs-build docs-serve deploy plans-serve plans-stop
+
+# Testing
+
+test-quick: ## Run fast ingestion unit tests
+	@pytest tests/unit/utils/test_ingestion.py -v
+
+test-unit-short: ## Run unit tests (fail fast)
+	@pytest tests/unit/ -q --maxfail=1
+
+test-ingestion: ## Run ingestion unit tests
+	@pytest tests/unit/utils/test_ingestion.py -v
+
+test-integration-short: ## Run integration tests (fail fast)
+	@pytest tests/integration/ -q --tb=short --maxfail=1
+```
+
+## Validation
+
+The targets are simple Makefile wrappers around existing pytest commands. No additional test runs were executed for this change.
