@@ -37,7 +37,13 @@ Instruction sets:
 
 New Task:
 
- Next step: queue persistence + long‑running CLI harness for the ingestion service (e.g., autocleaneeg-pipeline serve run), then integration tests with the test workspace.    use loops until complete
+I have a big concern. I thought we were building a system in which the serve yaml woudl specify multiple routes for processing automation
+since very eeg job can be defined by basically a taskfile and a montage i assumed we would have a set of output folders
+these folders where the files would be like BiotrialResting1020-standard_1020 (and maybe a version suffix, i.e. V1)
+that would be a unique combination to allow for scalability
+please respond with a discussion regarding this, not code changes
+If you were to break this new project down into sprints and tasks, now would you do it (timeline info does not need included and doesnt matter) - every task/ticket should be an atomic, commitable peice of work with tests (and if tests don't make sense another form of validatation that it was completed successfully), every sprint should result in a demoable peice of software that can be run, tested, and build ontop of previous work/sprints. Be exhaustive, be clear, be technical, always focus on small atomic tasks that compose up into a clear goal for the sprint. Once you're done, provide this prompt to a subagent to review your work and suggest improvements. 
+
 
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
