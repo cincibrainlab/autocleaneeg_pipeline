@@ -1,0 +1,67 @@
+---
+title: "RFC 020: RFC 019 Execution Review"
+subtitle: "Development Team Review and Applied Adjustments"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+RFC 019 was executed as a structured development team review to confirm that the multi-route serve model is clear, testable, and ready for implementation. The review focused on configuration completeness, validation guardrails, and operational determinism. The outcome is a set of applied clarifications in RFC 019 that tighten defaults, normalization rules, and routing behavior without expanding scope.
+
+## Review Method
+
+The review followed the RFC 019 prompt and captured decisions as explicit adjustments to the document. Roles are listed to document coverage rather than to identify individuals.
+
+| Role | Focus | Output |
+|---|---|---|
+| Product lead | Requirements clarity | Gaps in operator intent and defaults. |
+| Pipeline engineer | Technical feasibility | Normalization and routing edge cases. |
+| QA/validation | Testability | Validation rules and failure modes. |
+| Operations | Runbook readiness | Route enablement and overlap behavior. |
+
+: Table 1. Development team review coverage.
+
+```{mermaid}
+%%| label: fig-review-loop
+%%| fig-cap: "Figure 1. RFC 019 review and adjustment loop."
+flowchart LR
+    A[Read RFC 019] --> B[Identify gaps]
+    B --> C[Decide adjustments]
+    C --> D[Update RFC 019]
+    D --> E[Record decision log]
+```
+
+## Findings and Decisions
+
+| Finding | Impact | Decision | Action |
+|---|---|---|---|
+| `recursive` appears in the example but not in the field list. | Documentation mismatch for routing behavior. | Document the field and its defaulting rule. | Added a validation row for `recursive`. |
+| `file_globs` normalization from string to list is implied but not explicit. | Inconsistent parsing and tests. | Make normalization explicit. | Clarified normalization in the table and narrative. |
+| `priority` default is not specified. | Ambiguous overlap handling. | Define a default and keep error on ties. | Documented default 0 and tie behavior. |
+| Disabled routes are not explicitly excluded from overlap checks. | Potential false validation errors. | Exclude disabled routes from overlap validation. | Added routing rule on disabled routes. |
+| `id` derivation rule is implicit. | Inconsistent IDs across configs. | Define derived ID behavior. | Clarified derivation in the field table. |
+
+: Table 2. Review findings and applied decisions.
+
+::: callout-note
+## Decision
+RFC 019 remains the authoritative multi-route plan, and this RFC records the review and the applied clarifications.
+:::
+
+## Applied Adjustments to RFC 019
+
+| Area | Change | Rationale |
+|---|---|---|
+| Configuration table | Documented `recursive` and `file_globs` normalization. | Aligns docs with example and parser expectations. |
+| Configuration defaults | Clarified `priority` default and `id` derivation. | Prevents ambiguous routing and ID drift. |
+| Routing rules | Excluded disabled routes from overlap validation. | Avoids false positives for staged rollouts. |
+
+: Table 3. Adjustments incorporated into RFC 019.
+
+## Next Steps
+
+The plan is ready for implementation sequencing. If desired, we can now open tickets corresponding to Sprint 1 tasks and align test scaffolding with the clarified rules.
+
+## Appendix A: Review Prompt Used
+
+Please review RFC 019 for clarity, completeness, and any missing technical details. Identify gaps in validation coverage, propose improvements to the routing rules, and suggest additional sprint tasks that improve traceability or operational safety.

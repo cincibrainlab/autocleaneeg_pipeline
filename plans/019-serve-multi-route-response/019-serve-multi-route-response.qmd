@@ -22,15 +22,16 @@ A multi-route serve configuration should declare a list of automation routes. Ea
 |---|---|---|
 | `defaults` | Shared defaults for routes | Keys limited to known route fields. |
 | `automations` | List of route definitions | Non-empty list with unique route IDs. |
-| `id` | Route identifier | Normalized and stable across runs. |
-| `enabled` | Route toggle | Default true; ignored when false. |
-| `priority` | Conflict resolution | Required when overlaps exist. |
+| `id` | Route identifier | Derived from taskfile-montage-version when omitted; normalized and stable. |
+| `enabled` | Route toggle | Default true; disabled routes excluded from overlap checks. |
+| `priority` | Conflict resolution | Default 0; required when overlaps exist. |
 | `taskfile` | Pipeline entry point | Must resolve to a valid task. |
 | `montage` | Montage key | Must be a known montage key. |
 | `version` | Optional version suffix | Normalized string or null. |
-| `ingestion_folders` | Source roots | Paths must exist or be resolvable. |
+| `ingestion_folders` | Source roots | Non-empty list; paths must exist or be resolvable. |
 | `ingestion_excludes` | Exclusions | Must be within the ingestion roots. |
-| `file_globs` | File patterns | Non-empty list; validated syntax. |
+| `file_globs` | File patterns | String or list; normalized to list; validated syntax. |
+| `recursive` | Recursive matching toggle | Boolean; defaulted from `defaults`. |
 | `sentinel_ext` | Readiness marker | Valid suffix; required unless disabled. |
 | `automation_root` | Output base path | Must resolve to an existing root. |
 | `workspace_name` | Naming template | Must render with taskfile and montage. |
@@ -64,15 +65,16 @@ automations:
       - /data/ingest/resting-ec/tmp
 ```
 
-The YAML example above illustrates a minimal, self-contained multi-route configuration. Defaults apply across routes, while each route keeps a dedicated ingestion scope and a deterministic workspace name derived from taskfile, montage, and version. This structure aligns with the requirement for unique output folders and clean scalability.
+The YAML example above illustrates a minimal, self-contained multi-route configuration. Defaults apply across routes, while each route keeps a dedicated ingestion scope and a deterministic workspace name derived from taskfile, montage, and version. Single-string `file_globs` values are normalized to lists, and the `recursive` default applies unless overridden. This structure aligns with the requirement for unique output folders and clean scalability.
 
 ## Routing and Output Rules
 
 1. Each route maps to one workspace, and each workspace maps to one route.
-2. Overlaps across ingestion roots or file patterns are rejected unless an explicit priority is defined.
-3. Priority ties are treated as errors to avoid non-deterministic dispatch.
-4. Versions are optional; when omitted, the workspace name drops the version segment.
-5. Routing matches are evaluated in a stable order: priority, then glob specificity, then deterministic ID.
+2. Disabled routes are excluded from routing and overlap validation.
+3. Overlaps across ingestion roots or file patterns are rejected unless an explicit priority is defined.
+4. Priority ties are treated as errors to avoid non-deterministic dispatch.
+5. Versions are optional; when omitted, the workspace name drops the version segment.
+6. Routing matches are evaluated in a stable order: priority, then glob specificity, then deterministic ID.
 
 ::: callout-note
 ## Guardrail

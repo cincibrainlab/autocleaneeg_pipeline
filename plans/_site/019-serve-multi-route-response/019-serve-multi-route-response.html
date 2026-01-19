@@ -206,6 +206,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <a class="nav-link active" href="../019-serve-multi-route-response/019-serve-multi-route-response.html" aria-current="page"> 
 <span class="menu-text">Serve Multi-route Response</span></a>
   </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../020-rfc19-execution-review/020-rfc19-execution-review.html"> 
+<span class="menu-text">RFC 019 Execution Review</span></a>
+  </li>  
 </ul>
           </div> <!-- /navcollapse -->
             <div class="quarto-navbar-tools">
@@ -288,17 +292,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td><code>id</code></td>
 <td>Route identifier</td>
-<td>Normalized and stable across runs.</td>
+<td>Derived from taskfile-montage-version when omitted; normalized and stable.</td>
 </tr>
 <tr class="even">
 <td><code>enabled</code></td>
 <td>Route toggle</td>
-<td>Default true; ignored when false.</td>
+<td>Default true; disabled routes excluded from overlap checks.</td>
 </tr>
 <tr class="odd">
 <td><code>priority</code></td>
 <td>Conflict resolution</td>
-<td>Required when overlaps exist.</td>
+<td>Default 0; required when overlaps exist.</td>
 </tr>
 <tr class="even">
 <td><code>taskfile</code></td>
@@ -318,7 +322,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td><code>ingestion_folders</code></td>
 <td>Source roots</td>
-<td>Paths must exist or be resolvable.</td>
+<td>Non-empty list; paths must exist or be resolvable.</td>
 </tr>
 <tr class="even">
 <td><code>ingestion_excludes</code></td>
@@ -328,19 +332,24 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <tr class="odd">
 <td><code>file_globs</code></td>
 <td>File patterns</td>
-<td>Non-empty list; validated syntax.</td>
+<td>String or list; normalized to list; validated syntax.</td>
 </tr>
 <tr class="even">
+<td><code>recursive</code></td>
+<td>Recursive matching toggle</td>
+<td>Boolean; defaulted from <code>defaults</code>.</td>
+</tr>
+<tr class="odd">
 <td><code>sentinel_ext</code></td>
 <td>Readiness marker</td>
 <td>Valid suffix; required unless disabled.</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>automation_root</code></td>
 <td>Output base path</td>
 <td>Must resolve to an existing root.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>workspace_name</code></td>
 <td>Naming template</td>
 <td>Must render with taskfile and montage.</td>
@@ -371,13 +380,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting-ec</span></span>
 <span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">ingestion_excludes</span><span class="kw">:</span></span>
 <span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting-ec/tmp</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The YAML example above illustrates a minimal, self-contained multi-route configuration. Defaults apply across routes, while each route keeps a dedicated ingestion scope and a deterministic workspace name derived from taskfile, montage, and version. This structure aligns with the requirement for unique output folders and clean scalability.</p>
+<p>The YAML example above illustrates a minimal, self-contained multi-route configuration. Defaults apply across routes, while each route keeps a dedicated ingestion scope and a deterministic workspace name derived from taskfile, montage, and version. Single-string <code>file_globs</code> values are normalized to lists, and the <code>recursive</code> default applies unless overridden. This structure aligns with the requirement for unique output folders and clean scalability.</p>
 </section>
 </section>
 <section id="routing-and-output-rules" class="level2">
 <h2 class="anchored" data-anchor-id="routing-and-output-rules">Routing and Output Rules</h2>
 <ol type="1">
 <li>Each route maps to one workspace, and each workspace maps to one route.</li>
+<li>Disabled routes are excluded from routing and overlap validation.</li>
 <li>Overlaps across ingestion roots or file patterns are rejected unless an explicit priority is defined.</li>
 <li>Priority ties are treated as errors to avoid non-deterministic dispatch.</li>
 <li>Versions are optional; when omitted, the workspace name drops the version segment.</li>

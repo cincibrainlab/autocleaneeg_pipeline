@@ -8,7 +8,7 @@
 
 <meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 009: Ingestion Implementation – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 020: RFC 019 Execution Review – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,41 +20,6 @@ ul.task-list li input[type="checkbox"] {
   width: 0.8em;
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
-}
-/* CSS for syntax highlighting */
-html { -webkit-text-size-adjust: 100%; }
-pre > code.sourceCode { white-space: pre; position: relative; }
-pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
-pre > code.sourceCode > span:empty { height: 1.2em; }
-.sourceCode { overflow: visible; }
-code.sourceCode > span { color: inherit; text-decoration: inherit; }
-div.sourceCode { margin: 1em 0; }
-pre.sourceCode { margin: 0; }
-@media screen {
-div.sourceCode { overflow: auto; }
-}
-@media print {
-pre > code.sourceCode { white-space: pre-wrap; }
-pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
-}
-pre.numberSource code
-  { counter-reset: source-line 0; }
-pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
-pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-  }
-pre.numberSource { margin-left: 3em;  padding-left: 4px; }
-div.sourceCode
-  {   }
-@media screen {
-pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -104,6 +69,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
+<script src="../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
 
 
 </head>
@@ -164,7 +132,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Ingestion PRD</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../009-ingestion-implementation/009-ingestion-implementation.html" aria-current="page"> 
+    <a class="nav-link" href="../009-ingestion-implementation/009-ingestion-implementation.html"> 
 <span class="menu-text">Ingestion Implementation</span></a>
   </li>  
   <li class="nav-item">
@@ -204,7 +172,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Serve Multi-route Response</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../020-rfc19-execution-review/020-rfc19-execution-review.html"> 
+    <a class="nav-link active" href="../020-rfc19-execution-review/020-rfc19-execution-review.html" aria-current="page"> 
 <span class="menu-text">RFC 019 Execution Review</span></a>
   </li>  
 </ul>
@@ -224,8 +192,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 009: Ingestion Implementation</h1>
-<p class="subtitle lead">Core Readiness, Hashing, and Receipt Utilities</p>
+<h1 class="title">RFC 020: RFC 019 Execution Review</h1>
+<p class="subtitle lead">Development Team Review and Applied Adjustments</p>
 </div>
 
 
@@ -250,12 +218,139 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>This RFC implements the ingestion foundations defined in RFC 008. The scope focuses on deterministic hashing, receipt management, readiness evaluation, and a ledger for duplicate detection. These utilities provide the core building blocks for a future watcher and dispatch service without introducing runtime daemons in this phase.</p>
+<p>RFC 019 was executed as a structured development team review to confirm that the multi-route serve model is clear, testable, and ready for implementation. The review focused on configuration completeness, validation guardrails, and operational determinism. The outcome is a set of applied clarifications in RFC 019 that tighten defaults, normalization rules, and routing behavior without expanding scope.</p>
 </section>
-<section id="implementation-scope" class="level2">
-<h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
+<section id="review-method" class="level2">
+<h2 class="anchored" data-anchor-id="review-method">Review Method</h2>
+<p>The review followed the RFC 019 prompt and captured decisions as explicit adjustments to the document. Roles are listed to document coverage rather than to identify individuals.</p>
 <table class="caption-top table">
-<caption>Table 1. Implemented ingestion components.</caption>
+<caption>Table 1. Development team review coverage.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Role</th>
+<th>Focus</th>
+<th>Output</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Product lead</td>
+<td>Requirements clarity</td>
+<td>Gaps in operator intent and defaults.</td>
+</tr>
+<tr class="even">
+<td>Pipeline engineer</td>
+<td>Technical feasibility</td>
+<td>Normalization and routing edge cases.</td>
+</tr>
+<tr class="odd">
+<td>QA/validation</td>
+<td>Testability</td>
+<td>Validation rules and failure modes.</td>
+</tr>
+<tr class="even">
+<td>Operations</td>
+<td>Runbook readiness</td>
+<td>Route enablement and overlap behavior.</td>
+</tr>
+</tbody>
+</table>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-review-loop" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-review-loop-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<pre class="mermaid mermaid-js" data-label="fig-review-loop">flowchart LR
+    A[Read RFC 019] --&gt; B[Identify gaps]
+    B --&gt; C[Decide adjustments]
+    C --&gt; D[Update RFC 019]
+    D --&gt; E[Record decision log]
+</pre>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-review-loop-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. RFC 019 review and adjustment loop.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="findings-and-decisions" class="level2">
+<h2 class="anchored" data-anchor-id="findings-and-decisions">Findings and Decisions</h2>
+<table class="caption-top table">
+<caption>Table 2. Review findings and applied decisions.</caption>
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Finding</th>
+<th>Impact</th>
+<th>Decision</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>recursive</code> appears in the example but not in the field list.</td>
+<td>Documentation mismatch for routing behavior.</td>
+<td>Document the field and its defaulting rule.</td>
+<td>Added a validation row for <code>recursive</code>.</td>
+</tr>
+<tr class="even">
+<td><code>file_globs</code> normalization from string to list is implied but not explicit.</td>
+<td>Inconsistent parsing and tests.</td>
+<td>Make normalization explicit.</td>
+<td>Clarified normalization in the table and narrative.</td>
+</tr>
+<tr class="odd">
+<td><code>priority</code> default is not specified.</td>
+<td>Ambiguous overlap handling.</td>
+<td>Define a default and keep error on ties.</td>
+<td>Documented default 0 and tie behavior.</td>
+</tr>
+<tr class="even">
+<td>Disabled routes are not explicitly excluded from overlap checks.</td>
+<td>Potential false validation errors.</td>
+<td>Exclude disabled routes from overlap validation.</td>
+<td>Added routing rule on disabled routes.</td>
+</tr>
+<tr class="odd">
+<td><code>id</code> derivation rule is implicit.</td>
+<td>Inconsistent IDs across configs.</td>
+<td>Define derived ID behavior.</td>
+<td>Clarified derivation in the field table.</td>
+</tr>
+</tbody>
+</table>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Decision
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>RFC 019 remains the authoritative multi-route plan, and this RFC records the review and the applied clarifications.</p>
+</div>
+</div>
+</section>
+<section id="applied-adjustments-to-rfc-019" class="level2">
+<h2 class="anchored" data-anchor-id="applied-adjustments-to-rfc-019">Applied Adjustments to RFC 019</h2>
+<table class="caption-top table">
+<caption>Table 3. Adjustments incorporated into RFC 019.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -264,81 +359,36 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <thead>
 <tr class="header">
 <th>Area</th>
-<th>Deliverable</th>
-<th>Notes</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Hashing</td>
-<td>Deterministic file and provenance hashes</td>
-<td>Uses SHA‑256 with stable metadata ordering.</td>
-</tr>
-<tr class="even">
-<td>Receipts</td>
-<td>JSON sidecar with revisions</td>
-<td>Immutable receipt with append‑only revisions.</td>
-</tr>
-<tr class="odd">
-<td>Readiness</td>
-<td>Sentinel + stability checks</td>
-<td>Per‑file sentinels plus optional size window.</td>
-</tr>
-<tr class="even">
-<td>Dedup</td>
-<td>Ledger JSON</td>
-<td>Tracks seen hashes to skip duplicates.</td>
-</tr>
-</tbody>
-</table>
-</section>
-<section id="code-changes" class="level2">
-<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
-<table class="caption-top table">
-<caption>Table 2. Code updates delivered.</caption>
-<colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>File</th>
 <th>Change</th>
+<th>Rationale</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>src/autoclean/utils/ingestion.py</code></td>
-<td>New ingestion utilities for hashes, receipts, readiness, and ledger.</td>
+<td>Configuration table</td>
+<td>Documented <code>recursive</code> and <code>file_globs</code> normalization.</td>
+<td>Aligns docs with example and parser expectations.</td>
 </tr>
 <tr class="even">
-<td><code>tests/unit/utils/test_ingestion.py</code></td>
-<td>Unit tests covering determinism, receipts, ledger, and sentinel checks.</td>
+<td>Configuration defaults</td>
+<td>Clarified <code>priority</code> default and <code>id</code> derivation.</td>
+<td>Prevents ambiguous routing and ID drift.</td>
+</tr>
+<tr class="odd">
+<td>Routing rules</td>
+<td>Excluded disabled routes from overlap validation.</td>
+<td>Avoids false positives for staged rollouts.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="test-results" class="level2">
-<h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: 4 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) because repository defaults expect broader coverage. A warning about an unknown <code>timeout</code> pytest config option was emitted by pytest.</p>
+<section id="next-steps" class="level2">
+<h2 class="anchored" data-anchor-id="next-steps">Next Steps</h2>
+<p>The plan is ready for implementation sequencing. If desired, we can now open tickets corresponding to Sprint 1 tasks and align test scaffolding with the clarified rules.</p>
 </section>
-<section id="followup-work" class="level2">
-<h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
-<ol type="1">
-<li>Integrate watcher loop with <code>watchfiles</code> in a dedicated ingestion service.</li>
-<li>Persist ledger state in database for compliance mode.</li>
-<li>Wire readiness decisions into serve dispatch.</li>
-</ol>
-</section>
-<section id="appendix-a-key-behaviors" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-key-behaviors">Appendix A: Key Behaviors</h2>
-<ul>
-<li>Receipts are written atomically and revisions append without overwriting prior entries.</li>
-<li>Duplicate hashes are detected via the ledger and can be skipped by default.</li>
-<li>Readiness requires per‑file sentinels unless overridden by configuration.</li>
-</ul>
+<section id="appendix-a-review-prompt-used" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-review-prompt-used">Appendix A: Review Prompt Used</h2>
+<p>Please review RFC 019 for clarity, completeness, and any missing technical details. Identify gaps in validation coverage, propose improvements to the routing rules, and suggest additional sprint tasks that improve traceability or operational safety.</p>
 
 
 </section>
