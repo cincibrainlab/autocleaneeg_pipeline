@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-01-18">
+<meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 003: Automation Mode Implementation – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 018: Serve Routing and Sprint Plan – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -140,7 +140,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Automation Idempotency</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../003-automation-mode/003-automation-mode.html" aria-current="page"> 
+    <a class="nav-link" href="../003-automation-mode/003-automation-mode.html"> 
 <span class="menu-text">Automation Mode</span></a>
   </li>  
   <li class="nav-item">
@@ -200,7 +200,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Ingestion Service</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../018-serve-routing-sprints/018-serve-routing-sprints.html"> 
+    <a class="nav-link active" href="../018-serve-routing-sprints/018-serve-routing-sprints.html" aria-current="page"> 
 <span class="menu-text">Serve Routing</span></a>
   </li>  
 </ul>
@@ -220,8 +220,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 003: Automation Mode Implementation</h1>
-<p class="subtitle lead">CLI and Task-Config Activation with Audit-Safe Backup Control</p>
+<h1 class="title">RFC 018: Serve Routing and Sprint Plan</h1>
+<p class="subtitle lead">Multi‑Route Automation and Incremental Delivery</p>
 </div>
 
 
@@ -232,7 +232,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 18, 2026</p>
+      <p class="date">January 19, 2026</p>
     </div>
   </div>
   
@@ -246,12 +246,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>Automation mode is now designed to be activated by either a CLI flag (<code>--automation</code>) or a task-config key (<code>automation_mode</code>) embedded in Python task modules. The implementation disables task-root backups for automation runs while preserving auditability and the existing safety defaults. This RFC documents the precedence rules, code changes, and baseline validation steps required to support repeatable automation without breaking legacy workflows.</p>
+<p>The concern is valid: the serve YAML should describe multiple automation routes, each defined by a taskfile‑montage (and optional version) pair that maps to a unique output workspace. The routing model should therefore treat each route as a first‑class automation definition with its own ingestion sources, file patterns, and output naming. This RFC explains how to structure multi‑route serve configurations and lays out an exhaustive, sprint‑based delivery plan with atomic, testable tasks.</p>
 </section>
-<section id="requirements" class="level2">
-<h2 class="anchored" data-anchor-id="requirements">Requirements</h2>
+<section id="discussion-multiroute-serve-yaml" class="level2">
+<h2 class="anchored" data-anchor-id="discussion-multiroute-serve-yaml">Discussion: Multi‑Route Serve YAML</h2>
+<p>A scalable serve configuration should declare an array of <strong>automation routes</strong>, each of which is a unique taskfile‑montage‑version combination. The output folder for each route is deterministic, following the convention:</p>
+<p><code>&lt;taskfile&gt;-&lt;montage&gt;[-&lt;version&gt;]</code></p>
+<p>This ensures each route has a stable workspace that can accumulate runs without collision, while remaining human‑readable for manual review. The routes should be mutually exclusive by ingestion source or file pattern to avoid ambiguous dispatch.</p>
+<section id="recommended-yaml-structure" class="level3">
+<h3 class="anchored" data-anchor-id="recommended-yaml-structure">Recommended YAML Structure</h3>
 <table class="caption-top table">
-<caption>Table 1. Automation mode requirements and implications.</caption>
+<caption>Table 1. Multi‑route serve YAML fields.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -259,102 +264,134 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </colgroup>
 <thead>
 <tr class="header">
-<th>Requirement</th>
-<th>Rationale</th>
-<th>Implementation Implication</th>
+<th>Field</th>
+<th>Purpose</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Dual activation sources</td>
-<td>Operators want CLI overrides and config defaults</td>
-<td>CLI flag takes precedence over task config.</td>
+<td><code>automations</code></td>
+<td>List of route definitions</td>
+<td>Each entry maps to one output workspace.</td>
 </tr>
 <tr class="even">
-<td>Backup suppression</td>
-<td>Automation needs idempotent output roots</td>
-<td>Disable backups when automation mode is resolved <code>True</code>.</td>
+<td><code>id</code></td>
+<td>Route identifier</td>
+<td>Default to normalized <code>taskfile-montage-version</code>.</td>
 </tr>
 <tr class="odd">
-<td>Audit traceability</td>
-<td>Compliance and debugging require evidence</td>
-<td>Persist automation mode and source in metadata.</td>
+<td><code>enabled</code></td>
+<td>Route toggle</td>
+<td>Supports staged rollout or suspension.</td>
 </tr>
 <tr class="even">
-<td>Default safety</td>
-<td>Manual workflows must remain unchanged</td>
-<td>Maintain auto-backup when automation is not enabled.</td>
+<td><code>priority</code></td>
+<td>Tie‑breaker</td>
+<td>Used only when routes overlap.</td>
+</tr>
+<tr class="odd">
+<td><code>taskfile</code></td>
+<td>Taskfile path or name</td>
+<td>Required; defines pipeline logic.</td>
+</tr>
+<tr class="even">
+<td><code>montage</code></td>
+<td>Montage key</td>
+<td>Required; paired with taskfile.</td>
+</tr>
+<tr class="odd">
+<td><code>version</code></td>
+<td>Optional version tag</td>
+<td>Appended to output folder when set.</td>
+</tr>
+<tr class="even">
+<td><code>ingestion_folders</code></td>
+<td>Route‑specific sources</td>
+<td>Prevent overlap between routes.</td>
+</tr>
+<tr class="odd">
+<td><code>ingestion_excludes</code></td>
+<td>Excluded paths</td>
+<td>Avoid accidental double‑routing.</td>
+</tr>
+<tr class="even">
+<td><code>file_globs</code></td>
+<td>File patterns</td>
+<td>List of patterns; support recursion flag.</td>
+</tr>
+<tr class="odd">
+<td><code>sentinel_ext</code></td>
+<td>Ready marker</td>
+<td>Per‑route readiness control.</td>
+</tr>
+<tr class="even">
+<td><code>automation_root</code></td>
+<td>Base output root</td>
+<td>Per‑route override; top‑level default allowed.</td>
 </tr>
 </tbody>
 </table>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">defaults</span><span class="kw">:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">automation_root</span><span class="kw">:</span><span class="at"> automations</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">file_globs</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"*.set"</span><span class="kw">]</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">sentinel_ext</span><span class="kw">:</span><span class="at"> </span><span class="st">".ready"</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">recursive</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="fu">automations</span><span class="kw">:</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">id</span><span class="kw">:</span><span class="at"> BiotrialResting1020-standard_1020-v1</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">priority</span><span class="kw">:</span><span class="at"> </span><span class="dv">10</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">taskfile</span><span class="kw">:</span><span class="at"> /path/to/BiotrialResting1020.py</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">montage</span><span class="kw">:</span><span class="at"> standard_1020</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">version</span><span class="kw">:</span><span class="at"> v1</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">ingestion_folders</span><span class="kw">:</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">id</span><span class="kw">:</span><span class="at"> RestingEyesClosed-standard_1020</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">enabled</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">priority</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">taskfile</span><span class="kw">:</span><span class="at"> RestingEyesClosed</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">montage</span><span class="kw">:</span><span class="at"> standard_1020</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">ingestion_folders</span><span class="kw">:</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting-ec</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">ingestion_excludes</span><span class="kw">:</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> /data/ingest/resting-ec/tmp</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Top‑level defaults apply unless explicitly overridden per route. The example above yields deterministic output folders such as:</p>
+<ul>
+<li><code>automations/BiotrialResting1020-standard_1020-v1</code></li>
+<li><code>automations/RestingEyesClosed-standard_1020</code></li>
+</ul>
 </section>
-<section id="automation-mode-precedence" class="level2">
-<h2 class="anchored" data-anchor-id="automation-mode-precedence">Automation Mode Precedence</h2>
-<table class="caption-top table">
-<caption>Table 2. Automation mode precedence rules.</caption>
-<colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-</colgroup>
-<thead>
-<tr class="header">
-<th>Input</th>
-<th>Scope</th>
-<th>Precedence</th>
-<th>Outcome</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>CLI <code>--automation</code></td>
-<td>Per run</td>
-<td>Highest</td>
-<td>Overrides task config for that invocation.</td>
-</tr>
-<tr class="even">
-<td>Task config <code>automation_mode</code></td>
-<td>Per task</td>
-<td>Default</td>
-<td>Used when CLI flag is absent.</td>
-</tr>
-<tr class="odd">
-<td>Default</td>
-<td>Global</td>
-<td>Lowest</td>
-<td>Falls back to <code>False</code>.</td>
-</tr>
-</tbody>
-</table>
+</section>
+<section id="routing-and-output-rules" class="level2">
+<h2 class="anchored" data-anchor-id="routing-and-output-rules">Routing and Output Rules</h2>
+<ol type="1">
+<li><strong>One route → one workspace</strong>. Each automation route resolves to its own deterministic folder.</li>
+<li><strong>Explicit overlap resolution</strong>. Overlaps are errors unless <code>priority</code> is set and validated.</li>
+<li><strong>Normalized IDs</strong>. Route IDs are lower‑risk when normalized (case, spaces, separators) and deduped.</li>
+<li><strong>Version optional</strong>. If omitted, the folder name drops the version suffix to keep path lengths sane.</li>
+<li><strong>Dispatch by route</strong>. A ready file is matched to the route configured for its ingestion root, pattern, and exclusions.</li>
+</ol>
 <div class="callout callout-style-default callout-note callout-titled">
 <div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Precedence Rule
+<span class="screen-reader-only">Note</span>Guardrail
 </div>
 </div>
 <div class="callout-body-container callout-body">
-<p>CLI activation is explicit and must override any task-level default. The resolved source is logged alongside the run metadata for auditability.</p>
+<p>Fail validation when two routes overlap on the same ingestion folder and file pattern unless a priority is explicitly defined, and reject ties when priorities collide.</p>
 </div>
 </div>
 </section>
-<section id="implementation-summary" class="level2">
-<h2 class="anchored" data-anchor-id="implementation-summary">Implementation Summary</h2>
-<ol type="1">
-<li>Extend <code>step_prepare_directories</code> to accept an <code>auto_backup</code> flag that controls whether existing task roots are backed up.</li>
-<li>Add an <code>automation_mode</code> override to <code>Pipeline</code>, with resolution logic that prefers CLI over task config.</li>
-<li>Propagate automation metadata into run records (<code>automation_mode</code>, <code>automation_source</code>, <code>auto_backup_enabled</code>).</li>
-<li>Add <code>--automation</code> to the <code>process</code> command and pass the override into the pipeline.</li>
-<li>Allow <code>automation_mode</code> in task module config via schema validation.</li>
-</ol>
-</section>
-<section id="code-changes" class="level2">
-<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
+<section id="sprint-plan-atomic-testable-tasks" class="level2">
+<h2 class="anchored" data-anchor-id="sprint-plan-atomic-testable-tasks">Sprint Plan (Atomic, Testable Tasks)</h2>
+<p>Each sprint below ends with a demoable capability and is composed of atomic tasks that can be committed independently. All tasks include a test or validation step.</p>
+<section id="sprint-1-schema-and-validation" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-1-schema-and-validation">Sprint 1 — Schema and Validation</h3>
 <table class="caption-top table">
-<caption>Table 3. Code updates for automation mode.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -362,62 +399,250 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </colgroup>
 <thead>
 <tr class="header">
-<th>Area</th>
-<th>Change</th>
-<th>Rationale</th>
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>src/autoclean/utils/file_system.py</code></td>
-<td><code>auto_backup</code> flag for directory prep</td>
-<td>Allows reuse of task roots under automation.</td>
+<td>Add <code>automations[]</code> schema + defaults</td>
+<td>Updated schema + docs</td>
+<td>Unit tests for schema parsing.</td>
 </tr>
 <tr class="even">
-<td><code>src/autoclean/core/pipeline.py</code></td>
-<td>Resolve automation mode + metadata logging</td>
-<td>Centralizes precedence and audit trail.</td>
+<td>Add <code>enabled</code> flag + defaulting</td>
+<td>Route toggles</td>
+<td>Unit tests for enable/disable.</td>
 </tr>
 <tr class="odd">
-<td><code>src/autoclean/cli.py</code></td>
-<td><code>--automation</code> process flag</td>
-<td>Enables explicit CLI activation.</td>
+<td>Backward‑compat single‑route migration</td>
+<td>Legacy support</td>
+<td>Unit tests for migration warnings.</td>
 </tr>
 <tr class="even">
-<td><code>src/autoclean/configkit/schema.py</code></td>
-<td>Allow <code>automation_mode</code> key</td>
-<td>Validates task-level defaults.</td>
+<td>Validate route uniqueness (ingestion + pattern)</td>
+<td>Validation helper</td>
+<td>Unit tests for overlap errors.</td>
+</tr>
+<tr class="odd">
+<td>Add route ID normalization</td>
+<td>Deterministic ID builder</td>
+<td>Unit test for ID formatting.</td>
+</tr>
+<tr class="even">
+<td>Add config linting (unknown keys/types)</td>
+<td>Lint helper</td>
+<td>Unit tests for invalid keys.</td>
+</tr>
+<tr class="odd">
+<td>Extend CLI <code>serve validate</code> to check routes</td>
+<td>CLI output</td>
+<td>CLI test or dry‑run log snapshot.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="validation" class="level2">
-<h2 class="anchored" data-anchor-id="validation">Validation</h2>
-<p>Baseline CLI test command (run from repo root using <code>uv</code>):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run python <span class="at">-m</span> autoclean.cli process <span class="dt">\</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">--task-file</span> <span class="st">"/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py"</span> <span class="dt">\</span></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">--file</span> <span class="st">"/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set"</span> <span class="dt">\</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">--output</span> <span class="st">"/Volumes/owcssd/test-workspace"</span> <span class="dt">\</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">--automation</span> <span class="at">--yes</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: The command completed successfully with automation mode enabled via CLI, creating outputs under <code>/Volumes/owcssd/test-workspace/BiotrialResting1020</code> and logging <code>automation_source=cli</code> in run metadata. Warnings observed included montage EOG channel positions, empty <code>participants.tsv</code> on first creation, BrainVision conversion notices, an ICLabel bandpass warning, ICA report pre-compute fallback (<code>mixing_</code> missing), and a channel-count mismatch (actual 30 vs expected 28).</p>
+<section id="sprint-2-routing-and-workspace-resolution" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-2-routing-and-workspace-resolution">Sprint 2 — Routing and Workspace Resolution</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Build route→workspace resolver</td>
+<td>Resolver function</td>
+<td>Unit test for folder mapping.</td>
+</tr>
+<tr class="even">
+<td>Route selector by ingestion folder + glob</td>
+<td>Selector logic</td>
+<td>Unit test for routing match/miss.</td>
+</tr>
+<tr class="odd">
+<td>Priority + overlap resolution</td>
+<td>Tie‑breaker logic</td>
+<td>Unit test for collisions.</td>
+</tr>
+<tr class="even">
+<td>Most‑specific glob selection</td>
+<td>Deterministic routing</td>
+<td>Unit test for glob specificity.</td>
+</tr>
+<tr class="odd">
+<td>Ingestion exclusions</td>
+<td>Filter logic</td>
+<td>Unit test for exclusion rules.</td>
+</tr>
+<tr class="even">
+<td>Version suffix handling</td>
+<td>Workspace name builder</td>
+<td>Unit tests for version omission.</td>
+</tr>
+<tr class="odd">
+<td>Route‑specific output roots</td>
+<td>Output path builder</td>
+<td>Unit tests on path resolution.</td>
+</tr>
+</tbody>
+</table>
 </section>
-<section id="risks-and-follow-up" class="level2">
-<h2 class="anchored" data-anchor-id="risks-and-follow-up">Risks and Follow-Up</h2>
+<section id="sprint-3-queue-dispatch-by-route" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-3-queue-dispatch-by-route">Sprint 3 — Queue + Dispatch by Route</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Add route ID to queue entries</td>
+<td>Queue metadata</td>
+<td>Unit tests for queue records.</td>
+</tr>
+<tr class="even">
+<td>Dispatch plan per route</td>
+<td>Dispatch builder</td>
+<td>Unit tests for plan creation.</td>
+</tr>
+<tr class="odd">
+<td>Runner integration by route</td>
+<td>Dispatch executor</td>
+<td>Unit tests with runner stubs.</td>
+</tr>
+<tr class="even">
+<td>Route‑specific receipts</td>
+<td>Receipt metadata updates</td>
+<td>Unit tests on receipt revision entries.</td>
+</tr>
+<tr class="odd">
+<td>Route‑scoped dedup ledger</td>
+<td>Ledger key includes route</td>
+<td>Unit tests for duplicate isolation.</td>
+</tr>
+<tr class="even">
+<td>Route ID in receipts/logs</td>
+<td>Traceability fields</td>
+<td>Unit tests for receipt fields.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="sprint-4-serve-run-harness" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-4-serve-run-harness">Sprint 4 — Serve Run Harness</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>serve run</code> supports multi‑route config</td>
+<td>CLI support</td>
+<td>Integration test with dry‑run.</td>
+</tr>
+<tr class="even">
+<td>Route‑aware ingestion scanning</td>
+<td>Loop updates</td>
+<td>Unit tests for multi‑route scan.</td>
+</tr>
+<tr class="odd">
+<td>Runtime error handling</td>
+<td>Fail‑fast vs skip</td>
+<td>Unit tests for invalid route configs.</td>
+</tr>
+<tr class="even">
+<td>Per‑route idle reporting</td>
+<td>Service metrics</td>
+<td>Snapshot test of run output.</td>
+</tr>
+<tr class="odd">
+<td>Scale test (many routes)</td>
+<td>Benchmark harness</td>
+<td>Basic performance baseline.</td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="sprint-5-endtoend-demo" class="level3">
+<h3 class="anchored" data-anchor-id="sprint-5-endtoend-demo">Sprint 5 — End‑to‑End Demo</h3>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Task</th>
+<th>Output</th>
+<th>Validation</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Test workspace with 2 routes</td>
+<td>Demo data</td>
+<td>Dry‑run command logs.</td>
+</tr>
+<tr class="even">
+<td>Overlap + priority demo</td>
+<td>Conflict resolution</td>
+<td>Integration test with priority.</td>
+</tr>
+<tr class="odd">
+<td>Full run with sentinels</td>
+<td>Outputs in 2 workspaces</td>
+<td>Manual validation + log capture.</td>
+</tr>
+<tr class="even">
+<td>Documentation refresh</td>
+<td>Updated RFC pages</td>
+<td>Quarto render success.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
+<section id="open-questions" class="level2">
+<h2 class="anchored" data-anchor-id="open-questions">Open Questions</h2>
 <ul>
-<li>If task configs omit <code>automation_mode</code>, CLI activation remains the only automation trigger.</li>
-<li>The automation flag does not currently allow an explicit CLI override to disable a <code>true</code> task default; add <code>--no-automation</code> if operators need that control.</li>
-<li>Repeated automation runs rely on file-naming conventions to avoid overwrites; enforce policies from RFC 002 during implementation.</li>
+<li>Do we allow a route priority when ingestion folders overlap?</li>
+<li>Should version tags be enforced for production routes?</li>
+<li>Should top‑level defaults override per‑route values or merge lists?</li>
+<li>Should route definitions allow multiple taskfiles per route (likely no)?</li>
+<li>Should priority ties fall back to most‑specific glob or error?</li>
 </ul>
 </section>
-<section id="appendix-a-files-reviewed" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
-<ul>
-<li><code>src/autoclean/utils/file_system.py</code></li>
-<li><code>src/autoclean/core/pipeline.py</code></li>
-<li><code>src/autoclean/cli.py</code></li>
-<li><code>src/autoclean/configkit/schema.py</code></li>
-<li><code>plans/003-automation-mode/003-automation-mode.md</code></li>
-</ul>
+<section id="appendix-a-subagent-review-prompt" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-subagent-review-prompt">Appendix A: Subagent Review Prompt</h2>
+<p>Please review RFC 018 for clarity, completeness, and missing technical details. Suggest improvements to the routing model or sprint plan structure, and identify any gaps in validation coverage.</p>
 
 
 </section>

@@ -1,0 +1,151 @@
+---
+title: "RFC 018: Serve Routing and Sprint Plan"
+subtitle: "Multi‑Route Automation and Incremental Delivery"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+The concern is valid: the serve YAML should describe multiple automation routes, each defined by a taskfile‑montage (and optional version) pair that maps to a unique output workspace. The routing model should therefore treat each route as a first‑class automation definition with its own ingestion sources, file patterns, and output naming. This RFC explains how to structure multi‑route serve configurations and lays out an exhaustive, sprint‑based delivery plan with atomic, testable tasks.
+
+## Discussion: Multi‑Route Serve YAML
+
+A scalable serve configuration should declare an array of **automation routes**, each of which is a unique taskfile‑montage‑version combination. The output folder for each route is deterministic, following the convention:
+
+`<taskfile>-<montage>[-<version>]`
+
+This ensures each route has a stable workspace that can accumulate runs without collision, while remaining human‑readable for manual review. The routes should be mutually exclusive by ingestion source or file pattern to avoid ambiguous dispatch.
+
+### Recommended YAML Structure
+
+| Field | Purpose | Notes |
+|---|---|---|
+| `automations` | List of route definitions | Each entry maps to one output workspace. |
+| `id` | Route identifier | Default to normalized `taskfile-montage-version`. |
+| `enabled` | Route toggle | Supports staged rollout or suspension. |
+| `priority` | Tie‑breaker | Used only when routes overlap. |
+| `taskfile` | Taskfile path or name | Required; defines pipeline logic. |
+| `montage` | Montage key | Required; paired with taskfile. |
+| `version` | Optional version tag | Appended to output folder when set. |
+| `ingestion_folders` | Route‑specific sources | Prevent overlap between routes. |
+| `ingestion_excludes` | Excluded paths | Avoid accidental double‑routing. |
+| `file_globs` | File patterns | List of patterns; support recursion flag. |
+| `sentinel_ext` | Ready marker | Per‑route readiness control. |
+| `automation_root` | Base output root | Per‑route override; top‑level default allowed. |
+
+: Table 1. Multi‑route serve YAML fields.
+
+```yaml
+defaults:
+  automation_root: automations
+  file_globs: ["*.set"]
+  sentinel_ext: ".ready"
+  recursive: true
+
+automations:
+  - id: BiotrialResting1020-standard_1020-v1
+    enabled: true
+    priority: 10
+    taskfile: /path/to/BiotrialResting1020.py
+    montage: standard_1020
+    version: v1
+    ingestion_folders:
+      - /data/ingest/resting
+  - id: RestingEyesClosed-standard_1020
+    enabled: true
+    priority: 20
+    taskfile: RestingEyesClosed
+    montage: standard_1020
+    ingestion_folders:
+      - /data/ingest/resting-ec
+    ingestion_excludes:
+      - /data/ingest/resting-ec/tmp
+```
+
+Top‑level defaults apply unless explicitly overridden per route. The example above yields deterministic output folders such as:
+
+- `automations/BiotrialResting1020-standard_1020-v1`
+- `automations/RestingEyesClosed-standard_1020`
+
+## Routing and Output Rules
+
+1. **One route → one workspace**. Each automation route resolves to its own deterministic folder.
+2. **Explicit overlap resolution**. Overlaps are errors unless `priority` is set and validated.
+3. **Normalized IDs**. Route IDs are lower‑risk when normalized (case, spaces, separators) and deduped.
+4. **Version optional**. If omitted, the folder name drops the version suffix to keep path lengths sane.
+5. **Dispatch by route**. A ready file is matched to the route configured for its ingestion root, pattern, and exclusions.
+
+::: callout-note
+## Guardrail
+Fail validation when two routes overlap on the same ingestion folder and file pattern unless a priority is explicitly defined, and reject ties when priorities collide.
+:::
+
+## Sprint Plan (Atomic, Testable Tasks)
+
+Each sprint below ends with a demoable capability and is composed of atomic tasks that can be committed independently. All tasks include a test or validation step.
+
+### Sprint 1 — Schema and Validation
+
+| Task | Output | Validation |
+|---|---|---|
+| Add `automations[]` schema + defaults | Updated schema + docs | Unit tests for schema parsing. |
+| Add `enabled` flag + defaulting | Route toggles | Unit tests for enable/disable. |
+| Backward‑compat single‑route migration | Legacy support | Unit tests for migration warnings. |
+| Validate route uniqueness (ingestion + pattern) | Validation helper | Unit tests for overlap errors. |
+| Add route ID normalization | Deterministic ID builder | Unit test for ID formatting. |
+| Add config linting (unknown keys/types) | Lint helper | Unit tests for invalid keys. |
+| Extend CLI `serve validate` to check routes | CLI output | CLI test or dry‑run log snapshot. |
+
+### Sprint 2 — Routing and Workspace Resolution
+
+| Task | Output | Validation |
+|---|---|---|
+| Build route→workspace resolver | Resolver function | Unit test for folder mapping. |
+| Route selector by ingestion folder + glob | Selector logic | Unit test for routing match/miss. |
+| Priority + overlap resolution | Tie‑breaker logic | Unit test for collisions. |
+| Most‑specific glob selection | Deterministic routing | Unit test for glob specificity. |
+| Ingestion exclusions | Filter logic | Unit test for exclusion rules. |
+| Version suffix handling | Workspace name builder | Unit tests for version omission. |
+| Route‑specific output roots | Output path builder | Unit tests on path resolution. |
+
+### Sprint 3 — Queue + Dispatch by Route
+
+| Task | Output | Validation |
+|---|---|---|
+| Add route ID to queue entries | Queue metadata | Unit tests for queue records. |
+| Dispatch plan per route | Dispatch builder | Unit tests for plan creation. |
+| Runner integration by route | Dispatch executor | Unit tests with runner stubs. |
+| Route‑specific receipts | Receipt metadata updates | Unit tests on receipt revision entries. |
+| Route‑scoped dedup ledger | Ledger key includes route | Unit tests for duplicate isolation. |
+| Route ID in receipts/logs | Traceability fields | Unit tests for receipt fields. |
+
+### Sprint 4 — Serve Run Harness
+
+| Task | Output | Validation |
+|---|---|---|
+| `serve run` supports multi‑route config | CLI support | Integration test with dry‑run. |
+| Route‑aware ingestion scanning | Loop updates | Unit tests for multi‑route scan. |
+| Runtime error handling | Fail‑fast vs skip | Unit tests for invalid route configs. |
+| Per‑route idle reporting | Service metrics | Snapshot test of run output. |
+| Scale test (many routes) | Benchmark harness | Basic performance baseline. |
+
+### Sprint 5 — End‑to‑End Demo
+
+| Task | Output | Validation |
+|---|---|---|
+| Test workspace with 2 routes | Demo data | Dry‑run command logs. |
+| Overlap + priority demo | Conflict resolution | Integration test with priority. |
+| Full run with sentinels | Outputs in 2 workspaces | Manual validation + log capture. |
+| Documentation refresh | Updated RFC pages | Quarto render success. |
+
+## Open Questions
+
+- Do we allow a route priority when ingestion folders overlap?
+- Should version tags be enforced for production routes?
+- Should top‑level defaults override per‑route values or merge lists?
+- Should route definitions allow multiple taskfiles per route (likely no)?
+- Should priority ties fall back to most‑specific glob or error?
+
+## Appendix A: Subagent Review Prompt
+
+Please review RFC 018 for clarity, completeness, and missing technical details. Suggest improvements to the routing model or sprint plan structure, and identify any gaps in validation coverage.
