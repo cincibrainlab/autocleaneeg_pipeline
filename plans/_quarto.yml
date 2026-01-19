@@ -20,7 +20,6 @@ project:
     - 015-ingestion-integration/015-ingestion-integration.qmd
     - 016-ingestion-loop/016-ingestion-loop.qmd
     - 017-ingestion-service/017-ingestion-service.qmd
-    - 018-serve-routing-sprints/018-serve-routing-sprints.qmd
     - 019-serve-multi-route-response/019-serve-multi-route-response.qmd
 
 website:
@@ -63,8 +62,6 @@ website:
         text: Ingestion Loop
       - href: 017-ingestion-service/017-ingestion-service.html
         text: Ingestion Service
-      - href: 018-serve-routing-sprints/018-serve-routing-sprints.html
-        text: Serve Routing
       - href: 019-serve-multi-route-response/019-serve-multi-route-response.html
         text: Serve Multi-route Response
 

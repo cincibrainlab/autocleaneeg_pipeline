@@ -24,7 +24,6 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [Ingestion Integration](015-ingestion-integration/015-ingestion-integration.html)
 - [Ingestion Loop](016-ingestion-loop/016-ingestion-loop.html)
 - [Ingestion Service](017-ingestion-service/017-ingestion-service.html)
-- [Serve Routing & Sprints](018-serve-routing-sprints/018-serve-routing-sprints.html)
 - [Serve Multi-route Response](019-serve-multi-route-response/019-serve-multi-route-response.html)
 
 ## Navigation
