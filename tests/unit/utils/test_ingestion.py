@@ -5,13 +5,17 @@ from __future__ import annotations
 from pathlib import Path
 
 from autoclean.utils.ingestion import (
+    DispatchPlan,
     IngestionLedger,
     append_receipt_revision,
+    build_dispatch_plan,
     build_receipt,
+    build_workspace_name,
     compute_provenance_hash,
     evaluate_readiness,
     list_ingestion_files,
     load_receipt,
+    load_serve_config,
     poll_ready_files,
     receipt_path,
     resolve_provenance_folder,
@@ -42,6 +46,20 @@ def test_resolve_provenance_folder(tmp_path: Path) -> None:
     folder, hash_value = resolve_provenance_folder(root, relative, metadata)
     assert folder == root / hash_value
     assert hash_value == compute_provenance_hash(relative, metadata)
+
+
+def test_build_workspace_name_template() -> None:
+    name = build_workspace_name(
+        "taskfile-montage-version", taskfile="Task", montage="Montage"
+    )
+    assert name == "Task-Montage"
+    with_version = build_workspace_name(
+        "taskfile-montage-version",
+        taskfile="Task",
+        montage="Montage",
+        version="v1",
+    )
+    assert with_version == "Task-Montage-v1"
 
 
 def test_list_ingestion_files_filters_sentinels(tmp_path: Path) -> None:
@@ -121,6 +139,39 @@ def test_stage_provenance_receipt_records_ledger(tmp_path: Path) -> None:
         ledger=ledger,
     )
     assert repeat["duplicate"] is True
+
+
+def test_build_dispatch_plan(tmp_path: Path) -> None:
+    config_path = tmp_path / "serve-test.yaml"
+    runtime_dir = tmp_path / "runtimes" / "test"
+    automation_root = tmp_path / "automations"
+    runtime_dir.mkdir(parents=True)
+    automation_root.mkdir()
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "taskfile: Resting",
+                "montage: standard_1020",
+                "runtime: runtimes/test",
+                "automation_root: automations",
+                "workspace_name: taskfile-montage-version",
+                "ingestion_folders: []",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_serve_config(config_path)
+    plan = build_dispatch_plan(
+        config=config,
+        workspace_dir=tmp_path,
+        files=[tmp_path / "file.set"],
+        version="v1",
+    )
+    assert isinstance(plan, DispatchPlan)
+    assert plan.runtime_path == runtime_dir
+    assert plan.automation_root == automation_root
+    assert plan.workspace_name == "Resting-standard_1020-v1"
 
 
 def test_poll_ready_files(tmp_path: Path) -> None:

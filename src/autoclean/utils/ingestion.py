@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional
 
+import yaml
+
 DEFAULT_RECEIPT_VERSION = "1.0"
 DEFAULT_STATUS = "pending"
 
@@ -182,6 +184,118 @@ def stage_provenance_receipt(
         "receipt": receipt,
         "duplicate": duplicate,
     }
+
+
+def load_serve_config(config_path: Path) -> dict[str, Any]:
+    """Load serve YAML configuration."""
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config not found: {config_path}")
+    data = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("Serve config must be a mapping")
+    return data
+
+
+def _resolve_relative_path(root: Path, value: str) -> Path:
+    path = Path(value)
+    if path.is_absolute():
+        return path
+    return (root / path).resolve()
+
+
+def _normalize_workspace_name(name: str) -> str:
+    cleaned = name.strip().replace(" ", "-")
+    while "--" in cleaned:
+        cleaned = cleaned.replace("--", "-")
+    return cleaned.strip("-_")
+
+
+def build_workspace_name(
+    template: str,
+    *,
+    taskfile: str,
+    montage: str,
+    version: Optional[str] = None,
+) -> str:
+    """Build workspace name from a template."""
+    if "{" in template:
+        name = template.format(
+            taskfile=taskfile,
+            montage=montage,
+            version=version or "",
+        )
+        return _normalize_workspace_name(name)
+
+    segments = template.split("-")
+    replacements = {"taskfile": taskfile, "montage": montage, "version": version}
+    rendered: list[str] = []
+    for segment in segments:
+        if segment in replacements:
+            value = replacements[segment]
+            if value:
+                rendered.append(value)
+        else:
+            rendered.append(segment)
+    return _normalize_workspace_name("-".join(rendered))
+
+
+@dataclass
+class DispatchPlan:
+    mode: str
+    taskfile: str
+    montage: str
+    runtime_path: Path
+    automation_root: Path
+    workspace_name: str
+    workspace_dir: Path
+    files: list[Path]
+
+
+def build_dispatch_plan(
+    *,
+    config: dict[str, Any],
+    workspace_dir: Path,
+    files: Iterable[Path],
+    version: Optional[str] = None,
+) -> DispatchPlan:
+    """Build a dispatch plan from serve config and files."""
+    required = [
+        "mode",
+        "taskfile",
+        "montage",
+        "runtime",
+        "automation_root",
+        "workspace_name",
+        "ingestion_folders",
+    ]
+    for key in required:
+        if key not in config:
+            raise KeyError(f"Missing required config key: {key}")
+
+    mode = str(config["mode"])
+    taskfile = str(config["taskfile"])
+    montage = str(config["montage"])
+    runtime_path = _resolve_relative_path(workspace_dir, str(config["runtime"]))
+    automation_root = _resolve_relative_path(
+        workspace_dir, str(config["automation_root"])
+    )
+    workspace_name = build_workspace_name(
+        str(config["workspace_name"]),
+        taskfile=taskfile,
+        montage=montage,
+        version=version,
+    )
+    workspace_path = automation_root / workspace_name
+    return DispatchPlan(
+        mode=mode,
+        taskfile=taskfile,
+        montage=montage,
+        runtime_path=runtime_path,
+        automation_root=automation_root,
+        workspace_name=workspace_name,
+        workspace_dir=workspace_path,
+        files=list(files),
+    )
 
 
 @dataclass

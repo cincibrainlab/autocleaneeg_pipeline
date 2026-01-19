@@ -18,6 +18,7 @@ This site contains the planning documents and instruction sets for the pipeline 
 - [Ingestion Implementation](009-ingestion-implementation/009-ingestion-implementation.html)
 - [Ingestion Provenance](010-ingestion-provenance/010-ingestion-provenance.html)
 - [Ingestion Watcher](011-ingestion-watcher/011-ingestion-watcher.html)
+- [Ingestion Dispatch](012-ingestion-dispatch/012-ingestion-dispatch.html)
 
 ## Navigation
 

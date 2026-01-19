@@ -14,6 +14,7 @@ project:
     - 009-ingestion-implementation/009-ingestion-implementation.qmd
     - 010-ingestion-provenance/010-ingestion-provenance.qmd
     - 011-ingestion-watcher/011-ingestion-watcher.qmd
+    - 012-ingestion-dispatch/012-ingestion-dispatch.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -43,6 +44,8 @@ website:
         text: Ingestion Provenance
       - href: 011-ingestion-watcher/011-ingestion-watcher.html
         text: Ingestion Watcher
+      - href: 012-ingestion-dispatch/012-ingestion-dispatch.html
+        text: Ingestion Dispatch
 
 format:
   html:

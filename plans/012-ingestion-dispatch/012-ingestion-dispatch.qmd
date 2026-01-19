@@ -1,0 +1,47 @@
+---
+title: "RFC 012: Ingestion Dispatch Phase"
+subtitle: "Serve Config Parsing and Dispatch Planning"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase implements the dispatch planning layer for RFC 008. It adds serve config loading, workspace name rendering, and dispatch plan construction so ingestion can deterministically prepare run metadata without executing the pipeline. Unit tests validate template behavior and path resolution.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Config loader | `load_serve_config` | Validates YAML mapping structure. |
+| Workspace naming | `build_workspace_name` | Supports template tokens and version omission. |
+| Dispatch plan | `build_dispatch_plan` | Resolves runtime + automation roots with file list. |
+
+: Table 1. Dispatch phase deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added config loader, workspace naming, dispatch plan utilities. |
+| `tests/unit/utils/test_ingestion.py` | Added tests for naming and dispatch planning. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 10 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning; uv warned about link‑mode fallback while installing updated dependencies.
+
+## Follow‑Up Work
+
+1. Wire dispatch plans into serve runtime invocation.
+2. Add integration tests covering serve YAML changes and dispatch outcomes.
+
+## Appendix A: Behaviors
+
+- Workspace names derive from `workspace_name` templates with optional version tokens.
+- Dispatch plans resolve runtime and automation roots relative to the workspace.
