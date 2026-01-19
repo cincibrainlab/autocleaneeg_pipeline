@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -298,6 +300,86 @@ def build_dispatch_plan(
     )
 
 
+def _runtime_cli_name() -> str:
+    return (
+        "autocleaneeg-pipeline.exe"
+        if sys.platform.startswith("win")
+        else "autocleaneeg-pipeline"
+    )
+
+
+def resolve_runtime_cli(runtime_path: Path) -> Path:
+    """Resolve CLI binary within a runtime directory."""
+    if runtime_path.is_file():
+        return runtime_path
+
+    candidates: list[Path] = []
+    venv_dir = runtime_path / ".venv"
+    if sys.platform.startswith("win"):
+        candidates.extend(
+            [
+                venv_dir / "Scripts" / _runtime_cli_name(),
+                runtime_path / "Scripts" / _runtime_cli_name(),
+            ]
+        )
+    else:
+        candidates.extend(
+            [
+                venv_dir / "bin" / _runtime_cli_name(),
+                runtime_path / "bin" / _runtime_cli_name(),
+            ]
+        )
+
+    for path in candidates:
+        if path.exists():
+            return path
+    raise FileNotFoundError(f"Runtime CLI not found under {runtime_path}")
+
+
+def resolve_taskfile_path(taskfile: str, workspace_dir: Path) -> Optional[Path]:
+    """Resolve taskfile path if a Python file is specified."""
+    candidate = Path(taskfile)
+    if candidate.suffix != ".py":
+        return None
+    if candidate.is_absolute():
+        if not candidate.exists():
+            raise FileNotFoundError(f"Task file not found: {candidate}")
+        return candidate
+
+    for base in [workspace_dir, workspace_dir.parent]:
+        resolved = (base / candidate).resolve()
+        if resolved.exists():
+            return resolved
+    raise FileNotFoundError(f"Task file not found: {candidate}")
+
+
+def build_process_command(
+    *,
+    plan: DispatchPlan,
+    file_path: Path,
+    automation: bool = True,
+    yes: bool = True,
+    runtime_cli: Optional[Path] = None,
+) -> list[str]:
+    """Build autocleaneeg-pipeline process command for a file."""
+    cli_path = runtime_cli or resolve_runtime_cli(plan.runtime_path)
+    cmd = [str(cli_path), "process"]
+    taskfile_path = resolve_taskfile_path(plan.taskfile, plan.workspace_dir)
+    if taskfile_path:
+        cmd.extend(["--task-file", str(taskfile_path)])
+    elif plan.taskfile:
+        cmd.extend(["--task", plan.taskfile])
+    else:
+        raise ValueError("Taskfile or task name is required")
+
+    cmd.extend(["--file", str(file_path), "--output", str(plan.workspace_dir)])
+    if automation:
+        cmd.append("--automation")
+    if yes:
+        cmd.append("--yes")
+    return cmd
+
+
 @dataclass
 class DispatchResult:
     processed: list[Path]
@@ -333,6 +415,33 @@ def execute_dispatch_plan(
         pending = next_pending
 
     return DispatchResult(processed=processed, failed=failed, attempts=attempts)
+
+
+def run_dispatch_plan(
+    plan: DispatchPlan,
+    *,
+    automation: bool = True,
+    yes: bool = True,
+    max_attempts: int = 1,
+    runner: Optional[Callable[[list[str]], None]] = None,
+) -> DispatchResult:
+    """Execute a dispatch plan using the runtime CLI."""
+    cli_path = resolve_runtime_cli(plan.runtime_path)
+
+    def _processor(file_path: Path, dispatch_plan: DispatchPlan) -> None:
+        cmd = build_process_command(
+            plan=dispatch_plan,
+            file_path=file_path,
+            automation=automation,
+            yes=yes,
+            runtime_cli=cli_path,
+        )
+        if runner is None:
+            subprocess.run(cmd, check=True)
+        else:
+            runner(cmd)
+
+    return execute_dispatch_plan(plan, processor=_processor, max_attempts=max_attempts)
 
 
 @dataclass

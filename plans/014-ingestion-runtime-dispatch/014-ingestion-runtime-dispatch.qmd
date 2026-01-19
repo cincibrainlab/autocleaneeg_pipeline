@@ -1,0 +1,47 @@
+---
+title: "RFC 014: Runtime Dispatch Integration"
+subtitle: "CLI Command Construction and Runner Execution"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase connects dispatch planning to runnable CLI commands. It resolves runtime binaries, builds process commands for task names or task files, and executes them through a pluggable runner so tests can validate behavior without invoking the full pipeline.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Runtime CLI resolution | `resolve_runtime_cli` | Finds CLI in runtime `.venv` or bin directory. |
+| Command builder | `build_process_command` | Uses task name or `--task-file` automatically. |
+| Runner integration | `run_dispatch_plan` | Executes commands via runner or subprocess. |
+
+: Table 1. Runtime dispatch deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added runtime CLI resolver, command builder, and runner execution. |
+| `tests/unit/utils/test_ingestion.py` | Added tests for command construction and runner execution. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 14 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
+
+## Follow‑Up Work
+
+1. Integrate runtime dispatch with serve scheduling and ingestion watcher events.
+2. Add end‑to‑end tests that invoke a runtime CLI stub.
+
+## Appendix A: Behaviors
+
+- CLI resolution checks runtime `.venv` paths first and falls back to runtime bin locations.
+- Task file paths take precedence over task name when `.py` files exist.

@@ -6,9 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
-<meta name="dcterms.date" content="2026-01-18">
+<meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 004: Automation Mode Validation – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 014: Runtime Dispatch Integration – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,6 +20,41 @@ ul.task-list li input[type="checkbox"] {
   width: 0.8em;
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
 </style>
 
@@ -109,7 +144,7 @@ ul.task-list li input[type="checkbox"] {
 <span class="menu-text">Automation Mode</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../004-automation-mode-validation/004-automation-mode-validation.html" aria-current="page"> 
+    <a class="nav-link" href="../004-automation-mode-validation/004-automation-mode-validation.html"> 
 <span class="menu-text">Automation Validation</span></a>
   </li>  
   <li class="nav-item">
@@ -149,7 +184,7 @@ ul.task-list li input[type="checkbox"] {
 <span class="menu-text">Dispatch Execution</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html"> 
+    <a class="nav-link active" href="../014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html" aria-current="page"> 
 <span class="menu-text">Runtime Dispatch</span></a>
   </li>  
 </ul>
@@ -169,8 +204,8 @@ ul.task-list li input[type="checkbox"] {
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 004: Automation Mode Validation</h1>
-<p class="subtitle lead">Batch vs Single-File Parity under Automation Flag</p>
+<h1 class="title">RFC 014: Runtime Dispatch Integration</h1>
+<p class="subtitle lead">CLI Command Construction and Runner Execution</p>
 </div>
 
 
@@ -181,7 +216,7 @@ ul.task-list li input[type="checkbox"] {
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 18, 2026</p>
+      <p class="date">January 19, 2026</p>
     </div>
   </div>
   
@@ -195,12 +230,12 @@ ul.task-list li input[type="checkbox"] {
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>This RFC validates that automation mode produces equivalent outputs when processing multiple files via batch mode versus individual runs with the <code>--automation</code> flag. The validation uses the provided test workspace, resting EEG sample data, and task file, and compares exports and logs for parity.</p>
+<p>This phase connects dispatch planning to runnable CLI commands. It resolves runtime binaries, builds process commands for task names or task files, and executes them through a pluggable runner so tests can validate behavior without invoking the full pipeline.</p>
 </section>
-<section id="test-plan" class="level2">
-<h2 class="anchored" data-anchor-id="test-plan">Test Plan</h2>
+<section id="implementation-scope" class="level2">
+<h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
 <table class="caption-top table">
-<caption>Table 1. Automation validation commands and output roots.</caption>
+<caption>Table 1. Runtime dispatch deliverables.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -208,88 +243,74 @@ ul.task-list li input[type="checkbox"] {
 </colgroup>
 <thead>
 <tr class="header">
-<th>Step</th>
-<th>Command</th>
-<th>Output Root</th>
+<th>Area</th>
+<th>Deliverable</th>
+<th>Notes</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Batch mode</td>
-<td><code>uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --dir "/Volumes/owcssd/test-data/resting-eeg-32ch" --format "*.set" --output "/Volumes/owcssd/test-workspace/automation-validation/batch" --automation --yes</code></td>
-<td><code>.../automation-validation/batch</code></td>
+<td>Runtime CLI resolution</td>
+<td><code>resolve_runtime_cli</code></td>
+<td>Finds CLI in runtime <code>.venv</code> or bin directory.</td>
 </tr>
 <tr class="even">
-<td>Single file 1</td>
-<td><code>uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --file "/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EO.set" --output "/Volumes/owcssd/test-workspace/automation-validation/individual" --automation --yes</code></td>
-<td><code>.../automation-validation/individual</code></td>
+<td>Command builder</td>
+<td><code>build_process_command</code></td>
+<td>Uses task name or <code>--task-file</code> automatically.</td>
 </tr>
 <tr class="odd">
-<td>Single file 2</td>
-<td><code>uv run python -m autoclean.cli process --task-file "/Volumes/owcssd/test-data/resting-eeg-32ch/BiotrialResting1020.py" --file "/Volumes/owcssd/test-data/resting-eeg-32ch/201001_D1BL_EC.set" --output "/Volumes/owcssd/test-workspace/automation-validation/individual" --automation --yes</code></td>
-<td><code>.../automation-validation/individual</code></td>
+<td>Runner integration</td>
+<td><code>run_dispatch_plan</code></td>
+<td>Executes commands via runner or subprocess.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="results" class="level2">
-<h2 class="anchored" data-anchor-id="results">Results</h2>
-<p>Batch mode completed successfully for both <code>.set</code> files, producing exports under <code>/Volumes/owcssd/test-workspace/automation-validation/batch/BiotrialResting1020</code>. The two single-file runs also completed successfully, reusing <code>/Volumes/owcssd/test-workspace/automation-validation/individual/BiotrialResting1020</code> on the second run with auto-backup disabled. Both modes generated identical export filenames and per-run report artifacts.</p>
-<ul>
-<li>Batch run IDs: <code>01KF9E7S7ZDMT3FGH10TV0HAHS</code> (EO), <code>01KF9E88T8PS4WKGDBH691EZP1</code> (EC)</li>
-<li>Individual run IDs: <code>01KF9E9WHKQ402RTSZDP6AFCMT</code> (EO), <code>01KF9ET66JF0RNV9MD6RSGDZQ8</code> (EC)</li>
-<li>Exports: <code>201001_D1BL_EO_comp_epo.set</code>, <code>201001_D1BL_EC_comp_epo.set</code>, plus per-file processing logs in <code>exports/</code></li>
-<li>Reports: per-file PDF, metadata JSON, flagged-channel TSV, and processing logs in <code>reports/run_reports/</code></li>
-</ul>
-</section>
-<section id="comparison-summary" class="level2">
-<h2 class="anchored" data-anchor-id="comparison-summary">Comparison Summary</h2>
+<section id="code-changes" class="level2">
+<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
 <table class="caption-top table">
-<caption>Table 2. Batch vs single-file parity checkpoints.</caption>
+<caption>Table 2. Code updates delivered.</caption>
 <colgroup>
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
-<col style="width: 25%">
+<col style="width: 50%">
+<col style="width: 50%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>Checkpoint</th>
-<th>Batch Mode</th>
-<th>Single-File Runs</th>
-<th>Outcome</th>
+<th>File</th>
+<th>Change</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Exported <code>.set</code> files</td>
-<td>2 files (<code>EO</code>, <code>EC</code>)</td>
-<td>2 files (<code>EO</code>, <code>EC</code>)</td>
-<td>Match</td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
+<td>Added runtime CLI resolver, command builder, and runner execution.</td>
 </tr>
 <tr class="even">
-<td>Processing log entries</td>
-<td><code>preprocessing_log.csv</code> has 2 rows</td>
-<td><code>preprocessing_log.csv</code> has 2 rows</td>
-<td>Match</td>
-</tr>
-<tr class="odd">
-<td>Automation mode recorded</td>
-<td>CLI enabled; backups disabled</td>
-<td>CLI enabled; reuse existing task root</td>
-<td>Match</td>
+<td><code>tests/unit/utils/test_ingestion.py</code></td>
+<td>Added tests for command construction and runner execution.</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="warnings-and-observations" class="level2">
-<h2 class="anchored" data-anchor-id="warnings-and-observations">Warnings and Observations</h2>
-<p>Recurring warnings included EOG montage position defaults, initial empty <code>participants.tsv</code>, BrainVision conversion with float32 casting, ICLabel bandpass expectations, ICA report pre-computation fallback (<code>mixing_</code> missing), and channel-count mismatches (actual 30 vs expected 27–28). None of these warnings prevented completion, and outputs remained consistent across batch and individual runs.</p>
+<section id="test-results" class="level2">
+<h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Result: 14 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) due to repository defaults. Pytest emitted an unknown <code>timeout</code> config warning.</p>
 </section>
-<section id="appendix-a-files-reviewed" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-files-reviewed">Appendix A: Files Reviewed</h2>
+<section id="followup-work" class="level2">
+<h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
+<ol type="1">
+<li>Integrate runtime dispatch with serve scheduling and ingestion watcher events.</li>
+<li>Add end‑to‑end tests that invoke a runtime CLI stub.</li>
+</ol>
+</section>
+<section id="appendix-a-behaviors" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-behaviors">Appendix A: Behaviors</h2>
 <ul>
-<li><code>plans/004-automation-mode-validation/004-automation-mode-validation.md</code></li>
+<li>CLI resolution checks runtime <code>.venv</code> paths first and falls back to runtime bin locations.</li>
+<li>Task file paths take precedence over task name when <code>.py</code> files exist.</li>
 </ul>
 
 

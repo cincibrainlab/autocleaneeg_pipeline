@@ -16,6 +16,7 @@ project:
     - 011-ingestion-watcher/011-ingestion-watcher.qmd
     - 012-ingestion-dispatch/012-ingestion-dispatch.qmd
     - 013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.qmd
+    - 014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -49,6 +50,8 @@ website:
         text: Ingestion Dispatch
       - href: 013-ingestion-dispatch-execution/013-ingestion-dispatch-execution.html
         text: Dispatch Execution
+      - href: 014-ingestion-runtime-dispatch/014-ingestion-runtime-dispatch.html
+        text: Runtime Dispatch
 
 format:
   html:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from autoclean.utils.ingestion import (
@@ -10,6 +11,7 @@ from autoclean.utils.ingestion import (
     IngestionLedger,
     append_receipt_revision,
     build_dispatch_plan,
+    build_process_command,
     build_receipt,
     build_workspace_name,
     compute_provenance_hash,
@@ -21,6 +23,7 @@ from autoclean.utils.ingestion import (
     poll_ready_files,
     receipt_path,
     resolve_provenance_folder,
+    run_dispatch_plan,
     scan_ready_files,
     stage_provenance_receipt,
     watch_ready_files,
@@ -30,6 +33,16 @@ from autoclean.utils.ingestion import (
 
 def _write_file(path: Path, content: str = "data") -> None:
     path.write_text(content, encoding="utf-8")
+
+
+def _runtime_cli_path(runtime_dir: Path) -> Path:
+    if sys.platform.startswith("win"):
+        cli_path = runtime_dir / ".venv" / "Scripts" / "autocleaneeg-pipeline.exe"
+    else:
+        cli_path = runtime_dir / ".venv" / "bin" / "autocleaneeg-pipeline"
+    cli_path.parent.mkdir(parents=True, exist_ok=True)
+    _write_file(cli_path, "")
+    return cli_path
 
 
 def test_provenance_hash_deterministic(tmp_path: Path) -> None:
@@ -174,6 +187,79 @@ def test_build_dispatch_plan(tmp_path: Path) -> None:
     assert plan.runtime_path == runtime_dir
     assert plan.automation_root == automation_root
     assert plan.workspace_name == "Resting-standard_1020-v1"
+
+
+def test_build_process_command_taskfile(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtime"
+    cli_path = _runtime_cli_path(runtime_dir)
+    taskfile = tmp_path / "Task.py"
+    _write_file(taskfile, "class Task: pass")
+    plan = DispatchPlan(
+        mode="test",
+        taskfile=str(taskfile),
+        montage="montage",
+        runtime_path=runtime_dir,
+        automation_root=tmp_path,
+        workspace_name="Task-montage",
+        workspace_dir=tmp_path / "Task-montage",
+        files=[tmp_path / "sample.set"],
+    )
+    cmd = build_process_command(
+        plan=plan,
+        file_path=tmp_path / "sample.set",
+        runtime_cli=cli_path,
+    )
+    assert "--task-file" in cmd
+    assert str(taskfile) in cmd
+
+
+def test_build_process_command_task_name(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtime"
+    cli_path = _runtime_cli_path(runtime_dir)
+    plan = DispatchPlan(
+        mode="test",
+        taskfile="Resting",
+        montage="montage",
+        runtime_path=runtime_dir,
+        automation_root=tmp_path,
+        workspace_name="Resting",
+        workspace_dir=tmp_path / "Resting",
+        files=[tmp_path / "sample.set"],
+    )
+    cmd = build_process_command(
+        plan=plan,
+        file_path=tmp_path / "sample.set",
+        runtime_cli=cli_path,
+    )
+    assert "--task" in cmd
+    assert "Resting" in cmd
+
+
+def test_run_dispatch_plan_uses_runner(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtime"
+    _runtime_cli_path(runtime_dir)
+    file_a = tmp_path / "a.set"
+    file_b = tmp_path / "b.set"
+    _write_file(file_a)
+    _write_file(file_b)
+    plan = DispatchPlan(
+        mode="test",
+        taskfile="Resting",
+        montage="montage",
+        runtime_path=runtime_dir,
+        automation_root=tmp_path,
+        workspace_name="Resting",
+        workspace_dir=tmp_path / "Resting",
+        files=[file_a, file_b],
+    )
+    calls: list[list[str]] = []
+
+    def runner(cmd: list[str]) -> None:
+        calls.append(cmd)
+
+    result = run_dispatch_plan(plan, runner=runner, max_attempts=1)
+    assert not result.failed
+    assert len(calls) == 2
 
 
 def test_execute_dispatch_plan_retries(tmp_path: Path) -> None:
