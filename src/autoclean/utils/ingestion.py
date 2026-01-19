@@ -520,6 +520,12 @@ def parse_serve_config(
         )
         if not ingestion_folders and not strict:
             warnings.append(f"automations[{idx}].ingestion_folders is empty")
+        if strict and ingestion_folders:
+            for root in ingestion_folders:
+                if not root.exists():
+                    errors.append(
+                        f"automations[{idx}].ingestion_folders path not found: {root}"
+                    )
         ingestion_excludes = _normalize_path_list(
             route_data.get("ingestion_excludes", default_excludes),
             workspace_dir,
@@ -1036,6 +1042,13 @@ def dispatch_ready_ingestion(
     if not routes:
         return []
 
+    if queue is not None:
+        unassigned = queue.pending_without_route()
+        if unassigned:
+            raise ValueError(
+                "Queue has pending entries without route_id; migrate queue data before running."
+            )
+
     if serve_config.legacy:
         for route in routes:
             if file_glob is not None:
@@ -1129,9 +1142,7 @@ def dispatch_ready_ingestion(
             queue.enqueue_entries(entries)
 
         pending_entries = (
-            queue.pending_entries(
-                route_id=route.id, include_unassigned=serve_config.legacy
-            )
+            queue.pending_entries(route_id=route.id)
             if queue is not None
             else [
                 QueueEntry(
@@ -1678,6 +1689,13 @@ class IngestionQueue:
                 route_id=entry.route_id,
                 ingestion_root=entry.ingestion_root,
             )
+
+    def pending_without_route(self) -> list[Path]:
+        return [
+            Path(path)
+            for path, data in self.entries().items()
+            if data.get("status") == "pending" and not data.get("route_id")
+        ]
 
     def pending_entries(
         self, *, route_id: Optional[str] = None, include_unassigned: bool = False

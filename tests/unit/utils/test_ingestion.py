@@ -5,6 +5,8 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from autoclean.utils.ingestion import (
     DispatchPlan,
     DispatchResult,
@@ -12,6 +14,7 @@ from autoclean.utils.ingestion import (
     IngestionLedger,
     IngestionQueue,
     IngestionServiceResult,
+    ServeConfigError,
     append_receipt_revision,
     build_dispatch_plan,
     build_process_command,
@@ -275,6 +278,40 @@ def test_parse_serve_config_defaults(tmp_path: Path) -> None:
     assert route.id == "Resting-standard_1020-v1"
 
 
+def test_parse_serve_config_strict_requires_ingestion_folders_exist(
+    tmp_path: Path,
+) -> None:
+    runtime_dir = tmp_path / "runtimes" / "test"
+    runtime_dir.mkdir(parents=True)
+    automation_root = tmp_path / "automations"
+    automation_root.mkdir()
+    config_path = tmp_path / "serve-test.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "runtime: runtimes/test",
+                "automation_mode: true",
+                "defaults:",
+                "  automation_root: automations",
+                "  workspace_name: taskfile-montage-version",
+                "  file_globs: ['*.set']",
+                "  sentinel_ext: .ready",
+                "  recursive: true",
+                "automations:",
+                "  - taskfile: Resting",
+                "    montage: standard_1020",
+                "    ingestion_folders:",
+                "      - missing-root",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    config = load_serve_config(config_path)
+    with pytest.raises(ServeConfigError, match="ingestion_folders"):
+        parse_serve_config(config, tmp_path, strict=True)
+
+
 def test_build_process_command_taskfile(tmp_path: Path) -> None:
     runtime_dir = tmp_path / "runtime"
     cli_path = _runtime_cli_path(runtime_dir)
@@ -398,6 +435,46 @@ def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
     assert result.result is not None
     assert len(calls) == 1
     assert queue.entries()[str(data_file)]["status"] == "processed"
+
+
+def test_dispatch_ready_ingestion_requires_queue_route_id(tmp_path: Path) -> None:
+    runtime_dir = tmp_path / "runtimes" / "test"
+    _runtime_cli_path(runtime_dir)
+    ingestion_root = tmp_path / "ingest"
+    ingestion_root.mkdir()
+    (tmp_path / "automations").mkdir()
+    config_path = tmp_path / "serve-test.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "mode: test",
+                "runtime: runtimes/test",
+                "automation_mode: true",
+                "defaults:",
+                "  automation_root: automations",
+                "  workspace_name: taskfile-montage-version",
+                "  file_globs: ['*.set']",
+                "  sentinel_ext: .ready",
+                "  recursive: true",
+                "automations:",
+                "  - taskfile: Resting",
+                "    montage: standard_1020",
+                "    ingestion_folders:",
+                "      - ingest",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    queue = IngestionQueue(tmp_path / "queue.json")
+    queue.enqueue([tmp_path / "orphan.set"])
+    with pytest.raises(ValueError, match="route_id"):
+        dispatch_ready_ingestion(
+            config_path=config_path,
+            workspace_dir=tmp_path,
+            use_watchfiles=False,
+            max_events=1,
+            queue=queue,
+        )
 
 
 def test_dispatch_ready_ingestion_route_priority(tmp_path: Path) -> None:
