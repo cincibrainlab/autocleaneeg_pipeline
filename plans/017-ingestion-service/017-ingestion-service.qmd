@@ -34,7 +34,7 @@ uv run --with pytest --with pytest-cov python -m pytest \
   tests/unit/utils/test_ingestion.py --cov-fail-under=0
 ```
 
-Result: 19 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
+Result: 20 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
 
 ## Follow‑Up Work
 

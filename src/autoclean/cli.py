@@ -2247,6 +2247,83 @@ For detailed help on any command: autocleaneeg-pipeline <command> --help
         help="Optional serve workspace path",
     )
 
+    serve_run = serve_subparsers.add_parser(
+        "run", help="Run ingestion service loop", add_help=False
+    )
+    attach_rich_help(serve_run)
+    serve_run.add_argument(
+        "--mode",
+        choices=["test", "live"],
+        default="test",
+        help="Config mode to run",
+    )
+    serve_run.add_argument(
+        "--path",
+        type=Path,
+        default=None,
+        help="Optional serve workspace path",
+    )
+    serve_run.add_argument(
+        "--max-cycles",
+        type=int,
+        default=5,
+        help="Maximum service cycles to run",
+    )
+    serve_run.add_argument(
+        "--idle-limit",
+        type=int,
+        default=2,
+        help="Idle cycles before exiting",
+    )
+    serve_run.add_argument(
+        "--file-glob",
+        default="*",
+        help="Glob pattern for ingestion files",
+    )
+    serve_run.add_argument(
+        "--sentinel-ext",
+        default=".ready",
+        help="Sentinel extension for readiness",
+    )
+    serve_run.add_argument(
+        "--no-sentinel",
+        action="store_true",
+        help="Disable sentinel requirement",
+    )
+    serve_run.add_argument(
+        "--no-watch",
+        action="store_true",
+        help="Disable watchfiles usage",
+    )
+    serve_run.add_argument(
+        "--max-events",
+        type=int,
+        default=1,
+        help="Max watch events per cycle",
+    )
+    serve_run.add_argument(
+        "--sleep-seconds",
+        type=float,
+        default=1.0,
+        help="Sleep between cycles",
+    )
+    serve_run.add_argument(
+        "--queue-path",
+        type=Path,
+        default=None,
+        help="Queue file path for persistence",
+    )
+    serve_run.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print commands without executing",
+    )
+    serve_run.add_argument(
+        "--use-operator",
+        action="store_true",
+        help="Use operator YAML instead of deployed config",
+    )
+
     # Version command
 
     _version = subparsers.add_parser(
@@ -8988,6 +9065,8 @@ def cmd_serve(args) -> int:
         return cmd_serve_validate(args)
     if action == "deploy":
         return cmd_serve_deploy(args)
+    if action == "run":
+        return cmd_serve_run(args)
     message("error", f"Unknown serve action: {action}")
     return 1
 
@@ -9383,6 +9462,58 @@ def cmd_serve_deploy(args) -> int:
         return 1
 
     message("success", f"✓ Deployed {mode} config to {deploy_path}")
+    return 0
+
+
+def cmd_serve_run(args) -> int:
+    """Run ingestion service loop for serve workspace."""
+    workspace_dir = _resolve_serve_workspace_dir(args.path)
+    if workspace_dir is None:
+        message("error", "No serve workspace configured")
+        return 1
+
+    mode = args.mode
+    paths = _serve_workspace_paths(workspace_dir)
+    config_path = _resolve_config_path(paths, mode, deployed=not args.use_operator)
+    if not config_path.exists():
+        message("error", f"Config not found: {config_path}")
+        return 1
+
+    queue_path = args.queue_path
+    if queue_path is None:
+        queue_path = workspace_dir / f"queue-{mode}.json"
+
+    from autoclean.utils.ingestion import run_ingestion_service
+
+    def _runner(cmd: list[str]) -> None:
+        if args.dry_run:
+            message("info", "DRY RUN: " + " ".join(cmd))
+        else:
+            subprocess.run(cmd, check=True)
+
+    try:
+        result = run_ingestion_service(
+            config_path=config_path,
+            workspace_dir=workspace_dir,
+            max_cycles=args.max_cycles,
+            idle_limit=args.idle_limit,
+            file_glob=args.file_glob,
+            sentinel_ext=args.sentinel_ext,
+            require_sentinel=not args.no_sentinel,
+            use_watchfiles=not args.no_watch,
+            max_events=args.max_events,
+            runner=_runner,
+            queue_path=queue_path,
+            sleep_seconds=args.sleep_seconds,
+        )
+    except Exception as exc:
+        message("error", f"Serve run failed: {exc}")
+        return 1
+
+    message(
+        "success",
+        f"✓ Serve run complete after {result.cycles} cycles (idle={result.idle_cycles})",
+    )
     return 0
 
 

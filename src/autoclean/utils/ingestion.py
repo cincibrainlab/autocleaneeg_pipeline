@@ -481,6 +481,7 @@ def dispatch_ready_ingestion(
     max_attempts: int = 1,
     runner: Optional[Callable[[list[str]], None]] = None,
     config: Optional[dict[str, Any]] = None,
+    queue: Optional["IngestionQueue"] = None,
 ) -> IngestionDispatchResult:
     """Dispatch ready ingestion files using serve configuration."""
     config_data = config or load_serve_config(config_path)
@@ -498,7 +499,12 @@ def dispatch_ready_ingestion(
         max_events=max_events,
         use_watchfiles=use_watchfiles,
     )
-    if not ready.ready:
+
+    if ready.ready and queue is not None:
+        queue.enqueue(ready.ready_files)
+
+    pending_files = queue.pending() if queue is not None else ready.ready_files
+    if not pending_files:
         return IngestionDispatchResult(
             ingestion_root=ingestion_root, ready=ready, plan=None, result=None
         )
@@ -506,7 +512,7 @@ def dispatch_ready_ingestion(
     plan = build_dispatch_plan(
         config=config_data,
         workspace_dir=workspace_dir,
-        files=ready.ready_files,
+        files=pending_files,
     )
     result = run_dispatch_plan(
         plan,
@@ -515,6 +521,13 @@ def dispatch_ready_ingestion(
         max_attempts=max_attempts,
         runner=runner,
     )
+
+    if queue is not None:
+        for path in result.processed:
+            queue.mark_processed(path)
+        for path, error in result.failed.items():
+            queue.mark_failed(path, error)
+
     return IngestionDispatchResult(
         ingestion_root=ingestion_root, ready=ready, plan=plan, result=result
     )
@@ -542,6 +555,7 @@ def run_ingestion_loop(
     yes: bool = True,
     max_attempts: int = 1,
     runner: Optional[Callable[[list[str]], None]] = None,
+    queue: Optional["IngestionQueue"] = None,
     sleep_fn: Optional[Callable[[float], None]] = None,
     sleep_seconds: float = 1.0,
 ) -> IngestionLoopResult:
@@ -574,9 +588,13 @@ def run_ingestion_loop(
                 max_attempts=max_attempts,
                 runner=runner,
                 config=config,
+                queue=queue,
             )
             dispatch_results.append(result)
-            if result.ready.ready:
+            processed = bool(
+                result.result and (result.result.processed or result.result.failed)
+            )
+            if result.ready.ready or processed:
                 ready_roots.append(root)
         pending_roots = [root for root in roots if root not in ready_roots]
         if not ready_roots:
@@ -618,6 +636,8 @@ def run_ingestion_service(
     yes: bool = True,
     max_attempts: int = 1,
     runner: Optional[Callable[[list[str]], None]] = None,
+    queue: Optional["IngestionQueue"] = None,
+    queue_path: Optional[Path] = None,
     sleep_fn: Optional[Callable[[float], None]] = None,
     sleep_seconds: float = 1.0,
 ) -> IngestionServiceResult:
@@ -626,6 +646,9 @@ def run_ingestion_service(
         raise ValueError("max_cycles must be >= 1")
     if idle_limit < 1:
         raise ValueError("idle_limit must be >= 1")
+
+    if queue is None and queue_path is not None:
+        queue = IngestionQueue(queue_path)
 
     loop_results: list[IngestionLoopResult] = []
     idle_cycles = 0
@@ -646,6 +669,7 @@ def run_ingestion_service(
             yes=yes,
             max_attempts=max_attempts,
             runner=runner,
+            queue=queue,
             sleep_fn=lambda _: None,
         )
         loop_results.append(loop_result)
@@ -897,4 +921,66 @@ class IngestionLedger:
     def record(self, hash_value: str, info: dict[str, Any]) -> None:
         entries = self.data.setdefault("entries", {})
         entries[hash_value] = {"info": info, "recorded_at": _timestamp()}
+        self.save()
+
+
+class IngestionQueue:
+    """Persistent queue for ingestion dispatch."""
+
+    def __init__(self, queue_path: Path) -> None:
+        self.path = queue_path
+        self.data: dict[str, Any] = {"entries": {}}
+        self._load()
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            return
+        try:
+            self.data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            self.data = {"entries": {}}
+
+    def save(self) -> None:
+        tmp = self.path.with_suffix(".tmp")
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(self.data, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(self.path)
+
+    def entries(self) -> dict[str, Any]:
+        return self.data.setdefault("entries", {})
+
+    def enqueue(self, paths: Iterable[Path]) -> None:
+        entries = self.entries()
+        for path in paths:
+            key = str(path)
+            if key in entries:
+                continue
+            entries[key] = {
+                "status": "pending",
+                "added_at": _timestamp(),
+                "last_error": None,
+            }
+        self.save()
+
+    def pending(self) -> list[Path]:
+        return [
+            Path(path)
+            for path, data in self.entries().items()
+            if data.get("status") == "pending"
+        ]
+
+    def mark_processed(self, path: Path) -> None:
+        key = str(path)
+        entry = self.entries().setdefault(key, {})
+        entry["status"] = "processed"
+        entry["processed_at"] = _timestamp()
+        entry.pop("last_error", None)
+        self.save()
+
+    def mark_failed(self, path: Path, error: str) -> None:
+        key = str(path)
+        entry = self.entries().setdefault(key, {})
+        entry["status"] = "failed"
+        entry["last_error"] = error
+        entry["failed_at"] = _timestamp()
         self.save()

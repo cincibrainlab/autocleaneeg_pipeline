@@ -10,6 +10,7 @@ from autoclean.utils.ingestion import (
     DispatchResult,
     IngestionDispatchResult,
     IngestionLedger,
+    IngestionQueue,
     IngestionServiceResult,
     append_receipt_revision,
     build_dispatch_plan,
@@ -132,6 +133,19 @@ def test_ingestion_ledger(tmp_path: Path) -> None:
     assert ledger.is_duplicate("hash") is False
     ledger.record("hash", {"path": "file.set"})
     assert ledger.is_duplicate("hash") is True
+
+
+def test_ingestion_queue_persistence(tmp_path: Path) -> None:
+    queue_path = tmp_path / "queue.json"
+    queue = IngestionQueue(queue_path)
+    file_a = tmp_path / "a.set"
+    file_b = tmp_path / "b.set"
+    _write_file(file_a)
+    _write_file(file_b)
+    queue.enqueue([file_a, file_b])
+    assert len(queue.pending()) == 2
+    reloaded = IngestionQueue(queue_path)
+    assert len(reloaded.pending()) == 2
 
 
 def test_stage_provenance_receipt_records_ledger(tmp_path: Path) -> None:
@@ -293,6 +307,7 @@ def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
     )
     (tmp_path / "automations").mkdir()
     calls: list[list[str]] = []
+    queue = IngestionQueue(tmp_path / "queue.json")
 
     def runner(cmd: list[str]) -> None:
         calls.append(cmd)
@@ -306,12 +321,14 @@ def test_dispatch_ready_ingestion(tmp_path: Path) -> None:
         use_watchfiles=False,
         max_events=1,
         runner=runner,
+        queue=queue,
     )
     assert isinstance(result, IngestionDispatchResult)
     assert result.ingestion_root == ingestion_root
     assert result.plan is not None
     assert result.result is not None
     assert len(calls) == 1
+    assert queue.entries()[str(data_file)]["status"] == "processed"
 
 
 def test_run_ingestion_loop(tmp_path: Path) -> None:
