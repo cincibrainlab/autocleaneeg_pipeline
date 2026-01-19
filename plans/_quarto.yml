@@ -22,6 +22,7 @@ project:
     - 017-ingestion-service/017-ingestion-service.qmd
     - 019-serve-multi-route-response/019-serve-multi-route-response.qmd
     - 020-rfc19-execution-review/020-rfc19-execution-review.qmd
+    - 021-serve-multi-route-implementation/021-serve-multi-route-implementation.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -67,6 +68,8 @@ website:
         text: Serve Multi-route Response
       - href: 020-rfc19-execution-review/020-rfc19-execution-review.html
         text: RFC 019 Execution Review
+      - href: 021-serve-multi-route-implementation/021-serve-multi-route-implementation.html
+        text: Serve Multi-route Implementation
 
 format:
   html:

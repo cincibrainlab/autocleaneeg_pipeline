@@ -1,0 +1,89 @@
+---
+title: "RFC 021: Serve Multi-route Implementation"
+subtitle: "RFC 019/020 Execution and Validation"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+The RFC 019 multi-route serve design and the RFC 020 review adjustments are now implemented in the ingestion service. The implementation adds normalized route parsing, deterministic selection rules, and route-scoped metadata across queues, ledgers, and receipts, while the CLI validates configs with the shared parser and surfaces per-route run metrics. Targeted unit tests confirm defaults, priority routing, queue metadata persistence, and loop behavior.
+
+## Implementation Scope
+
+The implementation covers config normalization, routing, queue and receipt metadata, and CLI integration, with test coverage focused on deterministic selection and backward compatible defaults.
+
+| Area | Implementation | Evidence |
+|---|---|---|
+| Configuration parsing | ServeConfig and ServeRoute parsing with defaults, linting, and legacy migration | `src/autoclean/utils/ingestion.py` |
+| Routing and dispatch | Priority and glob-specificity selection with route-aware dispatch plans | `src/autoclean/utils/ingestion.py` |
+| Queue and ledger metadata | Route ID and ingestion root persistence in queues and receipts | `src/autoclean/utils/ingestion.py` |
+| CLI validation and reporting | Shared config validation and per-route run summaries | `src/autoclean/cli.py` |
+| Unit tests | Defaults, priority routing, queue metadata, and loop behavior | `tests/unit/utils/test_ingestion.py` |
+
+: Table 1. Implementation scope and evidence.
+
+## Configuration and Validation
+
+Serve configuration parsing is centralized in a dedicated parser that enforces known keys, normalizes defaults, and supports legacy single-route configs by wrapping them in a single automation route. The parser derives route identifiers deterministically, validates overlap at equal priority, and keeps disabled routes out of overlap checks, which matches the RFC 020 clarifications. Defaults for `file_globs`, `sentinel_ext`, and `recursive` are applied consistently to ensure uniform routing behavior across routes.
+
+::: callout-note
+## Guardrail
+If two enabled routes overlap at the same priority and specificity, the parser fails fast to avoid non-deterministic dispatch.
+:::
+
+## Routing and Dispatch
+
+Routing assigns each ready file to the highest-priority route that matches both ingestion roots and glob patterns. Glob specificity is scored using literal counts and wildcard depth to make selection deterministic, and any ties at the same priority level are treated as configuration errors. Dispatch is executed per route, ensuring that each route creates a distinct workspace and automation plan while sharing the same runtime definition.
+
+```{mermaid}
+%%| label: fig-route-dispatch
+%%| fig-cap: "Figure 1. Implemented route selection and dispatch flow."
+flowchart TD
+    A[Load serve YAML] --> B[Parse and validate routes]
+    B --> C[Scan ingestion roots]
+    C --> D[Match files to routes]
+    D --> E{Resolve priority and specificity}
+    E -->|Tie| F[Raise configuration error]
+    E -->|Winner| G[Queue file with route metadata]
+    G --> H[Build route-specific dispatch plan]
+    H --> I[Run dispatch and update receipts]
+    I --> J[Report per-route metrics]
+```
+
+## Queue and Provenance Metadata
+
+Queue entries now store the route identifier and the ingestion root used for assignment, which allows replays and retries to preserve the original routing intent. The ingestion ledger and receipts carry the route ID so that deduplication and provenance are scoped per route, reducing the risk of cross-route collisions when the same file structure is reused across pipelines.
+
+## CLI Integration
+
+The `serve validate` command uses the same parser as runtime execution, so linting and defaults are applied consistently. `serve run` accepts `--file-glob` and `--sentinel-ext` as legacy overrides only, and it emits per-route summaries that report ready, processed, and failed counts for operator visibility.
+
+## Validation Results
+
+Targeted unit tests were executed to validate parsing defaults, routing priority, queue metadata, and ingestion loop behavior.
+
+| Validation | Command | Result |
+|---|---|---|
+| Unit tests (ingestion) | `uv run --with pytest --with pytest-cov python -m pytest tests/unit/utils/test_ingestion.py --cov-fail-under=0` | 25 passed; 1 config warning |
+
+: Table 2. Validation results.
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+## Risks and Deferred Work
+
+The implementation aligns with the RFC 019 model, but several enhancements remain optional depending on operational needs.
+
+| Item | Rationale | Next Step |
+|---|---|---|
+| Ingestion folder existence checks | Current parsing resolves paths but does not require the roots to exist | Add explicit existence validation in strict mode if desired |
+| Glob syntax validation | Pattern errors are not validated beyond match results | Add pattern sanity checks or precompile validation |
+| Multi-route integration test | Only unit coverage was executed for this pass | Add an integration test for `serve run` on multi-route configs |
+
+: Table 3. Risks and deferred work.
+
+## Appendix A: Test Output Notes
+
+The pytest run emitted a warning about an unknown `timeout` config option in `pytest.ini`. This warning is pre-existing and does not affect the ingestion tests executed for this implementation.

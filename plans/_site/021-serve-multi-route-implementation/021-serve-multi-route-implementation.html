@@ -8,7 +8,7 @@
 
 <meta name="dcterms.date" content="2026-01-19">
 
-<title>RFC 015: Ingestion Integration Phase – AutoCleanEEG Pipeline Plans</title>
+<title>RFC 021: Serve Multi-route Implementation – AutoCleanEEG Pipeline Plans</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -104,6 +104,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     "search-label": "Search"
   }
 }</script>
+<script src="../site_libs/quarto-diagram/mermaid.min.js"></script>
+<script src="../site_libs/quarto-diagram/mermaid-init.js"></script>
+<link href="../site_libs/quarto-diagram/mermaid.css" rel="stylesheet">
 
 
 </head>
@@ -188,7 +191,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">Runtime Dispatch</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../015-ingestion-integration/015-ingestion-integration.html" aria-current="page"> 
+    <a class="nav-link" href="../015-ingestion-integration/015-ingestion-integration.html"> 
 <span class="menu-text">Ingestion Integration</span></a>
   </li>  
   <li class="nav-item">
@@ -208,7 +211,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span class="menu-text">RFC 019 Execution Review</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../021-serve-multi-route-implementation/021-serve-multi-route-implementation.html"> 
+    <a class="nav-link active" href="../021-serve-multi-route-implementation/021-serve-multi-route-implementation.html" aria-current="page"> 
 <span class="menu-text">Serve Multi-route Implementation</span></a>
   </li>  
 </ul>
@@ -228,8 +231,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">RFC 015: Ingestion Integration Phase</h1>
-<p class="subtitle lead">Readiness to Dispatch Bridge</p>
+<h1 class="title">RFC 021: Serve Multi-route Implementation</h1>
+<p class="subtitle lead">RFC 019/020 Execution and Validation</p>
 </div>
 
 
@@ -254,12 +257,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="executive-summary" class="level2">
 <h2 class="anchored" data-anchor-id="executive-summary">Executive Summary</h2>
-<p>This phase completes the integration bridge for RFC 008 by connecting readiness scanning to dispatch execution. A new helper loads serve configuration, validates ingestion roots, scans readiness via the watcher utilities, and dispatches ready files through the runtime runner. Unit tests validate the end‑to‑end flow without invoking the pipeline.</p>
+<p>The RFC 019 multi-route serve design and the RFC 020 review adjustments are now implemented in the ingestion service. The implementation adds normalized route parsing, deterministic selection rules, and route-scoped metadata across queues, ledgers, and receipts, while the CLI validates configs with the shared parser and surfaces per-route run metrics. Targeted unit tests confirm defaults, priority routing, queue metadata persistence, and loop behavior.</p>
 </section>
 <section id="implementation-scope" class="level2">
 <h2 class="anchored" data-anchor-id="implementation-scope">Implementation Scope</h2>
+<p>The implementation covers config normalization, routing, queue and receipt metadata, and CLI integration, with test coverage focused on deterministic selection and backward compatible defaults.</p>
 <table class="caption-top table">
-<caption>Table 1. Integration phase deliverables.</caption>
+<caption>Table 1. Implementation scope and evidence.</caption>
 <colgroup>
 <col style="width: 33%">
 <col style="width: 33%">
@@ -268,74 +272,160 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <thead>
 <tr class="header">
 <th>Area</th>
-<th>Deliverable</th>
-<th>Notes</th>
+<th>Implementation</th>
+<th>Evidence</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td>Integration helper</td>
-<td><code>dispatch_ready_ingestion</code></td>
-<td>Loads config, checks ingestion root, dispatches ready files.</td>
+<td>Configuration parsing</td>
+<td>ServeConfig and ServeRoute parsing with defaults, linting, and legacy migration</td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
 </tr>
 <tr class="even">
-<td>Result model</td>
-<td><code>IngestionDispatchResult</code></td>
-<td>Captures readiness, plan, and dispatch result.</td>
+<td>Routing and dispatch</td>
+<td>Priority and glob-specificity selection with route-aware dispatch plans</td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
 </tr>
 <tr class="odd">
-<td>Tests</td>
-<td>Ready‑file dispatch</td>
-<td>Uses runner stub to avoid pipeline invocation.</td>
+<td>Queue and ledger metadata</td>
+<td>Route ID and ingestion root persistence in queues and receipts</td>
+<td><code>src/autoclean/utils/ingestion.py</code></td>
+</tr>
+<tr class="even">
+<td>CLI validation and reporting</td>
+<td>Shared config validation and per-route run summaries</td>
+<td><code>src/autoclean/cli.py</code></td>
+</tr>
+<tr class="odd">
+<td>Unit tests</td>
+<td>Defaults, priority routing, queue metadata, and loop behavior</td>
+<td><code>tests/unit/utils/test_ingestion.py</code></td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="code-changes" class="level2">
-<h2 class="anchored" data-anchor-id="code-changes">Code Changes</h2>
+<section id="configuration-and-validation" class="level2">
+<h2 class="anchored" data-anchor-id="configuration-and-validation">Configuration and Validation</h2>
+<p>Serve configuration parsing is centralized in a dedicated parser that enforces known keys, normalizes defaults, and supports legacy single-route configs by wrapping them in a single automation route. The parser derives route identifiers deterministically, validates overlap at equal priority, and keeps disabled routes out of overlap checks, which matches the RFC 020 clarifications. Defaults for <code>file_globs</code>, <code>sentinel_ext</code>, and <code>recursive</code> are applied consistently to ensure uniform routing behavior across routes.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Guardrail
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>If two enabled routes overlap at the same priority and specificity, the parser fails fast to avoid non-deterministic dispatch.</p>
+</div>
+</div>
+</section>
+<section id="routing-and-dispatch" class="level2">
+<h2 class="anchored" data-anchor-id="routing-and-dispatch">Routing and Dispatch</h2>
+<p>Routing assigns each ready file to the highest-priority route that matches both ingestion roots and glob patterns. Glob specificity is scored using literal counts and wildcard depth to make selection deterministic, and any ties at the same priority level are treated as configuration errors. Dispatch is executed per route, ensuring that each route creates a distinct workspace and automation plan while sharing the same runtime definition.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-route-dispatch" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-route-dispatch-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<pre class="mermaid mermaid-js" data-label="fig-route-dispatch">flowchart TD
+    A[Load serve YAML] --&gt; B[Parse and validate routes]
+    B --&gt; C[Scan ingestion roots]
+    C --&gt; D[Match files to routes]
+    D --&gt; E{Resolve priority and specificity}
+    E --&gt;|Tie| F[Raise configuration error]
+    E --&gt;|Winner| G[Queue file with route metadata]
+    G --&gt; H[Build route-specific dispatch plan]
+    H --&gt; I[Run dispatch and update receipts]
+    I --&gt; J[Report per-route metrics]
+</pre>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-route-dispatch-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: Figure 1. Implemented route selection and dispatch flow.
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</section>
+<section id="queue-and-provenance-metadata" class="level2">
+<h2 class="anchored" data-anchor-id="queue-and-provenance-metadata">Queue and Provenance Metadata</h2>
+<p>Queue entries now store the route identifier and the ingestion root used for assignment, which allows replays and retries to preserve the original routing intent. The ingestion ledger and receipts carry the route ID so that deduplication and provenance are scoped per route, reducing the risk of cross-route collisions when the same file structure is reused across pipelines.</p>
+</section>
+<section id="cli-integration" class="level2">
+<h2 class="anchored" data-anchor-id="cli-integration">CLI Integration</h2>
+<p>The <code>serve validate</code> command uses the same parser as runtime execution, so linting and defaults are applied consistently. <code>serve run</code> accepts <code>--file-glob</code> and <code>--sentinel-ext</code> as legacy overrides only, and it emits per-route summaries that report ready, processed, and failed counts for operator visibility.</p>
+</section>
+<section id="validation-results" class="level2">
+<h2 class="anchored" data-anchor-id="validation-results">Validation Results</h2>
+<p>Targeted unit tests were executed to validate parsing defaults, routing priority, queue metadata, and ingestion loop behavior.</p>
 <table class="caption-top table">
-<caption>Table 2. Code updates delivered.</caption>
+<caption>Table 2. Validation results.</caption>
 <colgroup>
-<col style="width: 50%">
-<col style="width: 50%">
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
 </colgroup>
 <thead>
 <tr class="header">
-<th>File</th>
-<th>Change</th>
+<th>Validation</th>
+<th>Command</th>
+<th>Result</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td><code>src/autoclean/utils/ingestion.py</code></td>
-<td>Added integration helper and result model.</td>
+<td>Unit tests (ingestion)</td>
+<td><code>uv run --with pytest --with pytest-cov python -m pytest tests/unit/utils/test_ingestion.py --cov-fail-under=0</code></td>
+<td>25 passed; 1 config warning</td>
+</tr>
+</tbody>
+</table>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="risks-and-deferred-work" class="level2">
+<h2 class="anchored" data-anchor-id="risks-and-deferred-work">Risks and Deferred Work</h2>
+<p>The implementation aligns with the RFC 019 model, but several enhancements remain optional depending on operational needs.</p>
+<table class="caption-top table">
+<caption>Table 3. Risks and deferred work.</caption>
+<colgroup>
+<col style="width: 33%">
+<col style="width: 33%">
+<col style="width: 33%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Item</th>
+<th>Rationale</th>
+<th>Next Step</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Ingestion folder existence checks</td>
+<td>Current parsing resolves paths but does not require the roots to exist</td>
+<td>Add explicit existence validation in strict mode if desired</td>
 </tr>
 <tr class="even">
-<td><code>tests/unit/utils/test_ingestion.py</code></td>
-<td>Added integrated readiness → dispatch test.</td>
+<td>Glob syntax validation</td>
+<td>Pattern errors are not validated beyond match results</td>
+<td>Add pattern sanity checks or precompile validation</td>
+</tr>
+<tr class="odd">
+<td>Multi-route integration test</td>
+<td>Only unit coverage was executed for this pass</td>
+<td>Add an integration test for <code>serve run</code> on multi-route configs</td>
 </tr>
 </tbody>
 </table>
 </section>
-<section id="test-results" class="level2">
-<h2 class="anchored" data-anchor-id="test-results">Test Results</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">uv</span> run <span class="at">--with</span> pytest <span class="at">--with</span> pytest-cov python <span class="at">-m</span> pytest <span class="dt">\</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  tests/unit/utils/test_ingestion.py <span class="at">--cov-fail-under</span><span class="op">=</span>0</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Result: 17 tests passed. Coverage threshold was overridden (<code>--cov-fail-under=0</code>) due to repository defaults. Pytest emitted an unknown <code>timeout</code> config warning.</p>
-</section>
-<section id="followup-work" class="level2">
-<h2 class="anchored" data-anchor-id="followup-work">Follow‑Up Work</h2>
-<ol type="1">
-<li>Promote ingestion events into serve scheduling and queue management.</li>
-<li>Add long‑running service harness for production use.</li>
-</ol>
-</section>
-<section id="appendix-a-behaviors" class="level2">
-<h2 class="anchored" data-anchor-id="appendix-a-behaviors">Appendix A: Behaviors</h2>
-<ul>
-<li>If no ready files are found, dispatch returns without executing.</li>
-<li>Ingestion roots must match serve config entries to prevent misrouting.</li>
-</ul>
+<section id="appendix-a-test-output-notes" class="level2">
+<h2 class="anchored" data-anchor-id="appendix-a-test-output-notes">Appendix A: Test Output Notes</h2>
+<p>The pytest run emitted a warning about an unknown <code>timeout</code> config option in <code>pytest.ini</code>. This warning is pre-existing and does not affect the ingestion tests executed for this implementation.</p>
 
 
 </section>
