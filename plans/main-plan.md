@@ -37,7 +37,7 @@ Instruction sets:
 
 New Task:
 
-    carefully and perfectly implement 008
+    carefully and perfectly implement 008 next tdd phase
     use loops until complete
 
 Clean up rules:
