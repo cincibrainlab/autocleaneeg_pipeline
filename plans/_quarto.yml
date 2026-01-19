@@ -11,6 +11,7 @@ project:
     - 006-serve-command-family/006-serve-command-family.qmd
     - 007-ingestion-planning/007-ingestion-planning.qmd
     - 008-ingestion-prd/008-ingestion-prd.qmd
+    - 009-ingestion-implementation/009-ingestion-implementation.qmd
 
 website:
   title: "AutoCleanEEG Pipeline Plans"
@@ -34,6 +35,8 @@ website:
         text: Ingestion Planning
       - href: 008-ingestion-prd/008-ingestion-prd.html
         text: Ingestion PRD
+      - href: 009-ingestion-implementation/009-ingestion-implementation.html
+        text: Ingestion Implementation
 
 format:
   html:

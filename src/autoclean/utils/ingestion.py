@@ -1,0 +1,222 @@
+"""Ingestion utilities for automation readiness and provenance."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import time
+from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, Iterable, Optional
+
+DEFAULT_RECEIPT_VERSION = "1.0"
+DEFAULT_STATUS = "pending"
+
+
+def _timestamp() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _hash_bytes(payload: bytes) -> str:
+    digest = hashlib.sha256()
+    digest.update(payload)
+    return digest.hexdigest()
+
+
+def compute_file_hash(path: Path) -> str:
+    """Return SHA256 hash for a file."""
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def compute_provenance_hash(relative_path: Path, metadata: dict[str, Any]) -> str:
+    """Compute deterministic hash for a provenance subfolder."""
+    payload = {
+        "relative_path": relative_path.as_posix(),
+        "metadata": {key: str(metadata[key]) for key in sorted(metadata)},
+    }
+    return _hash_bytes(json.dumps(payload, sort_keys=True).encode("utf-8"))
+
+
+def receipt_path(folder: Path) -> Path:
+    """Return receipt JSON sidecar path for a folder."""
+    return folder / f"{folder.name}.json"
+
+
+def _file_entry(path: Path) -> dict[str, Any]:
+    stat = path.stat()
+    return {
+        "name": path.name,
+        "path": str(path),
+        "size_bytes": stat.st_size,
+        "modified_at": datetime.fromtimestamp(stat.st_mtime, timezone.utc).isoformat(),
+        "hash": compute_file_hash(path),
+    }
+
+
+def build_receipt(
+    *,
+    folder: Path,
+    relative_path: Path,
+    metadata: dict[str, Any],
+    files: Iterable[Path],
+    status: str = DEFAULT_STATUS,
+    receipt_version: str = DEFAULT_RECEIPT_VERSION,
+) -> dict[str, Any]:
+    """Create receipt payload without writing to disk."""
+    file_entries = [_file_entry(path) for path in files]
+    hash_value = compute_provenance_hash(relative_path, metadata)
+    return {
+        "receipt_version": receipt_version,
+        "hash_inputs": {
+            "relative_path": relative_path.as_posix(),
+            "metadata": {key: str(metadata[key]) for key in sorted(metadata)},
+        },
+        "hash_value": hash_value,
+        "files": file_entries,
+        "status": status,
+        "timestamps": {
+            "created_at": _timestamp(),
+            "updated_at": _timestamp(),
+        },
+        "revisions": [
+            {
+                "revision": 1,
+                "status": status,
+                "timestamp": _timestamp(),
+                "note": "initial receipt",
+            }
+        ],
+    }
+
+
+def write_receipt(folder: Path, receipt: dict[str, Any]) -> Path:
+    """Write receipt JSON sidecar to disk (atomic)."""
+    path = receipt_path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    tmp.replace(path)
+    return path
+
+
+def load_receipt(folder: Path) -> Optional[dict[str, Any]]:
+    path = receipt_path(folder)
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def append_receipt_revision(
+    folder: Path, *, status: str, note: str, extra: Optional[dict[str, Any]] = None
+) -> dict[str, Any]:
+    """Append a receipt revision entry and persist updates."""
+    receipt = load_receipt(folder)
+    if receipt is None:
+        raise FileNotFoundError(f"Receipt not found for {folder}")
+    revisions = receipt.get("revisions", [])
+    revision_number = len(revisions) + 1
+    entry = {
+        "revision": revision_number,
+        "status": status,
+        "timestamp": _timestamp(),
+        "note": note,
+    }
+    if extra:
+        entry.update(extra)
+    revisions.append(entry)
+    receipt["revisions"] = revisions
+    receipt["status"] = status
+    receipt.setdefault("timestamps", {})["updated_at"] = _timestamp()
+    write_receipt(folder, receipt)
+    return receipt
+
+
+@dataclass
+class ReadinessResult:
+    ready: bool
+    reasons: list[str] = field(default_factory=list)
+    missing_sentinels: list[Path] = field(default_factory=list)
+    unstable_files: list[Path] = field(default_factory=list)
+
+
+def _sentinel_path(file_path: Path, sentinel_ext: str) -> Path:
+    return file_path.with_name(f"{file_path.name}{sentinel_ext}")
+
+
+def _check_stability(files: Iterable[Path], window_seconds: int) -> list[Path]:
+    if window_seconds <= 0:
+        return []
+    sizes_before = {path: path.stat().st_size for path in files}
+    time.sleep(window_seconds)
+    unstable = []
+    for path, size in sizes_before.items():
+        if path.stat().st_size != size:
+            unstable.append(path)
+    return unstable
+
+
+def evaluate_readiness(
+    files: Iterable[Path],
+    *,
+    sentinel_ext: str = ".ready",
+    require_sentinel: bool = True,
+    stability_window_seconds: int = 0,
+) -> ReadinessResult:
+    """Evaluate readiness based on sentinels and stability window."""
+    file_list = list(files)
+    missing = []
+    if require_sentinel:
+        for path in file_list:
+            sentinel = _sentinel_path(path, sentinel_ext)
+            if not sentinel.exists():
+                missing.append(sentinel)
+
+    unstable = _check_stability(file_list, stability_window_seconds)
+    reasons = []
+    if missing:
+        reasons.append("missing_sentinels")
+    if unstable:
+        reasons.append("files_not_stable")
+    return ReadinessResult(
+        ready=not missing and not unstable,
+        reasons=reasons,
+        missing_sentinels=missing,
+        unstable_files=unstable,
+    )
+
+
+class IngestionLedger:
+    """Track seen hashes to prevent duplicate ingestion."""
+
+    def __init__(self, ledger_path: Path) -> None:
+        self.path = ledger_path
+        self.data: dict[str, Any] = {"entries": {}}
+        self._load()
+
+    def _load(self) -> None:
+        if not self.path.exists():
+            return
+        try:
+            self.data = json.loads(self.path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            self.data = {"entries": {}}
+
+    def save(self) -> None:
+        tmp = self.path.with_suffix(".tmp")
+        tmp.parent.mkdir(parents=True, exist_ok=True)
+        tmp.write_text(json.dumps(self.data, indent=2) + "\n", encoding="utf-8")
+        tmp.replace(self.path)
+
+    def is_duplicate(self, hash_value: str) -> bool:
+        entries = self.data.get("entries", {})
+        return hash_value in entries
+
+    def record(self, hash_value: str, info: dict[str, Any]) -> None:
+        entries = self.data.setdefault("entries", {})
+        entries[hash_value] = {"info": info, "recorded_at": _timestamp()}
+        self.save()
