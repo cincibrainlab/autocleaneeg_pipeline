@@ -596,6 +596,81 @@ def run_ingestion_loop(
 
 
 @dataclass
+class IngestionServiceResult:
+    cycles: int
+    idle_cycles: int
+    loop_results: list[IngestionLoopResult]
+
+
+def run_ingestion_service(
+    *,
+    config_path: Path,
+    workspace_dir: Path,
+    max_cycles: int = 1,
+    idle_limit: int = 1,
+    file_glob: str = "*",
+    sentinel_ext: str = ".ready",
+    require_sentinel: bool = True,
+    stability_window_seconds: int = 0,
+    use_watchfiles: bool = True,
+    max_events: int = 1,
+    automation: bool = True,
+    yes: bool = True,
+    max_attempts: int = 1,
+    runner: Optional[Callable[[list[str]], None]] = None,
+    sleep_fn: Optional[Callable[[float], None]] = None,
+    sleep_seconds: float = 1.0,
+) -> IngestionServiceResult:
+    """Run repeated ingestion loops until idle or cycle limit reached."""
+    if max_cycles < 1:
+        raise ValueError("max_cycles must be >= 1")
+    if idle_limit < 1:
+        raise ValueError("idle_limit must be >= 1")
+
+    loop_results: list[IngestionLoopResult] = []
+    idle_cycles = 0
+    sleep = sleep_fn or time.sleep
+
+    for cycle in range(max_cycles):
+        loop_result = run_ingestion_loop(
+            config_path=config_path,
+            workspace_dir=workspace_dir,
+            max_cycles=1,
+            file_glob=file_glob,
+            sentinel_ext=sentinel_ext,
+            require_sentinel=require_sentinel,
+            stability_window_seconds=stability_window_seconds,
+            use_watchfiles=use_watchfiles,
+            max_events=max_events,
+            automation=automation,
+            yes=yes,
+            max_attempts=max_attempts,
+            runner=runner,
+            sleep_fn=lambda _: None,
+        )
+        loop_results.append(loop_result)
+        any_ready = any(result.ready.ready for result in loop_result.dispatch_results)
+        if any_ready:
+            idle_cycles = 0
+        else:
+            idle_cycles += 1
+            if idle_cycles >= idle_limit:
+                return IngestionServiceResult(
+                    cycles=cycle + 1,
+                    idle_cycles=idle_cycles,
+                    loop_results=loop_results,
+                )
+        if cycle < max_cycles - 1:
+            sleep(sleep_seconds)
+
+    return IngestionServiceResult(
+        cycles=max_cycles,
+        idle_cycles=idle_cycles,
+        loop_results=loop_results,
+    )
+
+
+@dataclass
 class ReadinessResult:
     ready: bool
     reasons: list[str] = field(default_factory=list)

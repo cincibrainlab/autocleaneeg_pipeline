@@ -27,3 +27,4 @@ Implemented dispatch execution loop,To complete next TDD phase with retry semant
 Integrated runtime dispatch commands,To advance RFC 008 with executable CLI command building,Added runtime CLI resolution and runner integration with tests,Tests executed with coverage override,2026-01-19T02:55:00
 Integrated readiness to dispatch,To complete next TDD phase with readiness-aware dispatch,Added dispatch_ready_ingestion helper and integration tests,Tests executed with coverage override,2026-01-19T03:15:00
 Implemented ingestion loop helper,To advance RFC 008 scheduling phase with bounded loops,Added run_ingestion_loop and loop tests with idle exit,Tests executed with coverage override,2026-01-19T03:35:00
+Implemented ingestion service loop,To extend RFC 008 scheduling with idle-aware service cycles,Added run_ingestion_service and idle-limit test coverage,Tests executed with coverage override,2026-01-19T03:55:00

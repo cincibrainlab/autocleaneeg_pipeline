@@ -1,0 +1,47 @@
+---
+title: "RFC 017: Ingestion Service Phase"
+subtitle: "Bounded Service Loop for Scheduling"
+date: 2026-01-19
+---
+
+## Executive Summary
+
+This phase adds a bounded ingestion service loop that repeats ingestion cycles until idle. It reuses the ingestion loop helper and adds service‑level state for cycles and idle counts, enabling a deterministic scheduler without a daemon.
+
+## Implementation Scope
+
+| Area | Deliverable | Notes |
+|---|---|---|
+| Service result | `IngestionServiceResult` | Tracks cycles, idle cycles, and loop outputs. |
+| Service loop | `run_ingestion_service` | Stops after idle limit or cycle max. |
+| Tests | Idle exit | Validates service exit when no ready files appear. |
+
+: Table 1. Service loop deliverables.
+
+## Code Changes
+
+| File | Change |
+|---|---|
+| `src/autoclean/utils/ingestion.py` | Added service loop helper and result model. |
+| `tests/unit/utils/test_ingestion.py` | Added idle exit test for service loop. |
+
+: Table 2. Code updates delivered.
+
+## Test Results
+
+```bash
+uv run --with pytest --with pytest-cov python -m pytest \
+  tests/unit/utils/test_ingestion.py --cov-fail-under=0
+```
+
+Result: 19 tests passed. Coverage threshold was overridden (`--cov-fail-under=0`) due to repository defaults. Pytest emitted an unknown `timeout` config warning.
+
+## Follow‑Up Work
+
+1. Add queue persistence to survive restarts.
+2. Integrate service loop with serve CLI entrypoint.
+
+## Appendix A: Behaviors
+
+- The service stops after `idle_limit` cycles with no ready files.
+- Loop results preserve per‑root dispatch outcomes for auditing.
