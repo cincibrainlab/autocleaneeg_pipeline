@@ -44,6 +44,9 @@ please add discussion on these topics at the end of rfc 21 in plain english
   - Do you want overlap validation to consider file_globs intersections to allow disjoint globs at equal priority?
   - Should ingestion root existence be enforced in strict mode?
 
+  Response: 
+  we are still in dev so backwards compatativlitry should NOT be any consideration. stick with simple rule. ok about strict mode.
+
 Clean up rules:
 Will provide explit remove: and archive: and reactivate: blocks when needed
 - Archive: move instruction set and output to archive folder
